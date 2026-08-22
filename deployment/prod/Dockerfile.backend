@@ -27,7 +27,7 @@ COPY instances ./instances
 COPY apps/backend ./apps/backend
 
 WORKDIR /app/apps/backend
-RUN npm install --omit=dev
+RUN npm install
 RUN npx prisma generate
 COPY --from=builder /app/apps/backend/dist ./dist
 
