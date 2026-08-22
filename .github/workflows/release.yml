@@ -69,7 +69,7 @@ jobs:
       - name: 7. Build Android Release APK
         run: |
           echo "Building Release APK for version ${{ env.VERSION_NAME }}..."
-          flutter build apk --release --build-name="${{ env.VERSION_NAME }}"
+          flutter build apk --release --build-name="${{ env.VERSION_NAME }}" --android-skip-build-dependency-validation
           
           # Locate generated APK
           APK_PATH=""
