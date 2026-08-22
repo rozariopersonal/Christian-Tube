@@ -36,7 +36,7 @@ export class ChannelsService {
       const channelIds = items.map((it: any) => it.snippet?.channelId || it.id?.channelId).filter(Boolean).join(',');
       const detailsUrl = `https://www.googleapis.com/youtube/v3/channels?key=${apiKey}&id=${channelIds}&part=snippet,statistics`;
       const detailsRes = await axios.get(detailsUrl);
-      const detailMap = new Map();
+      const detailMap = new Map<string, any>();
       for (const d of detailsRes.data?.items || []) {
         detailMap.set(d.id, d);
       }
@@ -48,13 +48,13 @@ export class ChannelsService {
         const stats = detail?.statistics;
 
         return {
-          id,
-          name: snippet.title,
-          handle: snippet.customUrl || null,
-          description: snippet.description || null,
-          thumbnail: snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url,
-          subscriberCount: stats?.subscriberCount ? parseInt(stats.subscriberCount) : null,
-          videoCount: stats?.videoCount ? parseInt(stats.videoCount) : null,
+          id: id || '',
+          name: snippet?.title || 'Channel',
+          handle: snippet?.customUrl || null,
+          description: snippet?.description || null,
+          thumbnail: snippet?.thumbnails?.high?.url || snippet?.thumbnails?.medium?.url || snippet?.thumbnails?.default?.url || null,
+          subscriberCount: stats?.subscriberCount ? parseInt(stats.subscriberCount, 10) : null,
+          videoCount: stats?.videoCount ? parseInt(stats.videoCount, 10) : null,
         };
       });
     } catch (e: any) {
@@ -76,7 +76,7 @@ export class ChannelsService {
     let channelName = data.name || channelId;
     let thumbnail: string | null = null;
     let description: string | null = null;
-    let subscriberCount: number | null = null;
+    let subscriberCount: string | null = null;
 
     const apiKey = this.configService.get<string>('youtubeApiKey');
     if (apiKey) {
@@ -95,10 +95,10 @@ export class ChannelsService {
         if (res.data?.items?.length > 0) {
           const item = res.data.items[0];
           channelId = item.id;
-          channelName = item.snippet.title || channelName;
-          description = item.snippet.description || null;
-          thumbnail = item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || null;
-          subscriberCount = item.statistics?.subscriberCount ? parseInt(item.statistics.subscriberCount) : null;
+          channelName = item.snippet?.title || channelName;
+          description = item.snippet?.description || null;
+          thumbnail = item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.default?.url || null;
+          subscriberCount = item.statistics?.subscriberCount ? String(item.statistics.subscriberCount) : null;
         }
       } catch (err: any) {
         this.logger.warn(`Could not fetch details from YouTube API: ${err.message}`);
