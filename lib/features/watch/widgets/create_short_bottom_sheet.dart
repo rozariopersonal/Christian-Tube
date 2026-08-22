@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/models/video.dart';
+import '../../../core/models/video.dart';
 
 class CreateShortBottomSheet extends StatefulWidget {
   final Video video;

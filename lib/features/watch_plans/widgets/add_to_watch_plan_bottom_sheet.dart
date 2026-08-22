@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/models/video.dart';
+import '../../../core/models/video.dart';
 
 class AddToWatchPlanBottomSheet extends StatelessWidget {
   final Video video;

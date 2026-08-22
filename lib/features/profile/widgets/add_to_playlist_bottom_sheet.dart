@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/models/video.dart';
+import '../../../core/models/video.dart';
 import '../user_service.dart';
 
 class AddToPlaylistBottomSheet extends StatefulWidget {

@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../auth/auth_service.dart';
 import '../auth/widgets/sign_in_button.dart';
 import '../channels/channel_service.dart';
-import 'history_screen.dart';
+import '../history/history_screen.dart';
 import 'playlist_detail_screen.dart';
 import 'settings_screen.dart';
 import 'subscriptions_screen.dart';
