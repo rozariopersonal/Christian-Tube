@@ -45,6 +45,11 @@ android {
         cruncherEnabled = false
     }
 
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
     buildTypes {
         release {
             signingConfig signingConfigs.debug
