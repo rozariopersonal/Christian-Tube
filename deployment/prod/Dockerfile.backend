@@ -50,4 +50,4 @@ COPY --from=builder /app/instances ./instances
 EXPOSE 3000
 
 WORKDIR /app/apps/backend
-CMD ["node", "dist/src/main.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/src/main.js"]
