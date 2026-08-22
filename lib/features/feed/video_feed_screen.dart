@@ -27,23 +27,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   Future<void> _checkAppUpdates() async {
     final update = await UpdateService.checkForUpdate();
     if (update != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Update available: ${update['latestVersion']}'),
-          duration: const Duration(seconds: 10),
-          action: SnackBarAction(
-            label: 'UPDATE',
-            onPressed: () {
-              UpdateService.downloadAndInstallApk(
-                downloadUrl: update['downloadUrl'],
-                onProgress: (p) {},
-                onComplete: () {},
-                onError: (e) {},
-              );
-            },
-          ),
-        ),
-      );
+      UpdateService.showUpdatePopup(context, update);
     }
   }
 

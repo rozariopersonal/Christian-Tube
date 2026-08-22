@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'widgets/update_dialog.dart';
 
 class UpdateService {
   static const String releasesApiUrl =
@@ -32,8 +33,11 @@ class UpdateService {
           if (apkAsset != null) {
             return {
               'hasUpdate': true,
+              'currentVersion': currentVersion,
               'latestVersion': latestTag,
+              'title': response.data['name'] ?? 'ChristianTube $latestTag',
               'downloadUrl': apkAsset['browser_download_url'],
+              'sizeBytes': apkAsset['size'] ?? 0,
               'releaseNotes': response.data['body'] ?? '',
             };
           }
@@ -45,9 +49,14 @@ class UpdateService {
     return null;
   }
 
-  static Future<void> downloadAndInstallApk({
+  static Future<void> showUpdatePopup(BuildContext context, Map<String, dynamic> updateData) async {
+    return UpdateDialog.show(context, updateData);
+  }
+
+  static Future<void> downloadAndInstallApkWithProgress({
     required String downloadUrl,
-    required Function(double progress) onProgress,
+    CancelToken? cancelToken,
+    required Function(int received, int total) onProgress,
     required VoidCallback onComplete,
     required Function(String error) onError,
   }) async {
@@ -65,17 +74,38 @@ class UpdateService {
       await dio.download(
         downloadUrl,
         savePath,
+        cancelToken: cancelToken,
         onReceiveProgress: (received, total) {
-          if (total != -1) {
-            onProgress(received / total);
-          }
+          onProgress(received, total);
         },
       );
 
       onComplete();
       await OpenFilex.open(savePath);
     } catch (e) {
+      if (CancelToken.isCancel(e as dynamic)) {
+        debugPrint('Download cancelled by user.');
+        return;
+      }
       onError('Failed to download update: $e');
     }
+  }
+
+  static Future<void> downloadAndInstallApk({
+    required String downloadUrl,
+    required Function(double progress) onProgress,
+    required VoidCallback onComplete,
+    required Function(String error) onError,
+  }) async {
+    return downloadAndInstallApkWithProgress(
+      downloadUrl: downloadUrl,
+      onProgress: (received, total) {
+        if (total > 0) {
+          onProgress(received / total);
+        }
+      },
+      onComplete: onComplete,
+      onError: onError,
+    );
   }
 }

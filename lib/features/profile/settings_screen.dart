@@ -61,31 +61,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
               final update = await UpdateService.checkForUpdate();
               if (update != null && mounted) {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: Text('Update to ${update['latestVersion']}'),
-                    content: Text(update['releaseNotes'] ?? 'A new update is available.'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Later')),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          UpdateService.downloadAndInstallApk(
-                            downloadUrl: update['downloadUrl'],
-                            onProgress: (p) {},
-                            onComplete: () {},
-                            onError: (e) {},
-                          );
-                        },
-                        child: const Text('Install Now'),
-                      ),
-                    ],
-                  ),
-                );
+                UpdateService.showUpdatePopup(context, update);
               } else if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('You are on the latest version!')),
+                  const SnackBar(
+                    content: Text('You are on the latest version!'),
+                    backgroundColor: Color(0xFF10B981),
+                  ),
                 );
               }
             },
