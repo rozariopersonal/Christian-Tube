@@ -17,7 +17,11 @@ export class YoutubeService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    await this.seedInitialChannels();
+    try {
+      await this.seedInitialChannels();
+    } catch (e: any) {
+      this.logger.warn(`Could not seed initial channels on boot: ${e.message}`);
+    }
   }
 
   async seedInitialChannels() {
