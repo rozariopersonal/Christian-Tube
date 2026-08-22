@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import '../../../core/config/app_config.dart';
 import '../update_service.dart';
 
@@ -40,6 +41,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
   int _receivedBytes = 0;
   int _totalBytes = 0;
   String? _errorMessage;
+  String? _downloadedApkPath;
   CancelToken? _cancelToken;
 
   String _formatBytes(int bytes) {
@@ -79,11 +81,6 @@ class _UpdateDialogState extends State<UpdateDialog> {
             _isCompleted = true;
             _progress = 1.0;
           });
-          Future.delayed(const Duration(milliseconds: 1200), () {
-            if (mounted && Navigator.canPop(context)) {
-              Navigator.pop(context);
-            }
-          });
         }
       },
       onError: (err) {
@@ -105,6 +102,11 @@ class _UpdateDialogState extends State<UpdateDialog> {
     });
   }
 
+  void _triggerInstall() {
+    final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
+    UpdateService.openInBrowser(downloadUrl);
+  }
+
   @override
   void dispose() {
     _cancelToken?.cancel('Dialog disposed');
@@ -120,6 +122,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     final currentVersion = widget.updateData['currentVersion'] ?? 'Current';
     final releaseNotes = widget.updateData['releaseNotes'] as String? ?? '';
     final sizeBytes = widget.updateData['sizeBytes'] as int? ?? 0;
+    final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
 
     final formattedSize = sizeBytes > 0 ? _formatBytes(sizeBytes) : 'Direct APK';
 
@@ -291,7 +294,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                         _buildDownloadingView(isDark),
                       ] else if (_isCompleted) ...[
                         // Completed State
-                        _buildCompletedView(),
+                        _buildCompletedView(downloadUrl),
                       ] else ...[
                         // Discovery / Ready State
                         _buildChangelogView(releaseNotes, formattedSize, isDark),
@@ -394,7 +397,6 @@ class _UpdateDialogState extends State<UpdateDialog> {
                         Center(
                           child: TextButton.icon(
                             onPressed: () {
-                              final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
                               if (downloadUrl.isNotEmpty) {
                                 UpdateService.openInBrowser(downloadUrl);
                               }
@@ -578,7 +580,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     );
   }
 
-  Widget _buildCompletedView() {
+  Widget _buildCompletedView(String downloadUrl) {
     return Column(
       children: [
         const SizedBox(height: 12),
@@ -602,12 +604,36 @@ class _UpdateDialogState extends State<UpdateDialog> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         const Text(
-          'Opening installer...',
-          style: TextStyle(fontSize: 13, color: Colors.grey),
+          'Installer launched. If the system prompt did not appear, tap below to install or download directly via browser.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: Colors.grey),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              backgroundColor: const Color(0xFF10B981),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            onPressed: () {
+              UpdateService.openInBrowser(downloadUrl);
+            },
+            icon: const Icon(Icons.install_mobile, color: Colors.white),
+            label: const Text(
+              'Open / Install APK via Browser',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
       ],
     );
   }
