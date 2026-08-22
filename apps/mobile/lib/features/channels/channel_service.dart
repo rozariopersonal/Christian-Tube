@@ -16,10 +16,20 @@ class ChannelService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiClient.dio.get('/channels');
+      dynamic response;
+      try {
+        response = await _apiClient.dio.get('/api/channels');
+      } catch (_) {
+        response = await _apiClient.dio.get('/channels');
+      }
+
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> list = response.data is List ? response.data : response.data['channels'] ?? [];
-        _channels = list.map((c) => Channel.fromJson(c)).toList();
+        final dynamic raw = response.data;
+        final List<dynamic> list = raw is List ? raw : (raw['channels'] ?? raw['data'] ?? []);
+        _channels = list
+            .whereType<Map<String, dynamic>>()
+            .map((c) => Channel.fromJson(c))
+            .toList();
       }
     } catch (e) {
       debugPrint('Error fetching channels: $e');
@@ -29,17 +39,47 @@ class ChannelService extends ChangeNotifier {
     }
   }
 
+  Future<bool> addChannel({
+    required String channelUrl,
+    String? name,
+    String? category,
+    String? language,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post(
+        '/channels',
+        data: {
+          'channelUrl': channelUrl,
+          'name': name,
+          'category': category,
+          'language': language,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await fetchChannels();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error adding channel: $e');
+    }
+    return false;
+  }
+
   Future<bool> submitChannelRequest(ChannelRequest request) async {
     try {
       final response = await _apiClient.dio.post(
         '/channels/request',
         data: request.toJson(),
       );
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await fetchChannels();
+        return true;
+      }
     } catch (e) {
       debugPrint('Error submitting channel request: $e');
-      return false;
     }
+    return false;
   }
 
   void toggleSubscribe(String channelId) {

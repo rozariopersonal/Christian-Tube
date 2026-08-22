@@ -10,6 +10,13 @@ export class ChannelsController {
     return this.channelsService.findAll();
   }
 
+  @Post()
+  async addChannel(
+    @Body() body: { channelUrl: string; name?: string; category?: string; language?: string },
+  ) {
+    return this.channelsService.addChannel(body);
+  }
+
   @Post('request')
   async submitChannelRequest(
     @Body() body: { channelUrl: string; notes?: string; submittedBy?: string },
