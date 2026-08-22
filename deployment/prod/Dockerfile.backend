@@ -33,4 +33,4 @@ COPY --from=builder /app/apps/backend/dist ./dist
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss --skip-generate || true; node dist/src/main.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss --skip-generate || true; node dist/main.js || node dist/src/main.js"]
