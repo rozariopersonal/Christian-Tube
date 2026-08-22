@@ -62,6 +62,44 @@ class UpdateService {
     }
   }
 
+  static Future<String> getApkSavePath() async {
+    Directory? dir;
+    try {
+      final extDirs = await getExternalCacheDirectories();
+      if (extDirs != null && extDirs.isNotEmpty) {
+        dir = extDirs.first;
+      }
+    } catch (_) {}
+
+    try {
+      dir ??= await getExternalStorageDirectory();
+    } catch (_) {}
+
+    try {
+      dir ??= await getApplicationDocumentsDirectory();
+    } catch (_) {}
+
+    dir ??= await getTemporaryDirectory();
+    return '${dir.path}/${AppConfig.instanceId}-update.apk';
+  }
+
+  static Future<void> launchApkInstaller(String savePath, String downloadUrl) async {
+    try {
+      final result = await OpenFilex.open(
+        savePath,
+        type: 'application/vnd.android.package-archive',
+      );
+
+      if (result.type != ResultType.done) {
+        debugPrint('OpenFilex result: ${result.message}, opening browser download fallback...');
+        await openInBrowser(downloadUrl);
+      }
+    } catch (e) {
+      debugPrint('Direct installer invocation error: $e, opening browser fallback...');
+      await openInBrowser(downloadUrl);
+    }
+  }
+
   static Future<void> downloadAndInstallApkWithProgress({
     required String downloadUrl,
     CancelToken? cancelToken,
@@ -70,16 +108,7 @@ class UpdateService {
     required Function(String error) onError,
   }) async {
     try {
-      Directory? dir;
-      try {
-        final extDirs = await getExternalCacheDirectories();
-        if (extDirs != null && extDirs.isNotEmpty) {
-          dir = extDirs.first;
-        }
-      } catch (_) {}
-
-      dir ??= await getTemporaryDirectory();
-      final savePath = '${dir.path}/${AppConfig.instanceId}-update.apk';
+      final savePath = await getApkSavePath();
 
       final file = File(savePath);
       if (await file.exists()) {
@@ -100,20 +129,13 @@ class UpdateService {
 
       onComplete();
 
-      final result = await OpenFilex.open(
-        savePath,
-        type: 'application/vnd.android.package-archive',
-      );
-
-      if (result.type != ResultType.done) {
-        debugPrint('OpenFilex result: ${result.message}, opening browser download fallback...');
-        await openInBrowser(downloadUrl);
-      }
+      // Automatically launch the Android OS Package Installer immediately
+      await launchApkInstaller(savePath, downloadUrl);
     } catch (e) {
       if (CancelToken.isCancel(e as dynamic)) {
         return;
       }
-      debugPrint('Direct install error: $e, falling back to browser...');
+      debugPrint('Direct install error: $e, opening browser fallback...');
       try {
         await openInBrowser(downloadUrl);
       } catch (_) {
