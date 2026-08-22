@@ -48,8 +48,8 @@ const buildGradlePath = path.join(rootDir, 'apps', 'mobile', 'android', 'app', '
 if (fs.existsSync(buildGradlePath)) {
   let buildGradle = fs.readFileSync(buildGradlePath, 'utf8');
   buildGradle = buildGradle.replace(
-    /applicationId\s*=\s*["'][^"']+["']/,
-    `applicationId = "${config.applicationId}"`
+    /applicationId(\s*=\s*|\s+)["'][^"']+["']/,
+    `applicationId "${config.applicationId}"`
   );
   fs.writeFileSync(buildGradlePath, buildGradle, 'utf8');
   console.log(`✅ Updated Android applicationId to: ${config.applicationId}`);
