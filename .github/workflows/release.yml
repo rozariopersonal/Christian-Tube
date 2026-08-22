@@ -99,6 +99,7 @@ jobs:
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.27.1'
           channel: 'stable'
           cache: true
 
@@ -122,12 +123,7 @@ jobs:
         run: |
           cd apps/mobile
           echo "Building Release APK for ${{ matrix.appName }} version ${{ env.VERSION_NAME }}..."
-          flutter build apk --release --build-name="${{ env.VERSION_NAME }}" --android-skip-build-dependency-validation || {
-            echo "::error::Flutter build failed. Showing Gradle stack trace..."
-            cd android
-            ./gradlew assembleRelease --stacktrace --info
-            exit 1
-          }
+          flutter build apk --release --build-name="${{ env.VERSION_NAME }}"
 
       - name: Locate & Stage APK
         run: |
