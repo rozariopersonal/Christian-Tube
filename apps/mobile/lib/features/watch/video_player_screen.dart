@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
@@ -9,6 +8,7 @@ import '../../shared/ui/recommendation_video_card.dart';
 import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
 import 'widgets/create_short_bottom_sheet.dart';
+import 'widgets/native_video_player.dart';
 import '../../core/config/app_config.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
@@ -26,10 +26,10 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late YoutubePlayerController _controller;
   final ApiClient _apiClient = ApiClient();
   final ChannelService _channelService = ChannelService();
 
+  late String _activeVideoId;
   Video? _video;
   List<Video> _relatedVideos = [];
   bool _isLoading = true;
@@ -38,34 +38,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _activeVideoId = widget.videoId;
     _video = widget.initialVideo;
-    _initPlayer(widget.videoId);
     _loadVideoDetails();
     _loadRelatedVideos();
-  }
-
-  void _initPlayer(String videoId) {
-    _controller = YoutubePlayerController(
-      params: const YoutubePlayerParams(
-        showControls: true,
-        showFullscreenButton: true,
-        showVideoAnnotations: false,
-        playsInline: true,
-        enableCaption: false,
-        mute: false,
-        origin: 'https://www.youtube-nocookie.com',
-      ),
-    );
-    _controller.loadVideoById(videoId: videoId);
   }
 
   Future<void> _loadVideoDetails() async {
     try {
       dynamic response;
       try {
-        response = await _apiClient.dio.get('/api/videos/${widget.videoId}');
+        response = await _apiClient.dio.get('/api/videos/$_activeVideoId');
       } catch (_) {
-        response = await _apiClient.dio.get('/videos/${widget.videoId}');
+        response = await _apiClient.dio.get('/videos/$_activeVideoId');
       }
 
       if (response.statusCode == 200 && response.data != null) {
@@ -96,7 +81,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           _relatedVideos = list
               .whereType<Map<String, dynamic>>()
               .map((v) => Video.fromJson(v))
-              .where((v) => v.id != widget.videoId)
+              .where((v) => v.id != _activeVideoId)
               .take(10)
               .toList();
         });
@@ -107,222 +92,218 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _openInYouTubeApp() async {
-    final uri = Uri.parse('https://www.youtube.com/watch?v=${widget.videoId}');
+    final uri = Uri.parse('https://www.youtube.com/watch?v=$_activeVideoId');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
   @override
-  void dispose() {
-    _controller.close();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return YoutubePlayerScaffold(
-      controller: _controller,
-      builder: (context, player) {
-        return Scaffold(
-          body: SafeArea(
-            child: Column(
-              children: [
-                // Top Video Player Container
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: player,
-                ),
-
-                // Video Metadata & Recommendations Scrollable Area
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    children: [
-                      // Video Title
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          _video?.title ?? 'Loading video...',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // View Count and Published Date
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          '${_video?.viewCount ?? 0} views',
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Channel Header (Avatar, Title, Subscribe Button)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            ChannelAvatar(
-                              avatarUrl: _video?.channelAvatarUrl,
-                              channelTitle: _video?.channelTitle ?? 'Channel',
-                              radius: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _video?.channelTitle ?? 'Channel',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                            OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(color: theme.colorScheme.primary),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              onPressed: () {
-                                if (_video?.channelId.isNotEmpty == true) {
-                                  _channelService.toggleSubscribe(_video!.channelId);
-                                }
-                              },
-                              child: const Text('Subscribe'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Action buttons row (Share, Clip, Save, YouTube App)
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            _buildActionButton(
-                              icon: Icons.share_outlined,
-                              label: 'Share',
-                              onTap: () {
-                                Share.share('${AppConfig.apiBaseUrl}/watch/${widget.videoId}');
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildActionButton(
-                              icon: Icons.cut,
-                              label: 'Clip',
-                              onTap: () {
-                                if (_video != null) {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    builder: (ctx) => CreateShortBottomSheet(video: _video!),
-                                  );
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildActionButton(
-                              icon: Icons.playlist_add,
-                              label: 'Save',
-                              onTap: () {
-                                if (_video != null) {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    builder: (ctx) => VideoOptionsBottomSheet(video: _video!),
-                                  );
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildActionButton(
-                              icon: Icons.open_in_new,
-                              label: 'Open YouTube',
-                              onTap: _openInYouTubeApp,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Expandable Description Box
-                      if (_video?.description != null && _video!.description!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: InkWell(
-                            onTap: () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: theme.brightness == Brightness.dark ? Colors.grey.shade900 : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _video!.description!,
-                                    maxLines: _isDescriptionExpanded ? null : 3,
-                                    overflow: _isDescriptionExpanded ? null : TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _isDescriptionExpanded ? 'Show less' : '...more',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 20),
-
-                      // Related Videos Header & List
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'Related Videos',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      if (_relatedVideos.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(child: Text('No related videos found')),
-                        )
-                      else
-                        ..._relatedVideos.map((rv) => RecommendationVideoCard(
-                          video: rv,
-                          onTap: () {
-                            _controller.loadVideoById(videoId: rv.id);
-                            setState(() {
-                              _video = rv;
-                            });
-                          },
-                        )),
-                    ],
-                  ),
-                ),
-              ],
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Native Video Player Container
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: NativeVideoPlayer(
+                key: ValueKey(_activeVideoId),
+                videoId: _activeVideoId,
+                thumbnailUrl: _video?.thumbnail,
+              ),
             ),
-          ),
-        );
-      },
+
+            // Video Metadata & Recommendations Scrollable Area
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                children: [
+                  // Video Title
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      _video?.title ?? 'Loading video...',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // View Count and Published Date
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      '${_video?.viewCount ?? 0} views',
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Channel Header (Avatar, Title, Subscribe Button)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        ChannelAvatar(
+                          avatarUrl: _video?.channelAvatarUrl,
+                          channelTitle: _video?.channelTitle ?? 'Channel',
+                          radius: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _video?.channelTitle ?? 'Channel',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: theme.colorScheme.primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          onPressed: () {
+                            if (_video?.channelId.isNotEmpty == true) {
+                              _channelService.toggleSubscribe(_video!.channelId);
+                            }
+                          },
+                          child: const Text('Subscribe'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Action buttons row (Share, Clip, Save, YouTube App)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        _buildActionButton(
+                          icon: Icons.share_outlined,
+                          label: 'Share',
+                          onTap: () {
+                            Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildActionButton(
+                          icon: Icons.cut,
+                          label: 'Clip',
+                          onTap: () {
+                            if (_video != null) {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                builder: (ctx) => CreateShortBottomSheet(video: _video!),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildActionButton(
+                          icon: Icons.playlist_add,
+                          label: 'Save',
+                          onTap: () {
+                            if (_video != null) {
+                              showModalBottomSheet(
+                                context: context,
+                                builder: (ctx) => VideoOptionsBottomSheet(video: _video!),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildActionButton(
+                          icon: Icons.open_in_new,
+                          label: 'Open YouTube',
+                          onTap: _openInYouTubeApp,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Expandable Description Box
+                  if (_video?.description != null && _video!.description!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: InkWell(
+                        onTap: () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.brightness == Brightness.dark ? Colors.grey.shade900 : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _video!.description!,
+                                maxLines: _isDescriptionExpanded ? null : 3,
+                                overflow: _isDescriptionExpanded ? null : TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _isDescriptionExpanded ? 'Show less' : '...more',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+
+                  // Related Videos Header & List
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Related Videos',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  if (_relatedVideos.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: Text('No related videos found')),
+                    )
+                  else
+                    ..._relatedVideos.map((rv) => RecommendationVideoCard(
+                      video: rv,
+                      onTap: () {
+                        setState(() {
+                          _activeVideoId = rv.id;
+                          _video = rv;
+                          _isLoading = true;
+                        });
+                        _loadVideoDetails();
+                        _loadRelatedVideos();
+                      },
+                    )),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
