@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/user.dart';
+import '../../core/config/app_config.dart';
 
 class AuthService extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
@@ -13,10 +14,12 @@ class AuthService extends ChangeNotifier {
 
   User? _currentUser;
   bool _isLoading = false;
+  String? _lastError;
 
   User? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
   bool get isLoading => _isLoading;
+  String? get lastError => _lastError;
 
   AuthService() {
     _loadUserFromStorage();
@@ -37,6 +40,7 @@ class AuthService extends ChangeNotifier {
 
   Future<User?> signInWithGoogle() async {
     _isLoading = true;
+    _lastError = null;
     notifyListeners();
 
     try {
@@ -46,7 +50,7 @@ class AuthService extends ChangeNotifier {
         final user = User(
           id: account.id,
           email: account.email,
-          displayName: account.displayName ?? 'ChristianTube User',
+          displayName: account.displayName ?? '${AppConfig.appName} User',
           photoUrl: account.photoUrl,
           idToken: auth.idToken,
         );
@@ -73,11 +77,43 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
+      _lastError = 'Google Sign-In was cancelled or unavailable on this device.';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
     return null;
+  }
+
+  Future<User> signInAsGuest([String? customName, String? customEmail]) async {
+    _isLoading = true;
+    _lastError = null;
+    notifyListeners();
+
+    final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
+    final name = (customName != null && customName.trim().isNotEmpty)
+        ? customName.trim()
+        : '${AppConfig.appName} Student';
+    final email = (customEmail != null && customEmail.trim().isNotEmpty)
+        ? customEmail.trim()
+        : '$id@privatetube.app';
+
+    final user = User(
+      id: id,
+      email: email,
+      displayName: name,
+      photoUrl: null,
+      idToken: 'token_$id',
+    );
+
+    _currentUser = user;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('current_user', jsonEncode(user.toJson()));
+    await prefs.setString('auth_token', user.idToken ?? '');
+
+    _isLoading = false;
+    notifyListeners();
+    return user;
   }
 
   Future<void> signOut() async {

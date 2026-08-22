@@ -121,7 +121,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
       animation: _themeService,
       builder: (context, _) {
         return MaterialApp.router(
-          title: 'ChristianTube',
+          title: AppConfig.appName,
           debugShowCheckedModeBanner: false,
           theme: ThemeService.lightTheme,
           darkTheme: ThemeService.darkTheme,

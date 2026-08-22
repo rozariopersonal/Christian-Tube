@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/video.dart';
+import '../../../core/config/app_config.dart';
 
 class CreateShortBottomSheet extends StatefulWidget {
   final Video video;
@@ -40,9 +41,9 @@ class _CreateShortBottomSheetState extends State<CreateShortBottomSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Create Christian Short / Clip',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          Text(
+            'Create ${AppConfig.appName} Short / Clip',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 12),
           TextField(

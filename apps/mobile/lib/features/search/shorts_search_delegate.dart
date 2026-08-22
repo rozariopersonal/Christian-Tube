@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/short.dart';
+import '../../core/config/app_config.dart';
 
 class ShortsSearchDelegate extends SearchDelegate<Short?> {
   final ApiClient _apiClient = ApiClient();
 
   @override
-  String get searchFieldLabel => 'Search Christian Shorts...';
+  String get searchFieldLabel => 'Search ${AppConfig.appName} Shorts...';
 
   @override
   List<Widget>? buildActions(BuildContext context) {

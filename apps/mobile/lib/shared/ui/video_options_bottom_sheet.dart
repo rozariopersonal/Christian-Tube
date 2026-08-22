@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/models/video.dart';
+import '../../core/config/app_config.dart';
 
 class VideoOptionsBottomSheet extends StatelessWidget {
   final Video video;
@@ -58,8 +59,8 @@ class VideoOptionsBottomSheet extends StatelessWidget {
               title: const Text('Share Video'),
               onTap: () {
                 Navigator.pop(context);
-                final shareUrl = 'https://christian-tube-six.vercel.app/watch/${video.id}';
-                Share.share('Watch "${video.title}" on ChristianTube: $shareUrl');
+                final shareUrl = '${AppConfig.apiBaseUrl}/watch/${video.id}';
+                Share.share('Watch "${video.title}" on ${AppConfig.appName}: $shareUrl');
               },
             ),
           ],

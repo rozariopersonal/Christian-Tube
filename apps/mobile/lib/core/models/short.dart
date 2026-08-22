@@ -36,8 +36,8 @@ class Short {
       videoUrl: json['videoUrl'] ?? 'https://www.youtube.com/shorts/$videoId',
       thumbnailUrl: json['thumbnailUrl'] ?? json['thumbnail_url'] ?? 'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
       channelId: json['channelId'] ?? json['channel_id'] ?? '',
-      channelTitle: json['channelTitle'] ?? json['channel_title'] ?? 'Christian Creator',
-      channelAvatarUrl: json['channelAvatarUrl'] ?? json['channel_avatar_url'],
+      channelTitle: json['channelTitle'] ?? json['channel_title'] ?? json['channelName'] ?? json['channel_name'] ?? 'Creator',
+      channelAvatarUrl: json['channelAvatarUrl'] ?? json['channel_avatar_url'] ?? json['channelThumbnail'],
       viewCount: json['viewCount'] ?? json['view_count'] ?? 0,
       likeCount: json['likeCount'] ?? json['like_count'] ?? 0,
       publishedAt: json['publishedAt'] != null 

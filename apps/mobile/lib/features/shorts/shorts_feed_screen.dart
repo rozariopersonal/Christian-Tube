@@ -5,6 +5,7 @@ import '../../core/models/short.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/ui/channel_avatar.dart';
 import 'native_shorts_player.dart';
+import '../../core/config/app_config.dart';
 
 class ShortsFeedScreen extends StatefulWidget {
   const ShortsFeedScreen({super.key});
@@ -66,7 +67,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             children: [
               const Icon(Icons.movie_outlined, size: 64, color: Colors.white54),
               const SizedBox(height: 12),
-              const Text('No Christian Shorts available', style: TextStyle(color: Colors.white)),
+              Text('No ${AppConfig.appName} Shorts available', style: const TextStyle(color: Colors.white)),
               const SizedBox(height: 12),
               ElevatedButton(onPressed: _fetchShorts, child: const Text('Refresh')),
             ],
@@ -125,7 +126,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                     _buildActionButton(
                       Icons.share_outlined,
                       'Share',
-                      onTap: () => Share.share('Watch this Christian short: https://christian-tube-six.vercel.app/watch/${short.id}'),
+                      onTap: () => Share.share('Watch this ${AppConfig.appName} Short: ${AppConfig.apiBaseUrl}/watch/${short.id}'),
                     ),
                   ],
                 ),

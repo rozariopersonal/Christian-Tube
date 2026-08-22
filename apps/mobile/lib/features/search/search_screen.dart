@@ -3,6 +3,7 @@ import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 import '../../shared/ui/search_video_card.dart';
 import 'video_search_delegate.dart';
+import '../../core/config/app_config.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -22,14 +23,24 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await _apiClient.dio.get(
-        '/api/search',
-        queryParameters: {'q': query},
-      );
+      dynamic response;
+      try {
+        response = await _apiClient.dio.get(
+          '/api/search',
+          queryParameters: {'q': query},
+        );
+      } catch (_) {
+        response = await _apiClient.dio.get(
+          '/videos',
+          queryParameters: {'search': query},
+        );
+      }
+
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> list = response.data is List ? response.data : response.data['videos'] ?? [];
+        final dynamic raw = response.data;
+        final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
         setState(() {
-          _searchResults = list.map((v) => Video.fromJson(v)).toList();
+          _searchResults = list.map((v) => Video.fromJson(v as Map<String, dynamic>)).toList();
         });
       }
     } catch (e) {
@@ -46,8 +57,8 @@ class _SearchScreenState extends State<SearchScreen> {
         title: TextField(
           controller: _searchController,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Search ChristianTube...',
+          decoration: InputDecoration(
+            hintText: 'Search ${AppConfig.appName}...',
             border: InputBorder.none,
           ),
           onSubmitted: _performSearch,
@@ -75,7 +86,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     children: [
                       Icon(Icons.search, size: 64, color: Colors.grey.shade400),
                       const SizedBox(height: 12),
-                      const Text('Search sermons, worship songs, devotions, and clips'),
+                      Text('Search ${AppConfig.appName} videos, lessons, and clips'),
                     ],
                   ),
                 )

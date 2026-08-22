@@ -3,6 +3,7 @@ import '../../core/models/channel_request.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/ui/channel_avatar.dart';
 import 'channel_service.dart';
+import '../../core/config/app_config.dart';
 
 class ChannelsScreen extends StatefulWidget {
   const ChannelsScreen({super.key});
@@ -28,7 +29,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Request a Christian Channel'),
+        title: Text('Request a ${AppConfig.appName} Channel'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -94,7 +95,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Christian Channels'),
+        title: Text('${AppConfig.appName} Channels'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
@@ -117,7 +118,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> {
                 children: [
                   const Icon(Icons.tv_off, size: 64, color: Colors.grey),
                   const SizedBox(height: 12),
-                  const Text('No Christian channels registered yet.'),
+                  Text('No ${AppConfig.appName} channels registered yet.'),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: _showAddChannelDialog,

@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 import '../../shared/ui/search_video_card.dart';
+import '../../core/config/app_config.dart';
 
 class VideoSearchDelegate extends SearchDelegate<Video?> {
   final ApiClient _apiClient = ApiClient();
 
   @override
-  String get searchFieldLabel => 'Search Christian videos...';
+  String get searchFieldLabel => 'Search ${AppConfig.appName} videos...';
 
   @override
   List<Widget>? buildActions(BuildContext context) {
@@ -57,15 +58,9 @@ class VideoSearchDelegate extends SearchDelegate<Video?> {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    final suggestions = [
-      'Worship Songs',
-      'Daily Sermon',
-      'Bible Study',
-      'Gospel Tamil',
-      'Gospel Telugu',
-      'Gospel Hindi',
-      'Christian Testimonies',
-    ].where((s) => s.toLowerCase().contains(query.toLowerCase())).toList();
+    final suggestions = AppConfig.defaultCategories
+        .where((s) => s != 'All' && s.toLowerCase().contains(query.toLowerCase()))
+        .toList();
 
     return ListView.builder(
       itemCount: suggestions.length,
@@ -85,13 +80,23 @@ class VideoSearchDelegate extends SearchDelegate<Video?> {
 
   Future<List<Video>> _searchVideos(String query) async {
     try {
-      final response = await _apiClient.dio.get(
-        '/api/search',
-        queryParameters: {'q': query},
-      );
+      dynamic response;
+      try {
+        response = await _apiClient.dio.get(
+          '/api/search',
+          queryParameters: {'q': query},
+        );
+      } catch (_) {
+        response = await _apiClient.dio.get(
+          '/videos',
+          queryParameters: {'search': query},
+        );
+      }
+
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> list = response.data is List ? response.data : response.data['videos'] ?? [];
-        return list.map((v) => Video.fromJson(v)).toList();
+        final dynamic raw = response.data;
+        final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
+        return list.map((v) => Video.fromJson(v as Map<String, dynamic>)).toList();
       }
     } catch (e) {
       debugPrint('Search error: $e');

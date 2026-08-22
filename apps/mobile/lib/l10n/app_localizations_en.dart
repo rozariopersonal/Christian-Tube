@@ -1,10 +1,11 @@
 import 'app_localizations.dart';
+import '../core/config/app_config.dart';
 
 class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([super.locale = 'en']);
 
   @override
-  String get appTitle => 'ChristianTube';
+  String get appTitle => AppConfig.appName;
   @override
   String get feed => 'Home';
   @override
@@ -16,7 +17,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get profile => 'You';
   @override
-  String get search => 'Search Christian videos...';
+  String get search => 'Search ${AppConfig.appName} videos...';
   @override
   String get subscriptions => 'Subscriptions';
   @override
@@ -38,7 +39,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get download => 'Download';
   @override
-  String get updateAvailable => 'A new version of ChristianTube is available!';
+  String get updateAvailable => 'A new version of ${AppConfig.appName} is available!';
   @override
   String get updateNow => 'Update Now';
   @override

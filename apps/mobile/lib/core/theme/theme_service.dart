@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 class ThemeService extends ChangeNotifier {
   static const String _themePrefKey = 'theme_mode_preference';
@@ -40,8 +41,8 @@ class ThemeService extends ChangeNotifier {
   }
 
   static ThemeData get lightTheme {
-    const primaryColor = Color(0xFF1E3A8A); // Deep Christian Blue
-    const accentColor = Color(0xFFD97706);  // Warm Amber / Gold
+    final primaryColor = AppConfig.primaryColor;
+    final accentColor = AppConfig.accentColor;
 
     return ThemeData(
       useMaterial3: true,
@@ -66,7 +67,7 @@ class ThemeService extends ChangeNotifier {
           fontWeight: FontWeight.w600,
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
         selectedItemColor: primaryColor,
         unselectedItemColor: Colors.black54,
@@ -77,8 +78,8 @@ class ThemeService extends ChangeNotifier {
   }
 
   static ThemeData get darkTheme {
-    const primaryColor = Color(0xFF3B82F6);
-    const accentColor = Color(0xFFF59E0B);
+    final primaryColor = AppConfig.primaryColor;
+    final accentColor = AppConfig.accentColor;
 
     return ThemeData(
       useMaterial3: true,
@@ -103,8 +104,8 @@ class ThemeService extends ChangeNotifier {
           fontWeight: FontWeight.w600,
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF0F172A),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: const Color(0xFF0F172A),
         selectedItemColor: primaryColor,
         unselectedItemColor: Colors.white60,
         type: BottomNavigationBarType.fixed,

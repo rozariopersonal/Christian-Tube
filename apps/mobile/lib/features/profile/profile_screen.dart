@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../auth/auth_service.dart';
 import '../auth/widgets/sign_in_button.dart';
 import '../channels/channel_service.dart';
@@ -9,6 +8,7 @@ import 'settings_screen.dart';
 import 'subscriptions_screen.dart';
 import 'user_service.dart';
 import '../../core/theme/theme_service.dart';
+import '../../core/config/app_config.dart';
 
 class ProfileScreen extends StatelessWidget {
   final AuthService authService;
@@ -23,6 +23,47 @@ class ProfileScreen extends StatelessWidget {
     required this.channelService,
     required this.themeService,
   });
+
+  void _showQuickSignInDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Quick Sign-In to ${AppConfig.appName}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter your name to personalize your watch history, playlists, and channel subscriptions.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Your Name or Nickname',
+                hintText: 'e.g. Alex, Maya',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              authService.signInAsGuest(nameCtrl.text);
+            },
+            child: const Text('Start Watching'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,8 +98,14 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 30,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                      child: user.photoUrl == null ? Text(user.displayName[0]) : null,
+                      child: user.photoUrl == null
+                          ? Text(
+                              user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : 'U',
+                              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                            )
+                          : null,
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -72,27 +119,46 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.logout),
+                      tooltip: 'Sign Out',
                       onPressed: () => authService.signOut(),
                     ),
                   ],
                 )
               else
                 Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
-                        const Icon(Icons.account_circle, size: 48, color: Colors.blue),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Sign in to sync your playlists & subscriptions',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13),
+                        Icon(Icons.account_circle, size: 54, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Welcome to ${AppConfig.appName}',
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Sign in to sync your playlists, favorites & subscriptions across devices',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 13, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 16),
                         SignInButton(
                           isLoading: authService.isLoading,
-                          onPressed: () => authService.signInWithGoogle(),
+                          onPressed: () async {
+                            final u = await authService.signInWithGoogle();
+                            if (u == null && context.mounted) {
+                              _showQuickSignInDialog(context);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: () => _showQuickSignInDialog(context),
+                          icon: const Icon(Icons.flash_on, size: 16),
+                          label: const Text('Quick Sign-In (Guest Profile)'),
                         ),
                       ],
                     ),

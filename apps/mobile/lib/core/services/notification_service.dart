@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../config/app_config.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -29,16 +30,16 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'christian_tube_main_channel',
-      'ChristianTube Updates & Devotions',
-      channelDescription: 'Notifications for daily spiritual devotions and new Christian videos',
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      '${AppConfig.instanceId}_main_channel',
+      '${AppConfig.appName} Updates',
+      channelDescription: 'Notifications for new ${AppConfig.appName} videos and updates',
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
     );
 
-    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
+    final NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
     await _notificationsPlugin.show(id, title, body, platformDetails, payload: payload);
   }
 }

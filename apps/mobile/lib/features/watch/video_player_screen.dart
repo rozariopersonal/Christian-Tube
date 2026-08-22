@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
-import '../../core/utils/formatters.dart';
 import '../../shared/ui/channel_avatar.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 import '../../shared/ui/video_options_bottom_sheet.dart';
+import '../channels/channel_service.dart';
 import 'widgets/create_short_bottom_sheet.dart';
+import '../../core/config/app_config.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
@@ -24,51 +25,80 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  final ApiClient _apiClient = ApiClient();
   late final YoutubePlayerController _controller;
+  final ApiClient _apiClient = ApiClient();
+  final ChannelService _channelService = ChannelService();
+
   Video? _video;
   List<Video> _relatedVideos = [];
-  bool _isSubscribed = false;
+  bool _isLoading = true;
   bool _isDescriptionExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _video = widget.initialVideo;
-    _controller = YoutubePlayerController(
+
+    _controller = YoutubePlayerController.fromVideoId(
+      videoId: widget.videoId,
+      autoPlay: true,
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
-        mute: false,
-        loop: false,
+        strictRelatedVideos: true,
+        enableCaption: true,
       ),
     );
 
-    _controller.loadVideoById(videoId: widget.videoId);
-    _fetchVideoDetails();
+    _loadVideoDetails();
+    _loadRelatedVideos();
   }
 
-  Future<void> _fetchVideoDetails() async {
+  Future<void> _loadVideoDetails() async {
     try {
-      final response = await _apiClient.dio.get('/api/videos/${widget.videoId}');
+      dynamic response;
+      try {
+        response = await _apiClient.dio.get('/api/videos/${widget.videoId}');
+      } catch (_) {
+        response = await _apiClient.dio.get('/videos/${widget.videoId}');
+      }
+
       if (response.statusCode == 200 && response.data != null) {
         setState(() {
-          _video = Video.fromJson(response.data);
+          _video = Video.fromJson(response.data as Map<String, dynamic>);
+          _isLoading = false;
         });
       }
     } catch (e) {
-      debugPrint('Error fetching video details: $e');
+      debugPrint('Error loading video details: $e');
+      setState(() => _isLoading = false);
     }
+  }
 
+  Future<void> _loadRelatedVideos() async {
     try {
-      final relatedRes = await _apiClient.dio.get('/api/videos/${widget.videoId}/related');
-      if (relatedRes.statusCode == 200 && relatedRes.data != null) {
-        final List<dynamic> list = relatedRes.data is List ? relatedRes.data : relatedRes.data['videos'] ?? [];
+      dynamic response;
+      try {
+        response = await _apiClient.dio.get('/api/videos');
+      } catch (_) {
+        response = await _apiClient.dio.get('/videos');
+      }
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic raw = response.data;
+        final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
         setState(() {
-          _relatedVideos = list.map((v) => Video.fromJson(v)).toList();
+          _relatedVideos = list
+              .whereType<Map<String, dynamic>>()
+              .map((v) => Video.fromJson(v))
+              .where((v) => v.id != widget.videoId)
+              .take(10)
+              .toList();
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error loading related videos: $e');
+    }
   }
 
   @override
@@ -83,16 +113,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     return YoutubePlayerScaffold(
       controller: _controller,
-      aspectRatio: 16 / 9,
       builder: (context, player) {
         return Scaffold(
           body: SafeArea(
             child: Column(
               children: [
-                // Video Player
-                player,
+                // Top Video Player Container
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: player,
+                ),
 
-                // Content & Details Scrollable Area
+                // Video Metadata & Recommendations Scrollable Area
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -101,60 +133,68 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
-                          _video?.title ?? 'ChristianTube Video',
-                          style: theme.textTheme.titleMedium?.copyWith(
+                          _video?.title ?? 'Loading video...',
+                          style: const TextStyle(
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            height: 1.3,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
 
-                      // Views & Published Date
+                      // View Count and Published Date
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
-                          '${Formatters.formatViews(_video?.viewCount ?? 0)} views • ${Formatters.formatTimeAgo(_video?.publishedAt ?? DateTime.now())}',
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                          '${_video?.viewCount ?? 0} views',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
 
-                      // Channel Row + Subscribe Button
+                      // Channel Header (Avatar, Title, Subscribe Button)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           children: [
                             ChannelAvatar(
                               avatarUrl: _video?.channelAvatarUrl,
-                              channelTitle: _video?.channelTitle ?? '',
-                              radius: 18,
+                              channelTitle: _video?.channelTitle ?? 'Channel',
+                              radius: 20,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                _video?.channelTitle ?? 'Christian Channel',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                _video?.channelTitle ?? 'Channel',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _isSubscribed ? Colors.grey.shade300 : theme.colorScheme.primary,
-                                foregroundColor: _isSubscribed ? Colors.black87 : Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: theme.colorScheme.primary),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
                               ),
                               onPressed: () {
-                                setState(() => _isSubscribed = !_isSubscribed);
+                                if (_video?.channelId.isNotEmpty == true) {
+                                  _channelService.toggleSubscribe(_video!.channelId);
+                                }
                               },
-                              child: Text(_isSubscribed ? 'Subscribed' : 'Subscribe'),
+                              child: const Text('Subscribe'),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 16),
 
-                      // Action buttons row (Share, Clip, Save, etc.)
+                      // Action buttons row (Share, Clip, Save)
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -164,7 +204,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                               icon: Icons.share_outlined,
                               label: 'Share',
                               onTap: () {
-                                Share.share('https://christian-tube-six.vercel.app/watch/${widget.videoId}');
+                                Share.share('${AppConfig.apiBaseUrl}/watch/${widget.videoId}');
                               },
                             ),
                             const SizedBox(width: 8),
@@ -236,7 +276,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
-                          'Related Devotions & Videos',
+                          'Related Videos',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                       ),
