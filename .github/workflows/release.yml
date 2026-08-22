@@ -1,150 +1,154 @@
-name: Build & Publish ChristianTube Release
+name: Build and Release Multi-Instance APKs
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Release Version Tag (e.g. v1.28.0)'
-        required: true
+      tag:
+        description: 'Release Tag (e.g., v1.28.0)'
+        required: false
         default: 'v1.28.0'
 
-jobs:
-  build-and-release:
-    name: Build APK & Publish Release
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+permissions:
+  contents: write
 
+jobs:
+  auto-tag:
+    name: Auto Tag Release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.tagger.outputs.new_tag }}
     steps:
-      - name: 1. Checkout Source Code
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: '0'
+      
+      - name: Bump version and push tag
+        id: tagger
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: patch
 
-      - name: 2. Resolve Version Tag
-        id: version_step
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RAW_TAG="${{ github.event.inputs.version }}"
-          else
-            RAW_TAG="${GITHUB_REF#refs/tags/}"
-          fi
-          
-          # Clean and standardize tag to vX.Y.Z
-          RAW_TAG="${RAW_TAG#refs/tags/}"
-          CLEAN_VERSION="${RAW_TAG#v}"
-          FINAL_TAG="v${CLEAN_VERSION}"
-          
-          echo "TAG_NAME=${FINAL_TAG}" >> $GITHUB_ENV
-          echo "VERSION_NAME=${CLEAN_VERSION}" >> $GITHUB_ENV
-          echo "Resolved Release Tag: ${FINAL_TAG} (Version: ${CLEAN_VERSION})"
+  release-matrix:
+    name: Build & Release (${{ matrix.appName }})
+    needs: auto-tag
+    if: |
+      always() && 
+      (needs.auto-tag.result == 'success' || needs.auto-tag.result == 'skipped') &&
+      (github.event_name != 'push' || github.ref != 'refs/heads/main' || needs.auto-tag.outputs.new_tag != '')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - instance: christian_tube
+            appName: ChristianTube
+            apkName: christian-tube.apk
+            releaseRepo: rozariopersonal/Christian-Tube-Releases
+          - instance: centum_tube
+            appName: CentumTube
+            apkName: centum-tube.apk
+            releaseRepo: rozariopersonal/Centum-Tube-Releases
 
-      - name: 3. Set up Java JDK 17
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
-      - name: 4. Set up Flutter SDK
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Python for QR Generation
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python QR Code Generator
+        run: pip install qrcode[pil]
+
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.27.1'
           channel: 'stable'
           cache: true
-          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
 
-      - name: 5. Ensure Gradle Permissions
+      - name: Determine Release Tag
+        id: tag_info
         run: |
-          if [ -f android/gradlew ]; then
-            chmod +x android/gradlew
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            TAG="${{ needs.auto-tag.outputs.new_tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
           fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "Release Tag: $TAG"
 
-      - name: 6. Install Dependencies
+      - name: Prepare Instance Configuration & Assets
         run: |
-          flutter --version
+          node scripts/prepare-instance.js ${{ matrix.instance }}
+
+      - name: Install Flutter Dependencies
+        run: |
+          cd apps/mobile
           flutter pub get
 
-      - name: 7. Build Android Release APK
+      - name: Build Android Release APK
         run: |
-          echo "Building Release APK for version ${{ env.VERSION_NAME }}..."
-          flutter build apk --release --build-name="${{ env.VERSION_NAME }}" --android-skip-build-dependency-validation
-          
-          # Locate generated APK
-          APK_PATH=""
-          if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-            APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
-          elif [ -f "build/app/outputs/apk/release/app-release.apk" ]; then
-            APK_PATH="build/app/outputs/apk/release/app-release.apk"
-          else
-            APK_PATH=$(find build -name "*.apk" | head -n 1)
-          fi
-          
-          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
-            echo "::error::Release APK was not generated!"
-            exit 1
-          fi
-          
-          cp "$APK_PATH" christian-tube.apk
-          APK_SIZE=$(ls -lh christian-tube.apk | awk '{print $5}')
-          echo "✅ christian-tube.apk successfully built (Size: $APK_SIZE)"
+          cd apps/mobile
+          flutter build apk --release
 
-      - name: 8. Generate Companion QR Code
+      - name: Stage Release Artifacts
         run: |
-          sudo apt-get update && sudo apt-get install -y qrencode
-          DOWNLOAD_URL="https://github.com/rozariopersonal/Christian-Tube-Releases/releases/download/${{ env.TAG_NAME }}/christian-tube.apk"
-          
-          echo "Generating QR code for direct URL: $DOWNLOAD_URL"
-          qrencode -o download-qrcode.png -s 10 -m 2 -l M "$DOWNLOAD_URL"
-          
-          if [ ! -s download-qrcode.png ]; then
-            echo "::error::Failed to generate valid QR code!"
-            exit 1
-          fi
-          echo "✅ download-qrcode.png successfully generated"
+          cp apps/mobile/build/app/outputs/flutter-apk/app-release.apk ./${{ matrix.apkName }}
+          DOWNLOAD_URL="https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/${{ matrix.apkName }}"
+          echo "Generating QR Code for: $DOWNLOAD_URL"
+          python3 -c "import qrcode; img = qrcode.make('$DOWNLOAD_URL'); img.save('download-qrcode.png')"
 
-      - name: 9. Prepare Release Notes
+      - name: Verify Staged Artifacts
         run: |
-          cat << 'EOF' > release_body.md
-          📱 A new version of ChristianTube is available!
+          ls -la ${{ matrix.apkName }} download-qrcode.png
 
-          ## 📥 Install on Android
-          1. Scan the QR code image attached below, or tap the direct download link
-          2. Open the downloaded APK on your Android device
-          3. If prompted, enable **Install from unknown sources** in your settings
-          4. Tap Install — enjoy ChristianTube!
-          EOF
-
-      - name: 10. Publish to Christian-Tube-Releases
+      - name: Publish Release to Dedicated Repository
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
         run: |
-          TARGET_REPO="rozariopersonal/Christian-Tube-Releases"
+          echo "Publishing ${{ matrix.appName }} release ${{ env.TAG }} to ${{ matrix.releaseRepo }}..."
           
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::error::RELEASE_PAT secret is missing or empty! Please add RELEASE_PAT in repository secrets."
-            exit 1
-          fi
+          # Delete existing release/tag in target repo if exists to prevent duplication collisions
+          gh release delete "${{ env.TAG }}" --repo "${{ matrix.releaseRepo }}" --yes || true
+          git push "https://${GH_TOKEN}@github.com/${{ matrix.releaseRepo }}.git" --delete "${{ env.TAG }}" || true
 
-          echo "Publishing ${{ env.TAG_NAME }} to $TARGET_REPO..."
+          # Create Release in Target Repository
+          gh release create "${{ env.TAG }}" \
+            ./${{ matrix.apkName }} \
+            ./download-qrcode.png \
+            --repo "${{ matrix.releaseRepo }}" \
+            --title "${{ matrix.appName }} ${{ env.TAG }}" \
+            --notes "### 🚀 What's New in ${{ matrix.appName }} ${{ env.TAG }}
+          - Multi-instance PrivateTube white-label engine
+          - Modernized interactive update popup modal with in-place download progress
+          - High-speed video feed streaming and YouTube sync
+          - Performance optimizations and stability improvements
 
-          # Check if release already exists in target repo
-          if gh release view "${{ env.TAG_NAME }}" --repo "$TARGET_REPO" > /dev/null 2>&1; then
-            echo "Release ${{ env.TAG_NAME }} already exists. Updating release assets..."
-            gh release upload "${{ env.TAG_NAME }}" \
-              --repo "$TARGET_REPO" \
-              --clobber \
-              christian-tube.apk \
-              download-qrcode.png
-          else
-            echo "Creating new release ${{ env.TAG_NAME }}..."
-            gh release create "${{ env.TAG_NAME }}" \
-              --repo "$TARGET_REPO" \
-              --title "ChristianTube ${{ env.TAG_NAME }}" \
-              --notes-file release_body.md \
-              christian-tube.apk \
-              download-qrcode.png
-          fi
-          
-          echo "🎉 Successfully published release ${{ env.TAG_NAME }} to $TARGET_REPO!"
+          ---
+          **Direct Download**: [${{ matrix.apkName }}](https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/${{ matrix.apkName }})
+
+          <img src=\"https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/download-qrcode.png\" width=\"220\" alt=\"Scan to Download APK\" />" \
+            --latest

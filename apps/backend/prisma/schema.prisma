@@ -1,0 +1,87 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
+}
+
+enum VideoType {
+  VIDEO
+  SHORT
+}
+
+enum TranscriptionStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+model Video {
+  id                     String              @id // YouTube Video ID (e.g. 'lNbeI0hr9GQ')
+  type                   VideoType           @default(VIDEO)
+  title                  String
+  description            String              @db.Text
+  thumbnail              String
+  channelId              String
+  channelName            String
+  channelThumbnail       String?
+  channelSubscriberCount String?
+  publishedAt            DateTime
+  duration               String
+  viewCount              Int                 @default(0)
+  tags                   String[]            @default([])
+  category               String?
+
+  // Transcription fields
+  transcriptionStatus    TranscriptionStatus @default(pending)
+  transcriptionProgress  Int?
+  transcriptionRetryCount Int                @default(0)
+  transcriptionDetail    Json?
+  lastTranscriptionError String?
+  content                String?             @db.Text // Full generated transcript / summary
+
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  channel                Channel?            @relation(fields: [channelId], references: [id])
+
+  @@index([channelId])
+  @@index([publishedAt])
+  @@index([type])
+  @@index([category])
+}
+
+model Channel {
+  id              String         @id // YouTube Channel ID (e.g. 'UCRnhKlRzq9yepl9QPrj_2iQ')
+  name            String
+  description     String?        @db.Text
+  thumbnail       String?
+  subscriberCount String?
+  category        String?
+  language        String?
+  isActive        Boolean        @default(true)
+  lastSyncedAt    DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  videos          Video[]
+
+  @@index([isActive])
+  @@index([category])
+}
+
+model ChannelRequest {
+  id              String         @id @default(uuid())
+  channelUrl      String
+  notes           String?
+  status          String         @default("PENDING") // PENDING, APPROVED, REJECTED
+  submittedBy     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}

@@ -1,0 +1,26 @@
+{
+  "instanceId": "christian_tube",
+  "appName": "ChristianTube",
+  "applicationId": "org.rozario.christiantube.mobile",
+  "version": "1.28.0",
+  "versionCode": 45,
+  "theme": {
+    "primaryColor": "#2563EB",
+    "accentColor": "#F59E0B",
+    "darkBackground": "#0F172A",
+    "lightBackground": "#FFFFFF"
+  },
+  "apiBaseUrl": "https://christian-tube-1.onrender.com",
+  "releasesRepo": "rozariopersonal/Christian-Tube-Releases",
+  "apkFileName": "christian-tube.apk",
+  "defaultCategories": [
+    "All",
+    "Worship",
+    "Sermons",
+    "Testimonies",
+    "Bible Study",
+    "Youth",
+    "Gospel Music",
+    "Kids"
+  ]
+}

@@ -1,0 +1,19 @@
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { ChannelsService } from './channels.service';
+
+@Controller('channels')
+export class ChannelsController {
+  constructor(private readonly channelsService: ChannelsService) {}
+
+  @Get()
+  async getChannels() {
+    return this.channelsService.findAll();
+  }
+
+  @Post('request')
+  async submitChannelRequest(
+    @Body() body: { channelUrl: string; notes?: string; submittedBy?: string },
+  ) {
+    return this.channelsService.createRequest(body);
+  }
+}

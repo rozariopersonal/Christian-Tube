@@ -1,0 +1,62 @@
+param (
+    [string]$InstanceId = "christian_tube"
+)
+
+$RootDir = Split-Path -Parent $PSScriptRoot
+$InstanceDir = Join-Path $RootDir "instances\$InstanceId"
+
+if (-not (Test-Path $InstanceDir)) {
+    Write-Error "Error: Instance directory '$InstanceDir' does not exist!"
+    exit 1
+}
+
+$ConfigFile = Join-Path $InstanceDir "config.json"
+if (-not (Test-Path $ConfigFile)) {
+    Write-Error "Error: Config file '$ConfigFile' not found!"
+    exit 1
+}
+
+$Config = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+Write-Host "🚀 Preparing PrivateTube engine for instance: $($Config.appName) ($InstanceId)..."
+
+# 1. Copy config to mobile assets
+$MobileAssets = Join-Path $RootDir "apps\mobile\assets"
+New-Item -ItemType Directory -Path $MobileAssets -Force | Out-Null
+Copy-Item -Path $ConfigFile -Destination (Join-Path $MobileAssets "app_config.json") -Force
+Write-Host "✅ Synced app_config.json to mobile assets"
+
+# 2. Copy icon
+$IconSrc = Join-Path $InstanceDir "assets\icon.png"
+if (Test-Path $IconSrc) {
+    Copy-Item -Path $IconSrc -Destination (Join-Path $MobileAssets "logo.png") -Force
+    Write-Host "✅ Synced logo.png to mobile assets"
+
+    # Mipmap icons
+    $ResDir = Join-Path $RootDir "apps\mobile\android\app\src\main\res"
+    @('mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi') | ForEach-Object {
+        $TargetDir = Join-Path $ResDir $_
+        New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
+        Copy-Item -Path $IconSrc -Destination (Join-Path $TargetDir "ic_launcher.png") -Force
+    }
+    Write-Host "✅ Synced Android launcher icons across all mipmap densities"
+}
+
+# 3. Update build.gradle applicationId
+$BuildGradlePath = Join-Path $RootDir "apps\mobile\android\app\build.gradle"
+if (Test-Path $BuildGradlePath) {
+    $GradleContent = Get-Content $BuildGradlePath -Raw
+    $GradleContent = $GradleContent -replace 'applicationId\s*=\s*"[^"]*"', "applicationId = `"$($Config.applicationId)`""
+    Set-Content -Path $BuildGradlePath -Value $GradleContent -NoNewline
+    Write-Host "✅ Updated Android applicationId to: $($Config.applicationId)"
+}
+
+# 4. Update AndroidManifest.xml
+$ManifestPath = Join-Path $RootDir "apps\mobile\android\app\src\main\AndroidManifest.xml"
+if (Test-Path $ManifestPath) {
+    $ManifestContent = Get-Content $ManifestPath -Raw
+    $ManifestContent = $ManifestContent -replace 'android:label="[^"]*"', "android:label=`"$($Config.appName)`""
+    Set-Content -Path $ManifestPath -Value $ManifestContent -NoNewline
+    Write-Host "✅ Updated AndroidManifest label to: $($Config.appName)"
+}
+
+Write-Host "🎉 Instance preparation complete for $($Config.appName)!"

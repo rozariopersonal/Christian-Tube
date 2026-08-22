@@ -1,0 +1,17 @@
+{
+  "name": "privatetube-monorepo",
+  "version": "1.28.0",
+  "private": true,
+  "description": "PrivateTube - Unified Multi-Instance White-Label Video & AI Platform",
+  "scripts": {
+    "prepare:christian": "node scripts/prepare-instance.js christian_tube",
+    "prepare:centum": "node scripts/prepare-instance.js centum_tube",
+    "build:mobile": "flutter build apk --release",
+    "start:backend": "pnpm --filter @privatetube/backend start:dev",
+    "build:backend": "pnpm --filter @privatetube/backend build"
+  },
+  "devDependencies": {
+    "nx": "^19.5.0",
+    "prettier": "^3.3.0"
+  }
+}

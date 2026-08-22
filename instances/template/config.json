@@ -1,0 +1,22 @@
+{
+  "instanceId": "template_tube",
+  "appName": "TemplateTube",
+  "applicationId": "org.rozario.templatetube.mobile",
+  "version": "1.28.0",
+  "versionCode": 45,
+  "theme": {
+    "primaryColor": "#6366F1",
+    "accentColor": "#EC4899",
+    "darkBackground": "#0F172A",
+    "lightBackground": "#FFFFFF"
+  },
+  "apiBaseUrl": "https://template-tube-api.onrender.com",
+  "releasesRepo": "rozariopersonal/Template-Tube-Releases",
+  "apkFileName": "template-tube.apk",
+  "defaultCategories": [
+    "All",
+    "Featured",
+    "Popular",
+    "Tutorials"
+  ]
+}

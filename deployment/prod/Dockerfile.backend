@@ -1,0 +1,53 @@
+# ─── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy dependency manifests
+COPY package.json pnpm-workspace.yaml ./
+COPY apps/backend/package.json ./apps/backend/
+COPY apps/backend/prisma ./apps/backend/prisma/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile=false
+
+# Copy source code and instances
+COPY apps/backend ./apps/backend
+COPY instances ./instances
+
+# Generate Prisma client and compile NestJS app
+WORKDIR /app/apps/backend
+RUN npx prisma generate
+RUN pnpm build
+
+# ─── Stage 2: Runner ──────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Install pnpm for production runtime
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY package.json pnpm-workspace.yaml ./
+COPY apps/backend/package.json ./apps/backend/
+COPY apps/backend/prisma ./apps/backend/prisma/
+
+# Install only production dependencies
+RUN pnpm install --prod --frozen-lockfile=false
+
+# Copy built application and prisma client
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
+COPY --from=builder /app/apps/backend/node_modules/.prisma ./apps/backend/node_modules/.prisma
+COPY --from=builder /app/apps/backend/node_modules/@prisma ./apps/backend/node_modules/@prisma
+COPY --from=builder /app/instances ./instances
+
+EXPOSE 3000
+
+WORKDIR /app/apps/backend
+CMD ["node", "dist/src/main.js"]

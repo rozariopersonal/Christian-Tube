@@ -1,53 +1,107 @@
-# ChristianTube Mobile App 📱✝️
+# 📺 PrivateTube - Multi-Instance White-Label Platform
 
-ChristianTube is an open-source Flutter mobile application designed to stream high-quality Christian videos, sermons, praise & worship music, devotional watch plans, and vertical shorts.
-
-[![Releases](https://img.shields.io/github/v/release/rozariopersonal/Christian-Tube-Releases?label=Latest%20Release)](https://github.com/rozariopersonal/Christian-Tube-Releases/releases/latest)
-[![Platform](https://img.shields.io/badge/Platform-Android-green.svg)](https://github.com/rozariopersonal/Christian-Tube-Releases)
+**PrivateTube** is a high-performance, white-label, config-driven video streaming and AI transcription platform. The repository is structured as an **Nx Monorepo** designed to deploy multiple distinct, fully-isolated Tube instances (**ChristianTube**, **CentumTube**, etc.) from a single core codebase.
 
 ---
 
-## 🌟 Key Features
+## 🏗️ Monorepo Architecture
 
-- 🎥 **Video Feed**: Filter by spiritual categories (Worship, Sermons, Testimonies, Bible Study, Kids).
-- ⚡ **Christian Shorts**: High-framerate vertical video feed for devotionals and clips.
-- 📺 **Rich Video Player**: Multi-quality direct streaming via `youtube_explode_dart` with `youtube_player_iframe` fallback.
-- ✂️ **Create Clips/Shorts**: Extract memorable segments from full-length sermons directly in-app.
-- 📖 **Devotion & Watch Plans**: Set daily spiritual study targets with streak tracking and reminders.
-- 🌐 **Multi-Language Support**: English, Hindi (हिन्दी), Tamil (தமிழ்), Telugu (తెలుగు), Kannada (ಕನ್ನಡ), and Malayalam (മലയാളം).
-- 🔄 **In-App Self Updates**: Automatic OTA notification & install via GitHub Releases.
-- 🎨 **Material 3 Dynamic Themes**: Seamless Dark and Light theme toggle.
+```
+PrivateTube/
+├── apps/
+│   ├── mobile/                     # 📱 Flutter Mobile Client (Multi-brand, themeable)
+│   │   ├── android/
+│   │   ├── lib/
+│   │   └── pubspec.yaml
+│   │
+│   └── backend/                    # 🚀 NestJS + Prisma Engine (PostgreSQL, Gemini AI, R2)
+│       ├── prisma/
+│       │   └── schema.prisma
+│       ├── src/
+│       │   ├── modules/
+│       │   │   ├── videos/         # Video catalog & live streams
+│       │   │   ├── channels/       # Monitored channel curation
+│       │   │   ├── youtube/        # YouTube Data API sync cron jobs
+│       │   │   ├── transcription/  # Gemini AI speech-to-text pipeline
+│       │   │   └── storage/        # Cloudflare R2 object storage
+│       │   └── main.ts
+│       └── package.json
+│
+├── instances/                      # 🎯 Instance Profiles & Assets
+│   ├── christian_tube/             # ChristianTube (org.rozario.christiantube.mobile)
+│   │   ├── config.json
+│   │   ├── seed_channels.json
+│   │   └── assets/icon.png
+│   │
+│   ├── centum_tube/                # CentumTube (org.rozario.centumtube.mobile)
+│   │   ├── config.json
+│   │   ├── seed_channels.json
+│   │   └── assets/icon.png
+│   │
+│   └── template/                   # ⚡ 1-Click Generator for ANY new Tube
+│
+├── scripts/
+│   ├── prepare-instance.js         # Build script for asset overlays & config injection
+│   └── prepare-instance.ps1
+│
+├── deployment/
+│   └── prod/
+│       └── Dockerfile.backend      # Multi-stage Docker build for Render
+│
+└── .github/
+    └── workflows/
+        └── release.yml             # Parallel Matrix CI/CD for all instances
+```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Active Instances
 
-### Prerequisites
-- [Flutter SDK](https://flutter.dev/docs/get-started/install) (v3.22.x or higher)
-- Android Studio / VS Code with Flutter extension
-- Java 17
+| Instance | Application ID | Theme | Target Release Repository |
+| :--- | :--- | :--- | :--- |
+| **ChristianTube** | `org.rozario.christiantube.mobile` | Blue & Gold | [Christian-Tube-Releases](https://github.com/rozariopersonal/Christian-Tube-Releases) |
+| **CentumTube** | `org.rozario.centumtube.mobile` | Emerald & Tech | [Centum-Tube-Releases](https://github.com/rozariopersonal/Centum-Tube-Releases) |
 
-### Installation
+---
+
+## 🛠️ Local Development
+
+### 1. Prepare an Instance for Mobile Build
+To switch the mobile app to a specific instance:
 ```bash
-# 1. Clone the repository
-git clone https://github.com/rozariopersonal/Christian-Tube.git
-cd Christian-Tube
+# For ChristianTube
+node scripts/prepare-instance.js christian_tube
 
-# 2. Install dependencies
-flutter pub get
+# For CentumTube
+node scripts/prepare-instance.js centum_tube
+```
 
-# 3. Run on connected device or emulator
+### 2. Run the Mobile App
+```bash
+cd apps/mobile
 flutter run
+```
+
+### 3. Run the Backend Service
+```bash
+cd apps/backend
+pnpm install
+npx prisma generate
+INSTANCE_ID=christian_tube pnpm start:dev
 ```
 
 ---
 
 ## 🤖 Automated CI/CD Releases
 
-This repository includes a GitHub Actions workflow (`.github/workflows/release.yml`) configured to automatically build and publish release APKs to [Christian-Tube-Releases](https://github.com/rozariopersonal/Christian-Tube-Releases).
+Every release tag push (e.g. `v1.28.0`) automatically runs a **parallel GitHub Actions Matrix**:
+1. **Job 1**: Prepares & builds `ChristianTube` $\rightarrow$ publishes release `v1.28.0` with `christian-tube.apk` & QR code to `Christian-Tube-Releases`.
+2. **Job 2**: Prepares & builds `CentumTube` $\rightarrow$ publishes release `v1.28.0` with `centum-tube.apk` & QR code to `Centum-Tube-Releases`.
 
-To publish a new version:
-```bash
-git tag v1.28.0
-git push origin v1.28.0
-```
+---
+
+## 🐳 Backend Deployment on Render
+
+Use `deployment/prod/Dockerfile.backend` on Render:
+* **Christian Tube Service**: Set Environment Variable `INSTANCE_ID=christian_tube`.
+* **Centum Tube Service**: Set Environment Variable `INSTANCE_ID=centum_tube`.

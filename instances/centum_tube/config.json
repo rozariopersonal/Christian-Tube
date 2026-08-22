@@ -1,0 +1,26 @@
+{
+  "instanceId": "centum_tube",
+  "appName": "CentumTube",
+  "applicationId": "org.rozario.centumtube.mobile",
+  "version": "1.28.0",
+  "versionCode": 45,
+  "theme": {
+    "primaryColor": "#059669",
+    "accentColor": "#F59E0B",
+    "darkBackground": "#064E3B",
+    "lightBackground": "#FFFFFF"
+  },
+  "apiBaseUrl": "https://centum-tube-api.onrender.com",
+  "releasesRepo": "rozariopersonal/Centum-Tube-Releases",
+  "apkFileName": "centum-tube.apk",
+  "defaultCategories": [
+    "All",
+    "Mathematics",
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Computer Science",
+    "Exam Tips",
+    "Centum Strategy"
+  ]
+}
