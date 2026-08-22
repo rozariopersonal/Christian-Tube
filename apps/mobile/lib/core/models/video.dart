@@ -28,19 +28,24 @@ class Video {
   });
 
   factory Video.fromJson(Map<String, dynamic> json) {
+    final videoId = json['id'] ?? json['videoId'] ?? json['_id'] ?? '';
+    final defaultThumb = videoId.isNotEmpty 
+        ? 'https://img.youtube.com/vi/$videoId/hqdefault.jpg'
+        : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800';
+
     return Video(
-      id: json['id'] ?? json['videoId'] ?? json['_id'] ?? '',
+      id: videoId,
       title: json['title'] ?? '',
       description: json['description'],
-      thumbnailUrl: json['thumbnailUrl'] ?? json['thumbnail_url'] ?? json['thumbnail'] ?? 'https://img.youtube.com/vi/${json['id'] ?? json['videoId']}/hqdefault.jpg',
+      thumbnailUrl: json['thumbnailUrl'] ?? json['thumbnail_url'] ?? json['thumbnail'] ?? defaultThumb,
       channelId: json['channelId'] ?? json['channel_id'] ?? '',
-      channelTitle: json['channelTitle'] ?? json['channel_title'] ?? 'Christian Channel',
-      channelAvatarUrl: json['channelAvatarUrl'] ?? json['channel_avatar_url'],
+      channelTitle: json['channelTitle'] ?? json['channel_title'] ?? json['channelName'] ?? json['channel_name'] ?? 'Channel',
+      channelAvatarUrl: json['channelAvatarUrl'] ?? json['channel_avatar_url'] ?? json['channelThumbnail'],
       viewCount: json['viewCount'] ?? json['view_count'] ?? 0,
       publishedAt: json['publishedAt'] != null 
           ? DateTime.tryParse(json['publishedAt'].toString()) ?? DateTime.now()
           : (json['published_at'] != null ? DateTime.tryParse(json['published_at'].toString()) ?? DateTime.now() : DateTime.now()),
-      duration: json['duration'],
+      duration: json['duration'] ?? '0:00',
       streamUrl: json['streamUrl'] ?? json['stream_url'],
       isLive: json['isLive'] ?? json['is_live'] ?? false,
     );

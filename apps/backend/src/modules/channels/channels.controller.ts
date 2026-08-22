@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ChannelsService } from './channels.service';
 
-@Controller('channels')
+@Controller(['channels', 'api/channels'])
 export class ChannelsController {
   constructor(private readonly channelsService: ChannelsService) {}
 

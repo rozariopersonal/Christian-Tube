@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
-
 import '../../core/config/app_config.dart';
 
 class VideoService extends ChangeNotifier {
@@ -26,20 +26,38 @@ class VideoService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiClient.dio.get(
-        '/api/videos',
-        queryParameters: {
-          if (_selectedCategory != 'All') 'category': _selectedCategory,
-        },
-      );
+      Response response;
+      try {
+        response = await _apiClient.dio.get(
+          '/api/videos',
+          queryParameters: {
+            if (_selectedCategory != 'All') 'category': _selectedCategory,
+          },
+        );
+      } catch (_) {
+        // Fallback to /videos route
+        response = await _apiClient.dio.get(
+          '/videos',
+          queryParameters: {
+            if (_selectedCategory != 'All') 'category': _selectedCategory,
+          },
+        );
+      }
 
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> list = response.data is List ? response.data : response.data['videos'] ?? [];
-        _videos = list.map((v) => Video.fromJson(v)).toList();
+        final dynamic raw = response.data;
+        final List<dynamic> list = raw is List
+            ? raw
+            : (raw['videos'] ?? raw['data'] ?? raw['items'] ?? []);
+        
+        _videos = list
+            .whereType<Map<String, dynamic>>()
+            .map((v) => Video.fromJson(v))
+            .toList();
       }
     } catch (e) {
       debugPrint('Error loading video feed: $e');
-      _errorMessage = 'Failed to load videos. Please try again.';
+      _errorMessage = 'Failed to load videos. Please check your connection.';
     } finally {
       _isLoading = false;
       notifyListeners();
