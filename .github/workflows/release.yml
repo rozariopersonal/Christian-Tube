@@ -1,0 +1,79 @@
+name: Build & Publish ChristianTube Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.28.0)'
+        required: true
+        default: 'v1.28.0'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Determine Release Tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG_NAME=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Android Release APK
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk christian-tube.apk
+
+      - name: Generate QR Code for Download
+        run: |
+          sudo apt-get update && sudo apt-get install -y qrencode
+          DOWNLOAD_URL="https://github.com/rozariopersonal/Christian-Tube-Releases/releases/download/${{ env.TAG_NAME }}/christian-tube.apk"
+          qrencode -o download-qrcode.png -s 10 -m 2 "$DOWNLOAD_URL"
+
+      - name: Generate Release Notes
+        run: |
+          cat << 'EOF' > release_body.md
+          📱 A new version of ChristianTube is available!
+
+          ## 📥 Install on Android
+          1. Scan the QR code image attached below, or tap the direct download link
+          2. Open the downloaded APK on your Android device
+          3. If prompted, enable **Install from unknown sources** in your settings
+          4. Tap Install — enjoy ChristianTube!
+          EOF
+
+      - name: Publish Release to Christian-Tube-Releases
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          gh release create "${{ env.TAG_NAME }}" \
+            --repo "rozariopersonal/Christian-Tube-Releases" \
+            --title "ChristianTube ${{ env.TAG_NAME }}" \
+            --notes-file release_body.md \
+            christian-tube.apk \
+            download-qrcode.png
