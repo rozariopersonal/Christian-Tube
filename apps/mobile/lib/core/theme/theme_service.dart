@@ -52,9 +52,18 @@ class ThemeService extends ChangeNotifier {
         brightness: Brightness.light,
         primary: primaryColor,
         secondary: accentColor,
-        surface: const Color(0xFFF8FAFC),
+        surface: Colors.white,
+        background: const Color(0xFFF8FAFC),
       ),
       scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+      cardTheme: CardTheme(
+        color: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.black.withOpacity(0.06)),
+        ),
+      ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
@@ -89,9 +98,18 @@ class ThemeService extends ChangeNotifier {
         brightness: Brightness.dark,
         primary: primaryColor,
         secondary: accentColor,
-        surface: const Color(0xFF0F172A),
+        surface: const Color(0xFF161B26),
+        background: const Color(0xFF0F172A),
       ),
       scaffoldBackgroundColor: const Color(0xFF0F172A),
+      cardTheme: CardTheme(
+        color: const Color(0xFF161B26),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.white.withOpacity(0.08)),
+        ),
+      ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFF0F172A),
