@@ -7,17 +7,28 @@ import '../../core/config/app_config.dart';
 class VideoService extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
 
-  List<Video> _videos = [];
+  List<Video> _allVideos = [];
+  List<Video> _displayedVideos = [];
   bool _isLoading = false;
   String? _errorMessage;
   String _selectedCategory = 'All';
+  String? _selectedChannelId;
+  bool _subscribedOnly = false;
+  Set<String> _subscribedChannelIds = {};
 
-  List<Video> get videos => _videos;
+  List<Video> get videos => _displayedVideos;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String get selectedCategory => _selectedCategory;
+  String? get selectedChannelId => _selectedChannelId;
+  bool get subscribedOnly => _subscribedOnly;
 
   List<String> get categories => AppConfig.defaultCategories;
+
+  void updateSubscribedChannelIds(Set<String> ids) {
+    _subscribedChannelIds = ids;
+    _applyFilters();
+  }
 
   Future<void> fetchFeed({bool refresh = false}) async {
     if (_isLoading) return;
@@ -32,6 +43,7 @@ class VideoService extends ChangeNotifier {
           '/api/videos',
           queryParameters: {
             if (_selectedCategory != 'All') 'category': _selectedCategory,
+            if (_selectedChannelId != null) 'channelId': _selectedChannelId,
           },
         );
       } catch (_) {
@@ -40,6 +52,7 @@ class VideoService extends ChangeNotifier {
           '/videos',
           queryParameters: {
             if (_selectedCategory != 'All') 'category': _selectedCategory,
+            if (_selectedChannelId != null) 'channelId': _selectedChannelId,
           },
         );
       }
@@ -50,10 +63,12 @@ class VideoService extends ChangeNotifier {
             ? raw
             : (raw['videos'] ?? raw['data'] ?? raw['items'] ?? []);
         
-        _videos = list
+        _allVideos = list
             .whereType<Map<String, dynamic>>()
             .map((v) => Video.fromJson(v))
             .toList();
+
+        _applyFilters();
       }
     } catch (e) {
       debugPrint('Error loading video feed: $e');
@@ -64,10 +79,35 @@ class VideoService extends ChangeNotifier {
     }
   }
 
+  void _applyFilters() {
+    var filtered = List<Video>.from(_allVideos);
+
+    if (_selectedChannelId != null) {
+      filtered = filtered.where((v) => v.channelId == _selectedChannelId).toList();
+    } else if (_subscribedOnly && _subscribedChannelIds.isNotEmpty) {
+      filtered = filtered.where((v) => _subscribedChannelIds.contains(v.channelId)).toList();
+    }
+
+    _displayedVideos = filtered;
+    notifyListeners();
+  }
+
   void selectCategory(String category) {
     if (_selectedCategory == category) return;
     _selectedCategory = category;
     notifyListeners();
     fetchFeed(refresh: true);
+  }
+
+  void selectChannel(String? channelId) {
+    _selectedChannelId = channelId;
+    _subscribedOnly = false;
+    _applyFilters();
+  }
+
+  void toggleSubscribedOnly() {
+    _subscribedOnly = !_subscribedOnly;
+    _selectedChannelId = null;
+    _applyFilters();
   }
 }
