@@ -189,8 +189,7 @@ jobs:
               ./download-qrcode.png \
               --repo "${{ matrix.releaseRepo }}" \
               --title "${{ matrix.appName }} ${{ env.TAG }}" \
-              --notes-file release_body.md \
-              --clobber
+              --notes-file release_body.md
           fi
           
           echo "🎉 Successfully published ${{ matrix.appName }} ${{ env.TAG }} to ${{ matrix.releaseRepo }}!"
