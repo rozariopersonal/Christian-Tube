@@ -50,11 +50,16 @@ android {
         multiDexEnabled true
     }
 
+    aaptOptions {
+        cruncherEnabled = false
+    }
+
     buildTypes {
         release {
             signingConfig signingConfigs.debug
             minifyEnabled false
             shrinkResources false
+            crunchPngs false
         }
     }
 }

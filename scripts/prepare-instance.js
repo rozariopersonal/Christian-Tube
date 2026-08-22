@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const instanceId = process.argv[2] || 'christian_tube';
 const rootDir = path.resolve(__dirname, '..');
@@ -31,16 +32,21 @@ if (fs.existsSync(iconSrc)) {
   fs.copyFileSync(iconSrc, path.join(mobileAssetsDir, 'logo.png'));
   console.log(`✅ Synced logo.png to mobile assets`);
 
-  // 3. Copy icon to Android mipmaps
+  // 3. Generate Android mipmaps with exact densities using python if available, else copy
   const resDir = path.join(rootDir, 'apps', 'mobile', 'android', 'app', 'src', 'main', 'res');
-  const mipmaps = ['mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi'];
-  
-  for (const mm of mipmaps) {
-    const targetDir = path.join(resDir, mm);
-    fs.mkdirSync(targetDir, { recursive: true });
-    fs.copyFileSync(iconSrc, path.join(targetDir, 'ic_launcher.png'));
+  try {
+    const pythonCode = `import os, sys; from PIL import Image; src = sys.argv[1]; res = sys.argv[2]; img = Image.open(src).convert('RGBA'); sizes = {'mipmap-mdpi':(48,48),'mipmap-hdpi':(72,72),'mipmap-xhdpi':(96,96),'mipmap-xxhdpi':(144,144),'mipmap-xxxhdpi':(192,192)}; [os.makedirs(os.path.join(res, f), exist_ok=True) or img.resize(s, Image.Resampling.LANCZOS).save(os.path.join(res, f, 'ic_launcher.png'), 'PNG') for f, s in sizes.items()]`;
+    execSync(`python3 -c "${pythonCode}" "${iconSrc}" "${resDir}"`, { stdio: 'inherit' });
+    console.log(`✅ Generated resized Android launcher icons (48x48 to 192x192)`);
+  } catch (err) {
+    console.log(`⚠️ Python icon resize fallback: ${err.message}`);
+    const mipmaps = ['mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi'];
+    for (const mm of mipmaps) {
+      const targetDir = path.join(resDir, mm);
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.copyFileSync(iconSrc, path.join(targetDir, 'ic_launcher.png'));
+    }
   }
-  console.log(`✅ Synced Android launcher icons across all mipmap densities`);
 }
 
 // 4. Update Android build.gradle applicationId & app label
