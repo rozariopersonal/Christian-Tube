@@ -53,6 +53,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         playsInline: true,
         enableCaption: false,
         mute: false,
+        origin: 'https://www.youtube-nocookie.com',
       ),
     );
     _controller.loadVideoById(videoId: videoId);
