@@ -143,7 +143,6 @@ jobs:
               --repo "$TARGET_REPO" \
               --title "ChristianTube ${{ env.TAG_NAME }}" \
               --notes-file release_body.md \
-              --clobber \
               christian-tube.apk \
               download-qrcode.png
           fi
