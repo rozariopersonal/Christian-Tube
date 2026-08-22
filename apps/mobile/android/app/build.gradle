@@ -24,8 +24,8 @@ if (flutterVersionName == null) {
 
 android {
     namespace "org.rozario.christiantube.mobile"
-    compileSdk = 34
-    ndkVersion = flutter.ndkVersion
+    compileSdk 34
+    ndkVersion flutter.ndkVersion
 
     compileOptions {
         coreLibraryDesugaringEnabled true
