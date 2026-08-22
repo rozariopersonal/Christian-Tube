@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 import '../../shared/ui/channel_avatar.dart';
@@ -25,7 +26,7 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late final YoutubePlayerController _controller;
+  late YoutubePlayerController _controller;
   final ApiClient _apiClient = ApiClient();
   final ChannelService _channelService = ChannelService();
 
@@ -33,25 +34,39 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   List<Video> _relatedVideos = [];
   bool _isLoading = true;
   bool _isDescriptionExpanded = false;
+  bool _hasPlayerError = false;
 
   @override
   void initState() {
     super.initState();
     _video = widget.initialVideo;
+    _initPlayer(widget.videoId);
+    _loadVideoDetails();
+    _loadRelatedVideos();
+  }
 
+  void _initPlayer(String videoId) {
+    _hasPlayerError = false;
     _controller = YoutubePlayerController.fromVideoId(
-      videoId: widget.videoId,
+      videoId: videoId,
       autoPlay: true,
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
-        strictRelatedVideos: true,
+        showVideoAnnotations: false,
+        playsInline: true,
         enableCaption: true,
+        strictRelatedVideos: false,
       ),
     );
 
-    _loadVideoDetails();
-    _loadRelatedVideos();
+    _controller.listen((event) {
+      if (event.error != YoutubeError.none && event.error != YoutubeError.unknown) {
+        if (mounted) {
+          setState(() => _hasPlayerError = true);
+        }
+      }
+    });
   }
 
   Future<void> _loadVideoDetails() async {
@@ -101,6 +116,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  Future<void> _openInYouTubeApp() async {
+    final uri = Uri.parse('https://www.youtube.com/watch?v=${widget.videoId}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   void dispose() {
     _controller.close();
@@ -121,7 +143,35 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 // Top Video Player Container
                 AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: player,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      player,
+                      if (_hasPlayerError)
+                        Container(
+                          color: Colors.black87,
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.info_outline, color: Colors.amber, size: 36),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Playback restricted in embedded player.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white, fontSize: 13),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                onPressed: _openInYouTubeApp,
+                                icon: const Icon(Icons.play_circle_fill, color: Colors.red),
+                                label: const Text('Play on YouTube'),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
 
                 // Video Metadata & Recommendations Scrollable Area
@@ -194,7 +244,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Action buttons row (Share, Clip, Save)
+                      // Action buttons row (Share, Clip, Save, YouTube App)
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -233,6 +283,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                   );
                                 }
                               },
+                            ),
+                            const SizedBox(width: 8),
+                            _buildActionButton(
+                              icon: Icons.open_in_new,
+                              label: 'Open YouTube',
+                              onTap: _openInYouTubeApp,
                             ),
                           ],
                         ),
@@ -294,6 +350,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             _controller.loadVideoById(videoId: rv.id);
                             setState(() {
                               _video = rv;
+                              _hasPlayerError = false;
                             });
                           },
                         )),
