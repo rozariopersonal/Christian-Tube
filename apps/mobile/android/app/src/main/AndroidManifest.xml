@@ -42,17 +42,6 @@
             </intent-filter>
         </activity>
 
-        <!-- File Provider for Self Updates / Open APK -->
-        <provider
-            android:name="com.crazecoder.openfile.FileProvider"
-            android:authorities="${applicationId}.fileProvider.com.crazecoder.openfile"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
-
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
