@@ -44,6 +44,7 @@ jobs:
       (needs.auto-tag.result == 'success' || needs.auto-tag.result == 'skipped') &&
       (github.event_name != 'push' || github.ref != 'refs/heads/main' || needs.auto-tag.outputs.new_tag != '')
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -60,88 +61,101 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Release Tag
+        id: tag_info
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW_TAG="${{ github.event.inputs.tag }}"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            RAW_TAG="${{ needs.auto-tag.outputs.new_tag }}"
+          else
+            RAW_TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          
+          # Standardize tag formatting
+          RAW_TAG="${RAW_TAG#refs/tags/}"
+          CLEAN_VERSION="${RAW_TAG#v}"
+          FINAL_TAG="v${CLEAN_VERSION}"
+          
+          echo "TAG=$FINAL_TAG" >> $GITHUB_ENV
+          echo "VERSION_NAME=$CLEAN_VERSION" >> $GITHUB_ENV
+          echo "Resolved Release Tag: $FINAL_TAG (Version: $CLEAN_VERSION)"
 
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: 'zulu'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Set up Python for QR Generation
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install Python QR Code Generator
-        run: pip install qrcode[pil]
-
-      - name: Set up Flutter
+      - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.1'
           channel: 'stable'
           cache: true
-
-      - name: Determine Release Tag
-        id: tag_info
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            TAG="${{ needs.auto-tag.outputs.new_tag }}"
-          else
-            TAG="${GITHUB_REF#refs/tags/}"
-          fi
-          echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "Release Tag: $TAG"
 
       - name: Prepare Instance Configuration & Assets
         run: |
           node scripts/prepare-instance.js ${{ matrix.instance }}
 
-      - name: Install Flutter Dependencies
+      - name: Ensure Gradle Permissions
+        run: |
+          if [ -f apps/mobile/android/gradlew ]; then
+            chmod +x apps/mobile/android/gradlew
+          fi
+
+      - name: Install Dependencies
         run: |
           cd apps/mobile
+          flutter --version
           flutter pub get
 
       - name: Build Android Release APK
         run: |
           cd apps/mobile
-          flutter build apk --release --verbose
+          echo "Building Release APK for ${{ matrix.appName }} version ${{ env.VERSION_NAME }}..."
+          flutter build apk --release --build-name="${{ env.VERSION_NAME }}" --verbose
 
-      - name: Stage Release Artifacts
+      - name: Locate & Stage APK
         run: |
-          cp apps/mobile/build/app/outputs/flutter-apk/app-release.apk ./${{ matrix.apkName }}
+          APK_PATH=""
+          if [ -f "apps/mobile/build/app/outputs/flutter-apk/app-release.apk" ]; then
+            APK_PATH="apps/mobile/build/app/outputs/flutter-apk/app-release.apk"
+          elif [ -f "apps/mobile/build/app/outputs/apk/release/app-release.apk" ]; then
+            APK_PATH="apps/mobile/build/app/outputs/apk/release/app-release.apk"
+          else
+            APK_PATH=$(find apps/mobile/build -name "*.apk" | head -n 1)
+          fi
+          
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "::error::Release APK was not generated!"
+            exit 1
+          fi
+          
+          cp "$APK_PATH" ./${{ matrix.apkName }}
+          APK_SIZE=$(ls -lh ./${{ matrix.apkName }} | awk '{print $5}')
+          echo "✅ ${{ matrix.apkName }} successfully built and staged (Size: $APK_SIZE)"
+
+      - name: Generate Companion QR Code
+        run: |
+          sudo apt-get update && sudo apt-get install -y qrencode
           DOWNLOAD_URL="https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/${{ matrix.apkName }}"
-          echo "Generating QR Code for: $DOWNLOAD_URL"
-          python3 -c "import qrcode; img = qrcode.make('$DOWNLOAD_URL'); img.save('download-qrcode.png')"
-
-      - name: Verify Staged Artifacts
-        run: |
+          echo "Generating QR code for: $DOWNLOAD_URL"
+          qrencode -o download-qrcode.png -s 10 -m 2 -l M "$DOWNLOAD_URL"
           ls -la ${{ matrix.apkName }} download-qrcode.png
 
-      - name: Publish Release to Dedicated Repository
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+      - name: Prepare Release Notes
         run: |
-          echo "Publishing ${{ matrix.appName }} release ${{ env.TAG }} to ${{ matrix.releaseRepo }}..."
-          
-          # Delete existing release/tag in target repo if exists to prevent duplication collisions
-          gh release delete "${{ env.TAG }}" --repo "${{ matrix.releaseRepo }}" --yes || true
-          git push "https://${GH_TOKEN}@github.com/${{ matrix.releaseRepo }}.git" --delete "${{ env.TAG }}" || true
-
-          # Create Release in Target Repository
-          gh release create "${{ env.TAG }}" \
-            ./${{ matrix.apkName }} \
-            ./download-qrcode.png \
-            --repo "${{ matrix.releaseRepo }}" \
-            --title "${{ matrix.appName }} ${{ env.TAG }}" \
-            --notes "### 🚀 What's New in ${{ matrix.appName }} ${{ env.TAG }}
+          cat << 'EOF' > release_body.md
+          ### 🚀 What's New in ${{ matrix.appName }} ${{ env.TAG }}
           - Multi-instance PrivateTube white-label engine
           - Modernized interactive update popup modal with in-place download progress
           - High-speed video feed streaming and YouTube sync
@@ -150,5 +164,32 @@ jobs:
           ---
           **Direct Download**: [${{ matrix.apkName }}](https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/${{ matrix.apkName }})
 
-          <img src=\"https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/download-qrcode.png\" width=\"220\" alt=\"Scan to Download APK\" />" \
-            --latest
+          <img src="https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/download-qrcode.png" width="220" alt="Scan to Download APK" />
+          EOF
+
+      - name: Publish Release to Dedicated Repository
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Publishing ${{ matrix.appName }} release ${{ env.TAG }} to ${{ matrix.releaseRepo }}..."
+          
+          # Check if release already exists in target repo
+          if gh release view "${{ env.TAG }}" --repo "${{ matrix.releaseRepo }}" > /dev/null 2>&1; then
+            echo "Release ${{ env.TAG }} already exists. Updating release assets..."
+            gh release upload "${{ env.TAG }}" \
+              --repo "${{ matrix.releaseRepo }}" \
+              --clobber \
+              ./${{ matrix.apkName }} \
+              ./download-qrcode.png
+          else
+            echo "Creating new release ${{ env.TAG }}..."
+            gh release create "${{ env.TAG }}" \
+              ./${{ matrix.apkName }} \
+              ./download-qrcode.png \
+              --repo "${{ matrix.releaseRepo }}" \
+              --title "${{ matrix.appName }} ${{ env.TAG }}" \
+              --notes-file release_body.md \
+              --clobber
+          fi
+          
+          echo "🎉 Successfully published ${{ matrix.appName }} ${{ env.TAG }} to ${{ matrix.releaseRepo }}!"
