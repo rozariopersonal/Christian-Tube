@@ -34,7 +34,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   List<Video> _relatedVideos = [];
   bool _isLoading = true;
   bool _isDescriptionExpanded = false;
-  bool _hasPlayerError = false;
 
   @override
   void initState() {
@@ -46,27 +45,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _initPlayer(String videoId) {
-    _hasPlayerError = false;
-    _controller = YoutubePlayerController.fromVideoId(
-      videoId: videoId,
-      autoPlay: true,
+    _controller = YoutubePlayerController(
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
         showVideoAnnotations: false,
         playsInline: true,
-        enableCaption: true,
-        strictRelatedVideos: false,
+        enableCaption: false,
+        mute: false,
       ),
     );
-
-    _controller.listen((event) {
-      if (event.error != YoutubeError.none && event.error != YoutubeError.unknown) {
-        if (mounted) {
-          setState(() => _hasPlayerError = true);
-        }
-      }
-    });
+    _controller.loadVideoById(videoId: videoId);
   }
 
   Future<void> _loadVideoDetails() async {
@@ -143,35 +132,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 // Top Video Player Container
                 AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      player,
-                      if (_hasPlayerError)
-                        Container(
-                          color: Colors.black87,
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.info_outline, color: Colors.amber, size: 36),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Playback restricted in embedded player.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.white, fontSize: 13),
-                              ),
-                              const SizedBox(height: 12),
-                              ElevatedButton.icon(
-                                onPressed: _openInYouTubeApp,
-                                icon: const Icon(Icons.play_circle_fill, color: Colors.red),
-                                label: const Text('Play on YouTube'),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
+                  child: player,
                 ),
 
                 // Video Metadata & Recommendations Scrollable Area
@@ -350,7 +311,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             _controller.loadVideoById(videoId: rv.id);
                             setState(() {
                               _video = rv;
-                              _hasPlayerError = false;
                             });
                           },
                         )),
