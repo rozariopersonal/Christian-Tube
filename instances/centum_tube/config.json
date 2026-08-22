@@ -10,7 +10,7 @@
     "darkBackground": "#064E3B",
     "lightBackground": "#FFFFFF"
   },
-  "apiBaseUrl": "https://centum-tube-api.onrender.com",
+  "apiBaseUrl": "https://centumtube.onrender.com",
   "releasesRepo": "rozariopersonal/Centum-Tube-Releases",
   "apkFileName": "centum-tube.apk",
   "defaultCategories": [
