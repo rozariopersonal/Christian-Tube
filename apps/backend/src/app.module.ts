@@ -8,6 +8,7 @@ import { ChannelsModule } from './modules/channels/channels.module';
 import { YoutubeModule } from './modules/youtube/youtube.module';
 import { TranscriptionModule } from './modules/transcription/transcription.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { StorageModule } from './modules/storage/storage.module';
       load: [configuration],
     }),
     ScheduleModule.forRoot(),
+    HealthModule,
     PrismaModule,
     StorageModule,
     VideosModule,

@@ -1,0 +1,52 @@
+services:
+  # ─── CentumTube Backend API ───────────────────────────────────────────────
+  - type: web
+    name: centum-tube-api
+    runtime: docker
+    dockerfilePath: deployment/prod/Dockerfile.backend
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: INSTANCE_ID
+        value: centum_tube
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_EclQuYqZ4iF2@ep-withered-moon-ay8lcbkp-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - key: DIRECT_URL
+        value: postgresql://neondb_owner:npg_EclQuYqZ4iF2@ep-withered-moon-ay8lcbkp-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CLOUDFLARE_R2_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_R2_ACCESS_KEY_ID
+        sync: false
+      - key: CLOUDFLARE_R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: CLOUDFLARE_R2_BUCKET_NAME
+        sync: false
+
+  # ─── ChristianTube Backend API ────────────────────────────────────────────
+  - type: web
+    name: christian-tube-api
+    runtime: docker
+    dockerfilePath: deployment/prod/Dockerfile.backend
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: INSTANCE_ID
+        value: christian_tube
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
