@@ -79,7 +79,6 @@ class _UpdateDialogState extends State<UpdateDialog> {
             _isCompleted = true;
             _progress = 1.0;
           });
-          // Auto close dialog after brief completion indication
           Future.delayed(const Duration(milliseconds: 1200), () {
             if (mounted && Navigator.canPop(context)) {
               Navigator.pop(context);
@@ -390,6 +389,19 @@ class _UpdateDialogState extends State<UpdateDialog> {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 10),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () {
+                              final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
+                              if (downloadUrl.isNotEmpty) {
+                                UpdateService.openInBrowser(downloadUrl);
+                              }
+                            },
+                            icon: const Icon(Icons.open_in_browser, size: 16),
+                            label: const Text('Download APK in Browser (Direct Link)'),
+                          ),
                         ),
                       ],
                     ],

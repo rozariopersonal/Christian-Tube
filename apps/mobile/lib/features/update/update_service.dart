@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/app_config.dart';
 import 'widgets/update_dialog.dart';
 
@@ -54,6 +55,13 @@ class UpdateService {
     return UpdateDialog.show(context, updateData);
   }
 
+  static Future<void> openInBrowser(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   static Future<void> downloadAndInstallApkWithProgress({
     required String downloadUrl,
     CancelToken? cancelToken,
@@ -62,13 +70,22 @@ class UpdateService {
     required Function(String error) onError,
   }) async {
     try {
-      final tempDir = await getTemporaryDirectory();
-      final savePath = '${tempDir.path}/${AppConfig.instanceId}-update.apk';
+      Directory? dir;
+      try {
+        final extDirs = await getExternalCacheDirectories();
+        if (extDirs != null && extDirs.isNotEmpty) {
+          dir = extDirs.first;
+        }
+      } catch (_) {}
 
-      // Remove existing file if present
+      dir ??= await getTemporaryDirectory();
+      final savePath = '${dir.path}/${AppConfig.instanceId}-update.apk';
+
       final file = File(savePath);
       if (await file.exists()) {
-        await file.delete();
+        try {
+          await file.delete();
+        } catch (_) {}
       }
 
       final dio = Dio();
@@ -82,13 +99,26 @@ class UpdateService {
       );
 
       onComplete();
-      await OpenFilex.open(savePath);
+
+      final result = await OpenFilex.open(
+        savePath,
+        type: 'application/vnd.android.package-archive',
+      );
+
+      if (result.type != ResultType.done) {
+        debugPrint('OpenFilex result: ${result.message}, opening browser download fallback...');
+        await openInBrowser(downloadUrl);
+      }
     } catch (e) {
       if (CancelToken.isCancel(e as dynamic)) {
-        debugPrint('Download cancelled by user.');
         return;
       }
-      onError('Failed to download update: $e');
+      debugPrint('Direct install error: $e, falling back to browser...');
+      try {
+        await openInBrowser(downloadUrl);
+      } catch (_) {
+        onError('Could not install automatically. Opening browser download...');
+      }
     }
   }
 
