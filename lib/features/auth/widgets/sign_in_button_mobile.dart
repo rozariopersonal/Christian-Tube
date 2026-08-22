@@ -33,7 +33,7 @@ class SignInButtonMobile extends StatelessWidget {
           : Image.network(
               'https://developers.google.com/identity/images/g-logo.png',
               height: 18,
-              errorWidget: (context, error, stackTrace) =>
+              errorBuilder: (context, error, stackTrace) =>
                   const Icon(Icons.account_circle, color: Colors.blue),
             ),
       label: const Text(

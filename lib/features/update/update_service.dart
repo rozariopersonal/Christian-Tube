@@ -73,7 +73,7 @@ class UpdateService {
       );
 
       onComplete();
-      await OpenFilePlus.open(savePath);
+      await OpenFile.open(savePath);
     } catch (e) {
       onError('Failed to download update: $e');
     }

@@ -56,7 +56,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            Image.asset('assets/logo.png', height: 28, errorWidget: (ctx, _, __) => const Icon(Icons.play_circle_fill, color: Colors.blue)),
+            Image.asset('assets/logo.png', height: 28, errorBuilder: (ctx, _, __) => const Icon(Icons.play_circle_fill, color: Colors.blue)),
             const SizedBox(width: 8),
             Text(
               l10n.appTitle,
