@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="org.rozario.christiantube.mobile">
 
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -41,17 +42,6 @@
                 <data android:scheme="https" android:host="christian-tube-six.vercel.app" android:pathPrefix="/watch" />
             </intent-filter>
         </activity>
-
-        <!-- File Provider for Self Updates / Open APK -->
-        <provider
-            android:name="com.crazecoder.openfile.FileProvider"
-            android:authorities="org.rozario.christiantube.mobile.fileProvider.com.crazecoder.openfile"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
 
         <meta-data
             android:name="flutterEmbedding"
