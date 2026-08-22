@@ -15,10 +15,20 @@ export class ChannelsService {
   ) {}
 
   async findAll() {
-    return this.prisma.channel.findMany({
+    const channels = await this.prisma.channel.findMany({
       where: { isActive: true },
+      include: {
+        _count: {
+          select: { videos: true },
+        },
+      },
       orderBy: { name: 'asc' },
     });
+
+    return channels.map((c) => ({
+      ...c,
+      videoCount: c._count.videos,
+    }));
   }
 
   async searchYouTube(query: string) {
