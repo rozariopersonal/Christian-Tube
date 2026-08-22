@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:open_file/open_file.dart';
+import 'package:open_file_plus/open_file_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -73,7 +73,7 @@ class UpdateService {
       );
 
       onComplete();
-      await OpenFile.open(savePath);
+      await OpenFilePlus.open(savePath);
     } catch (e) {
       onError('Failed to download update: $e');
     }
