@@ -39,6 +39,33 @@ class ChannelService extends ChangeNotifier {
     }
   }
 
+  Future<List<Map<String, dynamic>>> searchYouTubeChannels(String query) async {
+    if (query.trim().isEmpty) return [];
+
+    try {
+      dynamic response;
+      try {
+        response = await _apiClient.dio.get(
+          '/api/channels/search-youtube',
+          queryParameters: {'q': query},
+        );
+      } catch (_) {
+        response = await _apiClient.dio.get(
+          '/channels/search-youtube',
+          queryParameters: {'q': query},
+        );
+      }
+
+      if (response.statusCode == 200 && response.data != null) {
+        final List<dynamic> list = response.data is List ? response.data : [];
+        return list.whereType<Map<String, dynamic>>().toList();
+      }
+    } catch (e) {
+      debugPrint('Error searching YouTube channels: $e');
+    }
+    return [];
+  }
+
   Future<bool> addChannel({
     required String channelUrl,
     String? name,
@@ -62,6 +89,20 @@ class ChannelService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error adding channel: $e');
+    }
+    return false;
+  }
+
+  Future<bool> removeChannel(String channelId) async {
+    try {
+      final response = await _apiClient.dio.delete('/channels/$channelId');
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        _channels.removeWhere((c) => c.id == channelId);
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error removing channel: $e');
     }
     return false;
   }

@@ -21,6 +21,48 @@ export class ChannelsService {
     });
   }
 
+  async searchYouTube(query: string) {
+    const apiKey = this.configService.get<string>('youtubeApiKey');
+    if (!apiKey || !query || !query.trim()) {
+      return [];
+    }
+
+    try {
+      const searchUrl = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&q=${encodeURIComponent(query.trim())}&type=channel&part=snippet&maxResults=10`;
+      const searchRes = await axios.get(searchUrl);
+      const items = searchRes.data?.items || [];
+      if (!items.length) return [];
+
+      const channelIds = items.map((it: any) => it.snippet?.channelId || it.id?.channelId).filter(Boolean).join(',');
+      const detailsUrl = `https://www.googleapis.com/youtube/v3/channels?key=${apiKey}&id=${channelIds}&part=snippet,statistics`;
+      const detailsRes = await axios.get(detailsUrl);
+      const detailMap = new Map();
+      for (const d of detailsRes.data?.items || []) {
+        detailMap.set(d.id, d);
+      }
+
+      return items.map((it: any) => {
+        const id = it.snippet?.channelId || it.id?.channelId;
+        const detail = detailMap.get(id);
+        const snippet = detail?.snippet || it.snippet;
+        const stats = detail?.statistics;
+
+        return {
+          id,
+          name: snippet.title,
+          handle: snippet.customUrl || null,
+          description: snippet.description || null,
+          thumbnail: snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url,
+          subscriberCount: stats?.subscriberCount ? parseInt(stats.subscriberCount) : null,
+          videoCount: stats?.videoCount ? parseInt(stats.videoCount) : null,
+        };
+      });
+    } catch (e: any) {
+      this.logger.error(`YouTube channel search error: ${e.message}`);
+      return [];
+    }
+  }
+
   async addChannel(data: { channelUrl: string; name?: string; category?: string; language?: string }) {
     let rawUrl = (data.channelUrl || '').trim();
     let channelId = rawUrl;
@@ -96,6 +138,27 @@ export class ChannelsService {
       message: 'Channel successfully added and video ingestion started',
       channel,
     };
+  }
+
+  async removeChannel(id: string) {
+    try {
+      await this.prisma.video.deleteMany({
+        where: { channelId: id },
+      });
+
+      const deleted = await this.prisma.channel.delete({
+        where: { id },
+      });
+
+      return {
+        status: 'success',
+        message: `Channel ${deleted.name} (${id}) and videos removed successfully`,
+        channel: deleted,
+      };
+    } catch (e: any) {
+      this.logger.error(`Error removing channel ${id}: ${e.message}`);
+      throw e;
+    }
   }
 
   async createRequest(data: { channelUrl: string; notes?: string; submittedBy?: string }) {
