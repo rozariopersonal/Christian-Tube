@@ -4,16 +4,14 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN npm install -g pnpm@latest
 
-COPY package.json pnpm-workspace.yaml ./
 COPY instances ./instances
 COPY apps/backend ./apps/backend
 
 WORKDIR /app/apps/backend
-RUN pnpm install --frozen-lockfile=false
+RUN npm install
 RUN npx prisma generate
-RUN pnpm build
+RUN npm run build
 
 # ─── Stage 2: Runner ──────────────────────────────────────────────────────────
 FROM node:20-bookworm-slim AS runner
@@ -24,14 +22,12 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN npm install -g pnpm@latest
 
-COPY package.json pnpm-workspace.yaml ./
 COPY instances ./instances
 COPY apps/backend ./apps/backend
 
 WORKDIR /app/apps/backend
-RUN pnpm install --prod --frozen-lockfile=false
+RUN npm install --omit=dev
 RUN npx prisma generate
 COPY --from=builder /app/apps/backend/dist ./dist
 
