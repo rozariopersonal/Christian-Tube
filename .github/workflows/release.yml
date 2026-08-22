@@ -112,7 +112,7 @@ jobs:
       - name: Build Android Release APK
         run: |
           cd apps/mobile
-          flutter build apk --release
+          flutter build apk --release --verbose
 
       - name: Stage Release Artifacts
         run: |
