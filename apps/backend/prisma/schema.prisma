@@ -21,7 +21,7 @@ enum TranscriptionStatus {
 }
 
 model Video {
-  id                     String              @id // YouTube Video ID (e.g. 'lNbeI0hr9GQ')
+  id                     String              @id // YouTube Video ID
   type                   VideoType           @default(VIDEO)
   title                  String
   description            String              @db.Text
@@ -36,13 +36,12 @@ model Video {
   tags                   String[]            @default([])
   category               String?
 
-  // Transcription fields
   transcriptionStatus    TranscriptionStatus @default(pending)
   transcriptionProgress  Int?
   transcriptionRetryCount Int                @default(0)
   transcriptionDetail    Json?
   lastTranscriptionError String?
-  content                String?             @db.Text // Full generated transcript / summary
+  content                String?             @db.Text
 
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
@@ -56,7 +55,7 @@ model Video {
 }
 
 model Channel {
-  id              String         @id // YouTube Channel ID (e.g. 'UCRnhKlRzq9yepl9QPrj_2iQ')
+  id              String         @id // YouTube Channel ID
   name            String
   description     String?        @db.Text
   thumbnail       String?
@@ -82,4 +81,19 @@ model ChannelRequest {
   submittedBy     String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+}
+
+model User {
+  id          String   @id
+  email       String   @unique
+  displayName String?
+  photoUrl    String?
+  isBlocked   Boolean  @default(false)
+  role        String   @default("USER") // "ADMIN" or "USER"
+  lastLoginAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isBlocked])
+  @@index([email])
 }

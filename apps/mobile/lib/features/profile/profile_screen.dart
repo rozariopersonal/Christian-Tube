@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../auth/auth_service.dart';
-import '../auth/widgets/sign_in_button.dart';
 import '../channels/channel_service.dart';
 import '../history/history_screen.dart';
+import 'admin_users_screen.dart';
 import 'playlist_detail_screen.dart';
 import 'settings_screen.dart';
 import 'subscriptions_screen.dart';
@@ -26,23 +26,31 @@ class ProfileScreen extends StatelessWidget {
 
   void _showQuickSignInDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Quick Sign-In to ${AppConfig.appName}'),
+        title: Text('Sign In to ${AppConfig.appName}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Enter your name to personalize your watch history, playlists, and channel subscriptions.',
+              'Enter your email to sign in or access Admin features if configured.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: nameCtrl,
               decoration: const InputDecoration(
-                labelText: 'Your Name or Nickname',
-                hintText: 'e.g. Alex, Maya',
+                labelText: 'Display Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Email Address',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -56,9 +64,9 @@ class ProfileScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              authService.signInAsGuest(nameCtrl.text);
+              authService.signInAsGuest(nameCtrl.text, emailCtrl.text);
             },
-            child: const Text('Start Watching'),
+            child: const Text('Sign In'),
           ),
         ],
       ),
@@ -67,10 +75,13 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return AnimatedBuilder(
       animation: Listenable.merge([authService, userService]),
       builder: (context, _) {
         final user = authService.currentUser;
+        final isAdmin = authService.isAdmin;
 
         return Scaffold(
           appBar: AppBar(
@@ -112,13 +123,30 @@ class ProfileScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(user.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                              ),
+                              if (isAdmin) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text('ADMIN', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ],
+                          ),
                           Text(user.email, style: const TextStyle(color: Colors.grey, fontSize: 13)),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.logout),
+                      icon: const Icon(Icons.logout, color: Colors.grey),
                       tooltip: 'Sign Out',
                       onPressed: () => authService.signOut(),
                     ),
@@ -126,50 +154,80 @@ class ProfileScreen extends StatelessWidget {
                 )
               else
                 Card(
-                  elevation: 2,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        Icon(Icons.account_circle, size: 54, color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Welcome to ${AppConfig.appName}',
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 6),
                         const Text(
-                          'Sign in to sync your playlists, favorites & subscriptions across devices',
+                          'Enjoy personalized watch history, subscriptions, and playlists.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: Colors.grey),
+                          style: TextStyle(fontSize: 13),
                         ),
-                        const SizedBox(height: 16),
-                        SignInButton(
-                          isLoading: authService.isLoading,
-                          onPressed: () async {
-                            final u = await authService.signInWithGoogle();
-                            if (u == null && context.mounted) {
-                              _showQuickSignInDialog(context);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed: () => _showQuickSignInDialog(context),
-                          icon: const Icon(Icons.flash_on, size: 16),
-                          label: const Text('Quick Sign-In (Guest Profile)'),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () => _showQuickSignInDialog(context),
+                              icon: const Icon(Icons.login),
+                              label: const Text('Sign In'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                 ),
-              const SizedBox(height: 24),
 
-              // Navigation Links
+              const SizedBox(height: 20),
+
+              // ADMIN CONSOLE SECTION (If Admin)
+              if (isAdmin) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isDark ? Colors.white10 : Colors.blue.shade100),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.admin_panel_settings, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Text('Admin Console', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.blue.shade900)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.people_alt_outlined, color: Colors.blue),
+                        title: const Text('User Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('View registered users, block or unblock accounts', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (ctx) => AdminUsersScreen(userService: userService),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // History Section
               ListTile(
+                contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.history),
-                title: const Text('History'),
+                title: const Text('History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.push(
@@ -180,9 +238,12 @@ class ProfileScreen extends StatelessWidget {
                   );
                 },
               ),
+
+              // Subscriptions Section
               ListTile(
+                contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.subscriptions_outlined),
-                title: const Text('Subscriptions'),
+                title: const Text('Subscriptions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.push(
@@ -193,25 +254,84 @@ class ProfileScreen extends StatelessWidget {
                   );
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.playlist_play),
-                title: const Text('Your Playlists'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  if (userService.playlists.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (ctx) => PlaylistDetailScreen(playlist: userService.playlists.first),
-                      ),
-                    );
-                  }
-                },
+
+              const Divider(height: 32),
+
+              // Playlists Section Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Playlists', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  TextButton.icon(
+                    onPressed: () => _showCreatePlaylistDialog(context),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('New'),
+                  ),
+                ],
               ),
+
+              if (userService.playlists.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: Text('No playlists yet. Create your first playlist!', style: TextStyle(color: Colors.grey))),
+                )
+              else
+                ...userService.playlists.map(
+                  (p) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.playlist_play, color: Colors.black87),
+                    ),
+                    title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text('${p.videoCount} videos', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (ctx) => PlaylistDetailScreen(playlist: p),
+                        ),
+                      );
+                    },
+                  ),
+                ),
             ],
           ),
         );
       },
+    );
+  }
+
+  void _showCreatePlaylistDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New Playlist'),
+        content: TextField(
+          controller: titleController,
+          decoration: const InputDecoration(labelText: 'Playlist Title', border: OutlineInputBorder()),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (titleController.text.trim().isNotEmpty) {
+                userService.createPlaylist(titleController.text.trim(), null);
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
     );
   }
 }
