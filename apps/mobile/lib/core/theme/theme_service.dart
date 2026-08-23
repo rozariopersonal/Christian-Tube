@@ -53,15 +53,14 @@ class ThemeService extends ChangeNotifier {
         primary: primaryColor,
         secondary: accentColor,
         surface: Colors.white,
-        background: const Color(0xFFF8FAFC),
       ),
       scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.black.withOpacity(0.06)),
+          side: BorderSide(color: Colors.black.withValues(alpha: 0.06)),
         ),
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
@@ -99,15 +98,14 @@ class ThemeService extends ChangeNotifier {
         primary: primaryColor,
         secondary: accentColor,
         surface: const Color(0xFF161B26),
-        background: const Color(0xFF0F172A),
       ),
       scaffoldBackgroundColor: const Color(0xFF0F172A),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFF161B26),
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withOpacity(0.08)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),

@@ -8,6 +8,9 @@ class Channel {
   final int videoCount;
   final bool isSubscribed;
 
+  String get name => title;
+  String get thumbnail => avatarUrl;
+
   const Channel({
     required this.id,
     required this.title,
@@ -42,14 +45,32 @@ class Channel {
   }
 
   factory Channel.fromJson(Map<String, dynamic> json) {
+    int parsedSubs = 0;
+    if (json['subscriberCount'] is int) {
+      parsedSubs = json['subscriberCount'];
+    } else if (json['subscriberCount'] != null) {
+      parsedSubs = int.tryParse(json['subscriberCount'].toString()) ?? 0;
+    } else if (json['subscriber_count'] != null) {
+      parsedSubs = int.tryParse(json['subscriber_count'].toString()) ?? 0;
+    }
+
+    int parsedVideos = 0;
+    if (json['videoCount'] is int) {
+      parsedVideos = json['videoCount'];
+    } else if (json['videoCount'] != null) {
+      parsedVideos = int.tryParse(json['videoCount'].toString()) ?? 0;
+    } else if (json['video_count'] != null) {
+      parsedVideos = int.tryParse(json['video_count'].toString()) ?? 0;
+    }
+
     return Channel(
       id: json['id'] ?? json['channelId'] ?? json['_id'] ?? '',
-      title: json['title'] ?? json['channelTitle'] ?? 'Channel',
+      title: json['title'] ?? json['name'] ?? json['channelTitle'] ?? 'Channel',
       description: json['description'],
-      avatarUrl: json['avatarUrl'] ?? json['avatar_url'] ?? json['thumbnailUrl'] ?? '',
+      avatarUrl: json['avatarUrl'] ?? json['thumbnail'] ?? json['avatar_url'] ?? json['thumbnailUrl'] ?? '',
       bannerUrl: json['bannerUrl'] ?? json['banner_url'],
-      subscriberCount: json['subscriberCount'] ?? json['subscriber_count'] ?? 0,
-      videoCount: json['videoCount'] ?? json['video_count'] ?? 0,
+      subscriberCount: parsedSubs,
+      videoCount: parsedVideos,
       isSubscribed: json['isSubscribed'] ?? json['is_subscribed'] ?? false,
     );
   }
