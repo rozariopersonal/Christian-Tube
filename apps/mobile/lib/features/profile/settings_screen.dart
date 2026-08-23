@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import '../../core/config/app_config.dart';
 import '../../core/theme/theme_service.dart';
 import '../update/update_service.dart';
 
@@ -15,6 +14,25 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _version = '1.28.0';
+
+  final List<Map<String, String>> _languages = [
+    {'code': 'en', 'name': 'English', 'native': 'English'},
+    {'code': 'es', 'name': 'Spanish', 'native': 'Español'},
+    {'code': 'fr', 'name': 'French', 'native': 'Français'},
+    {'code': 'ta', 'name': 'Tamil', 'native': 'தமிழ்'},
+    {'code': 'hi', 'name': 'Hindi', 'native': 'हिन्दी'},
+    {'code': 'pt', 'name': 'Portuguese', 'native': 'Português'},
+    {'code': 'de', 'name': 'German', 'native': 'Deutsch'},
+  ];
+
+  final List<String> _fonts = [
+    'Inter',
+    'Outfit',
+    'Roboto',
+    'Poppins',
+    'Nunito',
+    'Playfair Display',
+  ];
 
   @override
   void initState() {
@@ -39,74 +57,183 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return AnimatedBuilder(
       animation: widget.themeService,
       builder: (context, _) {
+        final currentColorTheme = widget.themeService.colorTheme;
+        final currentFont = widget.themeService.fontFamily;
+        final currentLang = widget.themeService.languageCode;
+
         return Scaffold(
-          appBar: AppBar(title: const Text('Settings')),
+          appBar: AppBar(title: const Text('Settings & Customization')),
           body: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text(
-                  'Appearance',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: theme.colorScheme.primary,
+              // SECTION 1: COLOR THEMES
+              _buildSectionHeader('Color Theme & Accent', theme.colorScheme.primary),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Choose an accent color for the entire interface:',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: AppColorTheme.values.map((colTheme) {
+                          final isSelected = currentColorTheme == colTheme;
+                          return InkWell(
+                            onTap: () => widget.themeService.setColorTheme(colTheme),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? colTheme.color.withValues(alpha: 0.15)
+                                    : (isDark ? Colors.grey.shade900 : Colors.grey.shade100),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected ? colTheme.color : Colors.transparent,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 9,
+                                    backgroundColor: colTheme.color,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    colTheme.name,
+                                    style: TextStyle(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      fontSize: 12,
+                                      color: isSelected ? colTheme.color : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ),
                 ),
               ),
+
+              const SizedBox(height: 12),
+
+              // SECTION 2: APPEARANCE / DARK MODE
+              _buildSectionHeader('Theme Mode', theme.colorScheme.primary),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 child: Column(
                   children: [
-                    RadioListTile<ThemeMode>(
+                    ListTile(
+                      leading: const Icon(Icons.settings_brightness),
                       title: const Text('System Default'),
-                      subtitle: const Text('Match your device theme settings'),
-                      secondary: const Icon(Icons.settings_brightness),
-                      value: ThemeMode.system,
-                      groupValue: widget.themeService.themeMode,
-                      onChanged: (mode) {
-                        if (mode != null) widget.themeService.setThemeMode(mode);
-                      },
+                      subtitle: const Text('Match device light/dark mode'),
+                      trailing: widget.themeService.themeMode == ThemeMode.system
+                          ? Icon(Icons.check, color: theme.colorScheme.primary)
+                          : null,
+                      onTap: () => widget.themeService.setThemeMode(ThemeMode.system),
                     ),
                     const Divider(height: 1),
-                    RadioListTile<ThemeMode>(
+                    ListTile(
+                      leading: const Icon(Icons.dark_mode_outlined),
                       title: const Text('Dark Mode'),
                       subtitle: const Text('Sleek dark theme for low light'),
-                      secondary: const Icon(Icons.dark_mode_outlined),
-                      value: ThemeMode.dark,
-                      groupValue: widget.themeService.themeMode,
-                      onChanged: (mode) {
-                        if (mode != null) widget.themeService.setThemeMode(mode);
-                      },
+                      trailing: widget.themeService.themeMode == ThemeMode.dark
+                          ? Icon(Icons.check, color: theme.colorScheme.primary)
+                          : null,
+                      onTap: () => widget.themeService.setThemeMode(ThemeMode.dark),
                     ),
                     const Divider(height: 1),
-                    RadioListTile<ThemeMode>(
+                    ListTile(
+                      leading: const Icon(Icons.light_mode_outlined),
                       title: const Text('Light Mode'),
                       subtitle: const Text('Bright and clean theme'),
-                      secondary: const Icon(Icons.light_mode_outlined),
-                      value: ThemeMode.light,
-                      groupValue: widget.themeService.themeMode,
-                      onChanged: (mode) {
-                        if (mode != null) widget.themeService.setThemeMode(mode);
-                      },
+                      trailing: widget.themeService.themeMode == ThemeMode.light
+                          ? Icon(Icons.check, color: theme.colorScheme.primary)
+                          : null,
+                      onTap: () => widget.themeService.setThemeMode(ThemeMode.light),
+                    ),
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      secondary: const Icon(Icons.brightness_2_outlined),
+                      title: const Text('Pure OLED Black'),
+                      subtitle: const Text('Deep AMOLED black background in dark mode'),
+                      value: widget.themeService.isAmoled,
+                      activeThumbColor: theme.colorScheme.primary,
+                      onChanged: (val) => widget.themeService.setAmoled(val),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text(
-                  'About & Updates',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: theme.colorScheme.primary,
+              const SizedBox(height: 12),
+
+              // SECTION 3: TYPOGRAPHY & FONT SELECTION
+              _buildSectionHeader('Typography & Font Style', theme.colorScheme.primary),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Select a font family for the app:',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _fonts.map((font) {
+                          final isSelected = currentFont == font;
+                          return ChoiceChip(
+                            label: Text(font),
+                            selected: isSelected,
+                            selectedColor: theme.colorScheme.primary.withValues(alpha: 0.2),
+                            onSelected: (_) => widget.themeService.setFontFamily(font),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ),
                 ),
               ),
+
+              const SizedBox(height: 12),
+
+              // SECTION 4: APP LANGUAGE
+              _buildSectionHeader('App Language', theme.colorScheme.primary),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Column(
+                  children: _languages.map((lang) {
+                    final isSelected = currentLang == lang['code'];
+                    return ListTile(
+                      title: Text(lang['name']!),
+                      subtitle: Text(lang['native']!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      trailing: isSelected ? Icon(Icons.check_circle, color: theme.colorScheme.primary) : null,
+                      onTap: () => widget.themeService.setLanguage(lang['code']!),
+                    );
+                  }).toList(),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // SECTION 5: UPDATES & ABOUT
+              _buildSectionHeader('About & Updates', theme.colorScheme.primary),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 child: Column(
@@ -118,29 +245,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () async {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Checking for latest version...')),
+                          const SnackBar(content: Text('Checking for new releases...')),
                         );
                         final update = await UpdateService.checkForUpdate();
-                        if (update != null && context.mounted) {
+                        if (!context.mounted) return;
+                        if (update != null) {
                           UpdateService.showUpdatePopup(context, update);
-                        } else if (context.mounted) {
+                        } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('You are already on the latest version!'),
-                              backgroundColor: Color(0xFF10B981),
+                              content: Text('You are on the latest version!'),
+                              backgroundColor: Colors.green,
                             ),
                           );
                         }
-                      },
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.info_outline),
-                      title: Text('${AppConfig.appName} Open Source'),
-                      subtitle: Text('https://github.com/${AppConfig.releasesRepo}'),
-                      trailing: const Icon(Icons.open_in_new, size: 16),
-                      onTap: () {
-                        UpdateService.openInBrowser('https://github.com/${AppConfig.releasesRepo}');
                       },
                     ),
                   ],
@@ -150,6 +268,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSectionHeader(String title, Color color) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+          color: color,
+        ),
+      ),
     );
   }
 }

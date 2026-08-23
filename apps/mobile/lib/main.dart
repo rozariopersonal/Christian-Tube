@@ -129,9 +129,10 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
         return MaterialApp.router(
           title: AppConfig.appName,
           debugShowCheckedModeBanner: false,
-          theme: ThemeService.lightTheme,
-          darkTheme: ThemeService.darkTheme,
+          theme: _themeService.lightTheme,
+          darkTheme: _themeService.darkTheme,
           themeMode: _themeService.themeMode,
+          locale: _themeService.locale,
           routerConfig: _router,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
