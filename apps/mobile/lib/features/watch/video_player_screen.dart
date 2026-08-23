@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
+import '../../core/utils/formatters.dart';
 import '../../shared/ui/channel_avatar.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 import '../../shared/ui/video_options_bottom_sheet.dart';
@@ -55,6 +56,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _playlist = widget.playlist != null ? List.from(widget.playlist!) : [];
     _playlistIndex = widget.initialPlaylistIndex;
     
+    _channelService.loadSubscriptions();
+    _channelService.fetchChannels();
     _initIframeController(_activeVideoId);
     _loadVideoDetails();
     _loadRelatedVideos();
@@ -200,6 +203,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final hasPlaylist = _playlist.isNotEmpty;
 
     return YoutubePlayerScaffold(
@@ -261,42 +265,65 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           onToggleAutoplay: (val) => setState(() => _isAutoplay = val),
                         ),
 
-                      // Channel Header (Avatar, Title, Subscribe Button)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            ChannelAvatar(
-                              avatarUrl: _video?.channelAvatarUrl,
-                              channelTitle: _video?.channelTitle ?? 'Channel',
-                              radius: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _video?.channelTitle ?? 'Channel',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                      // Channel Header (Avatar, Title, Dynamic Subscribe Button)
+                      AnimatedBuilder(
+                        animation: _channelService,
+                        builder: (context, _) {
+                          final isSubscribed = _video?.channelId.isNotEmpty == true &&
+                              _channelService.subscribedChannelIds.contains(_video!.channelId);
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Row(
+                              children: [
+                                ChannelAvatar(
+                                  avatarUrl: _video?.channelAvatarUrl,
+                                  channelTitle: _video?.channelTitle ?? 'Channel',
+                                  radius: 20,
                                 ),
-                              ),
-                            ),
-                            OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(color: theme.colorScheme.primary),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _video?.channelTitle ?? 'Channel',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                      ),
+                                      if (_video?.subscriberCount != null)
+                                        Text(
+                                          '${Formatters.formatSubscribers(_video!.subscriberCount)} subs',
+                                          style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              onPressed: () {
-                                if (_video?.channelId.isNotEmpty == true) {
-                                  _channelService.toggleSubscribe(_video!.channelId);
-                                }
-                              },
-                              child: const Text('Subscribe'),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isSubscribed
+                                        ? (isDark ? Colors.grey.shade800 : Colors.grey.shade200)
+                                        : theme.colorScheme.primary,
+                                    foregroundColor: isSubscribed
+                                        ? (isDark ? Colors.white70 : Colors.black87)
+                                        : Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  ),
+                                  onPressed: () {
+                                    if (_video?.channelId.isNotEmpty == true) {
+                                      _channelService.toggleSubscribe(_video!.channelId);
+                                    }
+                                  },
+                                  child: Text(
+                                    isSubscribed ? 'Subscribed' : 'Subscribe',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 16),
 

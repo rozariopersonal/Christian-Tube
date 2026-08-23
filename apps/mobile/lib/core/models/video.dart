@@ -6,6 +6,7 @@ class Video {
   final String channelId;
   final String channelTitle;
   final String? channelAvatarUrl;
+  final String? subscriberCount;
   final int viewCount;
   final DateTime publishedAt;
   final String? duration;
@@ -20,6 +21,7 @@ class Video {
     required this.channelId,
     required this.channelTitle,
     this.channelAvatarUrl,
+    this.subscriberCount,
     this.viewCount = 0,
     required this.publishedAt,
     this.duration,
@@ -41,6 +43,7 @@ class Video {
       channelId: json['channelId'] ?? json['channel_id'] ?? '',
       channelTitle: json['channelTitle'] ?? json['channel_title'] ?? json['channelName'] ?? json['channel_name'] ?? 'Channel',
       channelAvatarUrl: json['channelAvatarUrl'] ?? json['channel_avatar_url'] ?? json['channelThumbnail'],
+      subscriberCount: json['subscriberCount'] ?? json['channelSubscriberCount'] ?? json['subscribers'],
       viewCount: json['viewCount'] ?? json['view_count'] ?? 0,
       publishedAt: json['publishedAt'] != null 
           ? DateTime.tryParse(json['publishedAt'].toString()) ?? DateTime.now()
@@ -60,6 +63,7 @@ class Video {
       'channelId': channelId,
       'channelTitle': channelTitle,
       'channelAvatarUrl': channelAvatarUrl,
+      'subscriberCount': subscriberCount,
       'viewCount': viewCount,
       'publishedAt': publishedAt.toIso8601String(),
       'duration': duration,
