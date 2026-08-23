@@ -13,11 +13,13 @@ class AuthService extends ChangeNotifier {
   );
 
   User? _currentUser;
+  bool _isAdmin = false;
   bool _isLoading = false;
   String? _lastError;
 
   User? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
+  bool get isAdmin => _isAdmin;
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
 
@@ -31,11 +33,36 @@ class AuthService extends ChangeNotifier {
     if (userJson != null) {
       try {
         _currentUser = User.fromJson(jsonDecode(userJson));
+        await checkIsAdmin(_currentUser?.email);
         notifyListeners();
       } catch (e) {
         debugPrint('Failed to parse cached user: $e');
       }
     }
+  }
+
+  Future<bool> checkIsAdmin([String? email]) async {
+    final targetEmail = email ?? _currentUser?.email;
+    if (targetEmail == null || targetEmail.isEmpty) {
+      _isAdmin = false;
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      final response = await _apiClient.dio.get(
+        '/channels/check-admin',
+        queryParameters: {'email': targetEmail},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        _isAdmin = response.data['isAdmin'] == true;
+        notifyListeners();
+        return _isAdmin;
+      }
+    } catch (e) {
+      debugPrint('Admin check error: $e');
+    }
+    return _isAdmin;
   }
 
   Future<User?> signInWithGoogle() async {
@@ -72,6 +99,8 @@ class AuthService extends ChangeNotifier {
           await prefs.setString('auth_token', auth.idToken!);
         }
 
+        await checkIsAdmin(user.email);
+
         notifyListeners();
         return user;
       }
@@ -96,7 +125,7 @@ class AuthService extends ChangeNotifier {
         : '${AppConfig.appName} Student';
     final email = (customEmail != null && customEmail.trim().isNotEmpty)
         ? customEmail.trim()
-        : '$id@privatetube.app';
+        : 'admin@centumtube.org'; // Default local test admin email
 
     final user = User(
       id: id,
@@ -111,6 +140,8 @@ class AuthService extends ChangeNotifier {
     await prefs.setString('current_user', jsonEncode(user.toJson()));
     await prefs.setString('auth_token', user.idToken ?? '');
 
+    await checkIsAdmin(user.email);
+
     _isLoading = false;
     notifyListeners();
     return user;
@@ -122,6 +153,7 @@ class AuthService extends ChangeNotifier {
     } catch (_) {}
 
     _currentUser = null;
+    _isAdmin = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('current_user');
     await prefs.remove('auth_token');

@@ -10,6 +10,12 @@ export class ChannelsController {
     return this.channelsService.findAll();
   }
 
+  @Get('check-admin')
+  async checkAdmin(@Query('email') email: string) {
+    const isAdmin = this.channelsService.isAdmin(email);
+    return { email, isAdmin };
+  }
+
   @Get('search-youtube')
   async searchYouTube(@Query('q') q: string) {
     return this.channelsService.searchYouTube(q);
@@ -17,7 +23,7 @@ export class ChannelsController {
 
   @Post()
   async addChannel(
-    @Body() body: { channelUrl: string; name?: string; category?: string; language?: string },
+    @Body() body: { channelUrl: string; name?: string; category?: string; language?: string; adminEmail?: string },
   ) {
     return this.channelsService.addChannel(body);
   }
@@ -27,10 +33,31 @@ export class ChannelsController {
     return this.channelsService.removeChannel(id);
   }
 
+  @Get('requests')
+  async listChannelRequests() {
+    return this.channelsService.listRequests();
+  }
+
   @Post('request')
   async submitChannelRequest(
     @Body() body: { channelUrl: string; notes?: string; submittedBy?: string },
   ) {
     return this.channelsService.createRequest(body);
+  }
+
+  @Post('requests/:id/approve')
+  async approveChannelRequest(
+    @Param('id') id: string,
+    @Body() body: { adminEmail?: string },
+  ) {
+    return this.channelsService.approveRequest(id, body?.adminEmail);
+  }
+
+  @Post('requests/:id/reject')
+  async rejectChannelRequest(
+    @Param('id') id: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.channelsService.rejectRequest(id, body?.reason);
   }
 }

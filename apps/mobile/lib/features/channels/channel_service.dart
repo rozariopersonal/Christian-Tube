@@ -7,11 +7,15 @@ import '../../core/models/channel_request.dart';
 class ChannelService extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
   List<Channel> _channels = [];
+  List<Map<String, dynamic>> _channelRequests = [];
   bool _isLoading = false;
+  bool _isLoadingRequests = false;
   Set<String> _subscribedIds = {};
 
   List<Channel> get channels => _channels;
+  List<Map<String, dynamic>> get channelRequests => _channelRequests;
   bool get isLoading => _isLoading;
+  bool get isLoadingRequests => _isLoadingRequests;
   Set<String> get subscribedChannelIds => _subscribedIds;
 
   Future<void> loadSubscriptions() async {
@@ -63,6 +67,24 @@ class ChannelService extends ChangeNotifier {
     }
   }
 
+  Future<void> fetchRequests() async {
+    _isLoadingRequests = true;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.dio.get('/channels/requests');
+      if (response.statusCode == 200 && response.data != null) {
+        final List<dynamic> list = response.data is List ? response.data : [];
+        _channelRequests = list.whereType<Map<String, dynamic>>().toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching channel requests: $e');
+    } finally {
+      _isLoadingRequests = false;
+      notifyListeners();
+    }
+  }
+
   Future<List<Map<String, dynamic>>> searchYouTubeChannels(String query) async {
     if (query.trim().isEmpty) return [];
 
@@ -95,6 +117,7 @@ class ChannelService extends ChangeNotifier {
     String? name,
     String? category,
     String? language,
+    String? adminEmail,
   }) async {
     try {
       final response = await _apiClient.dio.post(
@@ -104,6 +127,7 @@ class ChannelService extends ChangeNotifier {
           'name': name,
           'category': category,
           'language': language,
+          'adminEmail': adminEmail,
         },
       );
 
@@ -140,11 +164,44 @@ class ChannelService extends ChangeNotifier {
         data: request.toJson(),
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await fetchChannels();
+        await fetchRequests();
         return true;
       }
     } catch (e) {
       debugPrint('Error submitting channel request: $e');
+    }
+    return false;
+  }
+
+  Future<bool> approveRequest(String requestId, [String? adminEmail]) async {
+    try {
+      final response = await _apiClient.dio.post(
+        '/channels/requests/$requestId/approve',
+        data: {'adminEmail': adminEmail},
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await fetchChannels();
+        await fetchRequests();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error approving channel request: $e');
+    }
+    return false;
+  }
+
+  Future<bool> rejectRequest(String requestId, [String? reason]) async {
+    try {
+      final response = await _apiClient.dio.post(
+        '/channels/requests/$requestId/reject',
+        data: {'reason': reason},
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await fetchRequests();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error rejecting channel request: $e');
     }
     return false;
   }

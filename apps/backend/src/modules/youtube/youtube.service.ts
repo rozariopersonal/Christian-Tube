@@ -34,35 +34,9 @@ export class YoutubeService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      await this.seedInitialChannels();
       await this.refreshAllChannelMetadata();
     } catch (e: any) {
-      this.logger.warn(`Could not complete initial channel initialization on boot: ${e.message}`);
-    }
-  }
-
-  async seedInitialChannels() {
-    const seedChannels = this.configService.get<any[]>('seedChannels') || [];
-    if (!seedChannels.length) return;
-
-    this.logger.log(`Checking ${seedChannels.length} seed channels for instance...`);
-    for (const sc of seedChannels) {
-      const exists = await this.prisma.channel.findUnique({
-        where: { id: sc.id },
-      });
-
-      if (!exists) {
-        await this.prisma.channel.create({
-          data: {
-            id: sc.id,
-            name: sc.name,
-            category: sc.category,
-            language: sc.language,
-            isActive: true,
-          },
-        });
-        this.logger.log(`Seeded channel: ${sc.name} (${sc.id})`);
-      }
+      this.logger.warn(`Initial channel sync on boot skipped: ${e.message}`);
     }
   }
 
@@ -102,7 +76,6 @@ export class YoutubeService implements OnModuleInit {
             subscriberCount: subscriberCount || undefined,
           },
         });
-        this.logger.log(`Updated channel metadata for ${title} (${id}): ${subscriberCount} subscribers`);
       }
     } catch (err: any) {
       this.logger.error(`Error refreshing channel metadata: ${err.message}`);
@@ -137,7 +110,7 @@ export class YoutubeService implements OnModuleInit {
     if (!this.apiKey) return;
 
     // 1. Search recent uploads
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?key=${this.apiKey}&channelId=${channelId}&part=snippet,id&order=date&maxResults=20`;
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?key=${this.apiKey}&channelId=${channelId}&part=snippet,id&order=date&maxResults=25`;
     const searchResponse = await axios.get(searchUrl);
 
     if (searchResponse.data && searchResponse.data.items) {
@@ -155,7 +128,6 @@ export class YoutubeService implements OnModuleInit {
         detailMap.set(d.id, d);
       }
 
-      // Fetch channel thumbnail
       const channel = await this.prisma.channel.findUnique({
         where: { id: channelId },
       });
@@ -201,7 +173,6 @@ export class YoutubeService implements OnModuleInit {
             transcriptionStatus: 'pending',
           },
         });
-        this.logger.log(`Upserted video: "${snippet.title}" (${duration}) [${videoId}]`);
       }
 
       await this.prisma.channel.update({

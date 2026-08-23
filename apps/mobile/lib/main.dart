@@ -11,7 +11,6 @@ import 'features/feed/video_feed_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/user_service.dart';
 import 'features/search/search_screen.dart';
-import 'features/shorts/shorts_feed_screen.dart';
 import 'features/watch/video_player_screen.dart';
 import 'features/watch_plans/watch_plans_screen.dart';
 import 'l10n/app_localizations.dart';
@@ -52,6 +51,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             return MainLayoutScreen(navigationShell: navigationShell);
           },
           branches: [
+            // Tab 1: Home Feed (Subscribed only)
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -60,14 +60,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 ),
               ],
             ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/shorts',
-                  builder: (context, state) => const ShortsFeedScreen(),
-                ),
-              ],
-            ),
+            // Tab 2: Channels (Browse & Subscribe for Users / Manage & Requests for Admin)
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -76,6 +69,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 ),
               ],
             ),
+            // Tab 3: Watch Plans & Playlists
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -84,6 +78,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 ),
               ],
             ),
+            // Tab 4: Profile / Settings
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -103,8 +98,19 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
           path: '/watch/:id',
           builder: (context, state) {
             final videoId = state.pathParameters['id'] ?? '';
-            final video = state.extra as Video?;
-            return VideoPlayerScreen(videoId: videoId, initialVideo: video);
+            final extraMap = state.extra as Map<String, dynamic>?;
+            final video = extraMap?['video'] as Video?;
+            final playlist = extraMap?['playlist'] as List<Video>?;
+            final playlistTitle = extraMap?['playlistTitle'] as String?;
+            final initialIndex = extraMap?['initialIndex'] as int? ?? 0;
+
+            return VideoPlayerScreen(
+              videoId: videoId,
+              initialVideo: video,
+              playlist: playlist,
+              playlistTitle: playlistTitle,
+              initialPlaylistIndex: initialIndex,
+            );
           },
         ),
         GoRoute(

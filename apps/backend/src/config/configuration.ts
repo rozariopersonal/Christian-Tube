@@ -4,7 +4,6 @@ import * as path from 'path';
 export default () => {
   const instanceId = process.env.INSTANCE_ID || 'christian_tube';
   let instanceConfig: any = {};
-  let seedChannels: any[] = [];
 
   try {
     const configPath = path.resolve(__dirname, `../../../../instances/${instanceId}/config.json`);
@@ -15,14 +14,11 @@ export default () => {
     console.warn(`Could not load instance config for ${instanceId}:`, e);
   }
 
-  try {
-    const seedsPath = path.resolve(__dirname, `../../../../instances/${instanceId}/seed_channels.json`);
-    if (fs.existsSync(seedsPath)) {
-      seedChannels = JSON.parse(fs.readFileSync(seedsPath, 'utf8'));
-    }
-  } catch (e) {
-    console.warn(`Could not load seed channels for ${instanceId}:`, e);
-  }
+  const rawAdminEmails = process.env.ADMIN_EMAILS || 'admin@privatetube.org,admin@centumtube.org,arul@example.com';
+  const adminEmails = rawAdminEmails
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
 
   return {
     port: parseInt(process.env.PORT || '3000', 10),
@@ -42,7 +38,8 @@ export default () => {
       publicUrl: process.env.STORAGE_PUBLIC_URL,
     },
     internalJobSecret: process.env.INTERNAL_JOB_SECRET,
+    adminEmails,
     instanceConfig,
-    seedChannels,
+    seedChannels: [],
   };
 };

@@ -11,6 +11,23 @@ class Formatters {
     return views.toString();
   }
 
+  static String formatSubscribers(dynamic count) {
+    if (count == null) return '0';
+    int val = 0;
+    if (count is int) {
+      val = count;
+    } else {
+      val = int.tryParse(count.toString()) ?? 0;
+    }
+
+    if (val >= 1000000) {
+      return '${(val / 1000000).toStringAsFixed(1)}M';
+    } else if (val >= 1000) {
+      return '${(val / 1000).toStringAsFixed(1)}K';
+    }
+    return val.toString();
+  }
+
   static String formatTimeAgo(DateTime dateTime) {
     return timeago.format(dateTime);
   }

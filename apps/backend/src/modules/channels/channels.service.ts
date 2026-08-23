@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,6 +13,12 @@ export class ChannelsService {
     private readonly configService: ConfigService,
     private readonly youtubeService: YoutubeService,
   ) {}
+
+  isAdmin(email?: string): boolean {
+    if (!email) return false;
+    const adminEmails = this.configService.get<string[]>('adminEmails') || [];
+    return adminEmails.includes(email.trim().toLowerCase());
+  }
 
   async findAll() {
     const channels = await this.prisma.channel.findMany({
@@ -38,7 +44,7 @@ export class ChannelsService {
     }
 
     try {
-      const searchUrl = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&q=${encodeURIComponent(query.trim())}&type=channel&part=snippet&maxResults=10`;
+      const searchUrl = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&q=${encodeURIComponent(query.trim())}&type=channel&part=snippet&maxResults=15`;
       const searchRes = await axios.get(searchUrl);
       const items = searchRes.data?.items || [];
       if (!items.length) return [];
@@ -73,7 +79,7 @@ export class ChannelsService {
     }
   }
 
-  async addChannel(data: { channelUrl: string; name?: string; category?: string; language?: string }) {
+  async addChannel(data: { channelUrl: string; name?: string; category?: string; language?: string; adminEmail?: string }) {
     let rawUrl = (data.channelUrl || '').trim();
     let channelId = rawUrl;
 
@@ -138,7 +144,7 @@ export class ChannelsService {
       },
     });
 
-    // Trigger instant background video sync for the new channel
+    // Trigger instant background video sync
     this.youtubeService.syncChannelVideos(channel.id, channel.category).catch((e) => {
       this.logger.warn(`Initial sync error for added channel: ${e.message}`);
     });
@@ -171,21 +177,76 @@ export class ChannelsService {
     }
   }
 
-  async createRequest(data: { channelUrl: string; notes?: string; submittedBy?: string }) {
-    if (data.channelUrl) {
-      try {
-        await this.addChannel({ channelUrl: data.channelUrl, name: data.notes });
-      } catch (e: any) {
-        this.logger.warn(`Auto-add on request failed: ${e.message}`);
-      }
-    }
+  // --- Channel Requests Workflow ---
 
+  async listRequests() {
+    return this.prisma.channelRequest.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createRequest(data: { channelUrl: string; notes?: string; submittedBy?: string }) {
     return this.prisma.channelRequest.create({
       data: {
         channelUrl: data.channelUrl,
-        notes: data.notes,
-        submittedBy: data.submittedBy,
+        notes: data.notes || null,
+        submittedBy: data.submittedBy || 'Anonymous',
+        status: 'PENDING',
       },
     });
+  }
+
+  async approveRequest(id: string, adminEmail?: string) {
+    const req = await this.prisma.channelRequest.findUnique({
+      where: { id },
+    });
+
+    if (!req) {
+      throw new NotFoundException(`Channel request ${id} not found`);
+    }
+
+    // Add the channel to database and ingest videos
+    const addResult = await this.addChannel({
+      channelUrl: req.channelUrl,
+      name: req.notes || undefined,
+      adminEmail,
+    });
+
+    // Mark request as APPROVED
+    const updatedReq = await this.prisma.channelRequest.update({
+      where: { id },
+      data: { status: 'APPROVED' },
+    });
+
+    return {
+      status: 'success',
+      message: 'Channel request approved and channel successfully added',
+      request: updatedReq,
+      channel: addResult.channel,
+    };
+  }
+
+  async rejectRequest(id: string, reason?: string) {
+    const req = await this.prisma.channelRequest.findUnique({
+      where: { id },
+    });
+
+    if (!req) {
+      throw new NotFoundException(`Channel request ${id} not found`);
+    }
+
+    const updatedReq = await this.prisma.channelRequest.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        notes: reason ? `${req.notes || ''} [Rejected: ${reason}]`.trim() : req.notes,
+      },
+    });
+
+    return {
+      status: 'success',
+      message: 'Channel request rejected',
+      request: updatedReq,
+    };
   }
 }

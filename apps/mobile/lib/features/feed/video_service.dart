@@ -1,113 +1,107 @@
 import 'package:flutter/foundation.dart';
-import 'package:dio/dio.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
-import '../../core/config/app_config.dart';
 
 class VideoService extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
-
-  List<Video> _allVideos = [];
-  List<Video> _displayedVideos = [];
+  List<Video> _videos = [];
   bool _isLoading = false;
-  String? _errorMessage;
-  String _selectedCategory = 'All';
+  bool _hasMore = true;
+  int _offset = 0;
+  final int _limit = 25;
+
+  String? _selectedCategory;
   String? _selectedChannelId;
-  bool _subscribedOnly = false;
   Set<String> _subscribedChannelIds = {};
+  bool _onlySubscribed = true;
 
-  List<Video> get videos => _displayedVideos;
+  List<Video> get videos => _videos;
   bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
-  String get selectedCategory => _selectedCategory;
+  bool get hasMore => _hasMore;
+  String? get selectedCategory => _selectedCategory;
   String? get selectedChannelId => _selectedChannelId;
-  bool get subscribedOnly => _subscribedOnly;
-
-  List<String> get categories => AppConfig.defaultCategories;
+  bool get onlySubscribed => _onlySubscribed;
 
   void updateSubscribedChannelIds(Set<String> ids) {
     _subscribedChannelIds = ids;
-    _applyFilters();
   }
 
-  Future<void> fetchFeed({bool refresh = false}) async {
-    if (_isLoading) return;
+  void setFilter({String? category, String? channelId, bool? onlySubscribed}) {
+    _selectedCategory = category;
+    _selectedChannelId = channelId;
+    if (onlySubscribed != null) {
+      _onlySubscribed = onlySubscribed;
+    }
+    refreshVideos();
+  }
+
+  Future<void> refreshVideos() async {
+    _offset = 0;
+    _hasMore = true;
+    _videos = [];
+    await fetchVideos();
+  }
+
+  Future<void> fetchVideos() async {
+    if (_isLoading || !_hasMore) return;
     _isLoading = true;
-    _errorMessage = null;
     notifyListeners();
 
     try {
-      Response response;
+      final Map<String, dynamic> queryParams = {
+        'limit': _limit,
+        'offset': _offset,
+        'type': 'VIDEO',
+      };
+
+      if (_selectedCategory != null && _selectedCategory != 'All') {
+        queryParams['category'] = _selectedCategory;
+      }
+
+      if (_selectedChannelId != null && _selectedChannelId!.isNotEmpty) {
+        queryParams['channelId'] = _selectedChannelId;
+      } else if (_onlySubscribed) {
+        if (_subscribedChannelIds.isEmpty) {
+          _videos = [];
+          _isLoading = false;
+          _hasMore = false;
+          notifyListeners();
+          return;
+        }
+        queryParams['channelIds'] = _subscribedChannelIds.join(',');
+      }
+
+      dynamic response;
       try {
-        response = await _apiClient.dio.get(
-          '/api/videos',
-          queryParameters: {
-            if (_selectedCategory != 'All') 'category': _selectedCategory,
-            if (_selectedChannelId != null) 'channelId': _selectedChannelId,
-          },
-        );
+        response = await _apiClient.dio.get('/api/videos', queryParameters: queryParams);
       } catch (_) {
-        // Fallback to /videos route
-        response = await _apiClient.dio.get(
-          '/videos',
-          queryParameters: {
-            if (_selectedCategory != 'All') 'category': _selectedCategory,
-            if (_selectedChannelId != null) 'channelId': _selectedChannelId,
-          },
-        );
+        response = await _apiClient.dio.get('/videos', queryParameters: queryParams);
       }
 
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
-        final List<dynamic> list = raw is List
-            ? raw
-            : (raw['videos'] ?? raw['data'] ?? raw['items'] ?? []);
-        
-        _allVideos = list
+        final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
+        final newVideos = list
             .whereType<Map<String, dynamic>>()
             .map((v) => Video.fromJson(v))
             .toList();
 
-        _applyFilters();
+        if (_offset == 0) {
+          _videos = newVideos;
+        } else {
+          _videos.addAll(newVideos);
+        }
+
+        _offset += newVideos.length;
+        if (newVideos.length < _limit) {
+          _hasMore = false;
+        }
       }
     } catch (e) {
-      debugPrint('Error loading video feed: $e');
-      _errorMessage = 'Failed to load videos. Please check your connection.';
+      debugPrint('Error fetching videos: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  void _applyFilters() {
-    var filtered = List<Video>.from(_allVideos);
-
-    if (_selectedChannelId != null) {
-      filtered = filtered.where((v) => v.channelId == _selectedChannelId).toList();
-    } else if (_subscribedOnly && _subscribedChannelIds.isNotEmpty) {
-      filtered = filtered.where((v) => _subscribedChannelIds.contains(v.channelId)).toList();
-    }
-
-    _displayedVideos = filtered;
-    notifyListeners();
-  }
-
-  void selectCategory(String category) {
-    if (_selectedCategory == category) return;
-    _selectedCategory = category;
-    notifyListeners();
-    fetchFeed(refresh: true);
-  }
-
-  void selectChannel(String? channelId) {
-    _selectedChannelId = channelId;
-    _subscribedOnly = false;
-    _applyFilters();
-  }
-
-  void toggleSubscribedOnly() {
-    _subscribedOnly = !_subscribedOnly;
-    _selectedChannelId = null;
-    _applyFilters();
   }
 }

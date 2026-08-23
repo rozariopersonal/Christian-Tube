@@ -28,19 +28,14 @@ class MainLayoutScreen extends StatelessWidget {
             label: l10n.feed,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.movie_outlined),
-            selectedIcon: const Icon(Icons.movie),
-            label: l10n.shorts,
-          ),
-          NavigationDestination(
             icon: const Icon(Icons.tv_outlined),
             selectedIcon: const Icon(Icons.tv),
             label: l10n.channels,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.menu_book_outlined),
-            selectedIcon: const Icon(Icons.menu_book),
-            label: l10n.watchPlans,
+            icon: const Icon(Icons.playlist_play_outlined),
+            selectedIcon: const Icon(Icons.playlist_play),
+            label: 'Plans & Playlists',
           ),
           NavigationDestination(
             icon: const Icon(Icons.person_outline),

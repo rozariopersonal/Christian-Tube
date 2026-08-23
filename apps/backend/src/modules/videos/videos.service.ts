@@ -9,6 +9,7 @@ export class VideosService {
     category?: string;
     type?: 'VIDEO' | 'SHORT';
     channelId?: string;
+    channelIds?: string | string[];
     search?: string;
     limit?: number;
     offset?: number;
@@ -29,6 +30,13 @@ export class VideosService {
 
     if (query.channelId) {
       where.channelId = query.channelId;
+    } else if (query.channelIds) {
+      const ids = Array.isArray(query.channelIds)
+        ? query.channelIds
+        : query.channelIds.split(',').map((id) => id.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        where.channelId = { in: ids };
+      }
     }
 
     if (query.search) {

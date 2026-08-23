@@ -8,17 +8,23 @@ import '../../shared/ui/channel_avatar.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
-import 'widgets/create_short_bottom_sheet.dart';
 import '../../core/config/app_config.dart';
+import 'widgets/youtube_playlist_widget.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
   final Video? initialVideo;
+  final List<Video>? playlist;
+  final String? playlistTitle;
+  final int initialPlaylistIndex;
 
   const VideoPlayerScreen({
     super.key,
     required this.videoId,
     this.initialVideo,
+    this.playlist,
+    this.playlistTitle,
+    this.initialPlaylistIndex = 0,
   });
 
   @override
@@ -33,14 +39,21 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late String _activeVideoId;
   Video? _video;
   List<Video> _relatedVideos = [];
-  bool _isLoading = true;
+  List<Video> _playlist = [];
+  int _playlistIndex = 0;
   bool _isDescriptionExpanded = false;
+
+  PlaylistLoopMode _loopMode = PlaylistLoopMode.off;
+  bool _isShuffle = false;
+  bool _isAutoplay = true;
 
   @override
   void initState() {
     super.initState();
     _activeVideoId = widget.videoId;
     _video = widget.initialVideo;
+    _playlist = widget.playlist != null ? List.from(widget.playlist!) : [];
+    _playlistIndex = widget.initialPlaylistIndex;
     
     _initIframeController(_activeVideoId);
     _loadVideoDetails();
@@ -59,6 +72,71 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         enableCaption: false,
       ),
     );
+
+    // Auto-advance / Loop listener
+    _controller.listen((state) {
+      if (state.playerState == PlayerState.ended) {
+        _handleVideoEnded();
+      }
+    });
+  }
+
+  void _handleVideoEnded() {
+    if (!_isAutoplay) return;
+
+    if (_loopMode == PlaylistLoopMode.one) {
+      _controller.seekTo(seconds: 0);
+      _controller.playVideo();
+      return;
+    }
+
+    if (_playlist.isNotEmpty) {
+      if (_playlistIndex < _playlist.length - 1) {
+        _selectVideoFromPlaylist(_playlistIndex + 1);
+      } else if (_loopMode == PlaylistLoopMode.all) {
+        _selectVideoFromPlaylist(0);
+      }
+    }
+  }
+
+  void _playNextInPlaylist() {
+    if (_playlist.isEmpty) return;
+    if (_playlistIndex < _playlist.length - 1) {
+      _selectVideoFromPlaylist(_playlistIndex + 1);
+    } else if (_loopMode == PlaylistLoopMode.all) {
+      _selectVideoFromPlaylist(0);
+    }
+  }
+
+  void _playPreviousInPlaylist() {
+    if (_playlist.isNotEmpty && _playlistIndex > 0) {
+      _selectVideoFromPlaylist(_playlistIndex - 1);
+    }
+  }
+
+  void _selectVideoFromPlaylist(int index) {
+    if (index < 0 || index >= _playlist.length) return;
+    final nextVid = _playlist[index];
+    setState(() {
+      _playlistIndex = index;
+      _activeVideoId = nextVid.id;
+      _video = nextVid;
+    });
+    _controller.loadVideoById(videoId: nextVid.id);
+    _loadVideoDetails();
+  }
+
+  void _toggleShuffle() {
+    setState(() {
+      _isShuffle = !_isShuffle;
+      if (_isShuffle && _playlist.isNotEmpty) {
+        final current = _playlist[_playlistIndex];
+        final remaining = List<Video>.from(_playlist)..removeAt(_playlistIndex);
+        remaining.shuffle();
+        _playlist = [current, ...remaining];
+        _playlistIndex = 0;
+      }
+    });
   }
 
   Future<void> _loadVideoDetails() async {
@@ -73,12 +151,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (response.statusCode == 200 && response.data != null) {
         setState(() {
           _video = Video.fromJson(response.data as Map<String, dynamic>);
-          _isLoading = false;
         });
       }
     } catch (e) {
       debugPrint('Error loading video details: $e');
-      setState(() => _isLoading = false);
     }
   }
 
@@ -124,6 +200,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasPlaylist = _playlist.isNotEmpty;
 
     return YoutubePlayerScaffold(
       controller: _controller,
@@ -167,6 +244,23 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       ),
                       const SizedBox(height: 12),
 
+                      // YouTube Playlist Watch Widget (Loop, Autoplay, Shuffle, Queue)
+                      if (hasPlaylist)
+                        YouTubePlaylistWidget(
+                          title: widget.playlistTitle ?? 'Playlist',
+                          playlist: _playlist,
+                          currentIndex: _playlistIndex,
+                          onSelectVideo: _selectVideoFromPlaylist,
+                          onPrevious: _playPreviousInPlaylist,
+                          onNext: _playNextInPlaylist,
+                          loopMode: _loopMode,
+                          onToggleLoop: (mode) => setState(() => _loopMode = mode),
+                          isShuffle: _isShuffle,
+                          onToggleShuffle: _toggleShuffle,
+                          isAutoplay: _isAutoplay,
+                          onToggleAutoplay: (val) => setState(() => _isAutoplay = val),
+                        ),
+
                       // Channel Header (Avatar, Title, Subscribe Button)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -206,7 +300,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Action buttons row (Share, Clip, Save, YouTube App)
+                      // Action buttons row (Share, Save, YouTube App)
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -217,20 +311,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                               label: 'Share',
                               onTap: () {
                                 Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildActionButton(
-                              icon: Icons.cut,
-                              label: 'Clip',
-                              onTap: () {
-                                if (_video != null) {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    builder: (ctx) => CreateShortBottomSheet(video: _video!),
-                                  );
-                                }
                               },
                             ),
                             const SizedBox(width: 8),
@@ -313,7 +393,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             setState(() {
                               _activeVideoId = rv.id;
                               _video = rv;
-                              _isLoading = true;
                             });
                             _loadVideoDetails();
                             _loadRelatedVideos();

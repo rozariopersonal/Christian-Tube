@@ -8,11 +8,13 @@ import 'video_options_bottom_sheet.dart';
 
 class VideoCard extends StatelessWidget {
   final Video video;
+  final VoidCallback? onTap;
   final VoidCallback? onOptionTap;
 
   const VideoCard({
     super.key,
     required this.video,
+    this.onTap,
     this.onOptionTap,
   });
 
@@ -21,7 +23,7 @@ class VideoCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return InkWell(
-      onTap: () => context.push('/watch/${video.id}', extra: video),
+      onTap: onTap ?? () => context.push('/watch/${video.id}', extra: video),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -47,7 +49,7 @@ class VideoCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.8),
+                      color: Colors.black87,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
