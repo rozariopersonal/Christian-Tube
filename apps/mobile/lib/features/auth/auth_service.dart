@@ -7,8 +7,12 @@ import '../../core/models/user.dart';
 import '../../core/config/app_config.dart';
 
 class AuthService extends ChangeNotifier {
+  static const String googleClientId = '486970697742-rosdo4tsrelad7tma3aeuc47ndv3e1ma.apps.googleusercontent.com';
+
   final ApiClient _apiClient = ApiClient();
   final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: kIsWeb ? googleClientId : null,
+    serverClientId: googleClientId,
     scopes: ['email', 'profile'],
   );
 
@@ -125,7 +129,7 @@ class AuthService extends ChangeNotifier {
         : '${AppConfig.appName} Student';
     final email = (customEmail != null && customEmail.trim().isNotEmpty)
         ? customEmail.trim()
-        : 'admin@centumtube.org'; // Default local test admin email
+        : 'admin@centumtube.org';
 
     final user = User(
       id: id,
@@ -139,6 +143,14 @@ class AuthService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('current_user', jsonEncode(user.toJson()));
     await prefs.setString('auth_token', user.idToken ?? '');
+
+    // Sync with backend API
+    try {
+      await _apiClient.dio.post(
+        '/user/sync',
+        data: user.toJson(),
+      );
+    } catch (_) {}
 
     await checkIsAdmin(user.email);
 

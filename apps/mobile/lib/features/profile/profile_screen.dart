@@ -160,21 +160,37 @@ class ProfileScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         const Text(
-                          'Enjoy personalized watch history, subscriptions, and playlists.',
+                          'Sign in to sync your subscriptions, watch plans, and access admin tools.',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 13),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () => _showQuickSignInDialog(context),
-                              icon: const Icon(Icons.login),
-                              label: const Text('Sign In'),
+                        const SizedBox(height: 14),
+                        if (authService.isLoading)
+                          const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
+                        else ...[
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black87,
+                              elevation: 1,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                          ],
-                        ),
+                            onPressed: () => authService.signInWithGoogle(),
+                            icon: Image.network(
+                              'https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png',
+                              height: 20,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.account_circle, color: Colors.blue),
+                            ),
+                            label: const Text('Continue with Google', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: () => _showQuickSignInDialog(context),
+                            icon: const Icon(Icons.email_outlined, size: 18),
+                            label: const Text('Sign In with Email / Name'),
+                          ),
+                        ],
                       ],
                     ),
                   ),
