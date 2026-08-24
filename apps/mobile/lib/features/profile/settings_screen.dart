@@ -170,7 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: const Text('Pure OLED Black'),
                       subtitle: const Text('Deep AMOLED black background in dark mode'),
                       value: widget.themeService.isAmoled,
-                      activeThumbColor: theme.colorScheme.primary,
+                      activeColor: theme.colorScheme.primary,
                       onChanged: (val) => widget.themeService.setAmoled(val),
                     ),
                   ],

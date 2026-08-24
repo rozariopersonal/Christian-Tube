@@ -169,7 +169,7 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                           const SizedBox(width: 4),
                           Switch(
                             value: widget.isAutoplay,
-                            activeThumbColor: const Color(0xFF3B82F6),
+                            activeColor: const Color(0xFF3B82F6),
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             onChanged: widget.onToggleAutoplay,
                           ),
