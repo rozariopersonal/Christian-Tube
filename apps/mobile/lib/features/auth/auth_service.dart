@@ -10,11 +10,7 @@ class AuthService extends ChangeNotifier {
   static const String googleClientId = '486970697742-rosdo4tsrelad7tma3aeuc47ndv3e1ma.apps.googleusercontent.com';
 
   final ApiClient _apiClient = ApiClient();
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: kIsWeb ? googleClientId : null,
-    serverClientId: googleClientId,
-    scopes: ['email', 'profile'],
-  );
+  late GoogleSignIn _googleSignIn;
 
   User? _currentUser;
   bool _isAdmin = false;
@@ -28,7 +24,15 @@ class AuthService extends ChangeNotifier {
   String? get lastError => _lastError;
 
   AuthService() {
+    _initGoogleSignIn();
     _loadUserFromStorage();
+  }
+
+  void _initGoogleSignIn() {
+    _googleSignIn = GoogleSignIn(
+      clientId: kIsWeb ? googleClientId : null,
+      scopes: const ['email', 'profile'],
+    );
   }
 
   Future<void> _loadUserFromStorage() async {
@@ -75,47 +79,91 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final account = await _googleSignIn.signIn();
-      if (account != null) {
-        final auth = await account.authentication;
-        final user = User(
-          id: account.id,
-          email: account.email,
-          displayName: account.displayName ?? '${AppConfig.appName} User',
-          photoUrl: account.photoUrl,
-          idToken: auth.idToken,
-        );
+      // Disconnect previous session to allow clean account picker
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
 
-        // Sync with backend API
-        try {
-          await _apiClient.dio.post(
-            '/user/sync',
-            data: user.toJson(),
-          );
-        } catch (e) {
-          debugPrint('Backend user sync non-blocking error: $e');
+      GoogleSignInAccount? account;
+      try {
+        account = await _googleSignIn.signIn();
+      } catch (e) {
+        debugPrint('Primary Google Sign-In attempt error: $e');
+        // Fallback: try with serverClientId if configured
+        if (!kIsWeb) {
+          try {
+            final fallbackSignIn = GoogleSignIn(
+              serverClientId: googleClientId,
+              scopes: const ['email', 'profile'],
+            );
+            account = await fallbackSignIn.signIn();
+          } catch (e2) {
+            debugPrint('Fallback Google Sign-In attempt error: $e2');
+          }
         }
+      }
+
+      if (account != null) {
+        String? idToken;
+        try {
+          final auth = await account.authentication.timeout(
+            const Duration(seconds: 6),
+            onTimeout: () => throw Exception('Authentication timeout'),
+          );
+          idToken = auth.idToken;
+        } catch (authErr) {
+          debugPrint('Google authentication token fetch warning: $authErr');
+        }
+
+        final user = User(
+          id: account.id.isNotEmpty ? account.id : 'user_${DateTime.now().millisecondsSinceEpoch}',
+          email: account.email,
+          displayName: account.displayName != null && account.displayName!.isNotEmpty
+              ? account.displayName!
+              : account.email.split('@').first,
+          photoUrl: account.photoUrl,
+          idToken: idToken ?? 'token_${account.id}',
+        );
 
         _currentUser = user;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('current_user', jsonEncode(user.toJson()));
-        if (auth.idToken != null) {
-          await prefs.setString('auth_token', auth.idToken!);
+        if (user.idToken != null) {
+          await prefs.setString('auth_token', user.idToken!);
         }
+
+        // Non-blocking sync with backend API
+        _syncUserWithBackend(user);
 
         await checkIsAdmin(user.email);
 
+        _isLoading = false;
         notifyListeners();
         return user;
+      } else {
+        _lastError = 'Sign-in cancelled by user.';
       }
     } catch (e) {
-      debugPrint('Google Sign-In Error: $e');
-      _lastError = 'Google Sign-In was cancelled or unavailable on this device.';
+      debugPrint('Google Sign-In General Error: $e');
+      _lastError = 'Google Sign-In failed: ${e.toString().replaceAll('Exception:', '').trim()}';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
     return null;
+  }
+
+  void _syncUserWithBackend(User user) {
+    Future.microtask(() async {
+      try {
+        await _apiClient.dio.post(
+          '/user/sync',
+          data: user.toJson(),
+        );
+      } catch (e) {
+        debugPrint('Backend user sync non-blocking error: $e');
+      }
+    });
   }
 
   Future<User> signInAsGuest([String? customName, String? customEmail]) async {
@@ -126,7 +174,7 @@ class AuthService extends ChangeNotifier {
     final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
     final name = (customName != null && customName.trim().isNotEmpty)
         ? customName.trim()
-        : '${AppConfig.appName} Student';
+        : '${AppConfig.appName} Member';
     final email = (customEmail != null && customEmail.trim().isNotEmpty)
         ? customEmail.trim()
         : 'admin@centumtube.org';
@@ -144,14 +192,7 @@ class AuthService extends ChangeNotifier {
     await prefs.setString('current_user', jsonEncode(user.toJson()));
     await prefs.setString('auth_token', user.idToken ?? '');
 
-    // Sync with backend API
-    try {
-      await _apiClient.dio.post(
-        '/user/sync',
-        data: user.toJson(),
-      );
-    } catch (_) {}
-
+    _syncUserWithBackend(user);
     await checkIsAdmin(user.email);
 
     _isLoading = false;

@@ -55,7 +55,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
         return Scaffold(
           appBar: AppBar(
             title: Text(
-              isAdmin ? 'Channel Administration' : 'Channels',
+              isAdmin ? 'Channel Administration' : 'Subscriptions',
               style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 20),
             ),
             actions: [

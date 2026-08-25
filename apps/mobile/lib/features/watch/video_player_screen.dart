@@ -11,6 +11,9 @@ import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
 import '../../core/config/app_config.dart';
 import 'widgets/youtube_playlist_widget.dart';
+import 'widgets/native_video_player.dart';
+
+enum PlayerEngine { iframe, directStream }
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
@@ -33,7 +36,7 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late YoutubePlayerController _controller;
+  late YoutubePlayerController _iframeController;
   final ApiClient _apiClient = ApiClient();
   final ChannelService _channelService = ChannelService();
 
@@ -43,6 +46,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   List<Video> _playlist = [];
   int _playlistIndex = 0;
   bool _isDescriptionExpanded = false;
+  bool _isLiked = false;
+  bool _isDisliked = false;
+
+  PlayerEngine _activeEngine = PlayerEngine.iframe;
+  bool _hasIframeError = false;
 
   PlaylistLoopMode _loopMode = PlaylistLoopMode.off;
   bool _isShuffle = false;
@@ -55,7 +63,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _video = widget.initialVideo;
     _playlist = widget.playlist != null ? List.from(widget.playlist!) : [];
     _playlistIndex = widget.initialPlaylistIndex;
-    
+
     _channelService.loadSubscriptions();
     _channelService.fetchChannels();
     _initIframeController(_activeVideoId);
@@ -64,7 +72,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _initIframeController(String videoId) {
-    _controller = YoutubePlayerController.fromVideoId(
+    _hasIframeError = false;
+    _iframeController = YoutubePlayerController.fromVideoId(
       videoId: videoId,
       autoPlay: true,
       params: const YoutubePlayerParams(
@@ -73,13 +82,26 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         playsInline: true,
         showVideoAnnotations: false,
         enableCaption: false,
+        origin: 'https://www.youtube-nocookie.com',
+        strictRelatedVideos: true,
       ),
     );
 
-    // Auto-advance / Loop listener
-    _controller.listen((state) {
+    // Auto-advance / Loop / Error listener
+    _iframeController.listen((state) {
       if (state.playerState == PlayerState.ended) {
         _handleVideoEnded();
+      }
+
+      // Check if YouTube iframe embed restrictions (error 150, 152, 152-4, 101) trigger
+      if (state.error != YoutubeError.none) {
+        debugPrint('YouTube Iframe Player Error: ${state.error}. Auto-switching to Direct Stream...');
+        if (mounted && _activeEngine == PlayerEngine.iframe) {
+          setState(() {
+            _hasIframeError = true;
+            _activeEngine = PlayerEngine.directStream;
+          });
+        }
       }
     });
   }
@@ -88,8 +110,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (!_isAutoplay) return;
 
     if (_loopMode == PlaylistLoopMode.one) {
-      _controller.seekTo(seconds: 0);
-      _controller.playVideo();
+      if (_activeEngine == PlayerEngine.iframe) {
+        _iframeController.seekTo(seconds: 0);
+        _iframeController.playVideo();
+      }
       return;
     }
 
@@ -124,8 +148,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _playlistIndex = index;
       _activeVideoId = nextVid.id;
       _video = nextVid;
+      _hasIframeError = false;
     });
-    _controller.loadVideoById(videoId: nextVid.id);
+
+    if (_activeEngine == PlayerEngine.iframe) {
+      _iframeController.loadVideoById(videoId: nextVid.id);
+    }
     _loadVideoDetails();
   }
 
@@ -152,9 +180,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       }
 
       if (response.statusCode == 200 && response.data != null) {
-        setState(() {
-          _video = Video.fromJson(response.data as Map<String, dynamic>);
-        });
+        if (mounted) {
+          setState(() {
+            _video = Video.fromJson(response.data as Map<String, dynamic>);
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading video details: $e');
@@ -173,14 +203,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
         final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
-        setState(() {
-          _relatedVideos = list
-              .whereType<Map<String, dynamic>>()
-              .map((v) => Video.fromJson(v))
-              .where((v) => v.id != _activeVideoId)
-              .take(10)
-              .toList();
-        });
+        if (mounted) {
+          setState(() {
+            _relatedVideos = list
+                .whereType<Map<String, dynamic>>()
+                .map((v) => Video.fromJson(v))
+                .where((v) => v.id != _activeVideoId)
+                .take(12)
+                .toList();
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading related videos: $e');
@@ -194,9 +226,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  void _toggleEngine() {
+    setState(() {
+      if (_activeEngine == PlayerEngine.iframe) {
+        _activeEngine = PlayerEngine.directStream;
+      } else {
+        _activeEngine = PlayerEngine.iframe;
+        _initIframeController(_activeVideoId);
+      }
+    });
+  }
+
   @override
   void dispose() {
-    _controller.close();
+    _iframeController.close();
     super.dispose();
   }
 
@@ -206,248 +249,396 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final hasPlaylist = _playlist.isNotEmpty;
 
-    return YoutubePlayerScaffold(
-      controller: _controller,
-      aspectRatio: 16 / 9,
-      builder: (context, player) {
-        return Scaffold(
-          body: SafeArea(
-            child: Column(
-              children: [
-                // Top IFrame Player Container
-                player,
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Video Player Container (Adaptive Hybrid: Iframe or Direct Stream)
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: _activeEngine == PlayerEngine.iframe && !_hasIframeError
+                  ? YoutubePlayerScaffold(
+                      controller: _iframeController,
+                      aspectRatio: 16 / 9,
+                      builder: (context, player) => player,
+                    )
+                  : NativeVideoPlayer(
+                      key: ValueKey(_activeVideoId),
+                      videoId: _activeVideoId,
+                      videoTitle: _video?.title,
+                      thumbnailUrl: _video?.thumbnailUrl,
+                      onVideoEnded: _handleVideoEnded,
+                      onSwitchToIframe: () {
+                        setState(() {
+                          _hasIframeError = false;
+                          _activeEngine = PlayerEngine.iframe;
+                        });
+                        _initIframeController(_activeVideoId);
+                      },
+                    ),
+            ),
 
-                // Video Metadata & Recommendations Scrollable Area
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    children: [
-                      // Video Title
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          _video?.title ?? 'Loading video...',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+            // Video Metadata & Recommendations Scrollable Area
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                children: [
+                  // Video Title & Expand Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Text(
+                      _video?.title ?? 'Loading video...',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        height: 1.25,
                       ),
-                      const SizedBox(height: 8),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
 
-                      // View Count and Published Date
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          '${_video?.viewCount ?? 0} views',
-                          style: const TextStyle(
-                            color: Colors.grey,
+                  // View Count & Upload Date Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      children: [
+                        Text(
+                          '${Formatters.formatViews(_video?.viewCount ?? 0)} views',
+                          style: TextStyle(
+                            color: isDark ? Colors.white60 : Colors.black54,
                             fontSize: 12,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // YouTube Playlist Watch Widget (Loop, Autoplay, Shuffle, Queue)
-                      if (hasPlaylist)
-                        YouTubePlaylistWidget(
-                          title: widget.playlistTitle ?? 'Playlist',
-                          playlist: _playlist,
-                          currentIndex: _playlistIndex,
-                          onSelectVideo: _selectVideoFromPlaylist,
-                          onPrevious: _playPreviousInPlaylist,
-                          onNext: _playNextInPlaylist,
-                          loopMode: _loopMode,
-                          onToggleLoop: (mode) => setState(() => _loopMode = mode),
-                          isShuffle: _isShuffle,
-                          onToggleShuffle: _toggleShuffle,
-                          isAutoplay: _isAutoplay,
-                          onToggleAutoplay: (val) => setState(() => _isAutoplay = val),
-                        ),
-
-                      // Channel Header (Avatar, Title, Dynamic Subscribe Button)
-                      AnimatedBuilder(
-                        animation: _channelService,
-                        builder: (context, _) {
-                          final isSubscribed = _video?.channelId.isNotEmpty == true &&
-                              _channelService.subscribedChannelIds.contains(_video!.channelId);
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Row(
-                              children: [
-                                ChannelAvatar(
-                                  avatarUrl: _video?.channelAvatarUrl,
-                                  channelTitle: _video?.channelTitle ?? 'Channel',
-                                  radius: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _video?.channelTitle ?? 'Channel',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                      ),
-                                      if (_video?.subscriberCount != null)
-                                        Text(
-                                          '${Formatters.formatSubscribers(_video!.subscriberCount)} subs',
-                                          style: const TextStyle(color: Colors.grey, fontSize: 11),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: isSubscribed
-                                        ? (isDark ? Colors.grey.shade800 : Colors.grey.shade200)
-                                        : theme.colorScheme.primary,
-                                    foregroundColor: isSubscribed
-                                        ? (isDark ? Colors.white70 : Colors.black87)
-                                        : Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  ),
-                                  onPressed: () {
-                                    if (_video?.channelId.isNotEmpty == true) {
-                                      _channelService.toggleSubscribe(_video!.channelId);
-                                    }
-                                  },
-                                  child: Text(
-                                    isSubscribed ? 'Subscribed' : 'Subscribe',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
+                        if (_video?.publishedAt != null) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '•  ${Formatters.formatTimeAgo(_video!.publishedAt)}',
+                            style: TextStyle(
+                              color: isDark ? Colors.white60 : Colors.black54,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
-                      // Action buttons row (Share, Save, YouTube App)
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                  // YouTube Channel Header Row
+                  AnimatedBuilder(
+                    animation: _channelService,
+                    builder: (context, _) {
+                      final isSubscribed = _video?.channelId.isNotEmpty == true &&
+                          _channelService.subscribedChannelIds.contains(_video!.channelId);
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
                         child: Row(
                           children: [
-                            _buildActionButton(
-                              icon: Icons.share_outlined,
-                              label: 'Share',
-                              onTap: () {
-                                Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
-                              },
+                            ChannelAvatar(
+                              avatarUrl: _video?.channelAvatarUrl,
+                              channelTitle: _video?.channelTitle ?? 'Channel',
+                              radius: 19,
                             ),
-                            const SizedBox(width: 8),
-                            _buildActionButton(
-                              icon: Icons.playlist_add,
-                              label: 'Save',
-                              onTap: () {
-                                if (_video != null) {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    builder: (ctx) => VideoOptionsBottomSheet(video: _video!),
-                                  );
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildActionButton(
-                              icon: Icons.open_in_new,
-                              label: 'Open YouTube',
-                              onTap: _openInYouTubeApp,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Expandable Description Box
-                      if (_video?.description != null && _video!.description!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: InkWell(
-                            onTap: () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: theme.brightness == Brightness.dark ? Colors.grey.shade900 : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
+                            const SizedBox(width: 10),
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _video!.description!,
-                                    maxLines: _isDescriptionExpanded ? null : 3,
-                                    overflow: _isDescriptionExpanded ? null : TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 12),
+                                    _video?.channelTitle ?? 'Channel',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _isDescriptionExpanded ? 'Show less' : '...more',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                  ),
+                                  if (_video?.subscriberCount != null)
+                                    Text(
+                                      '${Formatters.formatSubscribers(_video!.subscriberCount)} subscribers',
+                                      style: TextStyle(
+                                        color: isDark ? Colors.white60 : Colors.black54,
+                                        fontSize: 11,
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
+                            const SizedBox(width: 8),
+
+                            // YouTube Subscribe Pill Button
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isSubscribed
+                                    ? (isDark ? Colors.grey.shade800 : Colors.grey.shade200)
+                                    : (isDark ? Colors.white : Colors.black),
+                                foregroundColor: isSubscribed
+                                    ? (isDark ? Colors.white70 : Colors.black87)
+                                    : (isDark ? Colors.black : Colors.white),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              ),
+                              onPressed: () {
+                                if (_video?.channelId.isNotEmpty == true) {
+                                  _channelService.toggleSubscribe(_video!.channelId);
+                                }
+                              },
+                              icon: isSubscribed
+                                  ? const Icon(Icons.notifications_active, size: 16)
+                                  : const Icon(Icons.add, size: 16),
+                              label: Text(
+                                isSubscribed ? 'Subscribed' : 'Subscribe',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // YouTube Action Buttons Row (Like/Dislike, Share, Remix, Save, Engine Toggle, Open YouTube)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      children: [
+                        // Joined Like / Dislike Pill
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              InkWell(
+                                borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+                                onTap: () {
+                                  setState(() {
+                                    _isLiked = !_isLiked;
+                                    if (_isLiked) _isDisliked = false;
+                                  });
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                                        size: 16,
+                                        color: _isLiked ? Colors.blue : null,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        _isLiked ? '1' : 'Like',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                width: 1,
+                                height: 18,
+                                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                              ),
+                              InkWell(
+                                borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+                                onTap: () {
+                                  setState(() {
+                                    _isDisliked = !_isDisliked;
+                                    if (_isDisliked) _isLiked = false;
+                                  });
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                  child: Icon(
+                                    _isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined,
+                                    size: 16,
+                                    color: _isDisliked ? Colors.red : null,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      const SizedBox(height: 20),
+                        const SizedBox(width: 8),
 
-                      // Related Videos Header & List
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'Related Videos',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        // Share Pill
+                        _buildYouTubeActionPill(
+                          icon: Icons.share_outlined,
+                          label: 'Share',
+                          onTap: () {
+                            Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
+                          },
+                          isDark: isDark,
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Save to Playlist / Watch Plan Pill
+                        _buildYouTubeActionPill(
+                          icon: Icons.bookmark_add_outlined,
+                          label: 'Save',
+                          onTap: () {
+                            if (_video != null) {
+                              showModalBottomSheet(
+                                context: context,
+                                builder: (ctx) => VideoOptionsBottomSheet(video: _video!),
+                              );
+                            }
+                          },
+                          isDark: isDark,
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Engine Mode Switch Pill (Iframe vs Direct Stream)
+                        _buildYouTubeActionPill(
+                          icon: _activeEngine == PlayerEngine.iframe ? Icons.sync : Icons.stream,
+                          label: _activeEngine == PlayerEngine.iframe ? 'Engine: IFrame' : 'Engine: Direct Stream',
+                          onTap: _toggleEngine,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Open in YouTube App
+                        _buildYouTubeActionPill(
+                          icon: Icons.open_in_new,
+                          label: 'Open YouTube',
+                          onTap: _openInYouTubeApp,
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // YouTube Expandable Description Box
+                  if (_video?.description != null && _video!.description!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: InkWell(
+                        onTap: () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${Formatters.formatViews(_video?.viewCount ?? 0)} views  ${_video?.publishedAt != null ? Formatters.formatTimeAgo(_video!.publishedAt) : ""}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _video!.description!,
+                                maxLines: _isDescriptionExpanded ? null : 3,
+                                overflow: _isDescriptionExpanded ? null : TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.35,
+                                  color: isDark ? Colors.white70 : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _isDescriptionExpanded ? 'Show less' : '...more',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                    ),
+                  const SizedBox(height: 14),
 
-                      if (_relatedVideos.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(child: Text('No related videos found')),
-                        )
-                      else
-                        ..._relatedVideos.map((rv) => RecommendationVideoCard(
-                          video: rv,
-                          onTap: () {
-                            _controller.loadVideoById(videoId: rv.id);
-                            setState(() {
-                              _activeVideoId = rv.id;
-                              _video = rv;
-                            });
-                            _loadVideoDetails();
-                            _loadRelatedVideos();
-                          },
-                        )),
-                    ],
+                  // YouTube Playlist Watch Widget (Loop, Autoplay, Shuffle, Queue)
+                  if (hasPlaylist)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: YouTubePlaylistWidget(
+                        title: widget.playlistTitle ?? 'Playlist',
+                        playlist: _playlist,
+                        currentIndex: _playlistIndex,
+                        onSelectVideo: _selectVideoFromPlaylist,
+                        onPrevious: _playPreviousInPlaylist,
+                        onNext: _playNextInPlaylist,
+                        loopMode: _loopMode,
+                        onToggleLoop: (mode) => setState(() => _loopMode = mode),
+                        isShuffle: _isShuffle,
+                        onToggleShuffle: _toggleShuffle,
+                        isAutoplay: _isAutoplay,
+                        onToggleAutoplay: (val) => setState(() => _isAutoplay = val),
+                      ),
+                    ),
+
+                  // Related Videos Section Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    child: Text(
+                      'Up Next',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+
+                  if (_relatedVideos.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: Text('Loading recommendations...')),
+                    )
+                  else
+                    ..._relatedVideos.map((rv) => RecommendationVideoCard(
+                      video: rv,
+                      onTap: () {
+                        setState(() {
+                          _activeVideoId = rv.id;
+                          _video = rv;
+                          _hasIframeError = false;
+                        });
+                        if (_activeEngine == PlayerEngine.iframe) {
+                          _iframeController.loadVideoById(videoId: rv.id);
+                        }
+                        _loadVideoDetails();
+                        _loadRelatedVideos();
+                      },
+                    )),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildActionButton({required IconData icon, required String label, VoidCallback? onTap}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildYouTubeActionPill({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16),
             const SizedBox(width: 6),
@@ -458,3 +649,4 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 }
+

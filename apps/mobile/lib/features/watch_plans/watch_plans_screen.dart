@@ -228,7 +228,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                     children: [
                       Icon(Icons.school_outlined, size: 64, color: Colors.grey.shade400),
                       const SizedBox(height: 12),
-                      Text('No watch plans created yet.'),
+                      const Text('No watch plans created yet.'),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
                         onPressed: _showCreatePlanDialog,
@@ -301,7 +301,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                                   const SizedBox(width: 6),
                                   Text('${plan.targetMinutesPerDay} mins/day', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                                   const SizedBox(width: 16),
-                                  Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
+                                  const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
                                   const SizedBox(width: 6),
                                   Text('${plan.completedVideosCount} completed', style: const TextStyle(fontSize: 12)),
                                   const Spacer(),

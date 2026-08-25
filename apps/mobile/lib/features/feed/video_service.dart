@@ -13,7 +13,7 @@ class VideoService extends ChangeNotifier {
   String? _selectedCategory;
   String? _selectedChannelId;
   Set<String> _subscribedChannelIds = {};
-  bool _onlySubscribed = true;
+  bool _onlySubscribed = false;
 
   List<Video> get videos => _videos;
   bool get isLoading => _isLoading;

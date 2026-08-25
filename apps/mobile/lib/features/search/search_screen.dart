@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 import '../../shared/ui/search_video_card.dart';
-import 'video_search_delegate.dart';
 import '../../core/config/app_config.dart';
 
 class SearchScreen extends StatefulWidget {

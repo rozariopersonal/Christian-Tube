@@ -11,6 +11,7 @@ import 'features/feed/video_feed_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/user_service.dart';
 import 'features/search/search_screen.dart';
+import 'features/shorts/shorts_feed_screen.dart';
 import 'features/watch/video_player_screen.dart';
 import 'features/watch_plans/watch_plans_screen.dart';
 import 'l10n/app_localizations.dart';
@@ -51,7 +52,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             return MainLayoutScreen(navigationShell: navigationShell);
           },
           branches: [
-            // Tab 1: Home Feed (Subscribed only)
+            // Tab 1: Home Feed
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -60,7 +61,16 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 ),
               ],
             ),
-            // Tab 2: Channels (Browse & Subscribe for Users / Manage & Requests for Admin)
+            // Tab 2: YouTube Shorts Feed
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/shorts',
+                  builder: (context, state) => const ShortsFeedScreen(),
+                ),
+              ],
+            ),
+            // Tab 3: Subscriptions / Channels
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -69,16 +79,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 ),
               ],
             ),
-            // Tab 3: Watch Plans & Playlists
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/watch-plans',
-                  builder: (context, state) => const WatchPlansScreen(),
-                ),
-              ],
-            ),
-            // Tab 4: Profile / Settings
+            // Tab 4: You (Profile, History, Playlists & Settings)
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -117,6 +118,10 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
           path: '/search',
           builder: (context, state) => const SearchScreen(),
         ),
+        GoRoute(
+          path: '/watch-plans',
+          builder: (context, state) => const WatchPlansScreen(),
+        ),
       ],
     );
   }
@@ -141,3 +146,4 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
     );
   }
 }
+

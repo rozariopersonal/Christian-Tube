@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/config/app_config.dart';
+import '../../core/models/short.dart';
 import '../../core/models/video.dart';
-import '../../shared/ui/channel_avatar.dart';
 import '../../shared/ui/video_card.dart';
 import '../channels/channel_service.dart';
+import '../shorts/shorts_service.dart';
 import 'video_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   const VideoFeedScreen({super.key});
@@ -15,10 +18,11 @@ class VideoFeedScreen extends StatefulWidget {
 
 class _VideoFeedScreenState extends State<VideoFeedScreen> {
   final VideoService _videoService = VideoService();
+  final ShortsService _shortsService = ShortsService();
   final ChannelService _channelService = ChannelService();
   final ScrollController _scrollController = ScrollController();
 
-  String? _activeChannelFilter;
+  String _selectedCategory = 'All';
 
   @override
   void initState() {
@@ -32,6 +36,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     await _channelService.fetchChannels();
     _videoService.updateSubscribedChannelIds(_channelService.subscribedChannelIds);
     _videoService.refreshVideos();
+    _shortsService.fetchShorts();
   }
 
   void _onScroll() {
@@ -52,127 +57,202 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([_videoService, _channelService]),
+      animation: Listenable.merge([_videoService, _shortsService, _channelService]),
       builder: (context, _) {
         final videos = _videoService.videos;
+        final shorts = _shortsService.shorts;
         final channels = _channelService.channels;
         final subscribedIds = _channelService.subscribedChannelIds;
         final subscribedChannels = channels.where((c) => subscribedIds.contains(c.id)).toList();
 
         return Scaffold(
           appBar: AppBar(
+            elevation: 0,
+            titleSpacing: 16,
             title: Row(
               children: [
-                Image.asset('assets/logo.png', height: 26, width: 26, errorBuilder: (_, __, ___) => const Icon(Icons.play_circle_fill, color: Colors.blue)),
+                Image.asset(
+                  'assets/logo.png',
+                  height: 26,
+                  width: 26,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.play_circle_fill, color: Colors.red),
+                ),
                 const SizedBox(width: 8),
-                const Text('Home Feed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19)),
+                Text(
+                  AppConfig.appName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19, letterSpacing: -0.5),
+                ),
               ],
             ),
             actions: [
               IconButton(
+                icon: const Icon(Icons.cast_outlined),
+                tooltip: 'Cast',
+                onPressed: () {},
+              ),
+              IconButton(
+                icon: const Icon(Icons.notifications_none_outlined),
+                tooltip: 'Notifications',
+                onPressed: () {},
+              ),
+              IconButton(
                 icon: const Icon(Icons.search),
+                tooltip: 'Search',
                 onPressed: () => context.push('/search'),
               ),
+              Padding(
+                padding: const EdgeInsets.only(right: 12, left: 4),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => context.go('/profile'),
+                  child: const CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Colors.transparent,
+                    child: Icon(Icons.account_circle, size: 28),
+                  ),
+                ),
+              ),
             ],
-            bottom: subscribedChannels.isNotEmpty
-                ? PreferredSize(
-                    preferredSize: const Size.fromHeight(56),
-                    child: Container(
-                      height: 56,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        children: [
-                          // "All Subscriptions" Pill
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: const Text('All Subscriptions'),
-                              selected: _activeChannelFilter == null,
-                              onSelected: (selected) {
-                                setState(() => _activeChannelFilter = null);
-                                _videoService.setFilter(channelId: null, onlySubscribed: true);
-                              },
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(46),
+              child: SizedBox(
+                height: 46,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  children: [
+                    // "All" / "All Subscriptions" Pill
+                    InkWell(
+                      onTap: () {
+                        setState(() => _selectedCategory = 'All');
+                        _videoService.setFilter(
+                          channelId: null,
+                          onlySubscribed: subscribedIds.isNotEmpty,
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _selectedCategory == 'All'
+                              ? (isDark ? Colors.white : Colors.black)
+                              : (isDark ? Colors.grey.shade900 : Colors.grey.shade200),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            subscribedChannels.isNotEmpty ? 'All Subscriptions' : 'All',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: _selectedCategory == 'All' ? FontWeight.bold : FontWeight.w500,
+                              color: _selectedCategory == 'All'
+                                  ? (isDark ? Colors.black : Colors.white)
+                                  : (isDark ? Colors.white70 : Colors.black87),
                             ),
                           ),
-
-                          // Channel Avatar Filter Pills
-                          ...subscribedChannels.map((ch) {
-                            final isSelected = _activeChannelFilter == ch.id;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                avatar: ChannelAvatar(avatarUrl: ch.avatarUrl, channelTitle: ch.name, radius: 12),
-                                label: Text(ch.name),
-                                selected: isSelected,
-                                onSelected: (selected) {
-                                  setState(() => _activeChannelFilter = selected ? ch.id : null);
-                                  _videoService.setFilter(
-                                    channelId: selected ? ch.id : null,
-                                    onlySubscribed: !selected,
-                                  );
-                                },
-                              ),
-                            );
-                          }),
-                        ],
+                        ),
                       ),
                     ),
-                  )
-                : null,
+
+                    // Subscribed Channel Filter Pills (Avatar + Channel Name)
+                    ...subscribedChannels.map((ch) {
+                      final isSelected = _selectedCategory == ch.id;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() => _selectedCategory = isSelected ? 'All' : ch.id);
+                            _videoService.setFilter(
+                              channelId: isSelected ? null : ch.id,
+                              onlySubscribed: isSelected ? subscribedIds.isNotEmpty : false,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? (isDark ? Colors.white : Colors.black)
+                                  : (isDark ? Colors.grey.shade900 : Colors.grey.shade200),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (ch.avatarUrl.isNotEmpty)
+                                  ClipOval(
+                                    child: CachedNetworkImage(
+                                      imageUrl: ch.avatarUrl,
+                                      width: 18,
+                                      height: 18,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (_, __, ___) => const Icon(Icons.account_circle, size: 18),
+                                    ),
+                                  )
+                                else
+                                  const Icon(Icons.account_circle, size: 18),
+                                const SizedBox(width: 6),
+                                Text(
+                                  ch.name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    color: isSelected
+                                        ? (isDark ? Colors.black : Colors.white)
+                                        : (isDark ? Colors.white70 : Colors.black87),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+
+                    // "+ Explore Channels" Pill if no subscriptions or to manage
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: InkWell(
+                        onTap: () => context.go('/channels'),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey.shade900 : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.add, size: 16, color: isDark ? Colors.white70 : Colors.black87),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Explore Channels',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white70 : Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          body: _buildBody(videos, subscribedIds.isEmpty, isDark),
+          body: _buildBody(videos, shorts, isDark),
         );
       },
     );
   }
 
-  Widget _buildBody(List<Video> videos, bool hasNoSubscriptions, bool isDark) {
-    if (hasNoSubscriptions) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.subscriptions_outlined, size: 56, color: Colors.blue),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'No Subscriptions Yet',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Your home feed displays the latest videos exclusively from channels you subscribe to.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                ),
-                onPressed: () => context.go('/channels'),
-                icon: const Icon(Icons.explore),
-                label: const Text('Browse Channels & Subscribe'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
+  Widget _buildBody(List<Video> videos, List<Short> shorts, bool isDark) {
     if (_videoService.isLoading && videos.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: Colors.red));
     }
 
     if (videos.isEmpty) {
@@ -182,13 +262,19 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.video_library_outlined, size: 48, color: Colors.grey),
-              const SizedBox(height: 12),
-              const Text('No videos found from your subscribed channels.'),
+              const Icon(Icons.video_library_outlined, size: 56, color: Colors.grey),
               const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: () => _videoService.refreshVideos(),
-                child: const Text('Refresh'),
+              const Text(
+                'No videos found in this category',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => _selectedCategory = 'All');
+                  _videoService.setFilter(category: null, onlySubscribed: false);
+                },
+                child: const Text('Show All Videos'),
               ),
             ],
           ),
@@ -197,25 +283,34 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     }
 
     return RefreshIndicator(
+      color: Colors.red,
       onRefresh: () async {
         await _channelService.loadSubscriptions();
         _videoService.updateSubscribedChannelIds(_channelService.subscribedChannelIds);
         await _videoService.refreshVideos();
+        await _shortsService.fetchShorts();
       },
       child: ListView.separated(
         controller: _scrollController,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        itemCount: videos.length + (_videoService.hasMore ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 16),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: videos.length + (_videoService.hasMore ? 1 : 0) + (shorts.isNotEmpty ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          if (index == videos.length) {
+          // Shorts Shelf insertion at position 3
+          if (shorts.isNotEmpty && index == 3) {
+            return _buildShortsShelf(shorts, isDark);
+          }
+
+          final videoIndex = shorts.isNotEmpty && index > 3 ? index - 1 : index;
+
+          if (videoIndex == videos.length) {
             return const Padding(
               padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: CircularProgressIndicator(color: Colors.red)),
             );
           }
 
-          final video = videos[index];
+          final video = videos[videoIndex];
           return VideoCard(
             video: video,
             onTap: () {
@@ -223,7 +318,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                 'video': video,
                 'playlist': videos,
                 'playlistTitle': 'Home Feed',
-                'initialIndex': index,
+                'initialIndex': videoIndex,
               });
             },
           );
@@ -231,4 +326,98 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       ),
     );
   }
+
+  Widget _buildShortsShelf(List<Short> shorts, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(
+            color: isDark ? Colors.white10 : Colors.black12,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.bolt, color: Colors.red, size: 24),
+                const SizedBox(width: 6),
+                const Text(
+                  'Shorts',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 240,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              itemCount: shorts.length > 8 ? 8 : shorts.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final short = shorts[index];
+                return InkWell(
+                  onTap: () => context.go('/shorts'),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: 135,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: isDark ? Colors.grey.shade900 : Colors.grey.shade200,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CachedNetworkImage(
+                          imageUrl: short.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(color: Colors.grey.shade800),
+                        ),
+                        Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, Colors.black87],
+                              stops: [0.6, 1.0],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 8,
+                          right: 8,
+                          bottom: 8,
+                          child: Text(
+                            short.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
