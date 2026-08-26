@@ -81,6 +81,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         showVideoAnnotations: false,
         enableCaption: true,
         strictRelatedVideos: true,
+        origin: 'https://www.youtube.com',
+        userAgent: 'Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36',
       ),
     );
 
