@@ -85,10 +85,12 @@ class AuthService extends ChangeNotifier {
       } catch (_) {}
 
       GoogleSignInAccount? account;
+      String? innerError;
       try {
         account = await _googleSignIn.signIn();
       } catch (e) {
         debugPrint('Primary Google Sign-In attempt error: $e');
+        innerError = e.toString();
         // Fallback: try with serverClientId if configured
         if (!kIsWeb) {
           try {
@@ -97,8 +99,10 @@ class AuthService extends ChangeNotifier {
               scopes: const ['email', 'profile'],
             );
             account = await fallbackSignIn.signIn();
+            innerError = null; // Cleared if fallback succeeds
           } catch (e2) {
             debugPrint('Fallback Google Sign-In attempt error: $e2');
+            innerError = e2.toString();
           }
         }
       }
@@ -141,7 +145,11 @@ class AuthService extends ChangeNotifier {
         notifyListeners();
         return user;
       } else {
-        _lastError = 'Sign-in cancelled by user.';
+        if (innerError != null) {
+          _lastError = 'Sign-in failed. Please check app configuration/SHA-1 setup.\nDetails: ${innerError.replaceAll('Exception:', '').trim()}';
+        } else {
+          _lastError = 'Sign-in cancelled by user.';
+        }
       }
     } catch (e) {
       debugPrint('Google Sign-In General Error: $e');
