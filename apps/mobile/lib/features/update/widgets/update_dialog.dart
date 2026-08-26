@@ -74,12 +74,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
           });
         }
       },
-      onComplete: () {
+      onComplete: (savePath) {
         if (mounted) {
           setState(() {
             _isDownloading = false;
             _isCompleted = true;
             _progress = 1.0;
+            _downloadedApkPath = savePath;
           });
         }
       },
@@ -103,8 +104,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
   }
 
   void _triggerInstall() {
-    final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
-    UpdateService.openInBrowser(downloadUrl);
+    if (_downloadedApkPath != null) {
+      OpenFilex.open(
+        _downloadedApkPath!,
+        type: 'application/vnd.android.package-archive',
+      );
+    } else {
+      final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
+      UpdateService.openInBrowser(downloadUrl);
+    }
   }
 
   @override
@@ -619,12 +627,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
               backgroundColor: const Color(0xFF10B981),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            onPressed: () {
-              UpdateService.openInBrowser(downloadUrl);
-            },
+            onPressed: _triggerInstall,
             icon: const Icon(Icons.install_mobile, color: Colors.white),
             label: const Text(
-              'Open / Install APK via Browser',
+              'Open / Install APK',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ),

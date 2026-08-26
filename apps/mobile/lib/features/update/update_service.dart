@@ -104,7 +104,7 @@ class UpdateService {
     required String downloadUrl,
     CancelToken? cancelToken,
     required Function(int received, int total) onProgress,
-    required VoidCallback onComplete,
+    required Function(String savePath) onComplete,
     required Function(String error) onError,
   }) async {
     try {
@@ -127,7 +127,7 @@ class UpdateService {
         },
       );
 
-      onComplete();
+      onComplete(savePath);
 
       // Automatically launch the Android OS Package Installer immediately
       await launchApkInstaller(savePath, downloadUrl);
@@ -147,7 +147,7 @@ class UpdateService {
   static Future<void> downloadAndInstallApk({
     required String downloadUrl,
     required Function(double progress) onProgress,
-    required VoidCallback onComplete,
+    required Function(String savePath) onComplete,
     required Function(String error) onError,
   }) async {
     return downloadAndInstallApkWithProgress(
