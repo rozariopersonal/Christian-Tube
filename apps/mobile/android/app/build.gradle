@@ -57,13 +57,18 @@ android {
                 storePassword System.getenv("KEYSTORE_PASSWORD")
                 keyAlias System.getenv("KEY_ALIAS")
                 keyPassword System.getenv("KEY_PASSWORD")
+            } else if (file("release.keystore").exists()) {
+                storeFile file("release.keystore")
+                storePassword "christian123"
+                keyAlias "release"
+                keyPassword "christian123"
             }
         }
     }
 
     buildTypes {
         release {
-            if (System.getenv("KEYSTORE_BASE64") != null) {
+            if (System.getenv("KEYSTORE_BASE64") != null || file("release.keystore").exists()) {
                 signingConfig signingConfigs.release
             } else {
                 signingConfig signingConfigs.debug
