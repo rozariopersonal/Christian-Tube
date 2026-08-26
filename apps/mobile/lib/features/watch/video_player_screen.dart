@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:share_plus/share_plus.dart';
@@ -11,9 +12,6 @@ import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
 import '../../core/config/app_config.dart';
 import 'widgets/youtube_playlist_widget.dart';
-import 'widgets/native_video_player.dart';
-
-enum PlayerEngine { iframe, directStream }
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
@@ -36,7 +34,8 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late YoutubePlayerController _iframeController;
+  late YoutubePlayerController _controller;
+  StreamSubscription<YoutubePlayerValue>? _subscription;
   final ApiClient _apiClient = ApiClient();
   final ChannelService _channelService = ChannelService();
 
@@ -48,9 +47,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isDescriptionExpanded = false;
   bool _isLiked = false;
   bool _isDisliked = false;
-
-  PlayerEngine _activeEngine = PlayerEngine.iframe;
-  bool _hasIframeError = false;
 
   PlaylistLoopMode _loopMode = PlaylistLoopMode.off;
   bool _isShuffle = false;
@@ -66,14 +62,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     _channelService.loadSubscriptions();
     _channelService.fetchChannels();
-    _initIframeController(_activeVideoId);
+    _initController(_activeVideoId);
     _loadVideoDetails();
     _loadRelatedVideos();
   }
 
-  void _initIframeController(String videoId) {
-    _hasIframeError = false;
-    _iframeController = YoutubePlayerController.fromVideoId(
+  void _initController(String videoId) {
+    _subscription?.cancel();
+    _subscription = null;
+
+    _controller = YoutubePlayerController.fromVideoId(
       videoId: videoId,
       autoPlay: true,
       params: const YoutubePlayerParams(
@@ -81,27 +79,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         showFullscreenButton: true,
         playsInline: true,
         showVideoAnnotations: false,
-        enableCaption: false,
-        origin: 'https://www.youtube-nocookie.com',
+        enableCaption: true,
         strictRelatedVideos: true,
       ),
     );
 
-    // Auto-advance / Loop / Error listener
-    _iframeController.listen((state) {
+    _subscription = _controller.listen((state) {
       if (state.playerState == PlayerState.ended) {
         _handleVideoEnded();
-      }
-
-      // Check if YouTube iframe embed restrictions (error 150, 152, 152-4, 101) trigger
-      if (state.error != YoutubeError.none) {
-        debugPrint('YouTube Iframe Player Error: ${state.error}. Auto-switching to Direct Stream...');
-        if (mounted && _activeEngine == PlayerEngine.iframe) {
-          setState(() {
-            _hasIframeError = true;
-            _activeEngine = PlayerEngine.directStream;
-          });
-        }
       }
     });
   }
@@ -110,10 +95,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (!_isAutoplay) return;
 
     if (_loopMode == PlaylistLoopMode.one) {
-      if (_activeEngine == PlayerEngine.iframe) {
-        _iframeController.seekTo(seconds: 0);
-        _iframeController.playVideo();
-      }
+      _controller.seekTo(seconds: 0);
+      _controller.playVideo();
       return;
     }
 
@@ -148,12 +131,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _playlistIndex = index;
       _activeVideoId = nextVid.id;
       _video = nextVid;
-      _hasIframeError = false;
     });
-
-    if (_activeEngine == PlayerEngine.iframe) {
-      _iframeController.loadVideoById(videoId: nextVid.id);
-    }
+    _controller.loadVideoById(videoId: nextVid.id);
     _loadVideoDetails();
   }
 
@@ -226,20 +205,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
-  void _toggleEngine() {
+  void _navigateToVideo(Video video) {
     setState(() {
-      if (_activeEngine == PlayerEngine.iframe) {
-        _activeEngine = PlayerEngine.directStream;
-      } else {
-        _activeEngine = PlayerEngine.iframe;
-        _initIframeController(_activeVideoId);
-      }
+      _activeVideoId = video.id;
+      _video = video;
     });
+    _controller.loadVideoById(videoId: video.id);
+    _loadVideoDetails();
+    _loadRelatedVideos();
   }
 
   @override
   void dispose() {
-    _iframeController.close();
+    _subscription?.cancel();
+    _controller.close();
     super.dispose();
   }
 
@@ -253,37 +232,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Top Video Player Container (Adaptive Hybrid: Iframe or Direct Stream)
-            AspectRatio(
+            // YouTube IFrame Player
+            YoutubePlayerScaffold(
+              controller: _controller,
               aspectRatio: 16 / 9,
-              child: _activeEngine == PlayerEngine.iframe && !_hasIframeError
-                  ? YoutubePlayerScaffold(
-                      controller: _iframeController,
-                      aspectRatio: 16 / 9,
-                      builder: (context, player) => player,
-                    )
-                  : NativeVideoPlayer(
-                      key: ValueKey(_activeVideoId),
-                      videoId: _activeVideoId,
-                      videoTitle: _video?.title,
-                      thumbnailUrl: _video?.thumbnailUrl,
-                      onVideoEnded: _handleVideoEnded,
-                      onSwitchToIframe: () {
-                        setState(() {
-                          _hasIframeError = false;
-                          _activeEngine = PlayerEngine.iframe;
-                        });
-                        _initIframeController(_activeVideoId);
-                      },
-                    ),
+              builder: (context, player) => AspectRatio(
+                aspectRatio: 16 / 9,
+                child: player,
+              ),
             ),
 
-            // Video Metadata & Recommendations Scrollable Area
+            // Video Metadata & Recommendations
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 children: [
-                  // Video Title & Expand Header
+                  // Video Title
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Text(
@@ -297,7 +261,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
                   const SizedBox(height: 6),
 
-                  // View Count & Upload Date Header
+                  // View Count & Upload Date
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
@@ -326,7 +290,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // YouTube Channel Header Row
+                  // Channel Header Row
                   AnimatedBuilder(
                     animation: _channelService,
                     builder: (context, _) {
@@ -366,7 +330,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             ),
                             const SizedBox(width: 8),
 
-                            // YouTube Subscribe Pill Button
+                            // Subscribe Button
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: isSubscribed
@@ -399,13 +363,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // YouTube Action Buttons Row (Like/Dislike, Share, Remix, Save, Engine Toggle, Open YouTube)
+                  // Action Buttons Row
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
                       children: [
-                        // Joined Like / Dislike Pill
+                        // Like / Dislike Pill
                         Container(
                           decoration: BoxDecoration(
                             color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
@@ -467,8 +431,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         ),
                         const SizedBox(width: 8),
 
-                        // Share Pill
-                        _buildYouTubeActionPill(
+                        // Share
+                        _buildActionPill(
                           icon: Icons.share_outlined,
                           label: 'Share',
                           onTap: () {
@@ -478,8 +442,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         ),
                         const SizedBox(width: 8),
 
-                        // Save to Playlist / Watch Plan Pill
-                        _buildYouTubeActionPill(
+                        // Save
+                        _buildActionPill(
                           icon: Icons.bookmark_add_outlined,
                           label: 'Save',
                           onTap: () {
@@ -494,19 +458,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         ),
                         const SizedBox(width: 8),
 
-                        // Engine Mode Switch Pill (Iframe vs Direct Stream)
-                        _buildYouTubeActionPill(
-                          icon: _activeEngine == PlayerEngine.iframe ? Icons.sync : Icons.stream,
-                          label: _activeEngine == PlayerEngine.iframe ? 'Engine: IFrame' : 'Engine: Direct Stream',
-                          onTap: _toggleEngine,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Open in YouTube App
-                        _buildYouTubeActionPill(
+                        // Open in YouTube
+                        _buildActionPill(
                           icon: Icons.open_in_new,
-                          label: 'Open YouTube',
+                          label: 'YouTube',
                           onTap: _openInYouTubeApp,
                           isDark: isDark,
                         ),
@@ -515,7 +470,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // YouTube Expandable Description Box
+                  // Expandable Description
                   if (_video?.description != null && _video!.description!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -558,7 +513,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     ),
                   const SizedBox(height: 14),
 
-                  // YouTube Playlist Watch Widget (Loop, Autoplay, Shuffle, Queue)
+                  // Playlist Widget
                   if (hasPlaylist)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -578,7 +533,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       ),
                     ),
 
-                  // Related Videos Section Header
+                  // Related Videos
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     child: Text(
@@ -600,18 +555,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   else
                     ..._relatedVideos.map((rv) => RecommendationVideoCard(
                       video: rv,
-                      onTap: () {
-                        setState(() {
-                          _activeVideoId = rv.id;
-                          _video = rv;
-                          _hasIframeError = false;
-                        });
-                        if (_activeEngine == PlayerEngine.iframe) {
-                          _iframeController.loadVideoById(videoId: rv.id);
-                        }
-                        _loadVideoDetails();
-                        _loadRelatedVideos();
-                      },
+                      onTap: () => _navigateToVideo(rv),
                     )),
                 ],
               ),
@@ -622,7 +566,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
-  Widget _buildYouTubeActionPill({
+  Widget _buildActionPill({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
@@ -649,4 +593,3 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 }
-
