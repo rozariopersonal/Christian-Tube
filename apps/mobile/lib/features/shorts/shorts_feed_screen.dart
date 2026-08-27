@@ -10,18 +10,7 @@ import '../../core/config/app_config.dart';
 class ShortsFeedScreen extends StatefulWidget {
   const ShortsFeedScreen({super.key});
 
-  @override
-  State<ShortsFeedScreen> createState() => _ShortsFeedScreenState();
-}
-
-class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
-  final ApiClient _apiClient = ApiClient();
-  final PageController _pageController = PageController();
-  List<Short> _shorts = [];
-  bool _isLoading = true;
-  int _currentPage = 0;
-
-  static final List<Short> _seedShorts = [
+  static final List<Short> seedShorts = [
     Short(
       id: 'gM7nJ3u8LBs',
       title: 'Trust In The Lord With All Your Heart | Daily Inspiration',
@@ -58,6 +47,17 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   ];
 
   @override
+  State<ShortsFeedScreen> createState() => _ShortsFeedScreenState();
+}
+
+class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
+  final ApiClient _apiClient = ApiClient();
+  final PageController _pageController = PageController();
+  List<Short> _shorts = [];
+  bool _isLoading = true;
+  int _currentPage = 0;
+
+  @override
   void initState() {
     super.initState();
     _fetchShorts();
@@ -65,6 +65,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   Future<void> _fetchShorts() async {
     try {
+      // 1. First attempt: Query /videos?type=SHORT
       final response = await _apiClient.dio.get('/videos?type=SHORT');
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> list =
@@ -77,14 +78,36 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
           return;
         }
       }
+
+      // 2. Fallback: Query all /videos and classify on frontend using Short.isShort
+      final allResponse = await _apiClient.dio.get('/videos');
+      if (allResponse.statusCode == 200 && allResponse.data != null) {
+        final dynamic raw = allResponse.data;
+        final List<dynamic> list =
+            raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
+        final detected = list
+            .whereType<Map<String, dynamic>>()
+            .where(Short.isShort)
+            .map((s) => Short.fromJson(s))
+            .toList();
+
+        if (detected.isNotEmpty) {
+          setState(() {
+            _shorts = detected;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
       setState(() {
-        _shorts = _seedShorts;
+        _shorts = ShortsFeedScreen.seedShorts;
         _isLoading = false;
       });
     } catch (e) {
       debugPrint('Error fetching shorts, falling back to seed shorts: $e');
       setState(() {
-        _shorts = _seedShorts;
+        _shorts = ShortsFeedScreen.seedShorts;
         _isLoading = false;
       });
     }
