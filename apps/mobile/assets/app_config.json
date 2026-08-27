@@ -13,6 +13,7 @@
   "apiBaseUrl": "https://christian-tube-1.onrender.com",
   "releasesRepo": "rozariopersonal/Christian-Tube-Releases",
   "apkFileName": "christian-tube.apk",
+  "googleClientId": "486970697742-rosdo4tsrelad7tma3aeuc47ndv3e1ma.apps.googleusercontent.com",
   "defaultCategories": [
     "All",
     "Worship",
@@ -22,5 +23,13 @@
     "Youth",
     "Gospel Music",
     "Kids"
-  ]
+  ],
+  "microFeed": {
+    "enabled": true,
+    "engine": "scripture",
+    "tabTitle": "Words",
+    "tabIcon": "auto_awesome_outlined",
+    "endpoint": "/words",
+    "defaultBibleVersion": "WEB"
+  }
 }

@@ -29,6 +29,13 @@ class AppConfig {
     'Kids',
   ];
 
+  // Micro-Feed Configuration
+  static bool microFeedEnabled = false;
+  static String microFeedEngine = 'scripture';
+  static String microFeedTabTitle = 'Words';
+  static String microFeedTabIcon = 'auto_awesome_outlined';
+  static String microFeedDefaultVersion = 'WEB';
+
   static Color _parseColor(String? hexString, Color fallback) {
     if (hexString == null || hexString.isEmpty) return fallback;
     try {
@@ -55,6 +62,15 @@ class AppConfig {
       releasesRepo = json['releasesRepo'] ?? releasesRepo;
       apkFileName = json['apkFileName'] ?? apkFileName;
       googleClientId = json['googleClientId'];
+
+      if (json['microFeed'] != null && json['microFeed'] is Map) {
+        final mf = json['microFeed'] as Map<String, dynamic>;
+        microFeedEnabled = mf['enabled'] == true;
+        microFeedEngine = mf['engine'] ?? microFeedEngine;
+        microFeedTabTitle = mf['tabTitle'] ?? microFeedTabTitle;
+        microFeedTabIcon = mf['tabIcon'] ?? microFeedTabIcon;
+        microFeedDefaultVersion = mf['defaultBibleVersion'] ?? microFeedDefaultVersion;
+      }
 
       if (json['theme'] != null) {
         primaryColor = _parseColor(json['theme']['primaryColor'], primaryColor);

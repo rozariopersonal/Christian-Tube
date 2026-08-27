@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'core/config/app_config.dart';
+import 'core/engines/active_engine.g.dart';
 import 'core/models/video.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/theme_service.dart';
 import 'features/auth/auth_service.dart';
 import 'features/channels/channel_service.dart';
 import 'features/channels/channels_screen.dart';
+import 'features/engines/scripture/screens/bible_manager_screen.dart';
 import 'features/feed/video_feed_screen.dart';
+import 'features/micro_feed/micro_feed_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/user_service.dart';
 import 'features/search/search_screen.dart';
@@ -70,7 +73,19 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 ),
               ],
             ),
-            // Tab 3: Subscriptions / Channels
+            // Tab 3: Words / Micro-Feed (when enabled)
+            if (kMicroFeedEnabled)
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/words',
+                    builder: (context, state) => MicroFeedScreen(
+                      engine: createActiveFeedEngine(),
+                    ),
+                  ),
+                ],
+              ),
+            // Tab 4: Subscriptions / Channels
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -79,7 +94,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 ),
               ],
             ),
-            // Tab 4: You (Profile, History, Playlists & Settings)
+            // Tab 5: You (Profile, History, Playlists & Settings)
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -121,6 +136,10 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
         GoRoute(
           path: '/watch-plans',
           builder: (context, state) => const WatchPlansScreen(),
+        ),
+        GoRoute(
+          path: '/bible-manager',
+          builder: (context, state) => const BibleManagerScreen(),
         ),
       ],
     );

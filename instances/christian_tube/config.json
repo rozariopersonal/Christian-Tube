@@ -23,5 +23,13 @@
     "Youth",
     "Gospel Music",
     "Kids"
-  ]
+  ],
+  "microFeed": {
+    "enabled": true,
+    "engine": "scripture",
+    "tabTitle": "Words",
+    "tabIcon": "auto_awesome_outlined",
+    "endpoint": "/words",
+    "defaultBibleVersion": "WEB"
+  }
 }

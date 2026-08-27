@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/engines/active_engine.g.dart';
 import '../features/update/update_service.dart';
 
 class MainLayoutScreen extends StatefulWidget {
@@ -67,23 +68,29 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               initialLocation: index == widget.navigationShell.currentIndex,
             );
           },
-          destinations: const [
-            NavigationDestination(
+          destinations: [
+            const NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home_filled),
               label: 'Home',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.bolt_outlined),
               selectedIcon: Icon(Icons.bolt),
               label: 'Shorts',
             ),
-            NavigationDestination(
+            if (kMicroFeedEnabled)
+              const NavigationDestination(
+                icon: Icon(Icons.auto_awesome_outlined),
+                selectedIcon: Icon(Icons.auto_awesome),
+                label: 'Words',
+              ),
+            const NavigationDestination(
               icon: Icon(Icons.subscriptions_outlined),
               selectedIcon: Icon(Icons.subscriptions),
               label: 'Subscriptions',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.account_circle_outlined),
               selectedIcon: Icon(Icons.account_circle),
               label: 'You',
