@@ -82,6 +82,10 @@ class ScriptureEngine
     );
   }
 
+  Future<void> resolveCard(ScriptureCard card, String versionId) async {
+    await _service.resolveCardText(card, versionId);
+  }
+
   @override
   Widget? buildTopControls(
     BuildContext context,

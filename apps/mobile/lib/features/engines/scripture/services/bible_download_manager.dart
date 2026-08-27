@@ -11,9 +11,20 @@ class BibleDownloadManager extends ChangeNotifier {
 
   final LocalBibleService _localBible = LocalBibleService();
 
-  final Map<String, double> _downloadProgress = {};
   final Set<String> _downloadingIds = {};
-  Set<String> _installedIds = {'WEB', 'KJV', 'TAOBVSI'};
+  Set<String> _installedIds = {
+    'WEB',
+    'KJV',
+    'BSB',
+    'ASV',
+    'BBE',
+    'TAOBVSI',
+    'TAM_IRV',
+    'MAL_IRV',
+    'TEL_IRV',
+    'HIN_IRV',
+    'KAN_IRV',
+  };
 
   static const List<BibleVersionMeta> catalog = [
     // English

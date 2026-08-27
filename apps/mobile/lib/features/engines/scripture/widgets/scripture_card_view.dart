@@ -42,14 +42,18 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.filterState.activeVersionId !=
             widget.filterState.activeVersionId ||
-        oldWidget.card.id != widget.card.id) {
+        oldWidget.card.id != widget.card.id ||
+        widget.card.resolvedVersion != widget.filterState.activeVersionId ||
+        _displayedVersion != widget.filterState.activeVersionId) {
       _checkAndResolveVersion();
     }
   }
 
   Future<void> _checkAndResolveVersion() async {
     final targetVersion = widget.filterState.activeVersionId;
-    if (_displayedVersion != targetVersion || _displayedText == null) {
+    if (_displayedVersion != targetVersion ||
+        _displayedText == null ||
+        widget.card.resolvedVersion != targetVersion) {
       await _service.resolveCardText(widget.card, targetVersion);
       if (mounted) {
         setState(() {

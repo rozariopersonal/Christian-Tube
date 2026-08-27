@@ -98,7 +98,7 @@ class ScriptureService {
   }
 
   Future<void> resolveCardText(ScriptureCard card, String versionId) async {
-    // 1. Try local SQLite query first (0ms latency)
+    // 1. Try local/in-memory database first (0ms latency)
     String? text = await _localBible.resolvePassage(
       versionId: versionId,
       bookNumber: card.bookNumber,
@@ -107,10 +107,11 @@ class ScriptureService {
       endVerse: card.endVerse,
     );
 
-    // 2. Fallback to default bundled version (WEB) if specific language not downloaded
-    if (text == null && versionId != 'WEB') {
-      text = await _localBible.resolvePassage(
-        versionId: 'WEB',
+    // 2. If not found locally, try Remote Bible API for the requested versionId
+    if (text == null) {
+      text = await _remoteApi.fetchPassage(
+        versionId: versionId,
+        referenceLabel: card.referenceLabel,
         bookNumber: card.bookNumber,
         chapter: card.chapter,
         startVerse: card.startVerse,
@@ -118,11 +119,10 @@ class ScriptureService {
       );
     }
 
-    // 3. Fallback to Remote API for online versions
-    if (text == null) {
-      text = await _remoteApi.fetchPassage(
-        versionId: versionId,
-        referenceLabel: card.referenceLabel,
+    // 3. Fallback to default bundled version (WEB) only if everything else failed
+    if (text == null && versionId != 'WEB') {
+      text = await _localBible.resolvePassage(
+        versionId: 'WEB',
         bookNumber: card.bookNumber,
         chapter: card.chapter,
         startVerse: card.startVerse,

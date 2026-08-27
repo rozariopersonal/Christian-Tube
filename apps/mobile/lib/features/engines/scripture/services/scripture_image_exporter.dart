@@ -30,6 +30,11 @@ class ScriptureGraphicGenerator {
       Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
     );
 
+    // Ensure card text is strictly synced with activeVersionId
+    if (card.resolvedVersion != activeVersionId) {
+      await ScriptureService().resolveCardText(card, activeVersionId);
+    }
+
     final w = width.toDouble();
     final h = height.toDouble();
     final preset = ScriptureThemeCatalog.getPreset(card.activeBackground);
