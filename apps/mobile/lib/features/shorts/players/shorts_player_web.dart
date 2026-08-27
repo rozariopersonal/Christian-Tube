@@ -37,7 +37,8 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    _viewId = 'shorts-player-${widget.short.id}-${DateTime.now().millisecondsSinceEpoch}';
+    _viewId =
+        'shorts-player-${widget.short.id}-${DateTime.now().millisecondsSinceEpoch}';
 
     if (!_registeredViews.contains(_viewId)) {
       _registeredViews.add(_viewId);
@@ -46,7 +47,7 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
         (int viewId) {
           final iframe = html.IFrameElement()
             ..src =
-                'https://www.youtube.com/embed/${widget.short.id}?autoplay=${widget.isPlaying ? 1 : 0}&mute=0&loop=1&playlist=${widget.short.id}&playsinline=1&controls=1&rel=0&modestbranding=1'
+                'https://www.youtube.com/embed/${widget.short.id}?autoplay=1&mute=0&loop=1&playlist=${widget.short.id}&playsinline=1&controls=1&rel=0&modestbranding=1&enablejsapi=1'
             ..style.border = 'none'
             ..style.width = '100%'
             ..style.height = '100%'
@@ -64,17 +65,72 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
   @override
   void didUpdateWidget(covariant _WebShortsPlayerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isPlaying != widget.isPlaying && _iframeElement != null) {
-      // Send postMessage to YouTube IFrame API to play/pause
-      final command = widget.isPlaying
-          ? '{"event":"command","func":"playVideo","args":""}'
-          : '{"event":"command","func":"pauseVideo","args":""}';
-      _iframeElement?.contentWindow?.postMessage(command, '*');
+    if (oldWidget.isPlaying != widget.isPlaying) {
+      if (widget.isPlaying) {
+        _iframeElement?.contentWindow?.postMessage(
+          '{"event":"command","func":"playVideo","args":""}',
+          '*',
+        );
+      } else {
+        _iframeElement?.contentWindow?.postMessage(
+          '{"event":"command","func":"pauseVideo","args":""}',
+          '*',
+        );
+        _iframeElement?.contentWindow?.postMessage(
+          '{"event":"command","func":"stopVideo","args":""}',
+          '*',
+        );
+      }
     }
   }
 
   @override
+  void dispose() {
+    _iframeElement?.contentWindow?.postMessage(
+      '{"event":"command","func":"pauseVideo","args":""}',
+      '*',
+    );
+    _iframeElement?.contentWindow?.postMessage(
+      '{"event":"command","func":"stopVideo","args":""}',
+      '*',
+    );
+    _iframeElement?.src = 'about:blank';
+    _iframeElement?.remove();
+    _iframeElement = null;
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.isPlaying) {
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: 9 / 16,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.network(
+                  widget.short.thumbnailUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      Container(color: Colors.black87),
+                ),
+                const Center(
+                  child: Icon(
+                    Icons.play_circle_fill,
+                    size: 64,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       color: Colors.black,
       child: Center(

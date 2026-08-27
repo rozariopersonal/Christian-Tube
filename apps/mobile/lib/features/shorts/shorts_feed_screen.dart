@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/short.dart';
@@ -156,6 +157,12 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       );
     }
 
+    final String currentPath = GoRouterState.of(context).uri.path;
+    final bool isShortsTabActive = currentPath.startsWith('/shorts');
+    final modalRoute = ModalRoute.of(context);
+    final bool isRouteCurrent = modalRoute?.isCurrent ?? true;
+    final bool isTabVisible = isShortsTabActive && isRouteCurrent;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: PageView.builder(
@@ -167,7 +174,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         },
         itemBuilder: (context, index) {
           final short = _shorts[index];
-          final isPlaying = index == _currentPage;
+          final isPlaying = isTabVisible && (index == _currentPage);
 
           return Stack(
             fit: StackFit.expand,

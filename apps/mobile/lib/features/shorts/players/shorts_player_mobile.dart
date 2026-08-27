@@ -68,6 +68,7 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
 
   @override
   void dispose() {
+    _controller?.pause();
     _controller?.dispose();
     super.dispose();
   }
