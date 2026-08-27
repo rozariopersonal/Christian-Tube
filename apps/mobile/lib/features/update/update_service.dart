@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:android_package_installer/android_package_installer.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -85,13 +85,11 @@ class UpdateService {
 
   static Future<void> launchApkInstaller(String savePath, String downloadUrl) async {
     try {
-      final result = await OpenFilex.open(
-        savePath,
-        type: 'application/vnd.android.package-archive',
-      );
+      final statusCode = await AndroidPackageInstaller.installApk(apkFilePath: savePath);
+      final status = statusCode != null ? PackageInstallerStatus.byCode(statusCode) : PackageInstallerStatus.unknown;
 
-      if (result.type != ResultType.done) {
-        debugPrint('OpenFilex result: ${result.message}, opening browser download fallback...');
+      if (status != PackageInstallerStatus.success) {
+        debugPrint('Installer failed with status: $status, opening browser fallback...');
         await openInBrowser(downloadUrl);
       }
     } catch (e) {

@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
+// Import removed
 import '../../../core/config/app_config.dart';
 import '../update_service.dart';
 
@@ -104,13 +104,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
   }
 
   void _triggerInstall() {
+    final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
     if (_downloadedApkPath != null) {
-      OpenFilex.open(
+      UpdateService.launchApkInstaller(
         _downloadedApkPath!,
-        type: 'application/vnd.android.package-archive',
+        downloadUrl,
       );
     } else {
-      final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
       UpdateService.openInBrowser(downloadUrl);
     }
   }
