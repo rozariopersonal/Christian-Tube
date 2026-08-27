@@ -10,7 +10,7 @@
     "darkBackground": "#0F172A",
     "lightBackground": "#FFFFFF"
   },
-  "apiBaseUrl": "https://christian-tube-1.onrender.com",
+  "apiBaseUrl": "https://christian-app-api.onrender.com",
   "releasesRepo": "rozariopersonal/Christian-Tube-Releases",
   "apkFileName": "christian-app.apk",
   "adminEmails": [

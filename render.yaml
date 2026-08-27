@@ -29,9 +29,9 @@ services:
       - key: CLOUDFLARE_R2_BUCKET_NAME
         sync: false
 
-  # ─── ChristianTube Backend API ────────────────────────────────────────────
+  # ─── ChristianApp Backend API ────────────────────────────────────────────
   - type: web
-    name: christian-tube-api
+    name: christian-app-api
     runtime: docker
     dockerfilePath: deployment/prod/Dockerfile.backend
     plan: free
