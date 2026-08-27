@@ -42,4 +42,30 @@ class ScriptureFilterState extends BaseFeedFilterState {
       backgroundPreset: backgroundPreset ?? this.backgroundPreset,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ScriptureFilterState &&
+          runtimeType == other.runtimeType &&
+          activeVersionId == other.activeVersionId &&
+          fontSizeScale == other.fontSizeScale &&
+          activeFontFamily == other.activeFontFamily &&
+          textColorHex == other.textColorHex &&
+          isBold == other.isBold &&
+          isItalic == other.isItalic &&
+          textAlign == other.textAlign &&
+          backgroundPreset == other.backgroundPreset;
+
+  @override
+  int get hashCode => Object.hash(
+        activeVersionId,
+        fontSizeScale,
+        activeFontFamily,
+        textColorHex,
+        isBold,
+        isItalic,
+        textAlign,
+        backgroundPreset,
+      );
 }

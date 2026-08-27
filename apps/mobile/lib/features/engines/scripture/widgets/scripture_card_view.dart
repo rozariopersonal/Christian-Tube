@@ -268,7 +268,8 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                   },
                   child: Text(
                     text,
-                    key: ValueKey('${versionId}_${text.hashCode}'),
+                    key: ValueKey(
+                        '${versionId}_${text.hashCode}_${widget.filterState.textColorHex}_${activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.isBold}_${widget.filterState.isItalic}_${widget.filterState.textAlign}'),
                     textAlign: textAlign,
                     softWrap: true,
                     textWidthBasis: TextWidthBasis.parent,

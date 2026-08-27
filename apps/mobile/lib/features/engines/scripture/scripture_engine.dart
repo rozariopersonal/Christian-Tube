@@ -292,6 +292,8 @@ class ScriptureEngine
     GlobalKey repaintBoundaryKey,
   ) {
     return ScriptureCardView(
+      key: ValueKey(
+          '${item.id}_${filterState.activeVersionId}_${filterState.textColorHex}_${filterState.activeFontFamily}_${filterState.fontSizeScale}_${filterState.isBold}_${filterState.isItalic}_${filterState.textAlign}_${item.activeBackground}'),
       card: item,
       filterState: filterState,
       isActive: isActive,
