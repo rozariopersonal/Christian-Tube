@@ -109,13 +109,27 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         widget.card.resolvedText ??
         '“Peace I leave with you; my peace I give you. Do not let your hearts be troubled.”';
 
+    final screenWidth = MediaQuery.sizeOf(context).width;
     final screenHeight = MediaQuery.sizeOf(context).height;
     final heightFactor = (screenHeight / 800.0).clamp(0.75, 1.15);
 
-    // Auto-calculate dynamic font size based on verse text length, screen height & user scale
+    // Auto-calculate dynamic font size based on verse text length, longest word, screen height & user scale
+    final words = text.split(RegExp(r'\s+'));
+    int maxWordLength = 0;
+    for (final w in words) {
+      if (w.length > maxWordLength) maxWordLength = w.length;
+    }
+
     final length = text.length;
-    final dynamicBaseSize =
-        ((28.0 - (length / 30.0)).clamp(15.0, 28.0) * heightFactor);
+    double dynamicBaseSize =
+        ((28.0 - (length / 32.0)).clamp(15.0, 26.0) * heightFactor);
+
+    // If verse has extra long compound words (e.g. Indic words with 12+ chars), adaptively scale down font size so words never break mid-word!
+    if (maxWordLength > 12) {
+      final wordLengthPenalty = (maxWordLength - 12) * 0.7;
+      dynamicBaseSize = (dynamicBaseSize - wordLengthPenalty).clamp(13.0, 26.0);
+    }
+
     final effectiveFontSize =
         dynamicBaseSize * widget.filterState.fontSizeScale;
 
@@ -175,10 +189,10 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 580),
+              constraints: const BoxConstraints(maxWidth: 680),
               child: Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: 76.0,
+                  horizontal: (screenWidth * 0.08).clamp(24.0, 48.0),
                   vertical: verticalPadding,
                 ),
                 child: Column(
@@ -224,6 +238,8 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                     text,
                     key: ValueKey('${versionId}_${text.hashCode}'),
                     textAlign: textAlign,
+                    softWrap: true,
+                    textWidthBasis: TextWidthBasis.parent,
                     style: textStyle.copyWith(
                       shadows: const [
                         Shadow(

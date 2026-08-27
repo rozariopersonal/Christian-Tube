@@ -81,9 +81,22 @@ class ScriptureGraphicGenerator {
     // 3. Layout Verse Typography with TextPainter
     final verseText = card.resolvedText ??
         'Peace I leave with you; my peace I give you. Do not let your hearts be troubled.';
+    
+    final words = verseText.split(RegExp(r'\s+'));
+    int maxWordLength = 0;
+    for (final w in words) {
+      if (w.length > maxWordLength) maxWordLength = w.length;
+    }
+
     final length = verseText.length;
-    final baseFontSize =
-        (64.0 - (length / 20.0)).clamp(36.0, 68.0) * fontSizeScale;
+    double baseFontSize =
+        (60.0 - (length / 22.0)).clamp(32.0, 60.0) * fontSizeScale;
+
+    // Adapt font size for long compound words so they never break
+    if (maxWordLength > 12) {
+      final penalty = (maxWordLength - 12) * 1.4;
+      baseFontSize = (baseFontSize - penalty).clamp(26.0, 60.0);
+    }
 
     final textColor = ScriptureThemeCatalog.parseColor(textColorHex);
     final fontWeight = isBold ? FontWeight.w700 : FontWeight.w400;
@@ -117,7 +130,7 @@ class ScriptureGraphicGenerator {
       text: const TextSpan(
         text: '“',
         style: TextStyle(
-          fontSize: 100,
+          fontSize: 96,
           fontFamily: 'serif',
           color: Color(0xFFF59E0B),
           height: 0.8,
@@ -125,7 +138,7 @@ class ScriptureGraphicGenerator {
       ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout(maxWidth: w - 240);
+    )..layout(maxWidth: w - 160);
 
     // Verse Body TextPainter
     final textPainter = TextPainter(
@@ -144,7 +157,8 @@ class ScriptureGraphicGenerator {
       ),
       textDirection: TextDirection.ltr,
       textAlign: align,
-    )..layout(maxWidth: w - 240);
+      textWidthBasis: TextWidthBasis.parent,
+    )..layout(maxWidth: w - 160);
 
     // Reference Badge TextPainter
     final refText =

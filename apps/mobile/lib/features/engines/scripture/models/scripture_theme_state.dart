@@ -258,6 +258,22 @@ class ScriptureThemeCatalog {
         color: color,
         height: 1.45,
       );
+    } else if (languageCode == 'tel') {
+      return GoogleFonts.notoSerifTelugu(
+        fontSize: baseSize,
+        fontWeight: fontWeight,
+        fontStyle: fontStyle,
+        color: color,
+        height: 1.45,
+      );
+    } else if (languageCode == 'kan') {
+      return GoogleFonts.notoSerifKannada(
+        fontSize: baseSize,
+        fontWeight: fontWeight,
+        fontStyle: fontStyle,
+        color: color,
+        height: 1.45,
+      );
     }
 
     // English font families
