@@ -1,8 +1,8 @@
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/scripture_card.dart';
+import '../services/file_saver.dart';
 
 class ScriptureShareModal extends StatelessWidget {
   final Uint8List imageBytes;
@@ -43,7 +43,7 @@ class ScriptureShareModal extends StatelessWidget {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A),
           borderRadius: BorderRadius.circular(24),
@@ -91,7 +91,8 @@ class ScriptureShareModal extends StatelessWidget {
             const SizedBox(height: 14),
 
             // High-Resolution Graphic Card Preview (9:16 Aspect Ratio)
-            Flexible(
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 380),
               child: AspectRatio(
                 aspectRatio: 9 / 16,
                 child: Container(
@@ -132,7 +133,7 @@ class ScriptureShareModal extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.copy_rounded, size: 16),
-                    label: const Text('Share Text'),
+                    label: const Text('Copy Text'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white70,
                       side: const BorderSide(color: Colors.white24),
@@ -143,29 +144,32 @@ class ScriptureShareModal extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
 
-                // Share / Download Image
+                // Download / Save PNG Image
                 Expanded(
                   flex: 2,
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       try {
-                        await Share.shareXFiles(
-                          [
-                            XFile.fromData(
-                              imageBytes,
-                              mimeType: 'image/png',
-                              name: fileName,
-                            )
-                          ],
-                          text: '“${card.referenceLabel}” — Shared from $appName',
-                        );
-                      } catch (_) {}
+                        await saveOrDownloadFile(imageBytes, fileName);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Graphic image downloaded!'),
+                              backgroundColor: Color(0xFF10B981),
+                              duration: Duration(seconds: 2),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('Error saving file: $e');
+                      }
                     },
-                    icon: const Icon(Icons.share_rounded, size: 18),
+                    icon: const Icon(Icons.download_rounded, size: 18),
                     label: const Text(
-                      'Share 9:16 Image',
+                      'Download 9:16 PNG',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(

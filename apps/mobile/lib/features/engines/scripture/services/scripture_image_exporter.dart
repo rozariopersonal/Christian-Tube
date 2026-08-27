@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:http/http.dart' as http;
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
 import '../widgets/scripture_share_modal.dart';
 import 'bible_download_manager.dart';
+import 'file_saver.dart';
 
 class ScriptureGraphicGenerator {
   /// Generates a pristine 1080x1920 (9:16 Story format) graphic card from content data
@@ -39,12 +39,7 @@ class ScriptureGraphicGenerator {
     // 1. Draw Background (High-Res Image or Procedural Gradient)
     ui.Image? loadedImage;
     if (!preset.isGradient && preset.imageUrl != null) {
-      try {
-        loadedImage = await _fetchUiImage(preset.imageUrl!)
-            .timeout(const Duration(seconds: 2));
-      } catch (_) {
-        loadedImage = null;
-      }
+      loadedImage = await _fetchUiImage(preset.imageUrl!);
     }
 
     if (loadedImage != null) {
@@ -273,25 +268,17 @@ class ScriptureGraphicGenerator {
     canvas.drawImageRect(image, srcRect, dstRect, Paint());
   }
 
-  static Future<ui.Image> _fetchUiImage(String url) async {
-    final completer = Completer<ui.Image>();
-    final imageProvider = NetworkImage(url);
-    final imageStream = imageProvider.resolve(ImageConfiguration.empty);
-
-    late ImageStreamListener listener;
-    listener = ImageStreamListener(
-      (ImageInfo info, bool _) {
-        completer.complete(info.image);
-        imageStream.removeListener(listener);
-      },
-      onError: (dynamic error, StackTrace? stackTrace) {
-        completer.completeError(error);
-        imageStream.removeListener(listener);
-      },
-    );
-
-    imageStream.addListener(listener);
-    return completer.future;
+  static Future<ui.Image?> _fetchUiImage(String url) async {
+    try {
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+      if (response.statusCode == 200) {
+        final codec = await ui.instantiateImageCodec(response.bodyBytes);
+        final frame = await codec.getNextFrame();
+        return frame.image;
+      }
+    } catch (_) {}
+    return null;
   }
 }
 
@@ -328,7 +315,7 @@ class ScriptureImageExporter {
       final fileName =
           'verse_${sanitizedRef}_${DateTime.now().millisecondsSinceEpoch}.png';
 
-      // 2. On Web or desktop, show the high-res graphic preview modal with share/download
+      // 2. On Web or desktop, open the high-res graphic modal with download & copy options
       if (kIsWeb && context != null && context.mounted) {
         await ScriptureShareModal.show(
           context,
@@ -340,11 +327,8 @@ class ScriptureImageExporter {
         return;
       }
 
-      // 3. On Mobile, invoke native system share sheet
-      await Share.shareXFiles(
-        [XFile.fromData(pngBytes, mimeType: 'image/png', name: fileName)],
-        text: '“${card.referenceLabel}” — Shared from $appName',
-      );
+      // 3. On Mobile, trigger native file saving / system share sheet
+      await saveOrDownloadFile(pngBytes, fileName);
     } catch (e) {
       debugPrint('Error generating content-based graphic: $e');
       if (context != null && context.mounted) {
@@ -355,8 +339,9 @@ class ScriptureImageExporter {
           ),
         );
       }
-      await Share.share(
-        '${card.resolvedText ?? ""}\n\n— ${card.referenceLabel} (${card.resolvedVersion ?? activeVersionId})\n\nShared via $appName',
+      await saveOrDownloadFile(
+        Uint8List(0),
+        '${card.referenceLabel}.txt',
       );
     }
   }
