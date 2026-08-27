@@ -98,7 +98,7 @@ import '../../features/engines/scripture/scripture_engine.dart';
 
 const bool kMicroFeedEnabled = true;
 
-BaseFeedEngine createActiveFeedEngine() => ScriptureEngine();
+ScriptureEngine createActiveFeedEngine() => ScriptureEngine();
 `;
 } else {
   bridgeContent = `// GENERATED CODE - DO NOT MODIFY BY HAND

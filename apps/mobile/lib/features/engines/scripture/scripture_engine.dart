@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/engines/base_feed_engine.dart';
-import '../../micro_feed/widgets/card_action_button.dart';
+import 'package:mobile/core/engines/base_feed_engine.dart';
+import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
 import 'models/scripture_card.dart';
 import 'models/scripture_filter_state.dart';
 import 'models/scripture_theme_state.dart';

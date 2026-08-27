@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../micro_feed/widgets/card_scrim_overlay.dart';
+import 'package:mobile/features/micro_feed/widgets/card_scrim_overlay.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_filter_state.dart';
 import '../models/scripture_theme_state.dart';
@@ -80,7 +80,7 @@ class ScriptureCardView extends StatelessWidget {
           ),
 
         // 2. Readability Gradient Scrim
-        const CardScrimOverlay(opacity: 0.48),
+        CardScrimOverlay(opacity: 0.48),
 
         // 3. Typographic Content Canvas
         Center(

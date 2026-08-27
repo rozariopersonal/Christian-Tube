@@ -1,4 +1,4 @@
-import '../../../core/engines/base_feed_engine.dart';
+import 'package:mobile/core/engines/base_feed_engine.dart';
 
 class ScriptureFilterState extends BaseFeedFilterState {
   final String activeVersionId;

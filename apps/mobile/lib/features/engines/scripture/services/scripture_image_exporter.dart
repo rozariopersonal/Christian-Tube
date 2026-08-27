@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/scripture_card.dart';
 
@@ -32,17 +31,12 @@ class ScriptureImageExporter {
       if (byteData == null) return;
 
       final pngBytes = byteData.buffer.asUint8List();
-
-      final tempDir = await getTemporaryDirectory();
       final sanitizedRef = card.referenceLabel.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-      final filePath =
-          '${tempDir.path}/verse_${sanitizedRef}_${DateTime.now().millisecondsSinceEpoch}.png';
+      final fileName = 'verse_${sanitizedRef}_${DateTime.now().millisecondsSinceEpoch}.png';
 
-      final file = File(filePath);
-      await file.writeAsBytes(pngBytes);
-
+      // XFile.fromData is 100% compatible across Mobile and Web!
       await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'image/png')],
+        [XFile.fromData(pngBytes, mimeType: 'image/png', name: fileName)],
         text: '“${card.referenceLabel}” — Shared from $appName',
       );
     } catch (e) {
