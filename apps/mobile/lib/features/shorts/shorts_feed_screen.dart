@@ -213,14 +213,37 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                           radius: 16,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '@${short.channelTitle}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                        Expanded(
+                          child: Text(
+                            '@${short.channelTitle}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
+                        if (short.duration != null && short.duration != '0:00') ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.white24, width: 0.5),
+                            ),
+                            child: Text(
+                              short.duration!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 8),

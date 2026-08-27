@@ -12,7 +12,11 @@ class Short {
   final int viewCount;
   final int likeCount;
   final DateTime publishedAt;
+  final String? duration;
+  final int durationSeconds;
   final String? directStreamUrl;
+  final bool isVertical;
+  final double aspectRatio;
 
   const Short({
     required this.id,
@@ -26,18 +30,22 @@ class Short {
     this.viewCount = 0,
     this.likeCount = 0,
     required this.publishedAt,
+    this.duration,
+    this.durationSeconds = 0,
     this.directStreamUrl,
+    this.isVertical = true,
+    this.aspectRatio = 9 / 16,
   });
 
   static int parseDurationInSeconds(String? durationStr) {
     if (durationStr == null || durationStr.trim().isEmpty) return 0;
     final parts = durationStr.trim().split(':');
-    if (parts.length == 3) {
+    if (parts.length === 3) {
       final h = int.tryParse(parts[0]) ?? 0;
       final m = int.tryParse(parts[1]) ?? 0;
       final s = int.tryParse(parts[2]) ?? 0;
       return h * 3600 + m * 60 + s;
-    } else if (parts.length == 2) {
+    } else if (parts.length === 2) {
       final m = int.tryParse(parts[0]) ?? 0;
       final s = int.tryParse(parts[1]) ?? 0;
       return m * 60 + s;
@@ -50,19 +58,16 @@ class Short {
     final durationStr = (json['duration'] ?? '').toString().trim();
     final durationSeconds = parseDurationInSeconds(durationStr);
 
-    // RULE 1: If duration is known and > 60 seconds, it is DEFINITELY a regular video, NOT a Short!
     if (durationSeconds > 60) {
       return false;
     }
 
-    // RULE 2: Video URL explicitly contains /shorts/
     final videoUrl =
         (json['videoUrl'] ?? json['video_url'] ?? '').toString().toLowerCase();
     if (videoUrl.contains('/shorts/')) {
       return true;
     }
 
-    // RULE 3: Title or description has dedicated #shorts / #short tag AND duration is <= 60s
     final title = (json['title'] ?? '').toString().toLowerCase();
     final description = (json['description'] ?? '').toString().toLowerCase();
     final hasShortsTag = title.contains('#shorts') ||
@@ -74,12 +79,10 @@ class Short {
       return true;
     }
 
-    // RULE 4: Valid duration between 1 and 60 seconds
     if (durationSeconds > 0 && durationSeconds <= 60) {
       return true;
     }
 
-    // RULE 5: Explicit type == 'SHORT' ONLY IF duration is <= 60s
     final type = (json['type'] ?? '').toString().toUpperCase();
     if (type == 'SHORT' && (durationSeconds == 0 || durationSeconds <= 60)) {
       return true;
@@ -90,11 +93,37 @@ class Short {
 
   factory Short.fromJson(Map<String, dynamic> json) {
     final videoId = json['id'] ?? json['shortId'] ?? json['videoId'] ?? '';
+    final durationStr = json['duration']?.toString() ?? '0:00';
+    final durationSec = parseDurationInSeconds(durationStr);
+
+    final videoUrl = json['videoUrl'] ??
+        json['video_url'] ??
+        'https://www.youtube.com/shorts/$videoId';
+    final isShortUrl = videoUrl.toString().toLowerCase().contains('/shorts/');
+
+    final title = json['title'] ?? '';
+    final description = json['description']?.toString() ?? '';
+    final titleLower = title.toString().toLowerCase();
+    final descLower = description.toLowerCase();
+    final hasShortTag =
+        titleLower.contains('#short') || descLower.contains('#short');
+
+    final explicitShortType =
+        (json['type'] ?? '').toString().toUpperCase() == 'SHORT';
+
+    // Vertical 9:16 aspect ratio detection
+    final isVerticalVideo = isShortUrl ||
+        hasShortTag ||
+        explicitShortType ||
+        (durationSec > 0 && durationSec <= 60);
+
+    final double calculatedAspectRatio = isVerticalVideo ? (9 / 16) : (16 / 9);
+
     return Short(
       id: videoId,
-      title: json['title'] ?? '',
-      description: json['description'],
-      videoUrl: json['videoUrl'] ?? 'https://www.youtube.com/shorts/$videoId',
+      title: title,
+      description: description.isNotEmpty ? description : null,
+      videoUrl: videoUrl,
       thumbnailUrl: json['thumbnailUrl'] ??
           json['thumbnail_url'] ??
           'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
@@ -112,11 +141,25 @@ class Short {
       publishedAt: json['publishedAt'] != null
           ? DateTime.tryParse(json['publishedAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
+      duration: durationStr,
+      durationSeconds: durationSec,
       directStreamUrl: json['directStreamUrl'] ?? json['stream_url'],
+      isVertical: isVerticalVideo,
+      aspectRatio: calculatedAspectRatio,
     );
   }
 
   factory Short.fromVideo(Video video) {
+    final durationSec = parseDurationInSeconds(video.duration);
+    final isShortUrl = video.id.contains('/shorts/');
+    final titleLower = video.title.toLowerCase();
+    final descLower = (video.description ?? '').toLowerCase();
+    final hasShortTag =
+        titleLower.contains('#short') || descLower.contains('#short');
+    final isVerticalVideo = isShortUrl ||
+        hasShortTag ||
+        (durationSec > 0 && durationSec <= 60);
+
     return Short(
       id: video.id,
       title: video.title,
@@ -129,7 +172,11 @@ class Short {
       viewCount: video.viewCount,
       likeCount: 0,
       publishedAt: video.publishedAt,
+      duration: video.duration,
+      durationSeconds: durationSec,
       directStreamUrl: video.streamUrl,
+      isVertical: isVerticalVideo,
+      aspectRatio: isVerticalVideo ? (9 / 16) : (16 / 9),
     );
   }
 

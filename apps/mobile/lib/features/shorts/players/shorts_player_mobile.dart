@@ -87,6 +87,8 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
     }
 
     if (_controller != null) {
+      final isVertical = widget.short.isVertical;
+
       return GestureDetector(
         onTap: () {
           if (_controller!.value.isPlaying) {
@@ -96,25 +98,57 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
           }
           setState(() {});
         },
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: MediaQuery.of(context).size.width,
-                height: MediaQuery.of(context).size.width * (16 / 9),
-                child: YoutubePlayer(
-                  controller: _controller!,
-                  showVideoProgressIndicator: false,
+        child: Container(
+          color: Colors.black,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Ambient blurred background for horizontal videos
+              if (!isVertical) ...[
+                Positioned.fill(
+                  child: Image.network(
+                    widget.short.thumbnailUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
                 ),
-              ),
-            ),
-            if (!_controller!.value.isPlaying)
-              const Center(
-                child: Icon(Icons.play_arrow, size: 64, color: Colors.white70),
-              ),
-          ],
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.75),
+                  ),
+                ),
+              ],
+
+              // Main Video Player with correct aspect ratio
+              if (isVertical)
+                FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width,
+                    height: MediaQuery.of(context).size.width * (16 / 9),
+                    child: YoutubePlayer(
+                      controller: _controller!,
+                      showVideoProgressIndicator: false,
+                    ),
+                  ),
+                )
+              else
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: YoutubePlayer(
+                      controller: _controller!,
+                      showVideoProgressIndicator: false,
+                    ),
+                  ),
+                ),
+
+              if (!_controller!.value.isPlaying)
+                const Center(
+                  child: Icon(Icons.play_arrow, size: 64, color: Colors.white70),
+                ),
+            ],
+          ),
         ),
       );
     }
