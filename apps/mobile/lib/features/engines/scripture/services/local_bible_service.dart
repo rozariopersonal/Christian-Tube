@@ -432,6 +432,25 @@ class LocalBibleService {
     await batch.commit(noResult: true);
   }
 
+  String? resolvePassageSync({
+    required String versionId,
+    required int bookNumber,
+    required int chapter,
+    required int startVerse,
+    int? endVerse,
+  }) {
+    final end = endVerse ?? startVerse;
+    final List<String> parts = [];
+    for (int v = startVerse; v <= end; v++) {
+      final key = '${versionId}_${bookNumber}_${chapter}_$v';
+      if (_webVerses.containsKey(key)) {
+        parts.add(_webVerses[key]!);
+      }
+    }
+    if (parts.isNotEmpty) return parts.join(' ');
+    return null;
+  }
+
   Future<String?> resolvePassage({
     required String versionId,
     required int bookNumber,
@@ -442,14 +461,14 @@ class LocalBibleService {
     final end = endVerse ?? startVerse;
 
     // 1. Check in-memory instant resolution map first (0ms latency, works on both Web & Mobile)
-    final List<String> parts = [];
-    for (int v = startVerse; v <= end; v++) {
-      final key = '${versionId}_${bookNumber}_${chapter}_$v';
-      if (_webVerses.containsKey(key)) {
-        parts.add(_webVerses[key]!);
-      }
-    }
-    if (parts.isNotEmpty) return parts.join(' ');
+    final syncText = resolvePassageSync(
+      versionId: versionId,
+      bookNumber: bookNumber,
+      chapter: chapter,
+      startVerse: startVerse,
+      endVerse: end,
+    );
+    if (syncText != null) return syncText;
 
     // 2. Check local SQLite DB on Mobile if not in memory
     final db = _db;

@@ -32,10 +32,24 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   @override
   void initState() {
     super.initState();
-    _displayedText = widget.card.resolvedText;
-    _displayedVersion =
-        widget.card.resolvedVersion ?? widget.filterState.activeVersionId;
-    _checkAndResolveVersion();
+    final targetVersion = widget.filterState.activeVersionId;
+    if (widget.card.resolvedVersion == targetVersion &&
+        widget.card.resolvedText != null) {
+      _displayedText = widget.card.resolvedText;
+      _displayedVersion = targetVersion;
+    } else {
+      final syncText = _service.resolvePassageSync(widget.card, targetVersion);
+      if (syncText != null) {
+        widget.card.resolvedText = syncText;
+        widget.card.resolvedVersion = targetVersion;
+        _displayedText = syncText;
+        _displayedVersion = targetVersion;
+      } else {
+        _displayedText = null;
+        _displayedVersion = null;
+        _checkAndResolveVersion();
+      }
+    }
     if (widget.isActive) {
       _pregenerateImage();
     }
@@ -61,6 +75,20 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
     if (_displayedVersion != targetVersion ||
         _displayedText == null ||
         widget.card.resolvedVersion != targetVersion) {
+      final syncText = _service.resolvePassageSync(widget.card, targetVersion);
+      if (syncText != null) {
+        widget.card.resolvedText = syncText;
+        widget.card.resolvedVersion = targetVersion;
+        if (mounted) {
+          setState(() {
+            _displayedText = syncText;
+            _displayedVersion = targetVersion;
+          });
+          _pregenerateImage();
+        }
+        return;
+      }
+
       await _service.resolveCardText(widget.card, targetVersion);
       if (mounted) {
         setState(() {
@@ -102,10 +130,14 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   @override
   Widget build(BuildContext context) {
     final preset = ScriptureThemeCatalog.getPreset(widget.card.activeBackground);
-    final versionId = _displayedVersion ?? widget.filterState.activeVersionId;
+    final targetVersion = widget.filterState.activeVersionId;
+    final versionId = _displayedVersion ?? targetVersion;
     final versionMeta = BibleDownloadManager.getMeta(versionId);
 
-    final text = _displayedText ??
+    // Guaranteed synchronization with active version
+    final text = (_displayedVersion == targetVersion ? _displayedText : null) ??
+        (widget.card.resolvedVersion == targetVersion ? widget.card.resolvedText : null) ??
+        _service.resolvePassageSync(widget.card, targetVersion) ??
         widget.card.resolvedText ??
         '“Peace I leave with you; my peace I give you. Do not let your hearts be troubled.”';
 

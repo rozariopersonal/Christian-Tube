@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/engines/base_feed_engine.dart';
+import '../engines/scripture/models/scripture_card.dart';
+import '../engines/scripture/models/scripture_filter_state.dart';
+import '../engines/scripture/scripture_engine.dart';
 
 class MicroFeedScreen<T, F extends BaseFeedFilterState> extends StatefulWidget {
   final BaseFeedEngine<T, F> engine;
@@ -90,6 +93,17 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
     setState(() {
       _filterState = newFilterState;
     });
+
+    if (widget.engine is ScriptureEngine) {
+      final scriptureEngine = widget.engine as ScriptureEngine;
+      final newVersionId =
+          (newFilterState as ScriptureFilterState).activeVersionId;
+      for (final item in _items) {
+        if (item is ScriptureCard) {
+          scriptureEngine.resolveCard(item, newVersionId);
+        }
+      }
+    }
   }
 
   void _openManager() {

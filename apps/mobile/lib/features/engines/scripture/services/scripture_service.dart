@@ -97,6 +97,16 @@ class ScriptureService {
     return result;
   }
 
+  String? resolvePassageSync(ScriptureCard card, String versionId) {
+    return _localBible.resolvePassageSync(
+      versionId: versionId,
+      bookNumber: card.bookNumber,
+      chapter: card.chapter,
+      startVerse: card.startVerse,
+      endVerse: card.endVerse,
+    );
+  }
+
   Future<void> resolveCardText(ScriptureCard card, String versionId) async {
     // 1. Try local/in-memory database first (0ms latency)
     String? text = await _localBible.resolvePassage(
