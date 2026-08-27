@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../auth/auth_service.dart';
 import '../channels/channel_service.dart';
+import '../engines/scripture/screens/saved_scriptures_screen.dart';
+import '../engines/scripture/services/saved_scripture_service.dart';
 import '../history/history_screen.dart';
 import '../watch_plans/watch_plans_screen.dart';
 import 'admin_users_screen.dart';
@@ -353,6 +355,39 @@ class ProfileScreen extends StatelessWidget {
                     },
                   ),
                 ),
+
+              const Divider(height: 24),
+
+              // Saved Scriptures & Verses Section
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.bookmark_rounded, color: Color(0xFFF59E0B)),
+                ),
+                title: const Text('Saved Scriptures & Verses', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                subtitle: ValueListenableBuilder<int>(
+                  valueListenable: SavedScriptureService().savedCountNotifier,
+                  builder: (context, count, _) => Text(
+                    count == 1 ? '1 favorite verse saved' : '$count favorite verses saved',
+                    style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12),
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right, size: 20),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (ctx) => const SavedScripturesScreen(),
+                    ),
+                  );
+                },
+              ),
 
               const Divider(height: 24),
 

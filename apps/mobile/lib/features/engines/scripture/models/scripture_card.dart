@@ -54,8 +54,11 @@ class ScriptureCard {
           '${json['bookName']} ${json['chapter']}:${json['startVerse']}',
       category: json['category'] ?? 'General',
       backgroundPreset: json['backgroundPreset'] ?? 'mountain_dawn',
+      customBackgroundPreset: json['customBackgroundPreset'],
       tags: json['tags'] != null ? List<String>.from(json['tags']) : const [],
-      resolvedText: json['text'],
+      resolvedText: json['resolvedText'] ?? json['text'],
+      resolvedVersion: json['resolvedVersion'],
+      isSaved: json['isSaved'] ?? false,
     );
   }
 
@@ -69,6 +72,10 @@ class ScriptureCard {
         'referenceLabel': referenceLabel,
         'category': category,
         'backgroundPreset': backgroundPreset,
+        'customBackgroundPreset': customBackgroundPreset,
         'tags': tags,
+        'resolvedText': resolvedText,
+        'resolvedVersion': resolvedVersion,
+        'isSaved': isSaved,
       };
 }

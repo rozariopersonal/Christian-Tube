@@ -7,8 +7,10 @@ import 'models/scripture_card.dart';
 import 'models/scripture_filter_state.dart';
 import 'models/scripture_theme_state.dart';
 import 'services/bible_download_manager.dart';
+import 'services/saved_scripture_service.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
+import 'screens/saved_scriptures_screen.dart';
 import 'widgets/bible_version_picker_modal.dart';
 import 'widgets/scripture_card_view.dart';
 import 'widgets/style_studio_sheet.dart';
@@ -36,6 +38,7 @@ class ScriptureEngine
   @override
   Future<void> initialize() async {
     await _service.initialize();
+    await SavedScriptureService().initialize();
     if (!_hasLoadedPrefs) {
       _service.resetRandomDeck();
     }
@@ -134,15 +137,21 @@ class ScriptureEngine
     int page = 0,
     int limit = 20,
   }) async {
-    return _service.fetchCards(
+    final cards = await _service.fetchCards(
       activeVersionId: filterState.activeVersionId,
       page: page,
       limit: limit,
     );
+    final savedService = SavedScriptureService();
+    for (final c in cards) {
+      c.isSaved = savedService.isSaved(c.id);
+    }
+    return cards;
   }
 
   Future<void> resolveCard(ScriptureCard card, String versionId) async {
     await _service.resolveCardText(card, versionId);
+    card.isSaved = SavedScriptureService().isSaved(card.id);
   }
 
   @override
@@ -279,6 +288,61 @@ class ScriptureEngine
             ],
           ),
         ),
+
+        // 3. Saved Verses / Bookmarks Quick Access
+        ValueListenableBuilder<int>(
+          valueListenable: SavedScriptureService().savedCountNotifier,
+          builder: (context, count, _) {
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (ctx) => const SavedScripturesScreen(),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: count > 0
+                        ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
+                        : Colors.white12,
+                    width: 1.0,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      count > 0
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      color: count > 0
+                          ? const Color(0xFFF59E0B)
+                          : Colors.white70,
+                      size: 16,
+                    ),
+                    if (count > 0) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '$count',
+                        style: const TextStyle(
+                          color: Color(0xFFF59E0B),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
@@ -377,15 +441,36 @@ class ScriptureEngine
         icon: item.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
         iconColor: item.isSaved ? const Color(0xFFF59E0B) : Colors.white,
         label: item.isSaved ? 'Saved' : 'Save',
-        onTap: () {
-          item.isSaved = !item.isSaved;
+        onTap: () async {
+          final isNowSaved = await SavedScriptureService().toggleSave(
+            item,
+            filterState.activeVersionId,
+          );
+          item.isSaved = isNowSaved;
           onRefreshCard();
           if (context.mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(item.isSaved ? 'Saved to your favorites!' : 'Removed from favorites'),
-                duration: const Duration(seconds: 1),
+                content: Text(isNowSaved
+                    ? 'Saved ${item.referenceLabel} to favorites!'
+                    : 'Removed from favorites'),
+                duration: const Duration(seconds: 3),
                 behavior: SnackBarBehavior.floating,
+                action: isNowSaved
+                    ? SnackBarAction(
+                        label: 'View Saved',
+                        textColor: const Color(0xFFF59E0B),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (ctx) => const SavedScripturesScreen(),
+                            ),
+                          );
+                        },
+                      )
+                    : null,
               ),
             );
           }
