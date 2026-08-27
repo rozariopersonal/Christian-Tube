@@ -10,6 +10,7 @@ import '../../shared/ui/channel_avatar.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
+import '../profile/user_service.dart';
 import '../../core/config/app_config.dart';
 import 'widgets/youtube_playlist_widget.dart';
 import 'players/universal_video_player.dart';
@@ -59,6 +60,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _playlist = widget.playlist != null ? List.from(widget.playlist!) : [];
     _playlistIndex = widget.initialPlaylistIndex;
 
+    if (_video != null) {
+      UserService().addToHistory(_video!);
+    }
+
     _channelService.loadSubscriptions();
     _channelService.fetchChannels();
     _loadVideoDetails();
@@ -88,6 +93,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _activeVideoId = nextVid.id;
       _video = nextVid;
     });
+    UserService().addToHistory(nextVid);
     _loadVideoDetails();
   }
 
@@ -114,11 +120,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       }
 
       if (response.statusCode == 200 && response.data != null) {
+        final loaded = Video.fromJson(response.data as Map<String, dynamic>);
         if (mounted) {
           setState(() {
-            _video = Video.fromJson(response.data as Map<String, dynamic>);
+            _video = loaded;
           });
         }
+        UserService().addToHistory(loaded);
       }
     } catch (e) {
       debugPrint('Error loading video details: $e');

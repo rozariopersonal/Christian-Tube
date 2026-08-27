@@ -1,11 +1,20 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/channel.dart';
 import '../../core/models/playlist.dart';
 import '../../core/models/video.dart';
 
 class UserService extends ChangeNotifier {
+  static final UserService _instance = UserService._internal();
+  factory UserService() => _instance;
+  UserService._internal() {
+    loadLocalHistory();
+  }
+
   final ApiClient _apiClient = ApiClient();
+  static const String _historyStorageKey = 'user_watch_history_v1';
 
   List<Playlist> _playlists = [];
   List<Video> _history = [];
@@ -18,6 +27,80 @@ class UserService extends ChangeNotifier {
   List<Channel> get subscriptions => _subscriptions;
   List<Map<String, dynamic>> get registeredUsers => _registeredUsers;
   bool get isLoadingUsers => _isLoadingUsers;
+
+  Future<void> loadLocalHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_historyStorageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final List<dynamic> list = jsonDecode(raw);
+        _history = list.map((v) => Video.fromJson(v as Map<String, dynamic>)).toList();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading local watch history: $e');
+    }
+  }
+
+  Future<void> addToHistory(Video video) async {
+    // Remove if already present so it moves to index 0 (most recent)
+    _history.removeWhere((v) => v.id == video.id);
+    _history.insert(0, video);
+
+    // Limit history to 100 entries
+    if (_history.length > 100) {
+      _history = _history.sublist(0, 100);
+    }
+
+    notifyListeners();
+
+    // 1. Save to local storage
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = jsonEncode(_history.map((v) => v.toJson()).toList());
+      await prefs.setString(_historyStorageKey, raw);
+    } catch (e) {
+      debugPrint('Error persisting watch history: $e');
+    }
+
+    // 2. Sync with backend if available
+    try {
+      await _apiClient.dio.post('/user/history', data: {'videoId': video.id});
+    } catch (_) {}
+  }
+
+  Future<void> removeFromHistory(String videoId) async {
+    _history.removeWhere((v) => v.id == videoId);
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = jsonEncode(_history.map((v) => v.toJson()).toList());
+      await prefs.setString(_historyStorageKey, raw);
+    } catch (e) {
+      debugPrint('Error updating watch history: $e');
+    }
+
+    try {
+      await _apiClient.dio.delete('/user/history/$videoId');
+    } catch (_) {}
+  }
+
+  Future<void> clearHistory() async {
+    _history.clear();
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_historyStorageKey);
+    } catch (e) {
+      debugPrint('Error clearing watch history: $e');
+    }
+
+    try {
+      await _apiClient.dio.delete('/user/history');
+    } catch (_) {}
+  }
 
   Future<void> fetchUserData() async {
     try {
@@ -34,7 +117,16 @@ class UserService extends ChangeNotifier {
       if (resHistory.statusCode == 200 && resHistory.data != null) {
         final dynamic raw = resHistory.data;
         final List<dynamic> list = raw is List ? raw : raw['history'] ?? [];
-        _history = list.map((v) => Video.fromJson(v)).toList();
+        if (list.isNotEmpty) {
+          final remoteHistory = list.map((v) => Video.fromJson(v)).toList();
+          // Merge remote history without duplicating
+          final ids = _history.map((v) => v.id).toSet();
+          for (final v in remoteHistory) {
+            if (!ids.contains(v.id)) {
+              _history.add(v);
+            }
+          }
+        }
       }
     } catch (_) {}
 

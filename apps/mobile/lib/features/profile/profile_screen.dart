@@ -324,7 +324,7 @@ class ProfileScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (ctx) => HistoryScreen(history: history),
+                            builder: (ctx) => const HistoryScreen(),
                           ),
                         );
                       },
