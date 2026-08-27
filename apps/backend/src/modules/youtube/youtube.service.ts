@@ -30,6 +30,18 @@ function parseIsoDuration(duration: string): string {
   return `${minutes}:${secStr}`;
 }
 
+function parseTextDurationToSeconds(text: string): number {
+  if (!text) return 0;
+  const parts = text.trim().split(':').map((p) => parseInt(p, 10));
+  if (parts.length === 3) {
+    return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+  }
+  if (parts.length === 2) {
+    return (parts[0] || 0) * 60 + (parts[1] || 0);
+  }
+  return 0;
+}
+
 function isIstDaytime(): boolean {
   const now = new Date();
   // IST offset: UTC+5:30 (+330 minutes)
