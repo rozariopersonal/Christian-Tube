@@ -213,22 +213,13 @@ class ScriptureGraphicGenerator {
     // 4. Draw Official Brand Watermark
     final watermarkPainter = TextPainter(
       text: TextSpan(
-        children: [
-          const WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: Icon(Icons.auto_awesome, color: Color(0xFFF59E0B), size: 22),
-          ),
-          const TextSpan(text: '  '),
-          TextSpan(
-            text: '$appName Words',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 2.0,
-            ),
-          ),
-        ],
+        text: '✦  $appName Words',
+        style: const TextStyle(
+          color: Color(0xFFFBBF24),
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 2.5,
+        ),
       ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,

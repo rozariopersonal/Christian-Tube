@@ -29,6 +29,7 @@ class ScriptureEngine
   @override
   Future<void> initialize() async {
     await _service.initialize();
+    _service.resetRandomDeck();
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedVersion = prefs.getString('pref_bible_version') ?? 'WEB';
