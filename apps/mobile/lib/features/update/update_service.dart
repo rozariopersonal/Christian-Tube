@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:android_package_installer/android_package_installer.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,6 +12,44 @@ import 'widgets/update_dialog.dart';
 class UpdateService {
   static String get releasesApiUrl =>
       'https://api.github.com/repos/${AppConfig.releasesRepo}/releases/latest';
+
+  static final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
+
+  static Future<void> _initNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidSettings);
+    await _notifications.initialize(initSettings,
+        onDidReceiveNotificationResponse: (response) async {
+      // payload = apk file path
+      final apkPath = response.payload;
+      if (apkPath != null && apkPath.isNotEmpty) {
+        await AndroidPackageInstaller.installApk(apkFilePath: apkPath);
+      }
+    });
+  }
+
+  static Future<void> _showInstallReadyNotification(String apkPath) async {
+    await _initNotifications();
+    const androidDetails = AndroidNotificationDetails(
+      'update_channel',
+      'App Updates',
+      channelDescription: 'Notifies when an update is ready to install',
+      importance: Importance.high,
+      priority: Priority.high,
+      ongoing: false,
+      autoCancel: true,
+      icon: '@mipmap/ic_launcher',
+    );
+    const details = NotificationDetails(android: androidDetails);
+    await _notifications.show(
+      42,
+      '${AppConfig.appName} update ready to install',
+      'Tap to install the downloaded update.',
+      details,
+      payload: apkPath,
+    );
+  }
 
   static Future<Map<String, dynamic>?> checkForUpdate() async {
     try {
@@ -127,7 +166,11 @@ class UpdateService {
 
       onComplete(savePath);
 
-      // Automatically launch the Android OS Package Installer immediately
+      // Show a persistent notification so the user can install
+      // even if they dismiss the system install prompt or close the dialog.
+      await _showInstallReadyNotification(savePath);
+
+      // Also try to launch the installer immediately
       await launchApkInstaller(savePath, downloadUrl);
     } catch (e) {
       if (CancelToken.isCancel(e as dynamic)) {
