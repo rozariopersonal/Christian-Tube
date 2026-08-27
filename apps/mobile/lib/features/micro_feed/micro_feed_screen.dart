@@ -101,7 +101,11 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
       for (final item in _items) {
         if (item is ScriptureCard) {
           item.customFontFamily = null;
-          scriptureEngine.resolveCard(item, newVersionId);
+          scriptureEngine.resolveCard(item, newVersionId).then((_) {
+            if (mounted) {
+              setState(() {});
+            }
+          });
         }
       }
     }

@@ -18,12 +18,11 @@ class ScriptureService {
   final Random _random = Random();
 
   List<ScriptureCard>? _masterCatalog;
-  List<ScriptureCard>? _activeShuffledCatalog;
   bool _isFetchingRemote = false;
 
   Future<void> initialize() async {
     await _localBible.initialize();
-    _fetchRemoteWords();
+    await _fetchRemoteWords();
   }
 
   Future<void> _fetchRemoteWords() async {
@@ -40,14 +39,7 @@ class ScriptureService {
               .map((j) => ScriptureCard.fromJson(j))
               .toList();
 
-          _masterCatalog ??= [];
-          final existingIds = _masterCatalog!.map((c) => c.id).toSet();
-          for (final rc in remoteCards) {
-            if (!existingIds.contains(rc.id)) {
-              _masterCatalog!.insert(0, rc);
-            }
-          }
-          resetRandomDeck();
+          _masterCatalog = remoteCards;
         }
       }
     } catch (_) {} finally {
@@ -55,12 +47,8 @@ class ScriptureService {
     }
   }
 
-  /// Shuffles the catalog to ensure a brand new random start on every visit
   void resetRandomDeck() {
-    if (_masterCatalog != null && _masterCatalog!.isNotEmpty) {
-      _activeShuffledCatalog = List<ScriptureCard>.from(_masterCatalog!)
-        ..shuffle(_random);
-    }
+    // Keep feed stable
   }
 
   Future<List<ScriptureCard>> fetchCards({
@@ -75,36 +63,23 @@ class ScriptureService {
     final master = _masterCatalog ?? [];
     if (master.isEmpty) return [];
 
-    // Whenever a new session starts (page == 0) or deck is empty, create a fresh randomized deck
-    if (page == 0 || _activeShuffledCatalog == null) {
-      _activeShuffledCatalog = List<ScriptureCard>.from(master)..shuffle(_random);
-    }
-
-    final catalog = _activeShuffledCatalog!;
-    final total = catalog.length;
+    final total = master.length;
     final startIndex = (page * limit) % total;
     final List<ScriptureCard> result = [];
-
-    // If paging loops around, reshuffle for endless unpredictable variety
-    if (page > 0 && startIndex == 0) {
-      catalog.shuffle(_random);
-    }
 
     final presets = ScriptureThemeCatalog.presets;
 
     for (int i = 0; i < limit; i++) {
       final index = (startIndex + i) % total;
-      final original = catalog[index];
+      final original = master[index];
 
-      // Assign a random background preset for rich visual diversity
-      final presetIndex = _random.nextInt(presets.length);
+      final presetIndex = index % presets.length;
       final bg = (original.backgroundPreset.isNotEmpty)
           ? original.backgroundPreset
           : presets[presetIndex].id;
 
-      // Clone card so per-card live overrides don't mutate template
       final card = ScriptureCard(
-        id: '${original.id}_${page}_${i}_${DateTime.now().microsecondsSinceEpoch}',
+        id: '${original.id}_$index',
         bookNumber: original.bookNumber,
         bookName: original.bookName,
         chapter: original.chapter,
