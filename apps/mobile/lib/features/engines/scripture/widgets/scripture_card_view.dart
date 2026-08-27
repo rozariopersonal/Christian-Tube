@@ -274,6 +274,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                     softWrap: true,
                     textWidthBasis: TextWidthBasis.parent,
                     style: textStyle.copyWith(
+                      color: textColor,
                       shadows: const [
                         Shadow(
                           color: Colors.black,

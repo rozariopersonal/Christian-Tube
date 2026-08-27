@@ -184,6 +184,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
         children: [
           // 1. Vertical PageView (ONLY content cards slide)
           PageView.builder(
+            key: ValueKey('${_filterState.hashCode}'),
             controller: _pageController,
             scrollDirection: Axis.vertical,
             itemCount: _items.length,
