@@ -30,16 +30,13 @@ function parseIsoDuration(duration: string): string {
   return `${minutes}:${secStr}`;
 }
 
-function parseTextDurationToSeconds(text: string): number {
-  if (!text) return 0;
-  const parts = text.trim().split(':').map((p) => parseInt(p, 10));
-  if (parts.length === 3) {
-    return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
-  }
-  if (parts.length === 2) {
-    return (parts[0] || 0) * 60 + (parts[1] || 0);
-  }
-  return 0;
+function isIstDaytime(): boolean {
+  const now = new Date();
+  // IST offset: UTC+5:30 (+330 minutes)
+  const totalIstMinutes = now.getUTCHours() * 60 + now.getUTCMinutes() + 330;
+  const istHour = Math.floor((totalIstMinutes / 60) % 24);
+  // Daytime in IST: 6:00 AM to 10:00 PM
+  return istHour >= 6 && istHour <= 22;
 }
 
 @Injectable()
@@ -64,11 +61,18 @@ export class YoutubeService implements OnModuleInit {
   }
 
   /**
-   * Periodic scheduler: Runs every 10 minutes to sync all channels in continuous batches
-   * until all past videos are ingested and latest uploads are synchronized.
+   * Periodic scheduler: Runs every 2 hours during IST daytime (06:00 to 22:00 IST)
+   * to sync channels in continuous batches and ingest latest uploads.
    */
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron('0 6-22/2 * * *', {
+    timeZone: 'Asia/Kolkata',
+  })
   async syncAllChannelsPeriodically() {
+    if (!isIstDaytime()) {
+      this.logger.log('Outside IST daytime hours (06:00 - 22:00 IST). Skipping automated sync.');
+      return;
+    }
+
     if (this.isSyncing) {
       this.logger.log('Previous channel sync cycle is still active. Skipping concurrent run.');
       return;
@@ -83,7 +87,7 @@ export class YoutubeService implements OnModuleInit {
 
       if (!channels.length) return;
 
-      this.logger.log(`🔄 Starting automated batch video & metadata sync for ${channels.length} channels...`);
+      this.logger.log(`🔄 Starting automated batch video & metadata sync for ${channels.length} channels (IST daytime schedule)...`);
 
       for (const channel of channels) {
         try {
