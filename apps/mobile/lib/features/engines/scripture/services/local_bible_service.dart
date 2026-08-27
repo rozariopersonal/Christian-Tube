@@ -673,4 +673,15 @@ class LocalBibleService {
     }
     await batch.commit(noResult: true);
   }
+
+  Future<void> deleteVersion(String versionId) async {
+    _webInstalledVersions.remove(versionId);
+    _webVerses.removeWhere((key, _) => key.startsWith('${versionId}_'));
+
+    final db = _db;
+    if (db == null) return;
+
+    await db.delete('installed_versions', where: 'id = ?', whereArgs: [versionId]);
+    await db.delete('verses', where: 'version_id = ?', whereArgs: [versionId]);
+  }
 }
