@@ -68,15 +68,8 @@ class ScriptureService {
     int page = 0,
     int limit = 15,
   }) async {
-    if (_masterCatalog == null) {
-      try {
-        final jsonString =
-            await rootBundle.loadString('assets/seed_scriptures.json');
-        final List<dynamic> list = jsonDecode(jsonString);
-        _masterCatalog = list.map((j) => ScriptureCard.fromJson(j)).toList();
-      } catch (_) {
-        _masterCatalog = [];
-      }
+    if (_masterCatalog == null || _masterCatalog!.isEmpty) {
+      await _fetchRemoteWords();
     }
 
     final master = _masterCatalog ?? [];

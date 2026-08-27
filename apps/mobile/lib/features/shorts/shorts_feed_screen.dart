@@ -31,40 +31,39 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   Future<void> _fetchShorts() async {
     try {
-      // 1. First attempt: Query /videos?type=SHORT (validated with Short.isShort)
-      final response = await _apiClient.dio.get('/videos?type=SHORT');
+      // Read videos directly from the channel video feed
+      final response =
+          await _apiClient.dio.get('/videos', queryParameters: {'limit': 100});
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> list =
-            response.data is List ? response.data : response.data['shorts'] ?? [];
-        final valid = list
-            .whereType<Map<String, dynamic>>()
-            .where(Short.isShort)
-            .map((s) => Short.fromJson(s))
-            .toList();
-        if (valid.isNotEmpty) {
-          setState(() {
-            _shorts = valid;
-            _isLoading = false;
-          });
-          return;
-        }
-      }
-
-      // 2. Fallback: Query all /videos and classify on frontend using Short.isShort
-      final allResponse = await _apiClient.dio.get('/videos');
-      if (allResponse.statusCode == 200 && allResponse.data != null) {
-        final dynamic raw = allResponse.data;
+        final dynamic raw = response.data;
         final List<dynamic> list =
             raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
-        final detected = list
+
+        final allVideos = list
             .whereType<Map<String, dynamic>>()
-            .where(Short.isShort)
-            .map((s) => Short.fromJson(s))
+            .map((v) => Short.fromJson(v))
             .toList();
 
-        if (detected.isNotEmpty) {
+        if (allVideos.isNotEmpty) {
+          // Prioritize explicit shorts, then seamlessly stream all channel videos
+          final explicitShorts = allVideos.where((s) {
+            final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
+            final isShortTitle = s.title.toLowerCase().contains('#short');
+            final isShortDesc =
+                (s.description ?? '').toLowerCase().contains('#short');
+            return isShortUrl || isShortTitle || isShortDesc;
+          }).toList();
+
+          final standardVideos = allVideos.where((s) {
+            final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
+            final isShortTitle = s.title.toLowerCase().contains('#short');
+            final isShortDesc =
+                (s.description ?? '').toLowerCase().contains('#short');
+            return !(isShortUrl || isShortTitle || isShortDesc);
+          }).toList();
+
           setState(() {
-            _shorts = detected;
+            _shorts = [...explicitShorts, ...standardVideos];
             _isLoading = false;
           });
           return;
@@ -76,7 +75,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error fetching shorts: $e');
+      debugPrint('Error fetching shorts from video feed: $e');
       setState(() {
         _shorts = [];
         _isLoading = false;

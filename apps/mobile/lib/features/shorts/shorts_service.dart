@@ -16,42 +16,39 @@ class ShortsService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Try querying /videos?type=SHORT (validated with Short.isShort)
-      final response = await _apiClient.dio.get('/videos?type=SHORT');
+      final response =
+          await _apiClient.dio.get('/videos', queryParameters: {'limit': 100});
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
         final List<dynamic> list =
-            raw is List ? raw : (raw['shorts'] ?? raw['data'] ?? []);
-        final valid = list
-            .whereType<Map<String, dynamic>>()
-            .where(Short.isShort)
-            .map((s) => Short.fromJson(s))
-            .toList();
-        if (valid.isNotEmpty) {
-          _shorts = valid;
-          return;
-        }
-      }
-
-      // 2. Fallback: Query all /videos and classify on the frontend using Short.isShort
-      final allResponse = await _apiClient.dio.get('/videos');
-      if (allResponse.statusCode == 200 && allResponse.data != null) {
-        final dynamic raw = allResponse.data;
-        final List<dynamic> list =
             raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
-        final detected = list
+        final allVideos = list
             .whereType<Map<String, dynamic>>()
-            .where(Short.isShort)
-            .map((s) => Short.fromJson(s))
+            .map((v) => Short.fromJson(v))
             .toList();
 
-        if (detected.isNotEmpty) {
-          _shorts = detected;
+        if (allVideos.isNotEmpty) {
+          final explicitShorts = allVideos.where((s) {
+            final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
+            final isShortTitle = s.title.toLowerCase().contains('#short');
+            final isShortDesc =
+                (s.description ?? '').toLowerCase().contains('#short');
+            return isShortUrl || isShortTitle || isShortDesc;
+          }).toList();
+
+          final standardVideos = allVideos.where((s) {
+            final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
+            final isShortTitle = s.title.toLowerCase().contains('#short');
+            final isShortDesc =
+                (s.description ?? '').toLowerCase().contains('#short');
+            return !(isShortUrl || isShortTitle || isShortDesc);
+          }).toList();
+
+          _shorts = [...explicitShorts, ...standardVideos];
           return;
         }
       }
 
-      // 3. No shorts ingested yet
       _shorts = [];
     } catch (e) {
       debugPrint('Error fetching shorts from backend: $e');
