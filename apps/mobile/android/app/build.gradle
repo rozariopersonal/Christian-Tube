@@ -52,7 +52,7 @@ android {
 
     signingConfigs {
         release {
-            if (System.getenv("KEYSTORE_BASE64") != null) {
+            if (System.getenv("KEYSTORE_BASE64") != null && !System.getenv("KEYSTORE_BASE64").isEmpty()) {
                 storeFile file("release.keystore")
                 storePassword System.getenv("KEYSTORE_PASSWORD")
                 keyAlias System.getenv("KEY_ALIAS")
@@ -68,7 +68,7 @@ android {
 
     buildTypes {
         release {
-            if (System.getenv("KEYSTORE_BASE64") != null || file("release.keystore").exists()) {
+            if ((System.getenv("KEYSTORE_BASE64") != null && !System.getenv("KEYSTORE_BASE64").isEmpty()) || file("release.keystore").exists()) {
                 signingConfig signingConfigs.release
             } else {
                 signingConfig signingConfigs.debug
