@@ -70,9 +70,13 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         widget.card.resolvedText ??
         '“Peace I leave with you; my peace I give you. Do not let your hearts be troubled.”';
 
-    // Auto-calculate dynamic font size based on verse text length & user scale
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final heightFactor = (screenHeight / 800.0).clamp(0.75, 1.15);
+
+    // Auto-calculate dynamic font size based on verse text length, screen height & user scale
     final length = text.length;
-    final dynamicBaseSize = (32.0 - (length / 26.0)).clamp(17.0, 32.0);
+    final dynamicBaseSize =
+        ((28.0 - (length / 30.0)).clamp(15.0, 28.0) * heightFactor);
     final effectiveFontSize =
         dynamicBaseSize * widget.filterState.fontSizeScale;
 
@@ -108,6 +112,8 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
       fontStyle: fontStyle,
     );
 
+    final verticalPadding = (screenHeight * 0.05).clamp(24.0, 56.0);
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -125,16 +131,21 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         // 2. Readability Gradient Scrim
         const CardScrimOverlay(opacity: 0.48),
 
-        // 3. Typographic Content Canvas (Equal horizontal margins so text stays centered without bleeding into side buttons)
+        // 3. Typographic Content Canvas (Scroll-safe, centered, zero-overflow)
         Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 580),
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 76.0, vertical: 80.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 580),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 76.0,
+                  vertical: verticalPadding,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
               children: [
                 // Opening Quote Mark
                 Text(
@@ -247,8 +258,9 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
           ),
         ),
       ),
-    ],
-  );
+    ),
+  ],
+);
   }
 
   Widget _buildBackground(BackgroundPreset preset) {

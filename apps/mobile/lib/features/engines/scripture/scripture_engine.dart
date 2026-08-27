@@ -269,6 +269,7 @@ class ScriptureEngine
           showModalBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
+            barrierColor: Colors.black.withValues(alpha: 0.25),
             isScrollControlled: true,
             builder: (ctx) => StyleStudioSheet(
               card: item,
