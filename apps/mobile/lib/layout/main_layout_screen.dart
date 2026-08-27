@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/engines/active_engine.g.dart';
+import '../features/shorts/players/shorts_player.dart';
 import '../features/update/update_service.dart';
 
 class MainLayoutScreen extends StatefulWidget {
@@ -63,6 +64,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           backgroundColor: isDark ? Colors.black : Colors.white,
           elevation: 0,
           onDestinationSelected: (int index) {
+            if (index != 1) {
+              stopAllPlatformShorts();
+            }
             widget.navigationShell.goBranch(
               index,
               initialLocation: index == widget.navigationShell.currentIndex,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../core/models/short.dart';
 
+void stopAllPlatformShorts() {}
+
 Widget buildPlatformShortsPlayer({
   required Short short,
   required bool isPlaying,

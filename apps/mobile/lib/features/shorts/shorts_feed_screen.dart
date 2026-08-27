@@ -6,6 +6,7 @@ import '../../core/models/short.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/ui/channel_avatar.dart';
 import 'native_shorts_player.dart';
+import 'players/shorts_player.dart';
 import '../../core/config/app_config.dart';
 
 class ShortsFeedScreen extends StatefulWidget {
@@ -116,6 +117,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   @override
   void dispose() {
+    stopAllPlatformShorts();
     _pageController.dispose();
     super.dispose();
   }
@@ -162,6 +164,10 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     final modalRoute = ModalRoute.of(context);
     final bool isRouteCurrent = modalRoute?.isCurrent ?? true;
     final bool isTabVisible = isShortsTabActive && isRouteCurrent;
+
+    if (!isTabVisible) {
+      stopAllPlatformShorts();
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,

@@ -5,7 +5,25 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import '../../../core/models/short.dart';
 
-final Set<String> _registeredViews = {};
+void stopAllPlatformShorts() {
+  try {
+    final iframes = html.document.querySelectorAll('iframe');
+    for (final elem in iframes) {
+      if (elem is html.IFrameElement) {
+        elem.contentWindow?.postMessage(
+          '{"event":"command","func":"pauseVideo","args":""}',
+          '*',
+        );
+        elem.contentWindow?.postMessage(
+          '{"event":"command","func":"stopVideo","args":""}',
+          '*',
+        );
+        elem.src = 'about:blank';
+        elem.remove();
+      }
+    }
+  } catch (_) {}
+}
 
 Widget buildPlatformShortsPlayer({
   required Short short,
@@ -31,35 +49,55 @@ class _WebShortsPlayerWidget extends StatefulWidget {
 }
 
 class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
-  late String _viewId;
+  String? _viewId;
   html.IFrameElement? _iframeElement;
 
   @override
   void initState() {
     super.initState();
-    _viewId =
-        'shorts-player-${widget.short.id}-${DateTime.now().millisecondsSinceEpoch}';
-
-    if (!_registeredViews.contains(_viewId)) {
-      _registeredViews.add(_viewId);
-      ui_web.platformViewRegistry.registerViewFactory(
-        _viewId,
-        (int viewId) {
-          final iframe = html.IFrameElement()
-            ..src =
-                'https://www.youtube.com/embed/${widget.short.id}?autoplay=1&mute=0&loop=1&playlist=${widget.short.id}&playsinline=1&controls=1&rel=0&modestbranding=1&enablejsapi=1'
-            ..style.border = 'none'
-            ..style.width = '100%'
-            ..style.height = '100%'
-            ..allow =
-                'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
-            ..allowFullscreen = true;
-
-          _iframeElement = iframe;
-          return iframe;
-        },
-      );
+    if (widget.isPlaying) {
+      _setupView();
     }
+  }
+
+  void _setupView() {
+    final newId =
+        'shorts-player-${widget.short.id}-${DateTime.now().microsecondsSinceEpoch}';
+    _viewId = newId;
+
+    ui_web.platformViewRegistry.registerViewFactory(
+      newId,
+      (int viewId) {
+        final iframe = html.IFrameElement()
+          ..src =
+              'https://www.youtube.com/embed/${widget.short.id}?autoplay=1&mute=0&loop=1&playlist=${widget.short.id}&playsinline=1&controls=1&rel=0&modestbranding=1&enablejsapi=1'
+          ..style.border = 'none'
+          ..style.width = '100%'
+          ..style.height = '100%'
+          ..allow =
+              'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+          ..allowFullscreen = true;
+
+        _iframeElement = iframe;
+        return iframe;
+      },
+    );
+  }
+
+  void _killIframe() {
+    try {
+      _iframeElement?.contentWindow?.postMessage(
+        '{"event":"command","func":"pauseVideo","args":""}',
+        '*',
+      );
+      _iframeElement?.contentWindow?.postMessage(
+        '{"event":"command","func":"stopVideo","args":""}',
+        '*',
+      );
+      _iframeElement?.src = 'about:blank';
+      _iframeElement?.remove();
+      _iframeElement = null;
+    } catch (_) {}
   }
 
   @override
@@ -67,42 +105,26 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isPlaying != widget.isPlaying) {
       if (widget.isPlaying) {
-        _iframeElement?.contentWindow?.postMessage(
-          '{"event":"command","func":"playVideo","args":""}',
-          '*',
-        );
+        _setupView();
+        setState(() {});
       } else {
-        _iframeElement?.contentWindow?.postMessage(
-          '{"event":"command","func":"pauseVideo","args":""}',
-          '*',
-        );
-        _iframeElement?.contentWindow?.postMessage(
-          '{"event":"command","func":"stopVideo","args":""}',
-          '*',
-        );
+        _killIframe();
+        setState(() {
+          _viewId = null;
+        });
       }
     }
   }
 
   @override
   void dispose() {
-    _iframeElement?.contentWindow?.postMessage(
-      '{"event":"command","func":"pauseVideo","args":""}',
-      '*',
-    );
-    _iframeElement?.contentWindow?.postMessage(
-      '{"event":"command","func":"stopVideo","args":""}',
-      '*',
-    );
-    _iframeElement?.src = 'about:blank';
-    _iframeElement?.remove();
-    _iframeElement = null;
+    _killIframe();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isPlaying) {
+    if (!widget.isPlaying || _viewId == null) {
       return Container(
         color: Colors.black,
         child: Center(
@@ -136,7 +158,10 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
       child: Center(
         child: AspectRatio(
           aspectRatio: 9 / 16,
-          child: HtmlElementView(viewType: _viewId),
+          child: HtmlElementView(
+            key: ValueKey(_viewId),
+            viewType: _viewId!,
+          ),
         ),
       ),
     );
