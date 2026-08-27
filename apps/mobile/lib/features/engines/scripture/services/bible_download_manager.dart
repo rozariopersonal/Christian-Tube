@@ -11,6 +11,7 @@ class BibleDownloadManager extends ChangeNotifier {
 
   final LocalBibleService _localBible = LocalBibleService();
 
+  final Map<String, double> _downloadProgress = {};
   final Set<String> _downloadingIds = {};
   Set<String> _installedIds = {
     'WEB',

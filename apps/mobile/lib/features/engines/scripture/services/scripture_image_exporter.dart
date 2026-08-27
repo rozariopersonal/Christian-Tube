@@ -8,6 +8,7 @@ import '../models/scripture_theme_state.dart';
 import '../widgets/scripture_share_modal.dart';
 import 'bible_download_manager.dart';
 import 'file_saver.dart';
+import 'scripture_service.dart';
 
 class ScriptureGraphicGenerator {
   /// Generates a pristine 1080x1920 (9:16 Story format) graphic card from content data
