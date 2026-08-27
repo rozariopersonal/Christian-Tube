@@ -67,14 +67,19 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   Future<void> _fetchShorts() async {
     try {
-      // 1. First attempt: Query /videos?type=SHORT
+      // 1. First attempt: Query /videos?type=SHORT (validated with Short.isShort)
       final response = await _apiClient.dio.get('/videos?type=SHORT');
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> list =
             response.data is List ? response.data : response.data['shorts'] ?? [];
-        if (list.isNotEmpty) {
+        final valid = list
+            .whereType<Map<String, dynamic>>()
+            .where(Short.isShort)
+            .map((s) => Short.fromJson(s))
+            .toList();
+        if (valid.isNotEmpty) {
           setState(() {
-            _shorts = list.map((s) => Short.fromJson(s)).toList();
+            _shorts = valid;
             _isLoading = false;
           });
           return;

@@ -29,37 +29,60 @@ class Short {
     this.directStreamUrl,
   });
 
-  /// Client-side decision logic to classify whether any video payload is a Short
-  static bool isShort(Map<String, dynamic> json) {
-    // 1. Explicit type field from backend
-    final type = (json['type'] ?? '').toString().toUpperCase();
-    if (type == 'SHORT') return true;
+  static int parseDurationInSeconds(String? durationStr) {
+    if (durationStr == null || durationStr.trim().isEmpty) return 0;
+    final parts = durationStr.trim().split(':');
+    if (parts.length == 3) {
+      final h = int.tryParse(parts[0]) ?? 0;
+      final m = int.tryParse(parts[1]) ?? 0;
+      final s = int.tryParse(parts[2]) ?? 0;
+      return h * 3600 + m * 60 + s;
+    } else if (parts.length == 2) {
+      final m = int.tryParse(parts[0]) ?? 0;
+      final s = int.tryParse(parts[1]) ?? 0;
+      return m * 60 + s;
+    }
+    return 0;
+  }
 
-    // 2. Video URL format (e.g. youtube.com/shorts/...)
+  /// Strict validation: A video is ONLY a Short if duration <= 60s or contains explicit #shorts tag
+  static bool isShort(Map<String, dynamic> json) {
+    final durationStr = (json['duration'] ?? '').toString().trim();
+    final durationSeconds = parseDurationInSeconds(durationStr);
+
+    // RULE 1: If duration is known and > 60 seconds, it is DEFINITELY a regular video, NOT a Short!
+    if (durationSeconds > 60) {
+      return false;
+    }
+
+    // RULE 2: Video URL explicitly contains /shorts/
     final videoUrl =
         (json['videoUrl'] ?? json['video_url'] ?? '').toString().toLowerCase();
-    if (videoUrl.contains('/shorts/')) return true;
-
-    // 3. Title or Description hashtags (#shorts, #short, #reels)
-    final title = (json['title'] ?? '').toString().toLowerCase();
-    final description = (json['description'] ?? '').toString().toLowerCase();
-    if (title.contains('#short') ||
-        description.contains('#short') ||
-        title.contains('#reels') ||
-        description.contains('#reels')) {
+    if (videoUrl.contains('/shorts/')) {
       return true;
     }
 
-    // 4. Duration check (<= 60 seconds)
-    final duration = (json['duration'] ?? '').toString().trim();
-    if (duration.isNotEmpty) {
-      final parts = duration.split(':');
-      if (parts.length == 2) {
-        final m = int.tryParse(parts[0]) ?? 0;
-        final s = int.tryParse(parts[1]) ?? 0;
-        final totalSeconds = m * 60 + s;
-        if (totalSeconds > 0 && totalSeconds <= 60) return true;
-      }
+    // RULE 3: Title or description has dedicated #shorts / #short tag AND duration is <= 60s
+    final title = (json['title'] ?? '').toString().toLowerCase();
+    final description = (json['description'] ?? '').toString().toLowerCase();
+    final hasShortsTag = title.contains('#shorts') ||
+        title.contains('#short') ||
+        description.contains('#shorts') ||
+        description.contains('#short');
+
+    if (hasShortsTag && (durationSeconds == 0 || durationSeconds <= 60)) {
+      return true;
+    }
+
+    // RULE 4: Valid duration between 1 and 60 seconds
+    if (durationSeconds > 0 && durationSeconds <= 60) {
+      return true;
+    }
+
+    // RULE 5: Explicit type == 'SHORT' ONLY IF duration is <= 60s
+    final type = (json['type'] ?? '').toString().toUpperCase();
+    if (type == 'SHORT' && (durationSeconds == 0 || durationSeconds <= 60)) {
+      return true;
     }
 
     return false;

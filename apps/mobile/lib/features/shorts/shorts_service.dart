@@ -17,17 +17,19 @@ class ShortsService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Try querying /videos?type=SHORT
+      // 1. Try querying /videos?type=SHORT (validated with Short.isShort)
       final response = await _apiClient.dio.get('/videos?type=SHORT');
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
         final List<dynamic> list =
             raw is List ? raw : (raw['shorts'] ?? raw['data'] ?? []);
-        if (list.isNotEmpty) {
-          _shorts = list
-              .whereType<Map<String, dynamic>>()
-              .map((s) => Short.fromJson(s))
-              .toList();
+        final valid = list
+            .whereType<Map<String, dynamic>>()
+            .where(Short.isShort)
+            .map((s) => Short.fromJson(s))
+            .toList();
+        if (valid.isNotEmpty) {
+          _shorts = valid;
           return;
         }
       }
