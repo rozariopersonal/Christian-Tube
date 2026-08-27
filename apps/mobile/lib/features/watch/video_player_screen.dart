@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
@@ -13,6 +12,7 @@ import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
 import '../../core/config/app_config.dart';
 import 'widgets/youtube_playlist_widget.dart';
+import 'players/universal_video_player.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
@@ -35,7 +35,6 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late YoutubePlayerController _controller;
   final ApiClient _apiClient = ApiClient();
   final ChannelService _channelService = ChannelService();
 
@@ -62,44 +61,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     _channelService.loadSubscriptions();
     _channelService.fetchChannels();
-    _initController(_activeVideoId);
     _loadVideoDetails();
     _loadRelatedVideos();
-  }
-
-  void _initController(String videoId) {
-    _controller = YoutubePlayerController(
-      initialVideoId: videoId,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
-        mute: false,
-        enableCaption: true,
-      ),
-    );
-
-    _controller.addListener(() {
-      if (_controller.value.playerState == PlayerState.ended) {
-        _handleVideoEnded();
-      }
-    });
-  }
-
-  void _handleVideoEnded() {
-    if (!_isAutoplay) return;
-
-    if (_loopMode == PlaylistLoopMode.one) {
-      _controller.seekTo(const Duration(seconds: 0));
-      _controller.play();
-      return;
-    }
-
-    if (_playlist.isNotEmpty) {
-      if (_playlistIndex < _playlist.length - 1) {
-        _selectVideoFromPlaylist(_playlistIndex + 1);
-      } else if (_loopMode == PlaylistLoopMode.all) {
-        _selectVideoFromPlaylist(0);
-      }
-    }
   }
 
   void _playNextInPlaylist() {
@@ -125,7 +88,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _activeVideoId = nextVid.id;
       _video = nextVid;
     });
-    _controller.load(nextVid.id);
     _loadVideoDetails();
   }
 
@@ -203,7 +165,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _activeVideoId = video.id;
       _video = video;
     });
-    _controller.load(video.id);
     _loadVideoDetails();
     _loadRelatedVideos();
   }
@@ -214,7 +175,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
-    _controller.dispose();
     super.dispose();
   }
 
@@ -224,27 +184,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final hasPlaylist = _playlist.isNotEmpty;
 
-    return YoutubePlayerBuilder(
-      onExitFullScreen: () {
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-        ]);
-      },
-      player: YoutubePlayer(
-        controller: _controller,
-        showVideoProgressIndicator: true,
-        progressIndicatorColor: Colors.red,
-        progressColors: const ProgressBarColors(
-          playedColor: Colors.red,
-          handleColor: Colors.redAccent,
-        ),
-      ),
+    return buildPlatformVideoPlayer(
+      videoId: _activeVideoId,
       builder: (context, player) => Scaffold(
         body: SafeArea(
           child: Column(
             children: [
-              // YouTube Flutter Player
+              // YouTube Player
               player,
 
               // Video Metadata & Recommendations
