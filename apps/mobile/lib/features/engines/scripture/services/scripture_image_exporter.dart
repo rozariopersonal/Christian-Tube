@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
-import '../widgets/scripture_share_modal.dart';
 import 'bible_download_manager.dart';
 import 'file_saver.dart';
 import 'scripture_service.dart';
@@ -294,52 +295,83 @@ class ScriptureImageExporter {
     String appName = 'ChristianTube',
   }) async {
     try {
-      // 1. Generate the pristine 1080x1920 graphic card from content data
-      final pngBytes = await ScriptureGraphicGenerator.generateStoryImage(
-        card: card,
-        activeVersionId: activeVersionId,
-        fontFamily: fontFamily,
-        fontSizeScale: fontSizeScale,
-        textColorHex: textColorHex,
-        isBold: isBold,
-        isItalic: isItalic,
-        textAlign: textAlign,
-        appName: appName,
-      );
+      final currentKey =
+          '${card.id}_${activeVersionId}_${fontFamily}_${fontSizeScale}_${textColorHex}_${card.activeBackground}';
+
+      // 1. Use pre-created image from memory (0ms instant) or generate if not ready
+      Uint8List pngBytes;
+      if (card.precomputedImageBytes != null &&
+          card.precomputedImageKey == currentKey) {
+        pngBytes = card.precomputedImageBytes!;
+      } else {
+        pngBytes = await ScriptureGraphicGenerator.generateStoryImage(
+          card: card,
+          activeVersionId: activeVersionId,
+          fontFamily: fontFamily,
+          fontSizeScale: fontSizeScale,
+          textColorHex: textColorHex,
+          isBold: isBold,
+          isItalic: isItalic,
+          textAlign: textAlign,
+          appName: appName,
+        );
+        card.precomputedImageBytes = pngBytes;
+        card.precomputedImageKey = currentKey;
+      }
 
       final sanitizedRef =
           card.referenceLabel.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
       final fileName =
           'verse_${sanitizedRef}_${DateTime.now().millisecondsSinceEpoch}.png';
+      final shareText =
+          '“${card.resolvedText ?? ""}”\n\n— ${card.referenceLabel} (${card.resolvedVersion ?? activeVersionId})\n\nShared via $appName';
 
-      // 2. On Web or desktop, open the high-res graphic modal with download & copy options
-      if (kIsWeb && context != null && context.mounted) {
-        await ScriptureShareModal.show(
-          context,
-          imageBytes: pngBytes,
-          card: card,
-          fileName: fileName,
-          appName: appName,
-        );
-        return;
-      }
-
-      // 3. On Mobile, trigger native file saving / system share sheet
-      await saveOrDownloadFile(pngBytes, fileName);
-    } catch (e) {
-      debugPrint('Error generating content-based graphic: $e');
-      if (context != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sharing verse text...'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-      await saveOrDownloadFile(
-        Uint8List(0),
-        '${card.referenceLabel}.txt',
+      // 2. Directly show the native / platform Share Dialog with the pre-created image!
+      final xFile = XFile.fromData(
+        pngBytes,
+        mimeType: 'image/png',
+        name: fileName,
       );
+
+      final result = await Share.shareXFiles(
+        [xFile],
+        text: shareText,
+        subject: card.referenceLabel,
+      );
+
+      // On Web desktop where native share API is unavailable or dismissed, provide direct seamless download & clipboard copy
+      if (kIsWeb && result.status == ShareResultStatus.unavailable) {
+        await saveOrDownloadFile(pngBytes, fileName);
+        await Clipboard.setData(ClipboardData(text: shareText));
+        if (context != null && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Saved $fileName & copied text to clipboard!'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error triggering share dialog: $e');
+      final sanitizedRef =
+          card.referenceLabel.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      final fileName =
+          'verse_${sanitizedRef}_${DateTime.now().millisecondsSinceEpoch}.png';
+      final pngBytes = card.precomputedImageBytes ??
+          await ScriptureGraphicGenerator.generateStoryImage(
+            card: card,
+            activeVersionId: activeVersionId,
+            fontFamily: fontFamily,
+            fontSizeScale: fontSizeScale,
+            textColorHex: textColorHex,
+            isBold: isBold,
+            isItalic: isItalic,
+            textAlign: textAlign,
+            appName: appName,
+          );
+      await saveOrDownloadFile(pngBytes, fileName);
     }
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class ScriptureCard {
   final String id;
   final int bookNumber;
@@ -16,6 +18,8 @@ class ScriptureCard {
   bool isSaved;
   String? customBackgroundPreset;
   String? customFontFamily;
+  Uint8List? precomputedImageBytes;
+  String? precomputedImageKey;
 
   ScriptureCard({
     required this.id,
