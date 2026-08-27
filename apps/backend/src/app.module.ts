@@ -10,6 +10,7 @@ import { YoutubeModule } from './modules/youtube/youtube.module';
 import { TranscriptionModule } from './modules/transcription/transcription.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { HealthModule } from './modules/health/health.module';
+import { WordsModule } from './modules/words/words.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { HealthModule } from './modules/health/health.module';
     ChannelsModule,
     YoutubeModule,
     TranscriptionModule,
+    WordsModule,
   ],
 })
 export class AppModule {}

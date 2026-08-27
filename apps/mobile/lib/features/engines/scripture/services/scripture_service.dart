@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/services.dart';
+import 'package:mobile/core/api/api_client.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
 import 'local_bible_service.dart';
@@ -13,13 +14,45 @@ class ScriptureService {
 
   final LocalBibleService _localBible = LocalBibleService();
   final RemoteBibleApiService _remoteApi = RemoteBibleApiService();
+  final ApiClient _apiClient = ApiClient();
   final Random _random = Random();
 
   List<ScriptureCard>? _masterCatalog;
   List<ScriptureCard>? _activeShuffledCatalog;
+  bool _isFetchingRemote = false;
 
   Future<void> initialize() async {
     await _localBible.initialize();
+    _fetchRemoteWords();
+  }
+
+  Future<void> _fetchRemoteWords() async {
+    if (_isFetchingRemote) return;
+    _isFetchingRemote = true;
+    try {
+      final res = await _apiClient.dio.get('/words', queryParameters: {'limit': 100});
+      if (res.statusCode == 200 && res.data != null) {
+        final dynamic raw = res.data;
+        final List<dynamic> items = raw is List ? raw : (raw['items'] ?? []);
+        if (items.isNotEmpty) {
+          final remoteCards = items
+              .whereType<Map<String, dynamic>>()
+              .map((j) => ScriptureCard.fromJson(j))
+              .toList();
+
+          _masterCatalog ??= [];
+          final existingIds = _masterCatalog!.map((c) => c.id).toSet();
+          for (final rc in remoteCards) {
+            if (!existingIds.contains(rc.id)) {
+              _masterCatalog!.insert(0, rc);
+            }
+          }
+          resetRandomDeck();
+        }
+      }
+    } catch (_) {} finally {
+      _isFetchingRemote = false;
+    }
   }
 
   /// Shuffles the catalog to ensure a brand new random start on every visit

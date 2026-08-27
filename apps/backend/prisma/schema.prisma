@@ -97,3 +97,28 @@ model User {
   @@index([isBlocked])
   @@index([email])
 }
+
+model MicroFeedItem {
+  id               String   @id @default(uuid())
+  engine           String   @default("scripture") // "scripture", "quote", "devotional"
+  bookNumber       Int?
+  bookName         String?
+  chapter          Int?
+  startVerse       Int?
+  endVerse         Int?
+  referenceLabel   String
+  text             String   @db.Text
+  translation      String   @default("WEB")
+  category         String   @default("General")
+  backgroundPreset String   @default("mountain_dawn")
+  tags             String[] @default([])
+  likesCount       Int      @default(0)
+  sharesCount      Int      @default(0)
+  isFeatured       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([engine])
+  @@index([category])
+  @@index([isFeatured])
+}

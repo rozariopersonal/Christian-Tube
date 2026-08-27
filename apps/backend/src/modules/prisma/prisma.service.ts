@@ -73,6 +73,27 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS "MicroFeedItem" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "engine" TEXT NOT NULL DEFAULT 'scripture',
+          "bookNumber" INTEGER,
+          "bookName" TEXT,
+          "chapter" INTEGER,
+          "startVerse" INTEGER,
+          "endVerse" INTEGER,
+          "referenceLabel" TEXT NOT NULL,
+          "text" TEXT NOT NULL,
+          "translation" TEXT NOT NULL DEFAULT 'WEB',
+          "category" TEXT NOT NULL DEFAULT 'General',
+          "backgroundPreset" TEXT NOT NULL DEFAULT 'mountain_dawn',
+          "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+          "likesCount" INTEGER NOT NULL DEFAULT 0,
+          "sharesCount" INTEGER NOT NULL DEFAULT 0,
+          "isFeatured" BOOLEAN NOT NULL DEFAULT false,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS "Video_channelId_idx" ON "Video"("channelId");
         CREATE INDEX IF NOT EXISTS "Video_publishedAt_idx" ON "Video"("publishedAt");
         CREATE INDEX IF NOT EXISTS "Video_type_idx" ON "Video"("type");
@@ -81,6 +102,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         CREATE INDEX IF NOT EXISTS "Channel_category_idx" ON "Channel"("category");
         CREATE INDEX IF NOT EXISTS "User_isBlocked_idx" ON "User"("isBlocked");
         CREATE INDEX IF NOT EXISTS "User_email_idx" ON "User"("email");
+        CREATE INDEX IF NOT EXISTS "MicroFeedItem_engine_idx" ON "MicroFeedItem"("engine");
+        CREATE INDEX IF NOT EXISTS "MicroFeedItem_category_idx" ON "MicroFeedItem"("category");
+        CREATE INDEX IF NOT EXISTS "MicroFeedItem_isFeatured_idx" ON "MicroFeedItem"("isFeatured");
       `);
       this.logger.log('✅ PostgreSQL database tables verified and created.');
     } catch (e: any) {
