@@ -83,7 +83,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         strictRelatedVideos: true,
         // Spoof a real Chrome browser origin & User-Agent to prevent
         // YouTube error 150/152 caused by WebView origin rejection.
-        origin: 'https://www.youtube.com',
+        origin: 'https://www.youtube-nocookie.com',
         userAgent:
             'Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36',
       ),
