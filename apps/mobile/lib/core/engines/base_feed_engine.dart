@@ -49,6 +49,7 @@ abstract class BaseFeedEngine<T, F extends BaseFeedFilterState> {
     F filterState,
     GlobalKey repaintBoundaryKey,
     VoidCallback onRefreshCard,
+    ValueChanged<F> onFilterChanged,
   );
 
   /// Builds the Bottom Context Bar slot (optional contextual deep link or metadata).

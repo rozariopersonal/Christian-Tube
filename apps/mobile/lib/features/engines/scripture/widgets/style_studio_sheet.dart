@@ -36,8 +36,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
   void initState() {
     super.initState();
     _fontSizeScale = widget.filterState.fontSizeScale;
-    _fontFamily =
-        widget.card.customFontFamily ?? widget.filterState.activeFontFamily;
+    _fontFamily = widget.filterState.activeFontFamily;
     _textColorHex = widget.filterState.textColorHex;
     _isBold = widget.filterState.isBold;
     _isItalic = widget.filterState.isItalic;
@@ -47,7 +46,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
 
   void _applyLiveChange() {
     widget.card.customBackgroundPreset = _backgroundPresetId;
-    widget.card.customFontFamily = _fontFamily;
+    widget.card.customFontFamily = null;
 
     final newState = widget.filterState.copyWith(
       fontSizeScale: _fontSizeScale,

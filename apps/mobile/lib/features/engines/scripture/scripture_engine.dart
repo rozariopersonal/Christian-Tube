@@ -5,6 +5,8 @@ import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models/scripture_card.dart';
 import 'models/scripture_filter_state.dart';
+import 'models/scripture_theme_state.dart';
+import 'services/bible_download_manager.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
 import 'widgets/bible_version_picker_modal.dart';
@@ -41,23 +43,46 @@ class ScriptureEngine
       final prefs = await SharedPreferences.getInstance();
       final savedVersion =
           prefs.getString('pref_bible_version') ?? _cachedFilterState.activeVersionId;
-      final savedScale =
-          prefs.getDouble('pref_bible_font_scale') ?? _cachedFilterState.fontSizeScale;
-      final savedFont =
-          prefs.getString('pref_bible_font_family') ?? _cachedFilterState.activeFontFamily;
-      final savedColor =
-          prefs.getString('pref_bible_text_color') ?? _cachedFilterState.textColorHex;
-      final savedBold =
-          prefs.getBool('pref_bible_is_bold') ?? _cachedFilterState.isBold;
-      final savedItalic =
-          prefs.getBool('pref_bible_is_italic') ?? _cachedFilterState.isItalic;
-      final savedAlign =
-          prefs.getString('pref_bible_text_align') ?? _cachedFilterState.textAlign;
-      final savedBg =
-          prefs.getString('pref_bible_bg_preset') ?? _cachedFilterState.backgroundPreset;
+      _cachedFilterState = await loadFilterStateForVersion(savedVersion);
+      _hasLoadedPrefs = true;
+    } catch (_) {}
+  }
 
-      _cachedFilterState = ScriptureFilterState(
-        activeVersionId: savedVersion,
+  Future<ScriptureFilterState> loadFilterStateForVersion(String versionId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final meta = BibleDownloadManager.getMeta(versionId);
+      final lang = meta.languageCode;
+
+      final defaultFont =
+          ScriptureThemeCatalog.getDefaultFontForLanguage(lang);
+
+      final savedScale = prefs.getDouble('pref_bible_${lang}_font_scale') ??
+          prefs.getDouble('pref_bible_font_scale') ??
+          _cachedFilterState.fontSizeScale;
+      final savedFont = prefs.getString('pref_bible_${lang}_font_family') ??
+          (lang == 'en'
+              ? prefs.getString('pref_bible_font_family')
+              : null) ??
+          defaultFont;
+      final savedColor = prefs.getString('pref_bible_${lang}_text_color') ??
+          prefs.getString('pref_bible_text_color') ??
+          _cachedFilterState.textColorHex;
+      final savedBold = prefs.getBool('pref_bible_${lang}_is_bold') ??
+          prefs.getBool('pref_bible_is_bold') ??
+          _cachedFilterState.isBold;
+      final savedItalic = prefs.getBool('pref_bible_${lang}_is_italic') ??
+          prefs.getBool('pref_bible_is_italic') ??
+          _cachedFilterState.isItalic;
+      final savedAlign = prefs.getString('pref_bible_${lang}_text_align') ??
+          prefs.getString('pref_bible_text_align') ??
+          _cachedFilterState.textAlign;
+      final savedBg = prefs.getString('pref_bible_${lang}_bg_preset') ??
+          prefs.getString('pref_bible_bg_preset') ??
+          _cachedFilterState.backgroundPreset;
+
+      return ScriptureFilterState(
+        activeVersionId: versionId,
         fontSizeScale: savedScale,
         activeFontFamily: savedFont,
         textColorHex: savedColor,
@@ -66,22 +91,37 @@ class ScriptureEngine
         textAlign: savedAlign,
         backgroundPreset: savedBg,
       );
-      _hasLoadedPrefs = true;
-    } catch (_) {}
+    } catch (_) {
+      return ScriptureFilterState(activeVersionId: versionId);
+    }
   }
 
   Future<void> _savePreferences(ScriptureFilterState state) async {
     _cachedFilterState = state;
     try {
       final prefs = await SharedPreferences.getInstance();
+      final meta = BibleDownloadManager.getMeta(state.activeVersionId);
+      final lang = meta.languageCode;
+
+      // 1. Save Active Version
       await prefs.setString('pref_bible_version', state.activeVersionId);
-      await prefs.setDouble('pref_bible_font_scale', state.fontSizeScale);
-      await prefs.setString('pref_bible_font_family', state.activeFontFamily);
+
+      // 2. Save Per-Language Styles
+      await prefs.setDouble('pref_bible_${lang}_font_scale', state.fontSizeScale);
+      await prefs.setString('pref_bible_${lang}_font_family', state.activeFontFamily);
+      await prefs.setString('pref_bible_${lang}_text_color', state.textColorHex);
+      await prefs.setBool('pref_bible_${lang}_is_bold', state.isBold);
+      await prefs.setBool('pref_bible_${lang}_is_italic', state.isItalic);
+      await prefs.setString('pref_bible_${lang}_text_align', state.textAlign);
+      await prefs.setString('pref_bible_${lang}_bg_preset', state.backgroundPreset);
+
+      // 3. Fallback Global Persistence
       await prefs.setString('pref_bible_text_color', state.textColorHex);
-      await prefs.setBool('pref_bible_is_bold', state.isBold);
-      await prefs.setBool('pref_bible_is_italic', state.isItalic);
-      await prefs.setString('pref_bible_text_align', state.textAlign);
       await prefs.setString('pref_bible_bg_preset', state.backgroundPreset);
+      await prefs.setDouble('pref_bible_font_scale', state.fontSizeScale);
+      if (lang == 'en') {
+        await prefs.setString('pref_bible_font_family', state.activeFontFamily);
+      }
     } catch (_) {}
   }
 
@@ -124,10 +164,9 @@ class ScriptureEngine
               isScrollControlled: true,
               builder: (ctx) => BibleVersionPickerModal(
                 activeVersionId: filterState.activeVersionId,
-                onSelectVersion: (newVersionId) {
-                  final newState =
-                      filterState.copyWith(activeVersionId: newVersionId);
-                  _savePreferences(newState);
+                onSelectVersion: (newVersionId) async {
+                  final newState = await loadFilterStateForVersion(newVersionId);
+                  await _savePreferences(newState);
                   onFilterChanged(newState);
                 },
                 onOpenManager: onOpenManager,
@@ -266,6 +305,7 @@ class ScriptureEngine
     ScriptureFilterState filterState,
     GlobalKey repaintBoundaryKey,
     VoidCallback onRefreshCard,
+    ValueChanged<ScriptureFilterState> onFilterChanged,
   ) {
     return [
       // 1. Share Image Button
@@ -301,6 +341,7 @@ class ScriptureEngine
               filterState: filterState,
               onFilterChanged: (newState) {
                 _savePreferences(newState);
+                onFilterChanged(newState);
                 onRefreshCard();
               },
               onRefreshCard: onRefreshCard,

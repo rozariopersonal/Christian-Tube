@@ -100,6 +100,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
           (newFilterState as ScriptureFilterState).activeVersionId;
       for (final item in _items) {
         if (item is ScriptureCard) {
+          item.customFontFamily = null;
           scriptureEngine.resolveCard(item, newVersionId);
         }
       }
@@ -244,6 +245,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                     _filterState,
                     currentBoundaryKey,
                     () => setState(() {}),
+                    _onFilterChanged,
                   ),
                 ),
               ),

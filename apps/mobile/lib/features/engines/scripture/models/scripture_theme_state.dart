@@ -316,6 +316,12 @@ class ScriptureThemeCatalog {
     }
   }
 
+  static String getDefaultFontForLanguage(String? languageCode) {
+    final fonts = getFontsForLanguage(languageCode);
+    if (fonts.isNotEmpty) return fonts.first.id;
+    return 'Playfair';
+  }
+
   // Curated Text Color Palette
   static const List<ScriptureColorOption> colorPalette = [
     ScriptureColorOption(
