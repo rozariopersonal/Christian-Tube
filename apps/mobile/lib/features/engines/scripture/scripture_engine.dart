@@ -30,7 +30,7 @@ class ScriptureEngine
   String get engineType => 'scripture';
 
   @override
-  String get defaultTabTitle => 'Micro Feeds';
+  String get defaultTabTitle => 'Words';
 
   @override
   IconData get defaultTabIcon => Icons.auto_awesome_outlined;

@@ -234,7 +234,7 @@ class ScriptureGraphicGenerator {
     // 4. Draw Official Brand Watermark
     final watermarkPainter = TextPainter(
       text: TextSpan(
-        text: '✦  $appName Micro Feeds',
+        text: '✦  $appName Words',
         style: const TextStyle(
           color: Color(0xFFFBBF24),
           fontSize: 24,
