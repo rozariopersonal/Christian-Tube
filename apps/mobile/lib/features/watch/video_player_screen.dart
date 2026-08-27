@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
@@ -35,7 +35,6 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late YoutubePlayerController _controller;
-  StreamSubscription<YoutubePlayerValue>? _subscription;
   final ApiClient _apiClient = ApiClient();
   final ChannelService _channelService = ChannelService();
 
@@ -68,29 +67,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _initController(String videoId) {
-    _subscription?.cancel();
-    _subscription = null;
-
-    _controller = YoutubePlayerController.fromVideoId(
-      videoId: videoId,
-      autoPlay: true,
-      params: const YoutubePlayerParams(
-        showControls: true,
-        showFullscreenButton: true,
-        playsInline: true,
-        showVideoAnnotations: false,
+    _controller = YoutubePlayerController(
+      initialVideoId: videoId,
+      flags: const YoutubePlayerFlags(
+        autoPlay: true,
+        mute: false,
         enableCaption: true,
-        strictRelatedVideos: true,
-        // Spoof a real Chrome browser origin & User-Agent to prevent
-        // YouTube error 150/152 caused by WebView origin rejection.
-        origin: 'https://www.youtube-nocookie.com',
-        userAgent:
-            'Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36',
       ),
     );
 
-    _subscription = _controller.listen((state) {
-      if (state.playerState == PlayerState.ended) {
+    _controller.addListener(() {
+      if (_controller.value.playerState == PlayerState.ended) {
         _handleVideoEnded();
       }
     });
@@ -100,8 +87,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (!_isAutoplay) return;
 
     if (_loopMode == PlaylistLoopMode.one) {
-      _controller.seekTo(seconds: 0);
-      _controller.playVideo();
+      _controller.seekTo(const Duration(seconds: 0));
+      _controller.play();
       return;
     }
 
@@ -137,7 +124,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _activeVideoId = nextVid.id;
       _video = nextVid;
     });
-    _controller.loadVideoById(videoId: nextVid.id);
+    _controller.load(nextVid.id);
     _loadVideoDetails();
   }
 
@@ -215,15 +202,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _activeVideoId = video.id;
       _video = video;
     });
-    _controller.loadVideoById(videoId: video.id);
+    _controller.load(video.id);
     _loadVideoDetails();
     _loadRelatedVideos();
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
-    _controller.close();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -233,17 +219,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final hasPlaylist = _playlist.isNotEmpty;
 
-    return YoutubePlayerScaffold(
-      controller: _controller,
-      aspectRatio: 16 / 9,
-      builder: (context, player) => Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              // YouTube IFrame Player
-              player,
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // YouTube Flutter Player
+            YoutubePlayer(
+              controller: _controller,
+              showVideoProgressIndicator: true,
+              progressIndicatorColor: Colors.red,
+              progressColors: const ProgressBarColors(
+                playedColor: Colors.red,
+                handleColor: Colors.redAccent,
+              ),
+            ),
 
-              // Video Metadata & Recommendations
+            // Video Metadata & Recommendations
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -564,8 +555,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildActionPill({
