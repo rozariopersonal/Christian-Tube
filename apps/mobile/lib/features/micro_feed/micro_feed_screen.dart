@@ -87,7 +87,6 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
     setState(() {
       _filterState = newFilterState;
     });
-    _initializeAndLoad();
   }
 
   void _openManager() {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import '../models/scripture_card.dart';
+import '../models/scripture_theme_state.dart';
 import 'local_bible_service.dart';
 import 'remote_bible_api_service.dart';
 
@@ -45,6 +46,12 @@ class ScriptureService {
     for (int i = 0; i < limit; i++) {
       final index = (startIndex + i) % total;
       final original = catalog[index];
+      // Assign background preset
+      final presetIndex = (startIndex + i) % ScriptureThemeCatalog.presets.length;
+      final bg = (original.backgroundPreset.isNotEmpty)
+          ? original.backgroundPreset
+          : ScriptureThemeCatalog.presets[presetIndex].id;
+
       // Clone card so per-card live overrides don't mutate template
       final card = ScriptureCard(
         id: '${original.id}_${page}_$i',
@@ -55,7 +62,7 @@ class ScriptureService {
         endVerse: original.endVerse,
         referenceLabel: original.referenceLabel,
         category: original.category,
-        backgroundPreset: original.backgroundPreset,
+        backgroundPreset: bg,
         tags: original.tags,
       );
 
