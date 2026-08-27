@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
@@ -67,17 +67,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _initController(String videoId) {
-    _controller = YoutubePlayerController(
-      initialVideoId: videoId,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
+    _controller = YoutubePlayerController.fromVideoId(
+      videoId: videoId,
+      autoPlay: true,
+      params: const YoutubePlayerParams(
+        showControls: true,
         mute: false,
-        enableCaption: true,
+        showFullscreenButton: true,
+        loop: false,
       ),
     );
 
-    _controller.addListener(() {
-      if (_controller.value.playerState == PlayerState.ended) {
+    _controller.listen((event) {
+      if (event.playerState == PlayerState.ended) {
         _handleVideoEnded();
       }
     });
@@ -87,8 +89,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (!_isAutoplay) return;
 
     if (_loopMode == PlaylistLoopMode.one) {
-      _controller.seekTo(const Duration(seconds: 0));
-      _controller.play();
+      _controller.seekTo(seconds: 0.0, allowSeekAhead: true);
+      _controller.playVideo();
       return;
     }
 
@@ -124,7 +126,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _activeVideoId = nextVid.id;
       _video = nextVid;
     });
-    _controller.load(nextVid.id);
+    _controller.loadVideoById(videoId: nextVid.id);
     _loadVideoDetails();
   }
 
@@ -202,14 +204,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _activeVideoId = video.id;
       _video = video;
     });
-    _controller.load(video.id);
+    _controller.loadVideoById(videoId: video.id);
     _loadVideoDetails();
     _loadRelatedVideos();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller.close();
     super.dispose();
   }
 
@@ -226,12 +228,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             // YouTube Flutter Player
             YoutubePlayer(
               controller: _controller,
-              showVideoProgressIndicator: true,
-              progressIndicatorColor: Colors.red,
-              progressColors: const ProgressBarColors(
-                playedColor: Colors.red,
-                handleColor: Colors.redAccent,
-              ),
+              aspectRatio: 16 / 9,
             ),
 
             // Video Metadata & Recommendations
