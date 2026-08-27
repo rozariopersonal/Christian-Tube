@@ -5,7 +5,10 @@ import '../../core/engines/base_feed_engine.dart';
 class MicroFeedScreen<T, F extends BaseFeedFilterState> extends StatefulWidget {
   final BaseFeedEngine<T, F> engine;
 
-  const MicroFeedScreen({super.key, required this.engine});
+  const MicroFeedScreen({
+    super.key,
+    required this.engine,
+  });
 
   @override
   State<MicroFeedScreen<T, F>> createState() => _MicroFeedScreenState<T, F>();
@@ -110,14 +113,14 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
         backgroundColor: Colors.black,
         body: Center(
           child: CircularProgressIndicator(
-            color: Colors.white,
+            color: Color(0xFFF59E0B),
             strokeWidth: 2.5,
           ),
         ),
       );
     }
 
-    if (_errorMessage != null || _items.isEmpty) {
+    if (_errorMessage != null && _items.isEmpty) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -126,16 +129,16 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  widget.engine.defaultTabIcon,
-                  size: 64,
-                  color: Colors.white54,
+                const Icon(
+                  Icons.signal_wifi_connected_no_internet_4_rounded,
+                  color: Colors.white38,
+                  size: 54,
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  _errorMessage ?? 'No content available right now.',
-                  textAlign: TextAlign.center,
+                  _errorMessage!,
                   style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
@@ -143,8 +146,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   icon: const Icon(Icons.refresh),
                   label: const Text('Refresh'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white24,
-                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFF59E0B),
+                    foregroundColor: Colors.black,
                   ),
                 ),
               ],
@@ -154,11 +157,17 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
       );
     }
 
+    final hasValidCurrentItem =
+        _items.isNotEmpty && _currentPage >= 0 && _currentPage < _items.length;
+    final currentItem = hasValidCurrentItem ? _items[_currentPage] : null;
+    final currentBoundaryKey =
+        hasValidCurrentItem ? _getKeyForIndex(_currentPage) : null;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Vertical PageView
+          // 1. Vertical PageView (ONLY content cards slide)
           PageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
@@ -174,62 +183,28 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
               final isCurrent = index == _currentPage;
               final boundaryKey = _getKeyForIndex(index);
 
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Main Card Canvas (wrapped in RepaintBoundary for 4K sharing)
-                  RepaintBoundary(
-                    key: boundaryKey,
-                    child: widget.engine.buildCard(
-                      context,
-                      item,
-                      _filterState,
-                      isCurrent,
-                      boundaryKey,
-                    ),
-                  ),
-
-                  // Right Side Action Buttons
-                  Positioned(
-                    right: 14,
-                    bottom: 36,
-                    child: SafeArea(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: widget.engine.buildSideActions(
-                          context,
-                          item,
-                          _filterState,
-                          boundaryKey,
-                          () => setState(() {}),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Bottom Context Slot
-                  Positioned(
-                    left: 16,
-                    right: 76,
-                    bottom: 24,
-                    child: SafeArea(
-                      child: widget.engine.buildBottomBar(context, item) ??
-                          const SizedBox.shrink(),
-                    ),
-                  ),
-                ],
+              return RepaintBoundary(
+                key: boundaryKey,
+                child: widget.engine.buildCard(
+                  context,
+                  item,
+                  _filterState,
+                  isCurrent,
+                  boundaryKey,
+                ),
               );
             },
           ),
 
-          // Top Floating Control Bar Slot
+          // 2. Fixed Stationary Top Floating Controls
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: widget.engine.buildTopControls(
                       context,
                       _filterState,
@@ -240,6 +215,37 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
               ),
             ),
           ),
+
+          // 3. Fixed Stationary Right Side Action Column (Doesn't slide on swipe)
+          if (currentItem != null && currentBoundaryKey != null)
+            Positioned(
+              right: 14,
+              bottom: 36,
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: widget.engine.buildSideActions(
+                    context,
+                    currentItem,
+                    _filterState,
+                    currentBoundaryKey,
+                    () => setState(() {}),
+                  ),
+                ),
+              ),
+            ),
+
+          // 4. Fixed Stationary Bottom Context Slot
+          if (currentItem != null)
+            Positioned(
+              left: 16,
+              right: 80,
+              bottom: 24,
+              child: SafeArea(
+                child: widget.engine.buildBottomBar(context, currentItem) ??
+                    const SizedBox.shrink(),
+              ),
+            ),
         ],
       ),
     );

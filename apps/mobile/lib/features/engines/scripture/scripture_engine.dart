@@ -5,7 +5,6 @@ import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models/scripture_card.dart';
 import 'models/scripture_filter_state.dart';
-import 'models/scripture_theme_state.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
 import 'widgets/bible_version_picker_modal.dart';
