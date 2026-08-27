@@ -11,6 +11,7 @@ class AppConfig {
   static String apiBaseUrl = 'https://christian-tube-1.onrender.com';
   static String releasesRepo = 'rozariopersonal/Christian-Tube-Releases';
   static String apkFileName = 'christian-tube.apk';
+  static String? googleClientId;
 
   static Color primaryColor = const Color(0xFF2563EB);
   static Color accentColor = const Color(0xFFF59E0B);
@@ -53,6 +54,7 @@ class AppConfig {
       apiBaseUrl = json['apiBaseUrl'] ?? apiBaseUrl;
       releasesRepo = json['releasesRepo'] ?? releasesRepo;
       apkFileName = json['apkFileName'] ?? apkFileName;
+      googleClientId = json['googleClientId'];
 
       if (json['theme'] != null) {
         primaryColor = _parseColor(json['theme']['primaryColor'], primaryColor);

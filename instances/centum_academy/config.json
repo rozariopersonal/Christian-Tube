@@ -13,6 +13,7 @@
   "apiBaseUrl": "https://centumtube.onrender.com",
   "releasesRepo": "rozariopersonal/Centum-Academy-Releases",
   "apkFileName": "centum-academy.apk",
+  "googleClientId": "598509951448-48nk2qmmp7sr0qj65gekoe4655ekh1k2.apps.googleusercontent.com",
   "defaultCategories": [
     "All",
     "Mathematics",

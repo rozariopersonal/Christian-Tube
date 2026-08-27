@@ -7,7 +7,7 @@ import '../../core/models/user.dart';
 import '../../core/config/app_config.dart';
 
 class AuthService extends ChangeNotifier {
-  static const String googleClientId = '486970697742-rosdo4tsrelad7tma3aeuc47ndv3e1ma.apps.googleusercontent.com';
+  // Client ID now comes dynamically from AppConfig
 
   final ApiClient _apiClient = ApiClient();
   late GoogleSignIn _googleSignIn;
@@ -30,7 +30,7 @@ class AuthService extends ChangeNotifier {
 
   void _initGoogleSignIn() {
     _googleSignIn = GoogleSignIn(
-      clientId: kIsWeb ? googleClientId : null,
+      clientId: kIsWeb ? AppConfig.googleClientId : null,
       scopes: const ['email', 'profile'],
     );
   }
@@ -95,7 +95,7 @@ class AuthService extends ChangeNotifier {
         if (!kIsWeb) {
           try {
             final fallbackSignIn = GoogleSignIn(
-              serverClientId: googleClientId,
+              serverClientId: AppConfig.googleClientId,
               scopes: const ['email', 'profile'],
             );
             account = await fallbackSignIn.signIn();
