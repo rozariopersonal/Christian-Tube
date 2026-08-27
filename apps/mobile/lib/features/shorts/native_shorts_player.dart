@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
-import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../core/models/short.dart';
 
 class NativeShortsPlayer extends StatefulWidget {
@@ -18,9 +17,8 @@ class NativeShortsPlayer extends StatefulWidget {
 }
 
 class _NativeShortsPlayerState extends State<NativeShortsPlayer> {
-  VideoPlayerController? _controller;
+  YoutubePlayerController? _controller;
   bool _isLoading = true;
-  String? _streamUrl;
 
   @override
   void initState() {
@@ -28,41 +26,31 @@ class _NativeShortsPlayerState extends State<NativeShortsPlayer> {
     _initializePlayer();
   }
 
-  Future<void> _initializePlayer() async {
-    try {
-      if (widget.short.directStreamUrl != null) {
-        _streamUrl = widget.short.directStreamUrl;
-      } else {
-        // Extract direct stream using youtube_explode_dart
-        final yt = YoutubeExplode();
-        final manifest = await yt.videos.streamsClient.getManifest(widget.short.id);
-        final streamInfo = manifest.muxed.withHighestBitrate();
-        _streamUrl = streamInfo.url.toString();
-        yt.close();
-      }
+  void _initializePlayer() {
+    _controller = YoutubePlayerController(
+      initialVideoId: widget.short.id,
+      flags: const YoutubePlayerFlags(
+        autoPlay: false,
+        mute: false,
+        hideControls: true,
+        disableDragSeek: true,
+        loop: true,
+      ),
+    );
 
-      if (_streamUrl != null) {
-        _controller = VideoPlayerController.networkUrl(Uri.parse(_streamUrl!));
-        await _controller!.initialize();
-        _controller!.setLooping(true);
+    if (widget.isPlaying && mounted) {
+      _controller!.play();
+    }
 
-        if (widget.isPlaying && mounted) {
-          _controller!.play();
-        }
-      }
-    } catch (e) {
-      debugPrint('Error playing short: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   void didUpdateWidget(covariant NativeShortsPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_controller != null && _controller!.value.isInitialized) {
+    if (_controller != null) {
       if (widget.isPlaying && !oldWidget.isPlaying) {
         _controller!.play();
       } else if (!widget.isPlaying && oldWidget.isPlaying) {
@@ -86,7 +74,7 @@ class _NativeShortsPlayerState extends State<NativeShortsPlayer> {
       );
     }
 
-    if (_controller != null && _controller!.value.isInitialized) {
+    if (_controller != null) {
       return GestureDetector(
         onTap: () {
           if (_controller!.value.isPlaying) {
@@ -99,14 +87,22 @@ class _NativeShortsPlayerState extends State<NativeShortsPlayer> {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // Using FittedBox to try to cover the screen 9:16 aspect ratio
             FittedBox(
               fit: BoxFit.cover,
               child: SizedBox(
-                width: _controller!.value.size.width,
-                height: _controller!.value.size.height,
-                child: VideoPlayer(_controller!),
+                width: MediaQuery.of(context).size.width,
+                height: MediaQuery.of(context).size.width * (16 / 9),
+                child: IgnorePointer(
+                  child: YoutubePlayer(
+                    controller: _controller!,
+                    showVideoProgressIndicator: false,
+                  ),
+                ),
               ),
             ),
+            
+            // Play/Pause overlay indicator
             if (!_controller!.value.isPlaying)
               const Center(
                 child: Icon(Icons.play_arrow, size: 64, color: Colors.white70),

@@ -23,7 +23,7 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
 
   Future<void> _fetchGridShorts() async {
     try {
-      final response = await _apiClient.dio.get('/shorts/feed');
+      final response = await _apiClient.dio.get('/videos?type=SHORT');
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> list = response.data is List ? response.data : response.data['shorts'] ?? [];
         setState(() {

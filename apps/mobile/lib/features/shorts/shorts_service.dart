@@ -16,7 +16,7 @@ class ShortsService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiClient.dio.get('/shorts/feed');
+      final response = await _apiClient.dio.get('/videos?type=SHORT');
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
         final List<dynamic> list = raw is List ? raw : (raw['shorts'] ?? raw['data'] ?? []);
