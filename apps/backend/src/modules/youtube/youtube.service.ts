@@ -111,6 +111,10 @@ export class YoutubeService implements OnModuleInit {
     }
   }
 
+  async syncAllChannels() {
+    return this.syncAllChannelsPeriodically();
+  }
+
   /**
    * Refresh channel metadata: avatar, title, description, subscriber count
    */

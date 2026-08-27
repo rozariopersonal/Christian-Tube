@@ -20,7 +20,7 @@ export class YoutubeController {
     }
 
     this.logger.log('Manual YouTube sync triggered via API endpoint.');
-    this.youtubeService.syncAllChannels().catch((e) => {
+    this.youtubeService.syncAllChannelsPeriodically().catch((e) => {
       this.logger.error(`Manual sync error: ${e.message}`);
     });
 
