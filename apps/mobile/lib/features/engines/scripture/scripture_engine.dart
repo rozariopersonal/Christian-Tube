@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile/core/engines/base_feed_engine.dart';
 import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'models/scripture_card.dart';
 import 'models/scripture_filter_state.dart';
 import 'models/scripture_theme_state.dart';
@@ -14,6 +15,8 @@ import 'widgets/style_studio_sheet.dart';
 class ScriptureEngine
     implements BaseFeedEngine<ScriptureCard, ScriptureFilterState> {
   final ScriptureService _service = ScriptureService();
+  ScriptureFilterState _cachedFilterState =
+      const ScriptureFilterState(activeVersionId: 'WEB');
 
   @override
   String get engineType => 'scripture';
@@ -27,11 +30,32 @@ class ScriptureEngine
   @override
   Future<void> initialize() async {
     await _service.initialize();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedVersion = prefs.getString('pref_bible_version') ?? 'WEB';
+      final savedScale = prefs.getDouble('pref_bible_font_scale') ?? 1.0;
+      final savedFont = prefs.getString('pref_bible_font_family') ?? 'Playfair';
+
+      _cachedFilterState = ScriptureFilterState(
+        activeVersionId: savedVersion,
+        fontSizeScale: savedScale,
+        activeFontFamily: savedFont,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _savePreferences(ScriptureFilterState state) async {
+    _cachedFilterState = state;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('pref_bible_version', state.activeVersionId);
+      await prefs.setDouble('pref_bible_font_scale', state.fontSizeScale);
+      await prefs.setString('pref_bible_font_family', state.activeFontFamily);
+    } catch (_) {}
   }
 
   @override
-  ScriptureFilterState get initialFilterState =>
-      const ScriptureFilterState(activeVersionId: 'WEB');
+  ScriptureFilterState get initialFilterState => _cachedFilterState;
 
   @override
   Future<List<ScriptureCard>> fetchItems({
@@ -66,9 +90,10 @@ class ScriptureEngine
               builder: (ctx) => BibleVersionPickerModal(
                 activeVersionId: filterState.activeVersionId,
                 onSelectVersion: (newVersionId) {
-                  onFilterChanged(
-                    filterState.copyWith(activeVersionId: newVersionId),
-                  );
+                  final newState =
+                      filterState.copyWith(activeVersionId: newVersionId);
+                  _savePreferences(newState);
+                  onFilterChanged(newState);
                 },
                 onOpenManager: onOpenManager,
               ),
@@ -146,8 +171,10 @@ class ScriptureEngine
                 onPressed: () {
                   final newScale = (filterState.fontSizeScale - 0.08)
                       .clamp(0.80, 1.35);
-                  onFilterChanged(
-                      filterState.copyWith(fontSizeScale: newScale));
+                  final newState =
+                      filterState.copyWith(fontSizeScale: newScale);
+                  _savePreferences(newState);
+                  onFilterChanged(newState);
                 },
               ),
               Container(
@@ -169,8 +196,10 @@ class ScriptureEngine
                 onPressed: () {
                   final newScale = (filterState.fontSizeScale + 0.08)
                       .clamp(0.80, 1.35);
-                  onFilterChanged(
-                      filterState.copyWith(fontSizeScale: newScale));
+                  final newState =
+                      filterState.copyWith(fontSizeScale: newScale);
+                  _savePreferences(newState);
+                  onFilterChanged(newState);
                 },
               ),
             ],
@@ -232,7 +261,10 @@ class ScriptureEngine
             builder: (ctx) => StyleStudioSheet(
               card: item,
               filterState: filterState,
-              onFilterChanged: (newState) => onRefreshCard(),
+              onFilterChanged: (newState) {
+                _savePreferences(newState);
+                onRefreshCard();
+              },
               onRefreshCard: onRefreshCard,
             ),
           );

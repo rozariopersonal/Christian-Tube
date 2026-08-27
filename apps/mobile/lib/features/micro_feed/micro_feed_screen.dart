@@ -39,6 +39,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
     try {
       await widget.engine.initialize();
+      _filterState = widget.engine.initialFilterState;
       final items = await widget.engine.fetchItems(
         filterState: _filterState,
         page: 0,
