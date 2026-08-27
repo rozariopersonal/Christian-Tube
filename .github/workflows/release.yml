@@ -53,10 +53,10 @@ jobs:
             appName: ChristianTube
             apkName: christian-tube.apk
             releaseRepo: rozariopersonal/Christian-Tube-Releases
-          - instance: centum_tube
-            appName: CentumTube
-            apkName: centum-tube.apk
-            releaseRepo: rozariopersonal/Centum-Tube-Releases
+          - instance: centum_academy
+            appName: CentumAcademy
+            apkName: centum-academy.apk
+            releaseRepo: rozariopersonal/Centum-Academy-Releases
 
     steps:
       - name: Checkout Code

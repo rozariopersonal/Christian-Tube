@@ -1,7 +1,7 @@
 {
-  "instanceId": "centum_tube",
+  "instanceId": "centum_academy",
   "appName": "Centum Academy",
-  "applicationId": "org.rozario.centumtube.mobile",
+  "applicationId": "org.centumacademy.mobile",
   "version": "1.28.0",
   "versionCode": 45,
   "theme": {
@@ -11,8 +11,8 @@
     "lightBackground": "#FFFFFF"
   },
   "apiBaseUrl": "https://centumtube.onrender.com",
-  "releasesRepo": "rozariopersonal/Centum-Tube-Releases",
-  "apkFileName": "centum-tube.apk",
+  "releasesRepo": "rozariopersonal/Centum-Academy-Releases",
+  "apkFileName": "centum-academy.apk",
   "defaultCategories": [
     "All",
     "Mathematics",

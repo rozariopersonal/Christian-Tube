@@ -185,7 +185,7 @@ class AuthService extends ChangeNotifier {
         : '${AppConfig.appName} Member';
     final email = (customEmail != null && customEmail.trim().isNotEmpty)
         ? customEmail.trim()
-        : 'admin@centumtube.org';
+        : 'admin@centumacademy.org';
 
     final user = User(
       id: id,

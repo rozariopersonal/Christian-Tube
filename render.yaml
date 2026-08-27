@@ -1,7 +1,7 @@
 services:
   # ─── CentumTube Backend API ───────────────────────────────────────────────
   - type: web
-    name: centum-tube-api
+    name: centum-academy-api
     runtime: docker
     dockerfilePath: deployment/prod/Dockerfile.backend
     plan: free
@@ -13,7 +13,7 @@ services:
       - key: PORT
         value: 3000
       - key: INSTANCE_ID
-        value: centum_tube
+        value: centum_academy
       - key: DATABASE_URL
         value: postgresql://neondb_owner:npg_EclQuYqZ4iF2@ep-withered-moon-ay8lcbkp-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
       - key: DIRECT_URL

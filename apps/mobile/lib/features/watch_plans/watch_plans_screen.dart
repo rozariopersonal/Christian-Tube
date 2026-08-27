@@ -23,7 +23,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
   }
 
   List<WatchPlan> _getDefaultPlansForInstance() {
-    if (AppConfig.instanceId == 'centum_tube') {
+    if (AppConfig.instanceId == 'centum_academy') {
       return [
         WatchPlan(
           id: 'centum_plan_1',

@@ -1,6 +1,6 @@
 # 📺 PrivateTube - Multi-Instance White-Label Platform
 
-**PrivateTube** is a high-performance, white-label, config-driven video streaming and AI transcription platform. The repository is structured as an **Nx Monorepo** designed to deploy multiple distinct, fully-isolated Tube instances (**ChristianTube**, **CentumTube**, etc.) from a single core codebase.
+**PrivateTube** is a high-performance, white-label, config-driven video streaming and AI transcription platform. The repository is structured as an **Nx Monorepo** designed to deploy multiple distinct, fully-isolated Tube instances (**ChristianTube**, **Centum Academy**, etc.) from a single core codebase.
 
 ---
 
@@ -33,7 +33,7 @@ PrivateTube/
 │   │   ├── seed_channels.json
 │   │   └── assets/icon.png
 │   │
-│   ├── centum_tube/                # CentumTube (org.rozario.centumtube.mobile)
+│   ├── centum_academy/             # Centum Academy (org.centumacademy.mobile)
 │   │   ├── config.json
 │   │   ├── seed_channels.json
 │   │   └── assets/icon.png
@@ -60,7 +60,7 @@ PrivateTube/
 | Instance | Application ID | Theme | Target Release Repository |
 | :--- | :--- | :--- | :--- |
 | **ChristianTube** | `org.rozario.christiantube.mobile` | Blue & Gold | [Christian-Tube-Releases](https://github.com/rozariopersonal/Christian-Tube-Releases) |
-| **CentumTube** | `org.rozario.centumtube.mobile` | Emerald & Tech | [Centum-Tube-Releases](https://github.com/rozariopersonal/Centum-Tube-Releases) |
+| **Centum Academy** | `org.centumacademy.mobile` | Emerald & Tech | [Centum-Academy-Releases](https://github.com/rozariopersonal/Centum-Academy-Releases) |
 
 ---
 
@@ -72,8 +72,8 @@ To switch the mobile app to a specific instance:
 # For ChristianTube
 node scripts/prepare-instance.js christian_tube
 
-# For CentumTube
-node scripts/prepare-instance.js centum_tube
+# For Centum Academy
+node scripts/prepare-instance.js centum_academy
 ```
 
 ### 2. Run the Mobile App
@@ -96,7 +96,7 @@ INSTANCE_ID=christian_tube pnpm start:dev
 
 Every release tag push (e.g. `v1.28.0`) automatically runs a **parallel GitHub Actions Matrix**:
 1. **Job 1**: Prepares & builds `ChristianTube` $\rightarrow$ publishes release `v1.28.0` with `christian-tube.apk` & QR code to `Christian-Tube-Releases`.
-2. **Job 2**: Prepares & builds `CentumTube` $\rightarrow$ publishes release `v1.28.0` with `centum-tube.apk` & QR code to `Centum-Tube-Releases`.
+2. **Job 2**: Prepares & builds `Centum Academy` $\rightarrow$ publishes release `v1.28.0` with `centum-academy.apk` & QR code to `Centum-Academy-Releases`.
 
 ---
 
@@ -104,4 +104,4 @@ Every release tag push (e.g. `v1.28.0`) automatically runs a **parallel GitHub A
 
 Use `deployment/prod/Dockerfile.backend` on Render:
 * **Christian Tube Service**: Set Environment Variable `INSTANCE_ID=christian_tube`.
-* **Centum Tube Service**: Set Environment Variable `INSTANCE_ID=centum_tube`.
+* **Centum Academy Service**: Set Environment Variable `INSTANCE_ID=centum_academy`.

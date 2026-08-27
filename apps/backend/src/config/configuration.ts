@@ -14,7 +14,7 @@ export default () => {
     console.warn(`Could not load instance config for ${instanceId}:`, e);
   }
 
-  const rawAdminEmails = process.env.ADMIN_EMAILS || 'admin@privatetube.org,admin@centumtube.org,arul@example.com';
+  const rawAdminEmails = process.env.ADMIN_EMAILS || 'admin@privatetube.org,admin@centumacademy.org,arul@example.com';
   const adminEmails = rawAdminEmails
     .split(',')
     .map((e) => e.trim().toLowerCase())
