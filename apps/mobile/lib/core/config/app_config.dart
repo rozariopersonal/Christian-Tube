@@ -8,7 +8,7 @@ class AppConfig {
   static String applicationId = 'org.rozario.christiantube.mobile';
   static String version = '1.28.0';
   static int versionCode = 45;
-  static String apiBaseUrl = 'https://christian-app-api.onrender.com';
+  static String apiBaseUrl = 'https://achristianapp.onrender.com';
   static String releasesRepo = 'rozariopersonal/Christian-Tube-Releases';
   static String apkFileName = 'christian-app.apk';
   static String? googleClientId;

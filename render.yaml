@@ -29,9 +29,9 @@ services:
       - key: CLOUDFLARE_R2_BUCKET_NAME
         sync: false
 
-  # ─── ChristianApp Backend API ────────────────────────────────────────────
+  # ─── achristianapp Backend API ────────────────────────────────────────────
   - type: web
-    name: christian-app-api
+    name: achristianapp
     runtime: docker
     dockerfilePath: deployment/prod/Dockerfile.backend
     plan: free
