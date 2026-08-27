@@ -56,6 +56,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
       isBold: _isBold,
       isItalic: _isItalic,
       textAlign: _textAlign,
+      backgroundPreset: _backgroundPresetId,
     );
 
     widget.onFilterChanged(newState);
@@ -157,18 +158,19 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
               const SizedBox(height: 20),
 
               // 2. FONT FAMILY SELECTOR
-              _buildSectionHeader('FONT FAMILY'),
+              _buildSectionHeader('FONT FAMILY (${versionMeta.language.toUpperCase()})'),
               const SizedBox(height: 10),
               SizedBox(
-                height: 44,
+                height: 52,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: ScriptureThemeCatalog.fontOptions.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemCount: ScriptureThemeCatalog.getFontsForLanguage(versionMeta.languageCode).length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
                   itemBuilder: (context, index) {
-                    final font = ScriptureThemeCatalog.fontOptions[index];
+                    final fonts = ScriptureThemeCatalog.getFontsForLanguage(versionMeta.languageCode);
+                    final font = fonts[index];
                     final isSelected = font.id == _fontFamily;
-                    return _buildFontChip(font, isSelected);
+                    return _buildFontChip(font, isSelected, versionMeta.languageCode);
                   },
                 ),
               ),
@@ -573,7 +575,16 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
     );
   }
 
-  Widget _buildFontChip(ScriptureFontOption font, bool isSelected) {
+  Widget _buildFontChip(
+      ScriptureFontOption font, bool isSelected, String languageCode) {
+    final previewStyle = ScriptureThemeCatalog.getTextStyle(
+      fontFamily: font.id,
+      languageCode: font.languageCode ?? languageCode,
+      baseSize: 15,
+      color: isSelected ? const Color(0xFFF59E0B) : Colors.white,
+      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+    );
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -581,27 +592,61 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
         });
         _applyLiveChange();
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.2)
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.22)
               : const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? const Color(0xFFF59E0B) : Colors.white12,
             width: isSelected ? 1.5 : 1.0,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
-        child: Center(
-          child: Text(
-            font.name,
-            style: TextStyle(
-              color: isSelected ? const Color(0xFFF59E0B) : Colors.white,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              fontSize: 13,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
+                      : Colors.white10,
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                font.sampleGlyph,
+                style: previewStyle.copyWith(
+                  fontSize: 13,
+                  height: 1.2,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Text(
+              font.name,
+              style: TextStyle(
+                color: isSelected ? const Color(0xFFF59E0B) : Colors.white,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                fontSize: 13,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -17,6 +17,9 @@ class BibleDownloadManager extends ChangeNotifier {
     'WEB',
     'KJV',
     'BSB',
+    'MSG',
+    'TLB',
+    'NASB',
     'ASV',
     'BBE',
     'TAOBVSI',
@@ -48,12 +51,47 @@ class BibleDownloadManager extends ChangeNotifier {
       isDefaultBundled: true,
     ),
     BibleVersionMeta(
+      id: 'MSG',
+      name: 'The Message (MSG)',
+      language: 'English',
+      languageCode: 'en',
+      sizeDisplay: '1.6 MB',
+      description: 'Eugene Peterson’s vibrant contemporary paraphrase bringing scripture to life.',
+      isDefaultBundled: true,
+    ),
+    BibleVersionMeta(
+      id: 'TLB',
+      name: 'The Living Bible (TLB)',
+      language: 'English',
+      languageCode: 'en',
+      sizeDisplay: '1.5 MB',
+      description: 'Kenneth N. Taylor’s beloved thought-for-thought English translation.',
+      isDefaultBundled: true,
+    ),
+    BibleVersionMeta(
+      id: 'NASB',
+      name: 'New American Standard Bible (NASB)',
+      language: 'English',
+      languageCode: 'en',
+      sizeDisplay: '1.4 MB',
+      description: 'Strict word-for-word accuracy based on original Hebrew and Greek manuscripts.',
+      isDefaultBundled: true,
+    ),
+    BibleVersionMeta(
       id: 'BSB',
       name: 'Berean Standard Bible',
       language: 'English',
       languageCode: 'en',
       sizeDisplay: '1.4 MB',
       description: 'Faithful, modern word-for-word translation based on original Greek/Hebrew.',
+    ),
+    BibleVersionMeta(
+      id: 'ASV',
+      name: 'American Standard Version',
+      language: 'English',
+      languageCode: 'en',
+      sizeDisplay: '1.4 MB',
+      description: 'Accurate literal standard American translation.',
     ),
     BibleVersionMeta(
       id: 'BBE',
@@ -81,6 +119,7 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'tam',
       sizeDisplay: '1.6 MB',
       description: 'Clear, modern contemporary Tamil revision.',
+      isDefaultBundled: true,
     ),
 
     // Malayalam
@@ -91,6 +130,29 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'mal',
       sizeDisplay: '1.5 MB',
       description: 'Indian Revised Version in Malayalam, faithful to original texts.',
+      isDefaultBundled: true,
+    ),
+
+    // Telugu
+    BibleVersionMeta(
+      id: 'TEL_IRV',
+      name: 'Telugu IRV (తెలుగు IRV)',
+      language: 'Telugu',
+      languageCode: 'tel',
+      sizeDisplay: '1.5 MB',
+      description: 'Indian Revised Version in Telugu with clear devotional phrasing.',
+      isDefaultBundled: true,
+    ),
+
+    // Kannada
+    BibleVersionMeta(
+      id: 'KAN_IRV',
+      name: 'Kannada IRV (ಕನ್ನಡ IRV)',
+      language: 'Kannada',
+      languageCode: 'kan',
+      sizeDisplay: '1.5 MB',
+      description: 'Indian Revised Version in Kannada language.',
+      isDefaultBundled: true,
     ),
 
     // Hindi
@@ -101,16 +163,7 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'hin',
       sizeDisplay: '1.5 MB',
       description: 'Clear modern Hindi translation for everyday devotions.',
-    ),
-
-    // Telugu
-    BibleVersionMeta(
-      id: 'TEL_IRV',
-      name: 'Telugu IRV (తెలుగు IRV)',
-      language: 'Telugu',
-      languageCode: 'tel',
-      sizeDisplay: '1.5 MB',
-      description: 'Modern Telugu translation.',
+      isDefaultBundled: true,
     ),
 
     // Spanish

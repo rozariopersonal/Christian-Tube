@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart';
 
 class LocalBibleService {
   static final LocalBibleService _instance = LocalBibleService._internal();
@@ -8,13 +9,14 @@ class LocalBibleService {
   LocalBibleService._internal();
 
   Database? _db;
-
-  // In-Memory map for Web & offline instant resolution
   final Map<String, String> _webVerses = {};
   final Set<String> _webInstalledVersions = {
     'WEB',
     'KJV',
     'BSB',
+    'MSG',
+    'TLB',
+    'NASB',
     'ASV',
     'BBE',
     'TAOBVSI',
@@ -83,6 +85,12 @@ class LocalBibleService {
         'Peace I leave with you, my peace I give unto you: not as the world giveth, give I unto you. Let not your heart be troubled, neither let it be afraid.');
     _addVerse('BSB', 43, 14, 27,
         'Peace I leave with you; My peace I give to you. I do not give to you as the world gives. Do not let your hearts be troubled; do not be afraid.');
+    _addVerse('MSG', 43, 14, 27,
+        'I’m leaving you well and whole. That’s my parting gift to you. Peace. I don’t leave you the way you’re used to being left—feeling abandoned, bereft. So don’t be upset. Don’t be fearful.');
+    _addVerse('TLB', 43, 14, 27,
+        'I am leaving you with a gift—peace of mind and heart! And the peace I give isn’t fragile like the peace the world gives. So don’t be troubled or afraid.');
+    _addVerse('NASB', 43, 14, 27,
+        'Peace I leave with you; My peace I give to you; not as the world gives do I give to you. Do not let your heart be troubled, nor let it be fearful.');
     _addVerse('ASV', 43, 14, 27,
         'Peace I leave with you; my peace I give unto you: not as the world giveth, give I unto you. Let not your heart be troubled, neither let it be fearful.');
     _addVerse('BBE', 43, 14, 27,
@@ -107,6 +115,12 @@ class LocalBibleService {
         'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.');
     _addVerse('BSB', 43, 3, 16,
         'For God so loved the world that He gave His one and only Son, that everyone who believes in Him shall not perish but have eternal life.');
+    _addVerse('MSG', 43, 3, 16,
+        'This is how much God loved the world: He gave his Son, his one and only Son. And this is why: so that no one need be destroyed; by believing in him, anyone can have a whole and lasting life.');
+    _addVerse('TLB', 43, 3, 16,
+        'For God loved the world so much that he gave his only Son so that anyone who believes in him shall not perish but have eternal life.');
+    _addVerse('NASB', 43, 3, 16,
+        'For God so loved the world, that He gave His only begotten Son, that whoever believes in Him shall not perish, but have eternal life.');
     _addVerse('ASV', 43, 3, 16,
         'For God so loved the world, that he gave his only begotten Son, that whosoever believeth on him should not perish, but have eternal life.');
     _addVerse('BBE', 43, 3, 16,
@@ -131,6 +145,12 @@ class LocalBibleService {
         'For I know the thoughts that I think toward you, saith the LORD, thoughts of peace, and not of evil, to give you an expected end.');
     _addVerse('BSB', 24, 29, 11,
         '“For I know the plans I have for you,” declares the LORD, “plans to prosper you and not to harm you, to give you a future and a hope.”');
+    _addVerse('MSG', 24, 29, 11,
+        '“I know what I’m doing. I have it all planned out—plans to take care of you, not abandon you, plans to give you the future you hope for.”');
+    _addVerse('TLB', 24, 29, 11,
+        'For I know the plans I have for you, says the Lord. They are plans for good and not for evil, to give you a future and a hope.');
+    _addVerse('NASB', 24, 29, 11,
+        '“For I know the plans that I have for you,” declares the LORD, “plans for welfare and not for calamity to give you a future and a hope.”');
     _addVerse('ASV', 24, 29, 11,
         'For I know the thoughts that I think toward you, saith Jehovah, thoughts of peace, and not of evil, to give you hope in your latter end.');
     _addVerse('BBE', 24, 29, 11,
@@ -157,6 +177,18 @@ class LocalBibleService {
         'Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.');
     _addVerse('KJV', 50, 4, 7,
         'And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus.');
+    _addVerse('MSG', 50, 4, 6,
+        'Don’t fret or worry. Instead of worrying, pray. Let petitions and praises shape your worries into prayers, letting God know your concerns.');
+    _addVerse('MSG', 50, 4, 7,
+        'Before you know it, a sense of God’s wholeness will come and settle you down. It’s wonderful what happens when Christ displaces worry at the center of your life.');
+    _addVerse('TLB', 50, 4, 6,
+        'Don’t worry about anything; instead, pray about everything; tell God your needs, and don’t forget to thank him for his answers.');
+    _addVerse('TLB', 50, 4, 7,
+        'If you do this, you will experience God’s peace, which is far more wonderful than the human mind can understand. His peace will keep your thoughts and your hearts quiet and at rest as you trust in Christ Jesus.');
+    _addVerse('NASB', 50, 4, 6,
+        'Be anxious for nothing, but in everything by prayer and supplication with thanksgiving let your requests be made known to God.');
+    _addVerse('NASB', 50, 4, 7,
+        'And the peace of God, which surpasses all comprehension, will guard your hearts and your minds in Christ Jesus.');
     _addVerse('TAOBVSI', 50, 4, 6,
         'நீங்கள் ஒன்றுக்குங் கவலைப்படாமல், எல்லாவற்றையுங்குறித்து உங்கள் விண்ணப்பங்களை ஸ்தோத்திரத்தோடே கூடிய ஜெபத்தினாலும் வேண்டுதலினாலும் தேவனுக்குத் தெரியப்படுத்துங்கள்.');
     _addVerse('TAOBVSI', 50, 4, 7,
@@ -190,6 +222,23 @@ class LocalBibleService {
         'He maketh me to lie down in green pastures: he leadeth me beside the still waters.');
     _addVerse('KJV', 19, 23, 3,
         'He restoreth my soul: he leadeth me in the paths of righteousness for his name\'s sake.');
+    _addVerse('MSG', 19, 23, 1, 'God, my shepherd! I don’t need a thing.');
+    _addVerse('MSG', 19, 23, 2,
+        'You have bedded me down in lush meadows, you find me quiet pools to drink from.');
+    _addVerse('MSG', 19, 23, 3,
+        'True to your word, you let me catch my breath and send me in the right direction.');
+    _addVerse('TLB', 19, 23, 1,
+        'Because the Lord is my Shepherd, I have everything I need!');
+    _addVerse('TLB', 19, 23, 2,
+        'He lets me rest in the green meadows, and leads me beside the quiet streams.');
+    _addVerse('TLB', 19, 23, 3,
+        'He gives me new strength. He helps me do what honors him the most.');
+    _addVerse('NASB', 19, 23, 1,
+        'The LORD is my shepherd, I shall not want.');
+    _addVerse('NASB', 19, 23, 2,
+        'He makes me lie down in green pastures; He leads me beside quiet waters.');
+    _addVerse('NASB', 19, 23, 3,
+        'He restores my soul; He guides me in the paths of righteousness for His name’s sake.');
     _addVerse('TAOBVSI', 19, 23, 1,
         'கர்த்தர் என் மேய்ப்பராயிருக்கிறார்; நான் தாழ்ச்சியடையேன்.');
     _addVerse('TAOBVSI', 19, 23, 2,
@@ -226,6 +275,12 @@ class LocalBibleService {
         'Haven’t I commanded you? Be strong and courageous. Don’t be afraid. Don’t be dismayed, for Yahweh your God is with you wherever you go.');
     _addVerse('KJV', 6, 1, 9,
         'Have not I commanded thee? Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee whithersoever thou goest.');
+    _addVerse('MSG', 6, 1, 9,
+        'Haven’t I commanded you? Strength! Courage! Don’t be timid; don’t get discouraged. God, your God, is with you every step you take.');
+    _addVerse('TLB', 6, 1, 9,
+        'Yes, be bold and strong! Banish fear and doubt! For the Lord your God is with you wherever you go.');
+    _addVerse('NASB', 6, 1, 9,
+        'Have I not commanded you? Be strong and courageous! Do not tremble or be dismayed, for the LORD your God is with you wherever you go.');
     _addVerse('TAOBVSI', 6, 1, 9,
         'நான் உனக்குக் கட்டளையிடவில்லையா? பலங்கொண்டு திடமனதாயிரு; திகையாதே, கலங்காதே, நீ போகும் இடமெல்லாம் உன் தேவனாகிய கர்த்தர் உன்னோடே இருக்கிறார் என்றார்.');
     _addVerse('MAL_IRV', 6, 1, 9,
@@ -242,6 +297,12 @@ class LocalBibleService {
         'We know that all things work together for good for those who love God, to those who are called according to his purpose.');
     _addVerse('KJV', 45, 8, 28,
         'And we know that all things work together for good to them that love God, to them who are the called according to his purpose.');
+    _addVerse('MSG', 45, 8, 28,
+        'That’s why we can be so sure that every detail in our lives of love for God is worked into something good.');
+    _addVerse('TLB', 45, 8, 28,
+        'And we know that all that happens to us is working for our good if we love God and are fitting into his plans.');
+    _addVerse('NASB', 45, 8, 28,
+        'And we know that God causes all things to work together for good to those who love God, to those who are called according to His purpose.');
     _addVerse('TAOBVSI', 45, 8, 28,
         'அன்றியும், அவருடைய தீர்மானத்தின்படி அழைக்கப்பட்டவர்களாய் தேவனிடத்தில் அன்புகூருகிறவர்களுக்குச் சகலமும் நன்மைக்கு ஏதுவாக நடக்கிறது என்று அறிந்திருக்கிறோம்.');
     _addVerse('MAL_IRV', 45, 8, 28,
@@ -258,12 +319,18 @@ class LocalBibleService {
         'But those who wait for Yahweh will renew their strength. They will mount up with wings like eagles. They will run, and not be weary. They will walk, and not faint.');
     _addVerse('KJV', 23, 40, 31,
         'But they that wait upon the LORD shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint.');
+    _addVerse('MSG', 23, 40, 31,
+        'Those who wait upon God get fresh strength. They spread their wings and soar like eagles, they run and don’t get tired, they walk and don’t lag behind.');
+    _addVerse('TLB', 23, 40, 31,
+        'Those who wait upon the Lord will find new strength. They will soar high on wings like eagles. They will run and not grow weary. They will walk and not faint.');
+    _addVerse('NASB', 23, 40, 31,
+        'Yet those who wait for the LORD will gain new strength; they will mount up with wings like eagles, they will run and not get tired, they will walk and not become weary.');
     _addVerse('TAOBVSI', 23, 40, 31,
         'கர்த்தருக்குக் காத்திருக்கிறவர்களோ புதுப்பெலன் அடைந்து, கழுகுகளைப்போலச் செட்டைகளை அடித்து எழும்புவார்கள்; அவர்கள் ஓடினாலும் இளைப்படையார்கள், நடந்தாலும் சோர்ந்துபோகார்கள்.');
     _addVerse('MAL_IRV', 23, 40, 31,
         'യഹോവയെ കാത്തിരിക്കുന്നവരോ പുതുശക്തി പ്രാപിക്കും; അവർ കഴുകന്മാരെപ്പോലെ ചിറകടിച്ചുയരും; അവർ ഓടിയാലും ക്ഷീണിക്കുകയില്ല; നടന്നാലും തളർന്നുപോകയില്ല.');
     _addVerse('TEL_IRV', 23, 40, 31,
-        'యెಹోవా కొరకు ఎదురుచూచువారు నూతన బలము పొందుదురు; వారు గద్దలవలె రెక్కలు చాపి పైకి ఎగురుదురు; వారు అలయక పరుగెత్తుదురు, సొమ్మసిల్లక నడచుదురు.');
+        'యెహోవా కొరకు ఎదురుచూచువారు నూతన బలము పొందుదురు; వారు గద్దలవలె రెక్కలు చాపి పైకి ఎగురుదురు; వారు అలయక పరుగెత్తుదురు, సొమ్మసిల్లక నడచుదురు.');
     _addVerse('HIN_IRV', 23, 40, 31,
         'परन्तु जो यहोवा की बाट जोहते हैं, वे नया बल प्राप्त करते जाएंगे, वे उकाबों की नाईं उड़ेंगे, वे दौड़ेंगे और श्रमित न होंगे, चलेंगे और थकित न होंगे।');
     _addVerse('KAN_IRV', 23, 40, 31,
@@ -278,6 +345,18 @@ class LocalBibleService {
         'Trust in the LORD with all thine heart; and lean not unto thine own understanding.');
     _addVerse('KJV', 20, 3, 6,
         'In all thy ways acknowledge him, and he shall direct thy paths.');
+    _addVerse('MSG', 20, 3, 5,
+        'Trust God from the bottom of your heart; don’t try to figure out everything on your own.');
+    _addVerse('MSG', 20, 3, 6,
+        'Listen for God’s voice in everything you do, everywhere you go; he’s the one who will keep you on track.');
+    _addVerse('TLB', 20, 3, 5,
+        'Trust the Lord completely; don’t ever trust yourself.');
+    _addVerse('TLB', 20, 3, 6,
+        'In everything you do, put God first, and he will direct you and crown your efforts with success.');
+    _addVerse('NASB', 20, 3, 5,
+        'Trust in the LORD with all your heart and do not lean on your own understanding.');
+    _addVerse('NASB', 20, 3, 6,
+        'In all your ways acknowledge Him, and He will make your paths straight.');
     _addVerse('TAOBVSI', 20, 3, 5,
         'உன் சுயபுத்தியின்மேல் சாயாமல், உன் முழு இருதயத்தோடும் கர்த்தரில் நம்பிக்கையாயிருந்து;');
     _addVerse('TAOBVSI', 20, 3, 6,
@@ -304,6 +383,12 @@ class LocalBibleService {
         '“Come to me, all you who labor and are heavily burdened, and I will give you rest.”');
     _addVerse('KJV', 40, 11, 28,
         'Come unto me, all ye that labour and are heavy laden, and I will give you rest.');
+    _addVerse('MSG', 40, 11, 28,
+        '“Are you tired? Worn out? Burned out on religion? Come to me. Get away with me and you’ll recover your life. I’ll show you how to take a real rest.”');
+    _addVerse('TLB', 40, 11, 28,
+        '“Come to me, all of you who are weary and carry heavy burdens, and I will give you rest.”');
+    _addVerse('NASB', 40, 11, 28,
+        '“Come to Me, all who are weary and heavy-laden, and I will give you rest.”');
     _addVerse('TAOBVSI', 40, 11, 28,
         'வருத்தப்பட்டுப் பாரஞ்சுமக்கிறவர்களே! நீங்கள் எல்லாரும் என்னிடத்தில் வாருங்கள், நான் உங்களுக்கு இளைப்பாறுதல் தருவேன்.');
     _addVerse('MAL_IRV', 40, 11, 28,
@@ -320,6 +405,12 @@ class LocalBibleService {
         'Casting all your worries on him, because he cares for you.');
     _addVerse('KJV', 60, 5, 7,
         'Casting all your care upon him; for he careth for you.');
+    _addVerse('MSG', 60, 5, 7,
+        'Live carefree before God; he is most careful with you.');
+    _addVerse('TLB', 60, 5, 7,
+        'Let him have all your worries and cares, for he is always thinking about you and watching everything that concerns you.');
+    _addVerse('NASB', 60, 5, 7,
+        'Casting all your anxiety on Him, because He cares for you.');
     _addVerse('TAOBVSI', 60, 5, 7,
         'அவர் உங்களை விசாரிக்கிறவரானபடியால், உங்கள் கவலைகளையெல்லாம் அவர்மேல் வைத்துவிடுங்கள்.');
     _addVerse('MAL_IRV', 60, 5, 7,
@@ -336,6 +427,12 @@ class LocalBibleService {
         'Don’t you be afraid, for I am with you. Don’t be dismayed, for I am your God. I will strengthen you. Yes, I will help you.');
     _addVerse('KJV', 23, 41, 10,
         'Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee.');
+    _addVerse('MSG', 23, 41, 10,
+        'Don’t panic. I’m with you. There’s no need to fear for I’m your God. I’ll give you strength. I’ll help you. I’ll hold you steady, keep a firm grip on you.');
+    _addVerse('TLB', 23, 41, 10,
+        'Fear not, for I am with you. Do not be dismayed. I am your God. I will strengthen you; I will help you; I will uphold you with my victorious right hand.');
+    _addVerse('NASB', 23, 41, 10,
+        'Do not fear, for I am with you; do not anxiously look about you, for I am your God. I will strengthen you, surely I will help you, surely I will uphold you with My righteous right hand.');
     _addVerse('TAOBVSI', 23, 41, 10,
         'நீ பயப்படாதே, நான் உன்னுடனே இருக்கிறேன்; திகையாதே, நான் உன் தேவன்; நான் உன்னைப் பலப்படுத்தி உனக்குச் சகாயம்பண்ணுவேன்.');
     _addVerse('MAL_IRV', 23, 41, 10,
@@ -352,6 +449,12 @@ class LocalBibleService {
         'I can do all things through Christ, who strengthens me.');
     _addVerse('KJV', 50, 4, 13,
         'I can do all things through Christ which strengtheneth me.');
+    _addVerse('MSG', 50, 4, 13,
+        'Whatever I have, wherever I am, I can make it through anything in the One who makes me who I am.');
+    _addVerse('TLB', 50, 4, 13,
+        'for I can do everything God asks me to with the help of Christ who gives me the strength and power.');
+    _addVerse('NASB', 50, 4, 13,
+        'I can do all things through Him who strengthens me.');
     _addVerse('TAOBVSI', 50, 4, 13,
         'என்னைப் பெலப்படுத்துகிற கிறிஸ்துவினாலே எல்லாவற்றையுஞ்செய்ய எனக்குப் பெலனுண்டு.');
     _addVerse('MAL_IRV', 50, 4, 13,
@@ -368,6 +471,12 @@ class LocalBibleService {
         'For God didn’t give us a spirit of fear, but of power, love, and self-control.');
     _addVerse('KJV', 55, 1, 7,
         'For God hath not given us the spirit of fear; but of power, and of love, and of a sound mind.');
+    _addVerse('MSG', 55, 1, 7,
+        'God doesn’t want us to be shy with his gifts, but bold and loving and sensible.');
+    _addVerse('TLB', 55, 1, 7,
+        'For the Holy Spirit, God’s gift, does not want you to be afraid of people, but to be wise and strong, and to love them and enjoy being with them.');
+    _addVerse('NASB', 55, 1, 7,
+        'For God has not given us a spirit of timidity, but of power and love and discipline.');
     _addVerse('TAOBVSI', 55, 1, 7,
         'தேவன் நமக்குப் பயமுள்ள ஆவியைக் கொடாமல், பலமும் அன்பும் தெளிந்த புத்தியுமுள்ள ஆவியையே கொடுத்திருக்கிறார்.');
     _addVerse('MAL_IRV', 55, 1, 7,
@@ -383,6 +492,12 @@ class LocalBibleService {
     _addVerse('WEB', 19, 46, 1,
         'God is our refuge and strength, a very present help in trouble.');
     _addVerse('KJV', 19, 46, 1,
+        'God is our refuge and strength, a very present help in trouble.');
+    _addVerse('MSG', 19, 46, 1,
+        'God is a safe place to hide, ready to help when we need him.');
+    _addVerse('TLB', 19, 46, 1,
+        'God is our refuge and strength, a tested help in times of trouble.');
+    _addVerse('NASB', 19, 46, 1,
         'God is our refuge and strength, a very present help in trouble.');
     _addVerse('TAOBVSI', 19, 46, 1,
         'தேவன் நமக்கு அடைக்கலமும் பெலனும், ஆபத்துக்காலத்தில் அநுகூலமான துணையுமானவர்.');
@@ -543,26 +658,19 @@ class LocalBibleService {
 
     final batch = db.batch();
     for (final v in verses) {
-      batch.insert('verses', {
-        'version_id': versionId,
-        'book_number': v['bookNumber'] ?? v['book_number'],
-        'book_name': v['bookName'] ?? v['book_name'] ?? '',
-        'chapter': v['chapter'],
-        'verse': v['verse'],
-        'text': v['text'],
-      });
+      batch.insert(
+        'verses',
+        {
+          'version_id': versionId,
+          'book_number': v['bookNumber'] ?? v['book_number'] ?? 0,
+          'book_name': v['bookName'] ?? v['book_name'] ?? '',
+          'chapter': v['chapter'] ?? 0,
+          'verse': v['verse'] ?? 0,
+          'text': v['text'] ?? '',
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
     await batch.commit(noResult: true);
-  }
-
-  Future<void> deleteVersion(String versionId) async {
-    _webInstalledVersions.remove(versionId);
-
-    final db = _db;
-    if (db == null) return;
-
-    await db.delete('installed_versions',
-        where: 'id = ?', whereArgs: [versionId]);
-    await db.delete('verses', where: 'version_id = ?', whereArgs: [versionId]);
   }
 }

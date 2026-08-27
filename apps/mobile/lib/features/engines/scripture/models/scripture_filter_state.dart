@@ -8,6 +8,7 @@ class ScriptureFilterState extends BaseFeedFilterState {
   final bool isBold;
   final bool isItalic;
   final String textAlign; // 'left', 'center', 'right'
+  final String backgroundPreset;
 
   const ScriptureFilterState({
     this.activeVersionId = 'WEB',
@@ -17,6 +18,7 @@ class ScriptureFilterState extends BaseFeedFilterState {
     this.isBold = false,
     this.isItalic = false,
     this.textAlign = 'center',
+    this.backgroundPreset = 'mountain_dawn',
   });
 
   ScriptureFilterState copyWith({
@@ -27,6 +29,7 @@ class ScriptureFilterState extends BaseFeedFilterState {
     bool? isBold,
     bool? isItalic,
     String? textAlign,
+    String? backgroundPreset,
   }) {
     return ScriptureFilterState(
       activeVersionId: activeVersionId ?? this.activeVersionId,
@@ -36,6 +39,7 @@ class ScriptureFilterState extends BaseFeedFilterState {
       isBold: isBold ?? this.isBold,
       isItalic: isItalic ?? this.isItalic,
       textAlign: textAlign ?? this.textAlign,
+      backgroundPreset: backgroundPreset ?? this.backgroundPreset,
     );
   }
 }

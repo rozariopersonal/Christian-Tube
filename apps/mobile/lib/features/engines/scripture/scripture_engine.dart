@@ -53,6 +53,8 @@ class ScriptureEngine
           prefs.getBool('pref_bible_is_italic') ?? _cachedFilterState.isItalic;
       final savedAlign =
           prefs.getString('pref_bible_text_align') ?? _cachedFilterState.textAlign;
+      final savedBg =
+          prefs.getString('pref_bible_bg_preset') ?? _cachedFilterState.backgroundPreset;
 
       _cachedFilterState = ScriptureFilterState(
         activeVersionId: savedVersion,
@@ -62,6 +64,7 @@ class ScriptureEngine
         isBold: savedBold,
         isItalic: savedItalic,
         textAlign: savedAlign,
+        backgroundPreset: savedBg,
       );
       _hasLoadedPrefs = true;
     } catch (_) {}
@@ -78,6 +81,7 @@ class ScriptureEngine
       await prefs.setBool('pref_bible_is_bold', state.isBold);
       await prefs.setBool('pref_bible_is_italic', state.isItalic);
       await prefs.setString('pref_bible_text_align', state.textAlign);
+      await prefs.setString('pref_bible_bg_preset', state.backgroundPreset);
     } catch (_) {}
   }
 

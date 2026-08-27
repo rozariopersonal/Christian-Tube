@@ -23,11 +23,15 @@ class ScriptureFontOption {
   final String id;
   final String name;
   final String subtitle;
+  final String sampleGlyph;
+  final String? languageCode;
 
   const ScriptureFontOption({
     required this.id,
     required this.name,
     required this.subtitle,
+    this.sampleGlyph = 'Aa',
+    this.languageCode,
   });
 }
 
@@ -44,44 +48,273 @@ class ScriptureColorOption {
 }
 
 class ScriptureThemeCatalog {
-  // Available Font Families
+  // Available English Font Families
   static const List<ScriptureFontOption> fontOptions = [
     ScriptureFontOption(
       id: 'Playfair',
       name: 'Playfair Display',
       subtitle: 'Classic Serif',
+      sampleGlyph: 'Grace',
     ),
     ScriptureFontOption(
       id: 'Cinzel',
       name: 'Cinzel',
       subtitle: 'Monumental Roman',
+      sampleGlyph: 'Peace',
     ),
     ScriptureFontOption(
       id: 'Cormorant',
       name: 'Cormorant',
       subtitle: 'Regal Literature',
+      sampleGlyph: 'Hope',
     ),
     ScriptureFontOption(
       id: 'Outfit',
       name: 'Outfit',
       subtitle: 'Modern Clean',
+      sampleGlyph: 'Life',
     ),
     ScriptureFontOption(
       id: 'Lora',
       name: 'Lora',
       subtitle: 'Warm Editorial',
+      sampleGlyph: 'Faith',
     ),
     ScriptureFontOption(
       id: 'Merriweather',
       name: 'Merriweather',
       subtitle: 'Bold Reading',
+      sampleGlyph: 'Love',
     ),
     ScriptureFontOption(
       id: 'GreatVibes',
       name: 'Great Vibes',
       subtitle: 'Graceful Script',
+      sampleGlyph: 'Light',
+    ),
+    ScriptureFontOption(
+      id: 'Montserrat',
+      name: 'Montserrat',
+      subtitle: 'Geometric Sans',
+      sampleGlyph: 'Joy',
     ),
   ];
+
+  static List<ScriptureFontOption> getFontsForLanguage(String? languageCode) {
+    switch (languageCode) {
+      case 'tam':
+        return const [
+          ScriptureFontOption(
+            id: 'MuktaMalar',
+            name: 'முக்தா மலர் (Mukta Malar)',
+            subtitle: 'Contemporary Tamil',
+            sampleGlyph: 'அன்பு',
+            languageCode: 'tam',
+          ),
+          ScriptureFontOption(
+            id: 'NotoSerifTamil',
+            name: 'நோட்டோ செரிஃப் (Noto Serif)',
+            subtitle: 'Classic Literature',
+            sampleGlyph: 'வேதம்',
+            languageCode: 'tam',
+          ),
+          ScriptureFontOption(
+            id: 'Catamaran',
+            name: 'கட்டமரன் (Catamaran)',
+            subtitle: 'Clean & Modern',
+            sampleGlyph: 'சமாதானம்',
+            languageCode: 'tam',
+          ),
+          ScriptureFontOption(
+            id: 'Kavivanar',
+            name: 'கவிவாணர் (Kavivanar)',
+            subtitle: 'Curved Devotional',
+            sampleGlyph: 'விசுவாசம்',
+            languageCode: 'tam',
+          ),
+          ScriptureFontOption(
+            id: 'ArimaMadurai',
+            name: 'அரிமா மதுரை (Arima)',
+            subtitle: 'Graceful Calligraphy',
+            sampleGlyph: 'கிருபை',
+            languageCode: 'tam',
+          ),
+          ScriptureFontOption(
+            id: 'Coiny',
+            name: 'கோய்னி (Coiny)',
+            subtitle: 'Bold Rounded',
+            sampleGlyph: 'ஜீவன்',
+            languageCode: 'tam',
+          ),
+        ];
+
+      case 'mal':
+        return const [
+          ScriptureFontOption(
+            id: 'Gayathri',
+            name: 'ഗായത്രി (Gayathri)',
+            subtitle: 'Contemporary Malayalam',
+            sampleGlyph: 'സ്നേഹം',
+            languageCode: 'mal',
+          ),
+          ScriptureFontOption(
+            id: 'NotoSerifMalayalam',
+            name: 'നോട്ടോ സെരിഫ് (Noto Serif)',
+            subtitle: 'Classic Sacred Text',
+            sampleGlyph: 'സമാധാനം',
+            languageCode: 'mal',
+          ),
+          ScriptureFontOption(
+            id: 'Manjari',
+            name: 'മഞ്ജരി (Manjari)',
+            subtitle: 'Modern Clean',
+            sampleGlyph: 'വിശ്വാസം',
+            languageCode: 'mal',
+          ),
+          ScriptureFontOption(
+            id: 'Chilanka',
+            name: 'ചിലങ്ക (Chilanka)',
+            subtitle: 'Handwritten Script',
+            sampleGlyph: 'കൃപ',
+            languageCode: 'mal',
+          ),
+          ScriptureFontOption(
+            id: 'AnekMalayalam',
+            name: 'അനേക് (Anek Malayalam)',
+            subtitle: 'Bold Display',
+            sampleGlyph: 'ജീവൻ',
+            languageCode: 'mal',
+          ),
+        ];
+
+      case 'tel':
+        return const [
+          ScriptureFontOption(
+            id: 'Mandali',
+            name: 'మండలి (Mandali)',
+            subtitle: 'Clear Modern Telugu',
+            sampleGlyph: 'ప్రేమ',
+            languageCode: 'tel',
+          ),
+          ScriptureFontOption(
+            id: 'NotoSerifTelugu',
+            name: 'నోటో సెరిఫ్ (Noto Serif)',
+            subtitle: 'Sacred Literature',
+            sampleGlyph: 'శాంతి',
+            languageCode: 'tel',
+          ),
+          ScriptureFontOption(
+            id: 'Ramabhadra',
+            name: 'రామభద్ర (Ramabhadra)',
+            subtitle: 'Bold Royal',
+            sampleGlyph: 'విశ్వాసం',
+            languageCode: 'tel',
+          ),
+          ScriptureFontOption(
+            id: 'Gidugu',
+            name: 'గిడుగు (Gidugu)',
+            subtitle: 'Artistic Fluid',
+            sampleGlyph: 'కృప',
+            languageCode: 'tel',
+          ),
+          ScriptureFontOption(
+            id: 'Suranna',
+            name: 'సూరన్న (Suranna)',
+            subtitle: 'Classic Editorial',
+            sampleGlyph: 'జీవము',
+            languageCode: 'tel',
+          ),
+          ScriptureFontOption(
+            id: 'AnekTelugu',
+            name: 'అనేక్ (Anek Telugu)',
+            subtitle: 'Modern Display',
+            sampleGlyph: 'వెలుగు',
+            languageCode: 'tel',
+          ),
+        ];
+
+      case 'hin':
+        return const [
+          ScriptureFontOption(
+            id: 'RozhaOne',
+            name: 'रोज़ा वन (Rozha One)',
+            subtitle: 'Dramatic Serif',
+            sampleGlyph: 'प्रेम',
+            languageCode: 'hin',
+          ),
+          ScriptureFontOption(
+            id: 'NotoSerifDevanagari',
+            name: 'नोटो सेरिफ़ (Noto Serif)',
+            subtitle: 'Sacred Devanagari',
+            sampleGlyph: 'शान्ति',
+            languageCode: 'hin',
+          ),
+          ScriptureFontOption(
+            id: 'YatraOne',
+            name: 'यात्रा वन (Yatra One)',
+            subtitle: 'Devotional Display',
+            sampleGlyph: 'विश्वास',
+            languageCode: 'hin',
+          ),
+          ScriptureFontOption(
+            id: 'Kalam',
+            name: 'कलम (Kalam)',
+            subtitle: 'Warm Handwritten',
+            sampleGlyph: 'अनुग्रह',
+            languageCode: 'hin',
+          ),
+          ScriptureFontOption(
+            id: 'Poppins',
+            name: 'पॉपिन्स (Poppins)',
+            subtitle: 'Clean Geometric',
+            sampleGlyph: 'जीवन',
+            languageCode: 'hin',
+          ),
+          ScriptureFontOption(
+            id: 'AnekDevanagari',
+            name: 'अनेक (Anek Devanagari)',
+            subtitle: 'Contemporary',
+            sampleGlyph: 'आशा',
+            languageCode: 'hin',
+          ),
+        ];
+
+      case 'kan':
+        return const [
+          ScriptureFontOption(
+            id: 'BalooTamma2',
+            name: 'ಬಾಲೂ ತಮ್ಮ ೨ (Baloo Tamma)',
+            subtitle: 'Warm Rounded',
+            sampleGlyph: 'ಪ್ರೀತಿ',
+            languageCode: 'kan',
+          ),
+          ScriptureFontOption(
+            id: 'NotoSerifKannada',
+            name: 'ನೋಟೋ ಸೆರಿಫ್ (Noto Serif)',
+            subtitle: 'Sacred Classic',
+            sampleGlyph: 'ಶಾಂತಿ',
+            languageCode: 'kan',
+          ),
+          ScriptureFontOption(
+            id: 'Hubballi',
+            name: 'ಹುಬ್ಬಳ್ಳಿ (Hubballi)',
+            subtitle: 'Smooth Modern',
+            sampleGlyph: 'ವಿಶ್ವಾಸ',
+            languageCode: 'kan',
+          ),
+          ScriptureFontOption(
+            id: 'AnekKannada',
+            name: 'ಅನೇಕ (Anek Kannada)',
+            subtitle: 'Bold Display',
+            sampleGlyph: 'ಕೃಪೆ',
+            languageCode: 'kan',
+          ),
+        ];
+
+      default:
+        return fontOptions;
+    }
+  }
 
   // Curated Text Color Palette
   static const List<ScriptureColorOption> colorPalette = [
@@ -170,39 +403,59 @@ class ScriptureThemeCatalog {
       name: 'Desert Twilight',
       imageUrl:
           'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1080&q=80',
-      blurHash: 'L9Gb6F_300IU00of%Mof00IU~qof',
+      blurHash: 'L6I5+q%M~qof_3WB%Mof00%M_3of',
+    ),
+    BackgroundPreset(
+      id: 'autumn_leaves',
+      name: 'Autumn Glory',
+      imageUrl:
+          'https://images.unsplash.com/photo-1507371341162-763b5e419408?auto=format&fit=crop&w=1080&q=80',
+      blurHash: 'L8E_#J_300of~qof%Mof00%M_3of',
+    ),
+    BackgroundPreset(
+      id: 'night_sky',
+      name: 'Aurora Borealis',
+      imageUrl:
+          'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1080&q=80',
+      blurHash: 'L01#o^of00of~qofofof00of_3of',
     ),
 
-    // 2. Procedural Offline Gradients (100% Offline, Zero Bandwidth)
+    // 2. Artistic Sacred Gradients
     BackgroundPreset(
-      id: 'midnight_obsidian',
-      name: 'Midnight Obsidian',
+      id: 'gradient_royal_midnight',
+      name: 'Royal Midnight',
       isGradient: true,
-      gradientColors: [Color(0xFF0F172A), Color(0xFF020617), Color(0xFF000000)],
+      gradientColors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
     ),
     BackgroundPreset(
-      id: 'royal_indigo',
-      name: 'Royal Indigo',
+      id: 'gradient_radiant_gold',
+      name: 'Divine Amber',
       isGradient: true,
-      gradientColors: [Color(0xFF1E1B4B), Color(0xFF0F172A), Color(0xFF020617)],
+      gradientColors: [Color(0xFF78350F), Color(0xFFB45309), Color(0xFFD97706)],
     ),
     BackgroundPreset(
-      id: 'emerald_peace',
-      name: 'Emerald Serenity',
+      id: 'gradient_celestial_rose',
+      name: 'Celestial Dawn',
       isGradient: true,
-      gradientColors: [Color(0xFF064E3B), Color(0xFF022C22), Color(0xFF011410)],
+      gradientColors: [Color(0xFF4C0519), Color(0xFF881337), Color(0xFFBE123C)],
     ),
     BackgroundPreset(
-      id: 'amber_dusk',
-      name: 'Amber Glow',
+      id: 'gradient_emerald_sanctuary',
+      name: 'Living Hope',
       isGradient: true,
-      gradientColors: [Color(0xFF451A03), Color(0xFF2E1065), Color(0xFF0F172A)],
+      gradientColors: [Color(0xFF064E3B), Color(0xFF065F46), Color(0xFF047857)],
     ),
     BackgroundPreset(
-      id: 'pure_dark',
-      name: 'Pure OLED Dark',
+      id: 'gradient_majestic_purple',
+      name: 'Majestic Glory',
       isGradient: true,
-      gradientColors: [Color(0xFF0A0A0A), Color(0xFF000000)],
+      gradientColors: [Color(0xFF3B0764), Color(0xFF581C87), Color(0xFF6B21A8)],
+    ),
+    BackgroundPreset(
+      id: 'gradient_deep_ocean',
+      name: 'Living Waters',
+      isGradient: true,
+      gradientColors: [Color(0xFF0C4A6E), Color(0xFF0369A1), Color(0xFF0284C7)],
     ),
   ];
 
@@ -233,50 +486,258 @@ class ScriptureThemeCatalog {
     FontStyle fontStyle = FontStyle.normal,
     Color color = Colors.white,
   }) {
-    // Language-aware font selection
+    // 1. Tamil Fonts
     if (languageCode == 'tam') {
-      return GoogleFonts.notoSerifTamil(
-        fontSize: baseSize,
-        fontWeight: fontWeight,
-        fontStyle: fontStyle,
-        color: color,
-        height: 1.45,
-      );
-    } else if (languageCode == 'mal') {
-      return GoogleFonts.notoSerifMalayalam(
-        fontSize: baseSize,
-        fontWeight: fontWeight,
-        fontStyle: fontStyle,
-        color: color,
-        height: 1.45,
-      );
-    } else if (languageCode == 'hin') {
-      return GoogleFonts.notoSerifDevanagari(
-        fontSize: baseSize,
-        fontWeight: fontWeight,
-        fontStyle: fontStyle,
-        color: color,
-        height: 1.45,
-      );
-    } else if (languageCode == 'tel') {
-      return GoogleFonts.notoSerifTelugu(
-        fontSize: baseSize,
-        fontWeight: fontWeight,
-        fontStyle: fontStyle,
-        color: color,
-        height: 1.45,
-      );
-    } else if (languageCode == 'kan') {
-      return GoogleFonts.notoSerifKannada(
-        fontSize: baseSize,
-        fontWeight: fontWeight,
-        fontStyle: fontStyle,
-        color: color,
-        height: 1.45,
-      );
+      switch (fontFamily) {
+        case 'MuktaMalar':
+          return GoogleFonts.muktaMalar(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Catamaran':
+          return GoogleFonts.catamaran(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Kavivanar':
+          return GoogleFonts.kavivanar(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'ArimaMadurai':
+          return GoogleFonts.arima(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Coiny':
+          return GoogleFonts.coiny(
+            fontSize: baseSize - 2,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'NotoSerifTamil':
+        default:
+          return GoogleFonts.notoSerifTamil(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+      }
     }
 
-    // English font families
+    // 2. Malayalam Fonts
+    if (languageCode == 'mal') {
+      switch (fontFamily) {
+        case 'Gayathri':
+          return GoogleFonts.gayathri(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Manjari':
+          return GoogleFonts.manjari(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Chilanka':
+          return GoogleFonts.chilanka(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'AnekMalayalam':
+          return GoogleFonts.anekMalayalam(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'NotoSerifMalayalam':
+        default:
+          return GoogleFonts.notoSerifMalayalam(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+      }
+    }
+
+    // 3. Telugu Fonts
+    if (languageCode == 'tel') {
+      switch (fontFamily) {
+        case 'Mandali':
+          return GoogleFonts.mandali(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Ramabhadra':
+          return GoogleFonts.ramabhadra(
+            fontSize: baseSize - 2,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Gidugu':
+          return GoogleFonts.gidugu(
+            fontSize: baseSize + 2,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Suranna':
+          return GoogleFonts.suranna(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'AnekTelugu':
+          return GoogleFonts.anekTelugu(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'NotoSerifTelugu':
+        default:
+          return GoogleFonts.notoSerifTelugu(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+      }
+    }
+
+    // 4. Hindi (Devanagari) Fonts
+    if (languageCode == 'hin') {
+      switch (fontFamily) {
+        case 'RozhaOne':
+          return GoogleFonts.rozhaOne(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'YatraOne':
+          return GoogleFonts.yatraOne(
+            fontSize: baseSize - 2,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Kalam':
+          return GoogleFonts.kalam(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Poppins':
+          return GoogleFonts.poppins(
+            fontSize: baseSize - 1,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'AnekDevanagari':
+          return GoogleFonts.anekDevanagari(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'NotoSerifDevanagari':
+        default:
+          return GoogleFonts.notoSerifDevanagari(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+      }
+    }
+
+    // 5. Kannada Fonts
+    if (languageCode == 'kan') {
+      switch (fontFamily) {
+        case 'BalooTamma2':
+          return GoogleFonts.balooTamma2(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'Hubballi':
+          return GoogleFonts.hubballi(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'AnekKannada':
+          return GoogleFonts.anekKannada(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+        case 'NotoSerifKannada':
+        default:
+          return GoogleFonts.notoSerifKannada(
+            fontSize: baseSize,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            color: color,
+            height: 1.45,
+          );
+      }
+    }
+
+    // 6. English / Latin Fonts
     switch (fontFamily) {
       case 'Cinzel':
         return GoogleFonts.cinzel(
@@ -326,6 +787,14 @@ class ScriptureThemeCatalog {
           fontStyle: fontStyle,
           color: color,
           height: 1.25,
+        );
+      case 'Montserrat':
+        return GoogleFonts.montserrat(
+          fontSize: baseSize - 1,
+          fontWeight: fontWeight,
+          fontStyle: fontStyle,
+          color: color,
+          height: 1.4,
         );
       case 'Playfair':
       default:
