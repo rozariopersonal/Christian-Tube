@@ -23,11 +23,30 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
 
   Future<void> _fetchGridShorts() async {
     try {
-      final response = await _apiClient.dio.get('/videos?type=SHORT');
+      final response =
+          await _apiClient.dio.get('/videos', queryParameters: {'limit': 100});
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> list = response.data is List ? response.data : response.data['shorts'] ?? [];
+        final dynamic raw = response.data;
+        final List<dynamic> list =
+            raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
+        final allVideos = list
+            .whereType<Map<String, dynamic>>()
+            .map((v) => Short.fromJson(v))
+            .toList();
+
+        final shortsOnly = allVideos.where((s) {
+          if (s.durationSeconds > 0) return s.durationSeconds <= 60;
+          final durSec = Short.parseDurationInSeconds(s.duration);
+          if (durSec > 0) return durSec <= 60;
+          final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
+          final isShortTitle = s.title.toLowerCase().contains('#short');
+          final isShortDesc =
+              (s.description ?? '').toLowerCase().contains('#short');
+          return isShortUrl || isShortTitle || isShortDesc;
+        }).toList();
+
         setState(() {
-          _shorts = list.map((s) => Short.fromJson(s)).toList();
+          _shorts = shortsOnly;
           _isLoading = false;
         });
       }

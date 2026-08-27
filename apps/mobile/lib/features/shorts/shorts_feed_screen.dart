@@ -45,8 +45,15 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             .toList();
 
         if (allVideos.isNotEmpty) {
-          // Prioritize explicit shorts, then seamlessly stream all channel videos
-          final explicitShorts = allVideos.where((s) {
+          // STRICT: Only include videos that are under a minute (duration <= 60 seconds)
+          final shortsOnly = allVideos.where((s) {
+            if (s.durationSeconds > 0) {
+              return s.durationSeconds <= 60;
+            }
+            final durSec = Short.parseDurationInSeconds(s.duration);
+            if (durSec > 0) {
+              return durSec <= 60;
+            }
             final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
             final isShortTitle = s.title.toLowerCase().contains('#short');
             final isShortDesc =
@@ -54,16 +61,8 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             return isShortUrl || isShortTitle || isShortDesc;
           }).toList();
 
-          final standardVideos = allVideos.where((s) {
-            final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
-            final isShortTitle = s.title.toLowerCase().contains('#short');
-            final isShortDesc =
-                (s.description ?? '').toLowerCase().contains('#short');
-            return !(isShortUrl || isShortTitle || isShortDesc);
-          }).toList();
-
           setState(() {
-            _shorts = [...explicitShorts, ...standardVideos];
+            _shorts = shortsOnly;
             _isLoading = false;
           });
           return;

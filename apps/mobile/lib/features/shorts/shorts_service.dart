@@ -28,23 +28,21 @@ class ShortsService extends ChangeNotifier {
             .toList();
 
         if (allVideos.isNotEmpty) {
-          final explicitShorts = allVideos.where((s) {
+          // STRICT: Only include videos that are under a minute (duration <= 60 seconds)
+          _shorts = allVideos.where((s) {
+            if (s.durationSeconds > 0) {
+              return s.durationSeconds <= 60;
+            }
+            final durSec = Short.parseDurationInSeconds(s.duration);
+            if (durSec > 0) {
+              return durSec <= 60;
+            }
             final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
             final isShortTitle = s.title.toLowerCase().contains('#short');
             final isShortDesc =
                 (s.description ?? '').toLowerCase().contains('#short');
             return isShortUrl || isShortTitle || isShortDesc;
           }).toList();
-
-          final standardVideos = allVideos.where((s) {
-            final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
-            final isShortTitle = s.title.toLowerCase().contains('#short');
-            final isShortDesc =
-                (s.description ?? '').toLowerCase().contains('#short');
-            return !(isShortUrl || isShortTitle || isShortDesc);
-          }).toList();
-
-          _shorts = [...explicitShorts, ...standardVideos];
           return;
         }
       }
