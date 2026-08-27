@@ -45,8 +45,10 @@ services:
       - key: INSTANCE_ID
         value: christian_tube
       - key: DATABASE_URL
-        sync: false
+        value: postgresql://neondb_owner:npg_3OxmCSbQnf2U@ep-flat-frog-a5j1ayb0-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
       - key: DIRECT_URL
-        sync: false
+        value: postgresql://neondb_owner:npg_3OxmCSbQnf2U@ep-flat-frog-a5j1ayb0-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - key: ADMIN_EMAILS
+        value: arul.rozario4@gmail.com,admin@privatetube.org
       - key: GEMINI_API_KEY
         sync: false
