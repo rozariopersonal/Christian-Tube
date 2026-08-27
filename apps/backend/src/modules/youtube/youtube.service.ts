@@ -76,9 +76,7 @@ export class YoutubeService implements OnModuleInit {
    * Periodic scheduler: Runs every 2 hours during IST daytime (06:00 to 22:00 IST)
    * to sync channels in continuous batches and ingest latest uploads.
    */
-  @Cron('0 6-22/2 * * *', {
-    timeZone: 'Asia/Kolkata',
-  })
+  @Cron(CronExpression.EVERY_2_HOURS)
   async syncAllChannelsPeriodically() {
     if (!isIstDaytime()) {
       this.logger.log('Outside IST daytime hours (06:00 - 22:00 IST). Skipping automated sync.');
@@ -227,7 +225,7 @@ export class YoutubeService implements OnModuleInit {
       ? `UU${channelId.substring(2)}`
       : channelId;
 
-    let pageToken: string | undefined = channel.syncCursor || undefined;
+    let pageToken: string | undefined = (channel as any).syncCursor || undefined;
     let batchesProcessed = 0;
     let totalSyncedInRun = 0;
 
@@ -247,7 +245,7 @@ export class YoutubeService implements OnModuleInit {
             syncStatus: 'COMPLETED',
             syncCursor: null,
             lastSyncedAt: new Date(),
-          },
+          } as any,
         });
         break;
       }
@@ -338,7 +336,7 @@ export class YoutubeService implements OnModuleInit {
             syncCursor: nextPageToken,
             syncStatus: 'SYNCING',
             lastSyncedAt: new Date(),
-          },
+          } as any,
         });
       } else {
         // Reached end of channel
@@ -348,7 +346,7 @@ export class YoutubeService implements OnModuleInit {
             syncCursor: null,
             syncStatus: 'COMPLETED',
             lastSyncedAt: new Date(),
-          },
+          } as any,
         });
         break;
       }
