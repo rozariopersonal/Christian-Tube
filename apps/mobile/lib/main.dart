@@ -24,6 +24,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppConfig.initialize();
   await NotificationService().initialize();
+  if (kMicroFeedEnabled) {
+    try {
+      await createActiveFeedEngine().initialize();
+    } catch (_) {}
+  }
   runApp(const PrivateTubeApp());
 }
 

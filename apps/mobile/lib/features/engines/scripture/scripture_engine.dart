@@ -13,9 +13,14 @@ import 'widgets/style_studio_sheet.dart';
 
 class ScriptureEngine
     implements BaseFeedEngine<ScriptureCard, ScriptureFilterState> {
+  static final ScriptureEngine _instance = ScriptureEngine._internal();
+  factory ScriptureEngine() => _instance;
+  ScriptureEngine._internal();
+
   final ScriptureService _service = ScriptureService();
-  ScriptureFilterState _cachedFilterState =
+  static ScriptureFilterState _cachedFilterState =
       const ScriptureFilterState(activeVersionId: 'WEB');
+  static bool _hasLoadedPrefs = false;
 
   @override
   String get engineType => 'scripture';
@@ -29,16 +34,25 @@ class ScriptureEngine
   @override
   Future<void> initialize() async {
     await _service.initialize();
-    _service.resetRandomDeck();
+    if (!_hasLoadedPrefs) {
+      _service.resetRandomDeck();
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedVersion = prefs.getString('pref_bible_version') ?? 'WEB';
-      final savedScale = prefs.getDouble('pref_bible_font_scale') ?? 1.0;
-      final savedFont = prefs.getString('pref_bible_font_family') ?? 'Playfair';
-      final savedColor = prefs.getString('pref_bible_text_color') ?? '#FFFFFF';
-      final savedBold = prefs.getBool('pref_bible_is_bold') ?? false;
-      final savedItalic = prefs.getBool('pref_bible_is_italic') ?? false;
-      final savedAlign = prefs.getString('pref_bible_text_align') ?? 'center';
+      final savedVersion =
+          prefs.getString('pref_bible_version') ?? _cachedFilterState.activeVersionId;
+      final savedScale =
+          prefs.getDouble('pref_bible_font_scale') ?? _cachedFilterState.fontSizeScale;
+      final savedFont =
+          prefs.getString('pref_bible_font_family') ?? _cachedFilterState.activeFontFamily;
+      final savedColor =
+          prefs.getString('pref_bible_text_color') ?? _cachedFilterState.textColorHex;
+      final savedBold =
+          prefs.getBool('pref_bible_is_bold') ?? _cachedFilterState.isBold;
+      final savedItalic =
+          prefs.getBool('pref_bible_is_italic') ?? _cachedFilterState.isItalic;
+      final savedAlign =
+          prefs.getString('pref_bible_text_align') ?? _cachedFilterState.textAlign;
 
       _cachedFilterState = ScriptureFilterState(
         activeVersionId: savedVersion,
@@ -49,6 +63,7 @@ class ScriptureEngine
         isItalic: savedItalic,
         textAlign: savedAlign,
       );
+      _hasLoadedPrefs = true;
     } catch (_) {}
   }
 
