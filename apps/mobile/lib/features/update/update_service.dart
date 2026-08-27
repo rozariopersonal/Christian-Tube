@@ -227,22 +227,19 @@ class UpdateService {
   static Future<String> getApkSavePath() async {
     Directory? dir;
     try {
-      final extDirs = await getExternalCacheDirectories();
-      if (extDirs != null && extDirs.isNotEmpty) {
-        dir = extDirs.first;
-      }
-    } catch (_) {}
-
-    try {
-      dir ??= await getExternalStorageDirectory();
+      dir = await getTemporaryDirectory();
     } catch (_) {}
 
     try {
       dir ??= await getApplicationDocumentsDirectory();
     } catch (_) {}
 
-    dir ??= await getTemporaryDirectory();
-    return '${dir.path}/${AppConfig.instanceId}-update.apk';
+    try {
+      dir ??= await getExternalStorageDirectory();
+    } catch (_) {}
+
+    final safeDir = dir?.path ?? '/sdcard/Download';
+    return '$safeDir/${AppConfig.appName.toLowerCase().replaceAll(' ', '_')}_update.apk';
   }
 
   static Future<void> launchApkInstaller(String savePath, String downloadUrl) async {
@@ -256,48 +253,50 @@ class UpdateService {
         return;
       }
 
-      // Check / request install unknown apps permission on Android
       if (Platform.isAndroid) {
+        // 1. Check and request install unknown apps permission
         try {
           final status = await Permission.requestInstallPackages.status;
           if (!status.isGranted) {
             final res = await Permission.requestInstallPackages.request();
-            debugPrint('Install packages permission result: $res');
+            debugPrint('Install packages permission requested: $res');
+            if (res.isPermanentlyDenied) {
+              await openAppSettings();
+            }
           }
         } catch (e) {
           debugPrint('Permission.requestInstallPackages check error: $e');
         }
 
-        // 1. Primary method: AndroidPackageInstaller native session
+        // 2. Primary method: OpenFilex intent with FileProvider (invokes system package installer UI immediately)
+        try {
+          debugPrint('Launching system installer via OpenFilex for $savePath');
+          final result = await OpenFilex.open(
+            savePath,
+            type: 'application/vnd.android.package-archive',
+          );
+          debugPrint('OpenFilex result type: ${result.type}, message: ${result.message}');
+          if (result.type == ResultType.done) {
+            return;
+          }
+        } catch (e) {
+          debugPrint('OpenFilex error: $e, trying AndroidPackageInstaller fallback...');
+        }
+
+        // 3. Secondary method: AndroidPackageInstaller native session
         try {
           debugPrint('Attempting installation with AndroidPackageInstaller...');
           final code = await AndroidPackageInstaller.installApk(apkFilePath: savePath);
           debugPrint('AndroidPackageInstaller response code: $code');
-          // 0 = STATUS_SUCCESS, 1 = STATUS_PENDING_USER_ACTION
-          if (code == 0 || code == 1 || code == null) {
+          if (code == 0 || code == 1) {
             return;
           }
         } catch (e) {
-          debugPrint('AndroidPackageInstaller failed ($e), trying OpenFilex fallback...');
+          debugPrint('AndroidPackageInstaller failed: $e');
         }
       }
 
-      // 2. Fallback method: OpenFilex intent
-      try {
-        debugPrint('Attempting installation with OpenFilex...');
-        final result = await OpenFilex.open(
-          savePath,
-          type: 'application/vnd.android.package-archive',
-        );
-        debugPrint('OpenFilex result type: ${result.type}, message: ${result.message}');
-        if (result.type == ResultType.done) {
-          return;
-        }
-      } catch (e) {
-        debugPrint('OpenFilex failed: $e');
-      }
-
-      // 3. Fallback method: Open in browser
+      // 4. Fallback method: Open in browser
       if (downloadUrl.isNotEmpty) {
         debugPrint('Direct installer failed, opening browser fallback: $downloadUrl');
         await openInBrowser(downloadUrl);

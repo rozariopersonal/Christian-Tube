@@ -84,6 +84,8 @@ class _UpdateDialogState extends State<UpdateDialog> {
             _progress = 1.0;
             _downloadedApkPath = savePath;
           });
+          // Automatically invoke system package installer immediately upon download completion
+          _triggerInstall();
         }
       },
       onError: (err) {
