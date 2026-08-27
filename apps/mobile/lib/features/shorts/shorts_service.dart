@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/short.dart';
-import 'shorts_feed_screen.dart';
 
 class ShortsService extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
@@ -52,11 +51,11 @@ class ShortsService extends ChangeNotifier {
         }
       }
 
-      // 3. Fallback to curated seed shorts
-      _shorts = ShortsFeedScreen.seedShorts;
+      // 3. No shorts ingested yet
+      _shorts = [];
     } catch (e) {
-      debugPrint('Error fetching shorts, falling back to seed shorts: $e');
-      _shorts = ShortsFeedScreen.seedShorts;
+      debugPrint('Error fetching shorts from backend: $e');
+      _shorts = [];
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -12,42 +12,6 @@ import '../../core/config/app_config.dart';
 class ShortsFeedScreen extends StatefulWidget {
   const ShortsFeedScreen({super.key});
 
-  static final List<Short> seedShorts = [
-    Short(
-      id: 'gM7nJ3u8LBs',
-      title: 'Trust In The Lord With All Your Heart | Daily Inspiration',
-      videoUrl: 'https://www.youtube.com/shorts/gM7nJ3u8LBs',
-      thumbnailUrl: 'https://img.youtube.com/vi/gM7nJ3u8LBs/hqdefault.jpg',
-      channelId: 'christian_tube',
-      channelTitle: 'Christian Life',
-      viewCount: 14200,
-      likeCount: 1850,
-      publishedAt: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    Short(
-      id: 'jL_TfP2qD_c',
-      title: 'Jesus Is Always With You 🙏 Amen!',
-      videoUrl: 'https://www.youtube.com/shorts/jL_TfP2qD_c',
-      thumbnailUrl: 'https://img.youtube.com/vi/jL_TfP2qD_c/hqdefault.jpg',
-      channelId: 'christian_tube',
-      channelTitle: 'Daily Grace',
-      viewCount: 28400,
-      likeCount: 3900,
-      publishedAt: DateTime.now().subtract(const Duration(days: 4)),
-    ),
-    Short(
-      id: 'M6Q0pD54kYQ',
-      title: 'Peace That Surpasses All Understanding ✨',
-      videoUrl: 'https://www.youtube.com/shorts/M6Q0pD54kYQ',
-      thumbnailUrl: 'https://img.youtube.com/vi/M6Q0pD54kYQ/hqdefault.jpg',
-      channelId: 'christian_tube',
-      channelTitle: 'Faith & Hope',
-      viewCount: 19500,
-      likeCount: 2400,
-      publishedAt: DateTime.now().subtract(const Duration(days: 6)),
-    ),
-  ];
-
   @override
   State<ShortsFeedScreen> createState() => _ShortsFeedScreenState();
 }
@@ -108,13 +72,13 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       }
 
       setState(() {
-        _shorts = ShortsFeedScreen.seedShorts;
+        _shorts = [];
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error fetching shorts, falling back to seed shorts: $e');
+      debugPrint('Error fetching shorts: $e');
       setState(() {
-        _shorts = ShortsFeedScreen.seedShorts;
+        _shorts = [];
         _isLoading = false;
       });
     }
