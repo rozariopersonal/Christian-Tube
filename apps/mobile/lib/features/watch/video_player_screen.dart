@@ -35,6 +35,7 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late YoutubePlayerController _controller;
+  StreamSubscription<YoutubePlayerValue>? _subscription;
   final ApiClient _apiClient = ApiClient();
   final ChannelService _channelService = ChannelService();
 
@@ -67,23 +68,29 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _initController(String videoId) {
+    _subscription?.cancel();
+    _subscription = null;
+
     _controller = YoutubePlayerController.fromVideoId(
       videoId: videoId,
       autoPlay: true,
       params: const YoutubePlayerParams(
         showControls: true,
-        mute: false,
         showFullscreenButton: true,
-        loop: false,
+        playsInline: true,
+        showVideoAnnotations: false,
+        enableCaption: true,
         strictRelatedVideos: true,
         // Spoof a real Chrome browser origin & User-Agent to prevent
         // YouTube error 150/152 caused by WebView origin rejection.
         origin: 'https://www.youtube.com',
+        userAgent:
+            'Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36',
       ),
     );
 
-    _controller.listen((event) {
-      if (event.playerState == PlayerState.ended) {
+    _subscription = _controller.listen((state) {
+      if (state.playerState == PlayerState.ended) {
         _handleVideoEnded();
       }
     });
@@ -93,7 +100,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (!_isAutoplay) return;
 
     if (_loopMode == PlaylistLoopMode.one) {
-      _controller.seekTo(seconds: 0.0, allowSeekAhead: true);
+      _controller.seekTo(seconds: 0);
       _controller.playVideo();
       return;
     }
@@ -215,6 +222,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _subscription?.cancel();
     _controller.close();
     super.dispose();
   }
