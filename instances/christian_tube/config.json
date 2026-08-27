@@ -1,6 +1,6 @@
 {
   "instanceId": "christian_tube",
-  "appName": "ChristianTube",
+  "appName": "ChristianApp",
   "applicationId": "org.rozario.christiantube.mobile",
   "version": "1.28.0",
   "versionCode": 45,
@@ -12,7 +12,10 @@
   },
   "apiBaseUrl": "https://christian-tube-1.onrender.com",
   "releasesRepo": "rozariopersonal/Christian-Tube-Releases",
-  "apkFileName": "christian-tube.apk",
+  "apkFileName": "christian-app.apk",
+  "adminEmails": [
+    "arul.rozario4@gmail.com"
+  ],
   "googleClientId": "486970697742-rosdo4tsrelad7tma3aeuc47ndv3e1ma.apps.googleusercontent.com",
   "defaultCategories": [
     "All",

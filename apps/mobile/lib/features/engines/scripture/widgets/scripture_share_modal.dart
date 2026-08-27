@@ -15,7 +15,7 @@ class ScriptureShareModal extends StatelessWidget {
     required this.imageBytes,
     required this.card,
     required this.fileName,
-    this.appName = 'ChristianTube',
+    this.appName = 'ChristianApp',
   });
 
   static Future<void> show(
@@ -23,7 +23,7 @@ class ScriptureShareModal extends StatelessWidget {
     required Uint8List imageBytes,
     required ScriptureCard card,
     required String fileName,
-    String appName = 'ChristianTube',
+    String appName = 'ChristianApp',
   }) {
     return showDialog(
       context: context,

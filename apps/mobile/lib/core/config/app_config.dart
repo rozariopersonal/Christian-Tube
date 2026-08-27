@@ -4,13 +4,13 @@ import 'package:flutter/services.dart';
 
 class AppConfig {
   static String instanceId = 'christian_tube';
-  static String appName = 'ChristianTube';
+  static String appName = 'ChristianApp';
   static String applicationId = 'org.rozario.christiantube.mobile';
   static String version = '1.28.0';
   static int versionCode = 45;
   static String apiBaseUrl = 'https://christian-tube-1.onrender.com';
   static String releasesRepo = 'rozariopersonal/Christian-Tube-Releases';
-  static String apkFileName = 'christian-tube.apk';
+  static String apkFileName = 'christian-app.apk';
   static String? googleClientId;
 
   static Color primaryColor = const Color(0xFF2563EB);

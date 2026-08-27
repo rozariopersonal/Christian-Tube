@@ -50,8 +50,8 @@ jobs:
       matrix:
         include:
           - instance: christian_tube
-            appName: ChristianTube
-            apkName: christian-tube.apk
+            appName: ChristianApp
+            apkName: christian-app.apk
             releaseRepo: rozariopersonal/Christian-Tube-Releases
           - instance: centum_academy
             appName: CentumAcademy

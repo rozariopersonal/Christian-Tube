@@ -24,7 +24,7 @@ class ScriptureGraphicGenerator {
     String textAlign = 'center',
     int width = 1080,
     int height = 1920,
-    String appName = 'ChristianTube',
+    String appName = 'ChristianApp',
   }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(
@@ -306,7 +306,7 @@ class ScriptureImageExporter {
     bool isBold = false,
     bool isItalic = false,
     String textAlign = 'center',
-    String appName = 'ChristianTube',
+    String appName = 'ChristianApp',
   }) async {
     try {
       final currentKey =

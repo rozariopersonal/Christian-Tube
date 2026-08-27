@@ -14,11 +14,12 @@ export default () => {
     console.warn(`Could not load instance config for ${instanceId}:`, e);
   }
 
-  const rawAdminEmails = process.env.ADMIN_EMAILS || 'admin@privatetube.org,admin@centumacademy.org,arul@example.com';
-  const adminEmails = rawAdminEmails
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
+  const rawAdminEmails = process.env.ADMIN_EMAILS || 'admin@privatetube.org,admin@centumacademy.org,arul.rozario4@gmail.com,arul@example.com';
+  const instanceAdminEmails: string[] = Array.isArray(instanceConfig.adminEmails) ? instanceConfig.adminEmails : [];
+  const adminEmails = Array.from(new Set([
+    ...rawAdminEmails.split(',').map((e) => e.trim().toLowerCase()),
+    ...instanceAdminEmails.map((e) => e.trim().toLowerCase()),
+  ])).filter(Boolean);
 
   return {
     port: parseInt(process.env.PORT || '3000', 10),
