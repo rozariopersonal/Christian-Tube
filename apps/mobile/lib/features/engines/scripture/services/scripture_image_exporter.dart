@@ -98,7 +98,7 @@ class ScriptureGraphicGenerator {
       ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout(maxWidth: w - 160);
+    )..layout(maxWidth: w - 240);
 
     // Verse Body TextPainter
     final textPainter = TextPainter(
@@ -117,7 +117,7 @@ class ScriptureGraphicGenerator {
       ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout(maxWidth: w - 180);
+    )..layout(maxWidth: w - 240);
 
     // Reference Badge TextPainter
     final refText =
@@ -134,7 +134,7 @@ class ScriptureGraphicGenerator {
       ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout(maxWidth: w - 200);
+    )..layout(maxWidth: w - 240);
 
     // Calculate Vertical Centering
     final totalContentHeight = quotePainter.height +

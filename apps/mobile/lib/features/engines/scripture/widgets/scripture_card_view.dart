@@ -103,14 +103,16 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         // 2. Readability Gradient Scrim
         const CardScrimOverlay(opacity: 0.48),
 
-        // 3. Typographic Content Canvas
+        // 3. Typographic Content Canvas (Equal horizontal margins so text stays centered without bleeding into side buttons)
         Center(
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 28.0, vertical: 80.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 580),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 76.0, vertical: 80.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Opening Quote Mark
                 Text(
@@ -222,8 +224,9 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
             ),
           ),
         ),
-      ],
-    );
+      ),
+    ],
+  );
   }
 
   Widget _buildBackground(BackgroundPreset preset) {
