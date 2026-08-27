@@ -237,7 +237,13 @@ class ScriptureEngine
       CardActionButton(
         icon: Icons.share_rounded,
         label: 'Share',
-        onTap: () => shareCard(context, item, repaintBoundaryKey),
+        onTap: () => ScriptureImageExporter.captureAndShare(
+          boundaryKey: repaintBoundaryKey,
+          card: item,
+          activeVersionId: filterState.activeVersionId,
+          fontFamily: filterState.activeFontFamily,
+          fontSizeScale: filterState.fontSizeScale,
+        ),
       ),
 
       // 2. Style & Theme Studio
@@ -327,6 +333,9 @@ class ScriptureEngine
     await ScriptureImageExporter.captureAndShare(
       boundaryKey: repaintBoundaryKey,
       card: item,
+      activeVersionId: _cachedFilterState.activeVersionId,
+      fontFamily: _cachedFilterState.activeFontFamily,
+      fontSizeScale: _cachedFilterState.fontSizeScale,
     );
   }
 }

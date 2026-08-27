@@ -1,49 +1,305 @@
+import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/scripture_card.dart';
+import '../models/scripture_theme_state.dart';
+import 'bible_download_manager.dart';
+
+class ScriptureGraphicGenerator {
+  /// Generates a pristine 1080x1920 (9:16 Story format) graphic card from content data
+  static Future<Uint8List> generateStoryImage({
+    required ScriptureCard card,
+    required String activeVersionId,
+    required String fontFamily,
+    required double fontSizeScale,
+    int width = 1080,
+    int height = 1920,
+    String appName = 'ChristianTube',
+  }) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+    );
+
+    final w = width.toDouble();
+    final h = height.toDouble();
+    final preset = ScriptureThemeCatalog.getPreset(card.activeBackground);
+    final versionMeta = BibleDownloadManager.getMeta(
+        card.resolvedVersion ?? activeVersionId);
+
+    // 1. Draw Background (Image or Procedural Gradient)
+    ui.Image? loadedImage;
+    if (!preset.isGradient && preset.imageUrl != null) {
+      try {
+        loadedImage = await _fetchUiImage(preset.imageUrl!);
+      } catch (_) {
+        loadedImage = null;
+      }
+    }
+
+    if (loadedImage != null) {
+      // Draw image covering the entire 1080x1920 canvas with aspect-fill
+      _drawImageCover(canvas, loadedImage, w, h);
+    } else {
+      // Draw procedural gradient
+      final colors = preset.gradientColors ??
+          const [Color(0xFF0F172A), Color(0xFF020617), Color(0xFF000000)];
+      final bgPaint = Paint()
+        ..shader = ui.Gradient.linear(
+          Offset.zero,
+          Offset(w, h),
+          colors,
+        );
+      canvas.drawRect(Rect.fromLTWH(0, 0, w, h), bgPaint);
+    }
+
+    // 2. Draw Multi-Stop Readability Dark Scrim Overlay
+    final scrimPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(0, 0),
+        Offset(0, h),
+        [
+          const Color(0x99000000), // Top 60% black
+          const Color(0x33000000), // Center 20% black
+          const Color(0x80000000), // Mid-bottom 50% black
+          const Color(0xEE000000), // Bottom 93% black
+        ],
+        [0.0, 0.25, 0.70, 1.0],
+      );
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), scrimPaint);
+
+    // 3. Layout Verse Typography with TextPainter
+    final verseText = card.resolvedText ??
+        'Peace I leave with you; my peace I give you. Do not let your hearts be troubled.';
+    final length = verseText.length;
+    final baseFontSize = (64.0 - (length / 20.0)).clamp(36.0, 68.0) * fontSizeScale;
+
+    final textStyle = ScriptureThemeCatalog.getTextStyle(
+      fontFamily: card.customFontFamily ?? fontFamily,
+      languageCode: versionMeta.languageCode,
+      baseSize: baseFontSize,
+      color: Colors.white,
+      fontWeight: FontWeight.w400,
+    );
+
+    // Opening Quote Mark TextPainter
+    final quotePainter = TextPainter(
+      text: const TextSpan(
+        text: '“',
+        style: TextStyle(
+          fontSize: 100,
+          fontFamily: 'serif',
+          color: Color(0xFFF59E0B),
+          height: 0.8,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: w - 160);
+
+    // Verse Body TextPainter
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: verseText,
+        style: textStyle.copyWith(
+          height: 1.45,
+          shadows: [
+            const Shadow(
+              color: Colors.black,
+              blurRadius: 24,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: w - 180);
+
+    // Reference Badge TextPainter
+    final refText =
+        '— ${card.referenceLabel} (${card.resolvedVersion ?? activeVersionId}) —';
+    final refPainter = TextPainter(
+      text: TextSpan(
+        text: refText,
+        style: const TextStyle(
+          color: Color(0xFFFBBF24),
+          fontSize: 28,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: w - 200);
+
+    // Calculate Vertical Centering
+    final totalContentHeight = quotePainter.height +
+        24 +
+        textPainter.height +
+        40 +
+        refPainter.height +
+        20; // badge padding
+    final startY = (h - totalContentHeight) / 2.0;
+
+    // Draw Quote Mark
+    quotePainter.paint(
+      canvas,
+      Offset((w - quotePainter.width) / 2.0, startY),
+    );
+
+    // Draw Verse Text
+    textPainter.paint(
+      canvas,
+      Offset((w - textPainter.width) / 2.0, startY + quotePainter.height + 24),
+    );
+
+    // Draw Reference Badge Pill
+    final badgeY =
+        startY + quotePainter.height + 24 + textPainter.height + 40;
+    final badgeWidth = refPainter.width + 48;
+    final badgeHeight = refPainter.height + 20;
+    final badgeX = (w - badgeWidth) / 2.0;
+
+    final badgeRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(badgeX, badgeY, badgeWidth, badgeHeight),
+      const Radius.circular(30),
+    );
+
+    // Badge Background
+    final badgeBgPaint = Paint()..color = Colors.black.withOpacity(0.5);
+    canvas.drawRRect(badgeRect, badgeBgPaint);
+
+    // Badge Border
+    final badgeBorderPaint = Paint()
+      ..color = const Color(0xFFF59E0B).withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawRRect(badgeRect, badgeBorderPaint);
+
+    // Draw Reference Text inside Badge
+    refPainter.paint(
+      canvas,
+      Offset((w - refPainter.width) / 2.0, badgeY + 10),
+    );
+
+    // 4. Draw Official ChristianTube Brand Watermark at the Bottom
+    final watermarkPainter = TextPainter(
+      text: TextSpan(
+        children: [
+          const WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Icon(Icons.auto_awesome, color: Color(0xFFF59E0B), size: 22),
+          ),
+          const TextSpan(text: '  '),
+          TextSpan(
+            text: '$appName Words',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 2.0,
+            ),
+          ),
+        ],
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: w);
+
+    watermarkPainter.paint(
+      canvas,
+      Offset((w - watermarkPainter.width) / 2.0, h - 90),
+    );
+
+    // Render Picture to Image
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(width, height);
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+
+    return byteData!.buffer.asUint8List();
+  }
+
+  static void _drawImageCover(
+      Canvas canvas, ui.Image image, double targetW, double targetH) {
+    final imgW = image.width.toDouble();
+    final imgH = image.height.toDouble();
+
+    final scale = (targetW / imgW > targetH / imgH)
+        ? (targetW / imgW)
+        : (targetH / imgH);
+    final scaledW = imgW * scale;
+    final scaledH = imgH * scale;
+
+    final srcRect = Rect.fromLTWH(0, 0, imgW, imgH);
+    final dstRect = Rect.fromLTWH(
+      (targetW - scaledW) / 2.0,
+      (targetH - scaledH) / 2.0,
+      scaledW,
+      scaledH,
+    );
+
+    canvas.drawImageRect(image, srcRect, dstRect, Paint());
+  }
+
+  static Future<ui.Image> _fetchUiImage(String url) async {
+    final completer = Completer<ui.Image>();
+    final imageProvider = NetworkImage(url);
+    final imageStream = imageProvider.resolve(ImageConfiguration.empty);
+
+    late ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (ImageInfo info, bool _) {
+        completer.complete(info.image);
+        imageStream.removeListener(listener);
+      },
+      onError: (dynamic error, StackTrace? stackTrace) {
+        completer.completeError(error);
+        imageStream.removeListener(listener);
+      },
+    );
+
+    imageStream.addListener(listener);
+    return completer.future;
+  }
+}
 
 class ScriptureImageExporter {
   static Future<void> captureAndShare({
     required GlobalKey boundaryKey,
     required ScriptureCard card,
+    String activeVersionId = 'WEB',
+    String fontFamily = 'Playfair',
+    double fontSizeScale = 1.0,
     String appName = 'ChristianTube',
   }) async {
     try {
-      final boundary = boundaryKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      // Generate the clean 1080x1920 9:16 graphic card directly from content
+      final pngBytes = await ScriptureGraphicGenerator.generateStoryImage(
+        card: card,
+        activeVersionId: activeVersionId,
+        fontFamily: fontFamily,
+        fontSizeScale: fontSizeScale,
+        appName: appName,
+      );
 
-      if (boundary == null) {
-        // Fallback to text sharing if render boundary is not ready
-        await Share.share(
-          '${card.resolvedText ?? ""}\n\n— ${card.referenceLabel} (${card.resolvedVersion ?? "WEB"})\n\nShared via $appName',
-        );
-        return;
-      }
+      final sanitizedRef =
+          card.referenceLabel.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      final fileName =
+          'verse_${sanitizedRef}_${DateTime.now().millisecondsSinceEpoch}.png';
 
-      // Capture at 3.0x pixel ratio for ultra-crisp 1080x1920 / 4K resolution
-      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-
-      if (byteData == null) return;
-
-      final pngBytes = byteData.buffer.asUint8List();
-      final sanitizedRef = card.referenceLabel.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-      final fileName = 'verse_${sanitizedRef}_${DateTime.now().millisecondsSinceEpoch}.png';
-
-      // XFile.fromData is 100% compatible across Mobile and Web!
       await Share.shareXFiles(
         [XFile.fromData(pngBytes, mimeType: 'image/png', name: fileName)],
         text: '“${card.referenceLabel}” — Shared from $appName',
       );
     } catch (e) {
-      debugPrint('Error in ScriptureImageExporter: $e');
-      // Fallback to text sharing
+      debugPrint('Error generating content-based graphic: $e');
+      // Fallback to formatted text sharing
       await Share.share(
-        '${card.resolvedText ?? ""}\n\n— ${card.referenceLabel}\n\nShared via $appName',
+        '${card.resolvedText ?? ""}\n\n— ${card.referenceLabel} (${card.resolvedVersion ?? activeVersionId})\n\nShared via $appName',
       );
     }
   }

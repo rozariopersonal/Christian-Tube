@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/bible_version_meta.dart';
 import '../services/bible_download_manager.dart';
 
 class BibleVersionPickerModal extends StatelessWidget {
