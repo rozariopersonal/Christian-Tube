@@ -47,7 +47,7 @@ dependencies:
   url_launcher: ^6.3.0
   path_provider: ^2.1.3
   youtube_player_flutter: ^9.0.4
-  install_plugin_v2: ^1.0.0
+  android_package_installer: 0.0.3
 
 dev_dependencies:
   flutter_test:
