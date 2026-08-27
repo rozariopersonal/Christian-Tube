@@ -566,17 +566,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
               color: isDark ? Colors.white60 : Colors.black54,
             ),
           ),
-        const SizedBox(height: 18),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            value: _progress > 0 ? _progress : null,
-            minHeight: 6,
-            backgroundColor: isDark ? Colors.white10 : Colors.black12,
-            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
-          ),
-        ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 10),
         TextButton(
           onPressed: _cancelDownload,
           child: const Text(
