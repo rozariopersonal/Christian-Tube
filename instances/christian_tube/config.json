@@ -30,6 +30,6 @@
     "tabTitle": "Words",
     "tabIcon": "auto_awesome_outlined",
     "endpoint": "/words",
-    "defaultBibleVersion": "WEB"
+    "defaultBibleVersion": "NASB"
   }
 }

@@ -34,7 +34,7 @@ class AppConfig {
   static String microFeedEngine = 'scripture';
   static String microFeedTabTitle = 'Words';
   static String microFeedTabIcon = 'auto_awesome_outlined';
-  static String microFeedDefaultVersion = 'WEB';
+  static String microFeedDefaultVersion = 'NASB';
 
   static Color _parseColor(String? hexString, Color fallback) {
     if (hexString == null || hexString.isEmpty) return fallback;
