@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
+import '../widgets/scripture_share_modal.dart';
 import 'bible_download_manager.dart';
 
 class ScriptureGraphicGenerator {
@@ -34,11 +36,12 @@ class ScriptureGraphicGenerator {
     final versionMeta = BibleDownloadManager.getMeta(
         card.resolvedVersion ?? activeVersionId);
 
-    // 1. Draw Background (Image or Procedural Gradient)
+    // 1. Draw Background (High-Res Image or Procedural Gradient)
     ui.Image? loadedImage;
     if (!preset.isGradient && preset.imageUrl != null) {
       try {
-        loadedImage = await _fetchUiImage(preset.imageUrl!);
+        loadedImage = await _fetchUiImage(preset.imageUrl!)
+            .timeout(const Duration(seconds: 2));
       } catch (_) {
         loadedImage = null;
       }
@@ -294,6 +297,7 @@ class ScriptureGraphicGenerator {
 
 class ScriptureImageExporter {
   static Future<void> captureAndShare({
+    BuildContext? context,
     required GlobalKey boundaryKey,
     required ScriptureCard card,
     String activeVersionId = 'WEB',
@@ -306,6 +310,7 @@ class ScriptureImageExporter {
     String appName = 'ChristianTube',
   }) async {
     try {
+      // 1. Generate the pristine 1080x1920 graphic card from content data
       final pngBytes = await ScriptureGraphicGenerator.generateStoryImage(
         card: card,
         activeVersionId: activeVersionId,
@@ -323,12 +328,33 @@ class ScriptureImageExporter {
       final fileName =
           'verse_${sanitizedRef}_${DateTime.now().millisecondsSinceEpoch}.png';
 
+      // 2. On Web or desktop, show the high-res graphic preview modal with share/download
+      if (kIsWeb && context != null && context.mounted) {
+        await ScriptureShareModal.show(
+          context,
+          imageBytes: pngBytes,
+          card: card,
+          fileName: fileName,
+          appName: appName,
+        );
+        return;
+      }
+
+      // 3. On Mobile, invoke native system share sheet
       await Share.shareXFiles(
         [XFile.fromData(pngBytes, mimeType: 'image/png', name: fileName)],
         text: '“${card.referenceLabel}” — Shared from $appName',
       );
     } catch (e) {
       debugPrint('Error generating content-based graphic: $e');
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sharing verse text...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
       await Share.share(
         '${card.resolvedText ?? ""}\n\n— ${card.referenceLabel} (${card.resolvedVersion ?? activeVersionId})\n\nShared via $appName',
       );

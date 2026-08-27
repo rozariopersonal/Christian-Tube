@@ -249,6 +249,7 @@ class ScriptureEngine
         icon: Icons.share_rounded,
         label: 'Share',
         onTap: () => ScriptureImageExporter.captureAndShare(
+          context: context,
           boundaryKey: repaintBoundaryKey,
           card: item,
           activeVersionId: filterState.activeVersionId,
@@ -338,6 +339,7 @@ class ScriptureEngine
     GlobalKey repaintBoundaryKey,
   ) async {
     await ScriptureImageExporter.captureAndShare(
+      context: context,
       boundaryKey: repaintBoundaryKey,
       card: item,
       activeVersionId: _cachedFilterState.activeVersionId,
