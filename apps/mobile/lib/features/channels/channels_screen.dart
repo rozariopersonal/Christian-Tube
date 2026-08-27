@@ -574,6 +574,45 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
             onSubmitted: _performSearch,
           ),
           const SizedBox(height: 16),
+          if (_queryController.text.trim().isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.flash_on_rounded, color: Color(0xFF2563EB), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Ingest "${_queryController.text.trim()}" directly',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      final input = _queryController.text.trim();
+                      if (input.isNotEmpty) {
+                        Navigator.pop(context);
+                        widget.onAddDirect(input, input);
+                      }
+                    },
+                    child: const Text('Add Now'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (_isSearching)
             const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
           else
@@ -597,7 +636,9 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
                           ),
                           title: Text(r['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                           subtitle: Text(
-                            '${Formatters.formatSubscribers(r['subscriberCount'])} subs',
+                            r['handle'] != null ? '${r['handle']}' : (r['description'] != null ? '${r['description']}' : 'YouTube Channel'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 12),
                           ),
                           trailing: ElevatedButton(

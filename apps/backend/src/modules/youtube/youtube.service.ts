@@ -117,8 +117,20 @@ export class YoutubeService implements OnModuleInit {
   }
 
   async syncChannelVideos(channelId: string, defaultCategory?: string | null) {
-    if (!this.apiKey) return;
+    if (this.apiKey) {
+      try {
+        await this.syncChannelVideosViaApi(channelId, defaultCategory);
+        return;
+      } catch (err: any) {
+        this.logger.warn(`YouTube API sync failed for ${channelId}: ${err.message}. Falling back to RSS feed sync...`);
+      }
+    }
 
+    // Fallback: sync via public YouTube Atom RSS feed (0 API quota required)
+    await this.syncChannelVideosViaRss(channelId, defaultCategory);
+  }
+
+  private async syncChannelVideosViaApi(channelId: string, defaultCategory?: string | null) {
     // 1. Search recent uploads
     const searchUrl = `https://www.googleapis.com/youtube/v3/search?key=${this.apiKey}&channelId=${channelId}&part=snippet,id&order=date&maxResults=25`;
     const searchResponse = await axios.get(searchUrl);
@@ -196,6 +208,92 @@ export class YoutubeService implements OnModuleInit {
         where: { id: channelId },
         data: { lastSyncedAt: new Date() },
       });
+    }
+  }
+
+  async syncChannelVideosViaRss(channelId: string, defaultCategory?: string | null) {
+    try {
+      const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+      const res = await axios.get(feedUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/xml,text/xml,*/*',
+        },
+        timeout: 10000,
+      });
+
+      const xml = res.data;
+      if (!xml || typeof xml !== 'string') return;
+
+      const channel = await this.prisma.channel.findUnique({
+        where: { id: channelId },
+      });
+
+      const entryMatches = xml.match(/<entry>[\s\S]*?<\/entry>/g) || [];
+      for (const entryXml of entryMatches) {
+        const videoIdMatch = entryXml.match(/<yt:videoId>([^<]+)<\/yt:videoId>/);
+        const videoId = videoIdMatch ? videoIdMatch[1].trim() : null;
+        if (!videoId) continue;
+
+        const titleMatch = entryXml.match(/<title>([\s\S]*?)<\/title>/);
+        const title = titleMatch ? titleMatch[1].trim() : 'Video';
+
+        const descMatch = entryXml.match(/<media:description>([\s\S]*?)<\/media:description>/);
+        const description = descMatch ? descMatch[1].trim() : '';
+
+        const publishedMatch = entryXml.match(/<published>([^<]+)<\/published>/);
+        const publishedAt = publishedMatch ? new Date(publishedMatch[1].trim()) : new Date();
+
+        const authorMatch = entryXml.match(/<author>[\s\S]*?<name>([^<]+)<\/name>[\s\S]*?<\/author>/);
+        const channelName = authorMatch ? authorMatch[1].trim() : channel?.name || 'Channel';
+
+        const thumbMatch = entryXml.match(/<media:thumbnail\s+url="([^"]+)"/);
+        const thumbnail = thumbMatch ? thumbMatch[1] : `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+        const titleLower = title.toLowerCase();
+        const descLower = description.toLowerCase();
+        const hasShortsTag = titleLower.includes('#short') || descLower.includes('#short');
+        const videoType = hasShortsTag ? 'SHORT' : 'VIDEO';
+
+        await this.prisma.video.upsert({
+          where: { id: videoId },
+          update: {
+            type: videoType,
+            title,
+            description,
+            thumbnail,
+            channelName,
+            channelThumbnail: channel?.thumbnail,
+            channelSubscriberCount: channel?.subscriberCount,
+            category: defaultCategory || channel?.category || 'General',
+          },
+          create: {
+            id: videoId,
+            type: videoType,
+            title,
+            description,
+            thumbnail,
+            channelId: channelId,
+            channelName,
+            channelThumbnail: channel?.thumbnail,
+            channelSubscriberCount: channel?.subscriberCount,
+            publishedAt,
+            duration: '0:00',
+            viewCount: 0,
+            category: defaultCategory || channel?.category || 'General',
+            transcriptionStatus: 'pending',
+          },
+        });
+      }
+
+      await this.prisma.channel.update({
+        where: { id: channelId },
+        data: { lastSyncedAt: new Date() },
+      });
+
+      this.logger.log(`Successfully synced ${entryMatches.length} videos for channel ${channelId} via RSS feed`);
+    } catch (e: any) {
+      this.logger.error(`Error syncing channel ${channelId} via RSS: ${e.message}`);
     }
   }
 }
