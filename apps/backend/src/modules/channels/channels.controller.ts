@@ -33,6 +33,11 @@ export class ChannelsController {
     return this.channelsService.removeChannel(id);
   }
 
+  @Post(':id/sync')
+  async syncChannel(@Param('id') id: string) {
+    return this.channelsService.syncChannel(id);
+  }
+
   @Get('requests')
   async listChannelRequests() {
     return this.channelsService.listRequests();

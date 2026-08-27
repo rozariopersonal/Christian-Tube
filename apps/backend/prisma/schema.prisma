@@ -62,6 +62,8 @@ model Channel {
   category        String?
   language        String?
   isActive        Boolean        @default(true)
+  syncCursor      String?
+  syncStatus      String         @default("IDLE")
   lastSyncedAt    DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

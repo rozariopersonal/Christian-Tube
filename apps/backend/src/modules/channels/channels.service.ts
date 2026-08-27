@@ -368,6 +368,25 @@ export class ChannelsService {
     };
   }
 
+  async syncChannel(id: string) {
+    const channel = await this.prisma.channel.findUnique({
+      where: { id },
+    });
+    if (!channel) {
+      throw new NotFoundException(`Channel ${id} not found`);
+    }
+
+    // Trigger full multi-batch sync
+    this.youtubeService.syncChannelVideos(channel.id, channel.category, 10).catch((e) => {
+      this.logger.warn(`Manual sync error for channel ${id}: ${e.message}`);
+    });
+
+    return {
+      status: 'success',
+      message: `Batch video and metadata sync initiated for ${channel.name} (${id})`,
+    };
+  }
+
   async removeChannel(id: string) {
     try {
       await this.prisma.video.deleteMany({

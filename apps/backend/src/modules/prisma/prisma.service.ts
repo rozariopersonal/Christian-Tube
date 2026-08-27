@@ -21,10 +21,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           "category" TEXT,
           "language" TEXT,
           "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "syncCursor" TEXT,
+          "syncStatus" TEXT DEFAULT 'IDLE',
           "lastSyncedAt" TIMESTAMP(3),
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+
+        ALTER TABLE "Channel" ADD COLUMN IF NOT EXISTS "syncCursor" TEXT;
+        ALTER TABLE "Channel" ADD COLUMN IF NOT EXISTS "syncStatus" TEXT DEFAULT 'IDLE';
 
         CREATE TABLE IF NOT EXISTS "Video" (
           "id" TEXT NOT NULL PRIMARY KEY,
