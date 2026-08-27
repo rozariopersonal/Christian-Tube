@@ -22,6 +22,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   }
 
   Future<void> _checkAutoUpdate() async {
+    // Wait for the root navigator and initial frame to settle
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
     final updateData = await UpdateService.checkForUpdate();
     if (updateData != null && mounted) {
       UpdateService.showUpdatePopup(context, updateData);

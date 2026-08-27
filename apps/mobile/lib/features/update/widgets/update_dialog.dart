@@ -59,6 +59,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     });
 
     final downloadUrl = widget.updateData['downloadUrl'] as String;
+    final sizeBytes = widget.updateData['sizeBytes'] as int? ?? 0;
 
     UpdateService.downloadAndInstallApkWithProgress(
       downloadUrl: downloadUrl,
@@ -67,9 +68,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
         if (mounted) {
           setState(() {
             _receivedBytes = received;
-            _totalBytes = total;
-            if (total > 0) {
-              _progress = received / total;
+            final effectiveTotal = total > 0 ? total : sizeBytes;
+            _totalBytes = effectiveTotal;
+            if (effectiveTotal > 0) {
+              _progress = (received / effectiveTotal).clamp(0.0, 1.0);
             }
           });
         }
