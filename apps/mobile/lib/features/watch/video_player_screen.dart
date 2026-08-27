@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -209,6 +210,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     _controller.dispose();
     super.dispose();
   }
@@ -219,22 +224,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final hasPlaylist = _playlist.isNotEmpty;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // YouTube Flutter Player
-            YoutubePlayer(
-              controller: _controller,
-              showVideoProgressIndicator: true,
-              progressIndicatorColor: Colors.red,
-              progressColors: const ProgressBarColors(
-                playedColor: Colors.red,
-                handleColor: Colors.redAccent,
-              ),
-            ),
+    return YoutubePlayerBuilder(
+      onExitFullScreen: () {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+        ]);
+      },
+      player: YoutubePlayer(
+        controller: _controller,
+        showVideoProgressIndicator: true,
+        progressIndicatorColor: Colors.red,
+        progressColors: const ProgressBarColors(
+          playedColor: Colors.red,
+          handleColor: Colors.redAccent,
+        ),
+      ),
+      builder: (context, player) => Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              // YouTube Flutter Player
+              player,
 
-            // Video Metadata & Recommendations
+              // Video Metadata & Recommendations
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -555,7 +568,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ],
           ),
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildActionPill({
