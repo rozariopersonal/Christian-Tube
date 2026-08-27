@@ -14,6 +14,10 @@ class ScriptureGraphicGenerator {
     required String activeVersionId,
     required String fontFamily,
     required double fontSizeScale,
+    String textColorHex = '#FFFFFF',
+    bool isBold = false,
+    bool isItalic = false,
+    String textAlign = 'center',
     int width = 1080,
     int height = 1920,
     String appName = 'ChristianTube',
@@ -41,10 +45,8 @@ class ScriptureGraphicGenerator {
     }
 
     if (loadedImage != null) {
-      // Draw image covering the entire 1080x1920 canvas with aspect-fill
       _drawImageCover(canvas, loadedImage, w, h);
     } else {
-      // Draw procedural gradient
       final colors = preset.gradientColors ??
           const [Color(0xFF0F172A), Color(0xFF020617), Color(0xFF000000)];
       final bgPaint = Paint()
@@ -59,7 +61,7 @@ class ScriptureGraphicGenerator {
     // 2. Draw Multi-Stop Readability Dark Scrim Overlay
     final scrimPaint = Paint()
       ..shader = ui.Gradient.linear(
-        Offset(0, 0),
+        const Offset(0, 0),
         Offset(0, h),
         [
           const Color(0x99000000), // Top 60% black
@@ -75,14 +77,34 @@ class ScriptureGraphicGenerator {
     final verseText = card.resolvedText ??
         'Peace I leave with you; my peace I give you. Do not let your hearts be troubled.';
     final length = verseText.length;
-    final baseFontSize = (64.0 - (length / 20.0)).clamp(36.0, 68.0) * fontSizeScale;
+    final baseFontSize =
+        (64.0 - (length / 20.0)).clamp(36.0, 68.0) * fontSizeScale;
+
+    final textColor = ScriptureThemeCatalog.parseColor(textColorHex);
+    final fontWeight = isBold ? FontWeight.w700 : FontWeight.w400;
+    final fontStyle = isItalic ? FontStyle.italic : FontStyle.normal;
+
+    final TextAlign align;
+    switch (textAlign) {
+      case 'left':
+        align = TextAlign.left;
+        break;
+      case 'right':
+        align = TextAlign.right;
+        break;
+      case 'center':
+      default:
+        align = TextAlign.center;
+        break;
+    }
 
     final textStyle = ScriptureThemeCatalog.getTextStyle(
       fontFamily: card.customFontFamily ?? fontFamily,
       languageCode: versionMeta.languageCode,
       baseSize: baseFontSize,
-      color: Colors.white,
-      fontWeight: FontWeight.w400,
+      color: textColor,
+      fontWeight: fontWeight,
+      fontStyle: fontStyle,
     );
 
     // Opening Quote Mark TextPainter
@@ -116,7 +138,7 @@ class ScriptureGraphicGenerator {
         ),
       ),
       textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
+      textAlign: align,
     )..layout(maxWidth: w - 240);
 
     // Reference Badge TextPainter
@@ -142,7 +164,7 @@ class ScriptureGraphicGenerator {
         textPainter.height +
         40 +
         refPainter.height +
-        20; // badge padding
+        20;
     final startY = (h - totalContentHeight) / 2.0;
 
     // Draw Quote Mark
@@ -152,9 +174,15 @@ class ScriptureGraphicGenerator {
     );
 
     // Draw Verse Text
+    final textX = (align == TextAlign.center)
+        ? (w - textPainter.width) / 2.0
+        : (align == TextAlign.left)
+            ? 120.0
+            : w - 120.0 - textPainter.width;
+
     textPainter.paint(
       canvas,
-      Offset((w - textPainter.width) / 2.0, startY + quotePainter.height + 24),
+      Offset(textX, startY + quotePainter.height + 24),
     );
 
     // Draw Reference Badge Pill
@@ -169,24 +197,22 @@ class ScriptureGraphicGenerator {
       const Radius.circular(30),
     );
 
-    // Badge Background
-    final badgeBgPaint = Paint()..color = Colors.black.withOpacity(0.5);
+    final badgeBgPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.5);
     canvas.drawRRect(badgeRect, badgeBgPaint);
 
-    // Badge Border
     final badgeBorderPaint = Paint()
-      ..color = const Color(0xFFF59E0B).withOpacity(0.5)
+      ..color = const Color(0xFFF59E0B).withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     canvas.drawRRect(badgeRect, badgeBorderPaint);
 
-    // Draw Reference Text inside Badge
     refPainter.paint(
       canvas,
       Offset((w - refPainter.width) / 2.0, badgeY + 10),
     );
 
-    // 4. Draw Official ChristianTube Brand Watermark at the Bottom
+    // 4. Draw Official Brand Watermark
     final watermarkPainter = TextPainter(
       text: TextSpan(
         children: [
@@ -215,7 +241,6 @@ class ScriptureGraphicGenerator {
       Offset((w - watermarkPainter.width) / 2.0, h - 90),
     );
 
-    // Render Picture to Image
     final picture = recorder.endRecording();
     final img = await picture.toImage(width, height);
     final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
@@ -274,15 +299,22 @@ class ScriptureImageExporter {
     String activeVersionId = 'WEB',
     String fontFamily = 'Playfair',
     double fontSizeScale = 1.0,
+    String textColorHex = '#FFFFFF',
+    bool isBold = false,
+    bool isItalic = false,
+    String textAlign = 'center',
     String appName = 'ChristianTube',
   }) async {
     try {
-      // Generate the clean 1080x1920 9:16 graphic card directly from content
       final pngBytes = await ScriptureGraphicGenerator.generateStoryImage(
         card: card,
         activeVersionId: activeVersionId,
         fontFamily: fontFamily,
         fontSizeScale: fontSizeScale,
+        textColorHex: textColorHex,
+        isBold: isBold,
+        isItalic: isItalic,
+        textAlign: textAlign,
         appName: appName,
       );
 
@@ -297,7 +329,6 @@ class ScriptureImageExporter {
       );
     } catch (e) {
       debugPrint('Error generating content-based graphic: $e');
-      // Fallback to formatted text sharing
       await Share.share(
         '${card.resolvedText ?? ""}\n\n— ${card.referenceLabel} (${card.resolvedVersion ?? activeVersionId})\n\nShared via $appName',
       );

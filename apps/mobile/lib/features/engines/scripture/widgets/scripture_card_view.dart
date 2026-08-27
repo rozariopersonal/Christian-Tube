@@ -78,12 +78,34 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
     final activeFontFamily =
         widget.card.customFontFamily ?? widget.filterState.activeFontFamily;
+    final textColor =
+        ScriptureThemeCatalog.parseColor(widget.filterState.textColorHex);
+    final fontWeight =
+        widget.filterState.isBold ? FontWeight.w700 : FontWeight.w400;
+    final fontStyle =
+        widget.filterState.isItalic ? FontStyle.italic : FontStyle.normal;
+
+    final TextAlign textAlign;
+    switch (widget.filterState.textAlign) {
+      case 'left':
+        textAlign = TextAlign.left;
+        break;
+      case 'right':
+        textAlign = TextAlign.right;
+        break;
+      case 'center':
+      default:
+        textAlign = TextAlign.center;
+        break;
+    }
+
     final textStyle = ScriptureThemeCatalog.getTextStyle(
       fontFamily: activeFontFamily,
       languageCode: versionMeta.languageCode,
       baseSize: effectiveFontSize,
-      color: Colors.white,
-      fontWeight: FontWeight.w400,
+      color: textColor,
+      fontWeight: fontWeight,
+      fontStyle: fontStyle,
     );
 
     return Stack(
@@ -151,7 +173,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                   child: Text(
                     text,
                     key: ValueKey('${versionId}_${text.hashCode}'),
-                    textAlign: TextAlign.center,
+                    textAlign: textAlign,
                     style: textStyle.copyWith(
                       shadows: const [
                         Shadow(

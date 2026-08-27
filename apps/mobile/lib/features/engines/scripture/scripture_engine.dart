@@ -35,11 +35,19 @@ class ScriptureEngine
       final savedVersion = prefs.getString('pref_bible_version') ?? 'WEB';
       final savedScale = prefs.getDouble('pref_bible_font_scale') ?? 1.0;
       final savedFont = prefs.getString('pref_bible_font_family') ?? 'Playfair';
+      final savedColor = prefs.getString('pref_bible_text_color') ?? '#FFFFFF';
+      final savedBold = prefs.getBool('pref_bible_is_bold') ?? false;
+      final savedItalic = prefs.getBool('pref_bible_is_italic') ?? false;
+      final savedAlign = prefs.getString('pref_bible_text_align') ?? 'center';
 
       _cachedFilterState = ScriptureFilterState(
         activeVersionId: savedVersion,
         fontSizeScale: savedScale,
         activeFontFamily: savedFont,
+        textColorHex: savedColor,
+        isBold: savedBold,
+        isItalic: savedItalic,
+        textAlign: savedAlign,
       );
     } catch (_) {}
   }
@@ -51,6 +59,10 @@ class ScriptureEngine
       await prefs.setString('pref_bible_version', state.activeVersionId);
       await prefs.setDouble('pref_bible_font_scale', state.fontSizeScale);
       await prefs.setString('pref_bible_font_family', state.activeFontFamily);
+      await prefs.setString('pref_bible_text_color', state.textColorHex);
+      await prefs.setBool('pref_bible_is_bold', state.isBold);
+      await prefs.setBool('pref_bible_is_italic', state.isItalic);
+      await prefs.setString('pref_bible_text_align', state.textAlign);
     } catch (_) {}
   }
 
@@ -243,6 +255,10 @@ class ScriptureEngine
           activeVersionId: filterState.activeVersionId,
           fontFamily: filterState.activeFontFamily,
           fontSizeScale: filterState.fontSizeScale,
+          textColorHex: filterState.textColorHex,
+          isBold: filterState.isBold,
+          isItalic: filterState.isItalic,
+          textAlign: filterState.textAlign,
         ),
       ),
 
@@ -251,15 +267,6 @@ class ScriptureEngine
         icon: Icons.palette_outlined,
         label: 'Style',
         onTap: () {
-          // Quick cycle background preset on single tap
-          final presets = ScriptureThemeCatalog.presets;
-          final currentIndex = presets.indexWhere((p) => p.id == item.activeBackground);
-          final nextIndex = (currentIndex + 1) % presets.length;
-          item.customBackgroundPreset = presets[nextIndex].id;
-          onRefreshCard();
-        },
-        onLongPress: () {
-          // Open full style studio sheet on long press
           showModalBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
@@ -336,6 +343,10 @@ class ScriptureEngine
       activeVersionId: _cachedFilterState.activeVersionId,
       fontFamily: _cachedFilterState.activeFontFamily,
       fontSizeScale: _cachedFilterState.fontSizeScale,
+      textColorHex: _cachedFilterState.textColorHex,
+      isBold: _cachedFilterState.isBold,
+      isItalic: _cachedFilterState.isItalic,
+      textAlign: _cachedFilterState.textAlign,
     );
   }
 }
