@@ -30,9 +30,9 @@
   "microFeed": {
     "enabled": true,
     "engine": "scripture",
-    "tabTitle": "Words",
+    "tabTitle": "Micro Feeds",
     "tabIcon": "auto_awesome_outlined",
-    "endpoint": "/words",
+    "endpoint": "/micro-feeds",
     "defaultBibleVersion": "NASB"
   }
 }

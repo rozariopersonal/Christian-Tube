@@ -32,7 +32,7 @@ class AppConfig {
   // Micro-Feed Configuration
   static bool microFeedEnabled = false;
   static String microFeedEngine = 'scripture';
-  static String microFeedTabTitle = 'Words';
+  static String microFeedTabTitle = 'Micro Feeds';
   static String microFeedTabIcon = 'auto_awesome_outlined';
   static String microFeedDefaultVersion = 'NASB';
 
