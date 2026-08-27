@@ -1,10 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-class MainLayoutScreen extends StatelessWidget {
+import '../features/update/update_service.dart';
+
+class MainLayoutScreen extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const MainLayoutScreen({super.key, required this.navigationShell});
+
+  @override
+  State<MainLayoutScreen> createState() => _MainLayoutScreenState();
+}
+
+class _MainLayoutScreenState extends State<MainLayoutScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAutoUpdate();
+  }
+
+  Future<void> _checkAutoUpdate() async {
+    final updateData = await UpdateService.checkForUpdate();
+    if (updateData != null && mounted) {
+      UpdateService.showUpdatePopup(context, updateData);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +32,7 @@ class MainLayoutScreen extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      body: navigationShell,
+      body: widget.navigationShell,
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           height: 60,
@@ -38,13 +58,13 @@ class MainLayoutScreen extends StatelessWidget {
           }),
         ),
         child: NavigationBar(
-          selectedIndex: navigationShell.currentIndex,
+          selectedIndex: widget.navigationShell.currentIndex,
           backgroundColor: isDark ? Colors.black : Colors.white,
           elevation: 0,
           onDestinationSelected: (int index) {
-            navigationShell.goBranch(
+            widget.navigationShell.goBranch(
               index,
-              initialLocation: index == navigationShell.currentIndex,
+              initialLocation: index == widget.navigationShell.currentIndex,
             );
           },
           destinations: const [
