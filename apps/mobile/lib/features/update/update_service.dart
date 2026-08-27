@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:android_package_installer/android_package_installer.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -24,7 +24,7 @@ class UpdateService {
       // payload = apk file path
       final apkPath = response.payload;
       if (apkPath != null && apkPath.isNotEmpty) {
-        await AndroidPackageInstaller.installApk(apkFilePath: apkPath);
+        await OpenFilex.open(apkPath);
       }
     });
   }
@@ -124,11 +124,9 @@ class UpdateService {
 
   static Future<void> launchApkInstaller(String savePath, String downloadUrl) async {
     try {
-      final statusCode = await AndroidPackageInstaller.installApk(apkFilePath: savePath);
-      final status = statusCode != null ? PackageInstallerStatus.byCode(statusCode) : PackageInstallerStatus.unknown;
-
-      if (status != PackageInstallerStatus.success) {
-         debugPrint('Installer failed with status: $status, opening browser fallback...');
+      final result = await OpenFilex.open(savePath);
+      if (result.type != ResultType.done) {
+         debugPrint('Installer failed: ${result.message}, opening browser fallback...');
          await openInBrowser(downloadUrl);
       }
     } catch (e) {
