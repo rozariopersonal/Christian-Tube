@@ -214,7 +214,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         ),
 
         // 2. Readability Gradient Scrim
-        const CardScrimOverlay(opacity: 0.48),
+        const CardScrimOverlay(opacity: 0.72),
 
         // 3. Typographic Content Canvas (Scroll-safe, centered, zero-overflow)
         Center(

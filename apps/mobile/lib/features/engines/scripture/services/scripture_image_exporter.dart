@@ -69,12 +69,12 @@ class ScriptureGraphicGenerator {
         const Offset(0, 0),
         Offset(0, h),
         [
-          const Color(0x99000000), // Top 60% black
-          const Color(0x33000000), // Center 20% black
-          const Color(0x80000000), // Mid-bottom 50% black
-          const Color(0xEE000000), // Bottom 93% black
+          const Color(0xAA000000), // Top 67% black
+          const Color(0x99000000), // Center 60% black
+          const Color(0xBF000000), // Mid-bottom 75% black
+          const Color(0xF2000000), // Bottom 95% black
         ],
-        [0.0, 0.25, 0.70, 1.0],
+        [0.0, 0.30, 0.65, 1.0],
       );
     canvas.drawRect(Rect.fromLTWH(0, 0, w, h), scrimPaint);
 

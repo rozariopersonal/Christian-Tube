@@ -381,7 +381,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0x80000000), Color(0xB3000000)],
+                colors: [Color(0x99000000), Color(0xCC000000)],
               ),
             ),
           ),

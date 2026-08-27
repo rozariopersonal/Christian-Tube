@@ -6,7 +6,7 @@ class CardScrimOverlay extends StatelessWidget {
 
   const CardScrimOverlay({
     super.key,
-    this.opacity = 0.45,
+    this.opacity = 0.70,
     this.child,
   });
 
@@ -18,12 +18,12 @@ class CardScrimOverlay extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.black.withOpacity((opacity * 1.1).clamp(0.0, 1.0)),
-            Colors.black.withOpacity((opacity * 0.3).clamp(0.0, 1.0)),
-            Colors.black.withOpacity((opacity * 0.5).clamp(0.0, 1.0)),
-            Colors.black.withOpacity((opacity * 1.3).clamp(0.0, 1.0)),
+            Colors.black.withValues(alpha: (opacity * 0.85).clamp(0.0, 1.0)),
+            Colors.black.withValues(alpha: (opacity * 0.75).clamp(0.0, 1.0)),
+            Colors.black.withValues(alpha: (opacity * 0.80).clamp(0.0, 1.0)),
+            Colors.black.withValues(alpha: (opacity * 1.15).clamp(0.0, 1.0)),
           ],
-          stops: const [0.0, 0.25, 0.70, 1.0],
+          stops: const [0.0, 0.30, 0.65, 1.0],
         ),
       ),
       child: child,
