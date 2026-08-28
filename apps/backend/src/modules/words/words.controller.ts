@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { WordsService } from './words.service';
 
-@Controller(['words', 'api/words', 'micro-feed', 'api/micro-feed'])
+@Controller(['words', 'api/words', 'micro-feed', 'api/micro-feed', 'micro-feeds', 'api/micro-feeds'])
 export class WordsController {
   constructor(private readonly wordsService: WordsService) {}
 
@@ -9,15 +9,22 @@ export class WordsController {
   async getWords(
     @Query('category') category?: string,
     @Query('translation') translation?: string,
+    @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.wordsService.findAll({
       category,
       translation,
+      search,
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
     });
+  }
+
+  @Post('seed')
+  async seedWords(@Body() body?: { force?: boolean }) {
+    return this.wordsService.seedWords(body?.force ?? false);
   }
 
   @Post()
@@ -50,3 +57,4 @@ export class WordsController {
     return this.wordsService.like(id);
   }
 }
+
