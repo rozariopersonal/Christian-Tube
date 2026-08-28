@@ -70,6 +70,15 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   bool _showPlayPauseOverlay = false;
   bool _playPauseOverlayPlaying = true;
   Timer? _overlayTimer;
+  
+  bool _isMuted = false;
+
+  // Engagement & Filter State
+  final Set<String> _blessedShortIds = {};
+  final Set<String> _savedShortIds = {};
+  bool _showHeartOverlay = false;
+  Timer? _heartOverlayTimer;
+  String _communityFilter = 'all'; // 'all', 'popular', 'recent'
 
   StreamSubscription<void>? _shortsResetSub;
 
@@ -141,8 +150,15 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       setState(() {
         _selectedCommunityIndex = null;
         _selectedCreationIndex = null;
+        _isPlaying = true;
+        _areControlsVisible = true;
+        _currentPosition = 0.0;
+        _totalDuration = 0.0;
       });
     }
+    _autoHideTimer?.cancel();
+    _overlayTimer?.cancel();
+    _heartOverlayTimer?.cancel();
     BottomBarVisibilityService.instance.setShortPlaying(false);
   }
 
@@ -174,6 +190,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     _localPageController.dispose();
     _autoHideTimer?.cancel();
     _overlayTimer?.cancel();
+    _heartOverlayTimer?.cancel();
     super.dispose();
   }
 
@@ -679,67 +696,83 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     }
 
     // 1. Initial State: Infinite Scroll Grid
+    final Widget currentView;
     if (_selectedCommunityIndex == null) {
-      return _buildCommunityGrid();
-    }
+      currentView = _buildCommunityGrid();
+    } else {
+      // 2. Expanded State: Full-Screen Vertical Shorts Player
+      currentView = Stack(
+        fit: StackFit.expand,
+        children: [
+          GestureDetector(
+            onHorizontalDragEnd: (details) {
+              if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+                _closeShortPlayer();
+              }
+            },
+            child: PageView.builder(
+              controller: _pageController,
+              scrollDirection: Axis.vertical,
+              itemCount: _shorts.length,
+              onPageChanged: (index) {
+                HapticFeedback.lightImpact();
+                setState(() {
+                  _currentPage = index;
+                  _selectedCommunityIndex = index;
+                  _isPlaying = true;
+                  _areControlsVisible = true;
+                  _currentPosition = 0.0;
+                  _totalDuration = 0.0;
+                });
+                _startAutoHideTimer();
+                if (index >= _shorts.length - 4) {
+                  _loadMoreShorts();
+                }
+              },
+              itemBuilder: (context, index) {
+                final short = _shorts[index];
+                return _buildShortPlayerStack(short, index, isTabVisible);
+              },
+            ),
+          ),
 
-    // 2. Expanded State: Full-Screen Vertical Shorts Player
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        PageView.builder(
-          controller: _pageController,
-          scrollDirection: Axis.vertical,
-          itemCount: _shorts.length,
-          onPageChanged: (index) {
-            HapticFeedback.lightImpact();
-            setState(() {
-              _currentPage = index;
-              _selectedCommunityIndex = index;
-              _isPlaying = true;
-              _areControlsVisible = true;
-              _currentPosition = 0.0;
-              _totalDuration = 0.0;
-            });
-            _startAutoHideTimer();
-            if (index >= _shorts.length - 4) {
-              _loadMoreShorts();
-            }
-          },
-          itemBuilder: (context, index) {
-            final short = _shorts[index];
-            return _buildShortPlayerStack(short, index, isTabVisible);
-          },
-        ),
-
-        // Top-Left Back Button to Return to Shorts Grid
-        Positioned(
-          top: 54,
-          left: 12,
-          child: GestureDetector(
-            onTap: _closeShortPlayer,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white30),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back_ios_new, size: 13, color: Colors.white),
-                  SizedBox(width: 4),
-                  Text(
-                    'Shorts Grid',
-                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ],
+          // Top-Left Back Button to Return to Shorts Grid
+          Positioned(
+            top: 54,
+            left: 12,
+            child: GestureDetector(
+              onTap: _closeShortPlayer,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white30),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_back_ios_new, size: 13, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text(
+                      'Shorts Grid',
+                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: KeyedSubtree(
+        key: ValueKey(_selectedCommunityIndex == null ? 'grid' : 'player'),
+        child: currentView,
+      ),
     );
   }
 
@@ -763,23 +796,42 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 75, 16, 14),
               sliver: SliverToBoxAdapter(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${_shorts.length} Shorts',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_shorts.length} Shorts',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _fetchShorts,
+                          icon: const Icon(Icons.refresh, size: 16, color: Color(0xFFF59E0B)),
+                          label: const Text(
+                            'Refresh',
+                            style: TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                     ),
-                    TextButton.icon(
-                      onPressed: _fetchShorts,
-                      icon: const Icon(Icons.refresh, size: 16, color: Color(0xFFF59E0B)),
-                      label: const Text(
-                        'Refresh',
-                        style: TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.bold),
+                    const SizedBox(height: 10),
+                    // Quick Filter Chips Row
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildFilterChip('All Shorts', 'all', Icons.auto_awesome),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('🔥 Popular', 'popular', Icons.local_fire_department_rounded),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('✨ Recent', 'recent', Icons.schedule_rounded),
+                        ],
                       ),
                     ),
                   ],
@@ -797,10 +849,11 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final short = _shorts[index];
+                    final items = _getFilteredShorts();
+                    final short = items[index];
                     return _buildCommunityGridCard(short, index);
                   },
-                  childCount: _shorts.length,
+                  childCount: _getFilteredShorts().length,
                 ),
               ),
             ),
@@ -827,7 +880,10 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         : Short.parseDurationInSeconds(short.duration);
 
     return GestureDetector(
-      onTap: () => _openCommunityShortAt(index),
+      onTap: () {
+        final realIndex = _shorts.indexWhere((s) => s.id == short.id);
+        _openCommunityShortAt(realIndex != -1 ? realIndex : index);
+      },
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
@@ -1052,12 +1108,13 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             errorWidget: (_, __, ___) => Container(color: Colors.black),
           ),
 
-        // 2. Full-Screen Tap Arena (Dynamic HUD Auto-Hide & Play/Pause)
+        // 2. Full-Screen Tap Arena (Dynamic HUD Auto-Hide & Play/Pause & Double-Tap Bless)
         if (!isNonPlayableLocalShort)
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _onScreenTap,
+              onDoubleTap: () => _onDoubleTapBless(short),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -1080,6 +1137,40 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                         ),
                       ),
                     ),
+                  // Double-Tap Heart Burst Feedback Overlay
+                  if (_showHeartOverlay)
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.elasticOut,
+                      builder: (context, val, child) {
+                        return Transform.scale(
+                          scale: val * 1.3,
+                          child: Opacity(
+                            opacity: (1.0 - (val > 0.75 ? (val - 0.75) / 0.25 : 0.0)).clamp(0.0, 1.0),
+                            child: Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black.withValues(alpha: 0.35),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.redAccent.withValues(alpha: 0.6),
+                                    blurRadius: 28,
+                                    spreadRadius: 6,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.favorite_rounded,
+                                color: Colors.redAccent,
+                                size: 80,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                 ],
               ),
             ),
@@ -1096,7 +1187,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             ),
           ),
 
-        // 3. Floating Right Action Bar (Vibrant Gold Share Button)
+        // 3. Floating Right Action Bar (Bless, Save, Sound, Share)
         Positioned(
           right: 14,
           bottom: 92,
@@ -1105,8 +1196,19 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             child: AnimatedOpacity(
               opacity: _areControlsVisible ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 250),
-              child: _buildShareButton(
-                onTap: () => _shareShort(short, localItem: localItem),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildBlessButton(short),
+                  const SizedBox(height: 18),
+                  _buildSaveButton(short),
+                  const SizedBox(height: 18),
+                  _buildMuteButton(),
+                  const SizedBox(height: 18),
+                  _buildShareButton(
+                    onTap: () => _shareShort(short, localItem: localItem),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1235,15 +1337,44 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      short.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        shadows: [
-                          Shadow(color: Colors.black, blurRadius: 6),
+                    GestureDetector(
+                      onTap: () => _showShortDetailsSheet(short),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              short.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                shadows: [
+                                  Shadow(color: Colors.black, blurRadius: 6),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white12,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'More',
+                                  style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                                SizedBox(width: 2),
+                                Icon(Icons.expand_more_rounded, size: 12, color: Colors.white70),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1445,6 +1576,42 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             ),
           ),
         ),
+
+        // 5. Vertical Position Rail
+        if (!isNonPlayableLocalShort)
+          Positioned(
+            right: 2,
+            top: MediaQuery.of(context).padding.top + 60,
+            bottom: 250,
+            child: IgnorePointer(
+              ignoring: !_areControlsVisible,
+              child: AnimatedOpacity(
+                opacity: _areControlsVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 250),
+                child: Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.topCenter,
+                    heightFactor: _activeTab == ShortsViewTab.community && _shorts.isNotEmpty
+                        ? (_selectedCommunityIndex ?? 0) / _shorts.length
+                        : (_activeTab == ShortsViewTab.myCreations && _orchestrator.localShorts.isNotEmpty
+                            ? (_selectedCreationIndex ?? 0) / _orchestrator.localShorts.length
+                            : 0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1497,73 +1664,89 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         }
 
         // 1. Initial State: Grid View of User's Creations
+        final Widget currentView;
         if (_selectedCreationIndex == null) {
-          return _buildCreationsGrid(items);
-        }
+          currentView = _buildCreationsGrid(items);
+        } else {
+          // 2. Expanded State: Full-Screen Interactive Shorts Player
+          currentView = Stack(
+            fit: StackFit.expand,
+            children: [
+              GestureDetector(
+                onHorizontalDragEnd: (details) {
+                  if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+                    _closeShortPlayer();
+                  }
+                },
+                child: PageView.builder(
+                  controller: _localPageController,
+                  scrollDirection: Axis.vertical,
+                  itemCount: items.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentPage = index;
+                      _selectedCreationIndex = index;
+                      _isPlaying = true;
+                      _areControlsVisible = true;
+                      _currentPosition = 0.0;
+                      _totalDuration = 0.0;
+                    });
+                    _startAutoHideTimer();
+                  },
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    final short = item.toShort();
+                    final isPublished = item.status == ShortCreationStatus.published;
+                    final statusChip = isPublished ? null : _buildStatusChip(item);
 
-        // 2. Expanded State: Full-Screen Interactive Shorts Player
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            PageView.builder(
-              controller: _localPageController,
-              scrollDirection: Axis.vertical,
-              itemCount: items.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentPage = index;
-                  _selectedCreationIndex = index;
-                  _isPlaying = true;
-                  _areControlsVisible = true;
-                  _currentPosition = 0.0;
-                  _totalDuration = 0.0;
-                });
-                _startAutoHideTimer();
-              },
-              itemBuilder: (context, index) {
-                final item = items[index];
-                final short = item.toShort();
-                final isPublished = item.status == ShortCreationStatus.published;
-                final statusChip = isPublished ? null : _buildStatusChip(item);
+                    return _buildShortPlayerStack(
+                      short,
+                      index,
+                      true,
+                      topStatusChip: statusChip,
+                      localItem: item,
+                    );
+                  },
+                ),
+              ),
 
-                return _buildShortPlayerStack(
-                  short,
-                  index,
-                  true,
-                  topStatusChip: statusChip,
-                  localItem: item,
-                );
-              },
-            ),
-
-            // Top-Left Back Button to Return to Creations Grid
-            Positioned(
-              top: 54,
-              left: 12,
-              child: GestureDetector(
-                onTap: _closeShortPlayer,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white30),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.arrow_back_ios_new, size: 13, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'Creations Grid',
-                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                    ],
+              // Top-Left Back Button to Return to Creations Grid
+              Positioned(
+                top: 54,
+                left: 12,
+                child: GestureDetector(
+                  onTap: _closeShortPlayer,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white30),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.arrow_back_ios_new, size: 13, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text(
+                          'Creations Grid',
+                          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          );
+        }
+
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: KeyedSubtree(
+            key: ValueKey(_selectedCreationIndex == null ? 'grid' : 'player'),
+            child: currentView,
+          ),
         );
       },
     );
@@ -2375,6 +2558,381 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMuteButton() {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() {
+          _isMuted = !_isMuted;
+        });
+        // TODO: Pass mute state to NativeShortsPlayer when backend supports it
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black54,
+              border: Border.all(color: Colors.white24, width: 1.5),
+            ),
+            child: Icon(
+              _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            _isMuted ? 'Muted' : 'Sound',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              shadows: [
+                Shadow(color: Colors.black, blurRadius: 6),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Engagement & Filter Helper Methods ---
+
+  List<Short> _getFilteredShorts() {
+    if (_communityFilter == 'popular') {
+      final list = List<Short>.from(_shorts);
+      list.sort((a, b) => b.viewCount.compareTo(a.viewCount));
+      return list;
+    } else if (_communityFilter == 'recent') {
+      final list = List<Short>.from(_shorts);
+      list.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+      return list;
+    }
+    return _shorts;
+  }
+
+  Widget _buildFilterChip(String label, String filterKey, IconData icon) {
+    final isSelected = _communityFilter == filterKey;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _communityFilter = filterKey;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFF59E0B) : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFF59E0B) : Colors.white24,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: isSelected ? Colors.black : Colors.white70,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.black : Colors.white,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onDoubleTapBless(Short short) {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _blessedShortIds.add(short.id);
+      _showHeartOverlay = true;
+    });
+    _heartOverlayTimer?.cancel();
+    _heartOverlayTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) {
+        setState(() {
+          _showHeartOverlay = false;
+        });
+      }
+    });
+  }
+
+  Widget _buildBlessButton(Short short) {
+    final isBlessed = _blessedShortIds.contains(short.id);
+    final count = short.likeCount > 0
+        ? (short.likeCount + (isBlessed ? 1 : 0))
+        : (isBlessed ? 1 : 0);
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() {
+          if (isBlessed) {
+            _blessedShortIds.remove(short.id);
+          } else {
+            _blessedShortIds.add(short.id);
+          }
+        });
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isBlessed
+                  ? Colors.redAccent.withValues(alpha: 0.25)
+                  : Colors.black54,
+              border: Border.all(
+                color: isBlessed ? Colors.redAccent : Colors.white24,
+                width: 1.5,
+              ),
+            ),
+            child: Icon(
+              isBlessed ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              color: isBlessed ? Colors.redAccent : Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            count > 0 ? Formatters.formatViews(count) : 'Bless',
+            style: TextStyle(
+              color: isBlessed ? Colors.redAccent : Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton(Short short) {
+    final isSaved = _savedShortIds.contains(short.id);
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() {
+          if (isSaved) {
+            _savedShortIds.remove(short.id);
+          } else {
+            _savedShortIds.add(short.id);
+          }
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: const Color(0xFF1E293B),
+              duration: const Duration(seconds: 2),
+              content: Text(
+                isSaved ? 'Removed from saved clips' : '🔖 Saved clip for later',
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+          );
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isSaved
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
+                  : Colors.black54,
+              border: Border.all(
+                color: isSaved ? const Color(0xFFF59E0B) : Colors.white24,
+                width: 1.5,
+              ),
+            ),
+            child: Icon(
+              isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              color: isSaved ? const Color(0xFFF59E0B) : Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isSaved ? 'Saved' : 'Save',
+            style: TextStyle(
+              color: isSaved ? const Color(0xFFF59E0B) : Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showShortDetailsSheet(Short short) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0F172A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  ChannelAvatar(
+                    avatarUrl: short.channelAvatarUrl,
+                    channelTitle: short.channelTitle,
+                    radius: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          short.channelTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (short.creatorName != null && short.creatorName!.isNotEmpty)
+                          Text(
+                            '✂️ Clipped by ${short.creatorName}',
+                            style: const TextStyle(color: Colors.white60, fontSize: 11),
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white60, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                short.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+              if (short.description != null && short.description!.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 140),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      short.description!.trim(),
+                      style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white10,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '👁️ ${short.viewCount > 0 ? Formatters.formatViews(short.viewCount) : '0'} views',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (short.durationSeconds > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white10,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '⏱️ ${Formatters.formatDuration(Duration(seconds: short.durationSeconds))}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ),
+                ],
+              ),
+              if (short.sourceVideoId != null && short.sourceVideoId!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF59E0B),
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      stopAllPlatformShorts();
+                      context.push(
+                        '/watch/${short.sourceVideoId}?start=${(short.clipStartTime ?? 0).toInt()}',
+                      );
+                    },
+                    icon: const Icon(Icons.play_circle_fill, size: 18),
+                    label: const Text(
+                      'Watch Full Sermon Video',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
