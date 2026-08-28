@@ -354,29 +354,30 @@ export class YoutubeService implements OnModuleInit {
 
   async onModuleInit() {
     setTimeout(() => {
-      this.syncAllChannelsPeriodically().catch((e) => {
+      // Force instant full sync on boot regardless of time of day
+      this.syncAllChannelsPeriodically(true).catch((e) => {
         this.logger.warn(`Initial automated sync on boot error: ${e.message}`);
       });
-      this.backfillVideoMetadata(200).catch((e) => {
+      this.backfillVideoMetadata(500).catch((e) => {
         this.logger.warn(`Initial automated backfill on boot error: ${e.message}`);
       });
-    }, 5000);
+    }, 3000);
   }
 
   /**
-   * Periodic scheduler: Runs every 2 hours during IST daytime (06:00 to 22:00 IST)
-   * to sync channels in continuous batches and ingest latest uploads.
+   * Periodic scheduler: Runs every 30 minutes to sync channels in continuous high-volume batches.
    */
-  @Cron(CronExpression.EVERY_2_HOURS)
-  async syncAllChannelsPeriodically() {
-    if (!isIstDaytime()) {
-      this.logger.log('Outside IST daytime hours (06:00 - 22:00 IST). Skipping automated sync.');
+  @Cron(CronExpression.EVERY_30_MINUTES)
+  async syncAllChannelsPeriodically(force = false) {
+    if (!force && !isIstDaytime()) {
+      this.logger.log('Outside IST daytime hours (06:00 - 22:00 IST). Skipping automated scheduled sync.');
       return;
     }
 
     if (this.isSyncing) {
       this.logger.log('Previous channel sync cycle is still active. Skipping concurrent run.');
       return;
+    }
     this.isSyncing = true;
     try {
       // Ensure instance custom YouTube channel is registered if configured
@@ -403,11 +404,11 @@ export class YoutubeService implements OnModuleInit {
 
       if (!channels.length) return;
 
-      this.logger.log(`🔄 Starting automated batch video & metadata sync for ${channels.length} channels (IST daytime schedule)...`);
+      this.logger.log(`🔄 Starting automated deep batch video & metadata sync for ${channels.length} channels...`);
 
       for (const channel of channels) {
         try {
-          await this.syncChannelVideos(channel.id, channel.category, 10);
+          await this.syncChannelVideos(channel.id, channel.category, 50);
         } catch (err: any) {
           this.logger.error(`Error syncing channel ${channel.name} (${channel.id}): ${err.message}`);
         }
@@ -418,7 +419,7 @@ export class YoutubeService implements OnModuleInit {
   }
 
   async syncAllChannels() {
-    return this.syncAllChannelsPeriodically();
+    return this.syncAllChannelsPeriodically(true);
   }
 
   /**
@@ -500,7 +501,7 @@ export class YoutubeService implements OnModuleInit {
   /**
    * Syncs videos for a channel in continuous batches with full pagination
    */
-  async syncChannelVideos(channelId: string, defaultCategory?: string | null, maxBatches = 8) {
+  async syncChannelVideos(channelId: string, defaultCategory?: string | null, maxBatches = 50) {
     // 1. Sync & update channel metadata first
     await this.refreshChannelMetadata(channelId);
 
@@ -523,7 +524,7 @@ export class YoutubeService implements OnModuleInit {
   /**
    * Syncs videos using the YouTube Data API v3 Uploads playlist (UU...)
    */
-  private async syncViaPlaylistApi(channelId: string, defaultCategory?: string | null, maxBatches = 8) {
+  private async syncViaPlaylistApi(channelId: string, defaultCategory?: string | null, maxBatches = 50) {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
     });
@@ -724,7 +725,7 @@ export class YoutubeService implements OnModuleInit {
    * Syncs videos and shorts via public YouTube HTML pagination + InnerTube browse continuation API
    * Zero API key or quota required. Ingests all historical uploads in continuous batches.
    */
-  private async syncViaWebScraper(channelId: string, defaultCategory?: string | null, maxBatches = 8) {
+  private async syncViaWebScraper(channelId: string, defaultCategory?: string | null, maxBatches = 50) {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
     });
@@ -913,7 +914,7 @@ export class YoutubeService implements OnModuleInit {
           }
 
           let sBatch = 1;
-          while (nextContinuationToken && sBatch < 4) {
+          while (nextContinuationToken && sBatch < 25) {
             sBatch++;
             try {
               const browseRes = await axios.post(

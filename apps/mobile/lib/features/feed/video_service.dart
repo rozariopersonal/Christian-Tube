@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 
@@ -14,6 +16,33 @@ class VideoService extends ChangeNotifier {
   String? _selectedChannelId;
   Set<String> _subscribedChannelIds = {};
   bool _onlySubscribed = false;
+
+  VideoService() {
+    _loadCachedFeed();
+  }
+
+  Future<void> _loadCachedFeed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJson = prefs.getString('ct_cached_home_feed');
+      if (cachedJson != null && _videos.isEmpty) {
+        final List<dynamic> list = jsonDecode(cachedJson);
+        _videos = list
+            .whereType<Map<String, dynamic>>()
+            .map((v) => Video.fromJson(v))
+            .toList();
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveCachedFeed(List<Video> videos) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = jsonEncode(videos.take(25).map((v) => v.toJson()).toList());
+      await prefs.setString('ct_cached_home_feed', jsonStr);
+    } catch (_) {}
+  }
 
   List<Video> get videos => _videos;
   bool get isLoading => _isLoading;
@@ -38,7 +67,9 @@ class VideoService extends ChangeNotifier {
   Future<void> refreshVideos() async {
     _offset = 0;
     _hasMore = true;
-    _videos = [];
+    if (_selectedCategory != null && _selectedCategory != 'All') {
+      _videos = [];
+    }
     await fetchVideos();
   }
 
@@ -88,6 +119,9 @@ class VideoService extends ChangeNotifier {
 
         if (_offset == 0) {
           _videos = newVideos;
+          if (_selectedCategory == null || _selectedCategory == 'All') {
+            _saveCachedFeed(newVideos);
+          }
         } else {
           _videos.addAll(newVideos);
         }

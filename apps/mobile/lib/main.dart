@@ -23,15 +23,16 @@ import 'layout/main_layout_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppConfig.initialize();
-  await NotificationService().initialize();
+
+  // Run secondary initializations in background to eliminate startup blank screen
+  NotificationService().initialize().catchError((e) => debugPrint('Notification init error: $e'));
   if (kMicroFeedEnabled) {
     try {
       final engine = createActiveFeedEngine();
-      if (engine != null) {
-        await engine.initialize();
-      }
+      engine?.initialize().catchError((e) => debugPrint('Engine init error: $e'));
     } catch (_) {}
   }
+
   runApp(const PrivateTubeApp());
 }
 
