@@ -37,6 +37,8 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
   void initState() {
     super.initState();
     _initController(widget.videoId);
+    // Allow sensor auto-rotation while on video player screen
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   }
 
   void _initController(String videoId) {
@@ -62,17 +64,33 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
   @override
   void dispose() {
     _controller.dispose();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return YoutubePlayerBuilder(
+      onEnterFullScreen: () {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      },
       onExitFullScreen: () {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
           DeviceOrientation.portraitDown,
         ]);
+        // Re-enable smooth auto-rotation after exit
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+          }
+        });
       },
       player: YoutubePlayer(
         controller: _controller,
