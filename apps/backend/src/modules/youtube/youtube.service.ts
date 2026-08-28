@@ -51,6 +51,153 @@ function isIstDaytime(): boolean {
   return istHour >= 6 && istHour <= 22;
 }
 
+interface ExtractedVideo {
+  videoId: string;
+  title: string;
+  thumbnail: string;
+  duration: string;
+  durationSeconds: number;
+  viewCount: number;
+  videoType: 'VIDEO' | 'SHORT';
+}
+
+function extractVideosFromRichContents(contents: any[]): { videos: ExtractedVideo[]; nextContinuationToken?: string } {
+  const videos: ExtractedVideo[] = [];
+  let nextContinuationToken: string | undefined;
+
+  for (const item of contents) {
+    if (item.continuationItemRenderer) {
+      const token =
+        item.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token ||
+        item.continuationItemRenderer?.continuationCommand?.token;
+      if (token) nextContinuationToken = token;
+      continue;
+    }
+
+    const content = item.richItemRenderer?.content || item;
+
+    // 1. Modern lockupViewModel (2024+ YouTube channel videos grid)
+    if (content.lockupViewModel) {
+      const vm = content.lockupViewModel;
+      const videoId =
+        vm.contentId ||
+        vm.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint?.videoId;
+      if (!videoId) continue;
+
+      const title =
+        vm.metadata?.lockupMetadataViewModel?.title?.content ||
+        vm.rendererContext?.accessibilityContext?.label ||
+        'Video';
+
+      // Extract duration from overlay badge
+      const overlays = vm.contentImage?.thumbnailViewModel?.overlays || [];
+      let durationText = '';
+      for (const ov of overlays) {
+        const badges = ov?.thumbnailBottomOverlayViewModel?.badges;
+        const badgeList = Array.isArray(badges) ? badges : [badges];
+        for (const b of badgeList) {
+          const t = b?.thumbnailBadgeViewModel?.text;
+          if (t && typeof t === 'string' && t.includes(':')) {
+            durationText = t.trim();
+            break;
+          }
+        }
+        if (durationText) break;
+      }
+
+      const durationSeconds = parseTextDurationToSeconds(durationText);
+      const duration = durationText || '0:00';
+      const titleLower = title.toLowerCase();
+      const hasShortsTag = titleLower.includes('#short');
+      const isShort =
+        vm.contentType === 'LOCKUP_CONTENT_TYPE_SHORTS' ||
+        (durationSeconds > 0 && durationSeconds <= 60) ||
+        hasShortsTag;
+      const videoType: 'VIDEO' | 'SHORT' = isShort ? 'SHORT' : 'VIDEO';
+
+      const thumbSources = vm.contentImage?.thumbnailViewModel?.image?.sources || [];
+      const thumb =
+        thumbSources[thumbSources.length - 1]?.url ||
+        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+      videos.push({
+        videoId,
+        title,
+        thumbnail: thumb,
+        duration,
+        durationSeconds,
+        viewCount: 0,
+        videoType,
+      });
+      continue;
+    }
+
+    // 2. Modern shortsLockupViewModel (YouTube Shorts grid)
+    if (content.shortsLockupViewModel) {
+      const vm = content.shortsLockupViewModel;
+      const videoId =
+        vm.onTap?.innertubeCommand?.reelWatchEndpoint?.videoId ||
+        (typeof vm.entityId === 'string' ? vm.entityId.replace('shorts-shelf-item-', '') : null);
+      if (!videoId) continue;
+
+      const title = vm.overlayMetadata?.primaryText?.content || 'Short';
+      const thumbSources = vm.thumbnail?.sources || [];
+      const thumb =
+        thumbSources[thumbSources.length - 1]?.url ||
+        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+      videos.push({
+        videoId,
+        title,
+        thumbnail: thumb,
+        duration: '0:30',
+        durationSeconds: 30,
+        viewCount: 0,
+        videoType: 'SHORT',
+      });
+      continue;
+    }
+
+    // 3. Legacy videoRenderer / gridVideoRenderer
+    const renderer = content.videoRenderer || content.gridVideoRenderer;
+    if (renderer && renderer.videoId) {
+      const videoId = renderer.videoId;
+      const title =
+        renderer.title?.runs?.map((r: any) => r.text).join('') ||
+        renderer.title?.simpleText ||
+        'Video';
+      const durationText =
+        renderer.lengthText?.simpleText ||
+        renderer.thumbnailOverlays?.find((o: any) => o.thumbnailOverlayTimeStatusRenderer)
+          ?.thumbnailOverlayTimeStatusRenderer?.text?.simpleText ||
+        '';
+      const durationSeconds = parseTextDurationToSeconds(durationText);
+      const duration = durationText.trim() || '0:00';
+      const titleLower = title.toLowerCase();
+      const hasShortsTag = titleLower.includes('#short');
+      const isShort = (durationSeconds > 0 && durationSeconds <= 60) || hasShortsTag;
+      const videoType: 'VIDEO' | 'SHORT' = isShort ? 'SHORT' : 'VIDEO';
+      const thumb =
+        renderer.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
+        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      const viewCountText = renderer.viewCountText?.simpleText || '';
+      const viewCount = parseInt(viewCountText.replace(/[^0-9]/g, ''), 10) || 0;
+
+      videos.push({
+        videoId,
+        title,
+        thumbnail: thumb,
+        duration,
+        durationSeconds,
+        viewCount,
+        videoType,
+      });
+    }
+  }
+
+  return { videos, nextContinuationToken };
+}
+
 @Injectable()
 export class YoutubeService implements OnModuleInit {
   private readonly logger = new Logger(YoutubeService.name);
@@ -101,7 +248,7 @@ export class YoutubeService implements OnModuleInit {
 
       for (const channel of channels) {
         try {
-          await this.syncChannelVideos(channel.id, channel.category, 4);
+          await this.syncChannelVideos(channel.id, channel.category, 10);
         } catch (err: any) {
           this.logger.error(`Error syncing channel ${channel.name} (${channel.id}): ${err.message}`);
         }
@@ -194,9 +341,9 @@ export class YoutubeService implements OnModuleInit {
   /**
    * Syncs videos for a channel in continuous batches with full pagination
    */
-  async syncChannelVideos(channelId: string, defaultCategory?: string | null, maxBatches = 5) {
+  async syncChannelVideos(channelId: string, defaultCategory?: string | null, maxBatches = 8) {
     // 1. Sync & update channel metadata first
-    const channel = await this.refreshChannelMetadata(channelId);
+    await this.refreshChannelMetadata(channelId);
 
     // 2. Try YouTube Data API playlist sync
     if (this.apiKey) {
@@ -216,15 +363,13 @@ export class YoutubeService implements OnModuleInit {
 
   /**
    * Syncs videos using the YouTube Data API v3 Uploads playlist (UU...)
-   * Allows paginating 50 items per batch across multiple pages with minimal quota cost!
    */
-  private async syncViaPlaylistApi(channelId: string, defaultCategory?: string | null, maxBatches = 5) {
+  private async syncViaPlaylistApi(channelId: string, defaultCategory?: string | null, maxBatches = 8) {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
     });
     if (!channel) return;
 
-    // Uploads playlist ID is standard: replace 'UC' prefix with 'UU'
     const uploadsPlaylistId = channelId.startsWith('UC')
       ? `UU${channelId.substring(2)}`
       : channelId;
@@ -242,7 +387,6 @@ export class YoutubeService implements OnModuleInit {
       const nextPageToken = playlistRes.data?.nextPageToken;
 
       if (!items.length) {
-        // No more items in playlist
         await this.prisma.channel.update({
           where: { id: channelId },
           data: {
@@ -254,7 +398,6 @@ export class YoutubeService implements OnModuleInit {
         break;
       }
 
-      // Collect video IDs to fetch detailed duration and stats in 1 batch
       const videoIds = items
         .map((it: any) => it.contentDetails?.videoId || it.snippet?.resourceId?.videoId)
         .filter(Boolean)
@@ -331,7 +474,6 @@ export class YoutubeService implements OnModuleInit {
         totalSyncedInRun++;
       }
 
-      // Update progress & cursor
       if (nextPageToken) {
         pageToken = nextPageToken;
         await this.prisma.channel.update({
@@ -343,7 +485,6 @@ export class YoutubeService implements OnModuleInit {
           } as any,
         });
       } else {
-        // Reached end of channel
         await this.prisma.channel.update({
           where: { id: channelId },
           data: {
@@ -362,10 +503,46 @@ export class YoutubeService implements OnModuleInit {
   }
 
   /**
-   * Syncs videos via public YouTube HTML pagination + Atom RSS feed
-   * Zero API key or quota required.
+   * Helper to upsert a scraped video into PostgreSQL
    */
-  private async syncViaWebScraper(channelId: string, defaultCategory?: string | null, maxBatches = 5) {
+  private async upsertScrapedVideo(v: ExtractedVideo, channel: any, defaultCategory?: string | null) {
+    await this.prisma.video.upsert({
+      where: { id: v.videoId },
+      update: {
+        type: v.videoType,
+        title: v.title,
+        thumbnail: v.thumbnail,
+        duration: v.duration,
+        viewCount: v.viewCount > 0 ? v.viewCount : undefined,
+        channelName: channel.name,
+        channelThumbnail: channel.thumbnail,
+        channelSubscriberCount: channel.subscriberCount,
+        category: defaultCategory || channel.category || 'General',
+      },
+      create: {
+        id: v.videoId,
+        type: v.videoType,
+        title: v.title,
+        description: '',
+        thumbnail: v.thumbnail,
+        channelId: channel.id,
+        channelName: channel.name,
+        channelThumbnail: channel.thumbnail,
+        channelSubscriberCount: channel.subscriberCount,
+        publishedAt: new Date(),
+        duration: v.duration,
+        viewCount: v.viewCount,
+        category: defaultCategory || channel.category || 'General',
+        transcriptionStatus: 'pending',
+      },
+    });
+  }
+
+  /**
+   * Syncs videos and shorts via public YouTube HTML pagination + InnerTube browse continuation API
+   * Zero API key or quota required. Ingests all historical uploads in continuous batches.
+   */
+  private async syncViaWebScraper(channelId: string, defaultCategory?: string | null, maxBatches = 8) {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
     });
@@ -373,7 +550,7 @@ export class YoutubeService implements OnModuleInit {
 
     let syncedCount = 0;
 
-    // 1. Initial RSS feed sync (latest 15 videos)
+    // 1. Initial RSS feed sync (latest 15 videos with official timestamps)
     try {
       const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
       const res = await axios.get(feedUrl, {
@@ -445,10 +622,10 @@ export class YoutubeService implements OnModuleInit {
         }
       }
     } catch (e: any) {
-      this.logger.warn(`RSS feed sync step: ${e.message}`);
+      this.logger.warn(`RSS feed sync step for ${channelId}: ${e.message}`);
     }
 
-    // 2. Multi-batch HTML channel /videos tab scraping for older historical uploads
+    // 2. Multi-batch HTML channel /videos tab scraping + InnerTube continuous pagination
     try {
       const videosUrl = `https://www.youtube.com/channel/${channelId}/videos`;
       const res = await axios.get(videosUrl, {
@@ -472,68 +649,128 @@ export class YoutubeService implements OnModuleInit {
             data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[1]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.gridRenderer?.items ||
             [];
 
-          for (const item of contents) {
-            const renderer = item.richItemRenderer?.content?.videoRenderer || item.gridVideoRenderer || item.videoRenderer;
-            if (renderer && renderer.videoId) {
-              const videoId = renderer.videoId;
-              const title =
-                renderer.title?.runs?.map((r: any) => r.text).join('') ||
-                renderer.title?.simpleText ||
-                'Video';
-              const durationText =
-                renderer.lengthText?.simpleText ||
-                renderer.thumbnailOverlays?.find((o: any) => o.thumbnailOverlayTimeStatusRenderer)
-                  ?.thumbnailOverlayTimeStatusRenderer?.text?.simpleText ||
-                '';
-              const durationSeconds = parseTextDurationToSeconds(durationText);
-              const duration = durationText.trim() || '0:00';
-              const titleLower = title.toLowerCase();
-              const hasShortsTag = titleLower.includes('#short');
-              const isShort = (durationSeconds > 0 && durationSeconds <= 60) || hasShortsTag;
-              const videoType = isShort ? 'SHORT' : 'VIDEO';
-              const thumb =
-                renderer.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
-                `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-              const viewCountText = renderer.viewCountText?.simpleText || '';
-              const viewCount = parseInt(viewCountText.replace(/[^0-9]/g, ''), 10) || 0;
+          let { videos, nextContinuationToken } = extractVideosFromRichContents(contents);
 
-              await this.prisma.video.upsert({
-                where: { id: videoId },
-                update: {
-                  type: videoType,
-                  title,
-                  thumbnail: thumb,
-                  duration,
-                  viewCount: viewCount > 0 ? viewCount : undefined,
-                  channelName: channel.name,
-                  channelThumbnail: channel.thumbnail,
-                  channelSubscriberCount: channel.subscriberCount,
-                  category: defaultCategory || channel.category || 'General',
+          for (const v of videos) {
+            await this.upsertScrapedVideo(v, channel, defaultCategory);
+            syncedCount++;
+          }
+
+          let batch = 1;
+          while (nextContinuationToken && batch < maxBatches) {
+            batch++;
+            try {
+              const browseRes = await axios.post(
+                'https://www.youtube.com/youtubei/v1/browse',
+                {
+                  context: {
+                    client: {
+                      clientName: 'WEB',
+                      clientVersion: '2.20240301.00.00',
+                    },
+                  },
+                  continuation: nextContinuationToken,
                 },
-                create: {
-                  id: videoId,
-                  type: videoType,
-                  title,
-                  description: '',
-                  thumbnail: thumb,
-                  channelId,
-                  channelName: channel.name,
-                  channelThumbnail: channel.thumbnail,
-                  channelSubscriberCount: channel.subscriberCount,
-                  publishedAt: new Date(),
-                  duration,
-                  viewCount,
-                  category: defaultCategory || channel.category || 'General',
-                  transcriptionStatus: 'pending',
+                {
+                  headers: {
+                    'User-Agent':
+                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  },
+                  timeout: 10000,
                 },
-              });
-              syncedCount++;
+              );
+
+              const actions = browseRes.data?.onResponseReceivedActions || [];
+              const continuationItems = actions[0]?.appendContinuationItemsAction?.continuationItems || [];
+              const pageResult = extractVideosFromRichContents(continuationItems);
+
+              for (const v of pageResult.videos) {
+                await this.upsertScrapedVideo(v, channel, defaultCategory);
+                syncedCount++;
+              }
+
+              nextContinuationToken = pageResult.nextContinuationToken;
+            } catch (pageErr: any) {
+              this.logger.warn(`Continuation page ${batch} error for ${channelId}: ${pageErr.message}`);
+              break;
             }
           }
         }
       }
     } catch (err: any) {
       this.logger.warn(`Web scraper video pagination error for ${channelId}: ${err.message}`);
+    }
+
+    // 3. Multi-batch HTML channel /shorts tab scraping
+    try {
+      const shortsUrl = `https://www.youtube.com/channel/${channelId}/shorts`;
+      const res = await axios.get(shortsUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        timeout: 10000,
+      });
+
+      const html = res.data;
+      if (typeof html === 'string') {
+        const jsonMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
+        if (jsonMatch) {
+          const data = JSON.parse(jsonMatch[1]);
+          const tabs = data?.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
+          const shortsTab = tabs.find((t: any) => t.tabRenderer?.title?.toLowerCase() === 'shorts');
+          const contents = shortsTab?.tabRenderer?.content?.richGridRenderer?.contents || [];
+
+          let { videos, nextContinuationToken } = extractVideosFromRichContents(contents);
+
+          for (const v of videos) {
+            await this.upsertScrapedVideo({ ...v, videoType: 'SHORT' }, channel, defaultCategory);
+            syncedCount++;
+          }
+
+          let sBatch = 1;
+          while (nextContinuationToken && sBatch < 4) {
+            sBatch++;
+            try {
+              const browseRes = await axios.post(
+                'https://www.youtube.com/youtubei/v1/browse',
+                {
+                  context: {
+                    client: {
+                      clientName: 'WEB',
+                      clientVersion: '2.20240301.00.00',
+                    },
+                  },
+                  continuation: nextContinuationToken,
+                },
+                {
+                  headers: {
+                    'User-Agent':
+                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  },
+                  timeout: 10000,
+                },
+              );
+
+              const actions = browseRes.data?.onResponseReceivedActions || [];
+              const continuationItems = actions[0]?.appendContinuationItemsAction?.continuationItems || [];
+              const pageResult = extractVideosFromRichContents(continuationItems);
+
+              for (const v of pageResult.videos) {
+                await this.upsertScrapedVideo({ ...v, videoType: 'SHORT' }, channel, defaultCategory);
+                syncedCount++;
+              }
+
+              nextContinuationToken = pageResult.nextContinuationToken;
+            } catch (pageErr: any) {
+              break;
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Web scraper shorts pagination error for ${channelId}: ${err.message}`);
     }
 
     await this.prisma.channel.update({
@@ -544,7 +781,7 @@ export class YoutubeService implements OnModuleInit {
       },
     });
 
-    this.logger.log(`✅ Synced ${syncedCount} videos via web scraper for ${channel.name} (${channelId})`);
+    this.logger.log(`✅ Synced total ${syncedCount} videos and shorts via web scraper for ${channel.name} (${channelId})`);
   }
 }
 
