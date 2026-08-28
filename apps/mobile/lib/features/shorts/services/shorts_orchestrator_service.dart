@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' as io;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -192,43 +193,55 @@ class ShortsOrchestratorService extends ChangeNotifier {
       }
 
       final String? uploadUrl = initRes.data?['uploadUrl'];
-      final bool isSimulated = initRes.data?['isSimulated'] == true;
+      if (uploadUrl == null || !uploadUrl.startsWith('http')) {
+        throw 'YouTube upload session not available. Backend must be authorized with YOUTUBE_REFRESH_TOKEN.';
+      }
+
       String actualYtId = '';
 
-      // Stream upload progress to YouTube
-      for (int i = 2; i <= 9; i++) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        _updateItemStatus(
-          shortId,
-          status: ShortCreationStatus.uploading,
-          progress: i * 0.1,
-        );
-      }
-
-      // If a real YouTube upload session URL was provided, stream video
-      if (uploadUrl != null && !isSimulated && uploadUrl.startsWith('http')) {
-        try {
-          // Upload complete binary MP4 to YouTube session
-          final ytRes = await _apiClient.dio.put(
-            uploadUrl,
-            options: Options(
-              headers: {
-                'Content-Type': 'video/mp4',
-              },
-            ),
-          );
-          if (ytRes.data is Map && ytRes.data['id'] != null) {
-            actualYtId = ytRes.data['id'].toString();
+      // Upload binary video stream to YouTube
+      try {
+        dynamic postData;
+        if (item.localVideoPath != null && !kIsWeb) {
+          final file = io.File(item.localVideoPath!);
+          if (await file.exists()) {
+            postData = await file.readAsBytes();
           }
-        } catch (uploadErr) {
-          debugPrint('YouTube direct binary upload notice: $uploadErr');
         }
+
+        final ytRes = await Dio().put(
+          uploadUrl,
+          data: postData,
+          options: Options(
+            headers: {
+              'Content-Type': 'video/mp4',
+            },
+          ),
+          onSendProgress: (sent, total) {
+            if (total > 0) {
+              final p = 0.2 + ((sent / total) * 0.75);
+              _updateItemStatus(
+                shortId,
+                status: ShortCreationStatus.uploading,
+                progress: p.clamp(0.2, 0.95),
+              );
+            }
+          },
+        );
+
+        if (ytRes.data is Map && ytRes.data['id'] != null) {
+          actualYtId = ytRes.data['id'].toString();
+        } else if (ytRes.data is String) {
+          final parsed = jsonDecode(ytRes.data as String);
+          actualYtId = parsed['id']?.toString() ?? '';
+        }
+      } catch (uploadErr) {
+        debugPrint('YouTube direct binary upload failed: $uploadErr');
+        throw 'YouTube upload failed: $uploadErr';
       }
 
-      // Fallback identifier if running in local sandbox
       if (actualYtId.isEmpty) {
-        actualYtId =
-            'short_${item.sourceVideoId.substring(0, (item.sourceVideoId.length).clamp(0, 6))}_${DateTime.now().millisecondsSinceEpoch % 100000}';
+        throw 'YouTube did not return a valid Short ID. Please check channel upload authorization.';
       }
 
       // 4. Stage: PROCESSING & SYNC TO BACKEND

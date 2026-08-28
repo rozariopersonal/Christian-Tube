@@ -38,6 +38,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   ShortsViewTab _activeTab = ShortsViewTab.community;
 
   // Dynamic HUD Auto-Hide & Playhead Controller
+  int? _selectedCreationIndex;
   bool _isPlaying = true;
   bool _areControlsVisible = true;
   Timer? _autoHideTimer;
@@ -276,7 +277,12 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     final isSelected = _activeTab == tab;
     return GestureDetector(
       onTap: () {
-        setState(() => _activeTab = tab);
+        setState(() {
+          _activeTab = tab;
+          if (tab == ShortsViewTab.community) {
+            _selectedCreationIndex = null;
+          }
+        });
         if (tab == ShortsViewTab.myCreations) {
           _orchestrator.fetchCloudCreations();
         }
@@ -876,35 +882,361 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
           );
         }
 
-        return PageView.builder(
-          controller: _localPageController,
-          scrollDirection: Axis.vertical,
-          itemCount: items.length,
-          onPageChanged: (index) {
-            setState(() {
-              _currentPage = index;
-              _isPlaying = true;
-              _areControlsVisible = true;
-              _currentPosition = 0.0;
-              _totalDuration = 0.0;
-            });
-            _startAutoHideTimer();
-          },
-          itemBuilder: (context, index) {
-            final item = items[index];
-            final short = item.toShort();
-            final isPublished = item.status == ShortCreationStatus.published;
-            final statusChip = isPublished ? null : _buildStatusChip(item);
+        // 1. Initial State: Grid View of User's Creations
+        if (_selectedCreationIndex == null) {
+          return _buildCreationsGrid(items);
+        }
 
-            return _buildShortPlayerStack(
-              short,
-              index,
-              true,
-              topStatusChip: statusChip,
-            );
-          },
+        // 2. Expanded State: Full-Screen Interactive Shorts Player
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: _localPageController,
+              scrollDirection: Axis.vertical,
+              itemCount: items.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentPage = index;
+                  _selectedCreationIndex = index;
+                  _isPlaying = true;
+                  _areControlsVisible = true;
+                  _currentPosition = 0.0;
+                  _totalDuration = 0.0;
+                });
+                _startAutoHideTimer();
+              },
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final short = item.toShort();
+                final isPublished = item.status == ShortCreationStatus.published;
+                final statusChip = isPublished ? null : _buildStatusChip(item);
+
+                return _buildShortPlayerStack(
+                  short,
+                  index,
+                  true,
+                  topStatusChip: statusChip,
+                );
+              },
+            ),
+
+            // Top-Left Back Button to Return to Creations Grid
+            Positioned(
+              top: 54,
+              left: 12,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedCreationIndex = null;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white30),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_back_ios_new, size: 13, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'Creations Grid',
+                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildCreationsGrid(List<LocalShortItem> items) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 900
+            ? 4
+            : constraints.maxWidth > 600
+                ? 3
+                : 2;
+
+        return CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 75, 16, 14),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${items.length} ${items.length == 1 ? 'Creation' : 'Creations'}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _orchestrator.fetchCloudCreations(),
+                      icon: const Icon(Icons.sync, size: 16, color: Color(0xFFF59E0B)),
+                      label: const Text(
+                        'Refresh',
+                        style: TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: 9 / 16,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = items[index];
+                    return _buildCreationGridCard(item, index);
+                  },
+                  childCount: items.length,
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCreationGridCard(LocalShortItem item, int index) {
+    final durSec = (item.clipEndTime - item.clipStartTime).toInt();
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedCreationIndex = index;
+          _currentPage = index;
+          _localPageController.jumpToPage(index);
+          _isPlaying = true;
+          _areControlsVisible = true;
+          _currentPosition = 0.0;
+          _totalDuration = 0.0;
+        });
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: item.status == ShortCreationStatus.failed
+                ? Colors.redAccent.withValues(alpha: 0.6)
+                : item.status == ShortCreationStatus.uploading
+                    ? const Color(0xFFF59E0B).withValues(alpha: 0.8)
+                    : Colors.white12,
+            width: item.status == ShortCreationStatus.uploading ? 1.5 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Thumbnail
+            if (item.sourceVideoThumbnail != null && item.sourceVideoThumbnail!.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: item.sourceVideoThumbnail!,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(color: const Color(0xFF0F172A)),
+                errorWidget: (_, __, ___) => Container(
+                  color: const Color(0xFF0F172A),
+                  child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
+                ),
+              )
+            else
+              Container(
+                color: const Color(0xFF0F172A),
+                child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
+              ),
+
+            // Subtle Gradient Overlay
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x77000000),
+                    Color(0x00000000),
+                    Color(0xDD000000),
+                  ],
+                  stops: [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+
+            // Top Status Badge Chip
+            Positioned(
+              top: 8,
+              left: 8,
+              child: _buildGridBadge(item),
+            ),
+
+            // Duration Badge Top-Right
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  Formatters.formatDuration(Duration(seconds: durSec > 0 ? durSec : 60)),
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+
+            // Play Icon in Center
+            const Center(
+              child: Icon(
+                Icons.play_circle_fill,
+                color: Colors.white70,
+                size: 38,
+              ),
+            ),
+
+            // Bottom Title & Sermon Source
+            Positioned(
+              left: 10,
+              right: 10,
+              bottom: 10,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.sourceVideoTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridBadge(LocalShortItem item) {
+    if (item.status == ShortCreationStatus.uploading) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF59E0B),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 9,
+              height: 9,
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.black),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${(item.progress * 100).toInt()}%',
+              style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+    } else if (item.status == ShortCreationStatus.downloading || item.status == ShortCreationStatus.trimming) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFF59E0B), width: 1),
+        ),
+        child: Text(
+          item.status == ShortCreationStatus.downloading ? 'Extracting' : 'Rendering',
+          style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+      );
+    } else if (item.status == ShortCreationStatus.failed) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.redAccent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Text(
+          'Notice',
+          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+      );
+    } else if (item.status == ShortCreationStatus.scheduledUpload) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.orangeAccent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Text(
+          'Scheduled',
+          style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Text(
+        'Live',
+        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
     );
   }
 

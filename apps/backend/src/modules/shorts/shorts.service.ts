@@ -132,93 +132,81 @@ export class ShortsService {
       `<!-- CT_META: ${JSON.stringify(metadataPayload)} -->`,
     ].filter(Boolean).join('\n');
 
-    // If OAuth credentials exist, contact YouTube API for actual Resumable Session URL
-    if (clientId && clientSecret && refreshToken) {
-      try {
-        const tokenRes = await axios.post(
-          'https://oauth2.googleapis.com/token',
-          new URLSearchParams({
-            client_id: clientId,
-            client_secret: clientSecret,
-            refresh_token: refreshToken,
-            grant_type: 'refresh_token',
-          }).toString(),
-          {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            timeout: 10000,
-          },
-        );
+    // Enforce authentic YouTube OAuth credentials
+    if (!clientId || !clientSecret || !refreshToken) {
+      this.logger.error('YouTube OAuth credentials or YOUTUBE_REFRESH_TOKEN not configured on backend.');
+      throw new BadRequestException(
+        'YouTube channel upload is not authorized. YOUTUBE_REFRESH_TOKEN is missing on backend.',
+      );
+    }
 
-        const accessToken = tokenRes.data?.access_token;
-        if (!accessToken) {
-          throw new Error('Failed to obtain YouTube access token from OAuth refresh response');
-        }
+    try {
+      const tokenRes = await axios.post(
+        'https://oauth2.googleapis.com/token',
+        new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token: refreshToken,
+          grant_type: 'refresh_token',
+        }).toString(),
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          timeout: 10000,
+        },
+      );
 
-        const ytRes = await axios.post(
-          'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
-          {
-            snippet: {
-              title: safeTitle,
-              description,
-              categoryId: '29', // Nonprofits & Religion
-              tags: ['#Shorts', 'Christian', 'Sermon', 'Faith'],
-            },
-            status: {
-              privacyStatus: shortsConfig.defaultPrivacyStatus || 'unlisted',
-              selfDeclaredMadeForKids: shortsConfig.selfDeclaredMadeForKids ?? true,
-            },
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json; charset=UTF-8',
-              'X-Upload-Content-Type': 'video/mp4',
-            },
-            timeout: 15000,
-          },
-        );
-
-        const uploadUrl = ytRes.headers['location'];
-        if (!uploadUrl) {
-          throw new Error('YouTube did not return upload session URL in Location header');
-        }
-
-        // Increment daily quota units upon successful initiation
-        await this.prisma.dailyQuotaLog.update({
-          where: { date: quota.date },
-          data: { unitsConsumed: { increment: quota.uploadCostUnits } },
-        });
-
-        this.logger.log(`YouTube upload session initialized successfully for: "${safeTitle}"`);
-
-        return {
-          allowed: true,
-          uploadUrl,
-          title: safeTitle,
-          customChannelId: shortsConfig.customChannelId,
-          metadata: metadataPayload,
-        };
-      } catch (err: any) {
-        this.logger.error(`YouTube upload initiation failed: ${err.message}`);
-        throw new BadRequestException(`Could not initiate YouTube upload: ${err.message}`);
+      const accessToken = tokenRes.data?.access_token;
+      if (!accessToken) {
+        throw new Error('Failed to obtain YouTube access token from OAuth refresh response');
       }
-    } else {
-      // Development / Mock mode when OAuth credentials are not yet set
-      this.logger.warn('YouTube OAuth credentials not configured. Returning local simulated upload session URL.');
-      
+
+      const ytRes = await axios.post(
+        'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
+        {
+          snippet: {
+            title: safeTitle,
+            description,
+            categoryId: '29', // Nonprofits & Religion
+            tags: ['#Shorts', 'Christian', 'Sermon', 'Faith'],
+          },
+          status: {
+            privacyStatus: shortsConfig.defaultPrivacyStatus || 'public',
+            selfDeclaredMadeForKids: shortsConfig.selfDeclaredMadeForKids ?? false,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json; charset=UTF-8',
+            'X-Upload-Content-Type': 'video/mp4',
+          },
+          timeout: 15000,
+        },
+      );
+
+      const uploadUrl = ytRes.headers['location'];
+      if (!uploadUrl) {
+        throw new Error('YouTube did not return upload session URL in Location header');
+      }
+
+      // Increment daily quota units upon successful initiation
       await this.prisma.dailyQuotaLog.update({
         where: { date: quota.date },
         data: { unitsConsumed: { increment: quota.uploadCostUnits } },
       });
 
+      this.logger.log(`✅ YouTube Resumable Upload session initialized for: "${safeTitle}"`);
+
       return {
         allowed: true,
-        uploadUrl: `mock://youtube-resumable-upload/${Date.now()}`,
+        uploadUrl,
         title: safeTitle,
-        customChannelId: shortsConfig.customChannelId || 'UC_ChristianTube_Dev',
+        customChannelId: shortsConfig.customChannelId,
         metadata: metadataPayload,
-        isSimulated: true,
       };
+    } catch (err: any) {
+      this.logger.error(`YouTube upload initiation failed: ${err.message}`);
+      throw new BadRequestException(`Could not initiate YouTube upload: ${err.message}`);
     }
   }
 
