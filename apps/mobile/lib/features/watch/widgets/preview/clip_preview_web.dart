@@ -1,9 +1,9 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/models/local_short_item.dart';
 
 final Set<String> _registeredClipViews = {};
@@ -72,6 +72,8 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
   StreamSubscription? _msgSub;
   Timer? _loopTicker;
   double _currentPosition = 0.0;
+  double _localCropOffset = 0.0;
+  bool _isDraggingCrop = false;
   bool _isPlaying = true;
   bool _showFeedback = false;
   Timer? _feedbackTimer;
@@ -85,6 +87,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
   void initState() {
     super.initState();
     _currentPosition = widget.clipStartTime;
+    _localCropOffset = widget.cropOffsetX;
     _initIframe();
     _listenToMessages();
     _startLoopTicker();
@@ -118,72 +121,91 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
 
   void _listenToMessages() {
     _msgSub = html.window.onMessage.listen((event) {
-      try {
-        if (event.data is String) {
+      if (event.data is String) {
+        try {
           final data = jsonDecode(event.data);
           if (data is Map && data['event'] == 'infoDelivery') {
             final info = data['info'];
-            if (info is Map && info['currentTime'] != null) {
-              final sec = (info['currentTime'] as num).toDouble();
-              _currentPosition = sec;
-              widget.onPositionChanged?.call(sec);
+            if (info is Map) {
+              if (info.containsKey('currentTime')) {
+                final curTime = (info['currentTime'] as num).toDouble();
+                _currentPosition = curTime;
+                widget.onPositionChanged?.call(curTime);
 
-              // Check loop condition
-              if (sec >= widget.clipEndTime || sec < widget.clipStartTime - 2.0) {
-                if (widget.isLooping) {
-                  seekTo(widget.clipStartTime);
-                } else {
-                  _sendCommand('pauseVideo');
-                  if (mounted) setState(() => _isPlaying = false);
+                if (curTime >= widget.clipEndTime || curTime < widget.clipStartTime - 1.0) {
+                  if (widget.isLooping) {
+                    seekTo(widget.clipStartTime);
+                  } else {
+                    pause();
+                  }
+                }
+              }
+              if (info.containsKey('playerState')) {
+                final state = info['playerState'];
+                final isPlayingNow = (state == 1);
+                if (_isPlaying != isPlayingNow) {
+                  setState(() {
+                    _isPlaying = isPlayingNow;
+                  });
                 }
               }
             }
           }
-        }
-      } catch (_) {}
-    });
-  }
-
-  void _startLoopTicker() {
-    _loopTicker?.cancel();
-    _loopTicker = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      if (_isPlaying && mounted) {
-        _currentPosition += 0.25;
-        if (_currentPosition >= widget.clipEndTime) {
-          if (widget.isLooping) {
-            seekTo(widget.clipStartTime);
-          } else {
-            _sendCommand('pauseVideo');
-            setState(() => _isPlaying = false);
-          }
-        }
-        widget.onPositionChanged?.call(_currentPosition);
-        setState(() {});
+        } catch (_) {}
       }
     });
   }
 
-  void _sendCommand(String func, [List<dynamic> args = const []]) {
+  void _startLoopTicker() {
+    _loopTicker = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (!_isPlaying) return;
+      _sendIframeCommand('listening');
+
+      if (_currentPosition >= widget.clipEndTime) {
+        if (widget.isLooping) {
+          seekTo(widget.clipStartTime);
+        } else {
+          pause();
+        }
+      }
+    });
+  }
+
+  void _sendIframeCommand(String func, [List<dynamic>? args]) {
+    if (_iframeElement == null || _iframeElement!.contentWindow == null) return;
     try {
       final msg = jsonEncode({
         'event': 'command',
         'func': func,
-        'args': args,
+        'args': args ?? [],
       });
-      _iframeElement?.contentWindow?.postMessage(msg, '*');
+      _iframeElement!.contentWindow!.postMessage(msg, '*');
     } catch (_) {}
   }
 
   void seekTo(double seconds) {
     _currentPosition = seconds.clamp(widget.clipStartTime, widget.clipEndTime);
-    _sendCommand('seekTo', [_currentPosition, true]);
+    _sendIframeCommand('seekTo', [_currentPosition, true]);
     if (_isPlaying) {
-      _sendCommand('playVideo');
+      _sendIframeCommand('playVideo');
     }
     if (mounted) setState(() {});
   }
 
+  void play() {
+    _isPlaying = true;
+    _sendIframeCommand('playVideo');
+    if (mounted) setState(() {});
+  }
+
+  void pause() {
+    _isPlaying = false;
+    _sendIframeCommand('pauseVideo');
+    if (mounted) setState(() {});
+  }
+
   void togglePlayPause() {
+    HapticFeedback.lightImpact();
     setState(() {
       _isPlaying = !_isPlaying;
       _showFeedback = true;
@@ -193,9 +215,9 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
       if (_currentPosition >= widget.clipEndTime) {
         seekTo(widget.clipStartTime);
       }
-      _sendCommand('playVideo');
+      play();
     } else {
-      _sendCommand('pauseVideo');
+      pause();
     }
 
     widget.onTogglePlayPause?.call();
@@ -209,11 +231,17 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
   @override
   void didUpdateWidget(covariant _WebClipPreviewWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!_isDraggingCrop && oldWidget.cropOffsetX != widget.cropOffsetX) {
+      _localCropOffset = widget.cropOffsetX;
+    }
     if (oldWidget.clipStartTime != widget.clipStartTime) {
       if (_currentPosition < widget.clipStartTime ||
           _currentPosition > widget.clipEndTime) {
         seekTo(widget.clipStartTime);
       }
+    }
+    if (oldWidget.videoId != widget.videoId) {
+      _initIframe();
     }
   }
 
@@ -222,11 +250,6 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
     _loopTicker?.cancel();
     _msgSub?.cancel();
     _feedbackTimer?.cancel();
-    _sendCommand('pauseVideo');
-    _sendCommand('stopVideo');
-    _iframeElement?.src = 'about:blank';
-    _iframeElement?.remove();
-    _iframeElement = null;
     super.dispose();
   }
 
@@ -238,10 +261,10 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
   }
 
   String _getPanLabel() {
-    if (widget.cropOffsetX < -0.15) {
-      return 'Left (${(widget.cropOffsetX * 100).abs().toInt()}%)';
-    } else if (widget.cropOffsetX > 0.15) {
-      return 'Right (${(widget.cropOffsetX * 100).toInt()}%)';
+    if (_localCropOffset < -0.15) {
+      return 'Left (${(_localCropOffset * 100).abs().toInt()}%)';
+    } else if (_localCropOffset > 0.15) {
+      return 'Right (${(_localCropOffset * 100).toInt()}%)';
     }
     return 'Center';
   }
@@ -253,6 +276,19 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
     final progressFraction = (elapsedInClip / clipDuration).clamp(0.0, 1.0);
     final is9x16 = widget.framingMode == ShortsFramingMode.portrait9x16;
 
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+
+    Widget playerOrThumb = isTest
+        ? Image.network(
+            _thumbnailUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(color: Colors.black),
+          )
+        : HtmlElementView(
+            key: ValueKey(_viewId),
+            viewType: _viewId,
+          );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final double canvasHeight = 220.0;
@@ -260,7 +296,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
         final double cropBoxHeight = canvasHeight;
         final double cropBoxWidth = (cropBoxHeight * (9 / 16)).clamp(80.0, canvasWidth);
         final double travelDistance = (canvasWidth - cropBoxWidth).clamp(0.0, canvasWidth);
-        final double cropBoxLeft = (travelDistance / 2) + (widget.cropOffsetX * (travelDistance / 2));
+        final double cropBoxLeft = (travelDistance / 2) + (_localCropOffset * (travelDistance / 2));
 
         return Container(
           height: canvasHeight,
@@ -284,9 +320,9 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
               children: [
                 // 1. Full 16:9 Landscape Live Video Canvas
                 Positioned.fill(
-                  child: HtmlElementView(
-                    key: ValueKey(_viewId),
-                    viewType: _viewId,
+                  child: IgnorePointer(
+                    ignoring: true, // Always let Flutter capture drag & click gestures smoothly
+                    child: playerOrThumb,
                   ),
                 ),
 
@@ -328,9 +364,9 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            spreadRadius: 1,
+                            color: const Color(0xFFF59E0B).withValues(alpha: _isDraggingCrop ? 0.55 : 0.3),
+                            blurRadius: _isDraggingCrop ? 16 : 12,
+                            spreadRadius: _isDraggingCrop ? 2 : 1,
                           ),
                         ],
                       ),
@@ -429,18 +465,42 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                   ),
                 ],
 
-                // 3. Direct Drag GestureDetector over entire preview canvas
+                // 3. Direct Drag GestureDetector over entire preview canvas (Opaque to prevent iframe capture)
                 Positioned.fill(
                   child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragStart: is9x16
+                        ? (_) {
+                            setState(() {
+                              _isDraggingCrop = true;
+                            });
+                          }
+                        : null,
                     onHorizontalDragUpdate: is9x16
                         ? (details) {
                             final halfTravel = travelDistance / 2;
                             if (halfTravel > 0) {
                               final deltaNormalized = details.primaryDelta! / halfTravel;
-                              final newOffset = (widget.cropOffsetX + deltaNormalized).clamp(-1.0, 1.0);
+                              final newOffset = (_localCropOffset + deltaNormalized).clamp(-1.0, 1.0);
+                              setState(() {
+                                _localCropOffset = newOffset;
+                              });
                               widget.onCropOffsetChanged?.call(newOffset);
                             }
+                          }
+                        : null,
+                    onHorizontalDragEnd: is9x16
+                        ? (_) {
+                            setState(() {
+                              _isDraggingCrop = false;
+                            });
+                          }
+                        : null,
+                    onHorizontalDragCancel: is9x16
+                        ? () {
+                            setState(() {
+                              _isDraggingCrop = false;
+                            });
                           }
                         : null,
                     onTap: togglePlayPause,

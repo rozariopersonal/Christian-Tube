@@ -66,6 +66,8 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
   YoutubePlayerController? _controller;
   bool _isPlaying = true;
   double _currentPosition = 0.0;
+  double _localCropOffset = 0.0;
+  bool _isDraggingCrop = false;
   bool _showFeedback = false;
   Timer? _feedbackTimer;
 
@@ -81,6 +83,7 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
   void initState() {
     super.initState();
     _currentPosition = widget.clipStartTime;
+    _localCropOffset = widget.cropOffsetX;
     _initPlayer();
   }
 
@@ -173,6 +176,9 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
   @override
   void didUpdateWidget(covariant _MobileClipPreviewWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!_isDraggingCrop && oldWidget.cropOffsetX != widget.cropOffsetX) {
+      _localCropOffset = widget.cropOffsetX;
+    }
     if (oldWidget.clipStartTime != widget.clipStartTime) {
       if (_currentPosition < widget.clipStartTime ||
           _currentPosition > widget.clipEndTime) {
@@ -203,10 +209,10 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
   }
 
   String _getPanLabel() {
-    if (widget.cropOffsetX < -0.15) {
-      return 'Left (${(widget.cropOffsetX * 100).abs().toInt()}%)';
-    } else if (widget.cropOffsetX > 0.15) {
-      return 'Right (${(widget.cropOffsetX * 100).toInt()}%)';
+    if (_localCropOffset < -0.15) {
+      return 'Left (${(_localCropOffset * 100).abs().toInt()}%)';
+    } else if (_localCropOffset > 0.15) {
+      return 'Right (${(_localCropOffset * 100).toInt()}%)';
     }
     return 'Center';
   }
@@ -238,7 +244,7 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
         final double cropBoxHeight = canvasHeight;
         final double cropBoxWidth = (cropBoxHeight * (9 / 16)).clamp(80.0, canvasWidth);
         final double travelDistance = (canvasWidth - cropBoxWidth).clamp(0.0, canvasWidth);
-        final double cropBoxLeft = (travelDistance / 2) + (widget.cropOffsetX * (travelDistance / 2));
+        final double cropBoxLeft = (travelDistance / 2) + (_localCropOffset * (travelDistance / 2));
 
         return Container(
           height: canvasHeight,
@@ -261,7 +267,12 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
               fit: StackFit.expand,
               children: [
                 // 1. Full 16:9 Landscape Live Video Canvas
-                Positioned.fill(child: playerOrThumb),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: true,
+                    child: playerOrThumb,
+                  ),
+                ),
 
                 // 2. Dimmed Outer Regions & Glowing 9:16 Viewfinder (in 9:16 mode)
                 if (is9x16) ...[
@@ -301,9 +312,9 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            spreadRadius: 1,
+                            color: const Color(0xFFF59E0B).withValues(alpha: _isDraggingCrop ? 0.55 : 0.3),
+                            blurRadius: _isDraggingCrop ? 16 : 12,
+                            spreadRadius: _isDraggingCrop ? 2 : 1,
                           ),
                         ],
                       ),
@@ -405,15 +416,39 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
                 // 3. Direct Drag GestureDetector over entire preview canvas
                 Positioned.fill(
                   child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragStart: is9x16
+                        ? (_) {
+                            setState(() {
+                              _isDraggingCrop = true;
+                            });
+                          }
+                        : null,
                     onHorizontalDragUpdate: is9x16
                         ? (details) {
                             final halfTravel = travelDistance / 2;
                             if (halfTravel > 0) {
                               final deltaNormalized = details.primaryDelta! / halfTravel;
-                              final newOffset = (widget.cropOffsetX + deltaNormalized).clamp(-1.0, 1.0);
+                              final newOffset = (_localCropOffset + deltaNormalized).clamp(-1.0, 1.0);
+                              setState(() {
+                                _localCropOffset = newOffset;
+                              });
                               widget.onCropOffsetChanged?.call(newOffset);
                             }
+                          }
+                        : null,
+                    onHorizontalDragEnd: is9x16
+                        ? (_) {
+                            setState(() {
+                              _isDraggingCrop = false;
+                            });
+                          }
+                        : null,
+                    onHorizontalDragCancel: is9x16
+                        ? () {
+                            setState(() {
+                              _isDraggingCrop = false;
+                            });
                           }
                         : null,
                     onTap: togglePlayPause,

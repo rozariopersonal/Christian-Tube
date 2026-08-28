@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../auth/auth_service.dart';
@@ -99,11 +100,10 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
 
   void _triggerThrottledSeek(double timestamp) {
     _livePlayheadNotifier.value = timestamp;
-    _previewPlayerKey.currentState?.seekTo(timestamp);
-    if (widget.onLiveSeek == null) return;
     if (_seekThrottleTimer?.isActive ?? false) return;
 
-    _seekThrottleTimer = Timer(const Duration(milliseconds: 50), () {
+    _seekThrottleTimer = Timer(const Duration(milliseconds: 75), () {
+      _previewPlayerKey.currentState?.seekTo(timestamp);
       widget.onLiveSeek?.call(timestamp);
     });
   }
@@ -152,6 +152,24 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
       }
     });
     _triggerThrottledSeek(_clipStartTime);
+  }
+
+  String _getTimelineThumbnailUrl(int index, int totalCount) {
+    if (widget.sourceVideoId.isEmpty) {
+      return widget.sourceVideoThumbnail ?? '';
+    }
+    // YouTube distributes 3 frame snapshots (1.jpg, 2.jpg, 3.jpg) across ~25%, ~50%, ~75%
+    // and hqdefault.jpg as the start/cover frame.
+    final ratio = index / (totalCount - 1);
+    if (ratio <= 0.15) {
+      return 'https://img.youtube.com/vi/${widget.sourceVideoId}/hqdefault.jpg';
+    } else if (ratio <= 0.45) {
+      return 'https://img.youtube.com/vi/${widget.sourceVideoId}/1.jpg';
+    } else if (ratio <= 0.75) {
+      return 'https://img.youtube.com/vi/${widget.sourceVideoId}/2.jpg';
+    } else {
+      return 'https://img.youtube.com/vi/${widget.sourceVideoId}/3.jpg';
+    }
   }
 
   String _formatSeconds(double sec) {
@@ -270,9 +288,7 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                     framingMode: _framingMode,
                     cropOffsetX: _cropOffsetX,
                     onCropOffsetChanged: (newOffset) {
-                      setState(() {
-                        _cropOffsetX = newOffset;
-                      });
+                      _cropOffsetX = newOffset;
                     },
                     isLooping: _isLooping,
                     onPositionChanged: (pos) {
@@ -401,13 +417,14 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
 
                   // Interactive Timeline Scrubber Bar with Live Needle
                   Container(
-                    height: 32,
+                    height: 48,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: const Color(0xFF0F172A),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.white12),
                     ),
+                    clipBehavior: Clip.antiAlias,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final trackWidth = constraints.maxWidth;
@@ -415,21 +432,58 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                             (_clipStartTime / _totalDuration).clamp(0.0, 1.0);
                         final double durationPct =
                             (_clipDuration / _totalDuration).clamp(0.05, 1.0);
+                        final double endPct =
+                            (startPct + durationPct).clamp(0.0, 1.0);
+
+                        const int thumbnailCount = 10;
 
                         return Stack(
                           children: [
-                            // Background Filmstrip Grid Mock
+                            // 1. Filmstrip of Real Frame Thumbnails
                             Positioned.fill(
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: List.generate(
-                                  10,
+                                  thumbnailCount,
                                   (i) => Expanded(
                                     child: Container(
                                       decoration: BoxDecoration(
                                         border: Border(
                                           right: BorderSide(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.05),
+                                            color: Colors.black
+                                                .withValues(alpha: 0.45),
+                                            width: 1.0,
+                                          ),
+                                        ),
+                                      ),
+                                      child: CachedNetworkImage(
+                                        imageUrl: _getTimelineThumbnailUrl(
+                                            i, thumbnailCount),
+                                        fit: BoxFit.cover,
+                                        placeholder: (context, url) =>
+                                            Container(
+                                          color: const Color(0xFF1E293B),
+                                          child: const Center(
+                                            child: SizedBox(
+                                              width: 12,
+                                              height: 12,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.5,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                            Color>(
+                                                        Colors.white24),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        errorWidget: (context, url, error) =>
+                                            Container(
+                                          color: const Color(0xFF1E293B),
+                                          child: const Icon(
+                                            Icons.movie_creation_outlined,
+                                            color: Colors.white24,
+                                            size: 16,
                                           ),
                                         ),
                                       ),
@@ -439,7 +493,32 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                               ),
                             ),
 
-                            // Highlight Window (Selected Clip Box)
+                            // 2. Inactive Region Dimming Overlays
+                            // Left unselected region
+                            if (startPct > 0)
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: startPct * trackWidth,
+                                child: Container(
+                                  color: Colors.black.withValues(alpha: 0.65),
+                                ),
+                              ),
+
+                            // Right unselected region
+                            if (endPct < 1.0)
+                              Positioned(
+                                left: endPct * trackWidth,
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                                child: Container(
+                                  color: Colors.black.withValues(alpha: 0.65),
+                                ),
+                              ),
+
+                            // 3. Highlight Window (Selected Clip Box with Tactile Handles)
                             Positioned(
                               left: startPct * trackWidth,
                               width: (durationPct * trackWidth)
@@ -448,34 +527,94 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                               bottom: 0,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color:
-                                      const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                                  color: const Color(0xFFF59E0B)
+                                      .withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
                                     color: const Color(0xFFF59E0B),
-                                    width: 1.5,
+                                    width: 2.0,
                                   ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    _formatSeconds(_clipDuration),
-                                    style: const TextStyle(
-                                      color: Color(0xFFF59E0B),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFF59E0B)
+                                          .withValues(alpha: 0.35),
+                                      blurRadius: 6,
+                                      spreadRadius: 0.5,
                                     ),
-                                  ),
+                                  ],
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Left Handle Grip Bar
+                                    Positioned(
+                                      left: 2,
+                                      top: 10,
+                                      bottom: 10,
+                                      child: Container(
+                                        width: 3.5,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(2),
+                                        ),
+                                      ),
+                                    ),
+                                    // Center Duration Pill
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.75),
+                                        borderRadius:
+                                            BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: const Color(0xFFF59E0B),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _formatSeconds(_clipDuration),
+                                        style: const TextStyle(
+                                          color: Color(0xFFF59E0B),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                    ),
+                                    // Right Handle Grip Bar
+                                    Positioned(
+                                      right: 2,
+                                      top: 10,
+                                      bottom: 10,
+                                      child: Container(
+                                        width: 3.5,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(2),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
 
-                            // Live Playhead Scrubber Needle
+                            // 4. Live Playhead Scrubber Needle
                             ValueListenableBuilder<double>(
                               valueListenable: _livePlayheadNotifier,
                               builder: (context, livePlayhead, _) {
-                                final double livePct = (livePlayhead / _totalDuration).clamp(0.0, 1.0);
+                                final double livePct =
+                                    (livePlayhead / _totalDuration)
+                                        .clamp(0.0, 1.0);
                                 return Positioned(
-                                  left: (livePct * trackWidth).clamp(0.0, trackWidth - 2),
+                                  left: (livePct * trackWidth)
+                                      .clamp(0.0, trackWidth - 2.5),
                                   top: 0,
                                   bottom: 0,
                                   child: Container(
@@ -484,9 +623,10 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                       color: Colors.white,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.amber.withValues(alpha: 0.8),
-                                          blurRadius: 4,
-                                          spreadRadius: 1,
+                                          color: Colors.amber
+                                              .withValues(alpha: 0.9),
+                                          blurRadius: 5,
+                                          spreadRadius: 1.5,
                                         ),
                                       ],
                                     ),
@@ -495,9 +635,10 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                               },
                             ),
 
-                            // Gesture Detector over track to live scrub
+                            // 5. Gesture Detector over track to live scrub & seek
                             Positioned.fill(
                               child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
                                 onHorizontalDragUpdate: (details) {
                                   final double deltaPct =
                                       details.primaryDelta! / trackWidth;
@@ -519,7 +660,8 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                   final tapSec = tapPct * _totalDuration;
                                   setState(() {
                                     _clipStartTime =
-                                        (tapSec - (_clipDuration / 2)).clamp(
+                                        (tapSec - (_clipDuration / 2))
+                                            .clamp(
                                       0.0,
                                       _totalDuration - _clipDuration,
                                     );

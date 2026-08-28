@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/models/local_short_item.dart';
 
 Widget buildPlatformClipPreview({
@@ -57,12 +58,15 @@ class _StubClipPreviewWidget extends StatefulWidget {
   });
 
   @override
-  State<_StubClipPreviewWidget> createState() => _StubClipPreviewWidgetState();
+  State<_StubClipPreviewWidget> createState() => StubClipPreviewWidgetState();
 }
 
-class _StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
-  bool _isPlaying = true;
+class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
   double _currentPosition = 0.0;
+  double _localCropOffset = 0.0;
+  bool _isDraggingCrop = false;
+  bool _isPlaying = true;
+  bool _showFeedback = false;
   Timer? _ticker;
 
   String get _thumbnailUrl =>
@@ -74,42 +78,64 @@ class _StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
   void initState() {
     super.initState();
     _currentPosition = widget.clipStartTime;
-    _startTicker();
+    _localCropOffset = widget.cropOffsetX;
+    _startSimulatedPlayback();
   }
 
-  void _startTicker() {
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      if (_isPlaying && mounted) {
-        setState(() {
-          _currentPosition += 0.25;
-          if (_currentPosition >= widget.clipEndTime) {
-            if (widget.isLooping) {
-              _currentPosition = widget.clipStartTime;
-            } else {
-              _isPlaying = false;
-            }
+  void _startSimulatedPlayback() {
+    _ticker = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      if (!_isPlaying || !mounted) return;
+      setState(() {
+        _currentPosition += 0.2;
+        if (_currentPosition >= widget.clipEndTime) {
+          if (widget.isLooping) {
+            _currentPosition = widget.clipStartTime;
+          } else {
+            _isPlaying = false;
           }
-        });
-        widget.onPositionChanged?.call(_currentPosition);
-      }
+        }
+      });
+      widget.onPositionChanged?.call(_currentPosition);
     });
+  }
+
+  void seekTo(double seconds) {
+    setState(() {
+      _currentPosition = seconds.clamp(widget.clipStartTime, widget.clipEndTime);
+    });
+    widget.onPositionChanged?.call(_currentPosition);
+  }
+
+  void togglePlayPause() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _isPlaying = !_isPlaying;
+      _showFeedback = true;
+    });
+    widget.onTogglePlayPause?.call();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) setState(() => _showFeedback = false);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _StubClipPreviewWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isDraggingCrop && oldWidget.cropOffsetX != widget.cropOffsetX) {
+      _localCropOffset = widget.cropOffsetX;
+    }
+    if (oldWidget.clipStartTime != widget.clipStartTime) {
+      if (_currentPosition < widget.clipStartTime ||
+          _currentPosition > widget.clipEndTime) {
+        seekTo(widget.clipStartTime);
+      }
+    }
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
     super.dispose();
-  }
-
-  void seekTo(double seconds) {
-    _currentPosition = seconds.clamp(widget.clipStartTime, widget.clipEndTime);
-    if (mounted) setState(() {});
-  }
-
-  void togglePlayPause() {
-    setState(() => _isPlaying = !_isPlaying);
-    widget.onTogglePlayPause?.call();
   }
 
   String _formatSeconds(double sec) {
@@ -120,10 +146,10 @@ class _StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
   }
 
   String _getPanLabel() {
-    if (widget.cropOffsetX < -0.15) {
-      return 'Left (${(widget.cropOffsetX * 100).abs().toInt()}%)';
-    } else if (widget.cropOffsetX > 0.15) {
-      return 'Right (${(widget.cropOffsetX * 100).toInt()}%)';
+    if (_localCropOffset < -0.15) {
+      return 'Left (${(_localCropOffset * 100).abs().toInt()}%)';
+    } else if (_localCropOffset > 0.15) {
+      return 'Right (${(_localCropOffset * 100).toInt()}%)';
     }
     return 'Center';
   }
@@ -142,7 +168,7 @@ class _StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
         final double cropBoxHeight = canvasHeight;
         final double cropBoxWidth = (cropBoxHeight * (9 / 16)).clamp(80.0, canvasWidth);
         final double travelDistance = (canvasWidth - cropBoxWidth).clamp(0.0, canvasWidth);
-        final double cropBoxLeft = (travelDistance / 2) + (widget.cropOffsetX * (travelDistance / 2));
+        final double cropBoxLeft = (travelDistance / 2) + (_localCropOffset * (travelDistance / 2));
 
         return Container(
           height: canvasHeight,
@@ -151,18 +177,25 @@ class _StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
             color: Colors.black,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                blurRadius: 16,
+                spreadRadius: 2,
+              ),
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(15),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // 1. Full 16:9 Landscape Video Canvas
+                // 1. Full 16:9 Landscape Video Image
                 Positioned.fill(
                   child: Image.network(
                     _thumbnailUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(color: const Color(0xFF0F172A)),
+                    errorBuilder: (_, __, ___) => Container(color: Colors.black),
                   ),
                 ),
 
@@ -204,9 +237,9 @@ class _StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            spreadRadius: 1,
+                            color: const Color(0xFFF59E0B).withValues(alpha: _isDraggingCrop ? 0.55 : 0.3),
+                            blurRadius: _isDraggingCrop ? 16 : 12,
+                            spreadRadius: _isDraggingCrop ? 2 : 1,
                           ),
                         ],
                       ),
@@ -308,15 +341,39 @@ class _StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
                 // 3. Direct Drag GestureDetector over entire preview canvas
                 Positioned.fill(
                   child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragStart: is9x16
+                        ? (_) {
+                            setState(() {
+                              _isDraggingCrop = true;
+                            });
+                          }
+                        : null,
                     onHorizontalDragUpdate: is9x16
                         ? (details) {
                             final halfTravel = travelDistance / 2;
                             if (halfTravel > 0) {
                               final deltaNormalized = details.primaryDelta! / halfTravel;
-                              final newOffset = (widget.cropOffsetX + deltaNormalized).clamp(-1.0, 1.0);
+                              final newOffset = (_localCropOffset + deltaNormalized).clamp(-1.0, 1.0);
+                              setState(() {
+                                _localCropOffset = newOffset;
+                              });
                               widget.onCropOffsetChanged?.call(newOffset);
                             }
+                          }
+                        : null,
+                    onHorizontalDragEnd: is9x16
+                        ? (_) {
+                            setState(() {
+                              _isDraggingCrop = false;
+                            });
+                          }
+                        : null,
+                    onHorizontalDragCancel: is9x16
+                        ? () {
+                            setState(() {
+                              _isDraggingCrop = false;
+                            });
                           }
                         : null,
                     onTap: togglePlayPause,
@@ -385,7 +442,28 @@ class _StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
                   ),
                 ),
 
-                // 5. Bottom Interactive Clip Scrubber Bar & Timestamp Indicator
+                // 5. Center Play / Pause Feedback
+                Center(
+                  child: AnimatedOpacity(
+                    opacity: _showFeedback ? 1.0 : (_isPlaying ? 0.0 : 0.85),
+                    duration: const Duration(milliseconds: 180),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.65),
+                        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+                      ),
+                      child: Icon(
+                        _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        size: 38,
+                        color: const Color(0xFFF59E0B),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 6. Bottom Interactive Clip Scrubber Bar & Timestamp Indicator
                 Positioned(
                   bottom: 0,
                   left: 0,
