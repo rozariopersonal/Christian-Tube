@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@n
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
-import { YoutubeService } from '../youtube/youtube.service';
+import { SyncService } from '../sync/sync.service';
 
 @Injectable()
 export class ChannelsService {
@@ -11,7 +11,7 @@ export class ChannelsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
-    private readonly youtubeService: YoutubeService,
+    private readonly syncService: SyncService,
   ) {}
 
   isAdmin(email?: string): boolean {
@@ -357,12 +357,12 @@ export class ChannelsService {
     });
 
     // Trigger instant video sync (API with RSS fallback)
-    this.youtubeService.syncChannelVideos(channel.id, channel.category).catch((e) => {
+    this.syncService.syncChannel(channel.id, channel.category).catch((e) => {
       this.logger.warn(`Initial sync error for added channel ${channel.id}: ${e.message}`);
     });
 
     // Auto-subscribe channel to Google WebSub for instant live push events
-    this.youtubeService.subscribeChannelToWebSub(channel.id).catch((e) => {
+    this.syncService.subscribeChannelToWebSub(channel.id).catch((e) => {
       this.logger.warn(`WebSub subscription error for added channel ${channel.id}: ${e.message}`);
     });
 
@@ -381,14 +381,14 @@ export class ChannelsService {
       throw new NotFoundException(`Channel ${id} not found`);
     }
 
-    // Trigger full multi-batch sync
-    this.youtubeService.syncChannelVideos(channel.id, channel.category, 10).catch((e) => {
-      this.logger.warn(`Manual sync error for channel ${id}: ${e.message}`);
+    // Trigger full sync
+    this.syncService.syncChannel(channel.id, channel.category).catch((e) => {
+      this.logger.error(`Error syncing channel ${channel.name}: ${e.message}`);
     });
 
     return {
-      status: 'success',
-      message: `Batch video and metadata sync initiated for ${channel.name} (${id})`,
+      status: 'accepted',
+      message: `Sync process initiated for channel ${channel.name}`,
     };
   }
 
