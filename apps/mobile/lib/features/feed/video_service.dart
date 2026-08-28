@@ -72,6 +72,8 @@ class VideoService extends ChangeNotifier {
           }
         }
       }
+    } else if (triggerRefresh && _onlySubscribed && _subscribedChannelIds.isNotEmpty) {
+      refreshVideos();
     }
   }
 

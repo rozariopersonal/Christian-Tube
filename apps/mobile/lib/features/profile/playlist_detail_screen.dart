@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/models/playlist.dart';
 import '../../shared/ui/video_card.dart';
 
@@ -16,9 +17,21 @@ class PlaylistDetailScreen extends StatelessWidget {
           : ListView.builder(
               itemCount: playlist.videos.length,
               itemBuilder: (context, index) {
-                return VideoCard(video: playlist.videos[index]);
+                final video = playlist.videos[index];
+                return VideoCard(
+                  video: video,
+                  onTap: () {
+                    context.push('/watch/${video.id}', extra: {
+                      'video': video,
+                      'playlist': playlist.videos,
+                      'playlistTitle': playlist.title,
+                      'initialIndex': index,
+                    });
+                  },
+                );
               },
             ),
     );
   }
 }
+

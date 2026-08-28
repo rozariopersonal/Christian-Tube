@@ -83,7 +83,16 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                   routes: [
                     GoRoute(
                       path: '/shorts',
-                      builder: (context, state) => const ShortsFeedScreen(),
+                      builder: (context, state) {
+                        final shortId = state.uri.queryParameters['id'] ??
+                            state.uri.queryParameters['videoId'] ??
+                            (state.extra as Map<String, dynamic>?)?['shortId'] as String?;
+                        final initialIndex = (state.extra as Map<String, dynamic>?)?['initialIndex'] as int?;
+                        return ShortsFeedScreen(
+                          initialShortId: shortId,
+                          initialIndex: initialIndex,
+                        );
+                      },
                     ),
                   ],
                 ),

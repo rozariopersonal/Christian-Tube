@@ -383,9 +383,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             onTap: () {
               context.push('/watch/${video.id}', extra: {
                 'video': video,
-                'playlist': videos,
-                'playlistTitle': 'Home Feed',
-                'initialIndex': videoIndex,
               });
             },
           );
@@ -408,13 +405,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             child: Row(
               children: [
-                const Icon(Icons.bolt, color: Colors.red, size: 24),
-                const SizedBox(width: 6),
-                const Text(
+                Icon(Icons.bolt, color: Colors.red, size: 24),
+                SizedBox(width: 6),
+                Text(
                   'Shorts',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
                 ),
@@ -432,7 +429,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               itemBuilder: (context, index) {
                 final short = shorts[index];
                 return InkWell(
-                  onTap: () => context.go('/shorts'),
+                  onTap: () {
+                    context.go('/shorts?id=${short.id}', extra: {
+                      'shortId': short.id,
+                      'initialIndex': index,
+                    });
+                  },
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
                     width: 135,

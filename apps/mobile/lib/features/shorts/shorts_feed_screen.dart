@@ -21,7 +21,14 @@ enum ShortsViewTab {
 }
 
 class ShortsFeedScreen extends StatefulWidget {
-  const ShortsFeedScreen({super.key});
+  final String? initialShortId;
+  final int? initialIndex;
+
+  const ShortsFeedScreen({
+    super.key,
+    this.initialShortId,
+    this.initialIndex,
+  });
 
   @override
   State<ShortsFeedScreen> createState() => _ShortsFeedScreenState();
@@ -29,8 +36,8 @@ class ShortsFeedScreen extends StatefulWidget {
 
 class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   final ApiClient _apiClient = ApiClient();
-  final PageController _pageController = PageController();
-  final PageController _localPageController = PageController();
+  PageController _pageController = PageController();
+  PageController _localPageController = PageController();
   final ShortsOrchestratorService _orchestrator = ShortsOrchestratorService();
 
   final ScrollController _communityScrollController = ScrollController();
@@ -64,6 +71,63 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     _fetchShorts();
     _orchestrator.fetchCloudCreations();
     _communityScrollController.addListener(_onCommunityScroll);
+  }
+
+  @override
+  void didUpdateWidget(ShortsFeedScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.initialShortId != null && widget.initialShortId != oldWidget.initialShortId) ||
+        (widget.initialIndex != null && widget.initialIndex != oldWidget.initialIndex)) {
+      _applyInitialTarget();
+    }
+  }
+
+  void _openCommunityShortAt(int index) {
+    if (index < 0 || index >= _shorts.length) return;
+    _pageController.dispose();
+    _pageController = PageController(initialPage: index);
+    setState(() {
+      _selectedCommunityIndex = index;
+      _currentPage = index;
+      _isPlaying = true;
+      _areControlsVisible = true;
+      _currentPosition = 0.0;
+      _totalDuration = 0.0;
+    });
+    _startAutoHideTimer();
+  }
+
+  void _openCreationShortAt(int index) {
+    final list = _orchestrator.localShorts;
+    if (index < 0 || index >= list.length) return;
+    _localPageController.dispose();
+    _localPageController = PageController(initialPage: index);
+    setState(() {
+      _selectedCreationIndex = index;
+      _currentPage = index;
+      _isPlaying = true;
+      _areControlsVisible = true;
+      _currentPosition = 0.0;
+      _totalDuration = 0.0;
+    });
+    _startAutoHideTimer();
+  }
+
+  void _applyInitialTarget() {
+    if (_shorts.isEmpty) return;
+    int target = -1;
+    if (widget.initialShortId != null && widget.initialShortId!.isNotEmpty) {
+      final idx = _shorts.indexWhere(
+        (s) => s.id == widget.initialShortId || s.sourceVideoId == widget.initialShortId,
+      );
+      if (idx != -1) target = idx;
+    }
+    if (target == -1 && widget.initialIndex != null && widget.initialIndex! >= 0 && widget.initialIndex! < _shorts.length) {
+      target = widget.initialIndex!;
+    }
+    if (target >= 0) {
+      _openCommunityShortAt(target);
+    }
   }
 
   @override
@@ -120,31 +184,22 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             return isShortUrl || isShortTitle || isShortDesc || s.type == 'SHORT';
           }).toList();
 
-          final uri = GoRouterState.of(context).uri;
-          final queryId = uri.queryParameters['id'] ?? uri.queryParameters['videoId'];
-          int targetIndex = -1;
-          if (queryId != null && queryId.isNotEmpty) {
-            final idx = shortsOnly.indexWhere((s) => s.id == queryId || s.sourceVideoId == queryId);
-            if (idx != -1) targetIndex = idx;
-          }
-
           if (mounted) {
             setState(() {
               _shorts = shortsOnly;
               _isLoading = false;
-              if (targetIndex >= 0) {
-                _selectedCommunityIndex = targetIndex;
-                _currentPage = targetIndex;
-              }
             });
-            if (targetIndex > 0) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (_pageController.hasClients) {
-                  _pageController.jumpToPage(targetIndex);
+            _applyInitialTarget();
+            if (_selectedCommunityIndex == null) {
+              final uri = GoRouterState.of(context).uri;
+              final queryId = uri.queryParameters['id'] ?? uri.queryParameters['videoId'];
+              if (queryId != null && queryId.isNotEmpty) {
+                final idx = shortsOnly.indexWhere((s) => s.id == queryId || s.sourceVideoId == queryId);
+                if (idx != -1) {
+                  _openCommunityShortAt(idx);
                 }
-              });
+              }
             }
-            _startAutoHideTimer();
           }
           return;
         }
@@ -638,17 +693,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         : Short.parseDurationInSeconds(short.duration);
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedCommunityIndex = index;
-          _currentPage = index;
-          _pageController.jumpToPage(index);
-          _isPlaying = true;
-          _areControlsVisible = true;
-          _currentPosition = 0.0;
-          _totalDuration = 0.0;
-        });
-      },
+      onTap: () => _openCommunityShortAt(index),
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
@@ -1410,17 +1455,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     final durSec = (item.clipEndTime - item.clipStartTime).toInt();
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedCreationIndex = index;
-          _currentPage = index;
-          _localPageController.jumpToPage(index);
-          _isPlaying = true;
-          _areControlsVisible = true;
-          _currentPosition = 0.0;
-          _totalDuration = 0.0;
-        });
-      },
+      onTap: () => _openCreationShortAt(index),
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
