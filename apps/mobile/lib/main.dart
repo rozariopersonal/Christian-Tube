@@ -26,7 +26,10 @@ void main() async {
   await NotificationService().initialize();
   if (kMicroFeedEnabled) {
     try {
-      await createActiveFeedEngine().initialize();
+      final engine = createActiveFeedEngine();
+      if (engine != null) {
+        await engine.initialize();
+      }
     } catch (_) {}
   }
   runApp(const PrivateTubeApp());
@@ -84,9 +87,12 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 routes: [
                   GoRoute(
                     path: '/words',
-                    builder: (context, state) => MicroFeedScreen(
-                      engine: createActiveFeedEngine(),
-                    ),
+                    builder: (context, state) {
+                      final engine = createActiveFeedEngine();
+                      return engine != null
+                          ? MicroFeedScreen(engine: engine)
+                          : const SizedBox.shrink();
+                    },
                   ),
                 ],
               ),
