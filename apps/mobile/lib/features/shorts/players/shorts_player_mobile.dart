@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../core/models/short.dart';
 
@@ -31,6 +33,9 @@ class _MobileShortsPlayerWidget extends StatefulWidget {
 class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
   YoutubePlayerController? _controller;
   bool _isLoading = true;
+  bool _showFeedback = false;
+  bool _lastFeedbackIsPlaying = false;
+  Timer? _feedbackTimer;
 
   @override
   void initState() {
@@ -45,6 +50,8 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
         autoPlay: widget.isPlaying,
         mute: false,
         hideControls: true,
+        hideThumbnail: true,
+        useHybridComposition: true,
         disableDragSeek: true,
         loop: true,
         enableCaption: false,
@@ -70,9 +77,37 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
 
   @override
   void dispose() {
+    _feedbackTimer?.cancel();
     _controller?.pause();
     _controller?.dispose();
     super.dispose();
+  }
+
+  void _togglePlayPause() {
+    HapticFeedback.lightImpact();
+    if (_controller == null) return;
+
+    final isCurrentlyPlaying = _controller!.value.isPlaying;
+    if (isCurrentlyPlaying) {
+      _controller!.pause();
+      _lastFeedbackIsPlaying = false;
+    } else {
+      _controller!.play();
+      _lastFeedbackIsPlaying = true;
+    }
+
+    setState(() {
+      _showFeedback = true;
+    });
+
+    _feedbackTimer?.cancel();
+    _feedbackTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) {
+        setState(() {
+          _showFeedback = false;
+        });
+      }
+    });
   }
 
   @override
@@ -81,7 +116,10 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
       return Container(
         color: Colors.black,
         child: const Center(
-          child: CircularProgressIndicator(color: Colors.white),
+          child: CircularProgressIndicator(
+            color: Color(0xFFF59E0B),
+            strokeWidth: 3,
+          ),
         ),
       );
     }
@@ -90,14 +128,8 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
       final isVertical = widget.short.isVertical;
 
       return GestureDetector(
-        onTap: () {
-          if (_controller!.value.isPlaying) {
-            _controller!.pause();
-          } else {
-            _controller!.play();
-          }
-          setState(() {});
-        },
+        behavior: HitTestBehavior.opaque,
+        onTap: _togglePlayPause,
         child: Container(
           color: Colors.black,
           child: Stack(
@@ -129,6 +161,8 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
                     child: YoutubePlayer(
                       controller: _controller!,
                       showVideoProgressIndicator: false,
+                      topActions: const [],
+                      bottomActions: const [],
                     ),
                   ),
                 )
@@ -139,14 +173,33 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
                     child: YoutubePlayer(
                       controller: _controller!,
                       showVideoProgressIndicator: false,
+                      topActions: const [],
+                      bottomActions: const [],
                     ),
                   ),
                 ),
 
-              if (!_controller!.value.isPlaying)
-                const Center(
-                  child: Icon(Icons.play_arrow, size: 64, color: Colors.white70),
+              // Smooth animated Play / Pause flash feedback
+              Center(
+                child: AnimatedOpacity(
+                  opacity: _showFeedback ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withValues(alpha: 0.6),
+                    ),
+                    child: Icon(
+                      _lastFeedbackIsPlaying
+                          ? Icons.play_arrow_rounded
+                          : Icons.pause_rounded,
+                      size: 54,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
+              ),
             ],
           ),
         ),

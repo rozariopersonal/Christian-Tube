@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import '../widgets/flutter_video_controls_overlay.dart';
 
 Widget buildPlatformVideoPlayer({
   required String videoId,
@@ -47,7 +48,10 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
       flags: YoutubePlayerFlags(
         autoPlay: true,
         mute: false,
-        enableCaption: true,
+        enableCaption: false,
+        hideControls: true,
+        hideThumbnail: true,
+        useHybridComposition: true,
         startAt: widget.startSeconds != null ? widget.startSeconds!.toInt() : 0,
       ),
     );
@@ -94,14 +98,25 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
       },
       player: YoutubePlayer(
         controller: _controller,
-        showVideoProgressIndicator: true,
-        progressIndicatorColor: const Color(0xFFF59E0B),
-        progressColors: const ProgressBarColors(
-          playedColor: Color(0xFFF59E0B),
-          handleColor: Color(0xFFF59E0B),
-        ),
+        showVideoProgressIndicator: false,
+        topActions: const [],
+        bottomActions: const [],
       ),
-      builder: widget.builder,
+      builder: (context, playerWidget) {
+        final decoratedPlayer = AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              playerWidget,
+              FlutterVideoControlsOverlay(
+                controller: _controller,
+              ),
+            ],
+          ),
+        );
+        return widget.builder(context, decoratedPlayer);
+      },
     );
   }
 }
