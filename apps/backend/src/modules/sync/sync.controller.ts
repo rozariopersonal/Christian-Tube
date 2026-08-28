@@ -101,6 +101,21 @@ export class SyncController {
   }
 
   /**
+   * Manual trigger to sync a single newly uploaded video
+   */
+  @Post('video/:id')
+  async triggerVideoSync(@Param('id') id: string) {
+    this.logger.log(`Instant sync triggered for video: ${id}`);
+    const video = await this.syncService.syncSingleVideo(id);
+
+    return {
+      status: video ? 'synced' : 'pending',
+      video,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Manual trigger for metadata backfill
    */
   @Get('backfill')

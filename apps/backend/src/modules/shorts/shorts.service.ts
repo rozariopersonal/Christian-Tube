@@ -9,6 +9,7 @@ export interface InitiateUploadDto {
   sourceVideoId?: string;
   clipStartTime?: number;
   clipEndTime?: number;
+  cropOffsetX?: number;
   creatorName?: string;
   creatorEmail?: string;
 }
@@ -111,6 +112,7 @@ export class ShortsService {
       sourceVideoId: dto.sourceVideoId || null,
       startTime: dto.clipStartTime || 0,
       endTime: dto.clipEndTime || 0,
+      cropOffsetX: dto.cropOffsetX ?? 0.0,
       clippedAt: new Date().toISOString(),
     };
 

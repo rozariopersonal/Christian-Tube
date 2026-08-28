@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' as io;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -238,18 +239,25 @@ class ShortsOrchestratorService extends ChangeNotifier {
         progress: 1.0,
       );
 
-      // Ping backend to import and parse metadata into PostgreSQL database
-      await _apiClient.dio.post('/videos/import', data: {
-        'youtubeVideoId': actualYtId,
-        'sourceVideoId': item.sourceVideoId,
-        'creatorName': item.creatorName,
-        'creatorEmail': item.creatorEmail,
-        'clipStartTime': item.clipStartTime,
-        'clipEndTime': item.clipEndTime,
-        'cropOffsetX': item.cropOffsetX,
-        'title': item.title,
-        'category': 'Shorts',
-      });
+      // Trigger backend channel & video sync from YouTube
+      try {
+        await _apiClient.dio.post('/sync/video/$actualYtId');
+      } catch (syncErr) {
+        debugPrint('Direct video sync notice (will sync via channel sweep): $syncErr');
+      }
+
+      // Auto-delete local temporary MP4 file to save device storage
+      if (item.localVideoPath != null && !kIsWeb) {
+        try {
+          final file = io.File(item.localVideoPath!);
+          if (await file.exists()) {
+            await file.delete();
+            debugPrint('✅ Local temporary short video file auto-deleted: ${item.localVideoPath}');
+          }
+        } catch (delErr) {
+          debugPrint('Notice deleting local short file: $delErr');
+        }
+      }
 
       // 5. Stage: PUBLISHED
       _updateItemStatus(

@@ -579,4 +579,83 @@ export class SyncService implements OnModuleInit {
       this.logger.warn(`Video metadata backfill error: ${e.message}`);
     }
   }
+
+  async syncSingleVideo(videoId: string) {
+    this.logger.log(`Directly syncing video from YouTube: ${videoId}`);
+    const detailMap = await this.youtubeService.fetchVideosDetails([videoId]);
+    const item = detailMap.get(videoId);
+    if (!item) {
+      this.logger.warn(`Could not find details for video ${videoId} from YouTube API`);
+      return null;
+    }
+
+    const snippet = item.snippet;
+    const contentDetails = item.contentDetails;
+    const stats = item.statistics;
+    const title = snippet?.title || 'Christian Short';
+    const description = snippet?.description || '';
+    const channelId = snippet?.channelId || 'UCSaJppP4zb2vivjxYfTqOKw';
+    const channelName = snippet?.channelTitle || 'Christian Tube';
+    const publishedAt = snippet?.publishedAt ? new Date(snippet.publishedAt) : new Date();
+    const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || 'PT60S');
+    const durationSeconds = this.youtubeService.parseIsoDurationSeconds(contentDetails?.duration || 'PT60S');
+    const isShort = (durationSeconds > 0 && durationSeconds <= 180) || title.toLowerCase().includes('#short') || description.toLowerCase().includes('#short');
+    const thumb = snippet?.thumbnails?.maxres?.url || snippet?.thumbnails?.high?.url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+    let parsedMeta: any = null;
+    if (description) {
+      const jsonMatch = description.match(/<!--\s*CT_META:\s*(\{.*?\})\s*-->/s);
+      if (jsonMatch) {
+        try {
+          parsedMeta = JSON.parse(jsonMatch[1]);
+        } catch (_) {}
+      }
+    }
+
+    const saved = await this.prisma.video.upsert({
+      where: { id: videoId },
+      update: {
+        type: isShort ? 'SHORT' : 'VIDEO',
+        title,
+        description,
+        thumbnail: thumb,
+        channelId,
+        channelName,
+        publishedAt,
+        duration,
+        viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
+        creatorName: parsedMeta?.creatorName || undefined,
+        creatorEmail: parsedMeta?.creatorEmail || undefined,
+        sourceVideoId: parsedMeta?.sourceVideoId || undefined,
+        clipStartTime: parsedMeta?.startTime != null ? Number(parsedMeta.startTime) : undefined,
+        clipEndTime: parsedMeta?.endTime != null ? Number(parsedMeta.endTime) : undefined,
+        cropOffsetX: parsedMeta?.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : undefined,
+      },
+      create: {
+        id: videoId,
+        type: isShort ? 'SHORT' : 'VIDEO',
+        title,
+        description,
+        thumbnail: thumb,
+        channelId,
+        channelName,
+        publishedAt,
+        duration,
+        viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
+        tags: ['#Shorts'],
+        category: 'Shorts',
+        transcriptionStatus: 'pending',
+        creatorName: parsedMeta?.creatorName || null,
+        creatorEmail: parsedMeta?.creatorEmail || null,
+        sourceVideoId: parsedMeta?.sourceVideoId || null,
+        clipStartTime: parsedMeta?.startTime != null ? Number(parsedMeta.startTime) : null,
+        clipEndTime: parsedMeta?.endTime != null ? Number(parsedMeta.endTime) : null,
+        cropOffsetX: parsedMeta?.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : 0.0,
+        clippedAt: parsedMeta ? new Date() : null,
+      },
+    });
+
+    this.logger.log(`✅ Single video synced successfully: ${saved.id} ("${saved.title}")`);
+    return saved;
+  }
 }
