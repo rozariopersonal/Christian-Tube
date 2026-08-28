@@ -77,10 +77,14 @@ void main() {
         status: ShortCreationStatus.downloading,
         progress: 0.25,
         createdAt: DateTime(2026, 8, 28),
+        cropOffsetX: -0.4,
+        framingMode: ShortsFramingMode.portrait9x16,
       );
 
       expect(item.statusDisplay, contains('Downloading stream 25%'));
       expect(item.isPlayable, isFalse);
+      expect(item.cropOffsetX, -0.4);
+      expect(item.framingMode, ShortsFramingMode.portrait9x16);
 
       final renderedItem = item.copyWith(
         status: ShortCreationStatus.readyLocal,
@@ -103,6 +107,8 @@ void main() {
       expect(revived.id, item.id);
       expect(revived.title, item.title);
       expect(revived.duration, 90.0);
+      expect(revived.cropOffsetX, -0.4);
+      expect(revived.framingMode, ShortsFramingMode.portrait9x16);
       expect(revived.status, ShortCreationStatus.scheduledUpload);
       expect(revived.isPlayable, isTrue);
     });

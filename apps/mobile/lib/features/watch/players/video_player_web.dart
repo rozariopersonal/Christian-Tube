@@ -8,14 +8,30 @@ import '../widgets/flutter_video_controls_overlay.dart';
 
 final Set<String> _registeredVideoViews = {};
 
+void pausePlatformMainVideo() {
+  try {
+    final iframes = html.document.querySelectorAll('iframe');
+    for (final elem in iframes) {
+      if (elem is html.IFrameElement) {
+        elem.contentWindow?.postMessage(
+          '{"event":"command","func":"pauseVideo","args":""}',
+          '*',
+        );
+      }
+    }
+  } catch (_) {}
+}
+
 Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,
+  ValueChanged<Duration>? onPositionChanged,
   required Widget Function(BuildContext context, Widget player) builder,
 }) {
   return _WebVideoPlayerWrapper(
     videoId: videoId,
     startSeconds: startSeconds,
+    onPositionChanged: onPositionChanged,
     builder: builder,
   );
 }
@@ -23,11 +39,13 @@ Widget buildPlatformVideoPlayer({
 class _WebVideoPlayerWrapper extends StatefulWidget {
   final String videoId;
   final double? startSeconds;
+  final ValueChanged<Duration>? onPositionChanged;
   final Widget Function(BuildContext context, Widget player) builder;
 
   const _WebVideoPlayerWrapper({
     required this.videoId,
     this.startSeconds,
+    this.onPositionChanged,
     required this.builder,
   });
 
@@ -82,6 +100,7 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
           _position = Duration(
             milliseconds: nextMs.clamp(0, _duration.inMilliseconds),
           );
+          widget.onPositionChanged?.call(_position);
         });
       }
     });
@@ -98,6 +117,7 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
               if (info['currentTime'] != null) {
                 final sec = (info['currentTime'] as num).toDouble();
                 _position = Duration(milliseconds: (sec * 1000).toInt());
+                widget.onPositionChanged?.call(_position);
               }
               if (info['duration'] != null && (info['duration'] as num) > 0) {
                 final durSec = (info['duration'] as num).toDouble();

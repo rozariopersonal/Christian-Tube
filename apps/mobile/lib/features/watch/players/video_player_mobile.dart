@@ -3,14 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../widgets/flutter_video_controls_overlay.dart';
 
+void pausePlatformMainVideo() {}
+
 Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,
+  ValueChanged<Duration>? onPositionChanged,
   required Widget Function(BuildContext context, Widget player) builder,
 }) {
   return _MobileVideoPlayerWrapper(
     videoId: videoId,
     startSeconds: startSeconds,
+    onPositionChanged: onPositionChanged,
     builder: builder,
   );
 }
@@ -18,11 +22,13 @@ Widget buildPlatformVideoPlayer({
 class _MobileVideoPlayerWrapper extends StatefulWidget {
   final String videoId;
   final double? startSeconds;
+  final ValueChanged<Duration>? onPositionChanged;
   final Widget Function(BuildContext context, Widget player) builder;
 
   const _MobileVideoPlayerWrapper({
     required this.videoId,
     this.startSeconds,
+    this.onPositionChanged,
     required this.builder,
   });
 
@@ -54,7 +60,13 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
         useHybridComposition: true,
         startAt: widget.startSeconds != null ? widget.startSeconds!.toInt() : 0,
       ),
-    );
+    )..addListener(_handleControllerUpdate);
+  }
+
+  void _handleControllerUpdate() {
+    if (mounted && widget.onPositionChanged != null) {
+      widget.onPositionChanged!(_controller.value.position);
+    }
   }
 
   @override
@@ -67,6 +79,7 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
 
   @override
   void dispose() {
+    _controller.removeListener(_handleControllerUpdate);
     _controller.dispose();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+void pausePlatformMainVideo() {}
+
 Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,
+  ValueChanged<Duration>? onPositionChanged,
   required Widget Function(BuildContext context, Widget player) builder,
 }) {
   return Builder(

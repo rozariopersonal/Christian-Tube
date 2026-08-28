@@ -46,6 +46,8 @@ class ShortsOrchestratorService extends ChangeNotifier {
     required String creatorEmail,
     required double clipStartTime,
     required double clipEndTime,
+    double cropOffsetX = 0.0,
+    ShortsFramingMode framingMode = ShortsFramingMode.portrait9x16,
   }) async {
     final shortId = _uuid.v4();
     final duration = clipEndTime - clipStartTime;
@@ -61,6 +63,8 @@ class ShortsOrchestratorService extends ChangeNotifier {
       clipStartTime: clipStartTime,
       clipEndTime: clipEndTime,
       duration: duration,
+      cropOffsetX: cropOffsetX,
+      framingMode: framingMode,
       status: ShortCreationStatus.downloading,
       progress: 0.1,
       createdAt: DateTime.now(),
@@ -92,6 +96,8 @@ class ShortsOrchestratorService extends ChangeNotifier {
         startSeconds: initialItem.clipStartTime,
         endSeconds: initialItem.clipEndTime,
         creatorName: initialItem.creatorName,
+        cropOffsetX: initialItem.cropOffsetX,
+        framingMode: initialItem.framingMode,
         onProgress: (prog, stage) {
           _updateItemStatus(
             currentId,

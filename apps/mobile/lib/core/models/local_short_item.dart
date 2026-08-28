@@ -9,6 +9,11 @@ enum ShortCreationStatus {
   failed,
 }
 
+enum ShortsFramingMode {
+  portrait9x16,  // 9:16 Vertical Short (Direct Panning & Zero Margins)
+  landscape16x9, // 16:9 Original Widescreen
+}
+
 class LocalShortItem {
   final String id;
   final String sourceVideoId;
@@ -20,6 +25,8 @@ class LocalShortItem {
   final double clipStartTime;
   final double clipEndTime;
   final double duration;
+  final double cropOffsetX; // -1.0 (Left) to +1.0 (Right), 0.0 (Center)
+  final ShortsFramingMode framingMode;
   final String? localVideoPath;
   final ShortCreationStatus status;
   final double progress; // 0.0 to 1.0
@@ -39,6 +46,8 @@ class LocalShortItem {
     required this.clipStartTime,
     required this.clipEndTime,
     required this.duration,
+    this.cropOffsetX = 0.0,
+    this.framingMode = ShortsFramingMode.portrait9x16,
     this.localVideoPath,
     this.status = ShortCreationStatus.downloading,
     this.progress = 0.0,
@@ -59,6 +68,8 @@ class LocalShortItem {
     double? clipStartTime,
     double? clipEndTime,
     double? duration,
+    double? cropOffsetX,
+    ShortsFramingMode? framingMode,
     String? localVideoPath,
     ShortCreationStatus? status,
     double? progress,
@@ -78,6 +89,8 @@ class LocalShortItem {
       clipStartTime: clipStartTime ?? this.clipStartTime,
       clipEndTime: clipEndTime ?? this.clipEndTime,
       duration: duration ?? this.duration,
+      cropOffsetX: cropOffsetX ?? this.cropOffsetX,
+      framingMode: framingMode ?? this.framingMode,
       localVideoPath: localVideoPath ?? this.localVideoPath,
       status: status ?? this.status,
       progress: progress ?? this.progress,
@@ -100,6 +113,8 @@ class LocalShortItem {
       'clipStartTime': clipStartTime,
       'clipEndTime': clipEndTime,
       'duration': duration,
+      'cropOffsetX': cropOffsetX,
+      'framingMode': framingMode.name,
       'localVideoPath': localVideoPath,
       'status': status.name,
       'progress': progress,
@@ -122,6 +137,11 @@ class LocalShortItem {
       clipStartTime: (json['clipStartTime'] as num?)?.toDouble() ?? 0.0,
       clipEndTime: (json['clipEndTime'] as num?)?.toDouble() ?? 60.0,
       duration: (json['duration'] as num?)?.toDouble() ?? 60.0,
+      cropOffsetX: (json['cropOffsetX'] as num?)?.toDouble() ?? 0.0,
+      framingMode: ShortsFramingMode.values.firstWhere(
+        (e) => e.name == json['framingMode'],
+        orElse: () => ShortsFramingMode.portrait9x16,
+      ),
       localVideoPath: json['localVideoPath'] as String?,
       status: ShortCreationStatus.values.firstWhere(
         (e) => e.name == json['status'],

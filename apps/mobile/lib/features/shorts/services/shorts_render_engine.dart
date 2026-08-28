@@ -3,6 +3,7 @@ import 'dart:io' if (dart.library.html) 'dart:html';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import '../../../core/models/local_short_item.dart';
 
 class ShortsRenderResult {
   final bool isSuccess;
@@ -24,10 +25,16 @@ class ShortsRenderEngine {
     required double startSeconds,
     required double endSeconds,
     required String creatorName,
+    double cropOffsetX = 0.0,
+    ShortsFramingMode framingMode = ShortsFramingMode.portrait9x16,
     required Function(double progress, String stage) onProgress,
   }) async {
     try {
-      onProgress(0.1, 'Resolving 720p video stream...');
+      final modeLabel = framingMode == ShortsFramingMode.portrait9x16
+          ? '9:16 Vertical Short (Pan: ${(cropOffsetX * 100).toInt()}%)'
+          : '16:9 Landscape Video';
+
+      onProgress(0.1, 'Resolving 720p video stream ($modeLabel)...');
 
       if (kIsWeb) {
         // Web Environment: High-fidelity processing simulator for full web testability
@@ -38,7 +45,7 @@ class ShortsRenderEngine {
 
         for (int i = 1; i <= 5; i++) {
           await Future.delayed(const Duration(milliseconds: 300));
-          onProgress(0.5 + (i * 0.09), 'Rendering 720x1280 vertical Short...');
+          onProgress(0.5 + (i * 0.09), 'Rendering 720x1280 $modeLabel...');
         }
 
         onProgress(1.0, 'Render complete');
@@ -53,7 +60,7 @@ class ShortsRenderEngine {
       final muxedStream = manifest.muxed.withHighestBitrate();
       final streamUrl = muxedStream.url.toString();
 
-      onProgress(0.3, 'Stream resolved. Initializing 720p render...');
+      onProgress(0.3, 'Stream resolved. Initializing 720p render ($modeLabel)...');
 
       final tempDir = await getTemporaryDirectory();
       final outputPath =
@@ -65,7 +72,7 @@ class ShortsRenderEngine {
       // In production Flutter with FFmpeg kit or stream capture:
       for (int i = 1; i <= 4; i++) {
         await Future.delayed(const Duration(milliseconds: 400));
-        onProgress(0.3 + (i * 0.15), 'Rendering 720p vertical Short with blurred borders...');
+        onProgress(0.3 + (i * 0.15), 'Rendering 720p vertical Short ($modeLabel)...');
       }
 
       onProgress(1.0, 'Rendering finished');

@@ -52,6 +52,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isLiked = false;
   bool _isDisliked = false;
 
+  double _currentPositionSeconds = 0.0;
+
   PlaylistLoopMode _loopMode = PlaylistLoopMode.off;
   bool _isShuffle = false;
   bool _isAutoplay = true;
@@ -177,6 +179,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ? Short.parseDurationInSeconds(_video!.duration).toDouble()
         : 1800.0;
 
+    final initialPlayhead = _currentPositionSeconds > 0
+        ? _currentPositionSeconds
+        : 60.0;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -185,7 +191,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         sourceVideoId: _activeVideoId,
         sourceVideoTitle: _video?.title ?? 'Sermon Clip',
         sourceVideoThumbnail: _video?.thumbnailUrl,
-        currentPlayheadSeconds: 60.0,
+        currentPlayheadSeconds: initialPlayhead,
         totalDurationSeconds: durationSec > 0 ? durationSec : 1800.0,
       ),
     );
@@ -218,6 +224,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
       startSeconds: widget.startSeconds,
+      onPositionChanged: (pos) {
+        _currentPositionSeconds = pos.inMilliseconds / 1000.0;
+      },
       builder: (context, player) => Scaffold(
         body: SafeArea(
           child: Column(
