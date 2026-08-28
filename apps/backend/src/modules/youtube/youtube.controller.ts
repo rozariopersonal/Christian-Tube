@@ -30,4 +30,24 @@ export class YoutubeController {
       timestamp: new Date().toISOString(),
     };
   }
+
+  @Get('backfill')
+  @Post('backfill')
+  async triggerBackfill(@Headers('x-job-secret') secret?: string) {
+    const internalSecret = this.configService.get<string>('internalJobSecret');
+    if (internalSecret && secret && secret !== internalSecret) {
+      throw new UnauthorizedException('Invalid job secret');
+    }
+
+    this.logger.log('Manual YouTube metadata backfill triggered via API endpoint.');
+    this.youtubeService.backfillVideoMetadata(250).catch((e) => {
+      this.logger.error(`Manual backfill error: ${e.message}`);
+    });
+
+    return {
+      status: 'accepted',
+      message: 'Video metadata backfill process initiated in background',
+      timestamp: new Date().toISOString(),
+    };
+  }
 }

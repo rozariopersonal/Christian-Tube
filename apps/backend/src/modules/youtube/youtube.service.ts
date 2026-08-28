@@ -51,6 +51,85 @@ function isIstDaytime(): boolean {
   return istHour >= 6 && istHour <= 22;
 }
 
+function parseRelativeTimeToDate(text: string): Date | null {
+  if (!text || typeof text !== 'string') return null;
+  const str = text
+    .toLowerCase()
+    .replace('streamed', '')
+    .replace('premiered', '')
+    .replace('live stream', '')
+    .replace('scheduled', '')
+    .trim();
+  const now = Date.now();
+
+  if (str === 'yesterday') {
+    return new Date(now - 86400 * 1000);
+  }
+
+  const match = str.match(/(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago/i);
+  if (!match) return null;
+
+  const count = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+
+  switch (unit) {
+    case 'second':
+      return new Date(now - count * 1000);
+    case 'minute':
+      return new Date(now - count * 60 * 1000);
+    case 'hour':
+      return new Date(now - count * 3600 * 1000);
+    case 'day':
+      return new Date(now - count * 86400 * 1000);
+    case 'week':
+      return new Date(now - count * 7 * 86400 * 1000);
+    case 'month':
+      return new Date(now - count * 30 * 86400 * 1000);
+    case 'year':
+      return new Date(now - count * 365 * 86400 * 1000);
+    default:
+      return null;
+  }
+}
+
+function parseViewsTextToNumber(text: string): number {
+  if (!text || typeof text !== 'string') return 0;
+  const clean = text
+    .toLowerCase()
+    .replace(/views?/g, '')
+    .replace(/watching/g, '')
+    .trim();
+  if (!clean || clean === 'no') return 0;
+
+  if (clean.endsWith('b')) {
+    const val = parseFloat(clean.slice(0, -1).trim());
+    return isNaN(val) ? 0 : Math.round(val * 1000000000);
+  }
+  if (clean.endsWith('m')) {
+    const val = parseFloat(clean.slice(0, -1).trim());
+    return isNaN(val) ? 0 : Math.round(val * 1000000);
+  }
+  if (clean.endsWith('k')) {
+    const val = parseFloat(clean.slice(0, -1).trim());
+    return isNaN(val) ? 0 : Math.round(val * 1000);
+  }
+  const digits = clean.replace(/[^0-9]/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+}
+
+function formatSecondsToDuration(totalSeconds: number): string {
+  if (!totalSeconds || isNaN(totalSeconds) || totalSeconds <= 0) return '0:00';
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const secStr = seconds.toString().padStart(2, '0');
+  if (hours > 0) {
+    const minStr = minutes.toString().padStart(2, '0');
+    return `${hours}:${minStr}:${secStr}`;
+  }
+  return `${minutes}:${secStr}`;
+}
+
 interface ExtractedVideo {
   videoId: string;
   title: string;
@@ -58,6 +137,7 @@ interface ExtractedVideo {
   duration: string;
   durationSeconds: number;
   viewCount: number;
+  publishedAt?: Date;
   videoType: 'VIDEO' | 'SHORT';
 }
 
@@ -115,6 +195,47 @@ function extractVideosFromRichContents(contents: any[]): { videos: ExtractedVide
         hasShortsTag;
       const videoType: 'VIDEO' | 'SHORT' = isShort ? 'SHORT' : 'VIDEO';
 
+      // Extract view count & published date from metadata rows
+      let viewCount = 0;
+      let publishedAt: Date | undefined;
+
+      const metaRows =
+        vm.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows ||
+        vm.metadata?.lockupMetadataViewModel?.metadataRows ||
+        [];
+
+      for (const row of metaRows) {
+        const parts = row?.metadataParts || [];
+        for (const p of parts) {
+          const t = p?.text?.content || p?.accessibilityLabel || '';
+          if (!t || typeof t !== 'string') continue;
+          const lower = t.toLowerCase();
+          if (!viewCount && (lower.includes('view') || /^\d+(\.\d+)?[kmb]?$/i.test(lower.trim()))) {
+            viewCount = parseViewsTextToNumber(t);
+          }
+          if (!publishedAt && (lower.includes('ago') || lower === 'yesterday')) {
+            const parsed = parseRelativeTimeToDate(t);
+            if (parsed) publishedAt = parsed;
+          }
+        }
+      }
+
+      // Accessibility context fallback
+      const a11yLabel =
+        vm.rendererContext?.accessibilityContext?.label ||
+        vm.metadata?.lockupMetadataViewModel?.title?.accessibility?.accessibilityData?.label ||
+        '';
+      if (a11yLabel && typeof a11yLabel === 'string') {
+        if (!viewCount && a11yLabel.toLowerCase().includes('view')) {
+          const vMatch = a11yLabel.match(/([\d,\.]+\s*[kKmMbB]?)\s+views?/i);
+          if (vMatch) viewCount = parseViewsTextToNumber(vMatch[0]);
+        }
+        if (!publishedAt && a11yLabel.toLowerCase().includes('ago')) {
+          const dMatch = a11yLabel.match(/(\d+\s+(?:second|minute|hour|day|week|month|year)s?\s+ago)/i);
+          if (dMatch) publishedAt = parseRelativeTimeToDate(dMatch[1]);
+        }
+      }
+
       const thumbSources = vm.contentImage?.thumbnailViewModel?.image?.sources || [];
       const thumb =
         thumbSources[thumbSources.length - 1]?.url ||
@@ -126,7 +247,8 @@ function extractVideosFromRichContents(contents: any[]): { videos: ExtractedVide
         thumbnail: thumb,
         duration,
         durationSeconds,
-        viewCount: 0,
+        viewCount,
+        publishedAt,
         videoType,
       });
       continue;
@@ -146,13 +268,21 @@ function extractVideosFromRichContents(contents: any[]): { videos: ExtractedVide
         thumbSources[thumbSources.length - 1]?.url ||
         `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
+      let viewCount = 0;
+      const secText = vm.overlayMetadata?.secondaryText?.content || '';
+      if (secText) {
+        viewCount = parseViewsTextToNumber(secText);
+      } else if (vm.accessibilityText) {
+        viewCount = parseViewsTextToNumber(vm.accessibilityText);
+      }
+
       videos.push({
         videoId,
         title,
         thumbnail: thumb,
         duration: '0:30',
         durationSeconds: 30,
-        viewCount: 0,
+        viewCount,
         videoType: 'SHORT',
       });
       continue;
@@ -180,8 +310,18 @@ function extractVideosFromRichContents(contents: any[]): { videos: ExtractedVide
       const thumb =
         renderer.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
         `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-      const viewCountText = renderer.viewCountText?.simpleText || '';
-      const viewCount = parseInt(viewCountText.replace(/[^0-9]/g, ''), 10) || 0;
+      const viewCountText =
+        renderer.viewCountText?.simpleText ||
+        renderer.viewCountText?.runs?.map((r: any) => r.text).join('') ||
+        renderer.shortViewCountText?.simpleText ||
+        '';
+      const viewCount = parseViewsTextToNumber(viewCountText);
+
+      const publishedTimeText =
+        renderer.publishedTimeText?.simpleText ||
+        renderer.publishedTimeText?.runs?.map((r: any) => r.text).join('') ||
+        '';
+      const publishedAt = publishedTimeText ? parseRelativeTimeToDate(publishedTimeText) : undefined;
 
       videos.push({
         videoId,
@@ -190,6 +330,7 @@ function extractVideosFromRichContents(contents: any[]): { videos: ExtractedVide
         duration,
         durationSeconds,
         viewCount,
+        publishedAt: publishedAt || undefined,
         videoType,
       });
     }
@@ -215,6 +356,9 @@ export class YoutubeService implements OnModuleInit {
     setTimeout(() => {
       this.syncAllChannelsPeriodically().catch((e) => {
         this.logger.warn(`Initial automated sync on boot error: ${e.message}`);
+      });
+      this.backfillVideoMetadata(200).catch((e) => {
+        this.logger.warn(`Initial automated backfill on boot error: ${e.message}`);
       });
     }, 5000);
   }
@@ -445,6 +589,7 @@ export class YoutubeService implements OnModuleInit {
             title,
             description,
             thumbnail: thumb,
+            publishedAt,
             channelName: snippet?.channelTitle || channel.name,
             channelThumbnail: channel.thumbnail,
             channelSubscriberCount: channel.subscriberCount,
@@ -512,8 +657,9 @@ export class YoutubeService implements OnModuleInit {
         type: v.videoType,
         title: v.title,
         thumbnail: v.thumbnail,
-        duration: v.duration,
+        duration: v.duration && v.duration !== '0:00' ? v.duration : undefined,
         viewCount: v.viewCount > 0 ? v.viewCount : undefined,
+        publishedAt: v.publishedAt || undefined,
         channelName: channel.name,
         channelThumbnail: channel.thumbnail,
         channelSubscriberCount: channel.subscriberCount,
@@ -529,7 +675,7 @@ export class YoutubeService implements OnModuleInit {
         channelName: channel.name,
         channelThumbnail: channel.thumbnail,
         channelSubscriberCount: channel.subscriberCount,
-        publishedAt: new Date(),
+        publishedAt: v.publishedAt || new Date(),
         duration: v.duration,
         viewCount: v.viewCount,
         category: defaultCategory || channel.category || 'General',
@@ -596,6 +742,7 @@ export class YoutubeService implements OnModuleInit {
               title,
               description,
               thumbnail,
+              publishedAt,
               channelName: channel.name,
               channelThumbnail: channel.thumbnail,
               channelSubscriberCount: channel.subscriberCount,
@@ -782,6 +929,167 @@ export class YoutubeService implements OnModuleInit {
     });
 
     this.logger.log(`✅ Synced total ${syncedCount} videos and shorts via web scraper for ${channel.name} (${channelId})`);
+  }
+
+  /**
+   * Fetches accurate YouTube metadata for a single video using YouTube Data API or InnerTube WEB player endpoint.
+   * Returns exact publishedAt, viewCount, duration, and high-res thumbnail.
+   */
+  async fetchVideoDetails(videoId: string): Promise<{
+    title?: string;
+    description?: string;
+    duration?: string;
+    durationSeconds?: number;
+    viewCount?: number;
+    publishedAt?: Date;
+    thumbnail?: string;
+    channelName?: string;
+  } | null> {
+    if (!videoId) return null;
+
+    // 1. YouTube Data API v3 if key exists
+    if (this.apiKey) {
+      try {
+        const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?key=${this.apiKey}&id=${encodeURIComponent(videoId)}&part=snippet,contentDetails,statistics`;
+        const res = await axios.get(detailsUrl, { timeout: 8000 });
+        const item = res.data?.items?.[0];
+        if (item) {
+          const snippet = item.snippet;
+          const contentDetails = item.contentDetails;
+          const stats = item.statistics;
+
+          const duration = parseIsoDuration(contentDetails?.duration || '');
+          const durationSeconds = parseIsoDurationSeconds(contentDetails?.duration || '');
+          const viewCount = stats?.viewCount ? parseInt(stats.viewCount, 10) : 0;
+          const publishedAt = snippet?.publishedAt ? new Date(snippet.publishedAt) : undefined;
+          const thumbnail =
+            snippet?.thumbnails?.maxres?.url ||
+            snippet?.thumbnails?.high?.url ||
+            snippet?.thumbnails?.medium?.url ||
+            `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+          return {
+            title: snippet?.title,
+            description: snippet?.description,
+            duration,
+            durationSeconds,
+            viewCount,
+            publishedAt,
+            thumbnail,
+            channelName: snippet?.channelTitle,
+          };
+        }
+      } catch (err: any) {
+        this.logger.warn(`YouTube Data API fetchVideoDetails for ${videoId} failed: ${err.message}`);
+      }
+    }
+
+    // 2. InnerTube WEB Player API fallback (Zero API key needed)
+    try {
+      const playerRes = await axios.post(
+        'https://www.youtube.com/youtubei/v1/player',
+        {
+          context: {
+            client: {
+              clientName: 'WEB',
+              clientVersion: '2.20240301.00.00',
+              hl: 'en',
+            },
+          },
+          videoId,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
+          timeout: 10000,
+        },
+      );
+
+      const data = playerRes.data;
+      const details = data?.videoDetails;
+      const microformat = data?.microformat?.playerMicroformatRenderer;
+
+      const title = details?.title || microformat?.title?.simpleText;
+      const lengthSeconds = parseInt(details?.lengthSeconds || '0', 10);
+      const duration = formatSecondsToDuration(lengthSeconds);
+      const viewCount = parseInt(details?.viewCount || microformat?.viewCount || '0', 10);
+
+      const pubDateStr = microformat?.publishDate || microformat?.uploadDate;
+      const publishedAt = pubDateStr ? new Date(pubDateStr) : undefined;
+
+      const thumbSources = microformat?.thumbnail?.thumbnails || details?.thumbnail?.thumbnails || [];
+      const thumbnail =
+        thumbSources[thumbSources.length - 1]?.url ||
+        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+      return {
+        title,
+        duration: duration !== '0:00' ? duration : undefined,
+        durationSeconds: lengthSeconds,
+        viewCount,
+        publishedAt,
+        thumbnail,
+        channelName: details?.author || microformat?.ownerChannelName,
+      };
+    } catch (err: any) {
+      this.logger.warn(`InnerTube player fetchVideoDetails for ${videoId} failed: ${err.message}`);
+    }
+
+    return null;
+  }
+
+  /**
+   * Backfill/Refresh accurate YouTube metadata for existing videos in the database.
+   * Updates viewCount, duration, and true publishedAt for all videos that have 0 views
+   * or placeholder timestamps.
+   */
+  async backfillVideoMetadata(limit = 150) {
+    try {
+      const staleVideos = await this.prisma.video.findMany({
+        where: {
+          OR: [
+            { viewCount: 0 },
+            { duration: '0:00' },
+          ],
+        },
+        take: limit,
+        orderBy: { updatedAt: 'asc' },
+      });
+
+      if (!staleVideos.length) return;
+
+      this.logger.log(`🔍 Backfilling real YouTube metadata for ${staleVideos.length} videos...`);
+      let updatedCount = 0;
+
+      for (const v of staleVideos) {
+        try {
+          const details = await this.fetchVideoDetails(v.id);
+          if (details) {
+            await this.prisma.video.update({
+              where: { id: v.id },
+              data: {
+                title: details.title || undefined,
+                duration: details.duration || undefined,
+                viewCount: details.viewCount !== undefined ? details.viewCount : undefined,
+                publishedAt: details.publishedAt || undefined,
+                thumbnail: details.thumbnail || undefined,
+              },
+            });
+            updatedCount++;
+          }
+          await new Promise((r) => setTimeout(r, 200));
+        } catch (e: any) {
+          this.logger.warn(`Error backfilling video ${v.id}: ${e.message}`);
+        }
+      }
+
+      this.logger.log(`✅ Backfilled real YouTube metadata for ${updatedCount}/${staleVideos.length} videos.`);
+    } catch (err: any) {
+      this.logger.error(`Backfill video metadata error: ${err.message}`);
+    }
   }
 }
 

@@ -35,7 +35,7 @@ class SearchVideoCard extends StatelessWidget {
                         fit: BoxFit.cover,
                       ),
                     ),
-                    if (video.duration != null)
+                    if (video.duration != null && video.duration!.isNotEmpty && video.duration != '0:00')
                       Positioned(
                         right: 4,
                         bottom: 4,

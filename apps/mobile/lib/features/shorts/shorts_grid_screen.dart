@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/short.dart';
+import '../../core/utils/formatters.dart';
 
 class ShortsGridScreen extends StatefulWidget {
   const ShortsGridScreen({super.key});
@@ -76,33 +78,75 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
         itemCount: _shorts.length,
         itemBuilder: (context, index) {
           final short = _shorts[index];
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: CachedNetworkImage(
-                  imageUrl: short.thumbnailUrl,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned(
-                left: 6,
-                bottom: 6,
-                right: 6,
-                child: Text(
-                  short.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    shadows: [Shadow(blurRadius: 4, color: Colors.black)],
+          return GestureDetector(
+            onTap: () => context.push('/shorts'),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: CachedNetworkImage(
+                    imageUrl: short.thumbnailUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(
+                      color: Colors.grey.shade900,
+                      child: const Icon(Icons.play_circle_outline, color: Colors.white38),
+                    ),
                   ),
                 ),
-              ),
-            ],
+                // Gradient for readability
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.transparent,
+                          Colors.black87,
+                        ],
+                        stops: [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 6,
+                  bottom: 6,
+                  right: 6,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        short.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          shadows: [Shadow(blurRadius: 4, color: Colors.black)],
+                        ),
+                      ),
+                      if (short.viewCount > 0) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '${Formatters.formatViews(short.viewCount)} views',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),

@@ -42,7 +42,7 @@ class VideoCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (video.duration != null && video.duration!.isNotEmpty)
+              if (video.duration != null && video.duration!.isNotEmpty && video.duration != '0:00')
                 Positioned(
                   right: 8,
                   bottom: 8,
