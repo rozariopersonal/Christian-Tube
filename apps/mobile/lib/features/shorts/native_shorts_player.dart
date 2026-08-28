@@ -5,11 +5,13 @@ import 'players/shorts_player.dart';
 class NativeShortsPlayer extends StatelessWidget {
   final Short short;
   final bool isPlaying;
+  final ValueChanged<int>? onStateChange;
 
   const NativeShortsPlayer({
     super.key,
     required this.short,
     required this.isPlaying,
+    this.onStateChange,
   });
 
   @override
@@ -17,6 +19,7 @@ class NativeShortsPlayer extends StatelessWidget {
     return buildPlatformShortsPlayer(
       short: short,
       isPlaying: isPlaying,
+      onStateChange: onStateChange,
     );
   }
 }

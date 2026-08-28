@@ -5,6 +5,8 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import '../../../core/models/short.dart';
 
+html.IFrameElement? _activeWebShortsIframe;
+
 void stopAllPlatformShorts() {
   try {
     final iframes = html.document.querySelectorAll('iframe');
@@ -22,26 +24,58 @@ void stopAllPlatformShorts() {
         elem.remove();
       }
     }
+    _activeWebShortsIframe = null;
+  } catch (_) {}
+}
+
+void pausePlatformShorts() {
+  try {
+    _activeWebShortsIframe?.contentWindow?.postMessage(
+      '{"event":"command","func":"pauseVideo","args":""}',
+      '*',
+    );
+  } catch (_) {}
+}
+
+void resumePlatformShorts() {
+  try {
+    _activeWebShortsIframe?.contentWindow?.postMessage(
+      '{"event":"command","func":"playVideo","args":""}',
+      '*',
+    );
+  } catch (_) {}
+}
+
+void loadPlatformShort(String videoId) {
+  try {
+    _activeWebShortsIframe?.contentWindow?.postMessage(
+      '{"event":"command","func":"loadVideoById","args":["$videoId",0]}',
+      '*',
+    );
   } catch (_) {}
 }
 
 Widget buildPlatformShortsPlayer({
   required Short short,
   required bool isPlaying,
+  ValueChanged<int>? onStateChange,
 }) {
   return _WebShortsPlayerWidget(
     short: short,
     isPlaying: isPlaying,
+    onStateChange: onStateChange,
   );
 }
 
 class _WebShortsPlayerWidget extends StatefulWidget {
   final Short short;
   final bool isPlaying;
+  final ValueChanged<int>? onStateChange;
 
   const _WebShortsPlayerWidget({
     required this.short,
     required this.isPlaying,
+    this.onStateChange,
   });
 
   @override
@@ -51,16 +85,11 @@ class _WebShortsPlayerWidget extends StatefulWidget {
 class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
   String? _viewId;
   html.IFrameElement? _iframeElement;
-  bool _isPaused = false;
-  bool _showFeedback = false;
-  Timer? _feedbackTimer;
 
   @override
   void initState() {
     super.initState();
-    if (widget.isPlaying) {
-      _setupView();
-    }
+    _setupView();
   }
 
   void _setupView() {
@@ -83,53 +112,15 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
           ..allowFullscreen = true;
 
         _iframeElement = iframe;
+        _activeWebShortsIframe = iframe;
         return iframe;
       },
     );
-  }
 
-  void _killIframe() {
-    try {
-      _iframeElement?.contentWindow?.postMessage(
-        '{"event":"command","func":"pauseVideo","args":""}',
-        '*',
-      );
-      _iframeElement?.contentWindow?.postMessage(
-        '{"event":"command","func":"stopVideo","args":""}',
-        '*',
-      );
-      _iframeElement?.src = 'about:blank';
-      _iframeElement?.remove();
-      _iframeElement = null;
-    } catch (_) {}
-  }
-
-  void _togglePlayPause() {
-    if (_iframeElement == null) return;
-    if (_isPaused) {
-      _iframeElement?.contentWindow?.postMessage(
-        '{"event":"command","func":"playVideo","args":""}',
-        '*',
-      );
-      _isPaused = false;
-    } else {
-      _iframeElement?.contentWindow?.postMessage(
-        '{"event":"command","func":"pauseVideo","args":""}',
-        '*',
-      );
-      _isPaused = true;
-    }
-
-    setState(() {
-      _showFeedback = true;
-    });
-
-    _feedbackTimer?.cancel();
-    _feedbackTimer = Timer(const Duration(milliseconds: 650), () {
+    // Trigger state change after a brief delay for web
+    Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) {
-        setState(() {
-          _showFeedback = false;
-        });
+        widget.onStateChange?.call(1); // PLAYING
       }
     });
   }
@@ -137,90 +128,37 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
   @override
   void didUpdateWidget(covariant _WebShortsPlayerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isPlaying != widget.isPlaying) {
+    if (oldWidget.short.id != widget.short.id) {
+      loadPlatformShort(widget.short.id);
+    } else if (oldWidget.isPlaying != widget.isPlaying) {
       if (widget.isPlaying) {
-        _isPaused = false;
-        _setupView();
-        setState(() {});
+        resumePlatformShorts();
       } else {
-        _killIframe();
-        setState(() {
-          _viewId = null;
-        });
+        pausePlatformShorts();
       }
     }
   }
 
   @override
   void dispose() {
-    _feedbackTimer?.cancel();
-    _killIframe();
+    if (_activeWebShortsIframe == _iframeElement) {
+      _activeWebShortsIframe = null;
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isPlaying || _viewId == null) {
-      return Container(
-        color: Colors.black,
-        child: Center(
-          child: AspectRatio(
-            aspectRatio: 9 / 16,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.network(
-                  widget.short.thumbnailUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      Container(color: Colors.black87),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+    if (_viewId == null) {
+      return Container(color: Colors.black);
     }
 
     return Container(
       color: Colors.black,
       child: Center(
-        child: AspectRatio(
-          aspectRatio: 9 / 16,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              HtmlElementView(
-                key: ValueKey(_viewId),
-                viewType: _viewId!,
-              ),
-              GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: _togglePlayPause,
-                child: const SizedBox.expand(),
-              ),
-              Center(
-                child: AnimatedOpacity(
-                  opacity: _showFeedback ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withValues(alpha: 0.6),
-                    ),
-                    child: Icon(
-                      !_isPaused
-                          ? Icons.play_arrow_rounded
-                          : Icons.pause_rounded,
-                      size: 54,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        child: HtmlElementView(
+          key: ValueKey(_viewId),
+          viewType: _viewId!,
         ),
       ),
     );

@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/api/api_client.dart';
@@ -23,9 +26,9 @@ class ShortsFeedScreen extends StatefulWidget {
   State<ShortsFeedScreen> createState() => _ShortsFeedScreenState();
 }
 
-class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
+class _ShortsFeedScreenState extends State<ShortsFeedScreen>
+    with SingleTickerProviderStateMixin {
   final ApiClient _apiClient = ApiClient();
-  final PageController _pageController = PageController();
   final PageController _localPageController = PageController();
   final ShortsOrchestratorService _orchestrator = ShortsOrchestratorService();
 
@@ -35,9 +38,27 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   int _currentLocalPage = 0;
   ShortsViewTab _activeTab = ShortsViewTab.community;
 
+  // Ultra-smooth 120fps Gesture & Visual Veil engine
+  double _dragOffset = 0.0;
+  bool _isVideoReady = false;
+  bool _isPlaying = true;
+  bool _isLiked = false;
+  bool _showFeedback = false;
+  bool _lastFeedbackIsPlaying = false;
+  bool _showHeartAnimation = false;
+  Timer? _feedbackTimer;
+  Timer? _heartTimer;
+
+  late AnimationController _animController;
+  Animation<double>? _slideAnimation;
+
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
     _fetchShorts();
   }
 
@@ -74,33 +95,166 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             return isShortUrl || isShortTitle || isShortDesc || s.type == 'SHORT';
           }).toList();
 
-          setState(() {
-            _shorts = shortsOnly;
-            _isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              _shorts = shortsOnly;
+              _isLoading = false;
+              _currentPage = 0;
+              _isVideoReady = false;
+              _dragOffset = 0.0;
+            });
+          }
           return;
         }
       }
 
-      setState(() {
-        _shorts = [];
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _shorts = [];
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error fetching shorts from video feed: $e');
-      setState(() {
-        _shorts = [];
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _shorts = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   void dispose() {
     stopAllPlatformShorts();
-    _pageController.dispose();
+    _feedbackTimer?.cancel();
+    _heartTimer?.cancel();
+    _animController.dispose();
     _localPageController.dispose();
     super.dispose();
+  }
+
+  void _onVerticalDragStart(DragStartDetails details) {
+    if (_animController.isAnimating) {
+      _animController.stop();
+    }
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    if (_shorts.isEmpty) return;
+
+    final newOffset = _dragOffset + details.primaryDelta!;
+
+    // Instantly pause video audio once dragging starts to prevent audio bleeding
+    if (_dragOffset.abs() > 8.0 && _isPlaying) {
+      pausePlatformShorts();
+    }
+
+    setState(() {
+      _dragOffset = newOffset;
+    });
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    if (_shorts.isEmpty) return;
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final velocity = details.primaryVelocity ?? 0.0;
+    final threshold = screenHeight * 0.16;
+
+    int targetIndex = _currentPage;
+    double targetOffset = 0.0;
+
+    // Upward Drag / Fling -> Next Short
+    if ((_dragOffset < -threshold || velocity < -400) &&
+        _currentPage < _shorts.length - 1) {
+      targetIndex = _currentPage + 1;
+      targetOffset = -screenHeight;
+    }
+    // Downward Drag / Fling -> Previous Short
+    else if ((_dragOffset > threshold || velocity > 400) &&
+        _currentPage > 0) {
+      targetIndex = _currentPage - 1;
+      targetOffset = screenHeight;
+    } else {
+      // Snap back to current
+      targetIndex = _currentPage;
+      targetOffset = 0.0;
+    }
+
+    _slideAnimation = Tween<double>(
+      begin: _dragOffset,
+      end: targetOffset,
+    ).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+
+    _animController.forward(from: 0.0).then((_) {
+      if (!mounted) return;
+
+      if (targetIndex != _currentPage) {
+        HapticFeedback.lightImpact();
+        setState(() {
+          _currentPage = targetIndex;
+          _dragOffset = 0.0;
+          _isVideoReady = false;
+          _isPlaying = true;
+          _isLiked = false;
+        });
+        loadPlatformShort(_shorts[_currentPage].id);
+      } else {
+        setState(() {
+          _dragOffset = 0.0;
+        });
+        if (_isPlaying) {
+          resumePlatformShorts();
+        }
+      }
+    });
+  }
+
+  void _togglePlayPause() {
+    HapticFeedback.lightImpact();
+    if (_isPlaying) {
+      pausePlatformShorts();
+      _isPlaying = false;
+      _lastFeedbackIsPlaying = false;
+    } else {
+      resumePlatformShorts();
+      _isPlaying = true;
+      _lastFeedbackIsPlaying = true;
+    }
+
+    setState(() {
+      _showFeedback = true;
+    });
+
+    _feedbackTimer?.cancel();
+    _feedbackTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) {
+        setState(() {
+          _showFeedback = false;
+        });
+      }
+    });
+  }
+
+  void _onDoubleTap() {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isLiked = true;
+      _showHeartAnimation = true;
+    });
+
+    _heartTimer?.cancel();
+    _heartTimer = Timer(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        setState(() {
+          _showHeartAnimation = false;
+        });
+      }
+    });
   }
 
   @override
@@ -182,7 +336,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFFF59E0B)
-              : Colors.black.withOpacity(0.55),
+              : Colors.black.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? const Color(0xFFF59E0B) : Colors.white24,
@@ -252,190 +406,350 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       );
     }
 
-    return PageView.builder(
-      controller: _pageController,
-      scrollDirection: Axis.vertical,
-      itemCount: _shorts.length,
-      onPageChanged: (index) {
-        setState(() => _currentPage = index);
-      },
-      itemBuilder: (context, index) {
-        final short = _shorts[index];
-        final isPlaying = isTabVisible && (index == _currentPage);
+    final screenHeight = MediaQuery.of(context).size.height;
+    final currentShort = _shorts[_currentPage];
 
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            NativeShortsPlayer(short: short, isPlaying: isPlaying),
+    return AnimatedBuilder(
+      animation: _animController,
+      builder: (context, child) {
+        final currentOffset =
+            _animController.isAnimating ? _slideAnimation!.value : _dragOffset;
 
-            // Gradient Overlay for readability
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black38,
-                        Colors.transparent,
-                        Colors.transparent,
-                        Colors.black87,
-                      ],
-                      stops: [0.0, 0.2, 0.65, 1.0],
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragStart: _onVerticalDragStart,
+          onVerticalDragUpdate: _onVerticalDragUpdate,
+          onVerticalDragEnd: _onVerticalDragEnd,
+          onTap: _togglePlayPause,
+          onDoubleTap: _onDoubleTap,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 1. Persistent Underlying Video Player
+              Positioned.fill(
+                child: NativeShortsPlayer(
+                  short: currentShort,
+                  isPlaying: isTabVisible && _isPlaying && currentOffset == 0.0,
+                  onStateChange: (state) {
+                    // YT.PlayerState.PLAYING = 1
+                    if (state == 1 && mounted) {
+                      setState(() {
+                        _isVideoReady = true;
+                      });
+                    }
+                  },
+                ),
+              ),
+
+              // 2. Incoming Next Card (When dragging upwards)
+              if (currentOffset < 0 && _currentPage < _shorts.length - 1)
+                Positioned(
+                  top: screenHeight + currentOffset,
+                  left: 0,
+                  right: 0,
+                  height: screenHeight,
+                  child: _buildShortCardView(
+                    short: _shorts[_currentPage + 1],
+                    showVeilOnly: true,
+                  ),
+                ),
+
+              // 3. Incoming Previous Card (When dragging downwards)
+              if (currentOffset > 0 && _currentPage > 0)
+                Positioned(
+                  top: -screenHeight + currentOffset,
+                  left: 0,
+                  right: 0,
+                  height: screenHeight,
+                  child: _buildShortCardView(
+                    short: _shorts[_currentPage - 1],
+                    showVeilOnly: true,
+                  ),
+                ),
+
+              // 4. Current Card (Translates with drag; Veil fades when video is playing)
+              Positioned(
+                top: currentOffset,
+                left: 0,
+                right: 0,
+                height: screenHeight,
+                child: _buildShortCardView(
+                  short: currentShort,
+                  showVeilOnly: false,
+                  isVideoReady: _isVideoReady && currentOffset == 0.0,
+                ),
+              ),
+
+              // 5. Play / Pause Flash Icon Center Feedback
+              Center(
+                child: AnimatedOpacity(
+                  opacity: _showFeedback ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 180),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withValues(alpha: 0.65),
+                    ),
+                    child: Icon(
+                      _lastFeedbackIsPlaying
+                          ? Icons.play_arrow_rounded
+                          : Icons.pause_rounded,
+                      size: 56,
+                      color: Colors.white,
                     ),
                   ),
                 ),
               ),
-            ),
 
-            // Right Action Bar (Like, Share, etc.)
-            Positioned(
-              right: 12,
-              bottom: 80,
-              child: Column(
-                children: [
-                  _buildActionButton(
-                    Icons.thumb_up_alt_outlined,
-                    Formatters.formatViews(short.likeCount),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildActionButton(Icons.comment_outlined, 'Comments'),
-                  const SizedBox(height: 16),
-                  _buildActionButton(
-                    Icons.share_outlined,
-                    'Share',
-                    onTap: () => Share.share(
-                      'Watch this ${AppConfig.appName} Short: https://www.youtube.com/shorts/${short.id}',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Bottom Info (Channel + Title + Watch Full Sermon Link)
-            Positioned(
-              left: 16,
-              right: 70,
-              bottom: 24,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Watch Full Sermon Deep Link Button
-                  if (short.sourceVideoId != null && short.sourceVideoId!.isNotEmpty) ...[
-                    GestureDetector(
-                      onTap: () {
-                        context.push(
-                          '/watch/${short.sourceVideoId}?start=${short.clipStartTime ?? 0}',
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFF59E0B).withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+              // 6. Double-Tap Animated Heart Overlay
+              if (_showHeartAnimation)
+                Center(
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0.2, end: 1.2),
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.elasticOut,
+                    builder: (context, scale, child) {
+                      return Transform.scale(
+                        scale: scale,
+                        child: const Icon(
+                          Icons.favorite,
+                          color: Color(0xFFEF4444),
+                          size: 110,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.play_circle_fill, size: 16, color: Colors.black),
-                            SizedBox(width: 6),
-                            Text(
-                              'Watch Full Sermon',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_ios, size: 10, color: Colors.black),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-
-                  // Channel & Creator Attribution
-                  Row(
-                    children: [
-                      ChannelAvatar(
-                        avatarUrl: short.channelAvatarUrl,
-                        channelTitle: short.channelTitle,
-                        radius: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '@${short.channelTitle}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            if (short.creatorName != null && short.creatorName!.isNotEmpty)
-                              Text(
-                                '✂️ Clipped by ${short.creatorName}',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (short.duration != null && short.duration != '0:00') ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.white24, width: 0.5),
-                          ),
-                          child: Text(
-                            short.duration!,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    short.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                ),
+            ],
+          ),
         );
       },
+    );
+  }
+
+  Widget _buildShortCardView({
+    required Short short,
+    bool showVeilOnly = false,
+    bool isVideoReady = false,
+  }) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // High Resolution Thumbnail Veil (Fades out when video is ready)
+        IgnorePointer(
+          ignoring: isVideoReady,
+          child: AnimatedOpacity(
+            opacity: isVideoReady ? 0.0 : 1.0,
+            duration: const Duration(milliseconds: 220),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Ambient blurred background for non-vertical videos
+                if (!short.isVertical) ...[
+                  CachedNetworkImage(
+                    imageUrl: short.thumbnailUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                  Container(
+                    color: Colors.black.withValues(alpha: 0.8),
+                  ),
+                ],
+
+                // Crisp Full-Bleed Thumbnail
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: short.isVertical ? (9 / 16) : (16 / 9),
+                    child: CachedNetworkImage(
+                      imageUrl: short.thumbnailUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(color: Colors.black),
+                      errorWidget: (_, __, ___) => Container(
+                        color: Colors.black,
+                        child: const Icon(Icons.movie, size: 64, color: Colors.white24),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Gradient Overlay for Readability
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black38,
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black87,
+                  ],
+                  stops: [0.0, 0.2, 0.65, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Right Action Bar (Like, Share, etc.)
+        Positioned(
+          right: 12,
+          bottom: 80,
+          child: Column(
+            children: [
+              _buildActionButton(
+                _isLiked ? Icons.thumb_up_alt : Icons.thumb_up_alt_outlined,
+                Formatters.formatViews(short.likeCount + (_isLiked ? 1 : 0)),
+                iconColor: _isLiked ? const Color(0xFFF59E0B) : Colors.white,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() {
+                    _isLiked = !_isLiked;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildActionButton(Icons.comment_outlined, 'Comments'),
+              const SizedBox(height: 16),
+              _buildActionButton(
+                Icons.share_outlined,
+                'Share',
+                onTap: () => Share.share(
+                  'Watch this ${AppConfig.appName} Short: https://www.youtube.com/shorts/${short.id}',
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Bottom Info (Channel + Title + Watch Full Sermon Link)
+        Positioned(
+          left: 16,
+          right: 70,
+          bottom: 24,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Watch Full Sermon Deep Link Button
+              if (short.sourceVideoId != null && short.sourceVideoId!.isNotEmpty) ...[
+                GestureDetector(
+                  onTap: () {
+                    context.push(
+                      '/watch/${short.sourceVideoId}?start=${short.clipStartTime ?? 0}',
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_circle_fill, size: 16, color: Colors.black),
+                        SizedBox(width: 6),
+                        Text(
+                          'Watch Full Sermon',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_ios, size: 10, color: Colors.black),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+
+              // Channel & Creator Attribution
+              Row(
+                children: [
+                  ChannelAvatar(
+                    avatarUrl: short.channelAvatarUrl,
+                    channelTitle: short.channelTitle,
+                    radius: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '@${short.channelTitle}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (short.creatorName != null && short.creatorName!.isNotEmpty)
+                          Text(
+                            '✂️ Clipped by ${short.creatorName}',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (short.duration != null && short.duration != '0:00') ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.white24, width: 0.5),
+                      ),
+                      child: Text(
+                        short.duration!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                short.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -527,9 +841,9 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.5),
-                          Colors.black.withOpacity(0.3),
-                          Colors.black.withOpacity(0.85),
+                          Colors.black.withValues(alpha: 0.5),
+                          Colors.black.withValues(alpha: 0.3),
+                          Colors.black.withValues(alpha: 0.85),
                         ],
                         stops: const [0.0, 0.4, 1.0],
                       ),
@@ -543,7 +857,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     margin: const EdgeInsets.symmetric(horizontal: 32),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B).withOpacity(0.95),
+                      color: const Color(0xFF1E293B).withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: item.status == ShortCreationStatus.published
@@ -626,9 +940,9 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                                 color: const Color(0xFFF59E0B),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: Row(
+                              child: const Row(
                                 mainAxisSize: MainAxisSize.min,
-                                children: const [
+                                children: [
                                   Icon(Icons.play_circle_fill, size: 16, color: Colors.black),
                                   SizedBox(width: 6),
                                   Text(
@@ -678,7 +992,12 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label, {VoidCallback? onTap}) {
+  Widget _buildActionButton(
+    IconData icon,
+    String label, {
+    Color iconColor = Colors.white,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -686,10 +1005,10 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.4),
+              color: Colors.black.withValues(alpha: 0.4),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(icon, color: iconColor, size: 24),
           ),
           const SizedBox(height: 4),
           Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
