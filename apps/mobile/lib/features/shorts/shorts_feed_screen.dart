@@ -919,99 +919,13 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
           ),
         ),
 
-        // 3. Floating Upload Status Pill at Top
+        // 3. Floating One-Line Status Chip at Top
         Positioned(
           top: 60,
           left: 16,
           right: 16,
           child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: item.status == ShortCreationStatus.failed
-                      ? Colors.redAccent
-                      : const Color(0xFFF59E0B),
-                  width: 1.2,
-                ),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2)),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (item.status == ShortCreationStatus.uploading) ...[
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Color(0xFFF59E0B),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '⚡ Uploading to YouTube (${(item.progress * 100).toInt()}%)',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ] else if (item.status == ShortCreationStatus.scheduledUpload) ...[
-                    const Icon(Icons.schedule, size: 16, color: Color(0xFFF59E0B)),
-                    const SizedBox(width: 6),
-                    const Text(
-                      '⏰ Upload Scheduled',
-                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _orchestrator.retryUpload(item.id),
-                      child: const Text(
-                        'Retry',
-                        style: TextStyle(
-                          color: Color(0xFFF59E0B),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ] else if (item.status == ShortCreationStatus.failed) ...[
-                    const Icon(Icons.error_outline, size: 16, color: Colors.redAccent),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'Upload Notice',
-                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _orchestrator.retryUpload(item.id),
-                      child: const Text(
-                        'Retry',
-                        style: TextStyle(
-                          color: Color(0xFFF59E0B),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-                    const Icon(Icons.play_circle_filled, size: 16, color: Colors.greenAccent),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'Playing Rendered Video',
-                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            child: _buildStatusChip(item),
           ),
         ),
 
@@ -1217,79 +1131,160 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             ),
           ),
         ),
+
+        // Centered One-Line Status Chip for Pre-Render Stage
         Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B).withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: const Color(0xFFF59E0B),
-                width: 1.5,
+          child: _buildStatusChip(item),
+        ),
+
+        // Bottom Info
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 24,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                  blurRadius: 24,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (item.status == ShortCreationStatus.downloading)
-                  const Icon(Icons.cloud_download, color: Color(0xFFF59E0B), size: 44)
-                else if (item.status == ShortCreationStatus.trimming)
-                  const Icon(Icons.content_cut, color: Color(0xFFF59E0B), size: 44)
-                else
-                  const Icon(Icons.hourglass_top, color: Color(0xFFF59E0B), size: 44),
-                const SizedBox(height: 14),
-                Text(
-                  item.status == ShortCreationStatus.downloading
-                      ? 'Step 1/3: Extracting Stream'
-                      : 'Step 2/3: Rendering 9:16 Video',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  item.statusDisplay,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: item.progress > 0 ? item.progress : null,
-                    backgroundColor: Colors.white12,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)),
-                    minHeight: 8,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  '${(item.progress * 100).toInt()}% Completed (Background Job)',
-                  style: const TextStyle(
-                    color: Color(0xFFF59E0B),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+              const SizedBox(height: 4),
+              Text(
+                'From: ${item.sourceVideoTitle}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildStatusChip(LocalShortItem item) {
+    Color borderColor = const Color(0xFFF59E0B);
+    Color textColor = Colors.white;
+
+    if (item.status == ShortCreationStatus.failed) {
+      borderColor = Colors.redAccent;
+    } else if (item.status == ShortCreationStatus.published) {
+      borderColor = Colors.greenAccent;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor.withValues(alpha: 0.85), width: 1.2),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (item.status == ShortCreationStatus.downloading) ...[
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '📥 Extracting ${(item.progress * 100).toInt()}%',
+              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ] else if (item.status == ShortCreationStatus.trimming) ...[
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '✂️ Rendering ${(item.progress * 100).toInt()}%',
+              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ] else if (item.status == ShortCreationStatus.uploading) ...[
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '⚡ Uploading ${(item.progress * 100).toInt()}%',
+              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ] else if (item.status == ShortCreationStatus.processing) ...[
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.greenAccent),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '🔄 Syncing...',
+              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ] else if (item.status == ShortCreationStatus.scheduledUpload) ...[
+            const Icon(Icons.schedule, size: 14, color: Color(0xFFF59E0B)),
+            const SizedBox(width: 6),
+            Text(
+              '⏰ Scheduled • ',
+              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            GestureDetector(
+              onTap: () => _orchestrator.retryUpload(item.id),
+              child: const Text(
+                'Retry',
+                style: TextStyle(
+                  color: Color(0xFFF59E0B),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ] else if (item.status == ShortCreationStatus.failed) ...[
+            const Icon(Icons.error_outline, size: 14, color: Colors.redAccent),
+            const SizedBox(width: 6),
+            Text(
+              '⚠️ Notice • ',
+              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            GestureDetector(
+              onTap: () => _orchestrator.retryUpload(item.id),
+              child: const Text(
+                'Retry',
+                style: TextStyle(
+                  color: Color(0xFFF59E0B),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ] else ...[
+            const Icon(Icons.play_circle_filled, size: 14, color: Colors.greenAccent),
+            const SizedBox(width: 6),
+            Text(
+              '🎬 Local Video',
+              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
