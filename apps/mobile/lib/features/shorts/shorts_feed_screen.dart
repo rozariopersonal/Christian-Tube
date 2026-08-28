@@ -66,12 +66,19 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   double _currentPosition = 0.0;
   double _totalDuration = 0.0;
 
+  StreamSubscription<void>? _shortsResetSub;
+
   @override
   void initState() {
     super.initState();
     _fetchShorts();
     _orchestrator.fetchCloudCreations();
     _communityScrollController.addListener(_onCommunityScroll);
+
+    // Reset to grid when the Shorts bottom-nav tab is re-tapped
+    _shortsResetSub = BottomBarVisibilityService.instance
+        .onShortsResetRequested
+        .listen((_) => _handleTabReset());
   }
 
   @override
@@ -152,6 +159,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   @override
   void dispose() {
+    _shortsResetSub?.cancel();
     stopAllPlatformShorts();
     BottomBarVisibilityService.instance.setShortPlaying(false);
     _communityScrollController.removeListener(_onCommunityScroll);
@@ -160,6 +168,23 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     _localPageController.dispose();
     _autoHideTimer?.cancel();
     super.dispose();
+  }
+
+  /// Called when the Shorts tab is re-tapped. Closes the player (if open) and
+  /// scrolls the grid back to the top.
+  void _handleTabReset() {
+    if (!mounted) return;
+    _closeShortPlayer();
+    // Scroll community grid to top if it is the active feed
+    if (_activeTab == ShortsViewTab.community &&
+        _communityScrollController.hasClients &&
+        _communityScrollController.offset > 0) {
+      _communityScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   void _onCommunityScroll() {
@@ -353,7 +378,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                   : _buildMyCreationsFeed(),
             ),
 
-            // 2. Top Smoothed Masking Header (Masks YouTube top title bar & share icon)
+            // 2a. Top Gradient + HUD Controls (fade with auto-hide)
             Positioned(
               top: 0,
               left: 0,
@@ -386,48 +411,9 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                              tooltip: 'Back',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              onPressed: () {
-                                if (_selectedCommunityIndex != null || _selectedCreationIndex != null) {
-                                  _closeShortPlayer();
-                                } else {
-                                  stopAllPlatformShorts();
-                                  BottomBarVisibilityService.instance.setShortPlaying(false);
-                                  if (Navigator.of(context).canPop()) {
-                                    Navigator.of(context).pop();
-                                  } else {
-                                    context.go('/feed');
-                                  }
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildTabChip(
-                              label: '🌐 Community',
-                              tab: ShortsViewTab.community,
-                              count: null,
-                            ),
-                            const SizedBox(width: 8),
-                            ListenableBuilder(
-                              listenable: _orchestrator,
-                              builder: (context, _) {
-                                final activeCount = _orchestrator.activeJobsCount;
-                                return _buildTabChip(
-                                  label: '🎬 My Creations',
-                                  tab: ShortsViewTab.myCreations,
-                                  count: _orchestrator.localShorts.length,
-                                  activeJobs: activeCount,
-                                );
-                              },
-                            ),
-                          ],
-                        ),
+                        // Back button placeholder — same width as the icon so tab chips
+                        // align correctly when the full row is measured
+                        const SizedBox(width: 32),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -467,6 +453,67 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                     ),
                   ),
                 ),
+              ),
+            ),
+
+            // 2b. Back button — fades with HUD (separate so it doesn't shift tab chips)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 4,
+              child: IgnorePointer(
+                ignoring: !_areControlsVisible,
+                child: AnimatedOpacity(
+                  opacity: _areControlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                    tooltip: 'Back',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    onPressed: () {
+                      if (_selectedCommunityIndex != null || _selectedCreationIndex != null) {
+                        _closeShortPlayer();
+                      } else {
+                        stopAllPlatformShorts();
+                        BottomBarVisibilityService.instance.setShortPlaying(false);
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        } else {
+                          context.go('/feed');
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+
+            // 2c. Tab chips — ALWAYS visible so users can switch tabs in immersive mode
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 44,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTabChip(
+                    label: '🌐 Community',
+                    tab: ShortsViewTab.community,
+                    count: null,
+                  ),
+                  const SizedBox(width: 8),
+                  ListenableBuilder(
+                    listenable: _orchestrator,
+                    builder: (context, _) {
+                      final activeCount = _orchestrator.activeJobsCount;
+                      return _buildTabChip(
+                        label: '🎬 My Creations',
+                        tab: ShortsViewTab.myCreations,
+                        count: _orchestrator.localShorts.length,
+                        activeJobs: activeCount,
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ],

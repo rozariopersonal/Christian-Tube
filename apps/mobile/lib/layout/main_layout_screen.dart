@@ -71,6 +71,14 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       stopAllPlatformShorts();
     }
 
+    // Re-tapping the Shorts tab while it is already active → reset to grid
+    if (index == 1 &&
+        widget.navigationShell != null &&
+        widget.navigationShell!.currentIndex == 1) {
+      BottomBarVisibilityService.instance.requestShortsReset();
+      return;
+    }
+
     if (widget.navigationShell != null) {
       widget.navigationShell!.goBranch(
         index,

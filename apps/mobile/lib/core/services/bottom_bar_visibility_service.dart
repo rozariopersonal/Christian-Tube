@@ -1,9 +1,26 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// Centralized service to manage bottom navigation tab bar visibility across the entire app.
 class BottomBarVisibilityService extends ChangeNotifier {
   static final BottomBarVisibilityService instance = BottomBarVisibilityService._();
   BottomBarVisibilityService._();
+
+  // ── Shorts grid-reset signal ──────────────────────────────────────────────
+  final StreamController<void> _shortsResetController =
+      StreamController<void>.broadcast();
+
+  /// Subscribe to this stream to be notified when the Shorts tab is re-tapped
+  /// while it is already active (i.e. the user wants to return to the grid).
+  Stream<void> get onShortsResetRequested => _shortsResetController.stream;
+
+  /// Fire the reset signal. Called by the bottom nav when the Shorts tab is
+  /// tapped while Shorts is already the current branch.
+  void requestShortsReset() {
+    if (!_shortsResetController.isClosed) {
+      _shortsResetController.add(null);
+    }
+  }
 
   bool _isShortPlaying = false;
   bool _isExplicitlyHidden = false;
