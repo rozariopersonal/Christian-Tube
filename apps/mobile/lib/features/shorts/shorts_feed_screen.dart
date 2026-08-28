@@ -11,6 +11,7 @@ import '../../core/utils/formatters.dart';
 import '../../shared/ui/channel_avatar.dart';
 import 'native_shorts_player.dart';
 import 'players/shorts_player.dart';
+import 'players/local_short_player.dart';
 import '../../core/config/app_config.dart';
 import '../../core/services/bottom_bar_visibility_service.dart';
 import 'services/shorts_orchestrator_service.dart';
@@ -84,8 +85,11 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   void _openCommunityShortAt(int index) {
     if (index < 0 || index >= _shorts.length) return;
-    _pageController.dispose();
-    _pageController = PageController(initialPage: index);
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(index);
+    } else {
+      _pageController = PageController(initialPage: index);
+    }
     setState(() {
       _selectedCommunityIndex = index;
       _currentPage = index;
@@ -100,8 +104,11 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   void _openCreationShortAt(int index) {
     final list = _orchestrator.localShorts;
     if (index < 0 || index >= list.length) return;
-    _localPageController.dispose();
-    _localPageController = PageController(initialPage: index);
+    if (_localPageController.hasClients) {
+      _localPageController.jumpToPage(index);
+    } else {
+      _localPageController = PageController(initialPage: index);
+    }
     setState(() {
       _selectedCreationIndex = index;
       _currentPage = index;
@@ -861,16 +868,35 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     int index,
     bool isTabVisible, {
     Widget? topStatusChip,
+    LocalShortItem? localItem,
   }) {
     final isWithinSlidingWindow = (index - _currentPage).abs() <= 1;
     final isCurrentActive = index == _currentPage;
     final slotIndex = index % 3;
 
+    final hasLocalVideo = localItem != null &&
+        localItem.localVideoPath != null &&
+        localItem.localVideoPath!.isNotEmpty;
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. Sliding Window Slot Player / Static Thumbnail (1:1 Native Resolution)
-        if (isWithinSlidingWindow)
+        // 1. Local Offline Video Player or Sliding Window Slot Player / Static Thumbnail
+        if (hasLocalVideo && isWithinSlidingWindow)
+          LocalShortPlayer(
+            key: ValueKey('local_slot_${localItem.id}'),
+            item: localItem,
+            isPlaying: isTabVisible && isCurrentActive && _isPlaying,
+            onProgress: (cur, dur) {
+              if (isCurrentActive && !_isScrubbing && mounted) {
+                setState(() {
+                  _currentPosition = cur;
+                  if (dur > 0) _totalDuration = dur;
+                });
+              }
+            },
+          )
+        else if (isWithinSlidingWindow)
           NativeShortsPlayer(
             key: ValueKey('slot_${slotIndex}_${short.id}'),
             short: short,
@@ -1347,6 +1373,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                   index,
                   true,
                   topStatusChip: statusChip,
+                  localItem: item,
                 );
               },
             ),

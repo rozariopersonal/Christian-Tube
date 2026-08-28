@@ -202,10 +202,12 @@ class ShortsOrchestratorService extends ChangeNotifier {
       // Upload binary video stream to YouTube
       try {
         dynamic postData;
+        int? fileSize;
         if (item.localVideoPath != null && !kIsWeb) {
           final file = io.File(item.localVideoPath!);
           if (await file.exists()) {
-            postData = await file.readAsBytes();
+            fileSize = await file.length();
+            postData = file.openRead();
           }
         }
 
@@ -215,11 +217,13 @@ class ShortsOrchestratorService extends ChangeNotifier {
           options: Options(
             headers: {
               'Content-Type': 'video/mp4',
+              if (fileSize != null) 'Content-Length': fileSize.toString(),
             },
           ),
           onSendProgress: (sent, total) {
-            if (total > 0) {
-              final p = 0.2 + ((sent / total) * 0.75);
+            final effectiveTotal = (total > 0) ? total : (fileSize ?? 0);
+            if (effectiveTotal > 0) {
+              final p = 0.2 + ((sent / effectiveTotal) * 0.75);
               _updateItemStatus(
                 shortId,
                 status: ShortCreationStatus.uploading,

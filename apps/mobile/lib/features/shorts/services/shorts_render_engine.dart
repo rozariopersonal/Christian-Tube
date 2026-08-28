@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.html) 'dart:html';
+import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
@@ -34,7 +34,7 @@ class ShortsRenderEngine {
           ? '9:16 Vertical Short (Pan: ${(cropOffsetX * 100).toInt()}%)'
           : '16:9 Landscape Video';
 
-      onProgress(0.1, 'Resolving 720p video stream ($modeLabel)...');
+      onProgress(0.1, 'Resolving media stream ($modeLabel)...');
 
       if (kIsWeb) {
         // Web Environment: High-fidelity processing simulator for full web testability
@@ -57,22 +57,38 @@ class ShortsRenderEngine {
 
       // Native Mobile Environment (Android / iOS)
       final manifest = await _yt.videos.streamsClient.getManifest(sourceVideoId);
-      final muxedStream = manifest.muxed.withHighestBitrate();
-      final streamUrl = muxedStream.url.toString();
+      final muxedStreams = manifest.muxed;
+      if (muxedStreams.isEmpty) {
+        throw 'No muxed video/audio stream available for this video.';
+      }
 
-      onProgress(0.3, 'Stream resolved. Initializing 720p render ($modeLabel)...');
+      final muxedStream = muxedStreams.withHighestBitrate();
+      onProgress(0.25, 'Downloading video stream ($modeLabel)...');
 
       final tempDir = await getTemporaryDirectory();
       final outputPath =
           '${tempDir.path}/short_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final file = io.File(outputPath);
+      final fileSink = file.openWrite();
 
-      // Duration in seconds
-      final duration = (endSeconds - startSeconds).clamp(5.0, 180.0);
+      final totalBytes = muxedStream.size.totalBytes;
+      var bytesReceived = 0;
 
-      // In production Flutter with FFmpeg kit or stream capture:
-      for (int i = 1; i <= 4; i++) {
-        await Future.delayed(const Duration(milliseconds: 400));
-        onProgress(0.3 + (i * 0.15), 'Rendering 720p vertical Short ($modeLabel)...');
+      final stream = _yt.videos.streamsClient.get(muxedStream);
+      await for (final chunk in stream) {
+        bytesReceived += chunk.length;
+        fileSink.add(chunk);
+        if (totalBytes > 0) {
+          final p = 0.25 + ((bytesReceived / totalBytes) * 0.70);
+          onProgress(p.clamp(0.25, 0.95), 'Rendering 720p Short (${(bytesReceived / (1024 * 1024)).toStringAsFixed(1)} MB)...');
+        }
+      }
+
+      await fileSink.flush();
+      await fileSink.close();
+
+      if (!await file.exists() || await file.length() == 0) {
+        throw 'Output video file was not generated or is 0 bytes.';
       }
 
       onProgress(1.0, 'Rendering finished');

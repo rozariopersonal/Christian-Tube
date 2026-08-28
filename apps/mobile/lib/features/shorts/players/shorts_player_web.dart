@@ -165,6 +165,9 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
 
   void _listenToMessages() {
     _msgSub = html.window.onMessage.listen((event) {
+      if (_iframeElement != null && event.source != _iframeElement!.contentWindow) {
+        return;
+      }
       if (event.data is String) {
         try {
           final data = jsonDecode(event.data);
@@ -195,7 +198,25 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
                   final dur = info.containsKey('duration')
                       ? (info['duration'] as num).toDouble()
                       : 0.0;
-                  widget.onProgress?.call(cur, dur);
+
+                  final clipStart = widget.short.playableStartSeconds.toDouble();
+                  final clipEnd = widget.short.playableEndSeconds?.toDouble();
+
+                  // Auto-loop when clip end is reached
+                  if (clipEnd != null && clipEnd > 0 && cur >= (clipEnd - 0.25) && widget.isPlaying) {
+                    _sendIframeCommand('seekTo', [clipStart, true]);
+                    _sendIframeCommand('playVideo');
+                  }
+
+                  if (clipStart > 0 || clipEnd != null) {
+                    final normCur = (cur - clipStart).clamp(0.0, double.infinity);
+                    final normDur = (clipEnd != null && clipEnd > clipStart)
+                        ? (clipEnd - clipStart)
+                        : (dur > clipStart ? dur - clipStart : dur);
+                    widget.onProgress?.call(normCur, normDur);
+                  } else {
+                    widget.onProgress?.call(cur, dur);
+                  }
                 }
               }
             }

@@ -225,7 +225,8 @@ export class ShortsService {
     cropOffsetX?: number;
   }) {
     try {
-      return await (this.prisma as any).shortCreation.upsert({
+      // 1. Upsert into ShortCreation tracking table
+      const creation = await (this.prisma as any).shortCreation.upsert({
         where: { id: `sc_${data.youtubeVideoId}` },
         update: {
           userId: data.userId || undefined,
@@ -257,6 +258,86 @@ export class ShortsService {
           cropOffsetX: data.cropOffsetX ?? 0.0,
         },
       });
+
+      // 2. Also immediately upsert into Video table so it appears in the Community Feed instantly
+      try {
+        let channelId = this.configService.get<string>('shorts.customChannelId') || 'UCSaJppP4zb2vivjxYfTqOKw';
+        let channelName = 'Community Shorts';
+        let channelThumbnail: string | null = null;
+        let category = 'General';
+
+        if (data.sourceVideoId) {
+          const sourceVideo = await this.prisma.video.findUnique({
+            where: { id: data.sourceVideoId },
+            include: { channel: true },
+          });
+          if (sourceVideo) {
+            channelId = sourceVideo.channelId || channelId;
+            channelName = sourceVideo.channelName || channelName;
+            channelThumbnail = sourceVideo.channelThumbnail || null;
+            category = sourceVideo.category || category;
+          }
+        }
+
+        await this.prisma.channel.upsert({
+          where: { id: channelId },
+          update: {},
+          create: {
+            id: channelId,
+            name: channelName,
+            thumbnail: channelThumbnail,
+            isActive: true,
+            category,
+          },
+        });
+
+        await this.prisma.video.upsert({
+          where: { id: data.youtubeVideoId },
+          update: {
+            type: 'SHORT',
+            title: data.title,
+            description: data.description || '',
+            thumbnail: data.thumbnail || `https://img.youtube.com/vi/${data.youtubeVideoId}/hqdefault.jpg`,
+            creatorUserId: data.userId || undefined,
+            creatorName: data.creatorName || undefined,
+            creatorEmail: data.userEmail || undefined,
+            sourceVideoId: data.sourceVideoId || undefined,
+            clipStartTime: data.clipStartTime != null ? Number(data.clipStartTime) : undefined,
+            clipEndTime: data.clipEndTime != null ? Number(data.clipEndTime) : undefined,
+            cropOffsetX: data.cropOffsetX != null ? Number(data.cropOffsetX) : 0.0,
+            clippedAt: new Date(),
+            category,
+          },
+          create: {
+            id: data.youtubeVideoId,
+            type: 'SHORT',
+            title: data.title,
+            description: data.description || '',
+            thumbnail: data.thumbnail || `https://img.youtube.com/vi/${data.youtubeVideoId}/hqdefault.jpg`,
+            channelId,
+            channelName,
+            channelThumbnail,
+            publishedAt: new Date(),
+            duration: `PT${data.durationSeconds || 60}S`,
+            viewCount: 0,
+            tags: ['#Shorts', 'Christian'],
+            creatorUserId: data.userId || null,
+            creatorName: data.creatorName || null,
+            creatorEmail: data.userEmail || null,
+            sourceVideoId: data.sourceVideoId || null,
+            clipStartTime: data.clipStartTime != null ? Number(data.clipStartTime) : null,
+            clipEndTime: data.clipEndTime != null ? Number(data.clipEndTime) : null,
+            cropOffsetX: data.cropOffsetX != null ? Number(data.cropOffsetX) : 0.0,
+            clippedAt: new Date(),
+            category,
+          },
+        });
+        this.logger.log(`✅ Short automatically mirrored to Video feed: ${data.youtubeVideoId} ("${data.title}")`);
+      } catch (feedErr: any) {
+        this.logger.warn(`Could not mirror short creation to Video feed: ${feedErr.message}`);
+      }
+
+      return creation;
     } catch (e: any) {
       this.logger.warn(`recordCreation notice: ${e.message}`);
       return null;

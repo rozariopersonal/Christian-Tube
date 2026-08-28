@@ -32,7 +32,7 @@ void seekPlatformShort(int slotIndex, double seconds) {
   try {
     final controller = _activeMobileSlots[slotIndex];
     controller?.evaluateJavascript(
-      source: "try { if (typeof player !== 'undefined' && player && typeof player.seekTo === 'function') { player.seekTo($seconds, true); } } catch(e) {}",
+      source: "try { if (typeof seekTo === 'function') { seekTo($seconds); } else if (typeof player !== 'undefined' && player && typeof player.seekTo === 'function') { player.seekTo($seconds, true); } } catch(e) {}",
     );
   } catch (_) {}
 }
@@ -264,10 +264,34 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
                         try {
                             var cur = player.getCurrentTime();
                             var dur = player.getDuration();
-                            window.flutter_inappwebview.callHandler('onProgress', cur, dur);
+
+                            // Auto-loop when clip end boundary is reached
+                            if (clipEnd !== null && clipEnd > 0 && cur >= (clipEnd - 0.25)) {
+                                player.seekTo(clipStart, true);
+                                player.playVideo();
+                                cur = clipStart;
+                            }
+
+                            // Normalize timestamps for clipped sermons
+                            if (clipStart > 0 || clipEnd !== null) {
+                                var normalizedCur = Math.max(0, cur - clipStart);
+                                var normalizedDur = (clipEnd !== null && clipEnd > clipStart) ? (clipEnd - clipStart) : Math.max(1, dur - clipStart);
+                                window.flutter_inappwebview.callHandler('onProgress', normalizedCur, normalizedDur);
+                            } else {
+                                window.flutter_inappwebview.callHandler('onProgress', cur, dur);
+                            }
                         } catch(e){}
                     }
                 }, 250);
+            }
+        }
+
+        function seekTo(sec) {
+            if (isReady && player && typeof player.seekTo === 'function') {
+                try {
+                    var target = (clipStart > 0) ? (clipStart + sec) : sec;
+                    player.seekTo(target, true);
+                } catch(err){}
             }
         }
 
