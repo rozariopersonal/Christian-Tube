@@ -8,9 +8,9 @@
   "scripts": {
     "build": "prisma generate && tsc -p tsconfig.json",
     "format": "prettier --write \"src/**/*.ts\"",
-    "start": "node dist/src/main.js",
+    "start": "node dist/main.js || node dist/src/main.js",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/src/main.js",
+    "start:prod": "node dist/main.js || node dist/src/main.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy"
   },

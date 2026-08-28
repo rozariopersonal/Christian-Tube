@@ -27,7 +27,7 @@ export class SyncController {
   /**
    * Google WebSub Verification Handshake (GET)
    */
-  @Get(['webhook', 'webhooks', 'webhooks/youtube'])
+  @Get(['webhook', 'webhooks'])
   verifyWebSubSubscription(
     @Query('hub.mode') mode?: string,
     @Query('hub.challenge') challenge?: string,
@@ -44,7 +44,7 @@ export class SyncController {
   /**
    * Google WebSub Real-Time Push Notification (POST)
    */
-  @Post(['webhook', 'webhooks', 'webhooks/youtube'])
+  @Post(['webhook', 'webhooks'])
   async handleWebSubPush(
     @Req() req: any,
     @Body() body: any,
@@ -53,7 +53,6 @@ export class SyncController {
     const rawXml = typeof body === 'string' ? body : (req.rawBody || JSON.stringify(body));
     this.logger.log('Incoming Google WebSub real-time video push notification received.');
 
-    // Process notification asynchronously
     this.syncService.handleWebSubPushNotification(rawXml).catch((err) => {
       this.logger.error(`Error processing WebSub push: ${err.message}`);
     });
@@ -64,8 +63,8 @@ export class SyncController {
   /**
    * Manual trigger to sync all channels
    */
-  @Get('sync')
-  @Post('sync')
+  @Get(['', 'sync'])
+  @Post(['', 'sync'])
   async triggerSync(@Headers('x-job-secret') secret?: string) {
     const internalSecret = this.configService.get<string>('internalJobSecret');
     if (internalSecret && secret && secret !== internalSecret) {
