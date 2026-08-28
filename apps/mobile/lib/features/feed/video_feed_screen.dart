@@ -27,15 +27,25 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   @override
   void initState() {
     super.initState();
+    _channelService.addListener(_onChannelsChanged);
     _loadInitialFeed();
     _scrollController.addListener(_onScroll);
+  }
+
+  void _onChannelsChanged() {
+    _videoService.updateSubscribedChannelIds(
+      _channelService.subscribedChannelIds,
+      triggerRefresh: true,
+    );
   }
 
   Future<void> _loadInitialFeed() async {
     await _channelService.loadSubscriptions();
     await _channelService.fetchChannels();
-    _videoService.updateSubscribedChannelIds(_channelService.subscribedChannelIds);
-    _videoService.refreshVideos();
+    _videoService.updateSubscribedChannelIds(
+      _channelService.subscribedChannelIds,
+      triggerRefresh: true,
+    );
     _shortsService.fetchShorts();
   }
 
@@ -47,6 +57,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
   @override
   void dispose() {
+    _channelService.removeListener(_onChannelsChanged);
     _scrollController.dispose();
     super.dispose();
   }
@@ -244,15 +255,71 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               ),
             ),
           ),
-          body: _buildBody(videos, shorts, isDark),
+          body: _buildBody(videos, shorts, isDark, subscribedIds.isEmpty),
         );
       },
     );
   }
 
-  Widget _buildBody(List<Video> videos, List<Short> shorts, bool isDark) {
+  Widget _buildBody(List<Video> videos, List<Short> shorts, bool isDark, bool hasNoSubscriptions) {
     if (_videoService.isLoading && videos.isEmpty) {
       return const Center(child: CircularProgressIndicator(color: Colors.red));
+    }
+
+    if (hasNoSubscriptions) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.subscriptions_outlined,
+                  size: 56,
+                  color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Your Feed is Empty',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Subscribe to channels in our curated library to build your personalized feed.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.white60 : Colors.black54,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => context.go('/channels'),
+                icon: const Icon(Icons.explore_outlined, size: 18),
+                label: const Text('Explore Channels', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     if (videos.isEmpty) {
@@ -265,16 +332,16 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               const Icon(Icons.video_library_outlined, size: 56, color: Colors.grey),
               const SizedBox(height: 16),
               const Text(
-                'No videos found in this category',
+                'No videos found for selected filter',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
                   setState(() => _selectedCategory = 'All');
-                  _videoService.setFilter(category: null, onlySubscribed: false);
+                  _videoService.setFilter(channelId: null, onlySubscribed: true);
                 },
-                child: const Text('Show All Videos'),
+                child: const Text('Show All Subscriptions'),
               ),
             ],
           ),

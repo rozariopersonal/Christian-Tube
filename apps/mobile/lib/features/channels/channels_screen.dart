@@ -225,28 +225,34 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                     ],
                   ),
                 ),
-                if (!isAdmin)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isSubscribed
-                          ? (isDark ? Colors.grey.shade800 : Colors.grey.shade200)
-                          : const Color(0xFF3B82F6),
-                      foregroundColor: isSubscribed
-                          ? (isDark ? Colors.white70 : Colors.black87)
-                          : Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                    onPressed: () => _channelService.toggleSubscribe(ch.id),
-                    child: Text(
-                      isSubscribed ? 'Subscribed' : 'Subscribe',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  )
-                else
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isSubscribed
+                        ? (isDark ? Colors.grey.shade800 : Colors.grey.shade200)
+                        : const Color(0xFF3B82F6),
+                    foregroundColor: isSubscribed
+                        ? (isDark ? Colors.white70 : Colors.black87)
+                        : Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  ),
+                  onPressed: () => _channelService.toggleSubscribe(ch.id),
+                  icon: Icon(
+                    isSubscribed ? Icons.notifications_active : Icons.add,
+                    size: 16,
+                  ),
+                  label: Text(
+                    isSubscribed ? 'Subscribed' : 'Subscribe',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (isAdmin) ...[
+                  const SizedBox(width: 4),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     onSelected: (val) {
                       if (val == 'delete') {
                         _confirmDeleteChannel(context, ch.id, ch.name);
@@ -265,6 +271,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                       ),
                     ],
                   ),
+                ],
               ],
             ),
           );

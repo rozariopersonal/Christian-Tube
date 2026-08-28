@@ -5,6 +5,12 @@ import '../../core/models/channel.dart';
 import '../../core/models/channel_request.dart';
 
 class ChannelService extends ChangeNotifier {
+  static final ChannelService _instance = ChannelService._internal();
+  factory ChannelService() => _instance;
+  ChannelService._internal() {
+    loadSubscriptions();
+  }
+
   final ApiClient _apiClient = ApiClient();
   List<Channel> _channels = [];
   List<Map<String, dynamic>> _channelRequests = [];
@@ -17,6 +23,8 @@ class ChannelService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoadingRequests => _isLoadingRequests;
   Set<String> get subscribedChannelIds => _subscribedIds;
+
+  bool isSubscribed(String channelId) => _subscribedIds.contains(channelId);
 
   Future<void> loadSubscriptions() async {
     try {

@@ -5,6 +5,12 @@ import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 
 class VideoService extends ChangeNotifier {
+  static final VideoService _instance = VideoService._internal();
+  factory VideoService() => _instance;
+  VideoService._internal() {
+    _loadCachedFeed();
+  }
+
   final ApiClient _apiClient = ApiClient();
   List<Video> _videos = [];
   bool _isLoading = false;
@@ -15,11 +21,7 @@ class VideoService extends ChangeNotifier {
   String? _selectedCategory;
   String? _selectedChannelId;
   Set<String> _subscribedChannelIds = {};
-  bool _onlySubscribed = false;
-
-  VideoService() {
-    _loadCachedFeed();
-  }
+  bool _onlySubscribed = true;
 
   Future<void> _loadCachedFeed() async {
     try {
@@ -51,8 +53,26 @@ class VideoService extends ChangeNotifier {
   String? get selectedChannelId => _selectedChannelId;
   bool get onlySubscribed => _onlySubscribed;
 
-  void updateSubscribedChannelIds(Set<String> ids) {
-    _subscribedChannelIds = ids;
+  void updateSubscribedChannelIds(Set<String> ids, {bool triggerRefresh = false}) {
+    final changed = !setEquals(_subscribedChannelIds, ids);
+    _subscribedChannelIds = Set.from(ids);
+    if (changed) {
+      if (_onlySubscribed) {
+        if (_subscribedChannelIds.isEmpty) {
+          _videos = [];
+          _hasMore = false;
+          _isLoading = false;
+          notifyListeners();
+        } else {
+          _videos.removeWhere((v) => !_subscribedChannelIds.contains(v.channelId));
+          if (triggerRefresh || _videos.isEmpty) {
+            refreshVideos();
+          } else {
+            notifyListeners();
+          }
+        }
+      }
+    }
   }
 
   void setFilter({String? category, String? channelId, bool? onlySubscribed}) {
