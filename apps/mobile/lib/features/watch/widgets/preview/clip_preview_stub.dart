@@ -65,6 +65,7 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
   double _currentPosition = 0.0;
   double _localCropOffset = 0.0;
   bool _isDraggingCrop = false;
+  double _dragDistance = 0.0;
   bool _isPlaying = true;
   bool _showFeedback = false;
   Timer? _ticker;
@@ -106,13 +107,36 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
     widget.onPositionChanged?.call(_currentPosition);
   }
 
-  void togglePlayPause() {
-    HapticFeedback.lightImpact();
+  void play() {
+    if (_isPlaying) return;
     setState(() {
-      _isPlaying = !_isPlaying;
+      _isPlaying = true;
       _showFeedback = true;
     });
     widget.onTogglePlayPause?.call();
+    _triggerFeedbackTimer();
+  }
+
+  void pause() {
+    if (!_isPlaying) return;
+    setState(() {
+      _isPlaying = false;
+      _showFeedback = true;
+    });
+    widget.onTogglePlayPause?.call();
+    _triggerFeedbackTimer();
+  }
+
+  void togglePlayPause() {
+    HapticFeedback.lightImpact();
+    if (_isPlaying) {
+      pause();
+    } else {
+      play();
+    }
+  }
+
+  void _triggerFeedbackTimer() {
     Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) setState(() => _showFeedback = false);
     });
@@ -190,16 +214,19 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // 1. Full 16:9 Landscape Video Image
+                // 1. Full 16:9 Landscape Live Video Thumbnail Canvas
                 Positioned.fill(
-                  child: Image.network(
-                    _thumbnailUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(color: Colors.black),
+                  child: IgnorePointer(
+                    ignoring: true,
+                    child: Image.network(
+                      _thumbnailUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: Colors.black),
+                    ),
                   ),
                 ),
 
-                // 2. Dimmed Outer Regions & Glowing 9:16 Viewfinder (in 9:16 mode)
+                // 2. Dimmed Outer Regions & Glowing 9:16 Viewfinder
                 if (is9x16) ...[
                   // Dimmed Left Mask
                   Positioned(
@@ -338,12 +365,13 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
                   ),
                 ],
 
-                // 3. Direct Drag GestureDetector over entire preview canvas
+                // 3. Direct Drag & Tap GestureDetector with displacement discrimination
                 Positioned.fill(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onHorizontalDragStart: is9x16
                         ? (_) {
+                            _dragDistance = 0.0;
                             setState(() {
                               _isDraggingCrop = true;
                             });
@@ -351,6 +379,7 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
                         : null,
                     onHorizontalDragUpdate: is9x16
                         ? (details) {
+                            _dragDistance += (details.primaryDelta ?? 0).abs();
                             final halfTravel = travelDistance / 2;
                             if (halfTravel > 0) {
                               final deltaNormalized = details.primaryDelta! / halfTravel;
@@ -367,6 +396,9 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
                             setState(() {
                               _isDraggingCrop = false;
                             });
+                            if (_dragDistance < 8.0) {
+                              togglePlayPause();
+                            }
                           }
                         : null,
                     onHorizontalDragCancel: is9x16
@@ -376,7 +408,7 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
                             });
                           }
                         : null,
-                    onTap: togglePlayPause,
+                    onTap: is9x16 ? null : togglePlayPause,
                   ),
                 ),
 
@@ -442,28 +474,31 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
                   ),
                 ),
 
-                // 5. Center Play / Pause Feedback
+                // 5. Center Play / Pause Feedback & Tap Target
                 Center(
                   child: AnimatedOpacity(
                     opacity: _showFeedback ? 1.0 : (_isPlaying ? 0.0 : 0.85),
                     duration: const Duration(milliseconds: 180),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.black.withValues(alpha: 0.65),
-                        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
-                      ),
-                      child: Icon(
-                        _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        size: 38,
-                        color: const Color(0xFFF59E0B),
+                    child: GestureDetector(
+                      onTap: togglePlayPause,
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withValues(alpha: 0.65),
+                          border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+                        ),
+                        child: Icon(
+                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          size: 38,
+                          color: const Color(0xFFF59E0B),
+                        ),
                       ),
                     ),
                   ),
                 ),
 
-                // 6. Bottom Interactive Clip Scrubber Bar & Timestamp Indicator
+                // 6. Bottom Interactive Clip Scrubber Bar & Play/Pause Button
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -486,20 +521,71 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '${_formatSeconds(elapsedInClip)} / ${_formatSeconds(clipDuration)}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'monospace',
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: togglePlayPause,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E293B),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFFF59E0B).withValues(alpha: 0.6),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                          color: const Color(0xFFF59E0B),
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          _isPlaying ? 'Pause' : 'Play',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${_formatSeconds(elapsedInClip)} / ${_formatSeconds(clipDuration)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
                             ),
-                            if (widget.isLooping)
-                              const Text(
-                                'Looping Clip',
-                                style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11),
+                            if (widget.isLooping) ...[
+                              Row(
+                                children: const [
+                                  Icon(Icons.repeat, color: Color(0xFFF59E0B), size: 12),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Looping',
+                                    style: TextStyle(
+                                      color: Color(0xFFF59E0B),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 4),

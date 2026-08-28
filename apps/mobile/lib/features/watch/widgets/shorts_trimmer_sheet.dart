@@ -318,44 +318,86 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                         ],
                       ),
 
-                      // Loop preview toggle
-                      InkWell(
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          setState(() {
-                            _isLooping = !_isLooping;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
+                      // Play/Pause & Loop preview toggles
+                      Row(
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              _previewPlayerKey.currentState?.togglePlayPause();
+                            },
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: _isLooping ? const Color(0xFFF59E0B) : Colors.white24,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.repeat,
-                                size: 12,
-                                color: _isLooping ? const Color(0xFFF59E0B) : Colors.white70,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                _isLooping ? 'Loop On' : 'Loop Off',
-                                style: TextStyle(
-                                  color: _isLooping ? const Color(0xFFF59E0B) : Colors.white70,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E293B),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.6),
                                 ),
                               ),
-                            ],
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.play_arrow_rounded,
+                                    size: 13,
+                                    color: Color(0xFFF59E0B),
+                                  ),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'Play/Pause',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 6),
+                          // Loop preview toggle
+                          InkWell(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() {
+                                _isLooping = !_isLooping;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E293B),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _isLooping ? const Color(0xFFF59E0B) : Colors.white24,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.repeat,
+                                    size: 12,
+                                    color: _isLooping ? const Color(0xFFF59E0B) : Colors.white70,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _isLooping ? 'Loop On' : 'Loop Off',
+                                    style: TextStyle(
+                                      color: _isLooping ? const Color(0xFFF59E0B) : Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

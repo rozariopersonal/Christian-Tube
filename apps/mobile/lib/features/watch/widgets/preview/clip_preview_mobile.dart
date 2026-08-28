@@ -68,6 +68,7 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
   double _currentPosition = 0.0;
   double _localCropOffset = 0.0;
   bool _isDraggingCrop = false;
+  double _dragDistance = 0.0;
   bool _showFeedback = false;
   Timer? _feedbackTimer;
 
@@ -126,7 +127,8 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
     }
 
     final isPlayingNow = _controller!.value.isPlaying;
-    if (_isPlaying != isPlayingNow) {
+    if (_isPlaying != isPlayingNow &&
+        _controller!.value.playerState != PlayerState.buffering) {
       setState(() {
         _isPlaying = isPlayingNow;
       });
@@ -147,26 +149,43 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
     if (mounted) setState(() {});
   }
 
-  void togglePlayPause() {
-    HapticFeedback.lightImpact();
+  void play() {
+    if (_isPlaying) return;
     setState(() {
-      _isPlaying = !_isPlaying;
+      _isPlaying = true;
       _showFeedback = true;
     });
-
     if (_controller != null) {
-      if (_isPlaying) {
-        if (_currentPosition >= widget.clipEndTime) {
-          seekTo(widget.clipStartTime);
-        }
-        _controller!.play();
-      } else {
-        _controller!.pause();
+      if (_currentPosition >= widget.clipEndTime) {
+        seekTo(widget.clipStartTime);
       }
+      _controller!.play();
     }
-
     widget.onTogglePlayPause?.call();
+    _triggerFeedbackTimer();
+  }
 
+  void pause() {
+    if (!_isPlaying) return;
+    setState(() {
+      _isPlaying = false;
+      _showFeedback = true;
+    });
+    _controller?.pause();
+    widget.onTogglePlayPause?.call();
+    _triggerFeedbackTimer();
+  }
+
+  void togglePlayPause() {
+    HapticFeedback.lightImpact();
+    if (_isPlaying) {
+      pause();
+    } else {
+      play();
+    }
+  }
+
+  void _triggerFeedbackTimer() {
     _feedbackTimer?.cancel();
     _feedbackTimer = Timer(const Duration(milliseconds: 600), () {
       if (mounted) setState(() => _showFeedback = false);
@@ -224,17 +243,19 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
     final progressFraction = (elapsedInClip / clipDuration).clamp(0.0, 1.0);
     final is9x16 = widget.framingMode == ShortsFramingMode.portrait9x16;
 
-    Widget playerOrThumb = _controller != null && !_isTestEnvironment
-        ? YoutubePlayer(
+    final isTest = _isTestEnvironment || _controller == null;
+
+    Widget playerOrThumb = isTest
+        ? Image.network(
+            _thumbnailUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(color: Colors.black),
+          )
+        : YoutubePlayer(
             controller: _controller!,
             showVideoProgressIndicator: false,
             topActions: const [],
             bottomActions: const [],
-          )
-        : Image.network(
-            _thumbnailUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(color: Colors.black),
           );
 
     return LayoutBuilder(
@@ -413,12 +434,13 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
                   ),
                 ],
 
-                // 3. Direct Drag GestureDetector over entire preview canvas
+                // 3. Direct Drag & Tap GestureDetector with displacement discrimination
                 Positioned.fill(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onHorizontalDragStart: is9x16
                         ? (_) {
+                            _dragDistance = 0.0;
                             setState(() {
                               _isDraggingCrop = true;
                             });
@@ -426,6 +448,7 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
                         : null,
                     onHorizontalDragUpdate: is9x16
                         ? (details) {
+                            _dragDistance += (details.primaryDelta ?? 0).abs();
                             final halfTravel = travelDistance / 2;
                             if (halfTravel > 0) {
                               final deltaNormalized = details.primaryDelta! / halfTravel;
@@ -442,6 +465,9 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
                             setState(() {
                               _isDraggingCrop = false;
                             });
+                            if (_dragDistance < 8.0) {
+                              togglePlayPause();
+                            }
                           }
                         : null,
                     onHorizontalDragCancel: is9x16
@@ -451,7 +477,7 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
                             });
                           }
                         : null,
-                    onTap: togglePlayPause,
+                    onTap: is9x16 ? null : togglePlayPause,
                   ),
                 ),
 
@@ -517,28 +543,31 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
                   ),
                 ),
 
-                // 5. Center Play / Pause Feedback
+                // 5. Center Play / Pause Feedback & Tap Target
                 Center(
                   child: AnimatedOpacity(
                     opacity: _showFeedback ? 1.0 : (_isPlaying ? 0.0 : 0.85),
                     duration: const Duration(milliseconds: 180),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.black.withValues(alpha: 0.65),
-                        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
-                      ),
-                      child: Icon(
-                        _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        size: 38,
-                        color: const Color(0xFFF59E0B),
+                    child: GestureDetector(
+                      onTap: togglePlayPause,
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withValues(alpha: 0.65),
+                          border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+                        ),
+                        child: Icon(
+                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          size: 38,
+                          color: const Color(0xFFF59E0B),
+                        ),
                       ),
                     ),
                   ),
                 ),
 
-                // 6. Bottom Interactive Clip Scrubber Bar & Timestamp Indicator
+                // 6. Bottom Interactive Clip Scrubber Bar & Play/Pause Button
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -561,14 +590,54 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '${_formatSeconds(elapsedInClip)} / ${_formatSeconds(clipDuration)}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'monospace',
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: togglePlayPause,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E293B),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFFF59E0B).withValues(alpha: 0.6),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                          color: const Color(0xFFF59E0B),
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          _isPlaying ? 'Pause' : 'Play',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${_formatSeconds(elapsedInClip)} / ${_formatSeconds(clipDuration)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
                             ),
                             if (widget.isLooping) ...[
                               Row(
@@ -576,7 +645,7 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
                                   Icon(Icons.repeat, color: Color(0xFFF59E0B), size: 12),
                                   SizedBox(width: 4),
                                   Text(
-                                    'Looping Clip',
+                                    'Looping',
                                     style: TextStyle(
                                       color: Color(0xFFF59E0B),
                                       fontSize: 11,

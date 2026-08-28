@@ -74,6 +74,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
   double _currentPosition = 0.0;
   double _localCropOffset = 0.0;
   bool _isDraggingCrop = false;
+  double _dragDistance = 0.0;
   bool _isPlaying = true;
   bool _showFeedback = false;
   Timer? _feedbackTimer;
@@ -104,6 +105,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
         _viewId,
         (int id) {
           final iframe = html.IFrameElement()
+            ..id = _viewId
             ..src =
                 'https://www.youtube.com/embed/${widget.videoId}?autoplay=1&mute=0&playsinline=1&controls=0&rel=0&modestbranding=1&enablejsapi=1&origin=$origin$startParam'
             ..style.border = 'none'
@@ -142,11 +144,11 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
               }
               if (info.containsKey('playerState')) {
                 final state = info['playerState'];
-                final isPlayingNow = (state == 1);
-                if (_isPlaying != isPlayingNow) {
-                  setState(() {
-                    _isPlaying = isPlayingNow;
-                  });
+                // 1 = playing, 2 = paused, 0 = ended
+                if (state == 1 && !_isPlaying) {
+                  setState(() => _isPlaying = true);
+                } else if ((state == 2 || state == 0) && _isPlaying) {
+                  setState(() => _isPlaying = false);
                 }
               }
             }
@@ -159,7 +161,6 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
   void _startLoopTicker() {
     _loopTicker = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (!_isPlaying) return;
-      _sendIframeCommand('listening');
 
       if (_currentPosition >= widget.clipEndTime) {
         if (widget.isLooping) {
@@ -172,14 +173,24 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
   }
 
   void _sendIframeCommand(String func, [List<dynamic>? args]) {
-    if (_iframeElement == null || _iframeElement!.contentWindow == null) return;
+    html.IFrameElement? targetIframe = _iframeElement;
+    if (targetIframe == null || targetIframe.contentWindow == null) {
+      try {
+        final elem = html.document.getElementById(_viewId) ?? html.document.querySelector('iframe');
+        if (elem is html.IFrameElement) {
+          targetIframe = elem;
+          _iframeElement = elem;
+        }
+      } catch (_) {}
+    }
+    if (targetIframe == null || targetIframe.contentWindow == null) return;
     try {
       final msg = jsonEncode({
         'event': 'command',
         'func': func,
         'args': args ?? [],
       });
-      _iframeElement!.contentWindow!.postMessage(msg, '*');
+      targetIframe.contentWindow!.postMessage(msg, '*');
     } catch (_) {}
   }
 
@@ -193,35 +204,40 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
   }
 
   void play() {
-    _isPlaying = true;
+    if (_isPlaying) return;
+    setState(() {
+      _isPlaying = true;
+      _showFeedback = true;
+    });
+    if (_currentPosition >= widget.clipEndTime) {
+      seekTo(widget.clipStartTime);
+    }
     _sendIframeCommand('playVideo');
-    if (mounted) setState(() {});
+    widget.onTogglePlayPause?.call();
+    _triggerFeedbackTimer();
   }
 
   void pause() {
-    _isPlaying = false;
+    if (!_isPlaying) return;
+    setState(() {
+      _isPlaying = false;
+      _showFeedback = true;
+    });
     _sendIframeCommand('pauseVideo');
-    if (mounted) setState(() {});
+    widget.onTogglePlayPause?.call();
+    _triggerFeedbackTimer();
   }
 
   void togglePlayPause() {
     HapticFeedback.lightImpact();
-    setState(() {
-      _isPlaying = !_isPlaying;
-      _showFeedback = true;
-    });
-
     if (_isPlaying) {
-      if (_currentPosition >= widget.clipEndTime) {
-        seekTo(widget.clipStartTime);
-      }
-      play();
-    } else {
       pause();
+    } else {
+      play();
     }
+  }
 
-    widget.onTogglePlayPause?.call();
-
+  void _triggerFeedbackTimer() {
     _feedbackTimer?.cancel();
     _feedbackTimer = Timer(const Duration(milliseconds: 600), () {
       if (mounted) setState(() => _showFeedback = false);
@@ -465,12 +481,13 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                   ),
                 ],
 
-                // 3. Direct Drag GestureDetector over entire preview canvas (Opaque to prevent iframe capture)
+                // 3. Direct Drag & Tap GestureDetector with displacement discrimination
                 Positioned.fill(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onHorizontalDragStart: is9x16
                         ? (_) {
+                            _dragDistance = 0.0;
                             setState(() {
                               _isDraggingCrop = true;
                             });
@@ -478,6 +495,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                         : null,
                     onHorizontalDragUpdate: is9x16
                         ? (details) {
+                            _dragDistance += (details.primaryDelta ?? 0).abs();
                             final halfTravel = travelDistance / 2;
                             if (halfTravel > 0) {
                               final deltaNormalized = details.primaryDelta! / halfTravel;
@@ -494,6 +512,9 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                             setState(() {
                               _isDraggingCrop = false;
                             });
+                            if (_dragDistance < 8.0) {
+                              togglePlayPause();
+                            }
                           }
                         : null,
                     onHorizontalDragCancel: is9x16
@@ -503,7 +524,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                             });
                           }
                         : null,
-                    onTap: togglePlayPause,
+                    onTap: is9x16 ? null : togglePlayPause,
                   ),
                 ),
 
@@ -569,28 +590,31 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                   ),
                 ),
 
-                // 5. Center Play / Pause Feedback
+                // 5. Center Play / Pause Feedback & Tap Target
                 Center(
                   child: AnimatedOpacity(
                     opacity: _showFeedback ? 1.0 : (_isPlaying ? 0.0 : 0.85),
                     duration: const Duration(milliseconds: 180),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.black.withValues(alpha: 0.65),
-                        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
-                      ),
-                      child: Icon(
-                        _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        size: 38,
-                        color: const Color(0xFFF59E0B),
+                    child: GestureDetector(
+                      onTap: togglePlayPause,
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withValues(alpha: 0.65),
+                          border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+                        ),
+                        child: Icon(
+                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          size: 38,
+                          color: const Color(0xFFF59E0B),
+                        ),
                       ),
                     ),
                   ),
                 ),
 
-                // 6. Bottom Interactive Clip Scrubber Bar & Timestamp Indicator
+                // 6. Bottom Interactive Clip Scrubber Bar & Play/Pause Button
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -613,14 +637,54 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '${_formatSeconds(elapsedInClip)} / ${_formatSeconds(clipDuration)}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'monospace',
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: togglePlayPause,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E293B),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFFF59E0B).withValues(alpha: 0.6),
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                          color: const Color(0xFFF59E0B),
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          _isPlaying ? 'Pause' : 'Play',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${_formatSeconds(elapsedInClip)} / ${_formatSeconds(clipDuration)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
                             ),
                             if (widget.isLooping) ...[
                               Row(
@@ -628,7 +692,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                                   Icon(Icons.repeat, color: Color(0xFFF59E0B), size: 12),
                                   SizedBox(width: 4),
                                   Text(
-                                    'Looping Clip',
+                                    'Looping',
                                     style: TextStyle(
                                       color: Color(0xFFF59E0B),
                                       fontSize: 11,
