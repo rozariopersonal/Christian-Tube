@@ -37,7 +37,7 @@ class ShortsFeedScreen extends StatefulWidget {
 }
 
 class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
-  final ApiClient _apiClient = ApiClient();
+  late final ApiClient _apiClient;
   PageController _pageController = PageController();
   PageController _localPageController = PageController();
   final ShortsOrchestratorService _orchestrator = ShortsOrchestratorService();
@@ -71,6 +71,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   @override
   void initState() {
     super.initState();
+    _apiClient = ApiClient(); // Issue #12: initialized once, not on every rebuild
     _fetchShorts();
     _orchestrator.fetchCloudCreations();
     _communityScrollController.addListener(_onCommunityScroll);

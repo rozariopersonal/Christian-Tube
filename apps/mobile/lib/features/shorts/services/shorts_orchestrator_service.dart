@@ -6,20 +6,31 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/models/local_short_item.dart';
+import '../../auth/auth_service.dart';
 import 'local_shorts_storage.dart';
 import 'shorts_render_engine.dart';
+
+extension _ListExt<T> on List<T> {
+  T? firstWhereOrNull(bool Function(T) test) {
+    for (final e in this) {
+      if (test(e)) return e;
+    }
+    return null;
+  }
+}
 
 class ShortsOrchestratorService extends ChangeNotifier {
   static final ShortsOrchestratorService _instance =
       ShortsOrchestratorService._internal();
   factory ShortsOrchestratorService() => _instance;
 
-  final ApiClient _apiClient = ApiClient();
+  // Issue #12: late final ensures ApiClient is created once in the singleton constructor
+  late final ApiClient _apiClient;
   final ShortsRenderEngine _renderEngine = ShortsRenderEngine();
   final Uuid _uuid = const Uuid();
 
   List<LocalShortItem> _localShorts = [];
-  bool _isInitialized = false;
+  Timer? _retryTimer;
 
   List<LocalShortItem> get localShorts => List.unmodifiable(_localShorts);
   int get activeJobsCount => _localShorts
@@ -31,12 +42,31 @@ class ShortsOrchestratorService extends ChangeNotifier {
       .length;
 
   ShortsOrchestratorService._internal() {
+    _apiClient = ApiClient();
     _loadFromStorage();
+    // Issue #11: Check every 5 minutes if any scheduledUpload items are due for retry
+    _retryTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _checkScheduledRetries();
+    });
   }
+
+  /// Automatically retry any scheduledUpload items whose retry time has passed.
+  Future<void> _checkScheduledRetries() async {
+    final now = DateTime.now();
+    final due = _localShorts.where((item) =>
+        item.status == ShortCreationStatus.scheduledUpload &&
+        item.scheduledRetryAt != null &&
+        now.isAfter(item.scheduledRetryAt!),
+    ).toList();
+    for (final item in due) {
+      debugPrint('Auto-retrying scheduled upload: ${item.id}');
+      retryUpload(item.id);
+    }
+  }
+
 
   Future<void> _loadFromStorage() async {
     _localShorts = await LocalShortsStorage.loadShorts();
-    _isInitialized = true;
     notifyListeners();
   }
 
@@ -142,7 +172,12 @@ class ShortsOrchestratorService extends ChangeNotifier {
   }
 
   Future<void> _uploadShortToYouTube(String shortId) async {
-    final item = _localShorts.firstWhere((i) => i.id == shortId);
+    // Issue #9: use firstWhereOrNull to avoid StateError if item was deleted
+    final item = _localShorts.firstWhereOrNull((i) => i.id == shortId);
+    if (item == null) {
+      debugPrint('Upload aborted: item $shortId no longer exists in list');
+      return;
+    }
 
     try {
       _updateItemStatus(
@@ -315,11 +350,20 @@ class ShortsOrchestratorService extends ChangeNotifier {
     if (index < 0) return;
 
     final item = _localShorts[index];
-    if (item.localVideoPath == null) {
-      // Re-run full pipeline
-      _processShortPipeline(item);
+
+    // Issue #6: check if the local file actually still exists before attempting
+    // a direct upload — it may have been auto-deleted after the original upload.
+    bool fileStillExists = false;
+    if (item.localVideoPath != null && !kIsWeb) {
+      fileStillExists = await io.File(item.localVideoPath!).exists();
+    }
+
+    if (item.localVideoPath == null || !fileStillExists) {
+      // File is gone — clear the stale path and re-render from scratch
+      _updateItemStatus(shortId, localVideoPath: null);
+      _processShortPipeline(item.copyWith(localVideoPath: null));
     } else {
-      // Direct upload
+      // File is present — skip render and go straight to upload
       _uploadShortToYouTube(shortId);
     }
   }
@@ -342,13 +386,15 @@ class ShortsOrchestratorService extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchCloudCreations({String? email, String? userId}) async {
+  Future<void> fetchCloudCreations() async {
     try {
+      // Issue #7: read auth context from AuthService so the backend can filter by user
+      final user = AuthService().currentUser;
       final res = await _apiClient.dio.get(
         '/shorts/my-creations',
         queryParameters: {
-          if (email != null && email.isNotEmpty) 'email': email,
-          if (userId != null && userId.isNotEmpty) 'userId': userId,
+          if (user?.id != null && user!.id.isNotEmpty) 'userId': user.id,
+          if (user?.email != null && user!.email.isNotEmpty) 'email': user.email,
         },
       );
 
@@ -422,5 +468,12 @@ class ShortsOrchestratorService extends ChangeNotifier {
       LocalShortsStorage.saveShorts(_localShorts);
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    _renderEngine.dispose();
+    super.dispose();
   }
 }

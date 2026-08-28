@@ -189,13 +189,8 @@ export class ShortsService {
         throw new Error('YouTube did not return upload session URL in Location header');
       }
 
-      // Increment daily quota units upon successful initiation
-      await this.prisma.dailyQuotaLog.update({
-        where: { date: quota.date },
-        data: { unitsConsumed: { increment: quota.uploadCostUnits } },
-      });
-
       this.logger.log(`✅ YouTube Resumable Upload session initialized for: "${safeTitle}"`);
+      // NOTE: Quota is incremented in recordCreation (after confirmed upload), not here.
 
       return {
         allowed: true,
@@ -225,9 +220,20 @@ export class ShortsService {
     cropOffsetX?: number;
   }) {
     try {
-      // 1. Upsert into ShortCreation tracking table
-      const creation = await (this.prisma as any).shortCreation.upsert({
-        where: { id: `sc_${data.youtubeVideoId}` },
+      // 0. Increment daily quota — charged only when a real YouTube ID is confirmed
+      try {
+        const quota = await this.getQuotaStatus();
+        await this.prisma.dailyQuotaLog.update({
+          where: { date: quota.date },
+          data: { unitsConsumed: { increment: quota.uploadCostUnits } },
+        });
+      } catch (quotaErr: any) {
+        this.logger.warn(`Could not increment quota on recordCreation: ${quotaErr.message}`);
+      }
+
+      // 1. Upsert into ShortCreation tracking table (unique on youtubeVideoId)
+      const creation = await this.prisma.shortCreation.upsert({
+        where: { youtubeVideoId: data.youtubeVideoId },
         update: {
           userId: data.userId || undefined,
           userEmail: data.userEmail || undefined,
@@ -243,7 +249,7 @@ export class ShortsService {
           cropOffsetX: data.cropOffsetX ?? 0.0,
         },
         create: {
-          id: `sc_${data.youtubeVideoId}`,
+          // id auto-generated via @default(uuid()); youtubeVideoId is the unique key
           userId: data.userId || null,
           userEmail: data.userEmail || null,
           creatorName: data.creatorName || null,

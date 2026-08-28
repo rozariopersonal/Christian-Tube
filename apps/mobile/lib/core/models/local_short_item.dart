@@ -17,6 +17,9 @@ enum ShortsFramingMode {
 }
 
 class LocalShortItem {
+  // Sentinel for copyWith: allows explicitly setting nullable fields to null.
+  static const Object _unset = Object();
+
   final String id;
   final String sourceVideoId;
   final String sourceVideoTitle;
@@ -72,7 +75,8 @@ class LocalShortItem {
     double? duration,
     double? cropOffsetX,
     ShortsFramingMode? framingMode,
-    String? localVideoPath,
+    // Use Object? + _unset sentinel so null can be passed explicitly to clear the path
+    Object? localVideoPath = _unset,
     ShortCreationStatus? status,
     double? progress,
     DateTime? scheduledRetryAt,
@@ -93,7 +97,9 @@ class LocalShortItem {
       duration: duration ?? this.duration,
       cropOffsetX: cropOffsetX ?? this.cropOffsetX,
       framingMode: framingMode ?? this.framingMode,
-      localVideoPath: localVideoPath ?? this.localVideoPath,
+      localVideoPath: identical(localVideoPath, _unset)
+          ? this.localVideoPath
+          : localVideoPath as String?,
       status: status ?? this.status,
       progress: progress ?? this.progress,
       scheduledRetryAt: scheduledRetryAt ?? this.scheduledRetryAt,
