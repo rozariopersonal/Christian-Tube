@@ -78,6 +78,16 @@ void main() {
         ),
         isTrue,
       );
+
+      // Shorts feed exploration grid (when not playing a video)
+      expect(
+        service.shouldShow(
+          context: capturedContext,
+          currentPath: '/shorts',
+          selectedIndex: 1,
+        ),
+        isTrue,
+      );
     });
 
     testWidgets('hides bottom bar in landscape mode (fullscreen video)', (tester) async {
@@ -116,9 +126,19 @@ void main() {
         ),
         isFalse,
       );
+
+      // Shorts in landscape
+      expect(
+        service.shouldShow(
+          context: capturedContext,
+          currentPath: '/shorts',
+          selectedIndex: 1,
+        ),
+        isFalse,
+      );
     });
 
-    testWidgets('hides bottom bar when on /shorts route', (tester) async {
+    testWidgets('shows bottom bar on /shorts when browsing and hides only when a short is playing', (tester) async {
       late BuildContext capturedContext;
 
       await tester.pumpWidget(
@@ -135,6 +155,19 @@ void main() {
         ),
       );
 
+      // Browsing shorts grid (not playing) -> Bottom bar VISIBLE
+      service.setShortPlaying(false);
+      expect(
+        service.shouldShow(
+          context: capturedContext,
+          currentPath: '/shorts',
+          selectedIndex: 1,
+        ),
+        isTrue,
+      );
+
+      // Short video is actively playing in fullscreen player -> Bottom bar HIDDEN
+      service.setShortPlaying(true);
       expect(
         service.shouldShow(
           context: capturedContext,
@@ -142,6 +175,17 @@ void main() {
           selectedIndex: 1,
         ),
         isFalse,
+      );
+
+      // Exiting playback back to grid -> Bottom bar VISIBLE again
+      service.setShortPlaying(false);
+      expect(
+        service.shouldShow(
+          context: capturedContext,
+          currentPath: '/shorts',
+          selectedIndex: 1,
+        ),
+        isTrue,
       );
     });
 

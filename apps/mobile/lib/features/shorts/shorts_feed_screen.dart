@@ -12,6 +12,7 @@ import '../../shared/ui/channel_avatar.dart';
 import 'native_shorts_player.dart';
 import 'players/shorts_player.dart';
 import 'players/local_short_player.dart';
+import '../search/shorts_search_delegate.dart';
 import '../../core/config/app_config.dart';
 import '../../core/services/bottom_bar_visibility_service.dart';
 import 'services/shorts_orchestrator_service.dart';
@@ -68,7 +69,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   @override
   void initState() {
     super.initState();
-    BottomBarVisibilityService.instance.setShortPlaying(true);
     _fetchShorts();
     _orchestrator.fetchCloudCreations();
     _communityScrollController.addListener(_onCommunityScroll);
@@ -98,6 +98,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       _currentPosition = 0.0;
       _totalDuration = 0.0;
     });
+    BottomBarVisibilityService.instance.setShortPlaying(true);
     _startAutoHideTimer();
   }
 
@@ -117,7 +118,19 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       _currentPosition = 0.0;
       _totalDuration = 0.0;
     });
+    BottomBarVisibilityService.instance.setShortPlaying(true);
     _startAutoHideTimer();
+  }
+
+  void _closeShortPlayer() {
+    stopAllPlatformShorts();
+    if (mounted) {
+      setState(() {
+        _selectedCommunityIndex = null;
+        _selectedCreationIndex = null;
+      });
+    }
+    BottomBarVisibilityService.instance.setShortPlaying(false);
   }
 
   void _applyInitialTarget() {
@@ -139,6 +152,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   @override
   void dispose() {
+    stopAllPlatformShorts();
     BottomBarVisibilityService.instance.setShortPlaying(false);
     _communityScrollController.removeListener(_onCommunityScroll);
     _communityScrollController.dispose();
@@ -318,100 +332,145 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       stopAllPlatformShorts();
     }
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // 1. Main Feed Viewport
-          Positioned.fill(
-            child: _activeTab == ShortsViewTab.community
-                ? _buildCommunityFeed(isTabVisible)
-                : _buildMyCreationsFeed(),
-          ),
+    final bool isPlayerOpen = _selectedCommunityIndex != null || _selectedCreationIndex != null;
 
-          // 2. Top Smoothed Masking Header (Masks YouTube top title bar & share icon)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              ignoring: !_areControlsVisible,
-              child: AnimatedOpacity(
-                opacity: _areControlsVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 250),
-                child: Container(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top + 8,
-                    left: 16,
-                    right: 16,
-                    bottom: 32,
-                  ),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black,
-                        Colors.black,
-                        Color(0xCC000000),
-                        Color(0x00000000),
-                      ],
-                      stops: [0.0, 0.55, 0.80, 1.0],
+    return PopScope(
+      canPop: !isPlayerOpen,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (isPlayerOpen) {
+          _closeShortPlayer();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            // 1. Main Feed Viewport
+            Positioned.fill(
+              child: _activeTab == ShortsViewTab.community
+                  ? _buildCommunityFeed(isTabVisible)
+                  : _buildMyCreationsFeed(),
+            ),
+
+            // 2. Top Smoothed Masking Header (Masks YouTube top title bar & share icon)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                ignoring: !_areControlsVisible,
+                child: AnimatedOpacity(
+                  opacity: _areControlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: Container(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + 8,
+                      left: 16,
+                      right: 16,
+                      bottom: 32,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                            tooltip: 'Back',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                            onPressed: () {
-                              if (Navigator.of(context).canPop()) {
-                                Navigator.of(context).pop();
-                              } else {
-                                context.go('/feed');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          _buildTabChip(
-                            label: '🌐 Community',
-                            tab: ShortsViewTab.community,
-                            count: null,
-                          ),
-                          const SizedBox(width: 8),
-                          ListenableBuilder(
-                            listenable: _orchestrator,
-                            builder: (context, _) {
-                              final activeCount = _orchestrator.activeJobsCount;
-                              return _buildTabChip(
-                                label: '🎬 My Creations',
-                                tab: ShortsViewTab.myCreations,
-                                count: _orchestrator.localShorts.length,
-                                activeJobs: activeCount,
-                              );
-                            },
-                          ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black,
+                          Colors.black,
+                          Color(0xCC000000),
+                          Color(0x00000000),
                         ],
+                        stops: [0.0, 0.55, 0.80, 1.0],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.white, size: 22),
-                        onPressed: () {
-                          _fetchShorts();
-                          _startAutoHideTimer();
-                        },
-                      ),
-                    ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                              tooltip: 'Back',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              onPressed: () {
+                                if (_selectedCommunityIndex != null || _selectedCreationIndex != null) {
+                                  _closeShortPlayer();
+                                } else {
+                                  stopAllPlatformShorts();
+                                  BottomBarVisibilityService.instance.setShortPlaying(false);
+                                  if (Navigator.of(context).canPop()) {
+                                    Navigator.of(context).pop();
+                                  } else {
+                                    context.go('/feed');
+                                  }
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _buildTabChip(
+                              label: '🌐 Community',
+                              tab: ShortsViewTab.community,
+                              count: null,
+                            ),
+                            const SizedBox(width: 8),
+                            ListenableBuilder(
+                              listenable: _orchestrator,
+                              builder: (context, _) {
+                                final activeCount = _orchestrator.activeJobsCount;
+                                return _buildTabChip(
+                                  label: '🎬 My Creations',
+                                  tab: ShortsViewTab.myCreations,
+                                  count: _orchestrator.localShorts.length,
+                                  activeJobs: activeCount,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.search, color: Colors.white, size: 22),
+                              tooltip: 'Search Shorts',
+                              onPressed: () async {
+                                _autoHideTimer?.cancel();
+                                final selectedShort = await showSearch<Short?>(
+                                  context: context,
+                                  delegate: ShortsSearchDelegate(),
+                                );
+                                if (selectedShort != null && mounted) {
+                                  final idx = _shorts.indexWhere((s) => s.id == selectedShort.id);
+                                  if (idx != -1) {
+                                    _openCommunityShortAt(idx);
+                                  } else {
+                                    setState(() {
+                                      _shorts.insert(0, selectedShort);
+                                    });
+                                    _openCommunityShortAt(0);
+                                  }
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.refresh, color: Colors.white, size: 22),
+                              tooltip: 'Refresh',
+                              onPressed: () {
+                                _fetchShorts();
+                                _startAutoHideTimer();
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -425,11 +484,9 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     final isSelected = _activeTab == tab;
     return GestureDetector(
       onTap: () {
+        _closeShortPlayer();
         setState(() {
           _activeTab = tab;
-          if (tab == ShortsViewTab.community) {
-            _selectedCreationIndex = null;
-          }
         });
         if (tab == ShortsViewTab.myCreations) {
           _orchestrator.fetchCloudCreations();
@@ -591,11 +648,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
           top: 54,
           left: 12,
           child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedCommunityIndex = null;
-              });
-            },
+            onTap: _closeShortPlayer,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -1383,11 +1436,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
               top: 54,
               left: 12,
               child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedCreationIndex = null;
-                  });
-                },
+                onTap: _closeShortPlayer,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -1478,11 +1527,60 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     );
   }
 
+  void _confirmDeleteCreation(LocalShortItem item) {
+    HapticFeedback.mediumImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: Colors.redAccent, size: 24),
+            SizedBox(width: 8),
+            Text('Delete Creation', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to remove "${item.title}"? This cannot be undone.',
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _orchestrator.deleteShort(item.id);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Removed "${item.title}"'),
+                    backgroundColor: const Color(0xFF1E293B),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCreationGridCard(LocalShortItem item, int index) {
     final durSec = (item.clipEndTime - item.clipStartTime).toInt();
 
     return GestureDetector(
       onTap: () => _openCreationShortAt(index),
+      onLongPress: () => _confirmDeleteCreation(item),
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
@@ -1547,20 +1645,37 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
               child: _buildGridBadge(item),
             ),
 
-            // Duration Badge Top-Right
+            // Duration Badge & Delete Icon Top-Right
             Positioned(
               top: 8,
               right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  Formatters.formatDuration(Duration(seconds: durSec > 0 ? durSec : 60)),
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      Formatters.formatDuration(Duration(seconds: durSec > 0 ? durSec : 60)),
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => _confirmDeleteCreation(item),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.delete_outline, size: 14, color: Colors.white70),
+                    ),
+                  ),
+                ],
               ),
             ),
 

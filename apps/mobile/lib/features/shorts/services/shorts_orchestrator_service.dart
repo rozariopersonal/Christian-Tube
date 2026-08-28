@@ -325,9 +325,21 @@ class ShortsOrchestratorService extends ChangeNotifier {
   }
 
   Future<void> deleteShort(String shortId) async {
-    _localShorts.removeWhere((i) => i.id == shortId);
-    await LocalShortsStorage.saveShorts(_localShorts);
-    notifyListeners();
+    final idx = _localShorts.indexWhere((i) => i.id == shortId);
+    if (idx != -1) {
+      final path = _localShorts[idx].localVideoPath;
+      if (path != null && !kIsWeb) {
+        try {
+          final file = io.File(path);
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {}
+      }
+      _localShorts.removeAt(idx);
+      await LocalShortsStorage.saveShorts(_localShorts);
+      notifyListeners();
+    }
   }
 
   Future<void> fetchCloudCreations({String? email, String? userId}) async {

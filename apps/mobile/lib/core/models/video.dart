@@ -12,6 +12,11 @@ class Video {
   final String? duration;
   final String? streamUrl;
   final bool isLive;
+  final String? type;
+  final String? sourceVideoId;
+  final double? clipStartTime;
+  final double? clipEndTime;
+  final double? cropOffsetX;
 
   const Video({
     required this.id,
@@ -27,6 +32,11 @@ class Video {
     this.duration,
     this.streamUrl,
     this.isLive = false,
+    this.type,
+    this.sourceVideoId,
+    this.clipStartTime,
+    this.clipEndTime,
+    this.cropOffsetX,
   });
 
   String get thumbnail => thumbnailUrl;
@@ -53,6 +63,11 @@ class Video {
       duration: json['duration'] ?? '0:00',
       streamUrl: json['streamUrl'] ?? json['stream_url'],
       isLive: json['isLive'] ?? json['is_live'] ?? false,
+      type: json['type'],
+      sourceVideoId: json['sourceVideoId'],
+      clipStartTime: (json['clipStartTime'] as num?)?.toDouble(),
+      clipEndTime: (json['clipEndTime'] as num?)?.toDouble(),
+      cropOffsetX: (json['cropOffsetX'] as num?)?.toDouble(),
     );
   }
 
@@ -71,6 +86,11 @@ class Video {
       'duration': duration,
       'streamUrl': streamUrl,
       'isLive': isLive,
+      'type': type,
+      'sourceVideoId': sourceVideoId,
+      'clipStartTime': clipStartTime,
+      'clipEndTime': clipEndTime,
+      'cropOffsetX': cropOffsetX,
     };
   }
 }

@@ -190,8 +190,7 @@ class LocalShortItem {
 
   bool get isPlayable =>
       status == ShortCreationStatus.published ||
-      localVideoPath != null ||
-      sourceVideoId.isNotEmpty;
+      (localVideoPath != null && localVideoPath!.isNotEmpty);
 
   Short toShort() {
     return Short(

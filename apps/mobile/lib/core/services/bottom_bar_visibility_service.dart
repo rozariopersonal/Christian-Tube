@@ -37,16 +37,13 @@ class BottomBarVisibilityService extends ChangeNotifier {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     if (isLandscape) return false;
 
-    // 2. Hide when on the Shorts route (/shorts)
-    if (currentPath.startsWith('/shorts') || selectedIndex == 1) return false;
-
-    // 3. Hide when a short is actively playing
+    // 2. Hide when a short video is actively playing
     if (_isShortPlaying) return false;
 
-    // 4. Hide if explicitly requested
+    // 3. Hide if explicitly requested (e.g. modals, croppers, overlays)
     if (_isExplicitlyHidden) return false;
 
-    // 5. Default: Show bottom tabs in all other screens and portrait modes
+    // 4. Default: Show bottom tabs in all screens and portrait modes (including Shorts browsing grid)
     return true;
   }
 }

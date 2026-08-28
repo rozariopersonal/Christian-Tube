@@ -720,19 +720,23 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
 
                   const SizedBox(height: 8),
 
-                  // Precision Nudge Buttons Bar: [-1s], [+1s] and Snap Playhead
+                  // Precision Nudge Buttons Bar: [-5s], [-1s], Snap Playhead, [+1s], [+5s]
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Start Nudge
+                      // Start Nudge (-5s, -1s, +1s, +5s)
                       Row(
                         children: [
                           const Text('Start: ',
                               style: TextStyle(
                                   color: Colors.white54, fontSize: 11)),
+                          _buildNudgeBtn('-5s', () => _nudgeStartTime(-5.0)),
+                          const SizedBox(width: 3),
                           _buildNudgeBtn('-1s', () => _nudgeStartTime(-1.0)),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 3),
                           _buildNudgeBtn('+1s', () => _nudgeStartTime(1.0)),
+                          const SizedBox(width: 3),
+                          _buildNudgeBtn('+5s', () => _nudgeStartTime(5.0)),
                         ],
                       ),
                       // Snap to video playhead
@@ -754,7 +758,7 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                   size: 12, color: Colors.white70),
                               SizedBox(width: 4),
                               Text(
-                                'Snap Playhead',
+                                'Snap',
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 11,
@@ -765,15 +769,19 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                           ),
                         ),
                       ),
-                      // End Nudge
+                      // End Nudge (-5s, -1s, +1s, +5s)
                       Row(
                         children: [
                           const Text('End: ',
                               style: TextStyle(
                                   color: Colors.white54, fontSize: 11)),
+                          _buildNudgeBtn('-5s', () => _nudgeEndTime(-5.0)),
+                          const SizedBox(width: 3),
                           _buildNudgeBtn('-1s', () => _nudgeEndTime(-1.0)),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 3),
                           _buildNudgeBtn('+1s', () => _nudgeEndTime(1.0)),
+                          const SizedBox(width: 3),
+                          _buildNudgeBtn('+5s', () => _nudgeEndTime(5.0)),
                         ],
                       ),
                     ],

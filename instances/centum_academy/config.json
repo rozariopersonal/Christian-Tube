@@ -2,8 +2,8 @@
   "instanceId": "centum_academy",
   "appName": "Centum Academy",
   "applicationId": "org.centumacademy.mobile",
-  "version": "1.31.0",
-  "versionCode": 48,
+  "version": "1.31.1",
+  "versionCode": 49,
   "theme": {
     "primaryColor": "#059669",
     "accentColor": "#F59E0B",

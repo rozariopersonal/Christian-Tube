@@ -208,9 +208,11 @@ class Short {
     final descLower = (video.description ?? '').toLowerCase();
     final hasShortTag =
         titleLower.contains('#short') || descLower.contains('#short');
-    final isVerticalVideo = isShortUrl ||
+    final isTypeShort = video.type == 'SHORT';
+    final isVerticalVideo = isTypeShort ||
+        isShortUrl ||
         hasShortTag ||
-        (durationSec > 0 && durationSec <= 60);
+        (durationSec > 0 && durationSec <= 180);
 
     return Short(
       id: video.id,
@@ -229,6 +231,11 @@ class Short {
       directStreamUrl: video.streamUrl,
       isVertical: isVerticalVideo,
       aspectRatio: isVerticalVideo ? (9 / 16) : (16 / 9),
+      type: video.type,
+      sourceVideoId: video.sourceVideoId,
+      clipStartTime: video.clipStartTime,
+      clipEndTime: video.clipEndTime,
+      cropOffsetX: video.cropOffsetX ?? 0.0,
     );
   }
 
