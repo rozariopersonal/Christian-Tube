@@ -42,6 +42,14 @@ model Video {
   lastTranscriptionError String?
   content                String?             @db.Text
 
+  // Creator & Clipping Metadata
+  creatorName            String?
+  creatorEmail           String?
+  sourceVideoId          String?
+  clipStartTime          Float?
+  clipEndTime            Float?
+  clippedAt              DateTime?
+
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
 
@@ -51,6 +59,7 @@ model Video {
   @@index([publishedAt])
   @@index([type])
   @@index([category])
+  @@index([sourceVideoId])
 }
 
 model Channel {
@@ -122,4 +131,11 @@ model MicroFeedItem {
   @@index([engine])
   @@index([category])
   @@index([isFeatured])
+}
+
+model DailyQuotaLog {
+  date            String   @id // YYYY-MM-DD (UTC)
+  unitsConsumed   Int      @default(0)
+  unitsLimit      Int      @default(10000)
+  lastUpdated     DateTime @default(now())
 }

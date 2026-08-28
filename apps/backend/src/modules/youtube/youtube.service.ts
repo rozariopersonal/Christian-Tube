@@ -377,10 +377,25 @@ export class YoutubeService implements OnModuleInit {
     if (this.isSyncing) {
       this.logger.log('Previous channel sync cycle is still active. Skipping concurrent run.');
       return;
-    }
-
     this.isSyncing = true;
     try {
+      // Ensure instance custom YouTube channel is registered if configured
+      const customChannelId = this.configService.get<string>('shorts.customChannelId');
+      if (customChannelId && customChannelId.startsWith('UC')) {
+        try {
+          await this.prisma.channel.upsert({
+            where: { id: customChannelId },
+            update: { isActive: true },
+            create: {
+              id: customChannelId,
+              name: 'Community Shorts',
+              isActive: true,
+              category: 'Shorts',
+            },
+          });
+        } catch (_) {}
+      }
+
       const channels = await this.prisma.channel.findMany({
         where: { isActive: true },
         orderBy: { updatedAt: 'asc' },
@@ -570,7 +585,7 @@ export class YoutubeService implements OnModuleInit {
         const description = snippet?.description || '';
         const descLower = description.toLowerCase();
         const hasShortsTag = titleLower.includes('#short') || descLower.includes('#short');
-        const isShort = (durationSeconds > 0 && durationSeconds <= 60) || hasShortsTag;
+        const isShort = (durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag;
         const videoType = isShort ? 'SHORT' : 'VIDEO';
         const viewCount = stats?.viewCount ? parseInt(stats.viewCount, 10) : 0;
         const thumb =
@@ -581,6 +596,16 @@ export class YoutubeService implements OnModuleInit {
           `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
         const tags = snippet?.tags || [];
         const publishedAt = snippet?.publishedAt ? new Date(snippet.publishedAt) : new Date();
+
+        let parsedMeta: any = null;
+        if (isShort && description) {
+          const jsonMatch = description.match(/<!--\s*CT_META:\s*(\{.*?\})\s*-->/s);
+          if (jsonMatch) {
+            try {
+              parsedMeta = JSON.parse(jsonMatch[1]);
+            } catch (_) {}
+          }
+        }
 
         await this.prisma.video.upsert({
           where: { id: videoId },
@@ -597,6 +622,11 @@ export class YoutubeService implements OnModuleInit {
             viewCount,
             tags,
             category: defaultCategory || channel.category || 'General',
+            creatorName: parsedMeta?.creatorName || undefined,
+            creatorEmail: parsedMeta?.creatorEmail || undefined,
+            sourceVideoId: parsedMeta?.sourceVideoId || undefined,
+            clipStartTime: parsedMeta?.startTime != null ? Number(parsedMeta.startTime) : undefined,
+            clipEndTime: parsedMeta?.endTime != null ? Number(parsedMeta.endTime) : undefined,
           },
           create: {
             id: videoId,
@@ -614,6 +644,12 @@ export class YoutubeService implements OnModuleInit {
             tags,
             category: defaultCategory || channel.category || 'General',
             transcriptionStatus: 'pending',
+            creatorName: parsedMeta?.creatorName || null,
+            creatorEmail: parsedMeta?.creatorEmail || null,
+            sourceVideoId: parsedMeta?.sourceVideoId || null,
+            clipStartTime: parsedMeta?.startTime != null ? Number(parsedMeta.startTime) : null,
+            clipEndTime: parsedMeta?.endTime != null ? Number(parsedMeta.endTime) : null,
+            clippedAt: parsedMeta ? new Date() : null,
           },
         });
         totalSyncedInRun++;

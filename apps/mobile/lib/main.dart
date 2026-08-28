@@ -130,6 +130,8 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             final playlist = extraMap?['playlist'] as List<Video>?;
             final playlistTitle = extraMap?['playlistTitle'] as String?;
             final initialIndex = extraMap?['initialIndex'] as int? ?? 0;
+            final startSec = double.tryParse(state.uri.queryParameters['start'] ?? '') ??
+                (extraMap?['start'] as num?)?.toDouble();
 
             return VideoPlayerScreen(
               videoId: videoId,
@@ -137,6 +139,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               playlist: playlist,
               playlistTitle: playlistTitle,
               initialPlaylistIndex: initialIndex,
+              startSeconds: startSec,
             );
           },
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 Widget buildPlatformVideoPlayer({
   required String videoId,
+  double? startSeconds,
   required Widget Function(BuildContext context, Widget player) builder,
 }) {
   return Builder(

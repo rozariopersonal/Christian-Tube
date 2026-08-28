@@ -11,6 +11,7 @@ import { TranscriptionModule } from './modules/transcription/transcription.modul
 import { StorageModule } from './modules/storage/storage.module';
 import { HealthModule } from './modules/health/health.module';
 import { WordsModule } from './modules/words/words.module';
+import { ShortsModule } from './modules/shorts/shorts.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { WordsModule } from './modules/words/words.module';
     YoutubeModule,
     TranscriptionModule,
     WordsModule,
+    ShortsModule,
   ],
 })
 export class AppModule {}

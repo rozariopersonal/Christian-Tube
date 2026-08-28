@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { VideosService } from './videos.service';
 
 @Controller(['videos', 'api/videos'])
@@ -24,6 +24,24 @@ export class VideosController {
       limit,
       offset,
     });
+  }
+
+  @Post('import')
+  async importShort(
+    @Body()
+    body: {
+      youtubeVideoId: string;
+      sourceVideoId?: string;
+      creatorName?: string;
+      creatorEmail?: string;
+      clipStartTime?: number;
+      clipEndTime?: number;
+      title?: string;
+      description?: string;
+      category?: string;
+    },
+  ) {
+    return this.videosService.importShortVideo(body);
   }
 
   @Get(':id')

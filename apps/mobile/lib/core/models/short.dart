@@ -18,6 +18,11 @@ class Short {
   final String? directStreamUrl;
   final bool isVertical;
   final double aspectRatio;
+  final String? sourceVideoId;
+  final double? clipStartTime;
+  final double? clipEndTime;
+  final String? creatorName;
+  final String? creatorEmail;
 
   const Short({
     required this.id,
@@ -37,6 +42,11 @@ class Short {
     this.directStreamUrl,
     this.isVertical = true,
     this.aspectRatio = 9 / 16,
+    this.sourceVideoId,
+    this.clipStartTime,
+    this.clipEndTime,
+    this.creatorName,
+    this.creatorEmail,
   });
 
   static int parseDurationInSeconds(String? durationStr) {
@@ -55,12 +65,12 @@ class Short {
     return 0;
   }
 
-  /// Strict validation: A video is ONLY a Short if duration <= 60s or contains explicit #shorts tag
+  /// Strict validation: A video is ONLY a Short if duration <= 180s or contains explicit #shorts tag
   static bool isShort(Map<String, dynamic> json) {
     final durationStr = (json['duration'] ?? '').toString().trim();
     final durationSeconds = parseDurationInSeconds(durationStr);
 
-    if (durationSeconds > 60) {
+    if (durationSeconds > 180) {
       return false;
     }
 
@@ -77,16 +87,16 @@ class Short {
         description.contains('#shorts') ||
         description.contains('#short');
 
-    if (hasShortsTag && (durationSeconds == 0 || durationSeconds <= 60)) {
+    if (hasShortsTag && (durationSeconds == 0 || durationSeconds <= 180)) {
       return true;
     }
 
-    if (durationSeconds > 0 && durationSeconds <= 60) {
+    if (durationSeconds > 0 && durationSeconds <= 180) {
       return true;
     }
 
     final type = (json['type'] ?? '').toString().toUpperCase();
-    if (type == 'SHORT' && (durationSeconds == 0 || durationSeconds <= 60)) {
+    if (type == 'SHORT' && (durationSeconds == 0 || durationSeconds <= 180)) {
       return true;
     }
 
@@ -117,7 +127,7 @@ class Short {
     final isVerticalVideo = isShortUrl ||
         hasShortTag ||
         explicitShortType ||
-        (durationSec > 0 && durationSec <= 60);
+        (durationSec > 0 && durationSec <= 180);
 
     final double calculatedAspectRatio = isVerticalVideo ? (9 / 16) : (16 / 9);
 
@@ -149,6 +159,11 @@ class Short {
       directStreamUrl: json['directStreamUrl'] ?? json['stream_url'],
       isVertical: isVerticalVideo,
       aspectRatio: calculatedAspectRatio,
+      sourceVideoId: json['sourceVideoId'] as String?,
+      clipStartTime: (json['clipStartTime'] as num?)?.toDouble(),
+      clipEndTime: (json['clipEndTime'] as num?)?.toDouble(),
+      creatorName: json['creatorName'] as String?,
+      creatorEmail: json['creatorEmail'] as String?,
     );
   }
 

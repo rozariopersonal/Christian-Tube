@@ -34,5 +34,14 @@
     "tabIcon": "auto_awesome_outlined",
     "endpoint": "/micro-feeds",
     "defaultBibleVersion": "NASB"
+  },
+  "shorts": {
+    "enabled": true,
+    "customChannelId": "UC_ChristianTubeOfficial",
+    "dailyQuotaUnits": 10000,
+    "uploadCostUnits": 1600,
+    "maxDurationSeconds": 180,
+    "defaultPrivacyStatus": "unlisted",
+    "selfDeclaredMadeForKids": true
   }
 }

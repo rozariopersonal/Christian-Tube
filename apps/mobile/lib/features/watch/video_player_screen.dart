@@ -14,6 +14,8 @@ import '../profile/user_service.dart';
 import '../../core/config/app_config.dart';
 import 'widgets/youtube_playlist_widget.dart';
 import 'players/universal_video_player.dart';
+import 'widgets/shorts_trimmer_sheet.dart';
+import '../../core/models/short.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
@@ -21,6 +23,7 @@ class VideoPlayerScreen extends StatefulWidget {
   final List<Video>? playlist;
   final String? playlistTitle;
   final int initialPlaylistIndex;
+  final double? startSeconds;
 
   const VideoPlayerScreen({
     super.key,
@@ -29,6 +32,7 @@ class VideoPlayerScreen extends StatefulWidget {
     this.playlist,
     this.playlistTitle,
     this.initialPlaylistIndex = 0,
+    this.startSeconds,
   });
 
   @override
@@ -168,6 +172,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  void _openShortsTrimmer() {
+    final durationSec = _video != null
+        ? Short.parseDurationInSeconds(_video!.duration).toDouble()
+        : 1800.0;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ShortsTrimmerSheet(
+        sourceVideoId: _activeVideoId,
+        sourceVideoTitle: _video?.title ?? 'Sermon Clip',
+        sourceVideoThumbnail: _video?.thumbnail,
+        currentPlayheadSeconds: 60.0,
+        totalDurationSeconds: durationSec > 0 ? durationSec : 1800.0,
+      ),
+    );
+  }
+
   void _navigateToVideo(Video video) {
     setState(() {
       _activeVideoId = video.id;
@@ -194,6 +217,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
+      startSeconds: widget.startSeconds,
       builder: (context, player) => Scaffold(
         body: SafeArea(
           child: Column(
@@ -387,6 +411,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 ),
                               ],
                             ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Clip Short (Up to 3 mins)
+                          _buildActionPill(
+                            icon: Icons.content_cut,
+                            label: 'Clip',
+                            onTap: _openShortsTrimmer,
+                            isDark: isDark,
                           ),
                           const SizedBox(width: 8),
 

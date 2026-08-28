@@ -30,14 +30,14 @@ class ShortsService extends ChangeNotifier {
             .toList();
 
         if (allVideos.isNotEmpty) {
-          // STRICT: Only include videos that are under a minute (duration <= 60 seconds) or explicitly SHORT
+          // STRICT: Only include videos that are under 3 minutes (duration <= 180 seconds) or explicitly SHORT
           _shorts = allVideos.where((s) {
             if (s.durationSeconds > 0) {
-              return s.durationSeconds <= 60;
+              return s.durationSeconds <= 180;
             }
             final durSec = Short.parseDurationInSeconds(s.duration);
             if (durSec > 0) {
-              return durSec <= 60;
+              return durSec <= 180;
             }
             final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
             final isShortTitle = s.title.toLowerCase().contains('#short');

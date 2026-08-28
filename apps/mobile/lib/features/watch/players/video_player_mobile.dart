@@ -4,20 +4,24 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 Widget buildPlatformVideoPlayer({
   required String videoId,
+  double? startSeconds,
   required Widget Function(BuildContext context, Widget player) builder,
 }) {
   return _MobileVideoPlayerWrapper(
     videoId: videoId,
+    startSeconds: startSeconds,
     builder: builder,
   );
 }
 
 class _MobileVideoPlayerWrapper extends StatefulWidget {
   final String videoId;
+  final double? startSeconds;
   final Widget Function(BuildContext context, Widget player) builder;
 
   const _MobileVideoPlayerWrapper({
     required this.videoId,
+    this.startSeconds,
     required this.builder,
   });
 
@@ -38,10 +42,11 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
   void _initController(String videoId) {
     _controller = YoutubePlayerController(
       initialVideoId: videoId,
-      flags: const YoutubePlayerFlags(
+      flags: YoutubePlayerFlags(
         autoPlay: true,
         mute: false,
         enableCaption: true,
+        startAt: widget.startSeconds != null ? widget.startSeconds!.toInt() : 0,
       ),
     );
   }

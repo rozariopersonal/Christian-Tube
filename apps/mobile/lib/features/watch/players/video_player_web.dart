@@ -8,20 +8,24 @@ final Set<String> _registeredVideoViews = {};
 
 Widget buildPlatformVideoPlayer({
   required String videoId,
+  double? startSeconds,
   required Widget Function(BuildContext context, Widget player) builder,
 }) {
   return _WebVideoPlayerWrapper(
     videoId: videoId,
+    startSeconds: startSeconds,
     builder: builder,
   );
 }
 
 class _WebVideoPlayerWrapper extends StatefulWidget {
   final String videoId;
+  final double? startSeconds;
   final Widget Function(BuildContext context, Widget player) builder;
 
   const _WebVideoPlayerWrapper({
     required this.videoId,
+    this.startSeconds,
     required this.builder,
   });
 
@@ -50,12 +54,16 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
     _viewId = 'video-player-${widget.videoId}-${DateTime.now().millisecondsSinceEpoch}';
     if (!_registeredVideoViews.contains(_viewId)) {
       _registeredVideoViews.add(_viewId);
+      final startParam = (widget.startSeconds != null && widget.startSeconds! > 0)
+          ? '&start=${widget.startSeconds!.toInt()}'
+          : '';
+
       ui_web.platformViewRegistry.registerViewFactory(
         _viewId,
         (int id) {
           final iframe = html.IFrameElement()
             ..src =
-                'https://www.youtube.com/embed/${widget.videoId}?autoplay=1&mute=0&playsinline=1&controls=1&rel=0&modestbranding=1'
+                'https://www.youtube.com/embed/${widget.videoId}?autoplay=1&mute=0&playsinline=1&controls=1&rel=0&modestbranding=1$startParam'
             ..style.border = 'none'
             ..style.width = '100%'
             ..style.height = '100%'
