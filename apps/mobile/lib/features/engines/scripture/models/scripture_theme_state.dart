@@ -8,6 +8,7 @@ class BackgroundPreset {
   final String? blurHash;
   final List<Color>? gradientColors;
   final bool isGradient;
+  final bool isAnimatedGradient;
 
   const BackgroundPreset({
     required this.id,
@@ -16,6 +17,7 @@ class BackgroundPreset {
     this.blurHash,
     this.gradientColors,
     this.isGradient = false,
+    this.isAnimatedGradient = true, // By default, gradients are animated
   });
 }
 

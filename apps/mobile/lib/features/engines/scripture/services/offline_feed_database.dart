@@ -79,6 +79,9 @@ class OfflineFeedDatabase {
             isFeatured INTEGER
           )
         ''');
+        
+        await db.execute('CREATE INDEX idx_feed_book_name ON feed(bookName)');
+        await db.execute('CREATE INDEX idx_feed_book_number ON feed(bookNumber)');
       },
     );
 

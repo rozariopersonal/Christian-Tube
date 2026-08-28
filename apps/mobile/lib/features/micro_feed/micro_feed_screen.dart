@@ -6,6 +6,7 @@ import '../../core/services/bottom_bar_visibility_service.dart';
 import '../engines/scripture/models/scripture_card.dart';
 import '../engines/scripture/models/scripture_filter_state.dart';
 import '../engines/scripture/scripture_engine.dart';
+import '../engines/scripture/services/offline_feed_database.dart';
 
 class MicroFeedScreen<T, F extends BaseFeedFilterState> extends StatefulWidget {
   final BaseFeedEngine<T, F> engine;
@@ -148,6 +149,52 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
+      if (widget.engine is ScriptureEngine) {
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: Center(
+            child: ValueListenableBuilder<double>(
+              valueListenable: OfflineFeedDatabase().downloadProgress,
+              builder: (context, progress, child) {
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(
+                      color: Color(0xFFF59E0B),
+                      strokeWidth: 2.5,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      OfflineFeedDatabase().isInitializing
+                          ? (progress > 0 && progress < 1.0
+                              ? 'Downloading offline database... ${(progress * 100).toInt()}%'
+                              : 'Setting up offline engine...')
+                          : 'Loading feed...',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    if (OfflineFeedDatabase().isInitializing && progress > 0 && progress < 1.0)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.white12,
+                          color: const Color(0xFFF59E0B),
+                          minHeight: 4,
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      }
+
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(

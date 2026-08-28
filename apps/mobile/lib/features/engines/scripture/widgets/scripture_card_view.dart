@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/micro_feed/widgets/card_scrim_overlay.dart';
+import 'package:mobile/core/widgets/animated_fluid_gradient.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_filter_state.dart';
 import '../models/scripture_theme_state.dart';
@@ -370,6 +371,12 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
   Widget _buildBackground(BackgroundPreset preset) {
     if (preset.isGradient && preset.gradientColors != null) {
+      if (preset.isAnimatedGradient) {
+        return AnimatedFluidGradient(
+          colors: preset.gradientColors!,
+          overlayOpacity: 0.35, // Enforce readability
+        );
+      }
       return Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

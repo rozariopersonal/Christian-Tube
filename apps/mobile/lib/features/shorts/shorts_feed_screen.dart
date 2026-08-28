@@ -225,7 +225,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       _hasMoreShorts = true;
       final response = await _apiClient.dio.get(
         '/videos',
-        queryParameters: {'type': 'SHORT', 'limit': 30, 'page': 1},
+        queryParameters: {'type': 'SHORT', 'limit': 30, 'offset': 0},
       );
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
@@ -297,9 +297,10 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     _isLoadingMore = true;
     try {
       final nextPage = _communityPage + 1;
+      final offset = (nextPage - 1) * 30;
       final response = await _apiClient.dio.get(
         '/videos',
-        queryParameters: {'type': 'SHORT', 'limit': 30, 'page': nextPage},
+        queryParameters: {'type': 'SHORT', 'limit': 30, 'offset': offset},
       );
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
