@@ -220,6 +220,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final hasPlaylist = _playlist.isNotEmpty;
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
 
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
@@ -227,30 +229,40 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       onPositionChanged: (pos) {
         _currentPositionSeconds = pos.inMilliseconds / 1000.0;
       },
-      builder: (context, player) => Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              // YouTube Player
-              player,
+      builder: (context, player) {
+        if (isLandscape) {
+          return Scaffold(
+            backgroundColor: Colors.black,
+            body: SizedBox.expand(child: player),
+          );
+        }
 
-              // Video Metadata & Recommendations
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  children: [
-                    // Video Title
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Text(
-                        _video?.title ?? 'Loading video...',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          height: 1.25,
+        return Scaffold(
+          body: SafeArea(
+            top: true,
+            bottom: false,
+            child: Column(
+              children: [
+                // YouTube Player
+                player,
+
+                // Video Metadata & Recommendations
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    children: [
+                      // Video Title
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Text(
+                          _video?.title ?? 'Loading video...',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            height: 1.25,
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(height: 6),
 
                     // View Count & Upload Date
@@ -564,9 +576,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   Widget _buildActionPill({
     required IconData icon,

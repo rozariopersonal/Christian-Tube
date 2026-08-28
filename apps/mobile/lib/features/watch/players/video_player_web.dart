@@ -124,13 +124,20 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final playerWidget = AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Container(
-        color: Colors.black,
-        child: HtmlElementView(viewType: _viewId),
-      ),
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    final container = Container(
+      color: Colors.black,
+      child: HtmlElementView(viewType: _viewId),
     );
+
+    final playerWidget = isLandscape
+        ? SizedBox.expand(child: container)
+        : AspectRatio(
+            aspectRatio: 16 / 9,
+            child: container,
+          );
 
     return widget.builder(context, playerWidget);
   }

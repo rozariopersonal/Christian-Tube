@@ -74,6 +74,7 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
     if (_activeMainWebViewController == _webViewController) {
       _activeMainWebViewController = null;
     }
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -173,59 +174,68 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final playerWidget = AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Container(
-        color: Colors.black,
-        child: InAppWebView(
-          initialData: InAppWebViewInitialData(
-            data: _buildPlayerHtml(widget.videoId, widget.startSeconds),
-            encoding: 'utf-8',
-            baseUrl: WebUri.uri(Uri.https('www.youtube-nocookie.com')),
-            mimeType: 'text/html',
-          ),
-          initialSettings: InAppWebViewSettings(
-            mediaPlaybackRequiresUserGesture: false,
-            allowsInlineMediaPlayback: true,
-            useHybridComposition: true,
-            transparentBackground: false,
-            supportZoom: false,
-            allowsPictureInPictureMediaPlayback: true,
-          ),
-          onWebViewCreated: (controller) {
-            _webViewController = controller;
-            _activeMainWebViewController = controller;
-            controller.addJavaScriptHandler(
-              handlerName: 'onTimeUpdate',
-              callback: (args) {
-                if (args.isNotEmpty && args[0] is num) {
-                  final sec = (args[0] as num).toDouble();
-                  widget.onPositionChanged
-                      ?.call(Duration(milliseconds: (sec * 1000).toInt()));
-                }
-              },
-            );
-          },
-          onEnterFullscreen: (controller) {
-            SystemChrome.setPreferredOrientations([
-              DeviceOrientation.landscapeLeft,
-              DeviceOrientation.landscapeRight,
-            ]);
-          },
-          onExitFullscreen: (controller) {
-            SystemChrome.setPreferredOrientations([
-              DeviceOrientation.portraitUp,
-              DeviceOrientation.portraitDown,
-            ]);
-            Future.delayed(const Duration(milliseconds: 300), () {
-              if (mounted) {
-                SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-              }
-            });
-          },
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    final webView = Container(
+      color: Colors.black,
+      child: InAppWebView(
+        initialData: InAppWebViewInitialData(
+          data: _buildPlayerHtml(widget.videoId, widget.startSeconds),
+          encoding: 'utf-8',
+          baseUrl: WebUri.uri(Uri.https('www.youtube-nocookie.com')),
+          mimeType: 'text/html',
         ),
+        initialSettings: InAppWebViewSettings(
+          mediaPlaybackRequiresUserGesture: false,
+          allowsInlineMediaPlayback: true,
+          useHybridComposition: true,
+          transparentBackground: false,
+          supportZoom: false,
+          allowsPictureInPictureMediaPlayback: true,
+        ),
+        onWebViewCreated: (controller) {
+          _webViewController = controller;
+          _activeMainWebViewController = controller;
+          controller.addJavaScriptHandler(
+            handlerName: 'onTimeUpdate',
+            callback: (args) {
+              if (args.isNotEmpty && args[0] is num) {
+                final sec = (args[0] as num).toDouble();
+                widget.onPositionChanged
+                    ?.call(Duration(milliseconds: (sec * 1000).toInt()));
+              }
+            },
+          );
+        },
+        onEnterFullscreen: (controller) {
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        },
+        onExitFullscreen: (controller) {
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.portraitDown,
+          ]);
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+            }
+          });
+        },
       ),
     );
+
+    final playerWidget = isLandscape
+        ? SizedBox.expand(child: webView)
+        : AspectRatio(
+            aspectRatio: 16 / 9,
+            child: webView,
+          );
 
     return widget.builder(context, playerWidget);
   }

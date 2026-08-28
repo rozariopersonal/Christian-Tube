@@ -12,6 +12,7 @@ import '../../shared/ui/channel_avatar.dart';
 import 'native_shorts_player.dart';
 import 'players/shorts_player.dart';
 import '../../core/config/app_config.dart';
+import '../../core/services/bottom_bar_visibility_service.dart';
 import 'services/shorts_orchestrator_service.dart';
 
 enum ShortsViewTab {
@@ -59,6 +60,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   @override
   void initState() {
     super.initState();
+    BottomBarVisibilityService.instance.setShortPlaying(true);
     _fetchShorts();
     _orchestrator.fetchCloudCreations();
     _communityScrollController.addListener(_onCommunityScroll);
@@ -66,6 +68,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   @override
   void dispose() {
+    BottomBarVisibilityService.instance.setShortPlaying(false);
     _communityScrollController.removeListener(_onCommunityScroll);
     _communityScrollController.dispose();
     _pageController.dispose();
@@ -299,6 +302,20 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                     children: [
                       Row(
                         children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                            tooltip: 'Back',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            onPressed: () {
+                              if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                              } else {
+                                context.go('/feed');
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 8),
                           _buildTabChip(
                             label: '🌐 Community',
                             tab: ShortsViewTab.community,
