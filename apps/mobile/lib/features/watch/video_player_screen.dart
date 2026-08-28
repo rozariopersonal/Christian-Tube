@@ -184,7 +184,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       builder: (ctx) => ShortsTrimmerSheet(
         sourceVideoId: _activeVideoId,
         sourceVideoTitle: _video?.title ?? 'Sermon Clip',
-        sourceVideoThumbnail: _video?.thumbnail,
+        sourceVideoThumbnail: _video?.thumbnailUrl,
         currentPlayheadSeconds: 60.0,
         totalDurationSeconds: durationSec > 0 ? durationSec : 1800.0,
       ),

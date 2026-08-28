@@ -29,6 +29,8 @@ class Video {
     this.isLive = false,
   });
 
+  String get thumbnail => thumbnailUrl;
+
   factory Video.fromJson(Map<String, dynamic> json) {
     final videoId = json['id'] ?? json['videoId'] ?? json['_id'] ?? '';
     final defaultThumb = videoId.isNotEmpty 
