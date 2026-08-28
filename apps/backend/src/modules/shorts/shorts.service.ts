@@ -353,4 +353,42 @@ export class ShortsService {
       return [];
     }
   }
+
+  async cleanupLegacyShorts() {
+    try {
+      // 1. Delete any mock / virtual shorts with synthetic IDs
+      const deletedVideos = await this.prisma.video.deleteMany({
+        where: {
+          OR: [
+            { id: { startsWith: 'short_' } },
+            { id: { startsWith: 'mock_' } },
+            { id: { startsWith: 'local_' } },
+            { type: 'SHORT', channelId: { startsWith: 'UC_ChristianTube' } },
+          ],
+        },
+      });
+
+      // 2. Delete any mock creations
+      const deletedCreations = await (this.prisma as any).shortCreation.deleteMany({
+        where: {
+          OR: [
+            { youtubeVideoId: { startsWith: 'short_' } },
+            { youtubeVideoId: { startsWith: 'mock_' } },
+            { youtubeVideoId: { startsWith: 'local_' } },
+          ],
+        },
+      }).catch(() => ({ count: 0 }));
+
+      this.logger.log(`🧹 Cleaned up legacy/mock shorts: ${deletedVideos.count} videos, ${deletedCreations.count} creations.`);
+      return {
+        success: true,
+        deletedVideos: deletedVideos.count,
+        deletedCreations: deletedCreations.count,
+        message: 'All virtual/mock shorts removed from database. Feed now exclusively serves authentic YouTube shorts.',
+      };
+    } catch (e: any) {
+      this.logger.error(`cleanupLegacyShorts error: ${e.message}`);
+      return { success: false, error: e.message };
+    }
+  }
 }

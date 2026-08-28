@@ -27,4 +27,9 @@ export class ShortsController {
   async recordCreation(@Body() data: any) {
     return this.shortsService.recordCreation(data);
   }
+
+  @Post('cleanup-legacy-shorts')
+  async cleanupLegacyShorts() {
+    return this.shortsService.cleanupLegacyShorts();
+  }
 }
