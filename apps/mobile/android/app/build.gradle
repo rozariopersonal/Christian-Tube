@@ -23,7 +23,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "org.rozario.christiantube.mobile"
-    compileSdk 35
+    compileSdk 36
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -83,7 +83,7 @@ android {
             }
             minifyEnabled true
             shrinkResources true
-            crunchPngs true
+            crunchPngs false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

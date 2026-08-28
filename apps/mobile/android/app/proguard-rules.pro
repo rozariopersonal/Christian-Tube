@@ -1,3 +1,11 @@
+# General Android / Flutter Reflection & Attributes
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes Exceptions
+-keepattributes InnerClasses
+-keepattributes EnclosingMethod
+-dontwarn javax.annotation.**
+
 # Flutter Wrapper
 -keep class io.flutter.app.** { *; }
 -keep class io.flutter.plugin.**  { *; }
