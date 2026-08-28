@@ -827,6 +827,15 @@ export class YoutubeService implements OnModuleInit {
         totalSyncedInRun++;
       }
 
+      // For already COMPLETED channels during routine checks, stop after Batch 1 delta check
+      if (channel.syncStatus === 'COMPLETED' && !channel.syncCursor && batchesProcessed === 1) {
+        await this.prisma.channel.update({
+          where: { id: channelId },
+          data: { lastSyncedAt: new Date() },
+        });
+        break;
+      }
+
       if (nextPageToken) {
         pageToken = nextPageToken;
         await this.prisma.channel.update({
