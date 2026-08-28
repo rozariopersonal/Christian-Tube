@@ -31,9 +31,11 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   Future<void> _fetchShorts() async {
     try {
-      // Read videos directly from the channel video feed
-      final response =
-          await _apiClient.dio.get('/videos', queryParameters: {'limit': 100});
+      // Query videos with type=SHORT directly to fetch all synced Shorts
+      final response = await _apiClient.dio.get(
+        '/videos',
+        queryParameters: {'type': 'SHORT', 'limit': 100},
+      );
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
         final List<dynamic> list =
@@ -45,7 +47,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             .toList();
 
         if (allVideos.isNotEmpty) {
-          // STRICT: Only include videos that are under a minute (duration <= 60 seconds)
+          // STRICT: Only include videos that are under a minute (duration <= 60 seconds) or explicitly SHORT
           final shortsOnly = allVideos.where((s) {
             if (s.durationSeconds > 0) {
               return s.durationSeconds <= 60;
@@ -58,7 +60,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             final isShortTitle = s.title.toLowerCase().contains('#short');
             final isShortDesc =
                 (s.description ?? '').toLowerCase().contains('#short');
-            return isShortUrl || isShortTitle || isShortDesc;
+            return isShortUrl || isShortTitle || isShortDesc || s.type == 'SHORT';
           }).toList();
 
           setState(() {

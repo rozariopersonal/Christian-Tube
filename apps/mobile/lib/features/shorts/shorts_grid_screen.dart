@@ -23,8 +23,10 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
 
   Future<void> _fetchGridShorts() async {
     try {
-      final response =
-          await _apiClient.dio.get('/videos', queryParameters: {'limit': 100});
+      final response = await _apiClient.dio.get(
+        '/videos',
+        queryParameters: {'type': 'SHORT', 'limit': 100},
+      );
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
         final List<dynamic> list =
@@ -42,7 +44,7 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
           final isShortTitle = s.title.toLowerCase().contains('#short');
           final isShortDesc =
               (s.description ?? '').toLowerCase().contains('#short');
-          return isShortUrl || isShortTitle || isShortDesc;
+          return isShortUrl || isShortTitle || isShortDesc || s.type == 'SHORT';
         }).toList();
 
         setState(() {

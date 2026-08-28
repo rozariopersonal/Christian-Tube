@@ -16,8 +16,10 @@ class ShortsService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response =
-          await _apiClient.dio.get('/videos', queryParameters: {'limit': 100});
+      final response = await _apiClient.dio.get(
+        '/videos',
+        queryParameters: {'type': 'SHORT', 'limit': 100},
+      );
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
         final List<dynamic> list =
@@ -28,7 +30,7 @@ class ShortsService extends ChangeNotifier {
             .toList();
 
         if (allVideos.isNotEmpty) {
-          // STRICT: Only include videos that are under a minute (duration <= 60 seconds)
+          // STRICT: Only include videos that are under a minute (duration <= 60 seconds) or explicitly SHORT
           _shorts = allVideos.where((s) {
             if (s.durationSeconds > 0) {
               return s.durationSeconds <= 60;
@@ -41,7 +43,7 @@ class ShortsService extends ChangeNotifier {
             final isShortTitle = s.title.toLowerCase().contains('#short');
             final isShortDesc =
                 (s.description ?? '').toLowerCase().contains('#short');
-            return isShortUrl || isShortTitle || isShortDesc;
+            return isShortUrl || isShortTitle || isShortDesc || s.type == 'SHORT';
           }).toList();
           return;
         }

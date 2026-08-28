@@ -14,6 +14,7 @@ class Short {
   final DateTime publishedAt;
   final String? duration;
   final int durationSeconds;
+  final String? type;
   final String? directStreamUrl;
   final bool isVertical;
   final double aspectRatio;
@@ -32,6 +33,7 @@ class Short {
     required this.publishedAt,
     this.duration,
     this.durationSeconds = 0,
+    this.type = 'SHORT',
     this.directStreamUrl,
     this.isVertical = true,
     this.aspectRatio = 9 / 16,
@@ -143,6 +145,7 @@ class Short {
           : DateTime.now(),
       duration: durationStr,
       durationSeconds: durationSec,
+      type: json['type']?.toString().toUpperCase() ?? 'SHORT',
       directStreamUrl: json['directStreamUrl'] ?? json['stream_url'],
       isVertical: isVerticalVideo,
       aspectRatio: calculatedAspectRatio,
