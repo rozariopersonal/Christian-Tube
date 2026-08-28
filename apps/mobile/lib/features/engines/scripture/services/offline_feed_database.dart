@@ -26,8 +26,28 @@ class OfflineFeedDatabase {
       final appSupportDir = await getApplicationSupportDirectory();
       final dbPath = join(appSupportDir.path, 'feed.db');
       final dbExists = await File(dbPath).exists();
+      
+      bool shouldRebuild = !dbExists;
 
-      if (!dbExists) {
+      if (dbExists) {
+        try {
+          final tempDb = await openDatabase(dbPath);
+          final count = Sqflite.firstIntValue(await tempDb.rawQuery('SELECT COUNT(*) FROM feed'));
+          await tempDb.close();
+          
+          if (count == null || count == 0) {
+            shouldRebuild = true;
+          }
+        } catch (e) {
+          // If the table doesn't exist or is corrupted
+          shouldRebuild = true;
+        }
+      }
+
+      if (shouldRebuild) {
+        if (dbExists) {
+          await deleteDatabase(dbPath);
+        }
         await _downloadAndBuildDatabase(dbPath);
       }
 
