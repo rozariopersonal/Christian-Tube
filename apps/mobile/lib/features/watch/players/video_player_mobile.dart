@@ -7,7 +7,7 @@ InAppWebViewController? _activeMainWebViewController;
 void pausePlatformMainVideo() {
   try {
     _activeMainWebViewController?.evaluateJavascript(
-      source: "try { document.querySelector('iframe').contentWindow.postMessage('{\"event\":\"command\",\"func\":\"pauseVideo\",\"args\":\"\"}', '*'); } catch(e) {}",
+      source: "try { if (typeof pauseVideo === 'function') { pauseVideo(); } } catch(e) {}",
     );
   } catch (_) {}
 }
@@ -63,13 +63,9 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
   }
 
   void _loadVideo(String videoId, double? startSeconds) {
-    final startParam = (startSeconds != null && startSeconds > 0)
-        ? '&start=${startSeconds.toInt()}'
-        : '';
-    final url =
-        'https://www.youtube.com/embed/$videoId?autoplay=1&mute=0&playsinline=1&controls=1&rel=0&modestbranding=1&enablejsapi=1$startParam';
-    _webViewController?.loadUrl(
-      urlRequest: URLRequest(url: WebUri(url)),
+    final startSec = (startSeconds != null && startSeconds > 0) ? startSeconds.toInt() : 0;
+    _webViewController?.evaluateJavascript(
+      source: "try { loadVideoById('$videoId', $startSec); } catch(e) {}",
     );
   }
 
@@ -85,11 +81,94 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
     super.dispose();
   }
 
-  String _buildInitialUrl() {
-    final startParam = (widget.startSeconds != null && widget.startSeconds! > 0)
-        ? '&start=${widget.startSeconds!.toInt()}'
-        : '';
-    return 'https://www.youtube.com/embed/${widget.videoId}?autoplay=1&mute=0&playsinline=1&controls=1&rel=0&modestbranding=1&enablejsapi=1$startParam';
+  String _buildPlayerHtml(String videoId, double? startSeconds) {
+    final startSec = (startSeconds != null && startSeconds > 0) ? startSeconds.toInt() : 0;
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            background-color: #000000;
+            overflow: hidden;
+            height: 100%;
+            width: 100%;
+        }
+        #player {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="player"></div>
+    <script>
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        var player;
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '100%',
+                width: '100%',
+                videoId: '$videoId',
+                playerVars: {
+                    'autoplay': 1,
+                    'controls': 1,
+                    'playsinline': 1,
+                    'enablejsapi': 1,
+                    'fs': 1,
+                    'rel': 0,
+                    'modestbranding': 1,
+                    'origin': 'https://www.youtube-nocookie.com',
+                    'start': $startSec
+                },
+                events: {
+                    'onReady': function(e) {
+                        try { e.target.playVideo(); } catch(err){}
+                    },
+                    'onStateChange': function(event) {
+                        try {
+                            if (window.flutter_inappwebview) {
+                                window.flutter_inappwebview.callHandler('onStateChange', event.data);
+                            }
+                        } catch(err){}
+                    }
+                }
+            });
+            setInterval(function() {
+                try {
+                    if (player && typeof player.getCurrentTime === 'function' && window.flutter_inappwebview) {
+                        window.flutter_inappwebview.callHandler('onTimeUpdate', player.getCurrentTime());
+                    }
+                } catch(err){}
+            }, 500);
+        }
+        function loadVideoById(id, startSec) {
+            try {
+                if (player && typeof player.loadVideoById === 'function') {
+                    player.loadVideoById({ videoId: id, startSeconds: startSec || 0 });
+                }
+            } catch(err){}
+        }
+        function pauseVideo() {
+            try {
+                if (player && typeof player.pauseVideo === 'function') {
+                    player.pauseVideo();
+                }
+            } catch(err){}
+        }
+    </script>
+</body>
+</html>
+''';
   }
 
   @override
@@ -99,8 +178,11 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
       child: Container(
         color: Colors.black,
         child: InAppWebView(
-          initialUrlRequest: URLRequest(
-            url: WebUri(_buildInitialUrl()),
+          initialData: InAppWebViewInitialData(
+            data: _buildPlayerHtml(widget.videoId, widget.startSeconds),
+            encoding: 'utf-8',
+            baseUrl: WebUri.uri(Uri.https('www.youtube-nocookie.com')),
+            mimeType: 'text/html',
           ),
           initialSettings: InAppWebViewSettings(
             mediaPlaybackRequiresUserGesture: false,
@@ -109,6 +191,7 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
             transparentBackground: false,
             supportZoom: false,
             allowsPictureInPictureMediaPlayback: true,
+            userAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Mobile Safari/537.36',
           ),
           onWebViewCreated: (controller) {
             _webViewController = controller;
@@ -123,18 +206,6 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
                 }
               },
             );
-          },
-          onLoadStop: (controller, url) {
-            controller.evaluateJavascript(source: """
-              window.addEventListener('message', function(event) {
-                try {
-                  var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-                  if (data && data.event === 'infoDelivery' && data.info && data.info.currentTime) {
-                    window.flutter_inappwebview.callHandler('onTimeUpdate', data.info.currentTime);
-                  }
-                } catch(e) {}
-              });
-            """);
           },
           onEnterFullscreen: (controller) {
             SystemChrome.setPreferredOrientations([
