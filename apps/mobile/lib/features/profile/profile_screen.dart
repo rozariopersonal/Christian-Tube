@@ -11,6 +11,7 @@ import 'playlist_detail_screen.dart';
 import 'settings_screen.dart';
 import 'subscriptions_screen.dart';
 import 'user_service.dart';
+import 'widgets/app_share_dialog.dart';
 import '../../core/theme/theme_service.dart';
 import '../../core/config/app_config.dart';
 import '../../core/models/video.dart';
@@ -490,6 +491,16 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   );
                 },
+              ),
+
+              // Share App & QR Code Section
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                leading: const Icon(Icons.qr_code_2_rounded),
+                title: const Text('Share App & QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                subtitle: const Text('Share download link or scan QR code', style: TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.chevron_right, size: 20),
+                onTap: () => AppShareDialog.show(context),
               ),
             ],
           ),

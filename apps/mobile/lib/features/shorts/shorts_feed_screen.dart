@@ -10,7 +10,6 @@ import '../../core/models/local_short_item.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/ui/channel_avatar.dart';
 import 'native_shorts_player.dart';
-import 'players/local_short_player.dart';
 import 'players/shorts_player.dart';
 import '../../core/config/app_config.dart';
 import 'services/shorts_orchestrator_service.dart';
@@ -421,7 +420,12 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     );
   }
 
-  Widget _buildShortPlayerStack(Short short, int index, bool isTabVisible) {
+  Widget _buildShortPlayerStack(
+    Short short,
+    int index,
+    bool isTabVisible, {
+    Widget? topStatusChip,
+  }) {
     final isWithinSlidingWindow = (index - _currentPage).abs() <= 1;
     final isCurrentActive = index == _currentPage;
     final slotIndex = index % 3;
@@ -461,6 +465,17 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             child: const SizedBox.expand(),
           ),
         ),
+
+        // 2.5 Floating Status Chip (One-Line Indicator)
+        if (topStatusChip != null)
+          Positioned(
+            top: 60,
+            left: 16,
+            right: 16,
+            child: Center(
+              child: topStatusChip,
+            ),
+          ),
 
         // 3. Floating Right Action Bar (Vibrant Gold Share Button)
         Positioned(
@@ -868,309 +883,28 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
           onPageChanged: (index) {
             setState(() {
               _currentPage = index;
+              _isPlaying = true;
+              _areControlsVisible = true;
+              _currentPosition = 0.0;
+              _totalDuration = 0.0;
             });
             _startAutoHideTimer();
           },
           itemBuilder: (context, index) {
             final item = items[index];
+            final short = item.toShort();
             final isPublished = item.status == ShortCreationStatus.published;
+            final statusChip = isPublished ? null : _buildStatusChip(item);
 
-            if (isPublished) {
-              final short = item.toShort();
-              return _buildShortPlayerStack(short, index, true);
-            }
-
-            // If video has been rendered locally, allow normal full playback while uploading!
-            if (item.localVideoPath != null && item.localVideoPath!.isNotEmpty) {
-              return _buildLocalShortPlayerCard(item, index);
-            }
-
-            // Background Job Trimming / Extracting Stream View (Pre-Render)
-            return _buildProgressCard(item);
+            return _buildShortPlayerStack(
+              short,
+              index,
+              true,
+              topStatusChip: statusChip,
+            );
           },
         );
       },
-    );
-  }
-
-  Widget _buildLocalShortPlayerCard(LocalShortItem item, int index) {
-    final isCurrentActive = index == _currentPage;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // 1. Live Local Rendered MP4 Video Player
-        LocalShortPlayer(
-          key: ValueKey('local_player_${item.id}_${item.localVideoPath}'),
-          item: item,
-          isPlaying: isCurrentActive && _isPlaying,
-          onProgress: (cur, dur) {
-            if (isCurrentActive && !_isScrubbing && mounted) {
-              setState(() {
-                _currentPosition = cur;
-                if (dur > 0) _totalDuration = dur;
-              });
-            }
-          },
-        ),
-
-        // 2. Full-Screen Tap Arena (Play/Pause & Controls HUD toggle)
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _onScreenTap,
-            child: const SizedBox.expand(),
-          ),
-        ),
-
-        // 3. Floating One-Line Status Chip at Top
-        Positioned(
-          top: 60,
-          left: 16,
-          right: 16,
-          child: Center(
-            child: _buildStatusChip(item),
-          ),
-        ),
-
-        // 4. Floating Action Bar (Share)
-        Positioned(
-          right: 14,
-          bottom: 92,
-          child: IgnorePointer(
-            ignoring: !_areControlsVisible,
-            child: AnimatedOpacity(
-              opacity: _areControlsVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 250),
-              child: _buildShareButton(
-                onTap: () => _shareShort(item.toShort()),
-              ),
-            ),
-          ),
-        ),
-
-        // 5. Bottom HUD
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: IgnorePointer(
-            ignoring: !_areControlsVisible,
-            child: AnimatedOpacity(
-              opacity: _areControlsVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 250),
-              child: Container(
-                padding: const EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 48,
-                  bottom: 14,
-                ),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black,
-                      Colors.black,
-                      Color(0xEE000000),
-                      Color(0x88000000),
-                      Color(0x00000000),
-                    ],
-                    stops: [0.0, 0.50, 0.70, 0.88, 1.0],
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            context.push(
-                              '/watch/${item.sourceVideoId}?start=${item.clipStartTime.toInt()}',
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B).withValues(alpha: 0.95),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.play_circle_fill, size: 16, color: Colors.black),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Watch Full Sermon',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(width: 4),
-                                Icon(Icons.arrow_forward_ios, size: 10, color: Colors.black),
-                              ],
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.white70, size: 20),
-                          onPressed: () => _orchestrator.deleteShort(item.id),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Scrubber Track
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final totalWidth = constraints.maxWidth;
-                        final dur = _totalDuration > 0
-                            ? _totalDuration
-                            : (item.clipEndTime - item.clipStartTime > 0
-                                ? (item.clipEndTime - item.clipStartTime)
-                                : 60.0);
-                        final ratio = (_currentPosition / dur).clamp(0.0, 1.0);
-
-                        return Column(
-                          children: [
-                            Container(
-                              height: 4,
-                              width: totalWidth,
-                              decoration: BoxDecoration(
-                                color: Colors.white24,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Container(
-                                  width: totalWidth * ratio,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF59E0B),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  Formatters.formatDuration(Duration(seconds: _currentPosition.toInt())),
-                                  style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                ),
-                                Text(
-                                  Formatters.formatDuration(Duration(seconds: dur.toInt())),
-                                  style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProgressCard(LocalShortItem item) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Container(
-          color: const Color(0xFF0F172A),
-          child: Center(
-            child: item.sourceVideoThumbnail != null
-                ? Image.network(
-                    item.sourceVideoThumbnail!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.movie,
-                      size: 64,
-                      color: Colors.white24,
-                    ),
-                  )
-                : const Icon(Icons.movie, size: 64, color: Colors.white24),
-          ),
-        ),
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.7),
-                  Colors.black.withValues(alpha: 0.5),
-                  Colors.black.withValues(alpha: 0.95),
-                ],
-                stops: const [0.0, 0.4, 1.0],
-              ),
-            ),
-          ),
-        ),
-
-        // Centered One-Line Status Chip for Pre-Render Stage
-        Center(
-          child: _buildStatusChip(item),
-        ),
-
-        // Bottom Info
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 24,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'From: ${item.sourceVideoTitle}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white60, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -1283,7 +1017,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             const Icon(Icons.play_circle_filled, size: 14, color: Colors.greenAccent),
             const SizedBox(width: 6),
             Text(
-              '🎬 Local Video',
+              '🎬 Standard Short',
               style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ],

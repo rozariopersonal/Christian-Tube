@@ -1,6 +1,6 @@
 {
   "name": "privatetube-monorepo",
-  "version": "1.28.0",
+  "version": "1.29.0",
   "private": true,
   "description": "PrivateTube - Unified Multi-Instance White-Label Video & AI Platform",
   "scripts": {

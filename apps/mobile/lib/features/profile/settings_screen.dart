@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/theme/theme_service.dart';
 import '../update/update_service.dart';
+import 'widgets/app_share_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   final ThemeService themeService;
@@ -62,7 +63,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final currentLang = widget.themeService.languageCode;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Settings & Customization')),
+          appBar: AppBar(
+            title: const Text('Settings & Customization'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.qr_code_2_rounded),
+                tooltip: 'Share App & QR Code',
+                onPressed: () => AppShareDialog.show(context, version: _version),
+              ),
+            ],
+          ),
           body: ListView(
             padding: const EdgeInsets.symmetric(vertical: 12),
             children: [
@@ -170,7 +180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: const Text('Pure OLED Black'),
                       subtitle: const Text('Deep AMOLED black background in dark mode'),
                       value: widget.themeService.isAmoled,
-                      activeColor: theme.colorScheme.primary,
+                      activeThumbColor: theme.colorScheme.primary,
                       onChanged: (val) => widget.themeService.setAmoled(val),
                     ),
                   ],
@@ -232,7 +242,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 12),
 
-              // SECTION 5: UPDATES & ABOUT
+              // SECTION 5: SHARE & COMMUNITY
+              _buildSectionHeader('Share & Community', theme.colorScheme.primary),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Icon(Icons.qr_code_2_rounded, color: theme.colorScheme.primary),
+                      title: const Text('Share App & QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Share download link or let friends scan your QR code'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => AppShareDialog.show(context, version: _version),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // SECTION 6: UPDATES & ABOUT
               _buildSectionHeader('About & Updates', theme.colorScheme.primary),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
