@@ -66,6 +66,11 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   double _currentPosition = 0.0;
   double _totalDuration = 0.0;
 
+  // Play/Pause Animated Overlay
+  bool _showPlayPauseOverlay = false;
+  bool _playPauseOverlayPlaying = true;
+  Timer? _overlayTimer;
+
   StreamSubscription<void>? _shortsResetSub;
 
   @override
@@ -168,6 +173,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     _pageController.dispose();
     _localPageController.dispose();
     _autoHideTimer?.cancel();
+    _overlayTimer?.cancel();
     super.dispose();
   }
 
@@ -325,6 +331,21 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     });
   }
 
+  void _showPlayPauseIndicator(bool isPlaying) {
+    _overlayTimer?.cancel();
+    setState(() {
+      _showPlayPauseOverlay = true;
+      _playPauseOverlayPlaying = isPlaying;
+    });
+    _overlayTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) {
+        setState(() {
+          _showPlayPauseOverlay = false;
+        });
+      }
+    });
+  }
+
   void _onScreenTap() {
     HapticFeedback.lightImpact();
     if (!_areControlsVisible) {
@@ -335,13 +356,13 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       _startAutoHideTimer();
     } else {
       // Subsequent tap toggles play/pause
+      _autoHideTimer?.cancel(); // Kill stale timer from scrub or prior state
       setState(() {
         _isPlaying = !_isPlaying;
       });
+      _showPlayPauseIndicator(_isPlaying);
       if (_isPlaying) {
-        _startAutoHideTimer();
-      } else {
-        _autoHideTimer?.cancel(); // Keep visible when paused
+        _startAutoHideTimer(); // Fresh 10s window from resume
       }
     }
   }
@@ -731,8 +752,12 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                 ? 3
                 : 2;
 
-        return CustomScrollView(
-          controller: _communityScrollController,
+        return RefreshIndicator(
+          color: const Color(0xFFF59E0B),
+          backgroundColor: const Color(0xFF1E293B),
+          onRefresh: _fetchShorts,
+          child: CustomScrollView(
+            controller: _communityScrollController,
           physics: const BouncingScrollPhysics(),
           slivers: [
             SliverPadding(
@@ -790,6 +815,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
               ),
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
+        ),
         );
       },
     );
@@ -979,11 +1005,17 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         localItem.localVideoPath != null &&
         localItem.localVideoPath!.isNotEmpty;
 
+    final isNonPlayableLocalShort = localItem != null &&
+        !hasLocalVideo &&
+        localItem.status != ShortCreationStatus.published;
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. Local Offline Video Player or Sliding Window Slot Player / Static Thumbnail
-        if (hasLocalVideo && isWithinSlidingWindow)
+        // 1. Local Offline Video Player or Sliding Window Slot Player / Static Thumbnail / Processing Card
+        if (isNonPlayableLocalShort)
+          _buildNonPlayableShortCard(localItem)
+        else if (hasLocalVideo && isWithinSlidingWindow)
           LocalShortPlayer(
             key: ValueKey('local_slot_${localItem.id}'),
             item: localItem,
@@ -1021,16 +1053,40 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
           ),
 
         // 2. Full-Screen Tap Arena (Dynamic HUD Auto-Hide & Play/Pause)
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _onScreenTap,
-            child: const SizedBox.expand(),
+        if (!isNonPlayableLocalShort)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _onScreenTap,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const SizedBox.expand(),
+                  // Play/Pause Animated Feedback Overlay
+                  if (_showPlayPauseOverlay)
+                    AnimatedOpacity(
+                      opacity: _showPlayPauseOverlay ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _playPauseOverlayPlaying ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                          size: 64,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
 
         // 2.5 Floating Status Chip (One-Line Indicator)
-        if (topStatusChip != null)
+        if (topStatusChip != null && !isNonPlayableLocalShort)
           Positioned(
             top: 60,
             left: 16,
@@ -1050,7 +1106,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
               opacity: _areControlsVisible ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 250),
               child: _buildShareButton(
-                onTap: () => _shareShort(short),
+                onTap: () => _shareShort(short, localItem: localItem),
               ),
             ),
           ),
@@ -1095,6 +1151,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                     if (short.sourceVideoId != null && short.sourceVideoId!.isNotEmpty) ...[
                       GestureDetector(
                         onTap: () {
+                          stopAllPlatformShorts();
                           context.push(
                             '/watch/${short.sourceVideoId}?start=${(short.clipStartTime ?? 0).toInt()}',
                           );
@@ -1521,8 +1578,15 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                 ? 3
                 : 2;
 
-        return CustomScrollView(
-          physics: const BouncingScrollPhysics(),
+        return RefreshIndicator(
+          color: const Color(0xFFF59E0B),
+          backgroundColor: const Color(0xFF1E293B),
+          onRefresh: () async {
+            _orchestrator.fetchCloudCreations();
+            await Future.delayed(const Duration(milliseconds: 800));
+          },
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 75, 16, 14),
@@ -1570,6 +1634,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
+        ),
         );
       },
     );
@@ -1627,19 +1692,23 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     final durSec = (item.clipEndTime - item.clipStartTime).toInt();
 
     return GestureDetector(
-      onTap: () => _openCreationShortAt(index),
+      onTap: () {
+        if (item.status == ShortCreationStatus.failed) {
+          _showFailedCreationDialog(item);
+        } else {
+          _openCreationShortAt(index);
+        }
+      },
       onLongPress: () => _confirmDeleteCreation(item),
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: item.status == ShortCreationStatus.failed
-                ? Colors.redAccent.withValues(alpha: 0.6)
-                : item.status == ShortCreationStatus.uploading
-                    ? const Color(0xFFF59E0B).withValues(alpha: 0.8)
-                    : Colors.white12,
-            width: item.status == ShortCreationStatus.uploading ? 1.5 : 1.0,
+            color: item.status == ShortCreationStatus.published
+                ? Colors.white12
+                : item.statusColor.withValues(alpha: 0.75),
+            width: item.status == ShortCreationStatus.published ? 1.0 : 1.5,
           ),
           boxShadow: [
             BoxShadow(
@@ -1766,6 +1835,21 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                       fontSize: 10,
                     ),
                   ),
+                  // Progress Bar for actively processing items
+                  if (item.status == ShortCreationStatus.downloading ||
+                      item.status == ShortCreationStatus.trimming ||
+                      item.status == ShortCreationStatus.uploading) ...[
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: item.progress > 0 ? item.progress : null,
+                        minHeight: 3,
+                        backgroundColor: Colors.white24,
+                        color: item.statusColor,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1776,154 +1860,126 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   }
 
   Widget _buildGridBadge(LocalShortItem item) {
-    if (item.status == ShortCreationStatus.uploading) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF59E0B),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 9,
-              height: 9,
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.black),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '${(item.progress * 100).toInt()}%',
-              style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      );
-    } else if (item.status == ShortCreationStatus.downloading || item.status == ShortCreationStatus.trimming) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        decoration: BoxDecoration(
-          color: Colors.black87,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFF59E0B), width: 1),
-        ),
-        child: Text(
-          item.status == ShortCreationStatus.downloading ? 'Extracting' : 'Rendering',
-          style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.bold),
-        ),
-      );
-    } else if (item.status == ShortCreationStatus.failed) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        decoration: BoxDecoration(
-          color: Colors.redAccent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Text(
-          'Notice',
-          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-        ),
-      );
-    } else if (item.status == ShortCreationStatus.scheduledUpload) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        decoration: BoxDecoration(
-          color: Colors.orangeAccent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Text(
-          'Scheduled',
-          style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
-        ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: const Text(
-        'Live',
-        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildStatusChip(LocalShortItem item) {
-    Color borderColor = const Color(0xFFF59E0B);
-    Color textColor = Colors.white;
-
-    if (item.status == ShortCreationStatus.failed) {
-      borderColor = Colors.redAccent;
-    } else if (item.status == ShortCreationStatus.published) {
-      borderColor = Colors.greenAccent;
-    }
+    final color = item.statusColor;
+    final isProgressing = item.status == ShortCreationStatus.downloading ||
+        item.status == ShortCreationStatus.trimming ||
+        item.status == ShortCreationStatus.uploading ||
+        item.status == ShortCreationStatus.processing;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor.withValues(alpha: 0.85), width: 1.2),
-        boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2)),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.75), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.25),
+            blurRadius: 6,
+            spreadRadius: 0.5,
+          ),
+          const BoxShadow(
+            color: Colors.black54,
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (item.status == ShortCreationStatus.downloading) ...[
-            const SizedBox(
+          if (isProgressing)
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.8,
+                value: (item.progress > 0 && item.status == ShortCreationStatus.uploading)
+                    ? item.progress
+                    : null,
+                color: color,
+              ),
+            )
+          else
+            Icon(
+              item.statusIcon,
+              size: 11,
+              color: color,
+            ),
+          const SizedBox(width: 5),
+          Text(
+            item.statusLabel,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(LocalShortItem item) {
+    final color = item.statusColor;
+    final isProgressing = item.status == ShortCreationStatus.downloading ||
+        item.status == ShortCreationStatus.trimming ||
+        item.status == ShortCreationStatus.uploading ||
+        item.status == ShortCreationStatus.processing;
+    final isActionable = item.status == ShortCreationStatus.failed ||
+        item.status == ShortCreationStatus.scheduledUpload;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.8), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.3),
+            blurRadius: 10,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+          const BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isProgressing)
+            SizedBox(
               width: 12,
               height: 12,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: (item.progress > 0 && item.status == ShortCreationStatus.uploading)
+                    ? item.progress
+                    : null,
+                color: color,
+              ),
+            )
+          else
+            Icon(
+              item.statusIcon,
+              size: 14,
+              color: color,
             ),
-            const SizedBox(width: 8),
-            Text(
-              '📥 Extracting ${(item.progress * 100).toInt()}%',
-              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+          const SizedBox(width: 8),
+          Text(
+            item.statusLabel,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
-          ] else if (item.status == ShortCreationStatus.trimming) ...[
-            const SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '✂️ Rendering ${(item.progress * 100).toInt()}%',
-              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ] else if (item.status == ShortCreationStatus.uploading) ...[
-            const SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '⚡ Uploading ${(item.progress * 100).toInt()}%',
-              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ] else if (item.status == ShortCreationStatus.processing) ...[
-            const SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.greenAccent),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '🔄 Syncing...',
-              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ] else if (item.status == ShortCreationStatus.scheduledUpload) ...[
-            const Icon(Icons.schedule, size: 14, color: Color(0xFFF59E0B)),
+          ),
+          if (isActionable) ...[
             const SizedBox(width: 6),
-            Text(
-              '⏰ Scheduled • ',
-              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
+            const Text('•', style: TextStyle(color: Colors.white38, fontSize: 12)),
+            const SizedBox(width: 6),
             GestureDetector(
               onTap: () => _orchestrator.retryUpload(item.id),
               child: const Text(
@@ -1935,32 +1991,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                   decoration: TextDecoration.underline,
                 ),
               ),
-            ),
-          ] else if (item.status == ShortCreationStatus.failed) ...[
-            const Icon(Icons.error_outline, size: 14, color: Colors.redAccent),
-            const SizedBox(width: 6),
-            Text(
-              '⚠️ Notice • ',
-              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-            GestureDetector(
-              onTap: () => _orchestrator.retryUpload(item.id),
-              child: const Text(
-                'Retry',
-                style: TextStyle(
-                  color: Color(0xFFF59E0B),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ),
-          ] else ...[
-            const Icon(Icons.play_circle_filled, size: 14, color: Colors.greenAccent),
-            const SizedBox(width: 6),
-            Text(
-              '🎬 Standard Short',
-              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ],
         ],
@@ -1968,9 +1998,35 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     );
   }
 
-  void _shareShort(Short short) {
+  void _shareShort(Short short, {LocalShortItem? localItem}) {
     HapticFeedback.lightImpact();
     _startAutoHideTimer();
+
+    if (localItem != null && localItem.status != ShortCreationStatus.published) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1E293B),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            content: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '✂️ This Short is currently ${localItem.statusDisplay.toLowerCase()} and will be shareable once published!',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     final appUrl = 'https://christiantube.app/#/watch/${short.sourceVideoId ?? short.id}?start=${(short.clipStartTime ?? 0).toInt()}';
     final ytUrl = 'https://www.youtube.com/shorts/${short.id}';
 
@@ -1979,6 +2035,290 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       '📱 Open in ${AppConfig.appName}:\n$appUrl\n\n'
       '▶️ Watch on YouTube:\n$ytUrl',
       subject: 'Watch "${short.title}" on ${AppConfig.appName}',
+    );
+  }
+
+  Widget _buildNonPlayableShortCard(LocalShortItem item) {
+    final color = item.statusColor;
+    final isFailed = item.status == ShortCreationStatus.failed;
+    final isScheduled = item.status == ShortCreationStatus.scheduledUpload;
+    final isProgressing = item.status == ShortCreationStatus.downloading ||
+        item.status == ShortCreationStatus.trimming ||
+        item.status == ShortCreationStatus.uploading ||
+        item.status == ShortCreationStatus.processing;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Background thumbnail with blur
+        if (item.sourceVideoThumbnail != null && item.sourceVideoThumbnail!.isNotEmpty)
+          CachedNetworkImage(
+            imageUrl: item.sourceVideoThumbnail!,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => Container(color: const Color(0xFF0F172A)),
+            errorWidget: (_, __, ___) => Container(color: const Color(0xFF0F172A)),
+          )
+        else
+          Container(color: const Color(0xFF0F172A)),
+
+        // Dark frosted overlay
+        Container(
+          color: Colors.black.withValues(alpha: 0.78),
+        ),
+
+        // Central Status Card
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B).withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: color.withValues(alpha: 0.75),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Status Icon / Progress Spinner
+                  if (isProgressing)
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: CircularProgressIndicator(
+                            value: (item.progress > 0 && item.status == ShortCreationStatus.uploading)
+                                ? item.progress
+                                : null,
+                            strokeWidth: 3.5,
+                            color: color,
+                            backgroundColor: Colors.white12,
+                          ),
+                        ),
+                        Text(
+                          '${(item.progress * 100).toInt()}%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        item.statusIcon,
+                        size: 44,
+                        color: color,
+                      ),
+                    ),
+
+                  const SizedBox(height: 18),
+
+                  // Title
+                  Text(
+                    item.title,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Status Message
+                  Text(
+                    item.statusDisplay,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isFailed ? Colors.redAccent : Colors.white70,
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+
+                  if (isFailed && item.errorMessage != null && item.errorMessage!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        item.errorMessage!,
+                        textAlign: TextAlign.center,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+
+                  // Action Buttons (Retry / Re-render / Back)
+                  if (isFailed || isScheduled)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF59E0B),
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          ),
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            _orchestrator.retryUpload(item.id);
+                          },
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text(
+                            'Retry Now',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white70,
+                            side: const BorderSide(color: Colors.white24),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          onPressed: _closeShortPlayer,
+                          child: const Text('Back to Grid', style: TextStyle(fontSize: 13)),
+                        ),
+                      ],
+                    )
+                  else
+                    const Text(
+                      '✂️ You can return to the grid or continue watching while this processes.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showFailedCreationDialog(LocalShortItem item) {
+    HapticFeedback.mediumImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 24),
+            SizedBox(width: 8),
+            Text('Creation Notice', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Failed to process "${item.title}".',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            if (item.errorMessage != null && item.errorMessage!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.black45,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: Text(
+                  item.errorMessage!,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            const Text(
+              'Would you like to retry rendering and uploading this clip?',
+              style: TextStyle(color: Colors.white60, fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _confirmDeleteCreation(item);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF59E0B),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _orchestrator.retryUpload(item.id);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🔄 Retrying Short creation pipeline...'),
+                    backgroundColor: Color(0xFF1E293B),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 

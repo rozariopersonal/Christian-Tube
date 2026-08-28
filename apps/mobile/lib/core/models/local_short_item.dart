@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'short.dart';
 
 enum ShortCreationStatus {
@@ -167,12 +168,99 @@ class LocalShortItem {
     );
   }
 
+  Color get statusColor {
+    switch (status) {
+      case ShortCreationStatus.downloading:
+      case ShortCreationStatus.trimming:
+      case ShortCreationStatus.readyLocal:
+        return const Color(0xFFF59E0B); // Amber Gold
+      case ShortCreationStatus.uploading:
+      case ShortCreationStatus.processing:
+        return const Color(0xFF38BDF8); // Electric Sky Blue
+      case ShortCreationStatus.scheduledUpload:
+        return const Color(0xFFFB923C); // Warm Orange
+      case ShortCreationStatus.published:
+        return const Color(0xFF10B981); // Emerald Green
+      case ShortCreationStatus.failed:
+        return const Color(0xFFF43F5E); // Rose Red
+    }
+  }
+
+  IconData get statusIcon {
+    switch (status) {
+      case ShortCreationStatus.downloading:
+        return Icons.downloading_rounded;
+      case ShortCreationStatus.trimming:
+        return Icons.content_cut_rounded;
+      case ShortCreationStatus.readyLocal:
+        return Icons.check_circle_outline_rounded;
+      case ShortCreationStatus.uploading:
+        return Icons.cloud_upload_rounded;
+      case ShortCreationStatus.processing:
+        return Icons.sync_rounded;
+      case ShortCreationStatus.scheduledUpload:
+        return Icons.schedule_rounded;
+      case ShortCreationStatus.published:
+        return Icons.verified_rounded;
+      case ShortCreationStatus.failed:
+        return Icons.error_outline_rounded;
+    }
+  }
+
+  String get statusStageName {
+    switch (status) {
+      case ShortCreationStatus.downloading:
+        return 'Extracting';
+      case ShortCreationStatus.trimming:
+        return 'Rendering';
+      case ShortCreationStatus.readyLocal:
+        return 'Ready';
+      case ShortCreationStatus.scheduledUpload:
+        return 'Scheduled';
+      case ShortCreationStatus.uploading:
+        return 'Uploading';
+      case ShortCreationStatus.processing:
+        return 'Syncing';
+      case ShortCreationStatus.published:
+        return 'Live';
+      case ShortCreationStatus.failed:
+        return 'Failed';
+    }
+  }
+
+  String get statusLabel {
+    switch (status) {
+      case ShortCreationStatus.downloading:
+        return 'Extracting ${(progress * 100).toInt()}%';
+      case ShortCreationStatus.trimming:
+        return 'Rendering ${(progress * 100).toInt()}%';
+      case ShortCreationStatus.readyLocal:
+        return 'Ready to Upload';
+      case ShortCreationStatus.scheduledUpload:
+        if (scheduledRetryAt != null) {
+          final diff = scheduledRetryAt!.difference(DateTime.now());
+          final hours = diff.inHours;
+          final mins = diff.inMinutes % 60;
+          return 'Scheduled (${hours > 0 ? '${hours}h ' : ''}${mins}m)';
+        }
+        return 'Scheduled';
+      case ShortCreationStatus.uploading:
+        return 'Uploading ${(progress * 100).toInt()}%';
+      case ShortCreationStatus.processing:
+        return 'Syncing...';
+      case ShortCreationStatus.published:
+        return 'Live';
+      case ShortCreationStatus.failed:
+        return 'Failed';
+    }
+  }
+
   String get statusDisplay {
     switch (status) {
       case ShortCreationStatus.downloading:
-        return 'Downloading stream ${(progress * 100).toInt()}%';
+        return 'Extracting stream ${(progress * 100).toInt()}%';
       case ShortCreationStatus.trimming:
-        return 'Trimming 720p ${(progress * 100).toInt()}%';
+        return 'Rendering 720p ${(progress * 100).toInt()}%';
       case ShortCreationStatus.readyLocal:
         return 'Rendered • Ready for upload';
       case ShortCreationStatus.scheduledUpload:
@@ -180,7 +268,7 @@ class LocalShortItem {
           final diff = scheduledRetryAt!.difference(DateTime.now());
           final hours = diff.inHours;
           final mins = diff.inMinutes % 60;
-          return 'Scheduled (in ${hours > 0 ? '${hours}h ' : ''}${mins}m)';
+          return 'Scheduled for upload (in ${hours > 0 ? '${hours}h ' : ''}${mins}m)';
         }
         return 'Scheduled for upload';
       case ShortCreationStatus.uploading:
