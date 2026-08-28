@@ -8,7 +8,7 @@ export class VideosController {
   @Get()
   async getVideos(
     @Query('category') category?: string,
-    @Query('type') type?: 'VIDEO' | 'SHORT',
+    @Query('type') type?: 'VIDEO' | 'SHORT' | 'ALL',
     @Query('channelId') channelId?: string,
     @Query('channelIds') channelIds?: string,
     @Query('search') search?: string,

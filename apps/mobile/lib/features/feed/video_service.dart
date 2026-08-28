@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
+import '../../core/models/short.dart';
 
 class VideoService extends ChangeNotifier {
   static final VideoService _instance = VideoService._internal();
@@ -31,7 +32,9 @@ class VideoService extends ChangeNotifier {
         final List<dynamic> list = jsonDecode(cachedJson);
         _videos = list
             .whereType<Map<String, dynamic>>()
+            .where((json) => !Short.isShort(json))
             .map((v) => Video.fromJson(v))
+            .where((v) => v.type != 'SHORT')
             .toList();
         notifyListeners();
       }
@@ -136,7 +139,9 @@ class VideoService extends ChangeNotifier {
         final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
         final newVideos = list
             .whereType<Map<String, dynamic>>()
+            .where((json) => !Short.isShort(json))
             .map((v) => Video.fromJson(v))
+            .where((v) => v.type != 'SHORT')
             .toList();
 
         if (_offset == 0) {

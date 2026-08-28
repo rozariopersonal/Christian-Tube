@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/config/app_config.dart';
-import '../../core/models/short.dart';
 import '../../core/models/video.dart';
 import '../../shared/ui/video_card.dart';
 import '../channels/channel_service.dart';
-import '../shorts/shorts_service.dart';
 import 'video_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -18,7 +16,6 @@ class VideoFeedScreen extends StatefulWidget {
 
 class _VideoFeedScreenState extends State<VideoFeedScreen> {
   final VideoService _videoService = VideoService();
-  final ShortsService _shortsService = ShortsService();
   final ChannelService _channelService = ChannelService();
   final ScrollController _scrollController = ScrollController();
 
@@ -46,7 +43,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       _channelService.subscribedChannelIds,
       triggerRefresh: true,
     );
-    _shortsService.fetchShorts();
   }
 
   void _onScroll() {
@@ -68,10 +64,9 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([_videoService, _shortsService, _channelService]),
+      animation: Listenable.merge([_videoService, _channelService]),
       builder: (context, _) {
         final videos = _videoService.videos;
-        final shorts = _shortsService.shorts;
         final channels = _channelService.channels;
         final subscribedIds = _channelService.subscribedChannelIds;
         final subscribedChannels = channels.where((c) => subscribedIds.contains(c.id)).toList();
@@ -255,13 +250,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               ),
             ),
           ),
-          body: _buildBody(videos, shorts, isDark, subscribedIds.isEmpty),
+          body: _buildBody(videos, isDark, subscribedIds.isEmpty),
         );
       },
     );
   }
 
-  Widget _buildBody(List<Video> videos, List<Short> shorts, bool isDark, bool hasNoSubscriptions) {
+  Widget _buildBody(List<Video> videos, bool isDark, bool hasNoSubscriptions) {
     if (_videoService.isLoading && videos.isEmpty) {
       return const Center(child: CircularProgressIndicator(color: Colors.red));
     }
@@ -355,29 +350,24 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         await _channelService.loadSubscriptions();
         _videoService.updateSubscribedChannelIds(_channelService.subscribedChannelIds);
         await _videoService.refreshVideos();
-        await _shortsService.fetchShorts();
       },
       child: ListView.separated(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: videos.length + (_videoService.hasMore ? 1 : 0) + (shorts.isNotEmpty ? 1 : 0),
+        itemCount: videos.length + (_videoService.hasMore ? 1 : 1),
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          // Shorts Shelf insertion at position 3
-          if (shorts.isNotEmpty && index == 3) {
-            return _buildShortsShelf(shorts, isDark);
+          if (index == videos.length) {
+            if (_videoService.hasMore) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator(color: Colors.red)),
+              );
+            }
+            return _buildAllCaughtUpFooter(isDark);
           }
 
-          final videoIndex = shorts.isNotEmpty && index > 3 ? index - 1 : index;
-
-          if (videoIndex == videos.length) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator(color: Colors.red)),
-            );
-          }
-
-          final video = videos[videoIndex];
+          final video = videos[index];
           return VideoCard(
             video: video,
             onTap: () {
@@ -391,98 +381,63 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     );
   }
 
-  Widget _buildShortsShelf(List<Short> shorts, bool isDark) {
+  Widget _buildAllCaughtUpFooter(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
-        border: Border.symmetric(
-          horizontal: BorderSide(
-            color: isDark ? Colors.white10 : Colors.black12,
-            width: 0.5,
-          ),
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white12 : Colors.black12,
+          width: 1,
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            child: Row(
-              children: [
-                Icon(Icons.bolt, color: Colors.red, size: 24),
-                SizedBox(width: 6),
-                Text(
-                  'Shorts',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-                ),
-              ],
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_outline_rounded,
+              size: 32,
+              color: Color(0xFF10B981),
             ),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 240,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              itemCount: shorts.length > 8 ? 8 : shorts.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final short = shorts[index];
-                return InkWell(
-                  onTap: () {
-                    context.go('/shorts?id=${short.id}', extra: {
-                      'shortId': short.id,
-                      'initialIndex': index,
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: 135,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: isDark ? Colors.grey.shade900 : Colors.grey.shade200,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CachedNetworkImage(
-                          imageUrl: short.thumbnailUrl,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => Container(color: Colors.grey.shade800),
-                        ),
-                        Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.transparent, Colors.black87],
-                              stops: [0.6, 1.0],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 8,
-                          right: 8,
-                          bottom: 8,
-                          child: Text(
-                            short.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              height: 1.2,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+          const SizedBox(height: 14),
+          Text(
+            "You're all caught up!",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
             ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "You've scrolled through all available videos from your subscribed channels.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? Colors.white60 : Colors.black54,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: isDark ? Colors.white70 : Colors.black87,
+              side: BorderSide(color: isDark ? Colors.white24 : Colors.black26),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onPressed: () => context.go('/channels'),
+            icon: const Icon(Icons.explore_outlined, size: 16),
+            label: const Text('Discover More Channels', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           ),
         ],
       ),

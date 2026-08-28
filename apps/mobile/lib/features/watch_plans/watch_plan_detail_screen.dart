@@ -31,7 +31,7 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
   Future<void> _loadDefaultPlaylistVideos() async {
     setState(() => _isLoadingAutoVideos = true);
     try {
-      final response = await _apiClient.dio.get('/videos', queryParameters: {'limit': 10});
+      final response = await _apiClient.dio.get('/videos', queryParameters: {'limit': 10, 'type': 'VIDEO'});
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
         final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);

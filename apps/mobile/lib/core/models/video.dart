@@ -13,6 +13,7 @@ class Video {
   final String? streamUrl;
   final bool isLive;
   final String? type;
+  final String? category;
   final String? sourceVideoId;
   final double? clipStartTime;
   final double? clipEndTime;
@@ -33,6 +34,7 @@ class Video {
     this.streamUrl,
     this.isLive = false,
     this.type,
+    this.category,
     this.sourceVideoId,
     this.clipStartTime,
     this.clipEndTime,
@@ -64,6 +66,7 @@ class Video {
       streamUrl: json['streamUrl'] ?? json['stream_url'],
       isLive: json['isLive'] ?? json['is_live'] ?? false,
       type: json['type'],
+      category: json['category'],
       sourceVideoId: json['sourceVideoId'],
       clipStartTime: (json['clipStartTime'] as num?)?.toDouble(),
       clipEndTime: (json['clipEndTime'] as num?)?.toDouble(),
@@ -87,6 +90,7 @@ class Video {
       'streamUrl': streamUrl,
       'isLive': isLive,
       'type': type,
+      'category': category,
       'sourceVideoId': sourceVideoId,
       'clipStartTime': clipStartTime,
       'clipEndTime': clipEndTime,

@@ -13,7 +13,7 @@ export class VideosService {
 
   async findAll(query: {
     category?: string;
-    type?: 'VIDEO' | 'SHORT';
+    type?: 'VIDEO' | 'SHORT' | 'ALL';
     channelId?: string;
     channelIds?: string | string[];
     search?: string;
@@ -26,8 +26,13 @@ export class VideosService {
       },
     };
 
-    if (query.type) {
-      where.type = query.type;
+    if (query.type === 'ALL') {
+      // Intentionally do not constrain where.type to return all content
+    } else if (query.type === 'SHORT') {
+      where.type = 'SHORT';
+    } else {
+      // Default to VIDEO so shorts are never mixed into regular feeds or recommendations
+      where.type = 'VIDEO';
     }
 
     if (query.category && query.category !== 'All') {

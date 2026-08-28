@@ -63,6 +63,8 @@ model Video {
   @@index([type])
   @@index([category])
   @@index([sourceVideoId])
+  @@index([type, publishedAt(sort: Desc)])
+  @@index([channelId, type, publishedAt(sort: Desc)])
 }
 
 model Channel {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
+import '../../core/models/short.dart';
 import '../../shared/ui/search_video_card.dart';
 import '../../core/config/app_config.dart';
 
@@ -26,12 +27,12 @@ class _SearchScreenState extends State<SearchScreen> {
       try {
         response = await _apiClient.dio.get(
           '/api/search',
-          queryParameters: {'q': query},
+          queryParameters: {'q': query, 'type': 'VIDEO'},
         );
       } catch (_) {
         response = await _apiClient.dio.get(
           '/videos',
-          queryParameters: {'search': query},
+          queryParameters: {'search': query, 'type': 'VIDEO'},
         );
       }
 
@@ -39,7 +40,12 @@ class _SearchScreenState extends State<SearchScreen> {
         final dynamic raw = response.data;
         final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
         setState(() {
-          _searchResults = list.map((v) => Video.fromJson(v as Map<String, dynamic>)).toList();
+          _searchResults = list
+              .whereType<Map<String, dynamic>>()
+              .where((json) => !Short.isShort(json))
+              .map((v) => Video.fromJson(v))
+              .where((v) => v.type != 'SHORT')
+              .toList();
         });
       }
     } catch (e) {

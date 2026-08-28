@@ -141,11 +141,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _loadRelatedVideos() async {
     try {
+      final queryParams = <String, dynamic>{
+        'type': 'VIDEO',
+        'limit': 20,
+      };
+      if (_video?.category != null && _video!.category != 'All' && _video!.category!.isNotEmpty) {
+        queryParams['category'] = _video!.category;
+      }
+
       dynamic response;
       try {
-        response = await _apiClient.dio.get('/api/videos');
+        response = await _apiClient.dio.get('/api/videos', queryParameters: queryParams);
       } catch (_) {
-        response = await _apiClient.dio.get('/videos');
+        response = await _apiClient.dio.get('/videos', queryParameters: queryParams);
       }
 
       if (response.statusCode == 200 && response.data != null) {
@@ -155,9 +163,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           setState(() {
             _relatedVideos = list
                 .whereType<Map<String, dynamic>>()
+                .where((json) => !Short.isShort(json))
                 .map((v) => Video.fromJson(v))
-                .where((v) => v.id != _activeVideoId)
-                .take(12)
+                .where((v) => v.id != _activeVideoId && v.type != 'SHORT')
+                .take(15)
                 .toList();
           });
         }
