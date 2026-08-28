@@ -10,6 +10,7 @@ export interface InitiateUploadDto {
   clipStartTime?: number;
   clipEndTime?: number;
   cropOffsetX?: number;
+  creatorUserId?: string;
   creatorName?: string;
   creatorEmail?: string;
 }
@@ -107,6 +108,7 @@ export class ShortsService {
 
     // Metadata payload
     const metadataPayload = {
+      creatorUserId: dto.creatorUserId || null,
       creatorName: dto.creatorName || 'Anonymous',
       creatorEmail: dto.creatorEmail || '',
       sourceVideoId: dto.sourceVideoId || null,
@@ -217,6 +219,138 @@ export class ShortsService {
         metadata: metadataPayload,
         isSimulated: true,
       };
+    }
+  }
+
+  async recordCreation(data: {
+    userId?: string;
+    userEmail?: string;
+    creatorName?: string;
+    youtubeVideoId: string;
+    sourceVideoId?: string;
+    title: string;
+    description?: string;
+    thumbnail?: string;
+    durationSeconds?: number;
+    clipStartTime?: number;
+    clipEndTime?: number;
+    cropOffsetX?: number;
+  }) {
+    try {
+      return await (this.prisma as any).shortCreation.upsert({
+        where: { id: `sc_${data.youtubeVideoId}` },
+        update: {
+          userId: data.userId || undefined,
+          userEmail: data.userEmail || undefined,
+          creatorName: data.creatorName || undefined,
+          youtubeVideoId: data.youtubeVideoId,
+          sourceVideoId: data.sourceVideoId || undefined,
+          title: data.title,
+          description: data.description,
+          thumbnail: data.thumbnail,
+          durationSeconds: data.durationSeconds || 60,
+          clipStartTime: data.clipStartTime,
+          clipEndTime: data.clipEndTime,
+          cropOffsetX: data.cropOffsetX ?? 0.0,
+        },
+        create: {
+          id: `sc_${data.youtubeVideoId}`,
+          userId: data.userId || null,
+          userEmail: data.userEmail || null,
+          creatorName: data.creatorName || null,
+          youtubeVideoId: data.youtubeVideoId,
+          sourceVideoId: data.sourceVideoId || null,
+          title: data.title,
+          description: data.description,
+          thumbnail: data.thumbnail,
+          durationSeconds: data.durationSeconds || 60,
+          clipStartTime: data.clipStartTime,
+          clipEndTime: data.clipEndTime,
+          cropOffsetX: data.cropOffsetX ?? 0.0,
+        },
+      });
+    } catch (e: any) {
+      this.logger.warn(`recordCreation notice: ${e.message}`);
+      return null;
+    }
+  }
+
+  async getMyCreations(userId?: string, email?: string) {
+    if (!userId && !email) {
+      return [];
+    }
+
+    const orConditions: any[] = [];
+    if (userId) {
+      orConditions.push({ userId }, { creatorUserId: userId });
+    }
+    if (email) {
+      orConditions.push({ userEmail: email }, { creatorEmail: email });
+    }
+
+    try {
+      // 1. Fetch from ShortCreation table
+      const creations = await (this.prisma as any).shortCreation.findMany({
+        where: {
+          OR: orConditions,
+        },
+        orderBy: { createdAt: 'desc' },
+      }).catch(() => []);
+
+      // 2. Also fetch from Video table where type = SHORT
+      const videos = await this.prisma.video.findMany({
+        where: {
+          type: 'SHORT',
+          OR: orConditions,
+        },
+        orderBy: { createdAt: 'desc' },
+      }).catch(() => []);
+
+      // Deduplicate by YouTube Video ID
+      const map = new Map<string, any>();
+
+      for (const c of creations) {
+        map.set(c.youtubeVideoId, {
+          id: c.youtubeVideoId,
+          title: c.title,
+          description: c.description || '',
+          thumbnailUrl: c.thumbnail || `https://img.youtube.com/vi/${c.youtubeVideoId}/hqdefault.jpg`,
+          durationSeconds: c.durationSeconds || 60,
+          sourceVideoId: c.sourceVideoId,
+          clipStartTime: c.clipStartTime,
+          clipEndTime: c.clipEndTime,
+          cropOffsetX: c.cropOffsetX ?? 0.0,
+          creatorName: c.creatorName,
+          creatorEmail: c.userEmail,
+          publishedAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+          isPublished: true,
+        });
+      }
+
+      for (const v of videos) {
+        if (!map.has(v.id)) {
+          map.set(v.id, {
+            id: v.id,
+            title: v.title,
+            description: v.description,
+            thumbnailUrl: v.thumbnail,
+            durationSeconds: 60,
+            sourceVideoId: v.sourceVideoId,
+            clipStartTime: v.clipStartTime,
+            clipEndTime: v.clipEndTime,
+            cropOffsetX: v.cropOffsetX ?? 0.0,
+            creatorName: v.creatorName,
+            creatorEmail: v.creatorEmail,
+            publishedAt: v.publishedAt ? new Date(v.publishedAt).toISOString() : new Date().toISOString(),
+            isPublished: true,
+          });
+        }
+      }
+
+      return Array.from(map.values());
+    } catch (e: any) {
+      this.logger.error(`getMyCreations error: ${e.message}`);
+      return [];
     }
   }
 }

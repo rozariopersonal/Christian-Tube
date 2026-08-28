@@ -50,6 +50,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   void initState() {
     super.initState();
     _fetchShorts();
+    _orchestrator.fetchCloudCreations();
   }
 
   Future<void> _fetchShorts() async {
@@ -277,6 +278,9 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     return GestureDetector(
       onTap: () {
         setState(() => _activeTab = tab);
+        if (tab == ShortsViewTab.myCreations) {
+          _orchestrator.fetchCloudCreations();
+        }
         _startAutoHideTimer();
       },
       child: AnimatedContainer(

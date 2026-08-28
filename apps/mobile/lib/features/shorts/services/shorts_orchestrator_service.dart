@@ -239,6 +239,23 @@ class ShortsOrchestratorService extends ChangeNotifier {
         progress: 1.0,
       );
 
+      // Record creation in backend database mapping user and YouTube Short ID
+      try {
+        await _apiClient.dio.post('/shorts/record-creation', data: {
+          'userEmail': item.creatorEmail,
+          'creatorName': item.creatorName,
+          'youtubeVideoId': actualYtId,
+          'sourceVideoId': item.sourceVideoId,
+          'title': item.title,
+          'thumbnail': item.sourceVideoThumbnail,
+          'clipStartTime': item.clipStartTime,
+          'clipEndTime': item.clipEndTime,
+          'cropOffsetX': item.cropOffsetX,
+        });
+      } catch (recErr) {
+        debugPrint('Record creation notice: $recErr');
+      }
+
       // Trigger backend channel & video sync from YouTube
       try {
         await _apiClient.dio.post('/sync/video/$actualYtId');
@@ -294,6 +311,64 @@ class ShortsOrchestratorService extends ChangeNotifier {
     _localShorts.removeWhere((i) => i.id == shortId);
     await LocalShortsStorage.saveShorts(_localShorts);
     notifyListeners();
+  }
+
+  Future<void> fetchCloudCreations({String? email, String? userId}) async {
+    try {
+      final res = await _apiClient.dio.get(
+        '/shorts/my-creations',
+        queryParameters: {
+          if (email != null && email.isNotEmpty) 'email': email,
+          if (userId != null && userId.isNotEmpty) 'userId': userId,
+        },
+      );
+
+      if (res.data is List) {
+        final List list = res.data;
+        final cloudItems = list.map((json) {
+          final ytId = json['id']?.toString() ?? '';
+          return LocalShortItem(
+            id: 'cloud_$ytId',
+            youtubeVideoId: ytId,
+            sourceVideoId: json['sourceVideoId']?.toString() ?? '',
+            sourceVideoTitle: json['title']?.toString() ?? 'Christian Short',
+            sourceVideoThumbnail: json['thumbnailUrl']?.toString(),
+            title: json['title']?.toString() ?? 'Christian Short',
+            creatorName: json['creatorName']?.toString() ?? 'Believer',
+            creatorEmail: json['creatorEmail']?.toString() ?? '',
+            clipStartTime: (json['clipStartTime'] as num?)?.toDouble() ?? 0.0,
+            clipEndTime: (json['clipEndTime'] as num?)?.toDouble() ?? 60.0,
+            duration: (json['durationSeconds'] as num?)?.toDouble() ?? 60.0,
+            cropOffsetX: (json['cropOffsetX'] as num?)?.toDouble() ?? 0.0,
+            status: ShortCreationStatus.published,
+            progress: 1.0,
+            createdAt: json['publishedAt'] != null
+                ? DateTime.tryParse(json['publishedAt']) ?? DateTime.now()
+                : DateTime.now(),
+          );
+        }).toList();
+
+        // Merge active local jobs and cloud creations
+        final Map<String, LocalShortItem> merged = {};
+        for (final item in _localShorts) {
+          final key = item.youtubeVideoId ?? item.id;
+          merged[key] = item;
+        }
+        for (final cloud in cloudItems) {
+          final key = cloud.youtubeVideoId ?? cloud.id;
+          if (!merged.containsKey(key)) {
+            merged[key] = cloud;
+          }
+        }
+
+        _localShorts = merged.values.toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        await LocalShortsStorage.saveShorts(_localShorts);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error fetching cloud creations: $e');
+    }
   }
 
   void _updateItemStatus(

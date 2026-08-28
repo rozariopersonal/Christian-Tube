@@ -624,6 +624,7 @@ export class SyncService implements OnModuleInit {
         publishedAt,
         duration,
         viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
+        creatorUserId: parsedMeta?.creatorUserId || undefined,
         creatorName: parsedMeta?.creatorName || undefined,
         creatorEmail: parsedMeta?.creatorEmail || undefined,
         sourceVideoId: parsedMeta?.sourceVideoId || undefined,
@@ -645,6 +646,7 @@ export class SyncService implements OnModuleInit {
         tags: ['#Shorts'],
         category: 'Shorts',
         transcriptionStatus: 'pending',
+        creatorUserId: parsedMeta?.creatorUserId || null,
         creatorName: parsedMeta?.creatorName || null,
         creatorEmail: parsedMeta?.creatorEmail || null,
         sourceVideoId: parsedMeta?.sourceVideoId || null,
@@ -654,6 +656,46 @@ export class SyncService implements OnModuleInit {
         clippedAt: parsedMeta ? new Date() : null,
       },
     });
+
+    // Record in ShortCreation table if creator info is present
+    if (isShort && (parsedMeta?.creatorUserId || parsedMeta?.creatorEmail)) {
+      try {
+        await (this.prisma as any).shortCreation.upsert({
+          where: { id: `sc_${videoId}` },
+          update: {
+            userId: parsedMeta.creatorUserId || undefined,
+            userEmail: parsedMeta.creatorEmail || undefined,
+            creatorName: parsedMeta.creatorName || undefined,
+            youtubeVideoId: videoId,
+            sourceVideoId: parsedMeta.sourceVideoId || undefined,
+            title,
+            description,
+            thumbnail: thumb,
+            durationSeconds,
+            clipStartTime: parsedMeta.startTime != null ? Number(parsedMeta.startTime) : undefined,
+            clipEndTime: parsedMeta.endTime != null ? Number(parsedMeta.endTime) : undefined,
+            cropOffsetX: parsedMeta.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : undefined,
+          },
+          create: {
+            id: `sc_${videoId}`,
+            userId: parsedMeta.creatorUserId || null,
+            userEmail: parsedMeta.creatorEmail || null,
+            creatorName: parsedMeta.creatorName || null,
+            youtubeVideoId: videoId,
+            sourceVideoId: parsedMeta.sourceVideoId || null,
+            title,
+            description,
+            thumbnail: thumb,
+            durationSeconds,
+            clipStartTime: parsedMeta.startTime != null ? Number(parsedMeta.startTime) : null,
+            clipEndTime: parsedMeta.endTime != null ? Number(parsedMeta.endTime) : null,
+            cropOffsetX: parsedMeta.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : 0.0,
+          },
+        });
+      } catch (scErr: any) {
+        this.logger.warn(`ShortCreation record notice: ${scErr.message}`);
+      }
+    }
 
     this.logger.log(`✅ Single video synced successfully: ${saved.id} ("${saved.title}")`);
     return saved;
