@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface InitiateUploadDto {
@@ -130,52 +131,52 @@ export class ShortsService {
     // If OAuth credentials exist, contact YouTube API for actual Resumable Session URL
     if (clientId && clientSecret && refreshToken) {
       try {
-        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
+        const tokenRes = await axios.post(
+          'https://oauth2.googleapis.com/token',
+          new URLSearchParams({
             client_id: clientId,
             client_secret: clientSecret,
             refresh_token: refreshToken,
             grant_type: 'refresh_token',
-          }),
-        });
+          }).toString(),
+          {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            timeout: 10000,
+          },
+        );
 
-        const tokenData = await tokenResponse.json();
-        if (!tokenResponse.ok || !tokenData.access_token) {
-          throw new Error(tokenData.error_description || 'Failed to refresh YouTube access token');
+        const accessToken = tokenRes.data?.access_token;
+        if (!accessToken) {
+          throw new Error('Failed to obtain YouTube access token from OAuth refresh response');
         }
 
-        const accessToken = tokenData.access_token;
-
-        const ytResponse = await fetch(
+        const ytRes = await axios.post(
           'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
           {
-            method: 'POST',
+            snippet: {
+              title: safeTitle,
+              description,
+              categoryId: '29', // Nonprofits & Religion
+              tags: ['#Shorts', 'Christian', 'Sermon', 'Faith'],
+            },
+            status: {
+              privacyStatus: shortsConfig.defaultPrivacyStatus || 'unlisted',
+              selfDeclaredMadeForKids: shortsConfig.selfDeclaredMadeForKids ?? true,
+            },
+          },
+          {
             headers: {
               Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json; charset=UTF-8',
               'X-Upload-Content-Type': 'video/mp4',
             },
-            body: JSON.stringify({
-              snippet: {
-                title: safeTitle,
-                description,
-                categoryId: '29', // Nonprofits & Religion
-                tags: ['#Shorts', 'Christian', 'Sermon', 'Faith'],
-              },
-              status: {
-                privacyStatus: shortsConfig.defaultPrivacyStatus || 'unlisted',
-                selfDeclaredMadeForKids: shortsConfig.selfDeclaredMadeForKids ?? true,
-              },
-            }),
+            timeout: 15000,
           },
         );
 
-        const uploadUrl = ytResponse.headers.get('location');
+        const uploadUrl = ytRes.headers['location'];
         if (!uploadUrl) {
-          const errorBody = await ytResponse.text();
-          throw new Error(`YouTube did not return upload session URL: ${errorBody}`);
+          throw new Error('YouTube did not return upload session URL in Location header');
         }
 
         // Increment daily quota units upon successful initiation
