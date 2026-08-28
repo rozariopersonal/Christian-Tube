@@ -81,9 +81,10 @@ android {
             } else {
                 signingConfig signingConfigs.debug
             }
-            minifyEnabled false
-            shrinkResources false
-            crunchPngs false
+            minifyEnabled true
+            shrinkResources true
+            crunchPngs true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
