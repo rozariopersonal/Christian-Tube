@@ -30,8 +30,6 @@ dependencies:
   # Media & YouTube Streaming
   video_player: ^2.8.6
   youtube_explode_dart: ^2.2.1
-  ffmpeg_kit_flutter_min: ^6.0.3
-
   # Authentication & Storage
   google_sign_in: ^6.2.1
   sqflite: ^2.3.3+1
@@ -52,6 +50,7 @@ dependencies:
   youtube_player_flutter: ^9.1.3
   flutter_inappwebview: ^6.0.0
   open_filex: ^4.7.0
+  ffmpeg_kit_flutter_new: ^4.6.2
 
 dev_dependencies:
   flutter_test:
