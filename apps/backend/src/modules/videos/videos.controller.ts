@@ -36,6 +36,7 @@ export class VideosController {
       creatorEmail?: string;
       clipStartTime?: number;
       clipEndTime?: number;
+      cropOffsetX?: number;
       title?: string;
       description?: string;
       category?: string;

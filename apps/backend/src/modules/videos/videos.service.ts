@@ -112,6 +112,7 @@ export class VideosService {
     creatorEmail?: string;
     clipStartTime?: number;
     clipEndTime?: number;
+    cropOffsetX?: number;
     title?: string;
     description?: string;
     category?: string;
@@ -121,7 +122,7 @@ export class VideosService {
     let title = body.title || 'Inspirational Short';
     let description = body.description || '';
     let thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-    let channelId = 'UC_ChristianTubeOfficial';
+    let channelId = this.configService.get<string>('shorts.customChannelId') || 'UCSaJppP4zb2vivjxYfTqOKw';
     let channelName = 'Christian-Tube';
     let channelThumbnail: string | null = null;
     let publishedAt = new Date();
@@ -133,6 +134,7 @@ export class VideosService {
       sourceVideoId: body.sourceVideoId,
       clipStartTime: body.clipStartTime,
       clipEndTime: body.clipEndTime,
+      cropOffsetX: body.cropOffsetX ?? 0.0,
     };
 
     // If sourceVideoId is provided, inherit the original preacher's channel details
@@ -212,6 +214,7 @@ export class VideosService {
         sourceVideoId: parsedMeta.sourceVideoId || null,
         clipStartTime: parsedMeta.clipStartTime != null ? Number(parsedMeta.clipStartTime) : null,
         clipEndTime: parsedMeta.clipEndTime != null ? Number(parsedMeta.clipEndTime) : null,
+        cropOffsetX: parsedMeta.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : 0.0,
         clippedAt: new Date(),
         category: body.category || 'General',
       },
@@ -233,6 +236,7 @@ export class VideosService {
         sourceVideoId: parsedMeta.sourceVideoId || null,
         clipStartTime: parsedMeta.clipStartTime != null ? Number(parsedMeta.clipStartTime) : null,
         clipEndTime: parsedMeta.clipEndTime != null ? Number(parsedMeta.clipEndTime) : null,
+        cropOffsetX: parsedMeta.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : 0.0,
         clippedAt: new Date(),
         category: body.category || 'General',
       },

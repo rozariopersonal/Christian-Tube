@@ -52,3 +52,13 @@ services:
         value: arul.rozario4@gmail.com,admin@privatetube.org
       - key: GEMINI_API_KEY
         sync: false
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_REFRESH_TOKEN
+        sync: false
+      - key: SHORTS_CUSTOM_CHANNEL_ID
+        value: UCSaJppP4zb2vivjxYfTqOKw
+      - key: SHORTS_PRIVACY_STATUS
+        value: public

@@ -1,3 +1,5 @@
+import 'short.dart';
+
 enum ShortCreationStatus {
   downloading,
   trimming,
@@ -187,10 +189,29 @@ class LocalShortItem {
   }
 
   bool get isPlayable =>
-      localVideoPath != null &&
-      (status == ShortCreationStatus.readyLocal ||
-          status == ShortCreationStatus.scheduledUpload ||
-          status == ShortCreationStatus.uploading ||
-          status == ShortCreationStatus.processing ||
-          status == ShortCreationStatus.published);
+      status == ShortCreationStatus.published ||
+      localVideoPath != null ||
+      sourceVideoId.isNotEmpty;
+
+  Short toShort() {
+    return Short(
+      id: youtubeVideoId ?? id,
+      title: title,
+      videoUrl: 'https://youtube.com/shorts/${youtubeVideoId ?? id}',
+      thumbnailUrl: sourceVideoThumbnail ??
+          'https://img.youtube.com/vi/$sourceVideoId/hqdefault.jpg',
+      channelId: 'UC_ChristianTube_Local',
+      channelTitle: 'Christian-Tube',
+      publishedAt: createdAt,
+      duration: '${duration.toInt()}s',
+      durationSeconds: duration.toInt(),
+      type: 'SHORT',
+      sourceVideoId: sourceVideoId,
+      clipStartTime: clipStartTime,
+      clipEndTime: clipEndTime,
+      cropOffsetX: cropOffsetX,
+      creatorName: creatorName,
+      creatorEmail: creatorEmail,
+    );
+  }
 }

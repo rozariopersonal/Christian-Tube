@@ -23,6 +23,7 @@ class Short {
   final double? clipEndTime;
   final String? creatorName;
   final String? creatorEmail;
+  final double cropOffsetX;
 
   const Short({
     required this.id,
@@ -47,7 +48,34 @@ class Short {
     this.clipEndTime,
     this.creatorName,
     this.creatorEmail,
+    this.cropOffsetX = 0.0,
   });
+
+  bool get isClippedSermon =>
+      sourceVideoId != null && sourceVideoId!.trim().isNotEmpty;
+
+  String get playableVideoId {
+    if (sourceVideoId != null && sourceVideoId!.isNotEmpty) {
+      if (id.startsWith('short_') || id.length != 11 || id.contains('-')) {
+        return sourceVideoId!;
+      }
+    }
+    return id.isNotEmpty ? id : (sourceVideoId ?? '');
+  }
+
+  int get playableStartSeconds {
+    if (clipStartTime != null && clipStartTime! > 0) {
+      return clipStartTime!.toInt();
+    }
+    return 0;
+  }
+
+  int? get playableEndSeconds {
+    if (clipEndTime != null && clipEndTime! > 0) {
+      return clipEndTime!.toInt();
+    }
+    return null;
+  }
 
   static int parseDurationInSeconds(String? durationStr) {
     if (durationStr == null || durationStr.trim().isEmpty) return 0;
@@ -131,6 +159,11 @@ class Short {
 
     final double calculatedAspectRatio = isVerticalVideo ? (9 / 16) : (16 / 9);
 
+    final sourceVid = json['sourceVideoId'] as String?;
+    final thumbId = (sourceVid != null && sourceVid.isNotEmpty && (videoId.startsWith('short_') || videoId.length != 11))
+        ? sourceVid
+        : videoId;
+
     return Short(
       id: videoId,
       title: title,
@@ -138,7 +171,7 @@ class Short {
       videoUrl: videoUrl,
       thumbnailUrl: json['thumbnailUrl'] ??
           json['thumbnail_url'] ??
-          'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
+          'https://img.youtube.com/vi/$thumbId/hqdefault.jpg',
       channelId: json['channelId'] ?? json['channel_id'] ?? '',
       channelTitle: json['channelTitle'] ??
           json['channel_title'] ??
@@ -164,6 +197,7 @@ class Short {
       clipEndTime: (json['clipEndTime'] as num?)?.toDouble(),
       creatorName: json['creatorName'] as String?,
       creatorEmail: json['creatorEmail'] as String?,
+      cropOffsetX: (json['cropOffsetX'] as num?)?.toDouble() ?? 0.0,
     );
   }
 

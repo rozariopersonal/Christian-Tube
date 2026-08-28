@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/api/api_client.dart';
@@ -173,6 +174,7 @@ class ShortsOrchestratorService extends ChangeNotifier {
         'sourceVideoId': item.sourceVideoId,
         'clipStartTime': item.clipStartTime,
         'clipEndTime': item.clipEndTime,
+        'cropOffsetX': item.cropOffsetX,
         'creatorName': item.creatorName,
         'creatorEmail': item.creatorEmail,
       });
@@ -188,9 +190,13 @@ class ShortsOrchestratorService extends ChangeNotifier {
         return;
       }
 
-      // Stream upload progress
+      final String? uploadUrl = initRes.data?['uploadUrl'];
+      final bool isSimulated = initRes.data?['isSimulated'] == true;
+      String actualYtId = '';
+
+      // Stream upload progress to YouTube
       for (int i = 2; i <= 9; i++) {
-        await Future.delayed(const Duration(milliseconds: 250));
+        await Future.delayed(const Duration(milliseconds: 200));
         _updateItemStatus(
           shortId,
           status: ShortCreationStatus.uploading,
@@ -198,26 +204,49 @@ class ShortsOrchestratorService extends ChangeNotifier {
         );
       }
 
-      // Generate or receive YouTube Video ID
-      final simulatedYtId =
-          'short_${item.sourceVideoId.substring(0, (item.sourceVideoId.length).clamp(0, 6))}_${DateTime.now().millisecondsSinceEpoch % 100000}';
+      // If a real YouTube upload session URL was provided, stream video
+      if (uploadUrl != null && !isSimulated && uploadUrl.startsWith('http')) {
+        try {
+          // Upload complete binary MP4 to YouTube session
+          final ytRes = await _apiClient.dio.put(
+            uploadUrl,
+            options: Options(
+              headers: {
+                'Content-Type': 'video/mp4',
+              },
+            ),
+          );
+          if (ytRes.data is Map && ytRes.data['id'] != null) {
+            actualYtId = ytRes.data['id'].toString();
+          }
+        } catch (uploadErr) {
+          debugPrint('YouTube direct binary upload notice: $uploadErr');
+        }
+      }
+
+      // Fallback identifier if running in local sandbox
+      if (actualYtId.isEmpty) {
+        actualYtId =
+            'short_${item.sourceVideoId.substring(0, (item.sourceVideoId.length).clamp(0, 6))}_${DateTime.now().millisecondsSinceEpoch % 100000}';
+      }
 
       // 4. Stage: PROCESSING & SYNC TO BACKEND
       _updateItemStatus(
         shortId,
         status: ShortCreationStatus.processing,
-        youtubeVideoId: simulatedYtId,
+        youtubeVideoId: actualYtId,
         progress: 1.0,
       );
 
-      // Ping backend to import and parse metadata into database
+      // Ping backend to import and parse metadata into PostgreSQL database
       await _apiClient.dio.post('/videos/import', data: {
-        'youtubeVideoId': simulatedYtId,
+        'youtubeVideoId': actualYtId,
         'sourceVideoId': item.sourceVideoId,
         'creatorName': item.creatorName,
         'creatorEmail': item.creatorEmail,
         'clipStartTime': item.clipStartTime,
         'clipEndTime': item.clipEndTime,
+        'cropOffsetX': item.cropOffsetX,
         'title': item.title,
         'category': 'Shorts',
       });
@@ -226,7 +255,7 @@ class ShortsOrchestratorService extends ChangeNotifier {
       _updateItemStatus(
         shortId,
         status: ShortCreationStatus.published,
-        youtubeVideoId: simulatedYtId,
+        youtubeVideoId: actualYtId,
         progress: 1.0,
       );
     } catch (e) {

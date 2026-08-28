@@ -48,6 +48,7 @@ model Video {
   sourceVideoId          String?
   clipStartTime          Float?
   clipEndTime            Float?
+  cropOffsetX            Float?              @default(0.0)
   clippedAt              DateTime?
 
   createdAt              DateTime            @default(now())
