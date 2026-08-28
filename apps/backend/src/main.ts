@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import express from 'express';
+import { text } from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { AppModule } from './app.module';
@@ -15,7 +15,7 @@ async function bootstrap() {
   const port = configService.get<number>('port') || 3000;
 
   // XML Body Parser for Google WebSub Push Notifications
-  app.use(express.text({ type: ['application/xml', 'text/xml', 'application/atom+xml'] }));
+  app.use(text({ type: ['application/xml', 'text/xml', 'application/atom+xml'] }));
 
   // Security Middleware
   app.use(helmet());
