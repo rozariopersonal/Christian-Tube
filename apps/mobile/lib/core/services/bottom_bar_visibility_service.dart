@@ -22,6 +22,18 @@ class BottomBarVisibilityService extends ChangeNotifier {
     }
   }
 
+  // ── Words refresh signal ──────────────────────────────────────────────
+  final StreamController<void> _wordsResetController =
+      StreamController<void>.broadcast();
+
+  Stream<void> get onWordsResetRequested => _wordsResetController.stream;
+
+  void requestWordsReset() {
+    if (!_wordsResetController.isClosed) {
+      _wordsResetController.add(null);
+    }
+  }
+
   bool _isShortPlaying = false;
   bool _isExplicitlyHidden = false;
 

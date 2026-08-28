@@ -140,7 +140,8 @@ model MicroFeedItem {
   startVerse       Int?
   endVerse         Int?
   referenceLabel   String
-  text             String   @db.Text
+  text             String?  @db.Text
+  verseMappings    Json?    @db.JsonB
   translation      String   @default("WEB")
   category         String   @default("General")
   backgroundPreset String   @default("mountain_dawn")

@@ -11,6 +11,7 @@ class ScriptureCard {
   final String category;
   final String backgroundPreset;
   final List<String> tags;
+  final Map<String, dynamic>? verseMappings;
 
   // Live state per card
   String? resolvedText;
@@ -32,6 +33,7 @@ class ScriptureCard {
     this.category = 'General',
     this.backgroundPreset = 'mountain_dawn',
     this.tags = const [],
+    this.verseMappings,
     this.resolvedText,
     this.resolvedVersion,
     this.isSaved = false,
@@ -56,6 +58,7 @@ class ScriptureCard {
       backgroundPreset: json['backgroundPreset'] ?? 'mountain_dawn',
       customBackgroundPreset: json['customBackgroundPreset'],
       tags: json['tags'] != null ? List<String>.from(json['tags']) : const [],
+      verseMappings: json['verseMappings'] != null ? Map<String, dynamic>.from(json['verseMappings']) : null,
       resolvedText: json['resolvedText'] ?? json['text'],
       resolvedVersion: json['resolvedVersion'],
       isSaved: json['isSaved'] ?? false,
@@ -74,6 +77,7 @@ class ScriptureCard {
         'backgroundPreset': backgroundPreset,
         'customBackgroundPreset': customBackgroundPreset,
         'tags': tags,
+        'verseMappings': verseMappings,
         'resolvedText': resolvedText,
         'resolvedVersion': resolvedVersion,
         'isSaved': isSaved,

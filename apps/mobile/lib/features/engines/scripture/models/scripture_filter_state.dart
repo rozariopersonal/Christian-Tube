@@ -9,6 +9,8 @@ class ScriptureFilterState extends BaseFeedFilterState {
   final bool isItalic;
   final String textAlign; // 'left', 'center', 'right'
   final String backgroundPreset;
+  final String? bookFilter;
+  final String? testamentFilter;
 
   const ScriptureFilterState({
     this.activeVersionId = 'WEB',
@@ -19,6 +21,8 @@ class ScriptureFilterState extends BaseFeedFilterState {
     this.isItalic = false,
     this.textAlign = 'center',
     this.backgroundPreset = 'mountain_dawn',
+    this.bookFilter,
+    this.testamentFilter,
   });
 
   ScriptureFilterState copyWith({
@@ -30,6 +34,10 @@ class ScriptureFilterState extends BaseFeedFilterState {
     bool? isItalic,
     String? textAlign,
     String? backgroundPreset,
+    String? bookFilter,
+    String? testamentFilter,
+    bool clearBookFilter = false,
+    bool clearTestamentFilter = false,
   }) {
     return ScriptureFilterState(
       activeVersionId: activeVersionId ?? this.activeVersionId,
@@ -40,6 +48,8 @@ class ScriptureFilterState extends BaseFeedFilterState {
       isItalic: isItalic ?? this.isItalic,
       textAlign: textAlign ?? this.textAlign,
       backgroundPreset: backgroundPreset ?? this.backgroundPreset,
+      bookFilter: clearBookFilter ? null : (bookFilter ?? this.bookFilter),
+      testamentFilter: clearTestamentFilter ? null : (testamentFilter ?? this.testamentFilter),
     );
   }
 
@@ -55,7 +65,9 @@ class ScriptureFilterState extends BaseFeedFilterState {
           isBold == other.isBold &&
           isItalic == other.isItalic &&
           textAlign == other.textAlign &&
-          backgroundPreset == other.backgroundPreset;
+          backgroundPreset == other.backgroundPreset &&
+          bookFilter == other.bookFilter &&
+          testamentFilter == other.testamentFilter;
 
   @override
   int get hashCode => Object.hash(
@@ -67,5 +79,7 @@ class ScriptureFilterState extends BaseFeedFilterState {
         isItalic,
         textAlign,
         backgroundPreset,
+        bookFilter,
+        testamentFilter,
       );
 }

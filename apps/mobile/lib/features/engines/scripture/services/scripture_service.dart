@@ -3,6 +3,7 @@ import 'package:mobile/core/api/api_client.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
 import 'local_bible_service.dart';
+import 'offline_feed_database.dart';
 import 'remote_bible_api_service.dart';
 
 class ScriptureService {
@@ -12,12 +13,13 @@ class ScriptureService {
 
   final LocalBibleService _localBible = LocalBibleService();
   final RemoteBibleApiService _remoteApi = RemoteBibleApiService();
-  final ApiClient _apiClient = ApiClient();
+  final OfflineFeedDatabase _offlineDb = OfflineFeedDatabase();
 
   final List<ScriptureCard> _cachedDeck = [];
 
   Future<void> initialize() async {
     await _localBible.initialize();
+    await _offlineDb.initialize();
   }
 
   void resetRandomDeck() {
@@ -29,77 +31,68 @@ class ScriptureService {
     int page = 0,
     int limit = 15,
     String? category,
+    String? bookFilter,
+    String? testamentFilter,
   }) async {
     try {
-      final queryParams = <String, dynamic>{
-        'page': page + 1,
-        'limit': limit,
-      };
-      if (category != null && category.isNotEmpty && category.toLowerCase() != 'all') {
-        queryParams['category'] = category;
-      }
+      final items = await _offlineDb.getRandomItems(
+        limit,
+        bookFilter: bookFilter,
+        testamentFilter: testamentFilter,
+      );
 
-      final res = await _apiClient.dio.get('/words', queryParameters: queryParams);
+      if (items.isNotEmpty) {
+        const presets = ScriptureThemeCatalog.presets;
+        final List<ScriptureCard> fetchedCards = [];
 
-      if (res.statusCode == 200 && res.data != null) {
-        final dynamic raw = res.data;
-        final List<dynamic> items = raw is List ? raw : (raw['items'] ?? []);
+        for (int i = 0; i < items.length; i++) {
+          final item = items[i];
+          final card = ScriptureCard.fromJson(item);
 
-        if (items.isNotEmpty) {
-          const presets = ScriptureThemeCatalog.presets;
-          final List<ScriptureCard> fetchedCards = [];
-
-          for (int i = 0; i < items.length; i++) {
-            final item = items[i];
-            if (item is Map<String, dynamic>) {
-              final card = ScriptureCard.fromJson(item);
-
-              // If no preset was set, assign one from the catalog
-              if (card.backgroundPreset.isEmpty) {
-                final presetIdx = (page * limit + i) % presets.length;
-                card.customBackgroundPreset = presets[presetIdx].id;
-              }
-
-              // Resolve version text
-              await resolveCardText(card, activeVersionId);
-              fetchedCards.add(card);
-            }
+          // If no preset was set, assign one from the catalog
+          if (card.backgroundPreset.isEmpty) {
+            final presetIdx = (page * limit + i) % presets.length;
+            card.customBackgroundPreset = presets[presetIdx].id;
           }
 
-          if (fetchedCards.isNotEmpty) {
-            _cachedDeck.addAll(fetchedCards);
-            return fetchedCards;
-          }
+          // Resolve version text using the existing function
+          await resolveCardText(card, activeVersionId);
+          fetchedCards.add(card);
         }
-      }
-    } catch (e) {
-      debugPrint('ScriptureService fetchCards network error: $e');
-    }
 
-    // Offline / Cache Fallback
-    if (_cachedDeck.isNotEmpty) {
-      final startIndex = (page * limit) % _cachedDeck.length;
-      final List<ScriptureCard> fallbackList = [];
-      for (int i = 0; i < limit; i++) {
-        final idx = (startIndex + i) % _cachedDeck.length;
-        final cached = _cachedDeck[idx];
-        await resolveCardText(cached, activeVersionId);
-        fallbackList.add(cached);
+        _cachedDeck.addAll(fetchedCards);
+        return fetchedCards;
       }
-      return fallbackList;
+      return [];
+    } catch (e, st) {
+      debugPrint('Error fetching offline scripture cards: $e\n$st');
+      return [];
     }
-
-    return [];
   }
 
   String? resolvePassageSync(ScriptureCard card, String versionId) {
+    int reqBookNumber = card.bookNumber;
+    int reqChapter = card.chapter;
+    int reqStartVerse = card.startVerse;
+    int? reqEndVerse = card.endVerse;
+
+    if (card.verseMappings != null && card.verseMappings!.containsKey(versionId)) {
+      final mapping = card.verseMappings![versionId];
+      if (mapping is Map) {
+        reqBookNumber = mapping['bookNumber'] ?? reqBookNumber;
+        reqChapter = mapping['chapter'] ?? reqChapter;
+        reqStartVerse = mapping['startVerse'] ?? reqStartVerse;
+        reqEndVerse = mapping['endVerse'] ?? reqEndVerse;
+      }
+    }
+
     // 1. Try local polyglot
     final localText = _localBible.resolvePassageSync(
       versionId: versionId,
-      bookNumber: card.bookNumber,
-      chapter: card.chapter,
-      startVerse: card.startVerse,
-      endVerse: card.endVerse,
+      bookNumber: reqBookNumber,
+      chapter: reqChapter,
+      startVerse: reqStartVerse,
+      endVerse: reqEndVerse,
     );
     if (localText != null) return localText;
 
@@ -114,24 +107,42 @@ class ScriptureService {
   Future<void> resolveCardText(ScriptureCard card, String versionId) async {
     final originalDbText = card.resolvedText;
 
+    // Apply verse mapping overrides if they exist for this version
+    int reqBookNumber = card.bookNumber;
+    int reqChapter = card.chapter;
+    int reqStartVerse = card.startVerse;
+    int? reqEndVerse = card.endVerse;
+    String reqLabel = card.referenceLabel;
+
+    if (card.verseMappings != null && card.verseMappings!.containsKey(versionId)) {
+      final mapping = card.verseMappings![versionId];
+      if (mapping is Map) {
+        reqBookNumber = mapping['bookNumber'] ?? reqBookNumber;
+        reqChapter = mapping['chapter'] ?? reqChapter;
+        reqStartVerse = mapping['startVerse'] ?? reqStartVerse;
+        reqEndVerse = mapping['endVerse'] ?? reqEndVerse;
+        reqLabel = mapping['referenceLabel'] ?? reqLabel;
+      }
+    }
+
     // 1. Try local/in-memory database first (0ms latency)
     String? text = await _localBible.resolvePassage(
       versionId: versionId,
-      bookNumber: card.bookNumber,
-      chapter: card.chapter,
-      startVerse: card.startVerse,
-      endVerse: card.endVerse,
+      bookNumber: reqBookNumber,
+      chapter: reqChapter,
+      startVerse: reqStartVerse,
+      endVerse: reqEndVerse,
     );
 
     // 2. If not found locally and not default WEB, try Remote Bible API
     if (text == null && versionId.toUpperCase() != 'WEB') {
       text = await _remoteApi.fetchPassage(
         versionId: versionId,
-        referenceLabel: card.referenceLabel,
-        bookNumber: card.bookNumber,
-        chapter: card.chapter,
-        startVerse: card.startVerse,
-        endVerse: card.endVerse,
+        referenceLabel: reqLabel,
+        bookNumber: reqBookNumber,
+        chapter: reqChapter,
+        startVerse: reqStartVerse,
+        endVerse: reqEndVerse,
       );
     }
 

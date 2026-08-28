@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/engines/base_feed_engine.dart';
+import '../../core/services/bottom_bar_visibility_service.dart';
 import '../engines/scripture/models/scripture_card.dart';
 import '../engines/scripture/models/scripture_filter_state.dart';
 import '../engines/scripture/scripture_engine.dart';
@@ -30,11 +32,16 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
   int _feedPageIndex = 0;
   String? _errorMessage;
 
+  StreamSubscription<void>? _resetSubscription;
+
   @override
   void initState() {
     super.initState();
     _filterState = widget.engine.initialFilterState;
     _initializeAndLoad();
+    _resetSubscription = BottomBarVisibilityService.instance.onWordsResetRequested.listen((_) {
+      _initializeAndLoad();
+    });
   }
 
   Future<void> _initializeAndLoad() async {
@@ -90,14 +97,26 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
   }
 
   void _onFilterChanged(F newFilterState) {
+    final oldFilterState = _filterState;
+
     setState(() {
       _filterState = newFilterState;
     });
 
     if (widget.engine is ScriptureEngine) {
       final scriptureEngine = widget.engine as ScriptureEngine;
-      final newVersionId =
-          (newFilterState as ScriptureFilterState).activeVersionId;
+      final oldScriptureState = oldFilterState as ScriptureFilterState;
+      final newScriptureState = newFilterState as ScriptureFilterState;
+
+      // If structural feed filters changed, we must clear and reload the feed
+      if (oldScriptureState.bookFilter != newScriptureState.bookFilter ||
+          oldScriptureState.testamentFilter != newScriptureState.testamentFilter) {
+        _initializeAndLoad();
+        return;
+      }
+
+      // Otherwise, it's a cosmetic/version change, so update in place
+      final newVersionId = newScriptureState.activeVersionId;
       for (final item in _items) {
         if (item is ScriptureCard) {
           item.customFontFamily = null;
@@ -121,6 +140,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
   @override
   void dispose() {
+    _resetSubscription?.cancel();
     _pageController.dispose();
     super.dispose();
   }

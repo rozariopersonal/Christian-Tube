@@ -1,2326 +1,8004 @@
-export interface ScriptureSeedItem {
-  engine: string;
-  bookNumber: number;
-  bookName: string;
-  chapter: number;
-  startVerse: number;
-  endVerse: number;
-  referenceLabel: string;
-  text: string;
-  translation: string;
-  category: string;
-  backgroundPreset: string;
-  tags: string[];
-  isFeatured?: boolean;
-}
-
-// Curated authentic Bible verses across Old and New Testaments (World English Bible - Public Domain)
-// Over 1,000 rich scripture entries categorized across 10 major devotional themes.
-export const CURATED_SCRIPTURES: ScriptureSeedItem[] = [
-  // ==========================================
-  // 1. FAITH & TRUST (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 58,
-    bookName: 'Hebrews',
-    chapter: 11,
-    startVerse: 1,
-    endVerse: 1,
-    referenceLabel: 'Hebrews 11:1',
-    text: 'Now faith is assurance of things hoped for, proof of things not seen.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Faith', 'Hope', 'Belief', 'Assurance'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 58,
-    bookName: 'Hebrews',
-    chapter: 11,
-    startVerse: 6,
-    endVerse: 6,
-    referenceLabel: 'Hebrews 11:6',
-    text: 'Without faith it is impossible to be well pleasing to him, for he who comes to God must believe that he exists, and that he is a rewarder of those who seek him.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'gradient_royal_midnight',
-    tags: ['Faith', 'Seeking God', 'Pleasing God', 'Reward'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 20,
-    bookName: 'Proverbs',
-    chapter: 3,
-    startVerse: 5,
-    endVerse: 6,
-    referenceLabel: 'Proverbs 3:5-6',
-    text: 'Trust in Yahweh with all your heart, and don’t lean on your own understanding. In all your ways acknowledge him, and he will make your paths straight.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'golden_fields',
-    tags: ['Trust', 'Guidance', 'Wisdom', 'Surrender'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 47,
-    bookName: '2 Corinthians',
-    chapter: 5,
-    startVerse: 7,
-    endVerse: 7,
-    referenceLabel: '2 Corinthians 5:7',
-    text: 'For we walk by faith, not by sight.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Faith', 'Walk With God', 'Trust', 'Spiritual Vision'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 10,
-    startVerse: 17,
-    endVerse: 17,
-    referenceLabel: 'Romans 10:17',
-    text: 'So faith comes by hearing, and hearing by the word of God.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['Faith', 'Word of God', 'Hearing', 'Spiritual Growth'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 41,
-    bookName: 'Mark',
-    chapter: 11,
-    startVerse: 22,
-    endVerse: 24,
-    referenceLabel: 'Mark 11:22-24',
-    text: 'Jesus answered them, “Have faith in God. Most certainly I tell you, whoever says to this mountain, ‘Be taken up and cast into the sea,’ and doesn’t doubt in his heart, but believes that what he says is happening; he shall have whatever he says.”',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Faith', 'Prayer', 'Authority', 'Miracles'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 41,
-    bookName: 'Mark',
-    chapter: 9,
-    startVerse: 23,
-    endVerse: 23,
-    referenceLabel: 'Mark 9:23',
-    text: 'Jesus said to him, “If you can believe, all things are possible to him who believes.”',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'night_sky',
-    tags: ['Faith', 'Possibility', 'Belief', 'Jesus'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 40,
-    bookName: 'Matthew',
-    chapter: 17,
-    startVerse: 20,
-    endVerse: 20,
-    referenceLabel: 'Matthew 17:20',
-    text: 'He said to them, “Because of your unbelief. For most certainly I tell you, if you have faith as a grain of mustard seed, you will tell this mountain, ‘Move from here to there,’ and it will move; and nothing will be impossible for you.”',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'golden_fields',
-    tags: ['Mustard Seed', 'Faith', 'Power', 'Overcoming'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 40,
-    bookName: 'Matthew',
-    chapter: 21,
-    startVerse: 22,
-    endVerse: 22,
-    referenceLabel: 'Matthew 21:22',
-    text: 'All things, whatever you ask in prayer, believing, you will receive.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'misty_forest',
-    tags: ['Prayer', 'Receiving', 'Faith', 'Promises'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 48,
-    bookName: 'Galatians',
-    chapter: 2,
-    startVerse: 20,
-    endVerse: 20,
-    referenceLabel: 'Galatians 2:20',
-    text: 'I have been crucified with Christ, and it is no longer I that live, but Christ living in me. That life which I now live in the flesh, I live by faith in the Son of God, who loved me, and gave himself up for me.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['Christ In Me', 'New Life', 'Faith', 'Crucifixion'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 49,
-    bookName: 'Ephesians',
-    chapter: 2,
-    startVerse: 8,
-    endVerse: 9,
-    referenceLabel: 'Ephesians 2:8-9',
-    text: 'For by grace you have been saved through faith, and that not of yourselves; it is the gift of God, not of works, that no one would boast.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'gradient_emerald_sanctuary',
-    tags: ['Grace', 'Salvation', 'Gift of God', 'Faith'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 59,
-    bookName: 'James',
-    chapter: 1,
-    startVerse: 6,
-    endVerse: 6,
-    referenceLabel: 'James 1:6',
-    text: 'But let him ask in faith, without any doubting, for he who doubts is like a wave of the sea, driven by the wind and tossed.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Faith', 'No Doubt', 'Steadfast', 'Prayer'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 59,
-    bookName: 'James',
-    chapter: 2,
-    startVerse: 17,
-    endVerse: 17,
-    referenceLabel: 'James 2:17',
-    text: 'Even so faith, if it has no works, is dead in itself.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'autumn_leaves',
-    tags: ['Action', 'Living Faith', 'Deeds', 'Obedience'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 37,
-    startVerse: 3,
-    endVerse: 5,
-    referenceLabel: 'Psalm 37:3-5',
-    text: 'Trust in Yahweh, and do good. Dwell in the land, and enjoy safe pasture. Delight yourself also in Yahweh, and he will give you the desires of your heart. Commit your way to Yahweh. Trust also in him, and he will do this.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Trust', 'Delight', 'Heart Desires', 'Commitment'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 62,
-    startVerse: 8,
-    endVerse: 8,
-    referenceLabel: 'Psalm 62:8',
-    text: 'Trust in him at all times, you people. Pour out your heart before him. God is a refuge for us. Selah.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'desert_dunes',
-    tags: ['Refuge', 'Trust', 'Pour Out Heart', 'Safety'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 125,
-    startVerse: 1,
-    endVerse: 1,
-    referenceLabel: 'Psalm 125:1',
-    text: 'Those who trust in Yahweh are as Mount Zion, which can’t be moved, but remains forever.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Unshakable', 'Mount Zion', 'Eternal', 'Trust'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 118,
-    startVerse: 8,
-    endVerse: 8,
-    referenceLabel: 'Psalm 118:8',
-    text: 'It is better to take refuge in Yahweh, than to put confidence in man.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'gradient_royal_midnight',
-    tags: ['Refuge', 'God First', 'Confidence', 'Faith'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 23,
-    bookName: 'Isaiah',
-    chapter: 26,
-    startVerse: 3,
-    endVerse: 4,
-    referenceLabel: 'Isaiah 26:3-4',
-    text: 'You will keep him in perfect peace, whose mind is stayed on you; because he trusts in you. Trust in Yahweh forever; for in Yah, Yahweh, is an everlasting Rock.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'starry_night',
-    tags: ['Perfect Peace', 'Everlasting Rock', 'Trust', 'Mindset'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 23,
-    bookName: 'Isaiah',
-    chapter: 12,
-    startVerse: 2,
-    endVerse: 2,
-    referenceLabel: 'Isaiah 12:2',
-    text: 'Behold, God is my salvation. I will trust, and will not be afraid; for Yah, Yahweh, is my strength and song; and he has become my salvation.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['Salvation', 'Fear Not', 'Strength', 'Song'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 24,
-    bookName: 'Jeremiah',
-    chapter: 17,
-    startVerse: 7,
-    endVerse: 8,
-    referenceLabel: 'Jeremiah 17:7-8',
-    text: 'Blessed is the man who trusts in Yahweh, and whose confidence is in Yahweh. For he will be as a tree planted by the waters, who spreads out its roots by the stream, and will not fear when heat comes.',
-    translation: 'WEB',
-    category: 'Faith',
-    backgroundPreset: 'misty_forest',
-    tags: ['Blessed', 'Planted Tree', 'Fruitful', 'Confidence'],
-    isFeatured: true,
-  },
-
-  // ==========================================
-  // 2. PEACE & ANXIETY RELIEF (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 43,
-    bookName: 'John',
-    chapter: 14,
-    startVerse: 27,
-    endVerse: 27,
-    referenceLabel: 'John 14:27',
-    text: 'Peace I leave with you. My peace I give to you; not as the world gives, give I to you. Don’t let your heart be troubled, neither let it be fearful.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Peace', 'Jesus Gift', 'Overcoming Fear', 'Comfort'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 43,
-    bookName: 'John',
-    chapter: 16,
-    startVerse: 33,
-    endVerse: 33,
-    referenceLabel: 'John 16:33',
-    text: 'I have told you these things, that in me you may have peace. In the world you have trouble; but cheer up! I have overcome the world.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'gradient_deep_ocean',
-    tags: ['Peace', 'Overcomer', 'Victory', 'Encouragement'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 50,
-    bookName: 'Philippians',
-    chapter: 4,
-    startVerse: 6,
-    endVerse: 7,
-    referenceLabel: 'Philippians 4:6-7',
-    text: 'In nothing be anxious, but in everything, by prayer and petition with thanksgiving, let your requests be made known to God. And the peace of God, which surpasses all understanding, will guard your hearts and your thoughts in Christ Jesus.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'night_sky',
-    tags: ['Peace of God', 'No Anxiety', 'Prayer', 'Thanksgiving'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 60,
-    bookName: '1 Peter',
-    chapter: 5,
-    startVerse: 7,
-    endVerse: 7,
-    referenceLabel: '1 Peter 5:7',
-    text: 'Casting all your worries on him, because he cares for you.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'golden_fields',
-    tags: ['Cast Worries', 'God Cares', 'Anxiety Relief', 'Peace'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 4,
-    startVerse: 8,
-    endVerse: 8,
-    referenceLabel: 'Psalm 4:8',
-    text: 'In peace I will both lay myself down and sleep, for you, Yahweh alone, make me live in safety.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'starry_night',
-    tags: ['Sleep', 'Safety', 'Rest', 'Night Peace'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 29,
-    startVerse: 11,
-    endVerse: 11,
-    referenceLabel: 'Psalm 29:11',
-    text: 'Yahweh will give strength to his people. Yahweh will bless his people with peace.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Strength', 'Blessing', 'Peace', 'Lord Protects'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 46,
-    startVerse: 10,
-    endVerse: 10,
-    referenceLabel: 'Psalm 46:10',
-    text: '“Be still, and know that I am God. I will be exalted among the nations. I will be exalted in the earth.”',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'misty_forest',
-    tags: ['Be Still', 'God Exalted', 'Quietness', 'Trust'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 85,
-    startVerse: 8,
-    endVerse: 8,
-    referenceLabel: 'Psalm 85:8',
-    text: 'I will hear what God, Yahweh, will speak, for he will speak peace to his people, his saints; but let them not turn again to folly.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'calm_ocean',
-    tags: ['God Speaks', 'Peace', 'Saints', 'Listening'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 119,
-    startVerse: 165,
-    endVerse: 165,
-    referenceLabel: 'Psalm 119:165',
-    text: 'Those who love your law have great peace. Nothing causes them to stumble.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['Great Peace', 'Gods Word', 'No Stumbling', 'Guidance'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 23,
-    bookName: 'Isaiah',
-    chapter: 32,
-    startVerse: 17,
-    endVerse: 17,
-    referenceLabel: 'Isaiah 32:17',
-    text: 'The work of righteousness will be peace; and the effect of righteousness, quietness and confidence forever.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'autumn_leaves',
-    tags: ['Righteousness', 'Quietness', 'Confidence', 'Everlasting'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 23,
-    bookName: 'Isaiah',
-    chapter: 54,
-    startVerse: 10,
-    endVerse: 10,
-    referenceLabel: 'Isaiah 54:10',
-    text: '“For the mountains may depart, and the hills be removed; but my loving kindness will not depart from you, and my covenant of peace will not be removed,” says Yahweh who has mercy on you.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Covenant of Peace', 'Loving Kindness', 'Unshakable Mercy'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 5,
-    startVerse: 1,
-    endVerse: 1,
-    referenceLabel: 'Romans 5:1',
-    text: 'Being therefore justified by faith, we have peace with God through our Lord Jesus Christ.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['Justified', 'Peace with God', 'Faith', 'Jesus'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 15,
-    startVerse: 13,
-    endVerse: 13,
-    referenceLabel: 'Romans 15:13',
-    text: 'Now may the God of hope fill you with all joy and peace in believing, that you may abound in hope, in the power of the Holy Spirit.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'gradient_emerald_sanctuary',
-    tags: ['God of Hope', 'Full Joy', 'Holy Spirit', 'Peace'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 51,
-    bookName: 'Colossians',
-    chapter: 3,
-    startVerse: 15,
-    endVerse: 15,
-    referenceLabel: 'Colossians 3:15',
-    text: 'And let the peace of God rule in your hearts, to which also you were called in one body; and be thankful.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'gradient_majestic_purple',
-    tags: ['Peace Rules', 'One Body', 'Heart', 'Thankfulness'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 53,
-    bookName: '2 Thessalonians',
-    chapter: 3,
-    startVerse: 16,
-    endVerse: 16,
-    referenceLabel: '2 Thessalonians 3:16',
-    text: 'Now may the Lord of peace himself give you peace at all times in every way. The Lord be with you all.',
-    translation: 'WEB',
-    category: 'Peace',
-    backgroundPreset: 'night_sky',
-    tags: ['Lord of Peace', 'Every Way', 'At All Times', 'Blessing'],
-    isFeatured: true,
-  },
-
-  // ==========================================
-  // 3. STRENGTH & COURAGE (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 50,
-    bookName: 'Philippians',
-    chapter: 4,
-    startVerse: 13,
-    endVerse: 13,
-    referenceLabel: 'Philippians 4:13',
-    text: 'I can do all things through Christ, who strengthens me.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Strength', 'Christ In Me', 'Victory', 'Power'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 6,
-    bookName: 'Joshua',
-    chapter: 1,
-    startVerse: 9,
-    endVerse: 9,
-    referenceLabel: 'Joshua 1:9',
-    text: 'Haven’t I commanded you? Be strong and courageous. Don’t be afraid. Don’t be dismayed, for Yahweh your God is with you wherever you go.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'desert_dunes',
-    tags: ['Courage', 'God With You', 'Fearless', 'Strength'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 23,
-    bookName: 'Isaiah',
-    chapter: 40,
-    startVerse: 29,
-    endVerse: 31,
-    referenceLabel: 'Isaiah 40:29-31',
-    text: 'He gives power to the weak. He increases the strength of him who has no might. Even the youths faint and get weary, and the young men utterly fall; but those who wait for Yahweh will renew their strength. They will mount up with wings like eagles. They will run, and not be weary. They will walk, and not faint.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'starry_night',
-    tags: ['Eagle Wings', 'Renewed Strength', 'Power', 'Patience'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 23,
-    bookName: 'Isaiah',
-    chapter: 41,
-    startVerse: 10,
-    endVerse: 10,
-    referenceLabel: 'Isaiah 41:10',
-    text: 'Don’t you be afraid, for I am with you. Don’t be dismayed, for I am your God. I will strengthen you. Yes, I will help you. Yes, I will uphold you with the right hand of my righteousness.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'golden_fields',
-    tags: ['Fear Not', 'Help', 'Right Hand', 'God Strengthens'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 18,
-    startVerse: 1,
-    endVerse: 2,
-    referenceLabel: 'Psalm 18:1-2',
-    text: 'I love you, Yahweh, my strength. Yahweh is my rock, my fortress, and my deliverer; my God, my rock, in whom I take refuge; my shield, and the horn of my salvation, my high tower.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Rock', 'Fortress', 'Deliverer', 'Shield', 'Strength'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 27,
-    startVerse: 1,
-    endVerse: 1,
-    referenceLabel: 'Psalm 27:1',
-    text: 'Yahweh is my light and my salvation. Whom shall I fear? Yahweh is the strength of my life. Of whom shall I be afraid?',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Light', 'Salvation', 'No Fear', 'Strength of Life'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 28,
-    startVerse: 7,
-    endVerse: 7,
-    referenceLabel: 'Psalm 28:7',
-    text: 'Yahweh is my strength and my shield. My heart has trusted in him, and I am helped. Therefore my heart greatly rejoices. With my song I will thank him.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['Strength', 'Shield', 'Rejoicing', 'Praise'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 46,
-    startVerse: 1,
-    endVerse: 3,
-    referenceLabel: 'Psalm 46:1-3',
-    text: 'God is our refuge and strength, a very present help in trouble. Therefore we won’t be afraid, though the earth changes, though the mountains are shaken into the heart of the seas.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'gradient_deep_ocean',
-    tags: ['Refuge', 'Present Help', 'Everlasting Strength'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 73,
-    startVerse: 26,
-    endVerse: 26,
-    referenceLabel: 'Psalm 73:26',
-    text: 'My flesh and my heart fails, but God is the strength of my heart and my portion forever.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'misty_forest',
-    tags: ['Portion Forever', 'Heart Strength', 'Endurance'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 138,
-    startVerse: 3,
-    endVerse: 3,
-    referenceLabel: 'Psalm 138:3',
-    text: 'In the day that I called, you answered me. You encouraged me with strength in my soul.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'night_sky',
-    tags: ['Answered Prayer', 'Soul Strength', 'Encouragement'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 49,
-    bookName: 'Ephesians',
-    chapter: 6,
-    startVerse: 10,
-    endVerse: 11,
-    referenceLabel: 'Ephesians 6:10-11',
-    text: 'Finally, be strong in the Lord, and in the strength of his might. Put on the whole armor of God, that you may be able to stand against the wiles of the devil.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'gradient_royal_midnight',
-    tags: ['Armor of God', 'Stand Firm', 'Mighty Power'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 47,
-    bookName: '2 Corinthians',
-    chapter: 12,
-    startVerse: 9,
-    endVerse: 10,
-    referenceLabel: '2 Corinthians 12:9-10',
-    text: 'He has said to me, “My grace is sufficient for you, for my power is made perfect in weakness.” Most gladly therefore I will rather glory in my weaknesses, that the power of Christ may rest on me.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['Grace Sufficient', 'Power in Weakness', 'Christ Power'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 55,
-    bookName: '2 Timothy',
-    chapter: 1,
-    startVerse: 7,
-    endVerse: 7,
-    referenceLabel: '2 Timothy 1:7',
-    text: 'For God didn’t give us a spirit of fear, but of power, love, and self-control.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'autumn_leaves',
-    tags: ['Power', 'Love', 'Sound Mind', 'No Fear'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 5,
-    bookName: 'Deuteronomy',
-    chapter: 31,
-    startVerse: 6,
-    endVerse: 6,
-    referenceLabel: 'Deuteronomy 31:6',
-    text: 'Be strong and courageous. Don’t be afraid, nor be scared of them; for Yahweh your God is who goes with you. He will not fail you nor forsake you.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Never Forsaken', 'Courage', 'God Walks With Us'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 35,
-    bookName: 'Habakkuk',
-    chapter: 3,
-    startVerse: 19,
-    endVerse: 19,
-    referenceLabel: 'Habakkuk 3:19',
-    text: 'Yahweh, the Lord, is my strength. He makes my feet like deer’s feet, and enables me to go in high places.',
-    translation: 'WEB',
-    category: 'Strength',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['High Places', 'Deers Feet', 'Lord My Strength'],
-    isFeatured: false,
-  },
-
-  // ==========================================
-  // 4. LOVE & COMPASSION (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 43,
-    bookName: 'John',
-    chapter: 3,
-    startVerse: 16,
-    endVerse: 16,
-    referenceLabel: 'John 3:16',
-    text: 'For God so loved the world, that he gave his one and only Son, that whoever believes in him should not perish, but have eternal life.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['Gods Love', 'Eternal Life', 'Jesus', 'Salvation'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 46,
-    bookName: '1 Corinthians',
-    chapter: 13,
-    startVerse: 4,
-    endVerse: 8,
-    referenceLabel: '1 Corinthians 13:4-8',
-    text: 'Love is patient and is kind; love doesn’t envy. Love doesn’t brag, is not proud, doesn’t behave itself inappropriately, doesn’t seek its own way, is not provoked, takes no account of evil; doesn’t rejoice in unrighteousness, but rejoices with the truth; bears all things, believes all things, hopes all things, endures all things. Love never fails.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'golden_fields',
-    tags: ['Patience', 'Kindness', 'Love Never Fails', 'Agape'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 46,
-    bookName: '1 Corinthians',
-    chapter: 13,
-    startVerse: 13,
-    endVerse: 13,
-    referenceLabel: '1 Corinthians 13:13',
-    text: 'But now faith, hope, and love remain—these three. The greatest of these is love.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['Greatest Love', 'Faith', 'Hope', 'Eternal Virtues'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 62,
-    bookName: '1 John',
-    chapter: 4,
-    startVerse: 7,
-    endVerse: 8,
-    referenceLabel: '1 John 4:7-8',
-    text: 'Beloved, let us love one another, for love is of God; and everyone who loves has been born of God, and knows God. He who doesn’t love doesn’t know God, for God is love.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'autumn_leaves',
-    tags: ['God is Love', 'Brotherly Love', 'Born of God'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 62,
-    bookName: '1 John',
-    chapter: 4,
-    startVerse: 18,
-    endVerse: 19,
-    referenceLabel: '1 John 4:18-19',
-    text: 'There is no fear in love; but perfect love casts out fear, because fear has punishment. He who fears is not made perfect in love. We love him, because he first loved us.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Perfect Love', 'Casts Out Fear', 'First Loved Us'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 62,
-    bookName: '1 John',
-    chapter: 3,
-    startVerse: 1,
-    endVerse: 1,
-    referenceLabel: '1 John 3:1',
-    text: 'See how great a love the Father has bestowed on us, that we should be called children of God! For this cause the world doesn’t know us, because it didn’t know him.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'gradient_emerald_sanctuary',
-    tags: ['Fathers Love', 'Children of God', 'Identity'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 62,
-    bookName: '1 John',
-    chapter: 3,
-    startVerse: 16,
-    endVerse: 16,
-    referenceLabel: '1 John 3:16',
-    text: 'By this we know love, because he laid down his life for us. And we ought to lay down our lives for the brothers.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['Sacrificial Love', 'Cross', 'Brotherly Love'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 5,
-    startVerse: 8,
-    endVerse: 8,
-    referenceLabel: 'Romans 5:8',
-    text: 'But God commends his own love toward us, in that while we were yet sinners, Christ died for us.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'starry_night',
-    tags: ['Christ Died For Us', 'Unconditional Love', 'Grace'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 8,
-    startVerse: 38,
-    endVerse: 39,
-    referenceLabel: 'Romans 8:38-39',
-    text: 'For I am persuaded that neither death, nor life, nor angels, nor principalities, nor things present, nor things to come, nor powers, nor height, nor depth, nor any other created thing, will be able to separate us from God’s love, which is in Christ Jesus our Lord.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'gradient_royal_midnight',
-    tags: ['Inseparable Love', 'Persuaded', 'Christ Jesus', 'Victory'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 43,
-    bookName: 'John',
-    chapter: 15,
-    startVerse: 12,
-    endVerse: 13,
-    referenceLabel: 'John 15:12-13',
-    text: '“This is my commandment, that you love one another, even as I have loved you. Greater love has no one than this, that someone lay down his life for his friends.”',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'misty_forest',
-    tags: ['Commandment', 'Greater Love', 'Friends of God'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 49,
-    bookName: 'Ephesians',
-    chapter: 3,
-    startVerse: 17,
-    endVerse: 19,
-    referenceLabel: 'Ephesians 3:17-19',
-    text: 'That Christ may dwell in your hearts through faith; to the end that you, being rooted and grounded in love, may be strengthened to comprehend with all the saints what is the breadth and length and height and depth, and to know Christ’s love which surpasses knowledge.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'gradient_majestic_purple',
-    tags: ['Rooted in Love', 'Depth of Love', 'Christ Dwelling'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 136,
-    startVerse: 1,
-    endVerse: 1,
-    referenceLabel: 'Psalm 136:1',
-    text: 'Give thanks to Yahweh, for he is good; for his loving kindness endures forever.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'golden_fields',
-    tags: ['Loving Kindness', 'Endures Forever', 'Thanksgiving'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 22,
-    bookName: 'Song of Solomon',
-    chapter: 8,
-    startVerse: 7,
-    endVerse: 7,
-    referenceLabel: 'Song of Solomon 8:7',
-    text: 'Many waters can’t quench love, neither can floods drown it. If a man would give all the wealth of his house for love, he would be utterly scorned.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Unquenchable', 'Pure Love', 'Priceless'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 36,
-    bookName: 'Zephaniah',
-    chapter: 3,
-    startVerse: 17,
-    endVerse: 17,
-    referenceLabel: 'Zephaniah 3:17',
-    text: 'Yahweh, your God, is among you, a mighty one who will save. He will rejoice over you with joy. He will calm you in his love. He will rejoice over you with singing.',
-    translation: 'WEB',
-    category: 'Love',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Calm in Love', 'God Sings Over Us', 'Rejoice'],
-    isFeatured: true,
-  },
-
-  // ==========================================
-  // 5. HOPE & FUTURE (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 24,
-    bookName: 'Jeremiah',
-    chapter: 29,
-    startVerse: 11,
-    endVerse: 11,
-    referenceLabel: 'Jeremiah 29:11',
-    text: '“For I know the thoughts that I think toward you,” says Yahweh, “thoughts of peace, and not of evil, to give you hope and a future.”',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'golden_fields',
-    tags: ['Future', 'Plans for Good', 'Hope', 'Peace'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 8,
-    startVerse: 28,
-    endVerse: 28,
-    referenceLabel: 'Romans 8:28',
-    text: 'We know that all things work together for good for those who love God, to those who are called according to his purpose.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'starry_night',
-    tags: ['All Things For Good', 'Gods Purpose', 'Hope'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 12,
-    startVerse: 12,
-    endVerse: 12,
-    referenceLabel: 'Romans 12:12',
-    text: 'Rejoicing in hope; enduring in troubles; continuing steadfastly in prayer.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['Rejoicing in Hope', 'Endurance', 'Steadfast Prayer'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 5,
-    startVerse: 5,
-    endVerse: 5,
-    referenceLabel: 'Romans 5:5',
-    text: 'And hope doesn’t disappoint us, because God’s love has been poured out into our hearts through the Holy Spirit who was given to us.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['Hope Never Fails', 'Holy Spirit', 'Love Poured Out'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 50,
-    bookName: 'Philippians',
-    chapter: 1,
-    startVerse: 6,
-    endVerse: 6,
-    referenceLabel: 'Philippians 1:6',
-    text: 'Being confident of this very thing, that he who began a good work in you will complete it until the day of Jesus Christ.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Good Work Completed', 'Faithfulness', 'Jesus Christ'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 31,
-    startVerse: 24,
-    endVerse: 24,
-    referenceLabel: 'Psalm 31:24',
-    text: 'Be strong, and let your heart take courage, all you who hope in Yahweh.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'desert_dunes',
-    tags: ['Take Courage', 'Heart Strength', 'Hope in God'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 33,
-    startVerse: 20,
-    endVerse: 22,
-    referenceLabel: 'Psalm 33:20-22',
-    text: 'Our soul has waited for Yahweh. He is our help and our shield. For our heart rejoices in him, because we have trusted in his holy name. Let your loving kindness, Yahweh, be on us, according as we have hoped in you.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Waiting on God', 'Shield', 'Rejoice', 'Hope'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 42,
-    startVerse: 11,
-    endVerse: 11,
-    referenceLabel: 'Psalm 42:11',
-    text: 'Why are you in despair, my soul? Why are you disturbed within me? Hope in God! For I shall still praise him: my Savior, my helper, and my God.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'misty_forest',
-    tags: ['Soul Rest', 'Hope in God', 'Savior', 'Praise'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 71,
-    startVerse: 5,
-    endVerse: 5,
-    referenceLabel: 'Psalm 71:5',
-    text: 'For you are my hope, Lord Yahweh; my confidence from my youth.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'gradient_emerald_sanctuary',
-    tags: ['Lifelong Hope', 'Confidence', 'Youth to Age'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 25,
-    bookName: 'Lamentations',
-    chapter: 3,
-    startVerse: 22,
-    endVerse: 24,
-    referenceLabel: 'Lamentations 3:22-24',
-    text: 'It is because of Yahweh’s loving kindnesses that we are not consumed, because his mercies don’t fail. They are new every morning. Great is your faithfulness. “Yahweh is my portion,” says my soul. “Therefore I will hope in him.”',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'autumn_leaves',
-    tags: ['New Mercies', 'Great Faithfulness', 'Morning Devotion'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 58,
-    bookName: 'Hebrews',
-    chapter: 6,
-    startVerse: 19,
-    endVerse: 19,
-    referenceLabel: 'Hebrews 6:19',
-    text: 'This hope we have as an anchor of the soul, a hope both sure and steadfast and entering into that which is within the veil.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'gradient_deep_ocean',
-    tags: ['Anchor of Soul', 'Steadfast', 'Sure Hope'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 60,
-    bookName: '1 Peter',
-    chapter: 1,
-    startVerse: 3,
-    endVerse: 3,
-    referenceLabel: '1 Peter 1:3',
-    text: 'Blessed be the God and Father of our Lord Jesus Christ, who according to his great mercy caused us to be born again to a living hope through the resurrection of Jesus Christ from the dead.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'night_sky',
-    tags: ['Living Hope', 'Resurrection', 'Born Again', 'Mercy'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 66,
-    bookName: 'Revelation',
-    chapter: 21,
-    startVerse: 4,
-    endVerse: 4,
-    referenceLabel: 'Revelation 21:4',
-    text: 'He will wipe away every tear from their eyes. Death will be no more; neither will there be mourning, nor crying, nor pain, any more. The first things have passed away.',
-    translation: 'WEB',
-    category: 'Hope',
-    backgroundPreset: 'gradient_majestic_purple',
-    tags: ['No More Tears', 'Eternal Victory', 'Heaven', 'New Creation'],
-    isFeatured: true,
-  },
-
-  // ==========================================
-  // 6. WISDOM & GUIDANCE (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 59,
-    bookName: 'James',
-    chapter: 1,
-    startVerse: 5,
-    endVerse: 5,
-    referenceLabel: 'James 1:5',
-    text: 'But if any of you lacks wisdom, let him ask of God, who gives to all liberally and without reproach; and it will be given to him.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Wisdom', 'Ask God', 'Generous Giver'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 20,
-    bookName: 'Proverbs',
-    chapter: 1,
-    startVerse: 7,
-    endVerse: 7,
-    referenceLabel: 'Proverbs 1:7',
-    text: 'The fear of Yahweh is the beginning of knowledge; but the foolish despise wisdom and instruction.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'gradient_royal_midnight',
-    tags: ['Fear of the Lord', 'Beginning of Knowledge', 'Wisdom'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 20,
-    bookName: 'Proverbs',
-    chapter: 2,
-    startVerse: 6,
-    endVerse: 6,
-    referenceLabel: 'Proverbs 2:6',
-    text: 'For Yahweh gives wisdom. Out of his mouth comes knowledge and understanding.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'golden_fields',
-    tags: ['Wisdom Source', 'Understanding', 'Word of God'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 20,
-    bookName: 'Proverbs',
-    chapter: 4,
-    startVerse: 7,
-    endVerse: 7,
-    referenceLabel: 'Proverbs 4:7',
-    text: 'Wisdom is supreme. Get wisdom. Yes, though it cost all your possessions, get understanding.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'starry_night',
-    tags: ['Wisdom Supreme', 'Understanding', 'Treasures'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 20,
-    bookName: 'Proverbs',
-    chapter: 4,
-    startVerse: 23,
-    endVerse: 23,
-    referenceLabel: 'Proverbs 4:23',
-    text: 'Keep your heart with all diligence, for out of it is the wellspring of life.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'gradient_emerald_sanctuary',
-    tags: ['Guard Your Heart', 'Wellspring of Life', 'Purity'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 20,
-    bookName: 'Proverbs',
-    chapter: 16,
-    startVerse: 3,
-    endVerse: 3,
-    referenceLabel: 'Proverbs 16:3',
-    text: 'Commit your deeds to Yahweh, and your plans will succeed.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Commitment', 'Success', 'Gods Direction'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 20,
-    bookName: 'Proverbs',
-    chapter: 16,
-    startVerse: 9,
-    endVerse: 9,
-    referenceLabel: 'Proverbs 16:9',
-    text: 'A man’s heart plans his course, but Yahweh directs his steps.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'misty_forest',
-    tags: ['Directing Steps', 'Sovereignty', 'Guidance'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 20,
-    bookName: 'Proverbs',
-    chapter: 27,
-    startVerse: 17,
-    endVerse: 17,
-    referenceLabel: 'Proverbs 27:17',
-    text: 'Iron sharpens iron; so a man sharpens his friend’s countenance.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'autumn_leaves',
-    tags: ['Friendship', 'Fellowship', 'Accountability'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 119,
-    startVerse: 105,
-    endVerse: 105,
-    referenceLabel: 'Psalm 119:105',
-    text: 'Your word is a lamp to my feet, and a light for my path.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'night_sky',
-    tags: ['Lamp to My Feet', 'Light to My Path', 'Scripture'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 32,
-    startVerse: 8,
-    endVerse: 8,
-    referenceLabel: 'Psalm 32:8',
-    text: '“I will instruct you and teach you in the way which you shall go. I will counsel you with my eye on you.”',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['Divine Counsel', 'Teaching', 'Gods Eye on Us'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 25,
-    startVerse: 4,
-    endVerse: 5,
-    referenceLabel: 'Psalm 25:4-5',
-    text: 'Show me your ways, Yahweh. Teach me your paths. Guide me in your truth, and teach me, for you are the God of my salvation. I wait for you all day long.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Teach Me Your Ways', 'Truth', 'Waiting on God'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 23,
-    bookName: 'Isaiah',
-    chapter: 30,
-    startVerse: 21,
-    endVerse: 21,
-    referenceLabel: 'Isaiah 30:21',
-    text: 'And when you turn to the right hand, and when you turn to the left, your ears will hear a voice behind you, saying, “This is the way. Walk in it.”',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'desert_dunes',
-    tags: ['Gods Voice', 'This Is The Way', 'Holy Spirit Guidance'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 59,
-    bookName: 'James',
-    chapter: 3,
-    startVerse: 17,
-    endVerse: 17,
-    referenceLabel: 'James 3:17',
-    text: 'But the wisdom that is from above is first pure, then peaceful, gentle, reasonable, full of mercy and good fruits, without partiality, and without hypocrisy.',
-    translation: 'WEB',
-    category: 'Wisdom',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['Wisdom From Above', 'Pure', 'Peaceful', 'Gentle'],
-    isFeatured: true,
-  },
-
-  // ==========================================
-  // 7. PRAISE & THANKSGIVING (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 100,
-    startVerse: 1,
-    endVerse: 5,
-    referenceLabel: 'Psalm 100:1-5',
-    text: 'Shout for joy to Yahweh, all you lands! Serve Yahweh with gladness. Come before his presence with singing. Know that Yahweh, he is God. It is he who has made us, and we are his. We are his people, and the sheep of his pasture. Enter into his gates with thanksgiving, and into his courts with praise. Give thanks to him, and bless his name. For Yahweh is good. His loving kindness endures forever, his faithfulness to all generations.',
-    translation: 'WEB',
-    category: 'Praise',
-    backgroundPreset: 'golden_fields',
-    tags: ['Enter Gates With Praise', 'Shout for Joy', 'Enduring Goodness'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 103,
-    startVerse: 1,
-    endVerse: 5,
-    referenceLabel: 'Psalm 103:1-5',
-    text: 'Praise Yahweh, my soul! All that is within me, praise his holy name! Praise Yahweh, my soul, and don’t forget all his benefits; who forgives all your sins; who heals all your diseases; who redeems your life from destruction; who crowns you with loving kindness and tender mercies; who satisfies your desire with good things, so that your youth is renewed like the eagle’s.',
-    translation: 'WEB',
-    category: 'Praise',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Bless the Lord', 'Holy Name', 'Heals Diseases', 'Renewed Youth'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 150,
-    startVerse: 1,
-    endVerse: 6,
-    referenceLabel: 'Psalm 150:1-6',
-    text: 'Praise Yah! Praise God in his sanctuary! Praise him in his mighty expanse! Praise him for his mighty acts! Praise him according to his excellent greatness! Praise him with the sounding of the trumpet! Praise him with harp and lyre! Praise him with tambourine and dancing! Praise him with stringed instruments and flute! Praise him with loud cymbals! Praise him with resounding cymbals! Let everything that has breath praise Yah! Praise Yah!',
-    translation: 'WEB',
-    category: 'Praise',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['Let Everything Praise', 'Sanctuary', 'Mighty Acts', 'Worship'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 34,
-    startVerse: 1,
-    endVerse: 3,
-    referenceLabel: 'Psalm 34:1-3',
-    text: 'I will bless Yahweh at all times. His praise will always be in my mouth. My soul shall boast in Yahweh. The humble shall hear of it, and be glad. Oh magnify Yahweh with me. Let us exalt his name together.',
-    translation: 'WEB',
-    category: 'Praise',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Bless at All Times', 'Magnify the Lord', 'Exalt Together'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 95,
-    startVerse: 1,
-    endVerse: 3,
-    referenceLabel: 'Psalm 95:1-3',
-    text: 'Oh come, let us sing to Yahweh. Let us shout aloud to the rock of our salvation! Let us come before his presence with thanksgiving. Let us extol him with songs! For Yahweh is a great God, a great King above all gods.',
-    translation: 'WEB',
-    category: 'Praise',
-    backgroundPreset: 'gradient_deep_ocean',
-    tags: ['Rock of Salvation', 'Thanksgiving', 'Great King'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 52,
-    bookName: '1 Thessalonians',
-    chapter: 5,
-    startVerse: 16,
-    endVerse: 18,
-    referenceLabel: '1 Thessalonians 5:16-18',
-    text: 'Rejoice always. Pray without ceasing. In everything give thanks, for this is the will of God in Christ Jesus toward you.',
-    translation: 'WEB',
-    category: 'Praise',
-    backgroundPreset: 'autumn_leaves',
-    tags: ['Rejoice Always', 'Pray Unceasingly', 'Give Thanks', 'Gods Will'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 49,
-    bookName: 'Ephesians',
-    chapter: 5,
-    startVerse: 19,
-    endVerse: 20,
-    referenceLabel: 'Ephesians 5:19-20',
-    text: 'Speaking to one another in psalms, hymns, and spiritual songs; singing, and making melody in your heart to the Lord; giving thanks always for all things in the name of our Lord Jesus Christ to God, even the Father.',
-    translation: 'WEB',
-    category: 'Praise',
-    backgroundPreset: 'night_sky',
-    tags: ['Hymns and Songs', 'Melody in Heart', 'Thanks Always'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 58,
-    bookName: 'Hebrews',
-    chapter: 13,
-    startVerse: 15,
-    endVerse: 15,
-    referenceLabel: 'Hebrews 13:15',
-    text: 'Through him, then, let us offer up a sacrifice of praise to God continually, that is, the fruit of lips which proclaim allegiance to his name.',
-    translation: 'WEB',
-    category: 'Praise',
-    backgroundPreset: 'gradient_royal_midnight',
-    tags: ['Sacrifice of Praise', 'Fruit of Lips', 'Continual Worship'],
-    isFeatured: true,
-  },
-
-  // ==========================================
-  // 8. COMFORT & HEALING (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 23,
-    startVerse: 1,
-    endVerse: 6,
-    referenceLabel: 'Psalm 23:1-6',
-    text: 'Yahweh is my shepherd: I shall lack nothing. He makes me lie down in green pastures. He leads me beside still waters. He restores my soul. He guides me in the paths of righteousness for his name’s sake. Even though I walk through the valley of the shadow of death, I will fear no evil, for you are with me. Your rod and your staff, they comfort me. You prepare a table before me in the presence of my enemies. You anoint my head with oil. My cup runs over. Surely goodness and loving kindness shall follow me all the days of my life, and I will dwell in Yahweh’s house forever.',
-    translation: 'WEB',
-    category: 'Comfort',
-    backgroundPreset: 'misty_forest',
-    tags: ['Good Shepherd', 'Green Pastures', 'Valley of Death', 'Goodness and Mercy'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 91,
-    startVerse: 1,
-    endVerse: 4,
-    referenceLabel: 'Psalm 91:1-4',
-    text: 'He who dwells in the secret place of the Most High will rest in the shadow of the Almighty. I will say of Yahweh, “He is my refuge and my fortress; my God, in whom I trust.” For he will deliver you from the snare of the fowler, and from the deadly pestilence. He will cover you with his feathers. Under his wings you will take refuge. His faithfulness is your shield and rampart.',
-    translation: 'WEB',
-    category: 'Comfort',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Secret Place', 'Shadow of Almighty', 'Under His Wings', 'Protection'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 34,
-    startVerse: 18,
-    endVerse: 18,
-    referenceLabel: 'Psalm 34:18',
-    text: 'Yahweh is near to those who have a broken heart, and saves those who have a crushed spirit.',
-    translation: 'WEB',
-    category: 'Comfort',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Brokenhearted', 'Near to God', 'Crushed Spirit', 'Healing'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 147,
-    startVerse: 3,
-    endVerse: 3,
-    referenceLabel: 'Psalm 147:3',
-    text: 'He heals the broken in heart, and binds up their wounds.',
-    translation: 'WEB',
-    category: 'Comfort',
-    backgroundPreset: 'autumn_leaves',
-    tags: ['Heals Broken Hearts', 'Binds Wounds', 'Compassion'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 23,
-    bookName: 'Isaiah',
-    chapter: 53,
-    startVerse: 5,
-    endVerse: 5,
-    referenceLabel: 'Isaiah 53:5',
-    text: 'But he was pierced for our transgressions. He was crushed for our iniquities. The punishment that brought our peace was on him; and by his wounds we are healed.',
-    translation: 'WEB',
-    category: 'Comfort',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['By His Wounds', 'Healed', 'Cross', 'Peace'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 24,
-    bookName: 'Jeremiah',
-    chapter: 17,
-    startVerse: 14,
-    endVerse: 14,
-    referenceLabel: 'Jeremiah 17:14',
-    text: 'Heal me, O Yahweh, and I will be healed. Save me, and I will be saved; for you are my praise.',
-    translation: 'WEB',
-    category: 'Comfort',
-    backgroundPreset: 'desert_dunes',
-    tags: ['Heal Me', 'Save Me', 'Praise'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 47,
-    bookName: '2 Corinthians',
-    chapter: 1,
-    startVerse: 3,
-    endVerse: 4,
-    referenceLabel: '2 Corinthians 1:3-4',
-    text: 'Blessed be the God and Father of our Lord Jesus Christ, the Father of mercies and God of all comfort; who comforts us in all our affliction, that we may be able to comfort those who are in any affliction, through the comfort with which we ourselves are comforted by God.',
-    translation: 'WEB',
-    category: 'Comfort',
-    backgroundPreset: 'starry_night',
-    tags: ['God of All Comfort', 'Father of Mercies', 'Healing'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 40,
-    bookName: 'Matthew',
-    chapter: 11,
-    startVerse: 28,
-    endVerse: 30,
-    referenceLabel: 'Matthew 11:28-30',
-    text: '“Come to me, all you who labor and are heavily burdened, and I will give you rest. Take my yoke upon you, and learn from me, for I am gentle and humble in heart; and you will find rest for your souls. For my yoke is easy, and my burden is light.”',
-    translation: 'WEB',
-    category: 'Comfort',
-    backgroundPreset: 'golden_fields',
-    tags: ['Come to Me', 'Soul Rest', 'Gentle and Humble', 'Easy Yoke'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 59,
-    bookName: 'James',
-    chapter: 5,
-    startVerse: 14,
-    endVerse: 15,
-    referenceLabel: 'James 5:14-15',
-    text: 'Is any among you sick? Let him call for the elders of the assembly, and let them pray over him, anointing him with oil in the name of the Lord, and the prayer of faith will heal him who is sick, and the Lord will raise him up.',
-    translation: 'WEB',
-    category: 'Comfort',
-    backgroundPreset: 'gradient_emerald_sanctuary',
-    tags: ['Prayer of Faith', 'Sick Healed', 'Anointing'],
-    isFeatured: false,
-  },
-
-  // ==========================================
-  // 9. GRACE & SALVATION (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 3,
-    startVerse: 23,
-    endVerse: 24,
-    referenceLabel: 'Romans 3:23-24',
-    text: 'For all have sinned, and fall short of the glory of God; being justified freely by his grace through the redemption that is in Christ Jesus.',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'gradient_royal_midnight',
-    tags: ['Free Grace', 'Justified', 'Redemption', 'Christ Jesus'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 6,
-    startVerse: 23,
-    endVerse: 23,
-    referenceLabel: 'Romans 6:23',
-    text: 'For the wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord.',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'starry_night',
-    tags: ['Gift of God', 'Eternal Life', 'Christ Jesus', 'Salvation'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 10,
-    startVerse: 9,
-    endVerse: 10,
-    referenceLabel: 'Romans 10:9-10',
-    text: 'If you will confess with your mouth that Jesus is Lord, and believe in your heart that God raised him from the dead, you will be saved. For with the heart, one believes resulting in righteousness; and with the mouth confession is made resulting in salvation.',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'golden_fields',
-    tags: ['Confess Jesus is Lord', 'Salvation', 'Believe with Heart'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 45,
-    bookName: 'Romans',
-    chapter: 10,
-    startVerse: 13,
-    endVerse: 13,
-    referenceLabel: 'Romans 10:13',
-    text: 'For, “Whoever will call on the name of the Lord will be saved.”',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Call on the Lord', 'Saved', 'Universal Grace'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 47,
-    bookName: '2 Corinthians',
-    chapter: 5,
-    startVerse: 17,
-    endVerse: 17,
-    referenceLabel: '2 Corinthians 5:17',
-    text: 'Therefore if anyone is in Christ, he is a new creation. The old things have passed away. Behold, all things have become new.',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'gradient_emerald_sanctuary',
-    tags: ['New Creation', 'Old Passed Away', 'All Things New'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 47,
-    bookName: '2 Corinthians',
-    chapter: 5,
-    startVerse: 21,
-    endVerse: 21,
-    referenceLabel: '2 Corinthians 5:21',
-    text: 'For him who knew no sin he made to be sin on our behalf; so that in him we might become the righteousness of God.',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['Righteousness of God', 'Cross', 'Divine Exchange'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 56,
-    bookName: 'Titus',
-    chapter: 2,
-    startVerse: 11,
-    endVerse: 12,
-    referenceLabel: 'Titus 2:11-12',
-    text: 'For the grace of God has appeared, bringing salvation to all men, instructing us to the intent that, denying ungodliness and worldly lusts, we would live soberly, righteously, and godly in this present world.',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Grace Appeared', 'Salvation to All', 'Holy Living'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 56,
-    bookName: 'Titus',
-    chapter: 3,
-    startVerse: 5,
-    endVerse: 5,
-    referenceLabel: 'Titus 3:5',
-    text: 'Not by works of righteousness which we did ourselves, but according to his mercy, he saved us, through the washing of regeneration and renewing by the Holy Spirit.',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'misty_forest',
-    tags: ['Not by Works', 'His Mercy', 'Holy Spirit Renewal'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 44,
-    bookName: 'Acts',
-    chapter: 4,
-    startVerse: 12,
-    endVerse: 12,
-    referenceLabel: 'Acts 4:12',
-    text: 'There is salvation in no one else, for there is no other name under heaven that is given among men, by which we must be saved!',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['No Other Name', 'Jesus Alone', 'Salvation'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 44,
-    bookName: 'Acts',
-    chapter: 16,
-    startVerse: 31,
-    endVerse: 31,
-    referenceLabel: 'Acts 16:31',
-    text: 'They said, “Believe in the Lord Jesus Christ, and you will be saved, you and your household.”',
-    translation: 'WEB',
-    category: 'Grace',
-    backgroundPreset: 'night_sky',
-    tags: ['Believe and Be Saved', 'Household Salvation', 'Jesus'],
-    isFeatured: true,
-  },
-
-  // ==========================================
-  // 10. JOY & BLESSINGS (100+ Verses)
-  // ==========================================
-  {
-    engine: 'scripture',
-    bookNumber: 16,
-    bookName: 'Nehemiah',
-    chapter: 8,
-    startVerse: 10,
-    endVerse: 10,
-    referenceLabel: 'Nehemiah 8:10',
-    text: '“Don’t be grieved; for the joy of Yahweh is your strength.”',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'golden_fields',
-    tags: ['Joy of the Lord', 'Strength', 'Rejoice'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 16,
-    startVerse: 11,
-    endVerse: 11,
-    referenceLabel: 'Psalm 16:11',
-    text: 'You will show me the path of life. In your presence is fullness of joy. In your right hand there are pleasures forevermore.',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'mountain_dawn',
-    tags: ['Fullness of Joy', 'Gods Presence', 'Pleasures Forever'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 30,
-    startVerse: 5,
-    endVerse: 5,
-    referenceLabel: 'Psalm 30:5',
-    text: 'For his anger is but for a moment. His favor is for a lifetime. Weeping may stay for the night, but joy comes in the morning.',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'calm_ocean',
-    tags: ['Joy in the Morning', 'Lifetime Favor', 'New Day'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 118,
-    startVerse: 24,
-    endVerse: 24,
-    referenceLabel: 'Psalm 118:24',
-    text: 'This is the day that Yahweh has made. We will rejoice and be glad in it.',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'autumn_leaves',
-    tags: ['This is the Day', 'Rejoice', 'Be Glad'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 19,
-    bookName: 'Psalms',
-    chapter: 126,
-    startVerse: 5,
-    endVerse: 6,
-    referenceLabel: 'Psalm 126:5-6',
-    text: 'Those who sow in tears will reap in joy. He who goes out weeping, carrying seed for sowing, will certainly come again with joy, carrying his sheaves with him.',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'golden_fields',
-    tags: ['Reap in Joy', 'Harvest', 'Enduring Faith'],
-    isFeatured: false,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 50,
-    bookName: 'Philippians',
-    chapter: 4,
-    startVerse: 4,
-    endVerse: 4,
-    referenceLabel: 'Philippians 4:4',
-    text: 'Rejoice in the Lord always! Again I will say, Rejoice!',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'gradient_radiant_gold',
-    tags: ['Rejoice Always', 'Everlasting Joy', 'Praise'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 48,
-    bookName: 'Galatians',
-    chapter: 5,
-    startVerse: 22,
-    endVerse: 23,
-    referenceLabel: 'Galatians 5:22-23',
-    text: 'But the fruit of the Spirit is love, joy, peace, patience, kindness, goodness, faithfulness, gentleness, and self-control. Against such things there is no law.',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'gradient_emerald_sanctuary',
-    tags: ['Fruit of the Spirit', 'Love', 'Joy', 'Peace'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 4,
-    bookName: 'Numbers',
-    chapter: 6,
-    startVerse: 24,
-    endVerse: 26,
-    referenceLabel: 'Numbers 6:24-26',
-    text: '“Yahweh bless you, and keep you. Yahweh make his face to shine on you, and be gracious to you. Yahweh lift up his face toward you, and give you peace.”',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'gradient_celestial_rose',
-    tags: ['Priestly Blessing', 'Face Shine on You', 'Shalom', 'Peace'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 43,
-    bookName: 'John',
-    chapter: 15,
-    startVerse: 11,
-    endVerse: 11,
-    referenceLabel: 'John 15:11',
-    text: '“I have spoken these things to you, that my joy may remain in you, and that your joy may be made full.”',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'night_sky',
-    tags: ['Full Joy', 'Abiding in Christ', 'Jesus Words'],
-    isFeatured: true,
-  },
-  {
-    engine: 'scripture',
-    bookNumber: 60,
-    bookName: '1 Peter',
-    chapter: 1,
-    startVerse: 8,
-    endVerse: 9,
-    referenceLabel: '1 Peter 1:8-9',
-    text: 'Though you haven’t seen him, you love him; and though you don’t see him now, yet believing, you rejoice with joy inexpressible and full of glory, receiving the goal of your faith, even the salvation of your souls.',
-    translation: 'WEB',
-    category: 'Joy',
-    backgroundPreset: 'gradient_majestic_purple',
-    tags: ['Inexpressible Joy', 'Full of Glory', 'Soul Salvation'],
-    isFeatured: true,
+// AUTO-GENERATED FILE
+// Contains 500 unique verses from Prophets and New Testament
+export const ALL_SCRIPTURES: any[] = [
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 58,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Isaiah 58:6",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 5,
+    "startVerse": 42,
+    "endVerse": 42,
+    "referenceLabel": "Matthew 5:42",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 11,
+    "startVerse": 41,
+    "endVerse": 41,
+    "referenceLabel": "Luke 11:41",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 12,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Romans 12:8",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 9,
+    "startVerse": 5,
+    "endVerse": 7,
+    "referenceLabel": "2 Corinthians 9:5-7",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 2,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Galatians 2:10",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 54,
+    "bookName": "1 Timothy",
+    "chapter": 6,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "1 Timothy 6:18",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 13,
+    "startVerse": 16,
+    "endVerse": 16,
+    "referenceLabel": "Hebrews 13:16",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 62,
+    "bookName": "1 John",
+    "chapter": 3,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "1 John 3:17",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 42,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Isaiah 42:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 3,
+    "startVerse": 4,
+    "endVerse": 7,
+    "referenceLabel": "Jeremiah 3:4-7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 14,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Hosea 14:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 10,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Zechariah 10:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 39,
+    "bookName": "Malachi",
+    "chapter": 3,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Malachi 3:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 23,
+    "startVerse": 37,
+    "endVerse": 37,
+    "referenceLabel": "Matthew 23:37",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 3,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Revelation 3:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 11,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Hebrews 11:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 3,
+    "startVerse": 27,
+    "endVerse": 27,
+    "referenceLabel": "Lamentations 3:27",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 15,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Matthew 15:4",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 10,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Mark 10:19",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 18,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Luke 18:20",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 49,
+    "bookName": "Ephesians",
+    "chapter": 6,
+    "startVerse": 1,
+    "endVerse": 3,
+    "referenceLabel": "Ephesians 6:1-3",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 51,
+    "bookName": "Colossians",
+    "chapter": 3,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Colossians 3:20",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 54,
+    "bookName": "1 Timothy",
+    "chapter": 4,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "1 Timothy 4:12",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 55,
+    "bookName": "2 Timothy",
+    "chapter": 2,
+    "startVerse": 22,
+    "endVerse": 22,
+    "referenceLabel": "2 Timothy 2:22",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 56,
+    "bookName": "Titus",
+    "chapter": 2,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Titus 2:6",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 40,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "Isaiah 40:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 18,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Matthew 18:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 9,
+    "startVerse": 37,
+    "endVerse": 37,
+    "referenceLabel": "Mark 9:37",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 9,
+    "startVerse": 48,
+    "endVerse": 48,
+    "referenceLabel": "Luke 9:48",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 2,
+    "startVerse": 39,
+    "endVerse": 39,
+    "referenceLabel": "Acts 2:39",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 62,
+    "bookName": "1 John",
+    "chapter": 2,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "1 John 2:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 57,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Isaiah 57:8",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 11,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Jeremiah 11:4",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 7,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Zechariah 7:9",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 5,
+    "startVerse": 25,
+    "endVerse": 25,
+    "referenceLabel": "Matthew 5:25",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 12,
+    "startVerse": 58,
+    "endVerse": 58,
+    "referenceLabel": "Luke 12:58",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 15,
+    "startVerse": 51,
+    "endVerse": 51,
+    "referenceLabel": "1 Corinthians 15:51",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 52,
+    "bookName": "1 Thessalonians",
+    "chapter": 4,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "1 Thessalonians 4:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 19,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Matthew 19:18",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 10,
+    "startVerse": 25,
+    "endVerse": 28,
+    "referenceLabel": "Luke 10:25-28",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 13,
+    "startVerse": 8,
+    "endVerse": 10,
+    "referenceLabel": "Romans 13:8-10",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 42,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "Isaiah 42:12",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 5,
+    "startVerse": 24,
+    "endVerse": 24,
+    "referenceLabel": "Jeremiah 5:24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 4,
+    "startVerse": 2,
+    "endVerse": 6,
+    "referenceLabel": "Isaiah 4:2-6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 29,
+    "startVerse": 18,
+    "endVerse": 24,
+    "referenceLabel": "Isaiah 29:18-24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 43,
+    "startVerse": 1,
+    "endVerse": 13,
+    "referenceLabel": "Isaiah 43:1-13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 55,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Isaiah 55:4",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 1,
+    "startVerse": 7,
+    "endVerse": 10,
+    "referenceLabel": "Jeremiah 1:7-10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 12,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Daniel 12:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 10,
+    "startVerse": 28,
+    "endVerse": 31,
+    "referenceLabel": "Matthew 10:28-31",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 12,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "Luke 12:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 4,
+    "startVerse": 36,
+    "endVerse": 38,
+    "referenceLabel": "John 4:36-38",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 1,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Acts 1:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 9,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "1 Corinthians 9:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 2,
+    "startVerse": 14,
+    "endVerse": 16,
+    "referenceLabel": "2 Corinthians 2:14-16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 50,
+    "bookName": "Philippians",
+    "chapter": 2,
+    "startVerse": 16,
+    "endVerse": 16,
+    "referenceLabel": "Philippians 2:16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 52,
+    "bookName": "1 Thessalonians",
+    "chapter": 2,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "1 Thessalonians 2:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 64,
+    "bookName": "3 John",
+    "chapter": 1,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "3 John 1:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 2,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Isaiah 2:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 30,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Jeremiah 30:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 2,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Hosea 2:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 33,
+    "bookName": "Micah",
+    "chapter": 4,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Micah 4:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 1,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "Zechariah 1:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 39,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Jeremiah 39:9",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 27,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Isaiah 27:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 5,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Matthew 5:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 4,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Luke 4:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 6,
+    "startVerse": 37,
+    "endVerse": 37,
+    "referenceLabel": "John 6:37",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 13,
+    "startVerse": 38,
+    "endVerse": 38,
+    "referenceLabel": "Acts 13:38",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 10,
+    "startVerse": 9,
+    "endVerse": 13,
+    "referenceLabel": "Romans 10:9-13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 62,
+    "bookName": "1 John",
+    "chapter": 1,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "1 John 1:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 24,
+    "startVerse": 49,
+    "endVerse": 49,
+    "referenceLabel": "Luke 24:49",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 1,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Acts 1:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 19,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Isaiah 19:20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 29,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "Jeremiah 29:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 3,
+    "startVerse": 25,
+    "endVerse": 25,
+    "referenceLabel": "Lamentations 3:25",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 30,
+    "bookName": "Amos",
+    "chapter": 5,
+    "startVerse": 4,
+    "endVerse": 6,
+    "referenceLabel": "Amos 5:4-6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 36,
+    "bookName": "Zephaniah",
+    "chapter": 2,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Zephaniah 2:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 10,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Zechariah 10:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 6,
+    "startVerse": 5,
+    "endVerse": 13,
+    "referenceLabel": "Matthew 6:5-13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 11,
+    "startVerse": 24,
+    "endVerse": 24,
+    "referenceLabel": "Mark 11:24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 11,
+    "startVerse": 5,
+    "endVerse": 13,
+    "referenceLabel": "Luke 11:5-13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 4,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "John 4:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 7,
+    "startVerse": 34,
+    "endVerse": 34,
+    "referenceLabel": "Acts 7:34",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 8,
+    "startVerse": 26,
+    "endVerse": 26,
+    "referenceLabel": "Romans 8:26",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 49,
+    "bookName": "Ephesians",
+    "chapter": 2,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Ephesians 2:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 4,
+    "startVerse": 16,
+    "endVerse": 16,
+    "referenceLabel": "Hebrews 4:16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 1,
+    "startVerse": 5,
+    "endVerse": 7,
+    "referenceLabel": "James 1:5-7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 62,
+    "bookName": "1 John",
+    "chapter": 3,
+    "startVerse": 22,
+    "endVerse": 22,
+    "referenceLabel": "1 John 3:22",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 4,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Isaiah 4:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 17,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Jeremiah 17:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 12,
+    "startVerse": 1,
+    "endVerse": 3,
+    "referenceLabel": "Daniel 12:1-3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 6,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Hosea 6:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 37,
+    "bookName": "Haggai",
+    "chapter": 1,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Haggai 1:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 3,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Zechariah 3:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 39,
+    "bookName": "Malachi",
+    "chapter": 3,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "Malachi 3:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 5,
+    "startVerse": 3,
+    "endVerse": 12,
+    "referenceLabel": "Matthew 5:3-12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 3,
+    "startVerse": 35,
+    "endVerse": 35,
+    "referenceLabel": "Mark 3:35",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 3,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "Luke 3:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 3,
+    "startVerse": 15,
+    "endVerse": 18,
+    "referenceLabel": "John 3:15-18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 10,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Acts 10:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 2,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Romans 2:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 1,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "1 Corinthians 1:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 1,
+    "startVerse": 20,
+    "endVerse": 22,
+    "referenceLabel": "2 Corinthians 1:20-22",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 3,
+    "startVerse": 29,
+    "endVerse": 29,
+    "referenceLabel": "Galatians 3:29",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 49,
+    "bookName": "Ephesians",
+    "chapter": 1,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Ephesians 1:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 50,
+    "bookName": "Philippians",
+    "chapter": 4,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Philippians 4:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 51,
+    "bookName": "Colossians",
+    "chapter": 1,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Colossians 1:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 52,
+    "bookName": "1 Thessalonians",
+    "chapter": 2,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "1 Thessalonians 2:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 53,
+    "bookName": "2 Thessalonians",
+    "chapter": 1,
+    "startVerse": 5,
+    "endVerse": 7,
+    "referenceLabel": "2 Thessalonians 1:5-7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 54,
+    "bookName": "1 Timothy",
+    "chapter": 1,
+    "startVerse": 16,
+    "endVerse": 16,
+    "referenceLabel": "1 Timothy 1:16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 55,
+    "bookName": "2 Timothy",
+    "chapter": 1,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "2 Timothy 1:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 56,
+    "bookName": "Titus",
+    "chapter": 2,
+    "startVerse": 11,
+    "endVerse": 14,
+    "referenceLabel": "Titus 2:11-14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 1,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Hebrews 1:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 1,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "James 1:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 1,
+    "startVerse": 2,
+    "endVerse": 5,
+    "referenceLabel": "1 Peter 1:2-5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 61,
+    "bookName": "2 Peter",
+    "chapter": 1,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "2 Peter 1:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 62,
+    "bookName": "1 John",
+    "chapter": 1,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "1 John 1:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 1,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Revelation 1:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 36,
+    "startVerse": 26,
+    "endVerse": 26,
+    "referenceLabel": "Jeremiah 36:26",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 1,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "1 Peter 1:13",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 12,
+    "startVerse": 1,
+    "endVerse": 8,
+    "referenceLabel": "Matthew 12:1-8",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 7,
+    "startVerse": 3,
+    "endVerse": 9,
+    "referenceLabel": "Mark 7:3-9",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 6,
+    "startVerse": 1,
+    "endVerse": 11,
+    "referenceLabel": "Luke 6:1-11",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 51,
+    "bookName": "Colossians",
+    "chapter": 2,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Colossians 2:8",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 1,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "1 Peter 1:18",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 37,
+    "bookName": "Haggai",
+    "chapter": 1,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Haggai 1:8",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 14,
+    "startVerse": 16,
+    "endVerse": 18,
+    "referenceLabel": "Zechariah 14:16-18",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 8,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Matthew 8:4",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 1,
+    "startVerse": 44,
+    "endVerse": 44,
+    "referenceLabel": "Mark 1:44",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 5,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Luke 5:14",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 10,
+    "startVerse": 25,
+    "endVerse": 25,
+    "referenceLabel": "Hebrews 10:25",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 14,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Revelation 14:7",
+    "verseMappings": {},
+    "category": "Commandment",
+    "tags": [
+      "Commandment"
+    ],
+    "backgroundPreset": "mountain_dawn",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 33,
+    "bookName": "Micah",
+    "chapter": 6,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Micah 6:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 5,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Hebrews 5:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 7,
+    "startVerse": 40,
+    "endVerse": 40,
+    "referenceLabel": "Acts 7:40",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 9,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Hebrews 9:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 9,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "Revelation 9:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 14,
+    "startVerse": 36,
+    "endVerse": 36,
+    "referenceLabel": "Mark 14:36",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 8,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "Romans 8:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 4,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Galatians 4:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 1,
+    "startVerse": 6,
+    "endVerse": 20,
+    "referenceLabel": "Daniel 1:6-20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 11,
+    "startVerse": 34,
+    "endVerse": 34,
+    "referenceLabel": "Hebrews 11:34",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 23,
+    "startVerse": 35,
+    "endVerse": 35,
+    "referenceLabel": "Matthew 23:35",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 11,
+    "startVerse": 51,
+    "endVerse": 51,
+    "referenceLabel": "Luke 11:51",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 11,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Hebrews 11:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 62,
+    "bookName": "1 John",
+    "chapter": 3,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "1 John 3:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 1,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Luke 1:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 3,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Luke 3:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 1,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Matthew 1:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 15,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Matthew 15:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 7,
+    "startVerse": 2,
+    "endVerse": 5,
+    "referenceLabel": "Mark 7:2-5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 11,
+    "startVerse": 38,
+    "endVerse": 38,
+    "referenceLabel": "Luke 11:38",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 9,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Hebrews 9:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 9,
+    "startVerse": 37,
+    "endVerse": 37,
+    "referenceLabel": "Acts 9:37",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 6,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "Matthew 6:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 7,
+    "startVerse": 38,
+    "endVerse": 38,
+    "referenceLabel": "Luke 7:38",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 13,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "John 13:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 27,
+    "startVerse": 24,
+    "endVerse": 24,
+    "referenceLabel": "Matthew 27:24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 1,
+    "startVerse": 16,
+    "endVerse": 16,
+    "referenceLabel": "Isaiah 1:16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 12,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Daniel 12:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 13,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Zechariah 13:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 13,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "John 13:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 22,
+    "startVerse": 16,
+    "endVerse": 16,
+    "referenceLabel": "Acts 22:16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 5,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "1 Corinthians 5:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 7,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "2 Corinthians 7:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 49,
+    "bookName": "Ephesians",
+    "chapter": 5,
+    "startVerse": 26,
+    "endVerse": 26,
+    "referenceLabel": "Ephesians 5:26",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 56,
+    "bookName": "Titus",
+    "chapter": 3,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Titus 3:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 1,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Hebrews 1:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 4,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "James 4:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 61,
+    "bookName": "2 Peter",
+    "chapter": 1,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "2 Peter 1:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 1,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Revelation 1:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 9,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Hosea 9:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 7,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Acts 7:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 51,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Isaiah 51:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 7,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Acts 7:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 11,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Hebrews 11:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 7,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Hebrews 7:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 7,
+    "startVerse": 1,
+    "endVerse": 10,
+    "referenceLabel": "Hebrews 7:1-10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 33,
+    "bookName": "Micah",
+    "chapter": 7,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Micah 7:20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 1,
+    "startVerse": 73,
+    "endVerse": 73,
+    "referenceLabel": "Luke 1:73",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 4,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Romans 4:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 6,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Hebrews 6:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 3,
+    "startVerse": 6,
+    "endVerse": 18,
+    "referenceLabel": "Galatians 3:6-18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 4,
+    "startVerse": 22,
+    "endVerse": 30,
+    "referenceLabel": "Galatians 4:22-30",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 11,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "Hebrews 11:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 2,
+    "startVerse": 21,
+    "endVerse": 21,
+    "referenceLabel": "James 2:21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 8,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "Matthew 8:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 13,
+    "startVerse": 28,
+    "endVerse": 28,
+    "referenceLabel": "Luke 13:28",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 41,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Isaiah 41:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 2,
+    "startVerse": 23,
+    "endVerse": 23,
+    "referenceLabel": "James 2:23",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 4,
+    "startVerse": 16,
+    "endVerse": 18,
+    "referenceLabel": "Romans 4:16-18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 4,
+    "startVerse": 1,
+    "endVerse": 22,
+    "referenceLabel": "Romans 4:1-22",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 3,
+    "startVerse": 6,
+    "endVerse": 9,
+    "referenceLabel": "Galatians 3:6-9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 11,
+    "startVerse": 8,
+    "endVerse": 10,
+    "referenceLabel": "Hebrews 11:8-10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 2,
+    "startVerse": 21,
+    "endVerse": 24,
+    "referenceLabel": "James 2:21-24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 3,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Matthew 3:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 13,
+    "startVerse": 16,
+    "endVerse": 16,
+    "referenceLabel": "Luke 13:16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 8,
+    "startVerse": 33,
+    "endVerse": 40,
+    "referenceLabel": "John 8:33-40",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 1,
+    "startVerse": 8,
+    "endVerse": 16,
+    "referenceLabel": "Daniel 1:8-16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 11,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Matthew 11:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 35,
+    "startVerse": 6,
+    "endVerse": 8,
+    "referenceLabel": "Jeremiah 35:6-8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 1,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "Luke 1:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 1,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Daniel 1:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 35,
+    "startVerse": 6,
+    "endVerse": 14,
+    "referenceLabel": "Jeremiah 35:6-14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 11,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Matthew 11:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 21,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Acts 21:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 65,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Isaiah 65:20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 1,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Galatians 1:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 5,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "Matthew 5:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 3,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Luke 3:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 55,
+    "bookName": "2 Timothy",
+    "chapter": 3,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "2 Timothy 3:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 4,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "1 Peter 4:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 26,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Jeremiah 26:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 30,
+    "bookName": "Amos",
+    "chapter": 7,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Amos 7:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 1,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Matthew 1:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 9,
+    "startVerse": 34,
+    "endVerse": 34,
+    "referenceLabel": "Matthew 9:34",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 3,
+    "startVerse": 22,
+    "endVerse": 22,
+    "referenceLabel": "Mark 3:22",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 23,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Luke 23:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 18,
+    "startVerse": 30,
+    "endVerse": 30,
+    "referenceLabel": "John 18:30",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 6,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "Acts 6:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 17,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Acts 17:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 3,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Romans 3:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 16,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Acts 16:20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 27,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Matthew 27:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 1,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Acts 1:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 16,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Romans 16:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 16,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "1 Corinthians 16:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 1,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "2 Corinthians 1:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 15,
+    "startVerse": 26,
+    "endVerse": 26,
+    "referenceLabel": "Romans 15:26",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 9,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "2 Corinthians 9:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 16,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "1 Corinthians 16:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 26,
+    "startVerse": 22,
+    "endVerse": 22,
+    "referenceLabel": "Jeremiah 26:22",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 1,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Matthew 1:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 65,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Isaiah 65:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 2,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "Hosea 2:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 5,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Isaiah 5:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 5,
+    "startVerse": 40,
+    "endVerse": 40,
+    "referenceLabel": "Matthew 5:40",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 15,
+    "startVerse": 45,
+    "endVerse": 45,
+    "referenceLabel": "1 Corinthians 15:45",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 54,
+    "bookName": "1 Timothy",
+    "chapter": 2,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "1 Timothy 2:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 43,
+    "startVerse": 27,
+    "endVerse": 27,
+    "referenceLabel": "Isaiah 43:27",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 6,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Hosea 6:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 5,
+    "startVerse": 14,
+    "endVerse": 21,
+    "referenceLabel": "Romans 5:14-21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 54,
+    "bookName": "1 Timothy",
+    "chapter": 2,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "1 Timothy 2:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 39,
+    "bookName": "Malachi",
+    "chapter": 2,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Malachi 2:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 15,
+    "startVerse": 22,
+    "endVerse": 22,
+    "referenceLabel": "1 Corinthians 15:22",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 5,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Romans 5:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 7,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "Zechariah 7:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 11,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Hosea 11:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 7,
+    "startVerse": 21,
+    "endVerse": 21,
+    "referenceLabel": "Acts 7:21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 11,
+    "startVerse": 24,
+    "endVerse": 24,
+    "referenceLabel": "Hebrews 11:24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 8,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Isaiah 8:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 3,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Jeremiah 3:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 1,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Hosea 1:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 5,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Matthew 5:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 6,
+    "startVerse": 35,
+    "endVerse": 35,
+    "referenceLabel": "Luke 6:35",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 1,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "John 1:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 15,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "Acts 15:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 8,
+    "startVerse": 14,
+    "endVerse": 19,
+    "referenceLabel": "Romans 8:14-19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 6,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "2 Corinthians 6:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 3,
+    "startVerse": 26,
+    "endVerse": 26,
+    "referenceLabel": "Galatians 3:26",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 49,
+    "bookName": "Ephesians",
+    "chapter": 1,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Ephesians 1:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 50,
+    "bookName": "Philippians",
+    "chapter": 2,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "Philippians 2:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 1,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Hebrews 1:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 62,
+    "bookName": "1 John",
+    "chapter": 3,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "1 John 3:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 21,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Revelation 21:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 37,
+    "startVerse": 38,
+    "endVerse": 38,
+    "referenceLabel": "Isaiah 37:38",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 27,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Acts 27:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 27,
+    "startVerse": 27,
+    "endVerse": 27,
+    "referenceLabel": "Acts 27:27",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 33,
+    "bookName": "Micah",
+    "chapter": 1,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "Micah 1:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 57,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Isaiah 57:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 3,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Jeremiah 3:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 4,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Hosea 4:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 5,
+    "startVerse": 28,
+    "endVerse": 28,
+    "referenceLabel": "Matthew 5:28",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 7,
+    "startVerse": 21,
+    "endVerse": 21,
+    "referenceLabel": "Mark 7:21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 16,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Luke 16:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 15,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Acts 15:20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 1,
+    "startVerse": 28,
+    "endVerse": 28,
+    "referenceLabel": "Romans 1:28",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 5,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "1 Corinthians 5:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 12,
+    "startVerse": 21,
+    "endVerse": 21,
+    "referenceLabel": "2 Corinthians 12:21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 5,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Galatians 5:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 54,
+    "bookName": "1 Timothy",
+    "chapter": 1,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "1 Timothy 1:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 55,
+    "bookName": "2 Timothy",
+    "chapter": 3,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "2 Timothy 3:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 2,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "James 2:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 4,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "1 Peter 4:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 61,
+    "bookName": "2 Peter",
+    "chapter": 2,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "2 Peter 2:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 2,
+    "startVerse": 20,
+    "endVerse": 22,
+    "referenceLabel": "Revelation 2:20-22",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 5,
+    "startVerse": 27,
+    "endVerse": 27,
+    "referenceLabel": "Matthew 5:27",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 13,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Romans 13:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 5,
+    "startVerse": 9,
+    "endVerse": 11,
+    "referenceLabel": "1 Corinthians 5:9-11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 49,
+    "bookName": "Ephesians",
+    "chapter": 4,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "Ephesians 4:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 51,
+    "bookName": "Colossians",
+    "chapter": 3,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Colossians 3:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 52,
+    "bookName": "1 Thessalonians",
+    "chapter": 4,
+    "startVerse": 3,
+    "endVerse": 5,
+    "referenceLabel": "1 Thessalonians 4:3-5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 8,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "John 8:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 29,
+    "startVerse": 22,
+    "endVerse": 22,
+    "referenceLabel": "Jeremiah 29:22",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 39,
+    "bookName": "Malachi",
+    "chapter": 2,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Malachi 2:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 8,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "John 8:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 5,
+    "startVerse": 1,
+    "endVerse": 13,
+    "referenceLabel": "1 Corinthians 5:1-13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 49,
+    "bookName": "Ephesians",
+    "chapter": 5,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Ephesians 5:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 13,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Hebrews 13:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 18,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Revelation 18:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 3,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Jeremiah 3:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 29,
+    "startVerse": 23,
+    "endVerse": 23,
+    "referenceLabel": "Jeremiah 29:23",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 7,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Hosea 7:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 14,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Matthew 14:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 6,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "Mark 6:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 3,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Luke 3:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 4,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "John 4:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 8,
+    "startVerse": 4,
+    "endVerse": 11,
+    "referenceLabel": "John 8:4-11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 5,
+    "startVerse": 1,
+    "endVerse": 5,
+    "referenceLabel": "1 Corinthians 5:1-5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 49,
+    "bookName": "Ephesians",
+    "chapter": 4,
+    "startVerse": 17,
+    "endVerse": 19,
+    "referenceLabel": "Ephesians 4:17-19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 24,
+    "startVerse": 1,
+    "endVerse": 9,
+    "referenceLabel": "Acts 24:1-9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 62,
+    "bookName": "1 John",
+    "chapter": 2,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "1 John 2:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 9,
+    "startVerse": 33,
+    "endVerse": 33,
+    "referenceLabel": "Acts 9:33",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 12,
+    "startVerse": 30,
+    "endVerse": 30,
+    "referenceLabel": "Mark 12:30",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 12,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Romans 12:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 7,
+    "startVerse": 13,
+    "endVerse": 16,
+    "referenceLabel": "2 Corinthians 7:13-16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 52,
+    "bookName": "1 Thessalonians",
+    "chapter": 2,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "1 Thessalonians 2:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 51,
+    "bookName": "Colossians",
+    "chapter": 3,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Colossians 3:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 4,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Galatians 4:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 10,
+    "startVerse": 37,
+    "endVerse": 37,
+    "referenceLabel": "Matthew 10:37",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 14,
+    "startVerse": 26,
+    "endVerse": 26,
+    "referenceLabel": "Luke 14:26",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 24,
+    "startVerse": 32,
+    "endVerse": 32,
+    "referenceLabel": "Luke 24:32",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 24,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "Matthew 24:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 4,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "Galatians 4:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 2,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "Revelation 2:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 58,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Isaiah 58:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 8,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Luke 8:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 8,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Romans 8:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 9,
+    "startVerse": 27,
+    "endVerse": 27,
+    "referenceLabel": "1 Corinthians 9:27",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 52,
+    "bookName": "1 Thessalonians",
+    "chapter": 4,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "1 Thessalonians 4:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 6,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Romans 6:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 5,
+    "startVerse": 24,
+    "endVerse": 24,
+    "referenceLabel": "Galatians 5:24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 1,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Galatians 1:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 61,
+    "bookName": "2 Peter",
+    "chapter": 2,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "2 Peter 2:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 2,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Revelation 2:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 1,
+    "startVerse": 31,
+    "endVerse": 31,
+    "referenceLabel": "Romans 1:31",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 61,
+    "bookName": "2 Peter",
+    "chapter": 2,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "2 Peter 2:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 25,
+    "startVerse": 34,
+    "endVerse": 45,
+    "referenceLabel": "Matthew 25:34-45",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 10,
+    "startVerse": 30,
+    "endVerse": 37,
+    "referenceLabel": "Luke 10:30-37",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 50,
+    "bookName": "Philippians",
+    "chapter": 2,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Philippians 2:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 54,
+    "bookName": "1 Timothy",
+    "chapter": 5,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "1 Timothy 5:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 5,
+    "startVerse": 13,
+    "endVerse": 15,
+    "referenceLabel": "James 5:13-15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 9,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Isaiah 9:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 46,
+    "startVerse": 28,
+    "endVerse": 28,
+    "referenceLabel": "Jeremiah 46:28",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 10,
+    "startVerse": 25,
+    "endVerse": 25,
+    "referenceLabel": "Isaiah 10:25",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 29,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Jeremiah 29:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 3,
+    "startVerse": 33,
+    "endVerse": 33,
+    "referenceLabel": "Lamentations 3:33",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 52,
+    "bookName": "1 Thessalonians",
+    "chapter": 3,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "1 Thessalonians 3:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 57,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "Isaiah 57:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 13,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Acts 13:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 32,
+    "bookName": "Jonah",
+    "chapter": 2,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Jonah 2:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 7,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Revelation 7:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 24,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Jeremiah 24:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 30,
+    "startVerse": 18,
+    "endVerse": 21,
+    "referenceLabel": "Isaiah 30:18-21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 3,
+    "startVerse": 32,
+    "endVerse": 32,
+    "referenceLabel": "Lamentations 3:32",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 33,
+    "bookName": "Micah",
+    "chapter": 7,
+    "startVerse": 7,
+    "endVerse": 9,
+    "referenceLabel": "Micah 7:7-9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 16,
+    "startVerse": 33,
+    "endVerse": 33,
+    "referenceLabel": "John 16:33",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 14,
+    "startVerse": 22,
+    "endVerse": 22,
+    "referenceLabel": "Acts 14:22",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 20,
+    "startVerse": 23,
+    "endVerse": 23,
+    "referenceLabel": "Acts 20:23",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 8,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Romans 8:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 4,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "2 Corinthians 4:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 54,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Isaiah 54:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 16,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "John 16:20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 1,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "1 Peter 1:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 5,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "James 5:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 61,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Isaiah 61:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 4,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "1 Peter 4:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 24,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Matthew 24:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 15,
+    "startVerse": 21,
+    "endVerse": 21,
+    "referenceLabel": "John 15:21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 55,
+    "bookName": "2 Timothy",
+    "chapter": 3,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "2 Timothy 3:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 11,
+    "startVerse": 32,
+    "endVerse": 32,
+    "referenceLabel": "1 Corinthians 11:32",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 12,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Hebrews 12:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 3,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Revelation 3:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 32,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Isaiah 32:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 30,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Isaiah 30:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 18,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Revelation 18:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 30,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "Jeremiah 30:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 36,
+    "bookName": "Zephaniah",
+    "chapter": 3,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Zephaniah 3:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 46,
+    "bookName": "1 Corinthians",
+    "chapter": 10,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "1 Corinthians 10:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 61,
+    "bookName": "2 Peter",
+    "chapter": 2,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "2 Peter 2:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 9,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Isaiah 9:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 2,
+    "startVerse": 30,
+    "endVerse": 30,
+    "referenceLabel": "Jeremiah 2:30",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 37,
+    "bookName": "Haggai",
+    "chapter": 2,
+    "startVerse": 17,
+    "endVerse": 17,
+    "referenceLabel": "Haggai 2:17",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 2,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Zechariah 2:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 53,
+    "bookName": "2 Thessalonians",
+    "chapter": 1,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "2 Thessalonians 1:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 30,
+    "bookName": "Amos",
+    "chapter": 4,
+    "startVerse": 6,
+    "endVerse": 12,
+    "referenceLabel": "Amos 4:6-12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 7,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "Zechariah 7:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 2,
+    "startVerse": 21,
+    "endVerse": 21,
+    "referenceLabel": "Revelation 2:21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 5,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Jeremiah 5:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 49,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Jeremiah 49:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 26,
+    "startVerse": 56,
+    "endVerse": 56,
+    "referenceLabel": "Matthew 26:56",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 55,
+    "bookName": "2 Timothy",
+    "chapter": 4,
+    "startVerse": 16,
+    "endVerse": 16,
+    "referenceLabel": "2 Timothy 4:16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 1,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Isaiah 1:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 1,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Lamentations 1:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 38,
+    "bookName": "Zechariah",
+    "chapter": 13,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Zechariah 13:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 9,
+    "startVerse": 49,
+    "endVerse": 49,
+    "referenceLabel": "Mark 9:49",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 15,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "John 15:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 1,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "2 Corinthians 1:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 5,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "1 Peter 5:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 12,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Hebrews 12:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 2,
+    "startVerse": 27,
+    "endVerse": 27,
+    "referenceLabel": "Jeremiah 2:27",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 2,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Hosea 2:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 5,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Romans 5:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 50,
+    "bookName": "Philippians",
+    "chapter": 1,
+    "startVerse": 12,
+    "endVerse": 14,
+    "referenceLabel": "Philippians 1:12-14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 1,
+    "startVerse": 2,
+    "endVerse": 4,
+    "referenceLabel": "James 1:2-4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 1,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "1 Peter 1:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 26,
+    "startVerse": 16,
+    "endVerse": 16,
+    "referenceLabel": "Isaiah 26:16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 31,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Jeremiah 31:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 3,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Lamentations 3:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 6,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Hosea 6:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 32,
+    "bookName": "Jonah",
+    "chapter": 2,
+    "startVerse": 1,
+    "endVerse": 10,
+    "referenceLabel": "Jonah 2:1-10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 15,
+    "startVerse": 11,
+    "endVerse": 24,
+    "referenceLabel": "Luke 15:11-24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 8,
+    "startVerse": 24,
+    "endVerse": 24,
+    "referenceLabel": "Acts 8:24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 32,
+    "bookName": "Jonah",
+    "chapter": 2,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "Jonah 2:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 15,
+    "startVerse": 21,
+    "endVerse": 21,
+    "referenceLabel": "Luke 15:21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 4,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Isaiah 4:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 31,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Jeremiah 31:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 3,
+    "startVerse": 31,
+    "endVerse": 33,
+    "referenceLabel": "Lamentations 3:31-33",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 2,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Hosea 2:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 36,
+    "bookName": "Zephaniah",
+    "chapter": 3,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Zephaniah 3:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 6,
+    "startVerse": 50,
+    "endVerse": 50,
+    "referenceLabel": "Mark 6:50",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 6,
+    "startVerse": 21,
+    "endVerse": 23,
+    "referenceLabel": "Luke 6:21-23",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 14,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "John 14:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 12,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Acts 12:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 8,
+    "startVerse": 28,
+    "endVerse": 28,
+    "referenceLabel": "Romans 8:28",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 1,
+    "startVerse": 3,
+    "endVerse": 5,
+    "referenceLabel": "2 Corinthians 1:3-5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 48,
+    "bookName": "Galatians",
+    "chapter": 6,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Galatians 6:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 50,
+    "bookName": "Philippians",
+    "chapter": 1,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Philippians 1:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 52,
+    "bookName": "1 Thessalonians",
+    "chapter": 4,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "1 Thessalonians 4:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 53,
+    "bookName": "2 Thessalonians",
+    "chapter": 1,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "2 Thessalonians 1:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 55,
+    "bookName": "2 Timothy",
+    "chapter": 2,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "2 Timothy 2:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 2,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Hebrews 2:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 1,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "James 1:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 60,
+    "bookName": "1 Peter",
+    "chapter": 2,
+    "startVerse": 21,
+    "endVerse": 24,
+    "referenceLabel": "1 Peter 2:21-24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 2,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Revelation 2:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 1,
+    "startVerse": 25,
+    "endVerse": 27,
+    "referenceLabel": "Isaiah 1:25-27",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 1,
+    "startVerse": 5,
+    "endVerse": 5,
+    "referenceLabel": "Lamentations 1:5",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 4,
+    "startVerse": 25,
+    "endVerse": 27,
+    "referenceLabel": "Daniel 4:25-27",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 5,
+    "startVerse": 15,
+    "endVerse": 15,
+    "referenceLabel": "Hosea 5:15",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 30,
+    "bookName": "Amos",
+    "chapter": 4,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Amos 4:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 33,
+    "bookName": "Micah",
+    "chapter": 6,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Micah 6:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 39,
+    "bookName": "Malachi",
+    "chapter": 3,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Malachi 3:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 9,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "John 9:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 1,
+    "startVerse": 4,
+    "endVerse": 6,
+    "referenceLabel": "2 Corinthians 1:4-6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 50,
+    "bookName": "Philippians",
+    "chapter": 1,
+    "startVerse": 29,
+    "endVerse": 29,
+    "referenceLabel": "Philippians 1:29",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 53,
+    "bookName": "2 Thessalonians",
+    "chapter": 1,
+    "startVerse": 4,
+    "endVerse": 4,
+    "referenceLabel": "2 Thessalonians 1:4",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 2,
+    "startVerse": 10,
+    "endVerse": 18,
+    "referenceLabel": "Hebrews 2:10-18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 2,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Revelation 2:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 3,
+    "startVerse": 39,
+    "endVerse": 39,
+    "referenceLabel": "Lamentations 3:39",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 27,
+    "startVerse": 46,
+    "endVerse": 46,
+    "referenceLabel": "Matthew 27:46",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 41,
+    "bookName": "Mark",
+    "chapter": 15,
+    "startVerse": 34,
+    "endVerse": 34,
+    "referenceLabel": "Mark 15:34",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 18,
+    "startVerse": 1,
+    "endVerse": 1,
+    "referenceLabel": "Luke 18:1",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 30,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Isaiah 30:20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 45,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "Jeremiah 45:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 4,
+    "startVerse": 24,
+    "endVerse": 26,
+    "referenceLabel": "Daniel 4:24-26",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 30,
+    "bookName": "Amos",
+    "chapter": 3,
+    "startVerse": 6,
+    "endVerse": 6,
+    "referenceLabel": "Amos 3:6",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 33,
+    "bookName": "Micah",
+    "chapter": 1,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "Micah 1:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 45,
+    "bookName": "Romans",
+    "chapter": 8,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Romans 8:20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 12,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Hebrews 12:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 12,
+    "startVerse": 7,
+    "endVerse": 7,
+    "referenceLabel": "2 Corinthians 12:7",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 8,
+    "startVerse": 21,
+    "endVerse": 21,
+    "referenceLabel": "Isaiah 8:21",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 9,
+    "startVerse": 13,
+    "endVerse": 13,
+    "referenceLabel": "Daniel 9:13",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 28,
+    "bookName": "Hosea",
+    "chapter": 7,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Hosea 7:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 30,
+    "bookName": "Amos",
+    "chapter": 4,
+    "startVerse": 6,
+    "endVerse": 11,
+    "referenceLabel": "Amos 4:6-11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 36,
+    "bookName": "Zephaniah",
+    "chapter": 3,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Zephaniah 3:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 66,
+    "bookName": "Revelation",
+    "chapter": 9,
+    "startVerse": 20,
+    "endVerse": 20,
+    "referenceLabel": "Revelation 9:20",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 4,
+    "startVerse": 28,
+    "endVerse": 37,
+    "referenceLabel": "Daniel 4:28-37",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 33,
+    "startVerse": 2,
+    "endVerse": 2,
+    "referenceLabel": "Isaiah 33:2",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 10,
+    "startVerse": 24,
+    "endVerse": 24,
+    "referenceLabel": "Jeremiah 10:24",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 1,
+    "startVerse": 9,
+    "endVerse": 11,
+    "referenceLabel": "Lamentations 1:9-11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 6,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "Daniel 6:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 32,
+    "bookName": "Jonah",
+    "chapter": 1,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Jonah 1:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 35,
+    "bookName": "Habakkuk",
+    "chapter": 1,
+    "startVerse": 12,
+    "endVerse": 12,
+    "referenceLabel": "Habakkuk 1:12",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 8,
+    "startVerse": 25,
+    "endVerse": 25,
+    "referenceLabel": "Matthew 8:25",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 11,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "John 11:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 4,
+    "startVerse": 29,
+    "endVerse": 29,
+    "referenceLabel": "Acts 4:29",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 12,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "2 Corinthians 12:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 5,
+    "startVerse": 13,
+    "endVerse": 16,
+    "referenceLabel": "James 5:13-16",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 3,
+    "startVerse": 22,
+    "endVerse": 36,
+    "referenceLabel": "Lamentations 3:22-36",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 40,
+    "bookName": "Matthew",
+    "chapter": 26,
+    "startVerse": 39,
+    "endVerse": 39,
+    "referenceLabel": "Matthew 26:39",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 21,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Luke 21:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 43,
+    "bookName": "John",
+    "chapter": 18,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "John 18:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 12,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "2 Corinthians 12:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 50,
+    "bookName": "Philippians",
+    "chapter": 2,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Philippians 2:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 51,
+    "bookName": "Colossians",
+    "chapter": 1,
+    "startVerse": 11,
+    "endVerse": 11,
+    "referenceLabel": "Colossians 1:11",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 55,
+    "bookName": "2 Timothy",
+    "chapter": 2,
+    "startVerse": 3,
+    "endVerse": 3,
+    "referenceLabel": "2 Timothy 2:3",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 58,
+    "bookName": "Hebrews",
+    "chapter": 10,
+    "startVerse": 34,
+    "endVerse": 34,
+    "referenceLabel": "Hebrews 10:34",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 59,
+    "bookName": "James",
+    "chapter": 1,
+    "startVerse": 10,
+    "endVerse": 10,
+    "referenceLabel": "James 1:10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 23,
+    "bookName": "Isaiah",
+    "chapter": 39,
+    "startVerse": 8,
+    "endVerse": 8,
+    "referenceLabel": "Isaiah 39:8",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 24,
+    "bookName": "Jeremiah",
+    "chapter": 10,
+    "startVerse": 19,
+    "endVerse": 19,
+    "referenceLabel": "Jeremiah 10:19",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 25,
+    "bookName": "Lamentations",
+    "chapter": 1,
+    "startVerse": 18,
+    "endVerse": 18,
+    "referenceLabel": "Lamentations 1:18",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 27,
+    "bookName": "Daniel",
+    "chapter": 9,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Daniel 9:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 33,
+    "bookName": "Micah",
+    "chapter": 7,
+    "startVerse": 9,
+    "endVerse": 9,
+    "referenceLabel": "Micah 7:9",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 23,
+    "startVerse": 40,
+    "endVerse": 40,
+    "referenceLabel": "Luke 23:40",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 21,
+    "startVerse": 14,
+    "endVerse": 14,
+    "referenceLabel": "Acts 21:14",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 47,
+    "bookName": "2 Corinthians",
+    "chapter": 6,
+    "startVerse": 4,
+    "endVerse": 10,
+    "referenceLabel": "2 Corinthians 6:4-10",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 42,
+    "bookName": "Luke",
+    "chapter": 22,
+    "startVerse": 42,
+    "endVerse": 42,
+    "referenceLabel": "Luke 22:42",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
+  },
+  {
+    "engine": "scripture",
+    "bookNumber": 44,
+    "bookName": "Acts",
+    "chapter": 16,
+    "startVerse": 23,
+    "endVerse": 25,
+    "referenceLabel": "Acts 16:23-25",
+    "verseMappings": {},
+    "category": "Promise",
+    "tags": [
+      "Promise"
+    ],
+    "backgroundPreset": "ocean_calm",
+    "isFeatured": false
   }
 ];
-
-// Algorithmic Canonical Scripture Multiplier:
-// Generates a comprehensive dataset of 1,000+ authentic Christian Scriptures
-// spanning all 66 books from Genesis to Revelation with verified chapter/verse references and accurate text.
-export function generateFullScriptureDataset(targetCount: number = 1050): ScriptureSeedItem[] {
-  const result: ScriptureSeedItem[] = [...CURATED_SCRIPTURES];
-  const seenLabels = new Set<string>(result.map(s => s.referenceLabel));
-
-  const presets = [
-    'mountain_dawn',
-    'starry_night',
-    'calm_ocean',
-    'misty_forest',
-    'golden_fields',
-    'desert_dunes',
-    'autumn_leaves',
-    'night_sky',
-    'gradient_royal_midnight',
-    'gradient_radiant_gold',
-    'gradient_celestial_rose',
-    'gradient_emerald_sanctuary',
-    'gradient_majestic_purple',
-    'gradient_deep_ocean',
-  ];
-
-  // Canonical books of the Bible with names, book numbers (1-66), and popular devotional chapters
-  const canonicalBooks = [
-    { num: 1, name: 'Genesis', chapters: 50, cat: 'Faith', tags: ['Creation', 'Beginnings', 'Promises', 'Covenant'] },
-    { num: 2, name: 'Exodus', chapters: 40, cat: 'Strength', tags: ['Deliverance', 'Presence', 'Redemption', 'Holy'] },
-    { num: 3, name: 'Leviticus', chapters: 27, cat: 'Wisdom', tags: ['Holiness', 'Worship', 'Consecration'] },
-    { num: 4, name: 'Numbers', chapters: 36, cat: 'Faith', tags: ['Guidance', 'Blessing', 'Wilderness', 'Provision'] },
-    { num: 5, name: 'Deuteronomy', chapters: 34, cat: 'Faith', tags: ['Obedience', 'Law', 'Blessing', 'Love God'] },
-    { num: 6, name: 'Joshua', chapters: 24, cat: 'Strength', tags: ['Courage', 'Conquest', 'Promises', 'Victory'] },
-    { num: 7, name: 'Judges', chapters: 21, cat: 'Strength', tags: ['Deliverance', 'Faith', 'Calling'] },
-    { num: 8, name: 'Ruth', chapters: 4, cat: 'Love', tags: ['Loyalty', 'Redeemer', 'Kindness', 'Devotion'] },
-    { num: 9, name: '1 Samuel', chapters: 31, cat: 'Faith', tags: ['Heart', 'Anointing', 'Obedience', 'Trust'] },
-    { num: 10, name: '2 Samuel', chapters: 24, cat: 'Praise', tags: ['David', 'Kingdom', 'Covenant', 'Praise'] },
-    { num: 11, name: '1 Kings', chapters: 22, cat: 'Wisdom', tags: ['Wisdom', 'Temple', 'Elijah', 'Fire'] },
-    { num: 12, name: '2 Kings', chapters: 25, cat: 'Faith', tags: ['Elisha', 'Power', 'Miracles', 'Faithfulness'] },
-    { num: 13, name: '1 Chronicles', chapters: 29, cat: 'Praise', tags: ['Worship', 'Prayer', 'Thanksgiving', 'Glory'] },
-    { num: 14, name: '2 Chronicles', chapters: 36, cat: 'Hope', tags: ['Revival', 'Humility', 'Prayer', 'Healing'] },
-    { num: 15, name: 'Ezra', chapters: 10, cat: 'Faith', tags: ['Restoration', 'Scripture', 'Rebuilding'] },
-    { num: 16, name: 'Nehemiah', chapters: 13, cat: 'Strength', tags: ['Rebuilding', 'Prayer', 'Joy of the Lord'] },
-    { num: 17, name: 'Esther', chapters: 10, cat: 'Hope', tags: ['Such a Time', 'Deliverance', 'Courage'] },
-    { num: 18, name: 'Job', chapters: 42, cat: 'Comfort', tags: ['Redeemer Lives', 'Restoration', 'Sovereignty'] },
-    { num: 19, name: 'Psalms', chapters: 150, cat: 'Praise', tags: ['Worship', 'Refuge', 'Shepherd', 'Praise', 'Joy'] },
-    { num: 20, name: 'Proverbs', chapters: 31, cat: 'Wisdom', tags: ['Wisdom', 'Heart', 'Understanding', 'Righteousness'] },
-    { num: 21, name: 'Ecclesiastes', chapters: 12, cat: 'Wisdom', tags: ['Season', 'Eternity', 'Fear God'] },
-    { num: 22, name: 'Song of Solomon', chapters: 8, cat: 'Love', tags: ['Unquenchable Love', 'Beloved', 'Beauty'] },
-    { num: 23, name: 'Isaiah', chapters: 66, cat: 'Hope', tags: ['Messiah', 'Wings of Eagles', 'Holy', 'Comfort'] },
-    { num: 24, name: 'Jeremiah', chapters: 52, cat: 'Hope', tags: ['Future and Hope', 'Potter', 'Call Upon Me'] },
-    { num: 25, name: 'Lamentations', chapters: 5, cat: 'Hope', tags: ['New Mercies', 'Great Faithfulness'] },
-    { num: 26, name: 'Ezekiel', chapters: 48, cat: 'Hope', tags: ['New Heart', 'Dry Bones', 'Living Waters'] },
-    { num: 27, name: 'Daniel', chapters: 12, cat: 'Strength', tags: ['Faith in the Fire', 'Kingdom', 'Sovereignty'] },
-    { num: 28, name: 'Hosea', chapters: 14, cat: 'Love', tags: ['Unfailing Love', 'Healing', 'Mercy'] },
-    { num: 29, name: 'Joel', chapters: 3, cat: 'Hope', tags: ['Spirit Poured Out', 'Restoration'] },
-    { num: 30, name: 'Amos', chapters: 9, cat: 'Wisdom', tags: ['Justice', 'Seek the Lord and Live'] },
-    { num: 31, name: 'Obadiah', chapters: 1, cat: 'Hope', tags: ['Kingdom Belongs to the Lord'] },
-    { num: 32, name: 'Jonah', chapters: 4, cat: 'Grace', tags: ['Grace to All', 'Second Chance', 'Repentance'] },
-    { num: 33, name: 'Micah', chapters: 7, cat: 'Wisdom', tags: ['Act Justly', 'Love Mercy', 'Walk Humbly'] },
-    { num: 34, name: 'Nahum', chapters: 3, cat: 'Strength', tags: ['Good Refuge', 'Day of Trouble'] },
-    { num: 35, name: 'Habakkuk', chapters: 3, cat: 'Faith', tags: ['Just Live by Faith', 'Rejoice in the Lord'] },
-    { num: 36, name: 'Zephaniah', chapters: 3, cat: 'Joy', tags: ['Sings Over You', 'Rejoice', 'Save'] },
-    { num: 37, name: 'Haggai', chapters: 2, cat: 'Hope', tags: ['Glory of Latter House', 'Peace'] },
-    { num: 38, name: 'Zechariah', chapters: 14, cat: 'Strength', tags: ['Not by Might', 'By My Spirit', 'Grace'] },
-    { num: 39, name: 'Malachi', chapters: 4, cat: 'Hope', tags: ['Sun of Righteousness', 'Healing in His Wings'] },
-    { num: 40, name: 'Matthew', chapters: 28, cat: 'Faith', tags: ['Sermon on Mount', 'Kingdom', 'Great Commission'] },
-    { num: 41, name: 'Mark', chapters: 16, cat: 'Faith', tags: ['Miracles', 'Servant King', 'Believe'] },
-    { num: 42, name: 'Luke', chapters: 24, cat: 'Grace', tags: ['Compassion', 'Good Samaritan', 'Prodigal Son'] },
-    { num: 43, name: 'John', chapters: 21, cat: 'Love', tags: ['Light of the World', 'Good Shepherd', 'Eternal Life'] },
-    { num: 44, name: 'Acts', chapters: 28, cat: 'Strength', tags: ['Holy Spirit Power', 'Boldness', 'Gospel'] },
-    { num: 45, name: 'Romans', chapters: 16, cat: 'Grace', tags: ['Justified', 'More Than Conquerors', 'Living Sacrifice'] },
-    { num: 46, name: '1 Corinthians', chapters: 16, cat: 'Love', tags: ['Love Chapter', 'Resurrection', 'Spiritual Gifts'] },
-    { num: 47, name: '2 Corinthians', chapters: 13, cat: 'Strength', tags: ['New Creation', 'Grace is Sufficient', 'Comfort'] },
-    { num: 48, name: 'Galatians', chapters: 6, cat: 'Grace', tags: ['Freedom in Christ', 'Fruit of Spirit', 'Crucified'] },
-    { num: 49, name: 'Ephesians', chapters: 6, cat: 'Grace', tags: ['Armor of God', 'Saved by Grace', 'Heavenly Places'] },
-    { num: 50, name: 'Philippians', chapters: 4, cat: 'Joy', tags: ['Rejoice Always', 'Christ Strengthens Me', 'Peace'] },
-    { num: 51, name: 'Colossians', chapters: 4, cat: 'Faith', tags: ['Preeminent Christ', 'Rooted in Him', 'Renewed'] },
-    { num: 52, name: '1 Thessalonians', chapters: 5, cat: 'Hope', tags: ['Rejoice Always', 'Pray Unceasingly', 'Return'] },
-    { num: 53, name: '2 Thessalonians', chapters: 3, cat: 'Peace', tags: ['Lord of Peace', 'Faithful God', 'Strength'] },
-    { num: 54, name: '1 Timothy', chapters: 6, cat: 'Wisdom', tags: ['Fight the Good Fight', 'Godliness', 'Contentment'] },
-    { num: 55, name: '2 Timothy', chapters: 4, cat: 'Strength', tags: ['Spirit of Power', 'Finish the Race', 'Gods Word'] },
-    { num: 56, name: 'Titus', chapters: 3, cat: 'Grace', tags: ['Blessed Hope', 'Good Works', 'Godly Living'] },
-    { num: 57, name: 'Philemon', chapters: 1, cat: 'Love', tags: ['Reconciliation', 'Brother in Christ', 'Love'] },
-    { num: 58, name: 'Hebrews', chapters: 13, cat: 'Faith', tags: ['Hall of Faith', 'Jesus Same Yesterday', 'Anchor'] },
-    { num: 59, name: 'James', chapters: 5, cat: 'Wisdom', tags: ['Living Faith', 'Wisdom From Above', 'Prayer'] },
-    { num: 60, name: '1 Peter', chapters: 5, cat: 'Hope', tags: ['Living Hope', 'Royal Priesthood', 'Cast Cares'] },
-    { num: 61, name: '2 Peter', chapters: 3, cat: 'Wisdom', tags: ['Precious Promises', 'Grow in Grace'] },
-    { num: 62, name: '1 John', chapters: 5, cat: 'Love', tags: ['God is Love', 'Victory in Faith', 'Children of God'] },
-    { num: 63, name: '2 John', chapters: 1, cat: 'Love', tags: ['Walk in Truth', 'Commandment to Love'] },
-    { num: 64, name: '3 John', chapters: 1, cat: 'Joy', tags: ['Walk in Truth', 'Prosper and Be in Health'] },
-    { num: 65, name: 'Jude', chapters: 1, cat: 'Faith', tags: ['Keep Yourselves in Gods Love', 'Able to Keep You'] },
-    { num: 66, name: 'Revelation', chapters: 22, cat: 'Hope', tags: ['Alpha and Omega', 'No More Tears', 'Coming Soon'] },
-  ];
-
-  // Authentic World English Bible verses library across books
-  const extendedVerses = [
-    // Genesis
-    { b: 1, ch: 1, sv: 1, ev: 1, text: 'In the beginning, God created the heavens and the earth.', cat: 'Faith', tags: ['Creation', 'God Almighty'] },
-    { b: 1, ch: 1, sv: 27, ev: 27, text: 'God created man in his own image. In God’s image he created him; male and female he created them.', cat: 'Faith', tags: ['Image of God', 'Creation'] },
-    { b: 1, ch: 12, sv: 2, ev: 2, text: '“I will make of you a great nation. I will bless you and make your name great. You will be a blessing.”', cat: 'Faith', tags: ['Covenant', 'Blessing', 'Abraham'] },
-    { b: 1, ch: 15, sv: 6, ev: 6, text: 'He believed in Yahweh; and he reckoned it to him for righteousness.', cat: 'Faith', tags: ['Faith', 'Righteousness', 'Belief'] },
-    { b: 1, ch: 28, sv: 15, ev: 15, text: '“Behold, I am with you, and will keep you, wherever you go, and will bring you again into this land. For I will not leave you, until I have done that which I have spoken to you of.”', cat: 'Hope', tags: ['God is With You', 'Faithfulness'] },
-    { b: 1, ch: 50, sv: 20, ev: 20, text: '“As for you, you meant evil against me, but God meant it for good, to bring to pass, as it is today, to save many people alive.”', cat: 'Hope', tags: ['God Works for Good', 'Joseph', 'Forgiveness'] },
-
-    // Exodus
-    { b: 2, ch: 3, sv: 14, ev: 14, text: 'God said to Moses, “I AM WHO I AM,” and he said, “You shall tell the children of Israel this: ‘I AM has sent me to you.’”', cat: 'Faith', tags: ['I AM', 'Gods Name', 'Authority'] },
-    { b: 2, ch: 14, sv: 14, ev: 14, text: '“Yahweh will fight for you, and you shall be still.”', cat: 'Peace', tags: ['God Fights for Us', 'Be Still', 'Deliverance'] },
-    { b: 2, ch: 15, sv: 2, ev: 2, text: '“Yah is my strength and song. He has become my salvation. This is my God, and I will praise him; my father’s God, and I will exalt him.”', cat: 'Praise', tags: ['Song of Moses', 'Strength', 'Salvation'] },
-    { b: 2, ch: 33, sv: 14, ev: 14, text: 'He said, “My presence will go with you, and I will give you rest.”', cat: 'Peace', tags: ['Gods Presence', 'Rest', 'Guidance'] },
-
-    // Numbers & Deuteronomy
-    { b: 4, ch: 23, sv: 19, ev: 19, text: '“God is not a man, that he should lie, nor a son of man, that he should repent. Has he said, and will he not do it? Or has he spoken, and will he not make it good?”', cat: 'Faith', tags: ['Truthful God', 'Promises Kept'] },
-    { b: 5, ch: 6, sv: 4, ev: 5, text: '“Hear, Israel: Yahweh is our God. Yahweh is one. You shall love Yahweh your God with all your heart, with all your soul, and with all your might.”', cat: 'Love', tags: ['Shema', 'Great Commandment', 'Love God'] },
-    { b: 5, ch: 7, sv: 9, ev: 9, text: '“Know therefore that Yahweh your God, he is God, the faithful God, who keeps covenant and loving kindness with them who love him and keep his commandments to a thousand generations.”', cat: 'Faith', tags: ['Faithful God', 'Thousand Generations'] },
-    { b: 5, ch: 33, sv: 27, ev: 27, text: '“The eternal God is your dwelling place, and underneath are the everlasting arms.”', cat: 'Comfort', tags: ['Everlasting Arms', 'Dwelling Place', 'Safety'] },
-
-    // Joshua & 1 Samuel
-    { b: 6, ch: 24, sv: 15, ev: 15, text: '“As for me and my house, we will serve Yahweh.”', cat: 'Faith', tags: ['Family', 'Serve God', 'Dedication'] },
-    { b: 9, ch: 16, sv: 7, ev: 7, text: 'Yahweh said to Samuel, “Don’t look on his face, or on the height of his stature; because I have rejected him; for Yahweh doesn’t see as man sees. For man looks at the outward appearance, but Yahweh looks at the heart.”', cat: 'Wisdom', tags: ['Looks on the Heart', 'Divine Sight'] },
-
-    // 2 Chronicles & Nehemiah & Job
-    { b: 14, ch: 7, sv: 14, ev: 14, text: '“If my people, who are called by my name, will humble themselves, pray, seek my face, and turn from their wicked ways; then I will hear from heaven, will forgive their sin, and will heal their land.”', cat: 'Grace', tags: ['Revival', 'Humility', 'Healing Land'] },
-    { b: 14, ch: 16, sv: 9, ev: 9, text: '“For Yahweh’s eyes run to and fro throughout the whole earth, to show himself strong in the behalf of them whose heart is perfect toward him.”', cat: 'Strength', tags: ['Gods Eyes', 'Strong for Us', 'Whole Heart'] },
-    { b: 14, ch: 20, sv: 15, ev: 15, text: '“Don’t be afraid, and don’t be dismayed by reason of this great multitude; for the battle is not yours, but God’s.”', cat: 'Strength', tags: ['The Battle is the Lords', 'No Fear'] },
-    { b: 18, ch: 19, sv: 25, ev: 25, text: '“As for me, I know that my Redeemer lives, and at last, he will stand up on the earth.”', cat: 'Hope', tags: ['My Redeemer Lives', 'Eternal Hope', 'Job'] },
-
-    // Psalms (Comprehensive Popular Verses)
-    { b: 19, ch: 1, sv: 1, ev: 3, text: 'Blessed is the man who doesn’t walk in the counsel of the wicked, nor stand in the way of sinners, nor sit in the seat of scoffers; but his delight is in Yahweh’s law. In his law he meditates day and night. He will be like a tree planted by the streams of water, that produces its fruit in its season, whose leaf also doesn’t wither. Whatever he does shall prosper.', cat: 'Wisdom', tags: ['Blessed Man', 'Tree by Waters', 'Prosperity'] },
-    { b: 19, ch: 8, sv: 1, ev: 1, text: 'Yahweh, our Lord, how majestic is your name in all the earth, who have set your glory above the heavens!', cat: 'Praise', tags: ['Majestic Name', 'Glory', 'Exaltation'] },
-    { b: 19, ch: 9, sv: 1, ev: 2, text: 'I will give thanks to Yahweh with my whole heart. I will tell of all your marvelous works. I will be glad and rejoice in you. I will sing praise to your name, O Most High.', cat: 'Praise', tags: ['Whole Heart', 'Marvelous Works', 'Rejoice'] },
-    { b: 19, ch: 16, sv: 8, ev: 8, text: 'I have set Yahweh always before me. Because he is at my right hand, I shall not be moved.', cat: 'Faith', tags: ['Unshakable', 'At My Right Hand', 'Steadfast'] },
-    { b: 19, ch: 19, sv: 1, ev: 1, text: 'The heavens declare the glory of God. The expanse shows his handiwork.', cat: 'Praise', tags: ['Glory of God', 'Creation Proclaims'] },
-    { b: 19, ch: 19, sv: 14, ev: 14, text: 'Let the words of my mouth and the meditation of my heart be acceptable in your sight, Yahweh, my rock, and my redeemer.', cat: 'Wisdom', tags: ['Acceptable Words', 'Meditation of Heart', 'Rock'] },
-    { b: 19, ch: 25, sv: 14, ev: 14, text: 'The friendship of Yahweh is with those who fear him. He will show them his covenant.', cat: 'Faith', tags: ['Friendship with God', 'Covenant', 'Fear the Lord'] },
-    { b: 19, ch: 30, sv: 11, ev: 12, text: 'You have turned my mourning into dancing for me. You have removed my sackcloth, and clothed me with gladness, to the end that my heart may sing praise to you, and not be silent. Yahweh my God, I will give thanks to you forever.', cat: 'Joy', tags: ['Mourning to Dancing', 'Clothed with Joy', 'Praise'] },
-    { b: 19, ch: 34, sv: 8, ev: 8, text: 'Oh taste and see that Yahweh is good. Blessed is the man who takes refuge in him.', cat: 'Joy', tags: ['Taste and See', 'God is Good', 'Refuge'] },
-    { b: 19, ch: 37, sv: 4, ev: 4, text: 'Delight yourself also in Yahweh, and he will give you the desires of your heart.', cat: 'Joy', tags: ['Delight in the Lord', 'Heart Desires'] },
-    { b: 19, ch: 37, sv: 23, ev: 24, text: 'A man’s steps are established by Yahweh. He delights in his way. Though he stumble, he shall not fall, for Yahweh holds him up with his hand.', cat: 'Faith', tags: ['Established Steps', 'Upheld by Gods Hand'] },
-    { b: 19, ch: 40, sv: 1, ev: 3, text: 'I waited patiently for Yahweh. He turned to me, and heard my cry. He brought me up also out of a horrible pit, out of the miry clay. He set my feet on a rock, and gave me a firm place to stand. He has put a new song in my mouth, even praise to our God.', cat: 'Hope', tags: ['Waited Patiently', 'Rock to Stand', 'New Song'] },
-    { b: 19, ch: 51, sv: 10, ev: 12, text: 'Create in me a clean heart, O God. Renew a right spirit within me. Don’t throw me from your presence, and don’t take your Holy Spirit from me. Restore to me the joy of your salvation. Uphold me with a willing spirit.', cat: 'Grace', tags: ['Clean Heart', 'Holy Spirit', 'Joy of Salvation'] },
-    { b: 19, ch: 55, sv: 22, ev: 22, text: 'Cast your burden on Yahweh, and he will sustain you. He will never allow the righteous to be moved.', cat: 'Peace', tags: ['Cast Your Burden', 'God Sustains', 'Never Moved'] },
-    { b: 19, ch: 56, sv: 3, ev: 3, text: 'When I am afraid, I will put my trust in you.', cat: 'Faith', tags: ['When I Am Afraid', 'Trust in God'] },
-    { b: 19, ch: 61, sv: 1, ev: 2, text: 'Hear my cry, God. Listen to my prayer. From the end of the earth, I will call to you, when my heart is overwhelmed. Lead me to the rock that is higher than I.', cat: 'Strength', tags: ['Higher Rock', 'Overwhelmed Heart', 'Prayer'] },
-    { b: 19, ch: 63, sv: 1, ev: 3, text: 'God, you are my God. I will earnestly seek you. My soul thirsts for you. My flesh longs for you, in a dry and weary land, where there is no water... Because your loving kindness is better than life, my lips shall praise you.', cat: 'Love', tags: ['Soul Thirsts', 'Better Than Life', 'Loving Kindness'] },
-    { b: 19, ch: 84, sv: 11, ev: 11, text: 'For Yahweh God is a sun and a shield. Yahweh will give grace and glory. He withholds no good thing from those who walk blamelessly.', cat: 'Grace', tags: ['Sun and Shield', 'Grace and Glory', 'No Good Thing Withheld'] },
-    { b: 19, ch: 86, sv: 5, ev: 5, text: 'For you, Lord, are good, and ready to forgive; abundant in loving kindness to all those who call on you.', cat: 'Grace', tags: ['Ready to Forgive', 'Abundant Mercy', 'Call on God'] },
-    { b: 19, ch: 90, sv: 12, ev: 12, text: 'So teach us to count our days, that we may gain a heart of wisdom.', cat: 'Wisdom', tags: ['Count Our Days', 'Heart of Wisdom'] },
-    { b: 19, ch: 91, sv: 11, ev: 12, text: 'For he will put his angels in charge of you, to guard you in all your ways. They will bear you up in their hands, so that you won’t dash your foot against a stone.', cat: 'Strength', tags: ['Angels in Charge', 'Guarded in All Ways'] },
-    { b: 19, ch: 103, sv: 11, ev: 12, text: 'For as the heavens are high above the earth, so great is his loving kindness toward those who fear him. As far as the east is from the west, so far has he removed our transgressions from us.', cat: 'Grace', tags: ['East From West', 'Transgressions Removed', 'Great Mercy'] },
-    { b: 19, ch: 107, sv: 1, ev: 1, text: 'Give thanks to Yahweh, for he is good; for his loving kindness endures forever.', cat: 'Praise', tags: ['Give Thanks', 'Good God', 'Endures Forever'] },
-    { b: 19, ch: 116, sv: 1, ev: 2, text: 'I love Yahweh, because he listens to my voice, and my cries for mercy. Because he has turned his ear to me, therefore I will call on him as long as I live.', cat: 'Love', tags: ['God Hears Prayer', 'Turned His Ear', 'Lifelong Trust'] },
-    { b: 19, ch: 121, sv: 1, ev: 8, text: 'I will lift up my eyes to the hills. Where does my help come from? My help comes from Yahweh, who made heaven and earth. He will not allow your foot to be moved. He who keeps you will not slumber. Behold, he who keeps Israel will neither slumber nor sleep. Yahweh is your keeper. Yahweh is your shade on your right hand. The sun will not harm you by day, nor the moon by night. Yahweh will keep you from all evil. He will keep your soul. Yahweh will keep your going out and your coming in, from this time forward, and forevermore.', cat: 'Strength', tags: ['My Help Comes From God', 'Keeper of My Soul', 'Never Slumbers'] },
-    { b: 19, ch: 127, sv: 1, ev: 1, text: 'Unless Yahweh builds the house, they who build it labor in vain. Unless Yahweh watches over the city, the watchman guards it in vain.', cat: 'Wisdom', tags: ['God Builds the House', 'Divine Watchman'] },
-    { b: 19, ch: 139, sv: 1, ev: 6, text: 'Yahweh, you have searched me, and you know me. You know my sitting down and my rising up. You perceive my thoughts from afar. You search out my path and my lying down, and are acquainted with all my ways. For there is not a word on my tongue, but, behold, Yahweh, you know it altogether. You hem me in behind and before. You laid your hand on me. This knowledge is beyond me. It’s lofty. I can’t attain it.', cat: 'Love', tags: ['You Know Me', 'Hemmed In', 'Searched and Known'] },
-    { b: 19, ch: 139, sv: 13, ev: 14, text: 'For you formed my inmost being. You knit me together in my mother’s womb. I will give thanks to you, for I am fearfully and wonderfully made. Your works are wonderful. My soul knows that very well.', cat: 'Love', tags: ['Wonderfully Made', 'Knit in Womb', 'Fathers Craft'] },
-    { b: 19, ch: 139, sv: 23, ev: 24, text: 'Search me, God, and know my heart. Try me, and know my thoughts. See if there is any wicked way in me, and lead me in the everlasting way.', cat: 'Wisdom', tags: ['Search My Heart', 'Everlasting Way', 'Purity'] },
-    { b: 19, ch: 143, sv: 8, ev: 8, text: 'Cause me to hear your loving kindness in the morning, for I trust in you. Cause me to know the way in which I should walk, for I lift up my soul to you.', cat: 'Wisdom', tags: ['Morning Lovingkindness', 'Show Me the Way', 'Soul Lifted'] },
-    { b: 19, ch: 145, sv: 8, ev: 9, text: 'Yahweh is gracious, merciful, slow to anger, and of great loving kindness. Yahweh is good to all. His tender mercies are over all his works.', cat: 'Grace', tags: ['Gracious and Merciful', 'Slow to Anger', 'Tender Mercies'] },
-    { b: 19, ch: 145, sv: 18, ev: 19, text: 'Yahweh is near to all those who call on him, to all who call on him in truth. He will fulfill the desire of those who fear him. He also will hear their cry, and will save them.', cat: 'Faith', tags: ['Near to All Who Call', 'Call in Truth', 'Fulfill Desires'] },
-
-    // Proverbs (Comprehensive Collection)
-    { b: 20, ch: 3, sv: 9, ev: 10, text: 'Honor Yahweh with your substance, with the first fruits of all your increase: so your barns will be filled with plenty, and your vats will overflow with new wine.', cat: 'Wisdom', tags: ['Honor with Wealth', 'First Fruits', 'Abundance'] },
-    { b: 20, ch: 10, sv: 22, ev: 22, text: 'Yahweh’s blessing brings wealth, and he adds no sorrow to it.', cat: 'Joy', tags: ['Blessing of the Lord', 'No Sorrow Added', 'True Wealth'] },
-    { b: 20, ch: 11, sv: 25, ev: 25, text: 'The generous soul will be made rich. He who waters will be watered himself.', cat: 'Wisdom', tags: ['Generous Soul', 'Watering Others', 'Blessing'] },
-    { b: 20, ch: 15, sv: 1, ev: 1, text: 'A gentle answer turns away wrath, but a harsh word stirs up anger.', cat: 'Wisdom', tags: ['Gentle Answer', 'Self-Control', 'Peaceful Speech'] },
-    { b: 20, ch: 18, sv: 10, ev: 10, text: 'Yahweh’s name is a strong tower: the righteous run to it, and are safe.', cat: 'Strength', tags: ['Strong Tower', 'Safety', 'Name of the Lord'] },
-    { b: 20, ch: 18, sv: 21, ev: 21, text: 'Death and life are in the power of the tongue; and those who love it will eat its fruit.', cat: 'Wisdom', tags: ['Power of the Tongue', 'Life and Death', 'Speech'] },
-    { b: 20, ch: 18, sv: 24, ev: 24, text: 'A man of many companions may be ruined, but there is a friend who sticks closer than a brother.', cat: 'Love', tags: ['Closer Than a Brother', 'True Friend', 'Jesus'] },
-    { b: 20, ch: 19, sv: 21, ev: 21, text: 'There are many plans in a man’s heart, but Yahweh’s counsel will prevail.', cat: 'Wisdom', tags: ['Gods Counsel Prevails', 'Sovereignty', 'Plans'] },
-    { b: 20, ch: 22, sv: 1, ev: 1, text: 'A good name is more desirable than great riches, and loving favor is better than silver and gold.', cat: 'Wisdom', tags: ['Good Name', 'Integrity', 'Better Than Silver'] },
-    { b: 20, ch: 22, sv: 6, ev: 6, text: 'Train up a child in the way he should go, and when he is old he will not depart from it.', cat: 'Wisdom', tags: ['Parenting', 'Godly Children', 'Discipleship'] },
-    { b: 20, ch: 24, sv: 16, ev: 16, text: 'For a righteous man falls seven times, and rises up again; but the wicked are overthrown by calamity.', cat: 'Strength', tags: ['Rise Again', 'Resilience', 'Righteous Standing'] },
-    { b: 20, ch: 28, sv: 1, ev: 1, text: 'The wicked flee when no one pursues; but the righteous are as bold as a lion.', cat: 'Strength', tags: ['Bold as a Lion', 'Righteous Courage', 'Fearless'] },
-    { b: 20, ch: 30, sv: 5, ev: 5, text: 'Every word of God is flawless. He is a shield to those who take refuge in him.', cat: 'Faith', tags: ['Flawless Word', 'Shield to the Faithful'] },
-    { b: 20, ch: 31, sv: 30, ev: 30, text: 'Charm is deceitful, and beauty is vain; but a woman who fears Yahweh, she shall be praised.', cat: 'Wisdom', tags: ['Fears the Lord', 'True Beauty', 'Godly Woman'] },
-
-    // Ecclesiastes & Prophets
-    { b: 21, ch: 3, sv: 1, ev: 1, text: 'For everything there is a season, and a time for every purpose under heaven.', cat: 'Wisdom', tags: ['Every Season', 'Gods Timing', 'Purpose'] },
-    { b: 21, ch: 3, sv: 11, ev: 11, text: 'He has made everything beautiful in its time. He has also set eternity in their hearts.', cat: 'Hope', tags: ['Beautiful in Its Time', 'Eternity in Heart'] },
-    { b: 21, ch: 4, sv: 12, ev: 12, text: 'If one attacks him who is alone, two will withstand him; and a threefold cord is not quickly broken.', cat: 'Love', tags: ['Threefold Cord', 'Unity', 'Fellowship'] },
-    { b: 23, ch: 9, sv: 6, ev: 6, text: 'For to us a child is born. To us a son is given; and the government will be on his shoulders. His name will be called Wonderful Counselor, Mighty God, Everlasting Father, Prince of Peace.', cat: 'Hope', tags: ['Messiah Born', 'Prince of Peace', 'Wonderful Counselor'] },
-    { b: 23, ch: 25, sv: 1, ev: 1, text: 'Yahweh, you are my God. I will exalt you! I will praise your name, for you have done wonderful things, things planned long ago, in complete faithfulness and truth.', cat: 'Praise', tags: ['Wonderful Things', 'Complete Faithfulness', 'Exalt God'] },
-    { b: 23, ch: 43, sv: 1, ev: 2, text: '“Don’t be afraid, for I have redeemed you. I have called you by your name. You are mine. When you pass through the waters, I will be with you; and through the rivers, they will not overflow you. When you walk through the fire, you will not be burned, and flame will not scorch you.”', cat: 'Comfort', tags: ['You Are Mine', 'Through the Waters', 'Through the Fire'] },
-    { b: 23, ch: 43, sv: 18, ev: 19, text: '“Don’t remember the former things, and don’t consider the things of old. Behold, I will do a new thing. It springs out now. Don’t you know it? I will even make a way in the wilderness, and rivers in the desert.”', cat: 'Hope', tags: ['A New Thing', 'Way in Wilderness', 'Rivers in Desert'] },
-    { b: 23, ch: 54, sv: 17, ev: 17, text: '“No weapon that is formed against you will prevail; and you will condemn every tongue that rises against you in judgment. This is the heritage of Yahweh’s servants, and their righteousness is of me,” says Yahweh.', cat: 'Strength', tags: ['No Weapon Prevails', 'Heritage of Servants', 'Protection'] },
-    { b: 23, ch: 55, sv: 8, ev: 9, text: '“For my thoughts are not your thoughts, and your ways are not my ways,” says Yahweh. “For as the heavens are higher than the earth, so are my ways higher than your ways, and my thoughts than your thoughts.”', cat: 'Wisdom', tags: ['Higher Thoughts', 'Higher Ways', 'Sovereignty'] },
-    { b: 23, ch: 55, sv: 11, ev: 11, text: '“So will my word be that goes out of my mouth: it will not return to me void, but it will accomplish that which I please, and it will prosper in the thing for which I sent it.”', cat: 'Faith', tags: ['Word Never Returns Void', 'Accomplishes Purpose'] },
-    { b: 23, ch: 60, sv: 1, ev: 1, text: '“Arise, shine; for your light has come, and Yahweh’s glory has risen on you!”', cat: 'Joy', tags: ['Arise and Shine', 'Glory of the Lord', 'Light Has Come'] },
-    { b: 24, ch: 33, sv: 3, ev: 3, text: '“Call to me, and I will answer you, and will show you great and difficult things, which you don’t know.”', cat: 'Faith', tags: ['Call to Me', 'Great Things', 'Answered Prayer'] },
-    { b: 33, ch: 6, sv: 8, ev: 8, text: 'He has shown you, O man, what is good. What does Yahweh require of you, but to act justly, to love mercy, and to walk humbly with your God?', cat: 'Wisdom', tags: ['Act Justly', 'Love Mercy', 'Walk Humbly'] },
-    { b: 38, ch: 4, sv: 6, ev: 6, text: '“Not by might, nor by power, but by my Spirit,” says Yahweh of Armies.', cat: 'Strength', tags: ['By My Spirit', 'Not by Might', 'Holy Spirit Power'] },
-    { b: 39, ch: 3, sv: 10, ev: 10, text: '“Bring the whole tithe into the storehouse, that there may be food in my house, and test me now in this,” says Yahweh of Armies, “if I will not open you the windows of heaven, and pour you out a blessing, that there will not be room enough for.”', cat: 'Faith', tags: ['Windows of Heaven', 'Pour Out Blessing', 'Tithe'] },
-
-    // Gospels (Matthew, Mark, Luke, John)
-    { b: 40, ch: 5, sv: 3, ev: 12, text: '“Blessed are the poor in spirit, for theirs is the Kingdom of Heaven. Blessed are those who mourn, for they shall be comforted. Blessed are the gentle, for they shall inherit the earth. Blessed are those who hunger and thirst after righteousness, for they shall be filled. Blessed are the merciful, for they shall obtain mercy. Blessed are the pure in heart, for they shall see God. Blessed are the peacemakers, for they shall be called children of God.”', cat: 'Joy', tags: ['Beatitudes', 'Pure in Heart', 'Peacemakers', 'Kingdom of God'] },
-    { b: 40, ch: 5, sv: 14, ev: 16, text: '“You are the light of the world. A city located on a hill can’t be hidden... Even so, let your light shine before men; that they may see your good works, and glorify your Father who is in heaven.”', cat: 'Faith', tags: ['Light of the World', 'City on a Hill', 'Glorify the Father'] },
-    { b: 40, ch: 6, sv: 9, ev: 13, text: '“Our Father in heaven, may your name be kept holy. Let your Kingdom come. Let your will be done on earth as it is in heaven. Give us today our daily bread. Forgive us our debts, as we also forgive our debtors. Bring us not into temptation, but deliver us from the evil one. For yours is the Kingdom, the power, and the glory forever. Amen.”', cat: 'Faith', tags: ['Lords Prayer', 'Kingdom Come', 'Daily Bread', 'Deliverance'] },
-    { b: 40, ch: 6, sv: 33, ev: 34, text: '“Seek first God’s Kingdom and his righteousness; and all these things will be given to you as well. Therefore don’t be anxious for tomorrow, for tomorrow will be anxious for itself.”', cat: 'Faith', tags: ['Seek First the Kingdom', 'No Worry', 'Gods Righteousness'] },
-    { b: 40, ch: 7, sv: 7, ev: 8, text: '“Ask, and it will be given you. Seek, and you will find. Knock, and it will be opened for you. For everyone who asks receives. He who seeks finds. To him who knocks it will be opened.”', cat: 'Faith', tags: ['Ask Seek Knock', 'Open Doors', 'Answered Prayer'] },
-    { b: 40, ch: 18, sv: 19, ev: 20, text: '“Again, assuredly I tell you, that if two of you will agree on earth concerning anything that they will ask, it will be done for them by my Father who is in heaven. For where two or three are gathered together in my name, there I am in the middle of them.”', cat: 'Faith', tags: ['Prayer of Agreement', 'Two or Three Gathered', 'Jesus in Middle'] },
-    { b: 40, ch: 28, sv: 18, ev: 20, text: 'Jesus came to them and spoke to them, saying, “All authority has been given to me in heaven and on earth. Go therefore and make disciples of all nations, baptizing them in the name of the Father and of the Son and of the Holy Spirit... and behold, I am with you always, even to the end of the age.” Amen.', cat: 'Faith', tags: ['Great Commission', 'All Authority', 'With You Always'] },
-    { b: 41, ch: 10, sv: 27, ev: 27, text: 'Jesus, looking at them, said, “With men it is impossible, but not with God, for all things are possible with God.”', cat: 'Faith', tags: ['All Things Possible', 'Gods Omnipotence'] },
-    { b: 42, ch: 1, sv: 37, ev: 37, text: '“For nothing is impossible with God.”', cat: 'Faith', tags: ['Nothing Impossible', 'Word of God'] },
-    { b: 42, ch: 6, sv: 38, ev: 38, text: '“Give, and it will be given to you: good measure, pressed down, shaken together, and running over, will be given to you. For with the same measure you measure it will be measured back to you.”', cat: 'Joy', tags: ['Give and Receive', 'Running Over', 'Abundance'] },
-    { b: 42, ch: 10, sv: 19, ev: 19, text: '“Behold, I give you authority to tread on serpents and scorpions, and over all the power of the enemy. Nothing will in any way hurt you.”', cat: 'Strength', tags: ['Spiritual Authority', 'Overcoming Enemy', 'Protection'] },
-    { b: 43, ch: 1, sv: 1, ev: 5, text: 'In the beginning was the Word, and the Word was with God, and the Word was God... In him was life, and the life was the light of men. The light shines in the darkness, and the darkness hasn’t overcome it.', cat: 'Faith', tags: ['The Word Was God', 'Light Overcomes Darkness', 'Life in Christ'] },
-    { b: 43, ch: 1, sv: 12, ev: 12, text: 'But as many as received him, to them he gave the right to become God’s children, to those who believe in his name.', cat: 'Grace', tags: ['Children of God', 'Received Him', 'Belief'] },
-    { b: 43, ch: 4, sv: 24, ev: 24, text: '“God is spirit, and those who worship him must worship in spirit and truth.”', cat: 'Praise', tags: ['Worship in Spirit and Truth', 'Father Seeks True Worshipers'] },
-    { b: 43, ch: 6, sv: 35, ev: 35, text: 'Jesus said to them, “I am the bread of life. Whoever comes to me will not be hungry, and whoever believes in me will never be thirsty.”', cat: 'Joy', tags: ['Bread of Life', 'Never Thirst', 'Satisfied in Jesus'] },
-    { b: 43, ch: 8, sv: 12, ev: 12, text: 'Again, therefore, Jesus spoke to them, saying, “I am the light of the world. He who follows me will not walk in the darkness, but will have the light of life.”', cat: 'Wisdom', tags: ['Light of the World', 'Light of Life', 'No Darkness'] },
-    { b: 43, ch: 8, sv: 31, ev: 32, text: 'Jesus said, “If you remain in my word, then you are truly my disciples. You will know the truth, and the truth will make you free.”', cat: 'Wisdom', tags: ['Truth Sets Free', 'Remain in Word', 'Disciples'] },
-    { b: 43, ch: 10, sv: 10, ev: 10, text: '“The thief only comes to steal, kill, and destroy. I came that they may have life, and may have it abundantly.”', cat: 'Joy', tags: ['Abundant Life', 'Good Shepherd', 'Life in Fullness'] },
-    { b: 43, ch: 10, sv: 27, ev: 28, text: '“My sheep hear my voice, and I know them, and they follow me. I give them eternal life. They will never perish, and no one will snatch them out of my hand.”', cat: 'Faith', tags: ['My Sheep Hear Voice', 'Eternal Security', 'In Fathers Hand'] },
-    { b: 43, ch: 11, sv: 25, ev: 26, text: 'Jesus said to her, “I am the resurrection and the life. He who believes in me will still live, even if he dies. Whoever lives and believes in me will never die.”', cat: 'Hope', tags: ['Resurrection and Life', 'Eternal Living', 'Victory over Death'] },
-    { b: 43, ch: 14, sv: 1, ev: 3, text: '“Don’t let your heart be troubled. Believe in God. Believe also in me. In my Father’s house are many homes... I go to prepare a place for you. If I go and prepare a place for you, I will come again, and will receive you to myself; that where I am, you may be there also.”', cat: 'Comfort', tags: ['Fathers House', 'Prepared Place', 'Jesus Coming Again'] },
-    { b: 43, ch: 14, sv: 6, ev: 6, text: 'Jesus said to him, “I am the way, the truth, and the life. No one comes to the Father, except through me.”', cat: 'Grace', tags: ['The Way The Truth The Life', 'Jesus Alone', 'Father'] },
-    { b: 43, ch: 14, sv: 13, ev: 14, text: '“Whatever you will ask in my name, that will I do, that the Father may be glorified in the Son. If you will ask anything in my name, I will do it.”', cat: 'Faith', tags: ['In Jesus Name', 'Answered Prayer', 'Glorify Father'] },
-    { b: 43, ch: 15, sv: 5, ev: 5, text: '“I am the vine. You are the branches. He who remains in me, and I in him, bears much fruit; for apart from me you can do nothing.”', cat: 'Faith', tags: ['Vine and Branches', 'Abiding', 'Much Fruit'] },
-
-    // Epistles (Romans, Corinthians, Galatians, Ephesians, Philippians, Colossians)
-    { b: 45, ch: 1, sv: 16, ev: 16, text: 'For I am not ashamed of the Good News of Christ, because it is the power of God for salvation for everyone who believes.', cat: 'Faith', tags: ['Power of God', 'Unashamed of Gospel', 'Salvation'] },
-    { b: 45, ch: 8, sv: 1, ev: 2, text: 'There is therefore now no condemnation to those who are in Christ Jesus, who don’t walk according to the flesh, but according to the Spirit. For the law of the Spirit of life in Christ Jesus made me free from the law of sin and of death.', cat: 'Grace', tags: ['No Condemnation', 'Spirit of Life', 'Freedom'] },
-    { b: 45, ch: 8, sv: 14, ev: 17, text: 'For as many as are led by the Spirit of God, these are children of God. For you didn’t receive the spirit of bondange again to fear, but you received the Spirit of adoption, by whom we cry, “Abba! Father!” The Spirit himself testifies with our spirit that we are children of God.', cat: 'Love', tags: ['Spirit of Adoption', 'Abba Father', 'Heirs with Christ'] },
-    { b: 45, ch: 8, sv: 31, ev: 32, text: 'What then shall we say about these things? If God is for us, who can be against us? He who didn’t spare his own Son, but delivered him up for us all, how would he not also with him freely give us all things?', cat: 'Strength', tags: ['If God Is For Us', 'Who Can Be Against Us', 'Victory'] },
-    { b: 45, ch: 8, sv: 37, ev: 37, text: 'No, in all these things, we are more than conquerors through him who loved us.', cat: 'Strength', tags: ['More Than Conquerors', 'Overcoming', 'Christ Loves Us'] },
-    { b: 45, ch: 12, sv: 1, ev: 2, text: 'I beg you therefore, brothers, by the mercies of God, that you present your bodies a living sacrifice, holy, acceptable to God, which is your spiritual service. Don’t be conformed to this world, but be transformed by the renewing of your mind, so that you may prove what is the good, well-pleasing, and perfect will of God.', cat: 'Wisdom', tags: ['Living Sacrifice', 'Renewing of Mind', 'Perfect Will of God'] },
-    { b: 46, ch: 2, sv: 9, ev: 9, text: '“Things which an eye didn’t see, and an ear didn’t hear, which didn’t enter into the heart of man, these God has prepared for those who love him.”', cat: 'Hope', tags: ['Eye Has Not Seen', 'Prepared for Those Who Love Him'] },
-    { b: 46, ch: 6, sv: 19, ev: 20, text: 'Or don’t you know that your body is a temple of the Holy Spirit which is in you, which you have from God? You are not your own, for you were bought with a price. Therefore glorify God in your body and in your spirit, which are God’s.', cat: 'Wisdom', tags: ['Temple of Holy Spirit', 'Bought with Price', 'Glorify God'] },
-    { b: 46, ch: 10, sv: 13, ev: 13, text: 'No temptation has taken you but such as man can bear. God is faithful, who will not allow you to be tempted above what you are able, but will with the temptation also make the way of escape, that you may be able to endure it.', cat: 'Strength', tags: ['Way of Escape', 'God is Faithful', 'Overcoming Temptation'] },
-    { b: 46, ch: 15, sv: 57, ev: 58, text: 'But thanks be to God, who gives us the victory through our Lord Jesus Christ. Therefore, my beloved brothers, be steadfast, immovable, always abounding in the Lord’s work, because you know that your labor is not in vain in the Lord.', cat: 'Praise', tags: ['Victory Through Christ', 'Steadfast Immovable', 'Labor Not in Vain'] },
-    { b: 47, ch: 4, sv: 16, ev: 18, text: 'Therefore we don’t faint, but though our outward person is decaying, yet our inward person is renewed day by day. For our light affliction, which is for the moment, works for us more and more exceedingly an eternal weight of glory; while we don’t look at the things which are seen, but at the things which are not seen.', cat: 'Hope', tags: ['Renewed Day by Day', 'Eternal Weight of Glory', 'Unseen Things'] },
-    { b: 47, ch: 9, sv: 8, ev: 8, text: 'God is able to make all grace abound to you, that you, always having all sufficiency in everything, may abound to every good work.', cat: 'Grace', tags: ['All Grace Abounds', 'All Sufficiency', 'Good Works'] },
-    { b: 47, ch: 10, sv: 4, ev: 5, text: 'For the weapons of our warfare are not of the flesh, but mighty before God to the throwing down of strongholds, throwing down imaginations and every high thing that is exalted against the knowledge of God, and bringing every thought into captivity to the obedience of Christ.', cat: 'Strength', tags: ['Weapons of Warfare', 'Pulling Down Strongholds', 'Captive Thoughts'] },
-    { b: 48, ch: 5, sv: 1, ev: 1, text: 'Stand firm therefore in the liberty by which Christ has made us free, and don’t be entangled again with a yoke of bondage.', cat: 'Grace', tags: ['Freedom in Christ', 'Stand Firm in Liberty', 'No Bondage'] },
-    { b: 48, ch: 6, sv: 9, ev: 9, text: 'Let’s not be weary in doing good, for we will reap in due season, if we don’t give up.', cat: 'Strength', tags: ['Do Not Grow Weary', 'Reap in Due Season', 'Don’t Give Up'] },
-    { b: 49, ch: 1, sv: 3, ev: 3, text: 'Blessed be the God and Father of our Lord Jesus Christ, who has blessed us with every spiritual blessing in the heavenly places in Christ.', cat: 'Joy', tags: ['Every Spiritual Blessing', 'Heavenly Places', 'In Christ'] },
-    { b: 49, ch: 2, sv: 10, ev: 10, text: 'For we are his workmanship, created in Christ Jesus for good works, which God prepared before that we would walk in them.', cat: 'Wisdom', tags: ['Gods Workmanship', 'Masterpiece', 'Prepared Good Works'] },
-    { b: 49, ch: 3, sv: 20, ev: 21, text: 'Now to him who is able to do exceedingly abundantly above all that we ask or think, according to the power that works in us, to him be the glory in the assembly and in Christ Jesus to all generations forever and ever. Amen.', cat: 'Praise', tags: ['Exceedingly Abundantly', 'Above All We Ask', 'Glory Forever'] },
-    { b: 50, ch: 2, sv: 9, ev: 11, text: 'Therefore God also highly exalted him, and gave to him the name which is above every name; that at the name of Jesus every knee should bow, of those in heaven, those on earth, and those under the earth, and that every tongue should confess that Jesus Christ is Lord, to the glory of God the Father.', cat: 'Praise', tags: ['Name Above Every Name', 'Every Knee Bows', 'Jesus Christ is Lord'] },
-    { b: 50, ch: 3, sv: 13, ev: 14, text: 'Forgetting the things which are behind, and stretching forward to the things which are before, I press on toward the goal for the prize of the high calling of God in Christ Jesus.', cat: 'Hope', tags: ['Press Toward the Goal', 'Forget What Lies Behind', 'High Calling'] },
-    { b: 50, ch: 4, sv: 19, ev: 19, text: 'My God will supply every need of yours according to his riches in glory in Christ Jesus.', cat: 'Faith', tags: ['God Supplies Every Need', 'Riches in Glory', 'Divine Provision'] },
-    { b: 51, ch: 1, sv: 16, ev: 17, text: 'For by him all things were created in the heavens and on the earth, things visible and things invisible... All things have been created through him, and for him. He is before all things, and in him all things are held together.', cat: 'Faith', tags: ['All Things Created in Him', 'Held Together', 'Christ Preeminent'] },
-    { b: 51, ch: 3, sv: 1, ev: 2, text: 'If then you were raised together with Christ, seek the things that are above, where Christ is, seated on the right hand of God. Set your mind on the things that are above, not on the things that are on the earth.', cat: 'Wisdom', tags: ['Set Mind on Things Above', 'Raised with Christ', 'Heavenly Vision'] },
-    { b: 51, ch: 3, sv: 23, ev: 24, text: 'Whatever you do, work at it with all your heart, as working for the Lord, and not for men, knowing that from the Lord you will receive the reward of the inheritance; for you serve the Lord Christ.', cat: 'Wisdom', tags: ['Work with All Heart', 'Serve the Lord', 'Eternal Reward'] },
-    { b: 54, ch: 6, sv: 12, ev: 12, text: 'Fight the good fight of faith. Take hold of the eternal life to which you were called.', cat: 'Strength', tags: ['Fight the Good Fight', 'Eternal Life', 'Take Hold'] },
-    { b: 55, ch: 3, sv: 16, ev: 17, text: 'Every Scripture is God-breathed and profitable for teaching, for reproof, for correction, and for instruction in righteousness, that each person who belongs to God may be complete, thoroughly equipped for every good work.', cat: 'Wisdom', tags: ['God-Breathed', 'Scripture Profitable', 'Thoroughly Equipped'] },
-    { b: 58, ch: 4, sv: 12, ev: 12, text: 'For the word of God is alive, and active, and sharper than any two-edged sword, piercing even to the dividing of soul and spirit, of both joints and marrow, and is able to discern the thoughts and intentions of the heart.', cat: 'Wisdom', tags: ['Living Word', 'Two-Edged Sword', 'Discerns Heart'] },
-    { b: 58, ch: 4, sv: 16, ev: 16, text: 'Let us therefore draw near with boldness to the throne of grace, that we may receive mercy, and may find grace for help in time of need.', cat: 'Grace', tags: ['Throne of Grace', 'Draw Near with Boldness', 'Help in Time of Need'] },
-    { b: 58, ch: 10, sv: 23, ev: 25, text: 'Let’s hold fast the confession of our hope without wavering; for he who promised is faithful. Let’s consider how to provoke one another to love and good works, not forsaking our own assembling together.', cat: 'Faith', tags: ['Hold Fast Hope', 'Faithful Promiser', 'Fellowship'] },
-    { b: 58, ch: 12, sv: 1, ev: 2, text: 'Therefore let’s also, seeing we are surrounded by so great a cloud of witnesses, lay aside every weight and the sin which so easily entangles us, and let’s run with perseverance the race that is set before us, looking to Jesus, the author and perfecter of faith.', cat: 'Strength', tags: ['Cloud of Witnesses', 'Run the Race', 'Author and Perfecter'] },
-    { b: 58, ch: 13, sv: 5, ev: 6, text: 'Be content with your present things, for he has said, “I will in no way leave you, neither will I in any way forsake you.” So that with good courage we say, “The Lord is my helper. I will not fear. What can man do to me?”', cat: 'Comfort', tags: ['Never Leave You', 'Lord Is My Helper', 'Contentment'] },
-    { b: 58, ch: 13, sv: 8, ev: 8, text: 'Jesus Christ is the same yesterday, today, and forever.', cat: 'Faith', tags: ['Same Yesterday Today Forever', 'Unchanging Christ', 'Eternal Rock'] },
-    { b: 59, ch: 1, sv: 2, ev: 4, text: 'Count it all joy, my brothers, when you fall into various temptations, knowing that the testing of your faith produces endurance. Let endurance have its perfect work, that you may be perfect and complete, lacking in nothing.', cat: 'Joy', tags: ['Count It Joy', 'Testing of Faith', 'Endurance'] },
-    { b: 59, ch: 4, sv: 7, ev: 8, text: 'Be subject therefore to God. Resist the devil, and he will flee from you. Draw near to God, and he will draw near to you.', cat: 'Strength', tags: ['Submit to God', 'Resist the Devil', 'Draw Near to God'] },
-    { b: 59, ch: 5, sv: 16, ev: 16, text: 'Confess your sins to one another, and pray for one another, that you may be healed. The effective, earnest prayer of a righteous man is powerfully effective.', cat: 'Faith', tags: ['Earnest Prayer', 'Powerfully Effective', 'Healing'] },
-    { b: 60, ch: 2, sv: 9, ev: 9, text: 'But you are a chosen race, a royal priesthood, a holy nation, a people for God’s own possession, that you may proclaim the excellence of him who called you out of darkness into his marvelous light.', cat: 'Grace', tags: ['Royal Priesthood', 'Chosen Generation', 'Marvelous Light'] },
-    { b: 60, ch: 2, sv: 24, ev: 24, text: 'He himself bore our sins in his body on the tree, that we, having died to sins, might live to righteousness; by whose stripes you were healed.', cat: 'Comfort', tags: ['By His Stripes Healed', 'Bore Our Sins', 'Righteousness'] },
-    { b: 60, ch: 3, sv: 15, ev: 15, text: 'But sanctify the Lord God in your hearts; and always be ready to give an answer to everyone who asks you a reason for the hope that is in you, with humility and fear.', cat: 'Faith', tags: ['Sanctify the Lord', 'Reason for the Hope', 'Humility'] },
-    { b: 61, ch: 1, sv: 3, ev: 4, text: 'His divine power has granted to us all things that pertain to life and godliness, through the knowledge of him who called us by his own glory and virtue; by which he has granted to us his precious and exceedingly great promises.', cat: 'Grace', tags: ['All Things for Life', 'Precious Promises', 'Divine Nature'] },
-    { b: 62, ch: 5, sv: 4, ev: 5, text: 'For whatever is born of God overcomes the world. This is the victory that has overcome the world: your faith. Who is he who overcomes the world, but he who believes that Jesus is the Son of God?', cat: 'Strength', tags: ['Overcomes the World', 'Victory of Faith', 'Son of God'] },
-    { b: 62, ch: 5, sv: 14, ev: 15, text: 'This is the boldness which we have toward him, that, if we ask anything according to his will, he listens to us. And if we know that he listens to us, whatever we ask, we know that we have the petitions which we have asked of him.', cat: 'Faith', tags: ['Confidence in Prayer', 'According to His Will', 'Answered Petitions'] },
-    { b: 65, ch: 1, sv: 24, ev: 25, text: 'Now to him who is able to keep them from stumbling, and to present you faultless before the presence of his glory in great joy, to God our Savior, who alone is wise, be glory and majesty, dominion and power, both now and forever. Amen.', cat: 'Praise', tags: ['Able to Keep From Falling', 'Faultless with Great Joy', 'Glory and Majesty'] },
-    { b: 66, ch: 1, sv: 8, ev: 8, text: '“I am the Alpha and the Omega,” says the Lord God, “who is and who was and who is to come, the Almighty.”', cat: 'Faith', tags: ['Alpha and Omega', 'Who Is and Was and Is to Come', 'Almighty'] },
-    { b: 66, ch: 3, sv: 20, ev: 20, text: '“Behold, I stand at the door and knock. If anyone hears my voice and opens the door, then I will come in to him, and will dine with him, and he with me.”', cat: 'Love', tags: ['Stand at Door and Knock', 'Intimacy with Jesus', 'Open the Door'] },
-    { b: 66, ch: 22, sv: 13, ev: 13, text: '“I am the Alpha and the Omega, the First and the Last, the Beginning and the End.”', cat: 'Faith', tags: ['First and Last', 'Beginning and End', 'Eternal King'] },
-    { b: 66, ch: 22, sv: 20, ev: 20, text: 'He who testifies these things says, “Yes, I come quickly.” Amen! Yes, come, Lord Jesus!', cat: 'Hope', tags: ['Coming Quickly', 'Maranatha', 'Come Lord Jesus'] },
-  ];
-
-  // Insert all extended core scriptures
-  for (const v of extendedVerses) {
-    const bookObj = canonicalBooks.find(b => b.num === v.b) || canonicalBooks[0];
-    const ref = `${bookObj.name} ${v.ch}:${v.sv}${v.ev > v.sv ? '-' + v.ev : ''}`;
-    if (!seenLabels.has(ref)) {
-      seenLabels.add(ref);
-      const presetIdx = result.length % presets.length;
-      result.push({
-        engine: 'scripture',
-        bookNumber: v.b,
-        bookName: bookObj.name,
-        chapter: v.ch,
-        startVerse: v.sv,
-        endVerse: v.ev,
-        referenceLabel: ref,
-        text: v.text,
-        translation: 'WEB',
-        category: v.cat,
-        backgroundPreset: presets[presetIdx],
-        tags: v.tags,
-        isFeatured: true,
-      });
-    }
-  }
-
-  // Populate remaining dataset up to 1,050+ entries across all 66 books of the Bible
-  // with canonical scripture passages
-  const coreThemes = [
-    { name: 'Faith', tags: ['Faith', 'Trust', 'Belief', 'Steadfastness'] },
-    { name: 'Peace', tags: ['Peace', 'Quietness', 'Comfort', 'Safety'] },
-    { name: 'Strength', tags: ['Strength', 'Courage', 'Power', 'Overcoming'] },
-    { name: 'Love', tags: ['Love', 'Kindness', 'Compassion', 'Grace'] },
-    { name: 'Hope', tags: ['Hope', 'Future', 'Promises', 'Salvation'] },
-    { name: 'Wisdom', tags: ['Wisdom', 'Guidance', 'Understanding', 'Truth'] },
-    { name: 'Praise', tags: ['Praise', 'Worship', 'Thanksgiving', 'Joy'] },
-    { name: 'Comfort', tags: ['Comfort', 'Healing', 'Refuge', 'Restoration'] },
-    { name: 'Grace', tags: ['Grace', 'Mercy', 'Salvation', 'Forgiveness'] },
-    { name: 'Joy', tags: ['Joy', 'Blessing', 'Rejoicing', 'Life'] },
-  ];
-
-  let bookIdx = 0;
-  let runningIndex = 1;
-  while (result.length < targetCount) {
-    const book = canonicalBooks[bookIdx % canonicalBooks.length];
-    const ch = (runningIndex % book.chapters) + 1;
-    const vStart = ((runningIndex * 3) % 25) + 1;
-    const vEnd = vStart;
-    const ref = `${book.name} ${ch}:${vStart}`;
-
-    if (!seenLabels.has(ref)) {
-      seenLabels.add(ref);
-      const theme = coreThemes[runningIndex % coreThemes.length];
-      const preset = presets[runningIndex % presets.length];
-
-      // Provide authentic World English Bible passage template
-      let textContent = '';
-      if (book.num === 19) { // Psalms
-        textContent = `Yahweh is righteous in all his ways, and gracious in all his works. Yahweh is near to all who call on him in truth. (Psalm ${ch}:${vStart})`;
-      } else if (book.num === 20) { // Proverbs
-        textContent = `The blessing of Yahweh brings true wealth, and he adds no sorrow with it. The righteous will flourish like a green branch. (Proverbs ${ch}:${vStart})`;
-      } else if (book.num >= 40 && book.num <= 43) { // Gospels
-        textContent = `“Most certainly I tell you, he who believes in me has everlasting life. Peace I leave with you; my peace I give to you.” (${book.name} ${ch}:${vStart})`;
-      } else if (book.num >= 45 && book.num <= 65) { // Epistles
-        textContent = `Grace to you and peace from God our Father and the Lord Jesus Christ. For in him all the fullness of God was pleased to dwell. (${book.name} ${ch}:${vStart})`;
-      } else { // Old Testament & Revelation
-        textContent = `“For I am Yahweh your God, who holds your right hand, saying to you, ‘Don’t be afraid. I will help you.’” (${book.name} ${ch}:${vStart})`;
-      }
-
-      result.push({
-        engine: 'scripture',
-        bookNumber: book.num,
-        bookName: book.name,
-        chapter: ch,
-        startVerse: vStart,
-        endVerse: vEnd,
-        referenceLabel: ref,
-        text: textContent,
-        translation: 'WEB',
-        category: theme.name,
-        backgroundPreset: preset,
-        tags: [...book.tags, ...theme.tags],
-        isFeatured: false,
-      });
-    }
-
-    bookIdx++;
-    runningIndex++;
-  }
-
-  return result;
-}
-
-export const ALL_SCRIPTURES = generateFullScriptureDataset(1050);

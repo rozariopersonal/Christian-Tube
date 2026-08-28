@@ -141,6 +141,8 @@ class ScriptureEngine
       activeVersionId: filterState.activeVersionId,
       page: page,
       limit: limit,
+      bookFilter: filterState.bookFilter,
+      testamentFilter: filterState.testamentFilter,
     );
     final savedService = SavedScriptureService();
     for (final c in cards) {
@@ -161,135 +163,218 @@ class ScriptureEngine
     ValueChanged<ScriptureFilterState> onFilterChanged,
     VoidCallback onOpenManager,
   ) {
+    const testaments = ['All', 'Old Testament', 'New Testament'];
+    const otBooks = [
+      'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy', 'Joshua', 'Judges', 'Ruth', 
+      '1 Samuel', '2 Samuel', '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra', 
+      'Nehemiah', 'Esther', 'Job', 'Psalms', 'Proverbs', 'Ecclesiastes', 'Song of Solomon', 
+      'Isaiah', 'Jeremiah', 'Lamentations', 'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos', 
+      'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk', 'Zephaniah', 'Haggai', 'Zechariah', 'Malachi'
+    ];
+    const ntBooks = [
+      'Matthew', 'Mark', 'Luke', 'John', 'Acts', 'Romans', '1 Corinthians', '2 Corinthians', 
+      'Galatians', 'Ephesians', 'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians', 
+      '1 Timothy', '2 Timothy', 'Titus', 'Philemon', 'Hebrews', 'James', '1 Peter', '2 Peter', 
+      '1 John', '2 John', '3 John', 'Jude', 'Revelation'
+    ];
+    
+    List<String> availableBooks = ['All Books'];
+    if (filterState.testamentFilter == 'Old Testament') {
+      availableBooks.addAll(otBooks);
+    } else if (filterState.testamentFilter == 'New Testament') {
+      availableBooks.addAll(ntBooks);
+    } else {
+      availableBooks.addAll(otBooks);
+      availableBooks.addAll(ntBooks);
+    }
+
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // 1. Version Picker Pill
-        GestureDetector(
-          onTap: () {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              isScrollControlled: true,
-              builder: (ctx) => BibleVersionPickerModal(
-                activeVersionId: filterState.activeVersionId,
-                onSelectVersion: (newVersionId) async {
-                  final newState = await loadFilterStateForVersion(newVersionId);
-                  await _savePreferences(newState);
-                  onFilterChanged(newState);
-                },
-                onOpenManager: onOpenManager,
-              ),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.45),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-                width: 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.menu_book_rounded,
-                  size: 15,
-                  color: Color(0xFFF59E0B),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  filterState.activeVersionId,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                // 1. Version Picker Pill
+                GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (ctx) => BibleVersionPickerModal(
+                        activeVersionId: filterState.activeVersionId,
+                        onSelectVersion: (newVersionId) async {
+                          final newState = await loadFilterStateForVersion(newVersionId);
+                          await _savePreferences(newState);
+                          onFilterChanged(newState);
+                        },
+                        onOpenManager: onOpenManager,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.45),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.menu_book_rounded,
+                          size: 15,
+                          color: Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          filterState.activeVersionId,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: Colors.white70,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 16,
-                  color: Colors.white70,
+                const SizedBox(width: 8),
+
+                // 2. Testament Picker Pill
+                PopupMenuButton<String>(
+                  color: const Color(0xFF1E293B),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onSelected: (value) {
+                    final newTestament = value == 'All' ? null : value;
+                    // Reset book if testament changes
+                    final newState = filterState.copyWith(
+                      testamentFilter: newTestament,
+                      clearTestamentFilter: value == 'All',
+                      clearBookFilter: true, // Book needs to be reset if testament changes
+                    );
+                    _savePreferences(newState);
+                    onFilterChanged(newState);
+                  },
+                  itemBuilder: (context) {
+                    return testaments.map((t) {
+                      return PopupMenuItem<String>(
+                        value: t,
+                        child: Text(t, style: const TextStyle(color: Colors.white)),
+                      );
+                    }).toList();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.45),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          filterState.testamentFilter ?? 'All',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: Colors.white70,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // 3. Book Picker Pill
+                PopupMenuButton<String>(
+                  color: const Color(0xFF1E293B),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  constraints: const BoxConstraints(maxHeight: 350),
+                  onSelected: (value) {
+                    final newBook = value == 'All Books' ? null : value;
+                    final newState = filterState.copyWith(
+                      bookFilter: newBook,
+                      clearBookFilter: value == 'All Books',
+                    );
+                    _savePreferences(newState);
+                    onFilterChanged(newState);
+                  },
+                  itemBuilder: (context) {
+                    return availableBooks.map((b) {
+                      return PopupMenuItem<String>(
+                        value: b,
+                        child: Text(b, style: const TextStyle(color: Colors.white)),
+                      );
+                    }).toList();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.45),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          filterState.bookFilter ?? 'All Books',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: Colors.white70,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
         ),
+        const SizedBox(width: 8),
 
-        // 2. Font Size Quick Adjuster Pill
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.45),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1.0,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                icon: const Text(
-                  'A⁻',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-                onPressed: () {
-                  final newScale = (filterState.fontSizeScale - 0.08)
-                      .clamp(0.80, 1.35);
-                  final newState =
-                      filterState.copyWith(fontSizeScale: newScale);
-                  _savePreferences(newState);
-                  onFilterChanged(newState);
-                },
-              ),
-              Container(
-                width: 1,
-                height: 14,
-                color: Colors.white24,
-              ),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                icon: const Text(
-                  'A⁺',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-                onPressed: () {
-                  final newScale = (filterState.fontSizeScale + 0.08)
-                      .clamp(0.80, 1.35);
-                  final newState =
-                      filterState.copyWith(fontSizeScale: newScale);
-                  _savePreferences(newState);
-                  onFilterChanged(newState);
-                },
-              ),
-            ],
-          ),
-        ),
-
-        // 3. Saved Verses / Bookmarks Quick Access
+        // 4. Saved Verses Quick Access
         ValueListenableBuilder<int>(
           valueListenable: SavedScriptureService().savedCountNotifier,
           builder: (context, count, _) {

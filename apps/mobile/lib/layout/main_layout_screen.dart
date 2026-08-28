@@ -79,6 +79,11 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       return;
     }
 
+    // Always reset the Words feed to a new random list when navigated
+    if (kMicroFeedEnabled && index == 2) {
+      BottomBarVisibilityService.instance.requestWordsReset();
+    }
+
     if (widget.navigationShell != null) {
       widget.navigationShell!.goBranch(
         index,

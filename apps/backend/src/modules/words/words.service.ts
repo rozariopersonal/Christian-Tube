@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ALL_SCRIPTURES } from './data/scriptures.data';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class WordsService implements OnModuleInit {
@@ -20,9 +21,7 @@ export class WordsService implements OnModuleInit {
     try {
       const count = await this.prisma.microFeedItem.count();
       if (count < 1000) {
-        this.logger.log(
-          `Current micro feed item count is ${count}. Seeding up to ${ALL_SCRIPTURES.length} authentic scriptures into PostgreSQL database...`,
-        );
+        this.logger.log(`Current micro feed item count is ${count}. Seeding authentic scriptures into PostgreSQL database...`);
         await this.seedWords(false);
       } else {
         this.logger.log(`✅ Micro feed database already populated with ${count} items.`);
@@ -38,12 +37,22 @@ export class WordsService implements OnModuleInit {
       await this.prisma.microFeedItem.deleteMany({});
     }
 
-    const chunkSize = 200;
+    const jsonPath = path.join(process.cwd(), 'data', 'scriptures.json');
+    if (!fs.existsSync(jsonPath)) {
+      this.logger.error(`Seed file not found at ${jsonPath}`);
+      return { message: 'Seed file not found', inserted: 0, total: 0 };
+    }
+
+    this.logger.log('Loading JSON payload into memory...');
+    const rawData = fs.readFileSync(jsonPath, 'utf8');
+    const allScriptures = JSON.parse(rawData);
+
+    const chunkSize = 1000;
     let insertedCount = 0;
 
-    for (let i = 0; i < ALL_SCRIPTURES.length; i += chunkSize) {
-      const chunk = ALL_SCRIPTURES.slice(i, i + chunkSize);
-      const data = chunk.map((item) => ({
+    for (let i = 0; i < allScriptures.length; i += chunkSize) {
+      const chunk = allScriptures.slice(i, i + chunkSize);
+      const data = chunk.map((item: any) => ({
         engine: item.engine || 'scripture',
         bookNumber: item.bookNumber,
         bookName: item.bookName,
@@ -52,6 +61,7 @@ export class WordsService implements OnModuleInit {
         endVerse: item.endVerse,
         referenceLabel: item.referenceLabel,
         text: item.text,
+        verseMappings: item.verseMappings || {},
         translation: item.translation || 'WEB',
         category: item.category || 'General',
         backgroundPreset: item.backgroundPreset || 'mountain_dawn',
@@ -66,7 +76,7 @@ export class WordsService implements OnModuleInit {
 
       insertedCount += res.count;
       this.logger.log(
-        `Seeded batch ${Math.floor(i / chunkSize) + 1}/${Math.ceil(ALL_SCRIPTURES.length / chunkSize)} (+${res.count} records)`,
+        `Seeded batch ${Math.floor(i / chunkSize) + 1}/${Math.ceil(allScriptures.length / chunkSize)} (+${res.count} records)`
       );
     }
 
@@ -86,6 +96,7 @@ export class WordsService implements OnModuleInit {
     search?: string;
     page?: number;
     limit?: number;
+    seed?: number;
   }) {
     const page = Math.max(1, query?.page ? Number(query.page) : 1);
     const limit = Math.max(1, Math.min(100, query?.limit ? Number(query.limit) : 25));
@@ -106,28 +117,73 @@ export class WordsService implements OnModuleInit {
       ];
     }
 
-    const [total, items] = await Promise.all([
-      this.prisma.microFeedItem.count({ where }),
-      this.prisma.microFeedItem.findMany({
+    // Determine if we need randomized or static sorting
+    if (query?.seed != null) {
+      // 1. Fetch all matching IDs (efficient)
+      const allItems = await this.prisma.microFeedItem.findMany({
         where,
-        skip,
-        take: limit,
-        orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
-      }),
-    ]);
+        select: { id: true },
+        orderBy: { id: 'asc' }, // deterministic base order
+      });
+      const total = allItems.length;
 
-    return {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      items,
-    };
+      // 2. Seeded shuffle
+      let s = query.seed;
+      const prng = () => {
+        s = Math.sin(s) * 10000;
+        return s - Math.floor(s);
+      };
+      
+      for (let i = allItems.length - 1; i > 0; i--) {
+        const j = Math.floor(prng() * (i + 1));
+        const temp = allItems[i];
+        allItems[i] = allItems[j];
+        allItems[j] = temp;
+      }
+
+      // 3. Paginate
+      const paginatedIds = allItems.slice(skip, skip + limit).map(i => i.id);
+
+      // 4. Fetch full items and restore order
+      const rawItems = await this.prisma.microFeedItem.findMany({
+        where: { id: { in: paginatedIds } },
+      });
+      const itemMap = new Map(rawItems.map(i => [i.id, i]));
+      const items = paginatedIds.map(id => itemMap.get(id)!).filter(Boolean);
+
+      return {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        items,
+      };
+    } else {
+      // Fallback to static order if no seed is provided
+      const [total, items] = await Promise.all([
+        this.prisma.microFeedItem.count({ where }),
+        this.prisma.microFeedItem.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+        }),
+      ]);
+
+      return {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        items,
+      };
+    }
   }
 
   async create(data: {
     referenceLabel: string;
-    text: string;
+    text?: string;
+    verseMappings?: any;
     translation?: string;
     category?: string;
     backgroundPreset?: string;
@@ -143,6 +199,7 @@ export class WordsService implements OnModuleInit {
         engine: 'scripture',
         referenceLabel: data.referenceLabel,
         text: data.text,
+        verseMappings: data.verseMappings,
         translation: data.translation || 'WEB',
         category: data.category || 'General',
         backgroundPreset: data.backgroundPreset || 'mountain_dawn',

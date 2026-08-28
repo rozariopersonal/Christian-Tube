@@ -131,15 +131,31 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   Widget build(BuildContext context) {
     final preset = ScriptureThemeCatalog.getPreset(widget.card.activeBackground);
     final targetVersion = widget.filterState.activeVersionId;
-    final versionId = _displayedVersion ?? targetVersion;
-    final versionMeta = BibleDownloadManager.getMeta(versionId);
+    
+    String versionId;
+    String text;
 
-    // Guaranteed synchronization with active version
-    final text = (_displayedVersion == targetVersion ? _displayedText : null) ??
-        (widget.card.resolvedVersion == targetVersion ? widget.card.resolvedText : null) ??
-        _service.resolvePassageSync(widget.card, targetVersion) ??
-        widget.card.resolvedText ??
-        '“Peace I leave with you; my peace I give you. Do not let your hearts be troubled.”';
+    if (_displayedVersion == targetVersion && _displayedText != null) {
+      text = _displayedText!;
+      versionId = targetVersion;
+    } else if (widget.card.resolvedVersion == targetVersion && widget.card.resolvedText != null) {
+      text = widget.card.resolvedText!;
+      versionId = targetVersion;
+    } else {
+      final syncText = _service.resolvePassageSync(widget.card, targetVersion);
+      if (syncText != null) {
+        text = syncText;
+        versionId = targetVersion;
+      } else if (widget.card.resolvedText != null) {
+        text = widget.card.resolvedText!;
+        versionId = widget.card.resolvedVersion ?? targetVersion;
+      } else {
+        text = '“Peace I leave with you; my peace I give you. Do not let your hearts be troubled.”';
+        versionId = targetVersion;
+      }
+    }
+
+    final versionMeta = BibleDownloadManager.getMeta(versionId);
 
     final screenWidth = MediaQuery.sizeOf(context).width;
     final screenHeight = MediaQuery.sizeOf(context).height;
