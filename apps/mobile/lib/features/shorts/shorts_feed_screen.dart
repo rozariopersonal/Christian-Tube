@@ -32,13 +32,23 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   final PageController _localPageController = PageController();
   final ShortsOrchestratorService _orchestrator = ShortsOrchestratorService();
 
+  final ScrollController _communityScrollController = ScrollController();
+
   List<Short> _shorts = [];
   bool _isLoading = true;
   int _currentPage = 0;
   ShortsViewTab _activeTab = ShortsViewTab.community;
 
-  // Dynamic HUD Auto-Hide & Playhead Controller
+  // View state: null = Grid View, int = Fullscreen Short Player
+  int? _selectedCommunityIndex;
   int? _selectedCreationIndex;
+
+  // Infinite Scroll Pagination
+  int _communityPage = 1;
+  bool _hasMoreShorts = true;
+  bool _isLoadingMore = false;
+
+  // Dynamic HUD Auto-Hide & Playhead Controller
   bool _isPlaying = true;
   bool _areControlsVisible = true;
   Timer? _autoHideTimer;
@@ -51,13 +61,34 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     super.initState();
     _fetchShorts();
     _orchestrator.fetchCloudCreations();
+    _communityScrollController.addListener(_onCommunityScroll);
+  }
+
+  @override
+  void dispose() {
+    _communityScrollController.removeListener(_onCommunityScroll);
+    _communityScrollController.dispose();
+    _pageController.dispose();
+    _localPageController.dispose();
+    _autoHideTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onCommunityScroll() {
+    if (_communityScrollController.hasClients &&
+        _communityScrollController.position.pixels >=
+            _communityScrollController.position.maxScrollExtent - 400) {
+      _loadMoreShorts();
+    }
   }
 
   Future<void> _fetchShorts() async {
     try {
+      _communityPage = 1;
+      _hasMoreShorts = true;
       final response = await _apiClient.dio.get(
         '/videos',
-        queryParameters: {'type': 'SHORT', 'limit': 100},
+        queryParameters: {'type': 'SHORT', 'limit': 30, 'page': 1},
       );
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
@@ -88,7 +119,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
           final uri = GoRouterState.of(context).uri;
           final queryId = uri.queryParameters['id'] ?? uri.queryParameters['videoId'];
-          int targetIndex = 0;
+          int targetIndex = -1;
           if (queryId != null && queryId.isNotEmpty) {
             final idx = shortsOnly.indexWhere((s) => s.id == queryId || s.sourceVideoId == queryId);
             if (idx != -1) targetIndex = idx;
@@ -98,7 +129,10 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             setState(() {
               _shorts = shortsOnly;
               _isLoading = false;
-              _currentPage = targetIndex;
+              if (targetIndex >= 0) {
+                _selectedCommunityIndex = targetIndex;
+                _currentPage = targetIndex;
+              }
             });
             if (targetIndex > 0) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -120,11 +154,55 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error fetching shorts from video feed: $e');
+      debugPrint('Error fetching shorts: $e');
       if (mounted) {
         setState(() {
           _shorts = [];
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMoreShorts() async {
+    if (_isLoadingMore || !_hasMoreShorts) return;
+    _isLoadingMore = true;
+    try {
+      final nextPage = _communityPage + 1;
+      final response = await _apiClient.dio.get(
+        '/videos',
+        queryParameters: {'type': 'SHORT', 'limit': 30, 'page': nextPage},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic raw = response.data;
+        final List<dynamic> list =
+            raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
+
+        final newVideos = list
+            .whereType<Map<String, dynamic>>()
+            .map((v) => Short.fromJson(v))
+            .where((s) => s.durationSeconds <= 180 || s.type == 'SHORT')
+            .toList();
+
+        if (newVideos.isEmpty) {
+          _hasMoreShorts = false;
+        } else {
+          _communityPage = nextPage;
+          final existingIds = _shorts.map((s) => s.id).toSet();
+          final uniqueNew = newVideos.where((s) => !existingIds.contains(s.id)).toList();
+          if (mounted) {
+            setState(() {
+              _shorts.addAll(uniqueNew);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Load more shorts error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
         });
       }
     }
@@ -161,15 +239,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         _autoHideTimer?.cancel(); // Keep visible when paused
       }
     }
-  }
-
-  @override
-  void dispose() {
-    stopAllPlatformShorts();
-    _autoHideTimer?.cancel();
-    _pageController.dispose();
-    _localPageController.dispose();
-    super.dispose();
   }
 
   @override
@@ -404,25 +473,324 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       );
     }
 
-    return PageView.builder(
-      controller: _pageController,
-      scrollDirection: Axis.vertical,
-      itemCount: _shorts.length,
-      onPageChanged: (index) {
-        HapticFeedback.lightImpact();
+    // 1. Initial State: Infinite Scroll Grid
+    if (_selectedCommunityIndex == null) {
+      return _buildCommunityGrid();
+    }
+
+    // 2. Expanded State: Full-Screen Vertical Shorts Player
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PageView.builder(
+          controller: _pageController,
+          scrollDirection: Axis.vertical,
+          itemCount: _shorts.length,
+          onPageChanged: (index) {
+            HapticFeedback.lightImpact();
+            setState(() {
+              _currentPage = index;
+              _selectedCommunityIndex = index;
+              _isPlaying = true;
+              _areControlsVisible = true;
+              _currentPosition = 0.0;
+              _totalDuration = 0.0;
+            });
+            _startAutoHideTimer();
+            if (index >= _shorts.length - 4) {
+              _loadMoreShorts();
+            }
+          },
+          itemBuilder: (context, index) {
+            final short = _shorts[index];
+            return _buildShortPlayerStack(short, index, isTabVisible);
+          },
+        ),
+
+        // Top-Left Back Button to Return to Shorts Grid
+        Positioned(
+          top: 54,
+          left: 12,
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedCommunityIndex = null;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white30),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_back_ios_new, size: 13, color: Colors.white),
+                  SizedBox(width: 4),
+                  Text(
+                    'Shorts Grid',
+                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommunityGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 900
+            ? 4
+            : constraints.maxWidth > 600
+                ? 3
+                : 2;
+
+        return CustomScrollView(
+          controller: _communityScrollController,
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 75, 16, 14),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${_shorts.length} Shorts',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _fetchShorts,
+                      icon: const Icon(Icons.refresh, size: 16, color: Color(0xFFF59E0B)),
+                      label: const Text(
+                        'Refresh',
+                        style: TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: 9 / 16,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final short = _shorts[index];
+                    return _buildCommunityGridCard(short, index);
+                  },
+                  childCount: _shorts.length,
+                ),
+              ),
+            ),
+            if (_isLoadingMore)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFFF59E0B)),
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCommunityGridCard(Short short, int index) {
+    final durSec = short.durationSeconds > 0
+        ? short.durationSeconds
+        : Short.parseDurationInSeconds(short.duration);
+
+    return GestureDetector(
+      onTap: () {
         setState(() {
+          _selectedCommunityIndex = index;
           _currentPage = index;
+          _pageController.jumpToPage(index);
           _isPlaying = true;
           _areControlsVisible = true;
           _currentPosition = 0.0;
           _totalDuration = 0.0;
         });
-        _startAutoHideTimer();
       },
-      itemBuilder: (context, index) {
-        final short = _shorts[index];
-        return _buildShortPlayerStack(short, index, isTabVisible);
-      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. Thumbnail
+            if (short.thumbnailUrl.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: short.thumbnailUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(color: const Color(0xFF0F172A)),
+                errorWidget: (_, __, ___) => Container(
+                  color: const Color(0xFF0F172A),
+                  child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
+                ),
+              )
+            else
+              Container(
+                color: const Color(0xFF0F172A),
+                child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
+              ),
+
+            // 2. Gradient Overlay
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x77000000),
+                    Color(0x00000000),
+                    Color(0xDD000000),
+                  ],
+                  stops: [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+
+            // 3. View Count / Verified Chip Top-Left
+            Positioned(
+              top: 8,
+              left: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white24, width: 0.8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.remove_red_eye, size: 10, color: Color(0xFFF59E0B)),
+                    const SizedBox(width: 4),
+                    Text(
+                      short.viewCount > 0 ? Formatters.formatViews(short.viewCount) : 'Short',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 4. Duration Badge Top-Right
+            if (durSec > 0)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    Formatters.formatDuration(Duration(seconds: durSec)),
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+
+            // 5. Play Icon in Center
+            const Center(
+              child: Icon(
+                Icons.play_circle_fill,
+                color: Colors.white70,
+                size: 38,
+              ),
+            ),
+
+            // 6. Bottom Title & Channel
+            Positioned(
+              left: 10,
+              right: 10,
+              bottom: 10,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    short.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (short.channelAvatarUrl != null && short.channelAvatarUrl!.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: CachedNetworkImage(
+                            imageUrl: short.channelAvatarUrl!,
+                            width: 16,
+                            height: 16,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => const Icon(Icons.person, size: 16, color: Colors.white70),
+                          ),
+                        )
+                      else
+                        const Icon(Icons.account_circle, size: 16, color: Colors.white70),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          short.channelTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
