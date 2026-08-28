@@ -21,6 +21,12 @@ allprojects {
             force 'androidx.core:core:1.15.0'
             force 'androidx.core:core-ktx:1.15.0'
             force 'androidx.browser:browser:1.8.0'
+            
+            eachDependency { DependencyResolveDetails details ->
+                if (details.requested.group == 'com.arthenica') {
+                    details.useTarget group: 'dev.ffmpegkit-maintained', name: details.requested.name, version: '8.1.7'
+                }
+            }
         }
     }
 }

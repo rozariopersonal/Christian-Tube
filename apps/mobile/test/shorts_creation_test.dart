@@ -81,7 +81,7 @@ void main() {
         framingMode: ShortsFramingMode.portrait9x16,
       );
 
-      expect(item.statusDisplay, contains('Downloading stream 25%'));
+      expect(item.statusDisplay, contains('Extracting stream 25%'));
       expect(item.isPlayable, isFalse);
       expect(item.cropOffsetX, -0.4);
       expect(item.framingMode, ShortsFramingMode.portrait9x16);
