@@ -352,12 +352,23 @@ export class YoutubeService implements OnModuleInit {
     this.apiKey = this.configService.get<string>('youtubeApiKey') || '';
   }
 
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async onModuleInit() {
-    setTimeout(() => {
-      // Force instant full sync on boot regardless of time of day
-      this.syncAllChannelsPeriodically(true).catch((e) => {
+    setTimeout(async () => {
+      // 1. Subscribe all active channels to Google WebSub Hub
+      this.renewAllWebSubSubscriptions().catch((e) => {
+        this.logger.warn(`Initial WebSub subscription error on boot: ${e.message}`);
+      });
+
+      // 2. Launch continuous deep sync on boot (runs till end of all playlists)
+      this.syncAllChannelsPeriodically().catch((e) => {
         this.logger.warn(`Initial automated sync on boot error: ${e.message}`);
       });
+
+      // 3. Backfill missing durations & stats
       this.backfillVideoMetadata(500).catch((e) => {
         this.logger.warn(`Initial automated backfill on boot error: ${e.message}`);
       });
@@ -365,15 +376,10 @@ export class YoutubeService implements OnModuleInit {
   }
 
   /**
-   * Periodic scheduler: Runs every 30 minutes to sync channels in continuous high-volume batches.
+   * Periodic scheduler: Runs every 2 hours to sync new sermon uploads and continue pagination
    */
-  @Cron(CronExpression.EVERY_30_MINUTES)
-  async syncAllChannelsPeriodically(force = false) {
-    if (!force && !isIstDaytime()) {
-      this.logger.log('Outside IST daytime hours (06:00 - 22:00 IST). Skipping automated scheduled sync.');
-      return;
-    }
-
+  @Cron(CronExpression.EVERY_2_HOURS)
+  async syncAllChannelsPeriodically() {
     if (this.isSyncing) {
       this.logger.log('Previous channel sync cycle is still active. Skipping concurrent run.');
       return;
@@ -404,14 +410,15 @@ export class YoutubeService implements OnModuleInit {
 
       if (!channels.length) return;
 
-      this.logger.log(`🔄 Starting automated deep batch video & metadata sync for ${channels.length} channels...`);
+      this.logger.log(`🔄 Starting infinite continuous video & metadata sync for ${channels.length} channels...`);
 
       for (const channel of channels) {
         try {
-          await this.syncChannelVideos(channel.id, channel.category, 50);
+          await this.syncChannelVideos(channel.id, channel.category);
         } catch (err: any) {
           this.logger.error(`Error syncing channel ${channel.name} (${channel.id}): ${err.message}`);
         }
+        await this.sleep(300);
       }
     } finally {
       this.isSyncing = false;
@@ -419,7 +426,171 @@ export class YoutubeService implements OnModuleInit {
   }
 
   async syncAllChannels() {
-    return this.syncAllChannelsPeriodically(true);
+    return this.syncAllChannelsPeriodically();
+  }
+
+  /**
+   * Subscribe a channel to Google WebSub Hub for instant real-time push notifications
+   */
+  async subscribeChannelToWebSub(channelId: string, mode: 'subscribe' | 'unsubscribe' = 'subscribe') {
+    try {
+      const apiBaseUrl = this.configService.get<string>('apiBaseUrl') || 'https://christianapp-zjdh.onrender.com';
+      const callbackUrl = `${apiBaseUrl.replace(/\/$/, '')}/youtube/webhook`;
+      const topicUrl = `https://www.youtube.com/xml/feeds/videos.xml?channel_id=${channelId}`;
+
+      const params = new URLSearchParams({
+        'hub.callback': callbackUrl,
+        'hub.mode': mode,
+        'hub.topic': topicUrl,
+        'hub.lease_seconds': '864000', // 10 days
+      });
+
+      const res = await axios.post('https://pubsubhubbub.appspot.com/subscribe', params.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 10000,
+      });
+
+      this.logger.log(`Google WebSub ${mode} request submitted for channel ${channelId} (Status: ${res.status})`);
+      return true;
+    } catch (err: any) {
+      this.logger.warn(`Google WebSub ${mode} error for channel ${channelId}: ${err.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Auto-renew WebSub leases for all active channels daily
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async renewAllWebSubSubscriptions() {
+    const channels = await this.prisma.channel.findMany({
+      where: { isActive: true },
+    });
+    this.logger.log(`🔄 Renewing Google WebSub subscriptions for ${channels.length} channels...`);
+    for (const ch of channels) {
+      await this.subscribeChannelToWebSub(ch.id, 'subscribe');
+      await this.sleep(200);
+    }
+  }
+
+  /**
+   * Handle incoming XML push notification from Google WebSub
+   */
+  async handleWebSubPushNotification(xmlBody: string) {
+    if (!xmlBody || typeof xmlBody !== 'string') return;
+
+    try {
+      const videoIdMatch = xmlBody.match(/<yt:videoId>([^<]+)<\/yt:videoId>/);
+      const channelIdMatch = xmlBody.match(/<yt:channelId>([^<]+)<\/yt:channelId>/);
+      const titleMatch = xmlBody.match(/<title>([^<]+)<\/title>/);
+      const publishedMatch = xmlBody.match(/<published>([^<]+)<\/published>/);
+
+      const videoId = videoIdMatch ? videoIdMatch[1].trim() : null;
+      const channelId = channelIdMatch ? channelIdMatch[1].trim() : null;
+      const title = titleMatch ? titleMatch[1].trim() : 'Video';
+      const publishedAt = publishedMatch ? new Date(publishedMatch[1].trim()) : new Date();
+
+      if (!videoId || !channelId) return;
+
+      this.logger.log(`⚡ Live WebSub video publish event received: "${title}" (${videoId}) on channel ${channelId}`);
+
+      const channel = await this.prisma.channel.findUnique({ where: { id: channelId } });
+      const channelName = channel?.name || 'Channel';
+      const channelThumb = channel?.thumbnail || null;
+      const category = channel?.category || 'General';
+
+      if (this.apiKey) {
+        try {
+          const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?key=${this.apiKey}&id=${videoId}&part=snippet,contentDetails,statistics`;
+          const detailsRes = await axios.get(detailsUrl, { timeout: 10000 });
+          const item = detailsRes.data?.items?.[0];
+
+          if (item) {
+            const snippet = item.snippet;
+            const contentDetails = item.contentDetails;
+            const stats = item.statistics;
+
+            const duration = parseIsoDuration(contentDetails?.duration || '');
+            const durationSeconds = parseIsoDurationSeconds(contentDetails?.duration || '');
+            const hasShortsTag = (snippet?.title || '').toLowerCase().includes('#short') ||
+                                 (snippet?.description || '').toLowerCase().includes('#short');
+            const isShort = (durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag;
+            const videoType = isShort ? 'SHORT' : 'VIDEO';
+            const thumb =
+              snippet?.thumbnails?.maxres?.url ||
+              snippet?.thumbnails?.high?.url ||
+              snippet?.thumbnails?.medium?.url ||
+              `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+            await this.prisma.video.upsert({
+              where: { id: videoId },
+              update: {
+                type: videoType,
+                title: snippet?.title || title,
+                description: snippet?.description || '',
+                thumbnail: thumb,
+                publishedAt: snippet?.publishedAt ? new Date(snippet.publishedAt) : publishedAt,
+                duration,
+                viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
+                channelName: snippet?.channelTitle || channelName,
+                channelThumbnail: channelThumb,
+                category,
+              },
+              create: {
+                id: videoId,
+                type: videoType,
+                title: snippet?.title || title,
+                description: snippet?.description || '',
+                thumbnail: thumb,
+                channelId,
+                channelName: snippet?.channelTitle || channelName,
+                channelThumbnail: channelThumb,
+                publishedAt: snippet?.publishedAt ? new Date(snippet.publishedAt) : publishedAt,
+                duration,
+                viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
+                category,
+                transcriptionStatus: 'pending',
+              },
+            });
+            this.logger.log(`✅ Live synced new video "${title}" (${videoId}) via WebSub push`);
+            return;
+          }
+        } catch (apiErr: any) {
+          this.logger.warn(`Could not fetch details for live WebSub video ${videoId}: ${apiErr.message}`);
+        }
+      }
+
+      // Fallback direct upsert from XML payload
+      await this.prisma.video.upsert({
+        where: { id: videoId },
+        update: {
+          title,
+          publishedAt,
+          channelName,
+          channelThumbnail: channelThumb,
+          category,
+        },
+        create: {
+          id: videoId,
+          type: 'VIDEO',
+          title,
+          description: '',
+          thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+          channelId,
+          channelName,
+          channelThumbnail: channelThumb,
+          publishedAt,
+          duration: '0:00',
+          viewCount: 0,
+          category,
+          transcriptionStatus: 'pending',
+        },
+      });
+
+      this.logger.log(`✅ Live synced new video "${title}" (${videoId}) via WebSub push XML`);
+    } catch (err: any) {
+      this.logger.error(`Error handling WebSub push notification payload: ${err.message}`);
+    }
   }
 
   /**
@@ -666,6 +837,7 @@ export class YoutubeService implements OnModuleInit {
             lastSyncedAt: new Date(),
           } as any,
         });
+        await this.sleep(150);
       } else {
         await this.prisma.channel.update({
           where: { id: channelId },

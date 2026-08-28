@@ -361,6 +361,11 @@ export class ChannelsService {
       this.logger.warn(`Initial sync error for added channel ${channel.id}: ${e.message}`);
     });
 
+    // Auto-subscribe channel to Google WebSub for instant live push events
+    this.youtubeService.subscribeChannelToWebSub(channel.id).catch((e) => {
+      this.logger.warn(`WebSub subscription error for added channel ${channel.id}: ${e.message}`);
+    });
+
     return {
       status: 'success',
       message: 'Channel successfully added and video ingestion started',

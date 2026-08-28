@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { AppModule } from './app.module';
@@ -12,6 +13,9 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const appName = configService.get<string>('appName') || 'PrivateTube';
   const port = configService.get<number>('port') || 3000;
+
+  // XML Body Parser for Google WebSub Push Notifications
+  app.use(express.text({ type: ['application/xml', 'text/xml', 'application/atom+xml'] }));
 
   // Security Middleware
   app.use(helmet());

@@ -1,8 +1,20 @@
-import { Controller, Post, Get, Headers, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Headers,
+  Query,
+  Body,
+  Req,
+  Res,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Response } from 'express';
 import { YoutubeService } from './youtube.service';
 
-@Controller('youtube')
+@Controller(['youtube', 'api/youtube'])
 export class YoutubeController {
   private readonly logger = new Logger(YoutubeController.name);
 
@@ -10,6 +22,45 @@ export class YoutubeController {
     private readonly youtubeService: YoutubeService,
     private readonly configService: ConfigService,
   ) {}
+
+  /**
+   * Google WebSub Verification Handshake (GET)
+   * Google's Hub sends hub.challenge to verify callback URL ownership
+   */
+  @Get(['webhook', 'webhooks'])
+  verifyWebSubSubscription(
+    @Query('hub.mode') mode?: string,
+    @Query('hub.challenge') challenge?: string,
+    @Query('hub.topic') topic?: string,
+    @Res() res?: Response,
+  ) {
+    this.logger.log(`Google WebSub verification challenge received (mode: ${mode}, topic: ${topic})`);
+    if (challenge && res) {
+      return res.status(200).send(challenge);
+    }
+    return res ? res.status(200).send('OK') : challenge || 'OK';
+  }
+
+  /**
+   * Google WebSub Real-Time Push Notification (POST)
+   * Triggered in 1-5 seconds whenever a channel publishes a new sermon or Short
+   */
+  @Post(['webhook', 'webhooks'])
+  async handleWebSubPush(
+    @Req() req: any,
+    @Body() body: any,
+    @Res() res: Response,
+  ) {
+    const rawXml = typeof body === 'string' ? body : (req.rawBody || JSON.stringify(body));
+    this.logger.log('Incoming Google WebSub real-time video push notification received.');
+
+    // Process notification asynchronously so Google Hub gets instant HTTP 200/204
+    this.youtubeService.handleWebSubPushNotification(rawXml).catch((err) => {
+      this.logger.error(`Error processing WebSub push notification: ${err.message}`);
+    });
+
+    return res.status(204).send();
+  }
 
   @Get('sync')
   @Post('sync')
