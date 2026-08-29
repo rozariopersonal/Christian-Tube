@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:dio/dio.dart';
 import 'package:mobile/core/api/api_client.dart';
 
 class OfflineFeedDatabase {
@@ -69,6 +70,11 @@ class OfflineFeedDatabase {
     await client.dio.download(
       '/words/offline-db',
       jsonPath,
+      options: Options(
+        // Give Render's free tier up to 2 minutes to wake up, 
+        // plus time to download the 7.5MB file.
+        receiveTimeout: const Duration(minutes: 5),
+      ),
       onReceiveProgress: (received, total) {
         if (total != -1) {
           downloadProgress.value = received / total;
