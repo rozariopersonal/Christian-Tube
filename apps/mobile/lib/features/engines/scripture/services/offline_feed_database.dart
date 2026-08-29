@@ -54,6 +54,7 @@ class OfflineFeedDatabase {
       _db = await openDatabase(dbPath);
     } catch (e) {
       debugPrint('Failed to initialize offline feed db: $e');
+      rethrow;
     } finally {
       _isInitializing = false;
     }
