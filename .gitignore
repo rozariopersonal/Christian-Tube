@@ -47,9 +47,6 @@ migrate_working_dir/
 key.properties
 temp_repo/
 
-# Generated per-build bible/words payload (tool/prepare_assets.js)
-apps/mobile/assets/data/
-
 # Node (build tooling)
 **/node_modules/
 

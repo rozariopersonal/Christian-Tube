@@ -255,10 +255,9 @@ class BibleDownloadManager extends ChangeNotifier {
   }
 
   Future<void> removeVersion(String versionId) async {
-    // Bundled bibles ship with the app and cannot be removed; only an
-    // (optional) default lock applies otherwise.
-    if (_localBible.isBundledVersion(versionId)) return;
-    if (versionId == defaultVersionId) return; // Keep the default installed
+    // The default version stays installed so the app always has a working
+    // bible; every other version can be removed freely.
+    if (versionId == defaultVersionId) return;
     await _localBible.deleteVersion(versionId);
     _installedIds.remove(versionId);
     notifyListeners();

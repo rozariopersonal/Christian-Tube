@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -65,53 +64,41 @@ class OfflineFeedDatabase {
   Future<void> _downloadAndBuildDatabase(String dbPath) async {
     debugPrint('Downloading offline feed database payload...');
     downloadProgress.value = 0.0;
-    String jsonStr;
+    final dio = Dio();
+    final jsonPath = join((await getTemporaryDirectory()).path, 'scriptures.json');
 
-    // Prefer the words payload bundled into the Christian App; fall back to
-    // downloading it from the releases repo for builds without it.
-    try {
-      jsonStr = await rootBundle.loadString('assets/data/scriptures.json');
-      debugPrint('Using bundled scriptures payload.');
-      downloadProgress.value = 1.0;
-    } catch (_) {
-      final dio = Dio();
-      final jsonPath = join((await getTemporaryDirectory()).path, 'scriptures.json');
-
-      // Try the CDN first, then the raw GitHub source; the payload is served
-      // from the releases repo so we never wait on the Render-hosted backend.
-      final urls = ReleaseAssets.urlsFor('scriptures.json');
-      Object? lastError;
-      for (final url in urls) {
-        try {
-          await dio.download(
-            url,
-            jsonPath,
-            options: Options(
-              // Time to download the 7.5MB file on slow networks.
-              receiveTimeout: const Duration(minutes: 5),
-            ),
-            onReceiveProgress: (received, total) {
-              if (total != -1) {
-                downloadProgress.value = received / total;
-              }
-            },
-          );
-          lastError = null;
-          break;
-        } catch (e) {
-          lastError = e;
-          debugPrint('Failed to download feed payload from $url: $e');
-        }
+    // Try the CDN first, then the raw GitHub source; the payload is served
+    // from the releases repo so we never wait on the Render-hosted backend.
+    final urls = ReleaseAssets.urlsFor('scriptures.json');
+    Object? lastError;
+    for (final url in urls) {
+      try {
+        await dio.download(
+          url,
+          jsonPath,
+          options: Options(
+            // Time to download the 7.5MB file on slow networks.
+            receiveTimeout: const Duration(minutes: 5),
+          ),
+          onReceiveProgress: (received, total) {
+            if (total != -1) {
+              downloadProgress.value = received / total;
+            }
+          },
+        );
+        lastError = null;
+        break;
+      } catch (e) {
+        lastError = e;
+        debugPrint('Failed to download feed payload from $url: $e');
       }
-      if (lastError != null) {
-        throw StateError('Unable to download scriptures payload: $lastError');
-      }
-
-      jsonStr = await File(jsonPath).readAsString();
-      await File(jsonPath).delete();
+    }
+    if (lastError != null) {
+      throw StateError('Unable to download scriptures payload: $lastError');
     }
 
     debugPrint('Building SQLite database from JSON...');
+    final jsonStr = await File(jsonPath).readAsString();
     final List<dynamic> items = jsonDecode(jsonStr);
 
     final db = await openDatabase(
@@ -160,6 +147,8 @@ class OfflineFeedDatabase {
     debugPrint('Executing batch insert for ${items.length} records...');
     await batch.commit(noResult: true);
 
+    // Clean up temporary json
+    await File(jsonPath).delete();
     await db.close();
     debugPrint('Offline feed database built successfully!');
   }
