@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/bible_version.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
+import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
+import '../../engines/scripture/screens/bible_manager_screen.dart';
 import '../widgets/verse_text.dart';
-import '../widgets/version_selector_sheet.dart';
 import '../widgets/book_chapter_selector.dart';
 import '../models/bible_verse.dart';
 import '../models/bible_book.dart';
@@ -177,19 +178,32 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   void _showVersionSelector() {
+    if (_selectedVersion == null) return;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => VersionSelectorSheet(
-        versions: _versions,
-        selectedVersion: _selectedVersion,
-        onVersionSelected: (version) {
+      builder: (context) => BibleVersionPickerModal(
+        activeVersionId: _selectedVersion!.shortname,
+        onSelectVersion: (versionId) {
+          final version = _versions.firstWhere(
+            (v) => v.shortname == versionId,
+            orElse: () => BibleVersion(id: versionId, name: versionId, shortname: versionId),
+          );
           setState(() {
             _selectedVersion = version;
           });
-          Navigator.pop(context);
           _fetchData();
+        },
+        onOpenManager: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BibleManagerScreen()),
+          );
+          // Refetch versions after returning from the manager
+          _versions.clear();
+          await _fetchData();
         },
       ),
     );
