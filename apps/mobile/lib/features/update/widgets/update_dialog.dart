@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 // Import removed
 import '../../../core/config/app_config.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../update_service.dart';
 
 class UpdateDialog extends StatefulWidget {
@@ -14,7 +15,7 @@ class UpdateDialog extends StatefulWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'UpdateDialog',
-      barrierColor: Colors.black.withOpacity(0.65),
+      barrierColor: context.tokens.scrim.withValues(alpha: 0.65),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) => UpdateDialog(updateData: updateData),
       transitionBuilder: (context, anim1, anim2, child) {
@@ -127,9 +128,6 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     final latestVersion = widget.updateData['latestVersion'] ?? 'Latest';
     final currentVersion = widget.updateData['currentVersion'] ?? 'Current';
     final releaseNotes = widget.updateData['releaseNotes'] as String? ?? '';
@@ -145,17 +143,17 @@ class _UpdateDialogState extends State<UpdateDialog> {
           width: MediaQuery.of(context).size.width.clamp(320.0, 420.0),
           margin: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E2129) : Colors.white,
+            color: context.tokens.surface,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.6 : 0.25),
+                color: context.tokens.scrim.withValues(alpha: context.tokens.isDark ? 0.6 : 0.25),
                 blurRadius: 30,
                 offset: const Offset(0, 10),
               ),
             ],
             border: Border.all(
-              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+              color: context.tokens.surfaceBorder,
               width: 1,
             ),
           ),
@@ -172,15 +170,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: isDark
-                          ? [
-                              const Color(0xFF2C3E50),
-                              const Color(0xFF1A1F2C),
-                            ]
-                          : [
-                              const Color(0xFFEBF4FF),
-                              const Color(0xFFF3E8FF),
-                            ],
+                      colors: [
+                        context.tokens.surfaceVariant,
+                        context.tokens.surfaceVariant,
+                      ],
                     ),
                   ),
                   child: Column(
@@ -194,12 +187,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
                             height: 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+                              gradient: LinearGradient(
+                                colors: [
+                                  Theme.of(context).colorScheme.primary,
+                                  Theme.of(context).colorScheme.tertiary,
+                                ],
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF3B82F6).withOpacity(0.4),
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
                                   blurRadius: 16,
                                   offset: const Offset(0, 4),
                                 ),
@@ -210,9 +206,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
                                 'assets/logo.png',
                                 width: 44,
                                 height: 44,
-                                errorBuilder: (ctx, _, __) => const Icon(
+                                errorBuilder: (ctx, _, __) => Icon(
                                   Icons.rocket_launch_rounded,
-                                  color: Colors.white,
+                                  color: Theme.of(context).colorScheme.onPrimary,
                                   size: 36,
                                 ),
                               ),
@@ -223,13 +219,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
                             right: 0,
                             child: Container(
                               padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF10B981),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.arrow_upward_rounded,
-                                color: Colors.white,
+                                color: Theme.of(context).colorScheme.onPrimary,
                                 size: 14,
                               ),
                             ),
@@ -242,7 +238,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: context.tokens.onSurface,
                           letterSpacing: -0.5,
                         ),
                       ),
@@ -251,14 +247,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withOpacity(0.08)
-                              : Colors.black.withOpacity(0.05),
+                          color: context.tokens.surfaceVariant,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isDark
-                                ? Colors.white.withOpacity(0.12)
-                                : Colors.black.withOpacity(0.08),
+                            color: context.tokens.surfaceBorder,
                           ),
                         ),
                         child: Row(
@@ -269,23 +261,23 @@ class _UpdateDialogState extends State<UpdateDialog> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: isDark ? Colors.white60 : Colors.black54,
+                                color: context.tokens.onSurfaceMuted,
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
                               child: Icon(
                                 Icons.arrow_forward_rounded,
                                 size: 12,
-                                color: Color(0xFF3B82F6),
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
                             Text(
                               latestVersion,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF3B82F6),
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
                           ],
@@ -303,30 +295,30 @@ class _UpdateDialogState extends State<UpdateDialog> {
                     children: [
                       if (_isDownloading) ...[
                         // Downloading Progress State
-                        _buildDownloadingView(isDark),
+                        _buildDownloadingView(),
                       ] else if (_isCompleted) ...[
                         // Completed State
                         _buildCompletedView(downloadUrl),
                       ] else ...[
                         // Discovery / Ready State
-                        _buildChangelogView(releaseNotes, formattedSize, isDark),
+                        _buildChangelogView(releaseNotes, formattedSize),
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 12),
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
+                              color: Theme.of(context).colorScheme.errorContainer,
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.red.withOpacity(0.3)),
+                              border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                                Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error, size: 18),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _errorMessage!,
-                                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
                                   ),
                                 ),
                               ],
@@ -345,16 +337,14 @@ class _UpdateDialogState extends State<UpdateDialog> {
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                   side: BorderSide(
-                                    color: isDark
-                                        ? Colors.white.withOpacity(0.15)
-                                        : Colors.black.withOpacity(0.15),
+                                    color: context.tokens.surfaceBorder,
                                   ),
                                 ),
                                 onPressed: () => Navigator.pop(context),
                                 child: Text(
                                   'Later',
                                   style: TextStyle(
-                                    color: isDark ? Colors.white70 : Colors.black87,
+                                    color: context.tokens.onSurfaceMuted,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -366,12 +356,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(14),
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFF2563EB), Color(0xFF7C3AED)],
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Theme.of(context).colorScheme.primary,
+                                      Theme.of(context).colorScheme.tertiary,
+                                    ],
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF2563EB).withOpacity(0.35),
+                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
                                       blurRadius: 12,
                                       offset: const Offset(0, 4),
                                     ),
@@ -387,15 +380,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
                                     ),
                                   ),
                                   onPressed: _startDownload,
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.download_rounded,
-                                    color: Colors.white,
+                                    color: Theme.of(context).colorScheme.onPrimary,
                                     size: 18,
                                   ),
-                                  label: const Text(
+                                  label: Text(
                                     'Update Now',
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: Theme.of(context).colorScheme.onPrimary,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                     ),
@@ -429,7 +422,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     );
   }
 
-  Widget _buildChangelogView(String releaseNotes, String formattedSize, bool isDark) {
+  Widget _buildChangelogView(String releaseNotes, String formattedSize) {
     final cleanNotes = releaseNotes.trim().isNotEmpty
         ? releaseNotes.trim()
         : '• Performance improvements and faster video streaming\n• Enhanced Shorts feed gestures\n• Bug fixes and general stability updates';
@@ -445,7 +438,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 Icon(
                   Icons.auto_awesome,
                   size: 16,
-                  color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -453,7 +446,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: context.tokens.onSurface,
                   ),
                 ),
               ],
@@ -461,7 +454,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.05),
+                color: context.tokens.surfaceVariant,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -469,7 +462,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   Icon(
                     Icons.inventory_2_outlined,
                     size: 12,
-                    color: isDark ? Colors.white60 : Colors.black54,
+                    color: context.tokens.onSurfaceMuted,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -477,7 +470,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : Colors.black87,
+                      color: context.tokens.onSurfaceMuted,
                     ),
                   ),
                 ],
@@ -490,10 +483,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
           constraints: const BoxConstraints(maxHeight: 140),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF13151B) : const Color(0xFFF8FAFC),
+            color: context.tokens.surfaceVariant,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
+              color: context.tokens.surfaceBorder,
             ),
           ),
           child: SingleChildScrollView(
@@ -502,7 +495,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
               style: TextStyle(
                 fontSize: 13,
                 height: 1.45,
-                color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                color: context.tokens.onSurfaceMuted,
               ),
             ),
           ),
@@ -511,7 +504,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     );
   }
 
-  Widget _buildDownloadingView(bool isDark) {
+  Widget _buildDownloadingView() {
     final percentInt = (_progress * 100).toInt();
 
     return Column(
@@ -526,8 +519,8 @@ class _UpdateDialogState extends State<UpdateDialog> {
               child: CircularProgressIndicator(
                 value: _progress > 0 ? _progress : null,
                 strokeWidth: 7,
-                backgroundColor: isDark ? Colors.white10 : Colors.black12,
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                backgroundColor: context.tokens.surfaceVariant,
+                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
               ),
             ),
             Column(
@@ -538,14 +531,14 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: context.tokens.onSurface,
                   ),
                 ),
                 Text(
                   'Downloading',
                   style: TextStyle(
                     fontSize: 9,
-                    color: isDark ? Colors.white60 : Colors.black54,
+                    color: context.tokens.onSurfaceMuted,
                   ),
                 ),
               ],
@@ -558,7 +551,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            color: context.tokens.onSurface,
           ),
         ),
         const SizedBox(height: 6),
@@ -567,15 +560,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
             '${_formatBytes(_receivedBytes)} / ${_formatBytes(_totalBytes)}',
             style: TextStyle(
               fontSize: 12,
-              color: isDark ? Colors.white60 : Colors.black54,
+              color: context.tokens.onSurfaceMuted,
             ),
           ),
         const SizedBox(height: 10),
         TextButton(
           onPressed: _cancelDownload,
-          child: const Text(
+          child: Text(
             'Cancel Download',
-            style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+            style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -589,12 +582,12 @@ class _UpdateDialogState extends State<UpdateDialog> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF10B981).withOpacity(0.15),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.check_circle_rounded,
-            color: Color(0xFF10B981),
+            color: Theme.of(context).colorScheme.primary,
             size: 48,
           ),
         ),
@@ -607,10 +600,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Installer launched. If the system prompt did not appear, tap below to install or download directly via browser.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: 12, color: context.tokens.onSurfaceMuted),
         ),
         const SizedBox(height: 20),
         SizedBox(
@@ -618,14 +611,14 @@ class _UpdateDialogState extends State<UpdateDialog> {
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: const Color(0xFF10B981),
+              backgroundColor: Theme.of(context).colorScheme.primary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             onPressed: _triggerInstall,
-            icon: const Icon(Icons.install_mobile, color: Colors.white),
-            label: const Text(
+            icon: Icon(Icons.install_mobile, color: Theme.of(context).colorScheme.onPrimary),
+            label: Text(
               'Open / Install APK',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.bold),
             ),
           ),
         ),

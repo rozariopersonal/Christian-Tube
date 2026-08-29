@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/theme/app_tokens.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_filter_state.dart';
 import '../models/scripture_theme_state.dart';
@@ -64,6 +65,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.88;
     final activePreset = ScriptureThemeCatalog.getPreset(_backgroundPresetId);
     final versionMeta =
@@ -74,14 +76,14 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
       child: Container(
         constraints: BoxConstraints(maxHeight: maxSheetHeight),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+          color: tokens.background.withValues(alpha: 0.95),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          border: Border.all(color: Colors.white12, width: 1.0),
-          boxShadow: const [
+          border: Border.all(color: tokens.surfaceBorder, width: 1.0),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black87,
+              color: tokens.scrim.withValues(alpha: 0.87),
               blurRadius: 24,
-              offset: Offset(0, -6),
+              offset: const Offset(0, -6),
             ),
           ],
         ),
@@ -98,7 +100,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                   width: 44,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: tokens.onSurfaceDisabled,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -109,15 +111,15 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.palette_rounded,
-                          color: Color(0xFFF59E0B), size: 22),
-                      SizedBox(width: 8),
+                          color: tokens.accent, size: 22),
+                      const SizedBox(width: 8),
                       Text(
                         'Live Style Studio',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: tokens.onSurface,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
@@ -126,8 +128,8 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded,
-                        color: Colors.white70, size: 22),
+                    icon: Icon(Icons.close_rounded,
+                        color: tokens.onSurfaceMuted, size: 22),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -223,9 +225,9 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: tokens.surface,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white12),
+                        border: Border.all(color: tokens.surfaceBorder),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -251,8 +253,8 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                   _buildSectionHeader('TEXT SIZE SCALE'),
                   Text(
                     '${(_fontSizeScale * 100).toInt()}%',
-                    style: const TextStyle(
-                      color: Color(0xFFF59E0B),
+                    style: TextStyle(
+                      color: tokens.accent,
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                     ),
@@ -262,19 +264,19 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  const Text('A⁻',
+                  Text('A⁻',
                       style: TextStyle(
-                          color: Colors.white70,
+                          color: tokens.onSurfaceMuted,
                           fontWeight: FontWeight.bold,
                           fontSize: 13)),
                   Expanded(
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: const Color(0xFFF59E0B),
-                        inactiveTrackColor: Colors.white12,
-                        thumbColor: const Color(0xFFF59E0B),
+                        activeTrackColor: tokens.accent,
+                        inactiveTrackColor: tokens.surfaceBorder,
+                        thumbColor: tokens.accent,
                         overlayColor:
-                            const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                            tokens.accent.withValues(alpha: 0.2),
                         trackHeight: 3.5,
                       ),
                       child: Slider(
@@ -289,9 +291,9 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                       ),
                     ),
                   ),
-                  const Text('A⁺',
+                  Text('A⁺',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: tokens.onSurface,
                           fontWeight: FontWeight.bold,
                           fontSize: 17)),
                 ],
@@ -339,14 +341,14 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+          color: context.tokens.accent.withValues(alpha: 0.4),
           width: 1.5,
         ),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Colors.black54,
+            color: context.tokens.scrim.withValues(alpha: 0.54),
             blurRadius: 12,
-            offset: Offset(0, 4),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -377,11 +379,14 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
 
           // Dark Scrim Overlay
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0x99000000), Color(0xCC000000)],
+                colors: [
+                  context.tokens.scrim.withValues(alpha: 0.6),
+                  context.tokens.scrim.withValues(alpha: 0.8),
+                ],
               ),
             ),
           ),
@@ -442,19 +447,19 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B),
+                color: context.tokens.accent,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.remove_red_eye_rounded,
-                      size: 10, color: Colors.black),
-                  SizedBox(width: 3),
+                      size: 10, color: context.tokens.scrim),
+                  const SizedBox(width: 3),
                   Text(
                     'LIVE PREVIEW',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: context.tokens.scrim,
                       fontSize: 8,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.5,
@@ -472,8 +477,8 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        color: Colors.white54,
+      style: TextStyle(
+        color: context.tokens.onSurfaceMuted,
         fontSize: 11,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.1,
@@ -495,13 +500,13 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF59E0B) : Colors.white12,
+            color: isSelected ? context.tokens.accent : context.tokens.surfaceBorder,
             width: isSelected ? 2.5 : 1.0,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                    color: context.tokens.accent.withValues(alpha: 0.4),
                     blurRadius: 8,
                   )
                 ]
@@ -532,23 +537,26 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
               Container(color: const Color(0xFF0F172A)),
 
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black87],
+                  colors: [
+                    Colors.transparent,
+                    context.tokens.scrim.withValues(alpha: 0.87),
+                  ],
                 ),
               ),
             ),
 
             if (isSelected)
-              const Positioned(
+              Positioned(
                 top: 4,
                 right: 4,
                 child: CircleAvatar(
                   radius: 8,
-                  backgroundColor: Color(0xFFF59E0B),
-                  child: Icon(Icons.check, size: 11, color: Colors.black),
+                  backgroundColor: context.tokens.accent,
+                  child: Icon(Icons.check, size: 11, color: context.tokens.scrim),
                 ),
               ),
 
@@ -580,7 +588,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
       fontFamily: font.id,
       languageCode: font.languageCode ?? languageCode,
       baseSize: 15,
-      color: isSelected ? const Color(0xFFF59E0B) : Colors.white,
+      color: isSelected ? context.tokens.accent : context.tokens.onSurface,
       fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
     );
 
@@ -596,17 +604,17 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.22)
-              : const Color(0xFF1E293B),
+              ? context.tokens.accent.withValues(alpha: 0.22)
+              : context.tokens.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF59E0B) : Colors.white12,
+            color: isSelected ? context.tokens.accent : context.tokens.surfaceBorder,
             width: isSelected ? 1.5 : 1.0,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                    color: context.tokens.accent.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -619,12 +627,12 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: context.tokens.scrim.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
-                      : Colors.white10,
+                      ? context.tokens.accent.withValues(alpha: 0.5)
+                      : context.tokens.surfaceBorder,
                   width: 0.8,
                 ),
               ),
@@ -640,7 +648,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
             Text(
               font.name,
               style: TextStyle(
-                color: isSelected ? const Color(0xFFF59E0B) : Colors.white,
+                color: isSelected ? context.tokens.accent : context.tokens.onSurface,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 fontSize: 13,
               ),
@@ -666,7 +674,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
           shape: BoxShape.circle,
           color: colorOption.color,
           border: Border.all(
-            color: isSelected ? Colors.white : Colors.transparent,
+            color: isSelected ? context.tokens.onSurface : Colors.transparent,
             width: 2.5,
           ),
           boxShadow: [
@@ -705,11 +713,11 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
         height: 40,
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
-              : const Color(0xFF1E293B),
+              ? context.tokens.accent.withValues(alpha: 0.25)
+              : context.tokens.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isActive ? const Color(0xFFF59E0B) : Colors.white12,
+            color: isActive ? context.tokens.accent : context.tokens.surfaceBorder,
             width: isActive ? 1.5 : 1.0,
           ),
         ),
@@ -717,7 +725,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
           child: Text(
             label,
             style: TextStyle(
-              color: isActive ? const Color(0xFFF59E0B) : Colors.white,
+              color: isActive ? context.tokens.accent : context.tokens.onSurface,
               fontWeight: isBoldLabel ? FontWeight.w900 : FontWeight.w600,
               fontStyle: isItalicLabel ? FontStyle.italic : FontStyle.normal,
               fontSize: 16,
@@ -738,13 +746,13 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF59E0B) : Colors.transparent,
+          color: isSelected ? context.tokens.accent : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
           icon,
           size: 18,
-          color: isSelected ? Colors.black : Colors.white70,
+          color: isSelected ? context.tokens.scrim : context.tokens.onSurfaceMuted,
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/models/video.dart';
 
 enum PlaylistLoopMode { off, all, one }
@@ -43,18 +44,18 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final tokens = context.tokens;
+    final primary = context.primary;
     final total = widget.playlist.length;
     final currentNumber = widget.currentIndex + 1;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+        color: tokens.surfaceVariant,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.08),
+          color: tokens.surfaceBorder,
         ),
       ),
       child: Column(
@@ -72,10 +73,10 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                          color: primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.playlist_play, color: Color(0xFF3B82F6), size: 20),
+                        child: Icon(Icons.playlist_play, color: primary, size: 20),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -91,14 +92,14 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                             const SizedBox(height: 2),
                             Text(
                               'Video $currentNumber of $total',
-                              style: const TextStyle(color: Colors.grey, fontSize: 12),
+                              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
                             ),
                           ],
                         ),
                       ),
                       Icon(
                         _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                        color: Colors.grey,
+                        color: tokens.onSurfaceMuted,
                       ),
                     ],
                   ),
@@ -117,8 +118,8 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                                   ? Icons.repeat
                                   : Icons.repeat,
                           color: widget.loopMode != PlaylistLoopMode.off
-                              ? const Color(0xFF3B82F6)
-                              : Colors.grey,
+                              ? primary
+                              : tokens.onSurfaceMuted,
                           size: 20,
                         ),
                         tooltip: widget.loopMode == PlaylistLoopMode.one
@@ -141,7 +142,7 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                       IconButton(
                         icon: Icon(
                           Icons.shuffle,
-                          color: widget.isShuffle ? const Color(0xFF3B82F6) : Colors.grey,
+                          color: widget.isShuffle ? primary : tokens.onSurfaceMuted,
                           size: 20,
                         ),
                         tooltip: 'Shuffle',
@@ -165,11 +166,11 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                       // Autoplay Switch
                       Row(
                         children: [
-                          const Text('Autoplay', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text('Autoplay', style: TextStyle(fontSize: 11, color: tokens.onSurfaceMuted)),
                           const SizedBox(width: 4),
                           Switch(
                             value: widget.isAutoplay,
-                            activeColor: const Color(0xFF3B82F6),
+                            activeThumbColor: primary,
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             onChanged: widget.onToggleAutoplay,
                           ),
@@ -201,7 +202,7 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       color: isCurrent
-                          ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
+                          ? tokens.surfaceVariant
                           : Colors.transparent,
                       child: Row(
                         children: [
@@ -209,10 +210,10 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                           SizedBox(
                             width: 24,
                             child: isCurrent
-                                ? const Icon(Icons.play_arrow_rounded, color: Color(0xFF3B82F6), size: 20)
+                                ? Icon(Icons.play_arrow_rounded, color: primary, size: 20)
                                 : Text(
                                     '${index + 1}',
-                                    style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12, fontWeight: FontWeight.bold),
                                     textAlign: TextAlign.center,
                                   ),
                           ),
@@ -230,8 +231,8 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                                   CachedNetworkImage(
                                     imageUrl: video.thumbnailUrl,
                                     fit: BoxFit.cover,
-                                    placeholder: (_, __) => Container(color: Colors.grey.shade800),
-                                    errorWidget: (_, __, ___) => Container(color: Colors.grey.shade800),
+                                    placeholder: (_, __) => Container(color: tokens.surfaceVariant),
+                                    errorWidget: (_, __, ___) => Container(color: tokens.surfaceVariant),
                                   ),
                                   if (video.duration != null && video.duration!.isNotEmpty)
                                     Positioned(
@@ -265,7 +266,7 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                                   style: TextStyle(
                                     fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                                     fontSize: 13,
-                                    color: isCurrent ? const Color(0xFF3B82F6) : null,
+                                    color: isCurrent ? primary : null,
                                   ),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -273,7 +274,7 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                                 const SizedBox(height: 2),
                                 Text(
                                   video.channelTitle,
-                                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                  style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 import '../../core/models/short.dart';
@@ -89,7 +90,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.search, size: 64, color: Colors.grey.shade400),
+                      Icon(Icons.search, size: 64, color: context.tokens.onSurfaceDisabled),
                       const SizedBox(height: 12),
                       Text('Search ${AppConfig.appName} videos, lessons, and clips'),
                     ],

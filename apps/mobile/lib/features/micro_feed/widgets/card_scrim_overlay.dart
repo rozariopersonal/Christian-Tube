@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class CardScrimOverlay extends StatelessWidget {
   final double opacity;
@@ -18,10 +19,10 @@ class CardScrimOverlay extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.black.withValues(alpha: (opacity * 0.85).clamp(0.0, 1.0)),
-            Colors.black.withValues(alpha: (opacity * 0.75).clamp(0.0, 1.0)),
-            Colors.black.withValues(alpha: (opacity * 0.80).clamp(0.0, 1.0)),
-            Colors.black.withValues(alpha: (opacity * 1.15).clamp(0.0, 1.0)),
+            context.tokens.scrim.withValues(alpha: (opacity * 0.85).clamp(0.0, 1.0)),
+            context.tokens.scrim.withValues(alpha: (opacity * 0.75).clamp(0.0, 1.0)),
+            context.tokens.scrim.withValues(alpha: (opacity * 0.80).clamp(0.0, 1.0)),
+            context.tokens.scrim.withValues(alpha: (opacity * 1.15).clamp(0.0, 1.0)),
           ],
           stops: const [0.0, 0.30, 0.65, 1.0],
         ),

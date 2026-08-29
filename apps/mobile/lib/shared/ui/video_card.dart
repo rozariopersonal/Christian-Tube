@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/models/video.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/utils/formatters.dart';
 import 'channel_avatar.dart';
 import 'video_options_bottom_sheet.dart';
@@ -21,6 +22,7 @@ class VideoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     return InkWell(
       onTap: onTap ?? () => context.push('/watch/${video.id}', extra: video),
@@ -35,10 +37,10 @@ class VideoCard extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: video.thumbnailUrl,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(color: Colors.grey.shade300),
+                  placeholder: (context, url) => Container(color: tokens.surfaceVariant),
                   errorWidget: (context, url, error) => Container(
-                    color: Colors.grey.shade400,
-                    child: const Icon(Icons.broken_image, color: Colors.white70),
+                    color: tokens.surfaceVariant,
+                    child: Icon(Icons.broken_image, color: tokens.onSurfaceDisabled),
                   ),
                 ),
               ),
@@ -123,7 +125,7 @@ class VideoCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.grey.shade600,
+                          color: tokens.onSurfaceMuted,
                         ),
                       ),
                     ],

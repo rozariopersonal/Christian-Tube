@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/models/video.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/utils/formatters.dart';
 
 class SearchVideoCard extends StatelessWidget {
@@ -12,6 +13,7 @@ class SearchVideoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     return InkWell(
       onTap: () => context.push('/watch/${video.id}', extra: video),
@@ -75,12 +77,12 @@ class SearchVideoCard extends StatelessWidget {
                     video.channelTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                    style: theme.textTheme.bodySmall?.copyWith(color: tokens.onSurfaceMuted),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${Formatters.formatViews(video.viewCount)} views • ${Formatters.formatTimeAgo(video.publishedAt)}',
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade500, fontSize: 11),
+                    style: theme.textTheme.bodySmall?.copyWith(color: tokens.onSurfaceMuted, fontSize: 11),
                   ),
                 ],
               ),

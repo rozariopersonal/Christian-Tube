@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
+import 'app_tokens.dart';
 
 enum AppColorTheme {
   blue(name: 'Sapphire Blue', color: Color(0xFF3B82F6)),
@@ -139,6 +140,8 @@ class ThemeService extends ChangeNotifier {
     final primaryColor = _colorTheme.color;
     final accentColor = AppConfig.accentColor;
 
+    final AppTokens tokens = AppTokens.light.copyWith(accent: accentColor);
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
@@ -147,33 +150,34 @@ class ThemeService extends ChangeNotifier {
         brightness: Brightness.light,
         primary: primaryColor,
         secondary: accentColor,
-        surface: Colors.white,
+        surface: tokens.surface,
       ),
-      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+      scaffoldBackgroundColor: tokens.background,
+      extensions: [tokens],
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: tokens.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.black.withValues(alpha: 0.06)),
+          side: BorderSide(color: tokens.surfaceBorder),
         ),
       ),
       textTheme: _getTextTheme(ThemeData.light().textTheme),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
+      appBarTheme: AppBarTheme(
+        backgroundColor: tokens.surface,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        iconTheme: IconThemeData(color: Colors.black87),
+        iconTheme: IconThemeData(color: tokens.onSurface),
         titleTextStyle: TextStyle(
-          color: Colors.black87,
+          color: tokens.onSurface,
           fontSize: 18,
           fontWeight: FontWeight.w600,
         ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: tokens.surface,
         selectedItemColor: primaryColor,
-        unselectedItemColor: Colors.black54,
+        unselectedItemColor: tokens.onSurfaceMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
@@ -186,6 +190,14 @@ class ThemeService extends ChangeNotifier {
     final bgColor = _isAmoled ? Colors.black : const Color(0xFF0F172A);
     final cardColor = _isAmoled ? const Color(0xFF121212) : const Color(0xFF1E293B);
 
+    final AppTokens tokens = AppTokens.dark.copyWith(
+      background: bgColor,
+      surface: cardColor,
+      surfaceVariant: cardColor,
+      surfaceElevated: _isAmoled ? const Color(0xFF1E293B) : const Color(0xFF283548),
+      accent: accentColor,
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -197,12 +209,13 @@ class ThemeService extends ChangeNotifier {
         surface: cardColor,
       ),
       scaffoldBackgroundColor: bgColor,
+      extensions: [tokens],
       cardTheme: CardThemeData(
         color: cardColor,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          side: BorderSide(color: tokens.surfaceBorder),
         ),
       ),
       textTheme: _getTextTheme(ThemeData.dark().textTheme),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/config/app_config.dart';
 import '../../core/models/video.dart';
 import '../../core/utils/formatters.dart';
@@ -31,25 +32,29 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _confirmClearHistory() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Clear Watch History?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text(
-          'This will clear your watch history from all ChristianApp sessions on this device.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+      builder: (ctx) {
+        final tokens = ctx.tokens;
+        final scheme = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          backgroundColor: tokens.surface,
+          title: Text('Clear Watch History?', style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold)),
+          content: Text(
+            'This will clear your watch history from all ChristianApp sessions on this device.',
+            style: TextStyle(color: tokens.onSurfaceMuted),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Clear History', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel', style: TextStyle(color: tokens.onSurfaceMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: scheme.error),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('Clear History', style: TextStyle(color: scheme.onError)),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirm == true) {
@@ -68,11 +73,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return AnimatedBuilder(
       animation: _userService,
       builder: (context, _) {
+        final tokens = context.tokens;
         final allHistory = _userService.history;
         final filteredList = _searchQuery.isEmpty
             ? allHistory
@@ -83,18 +87,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
               }).toList();
 
         return Scaffold(
-          backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+          backgroundColor: tokens.background,
           appBar: AppBar(
-            backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+            backgroundColor: tokens.surface,
             elevation: 0,
             title: _isSearching
                 ? TextField(
                     controller: _searchController,
                     autofocus: true,
-                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    style: TextStyle(color: tokens.onSurface),
                     decoration: InputDecoration(
                       hintText: 'Search in history...',
-                      hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black38),
+                      hintStyle: TextStyle(color: tokens.onSurfaceDisabled),
                       border: InputBorder.none,
                     ),
                     onChanged: (val) {
@@ -128,19 +132,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               if (allHistory.isNotEmpty)
                 IconButton(
-                  icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent),
+                  icon: Icon(Icons.delete_sweep_outlined, color: Theme.of(context).colorScheme.error),
                   tooltip: 'Clear history',
                   onPressed: _confirmClearHistory,
                 ),
             ],
           ),
           body: allHistory.isEmpty
-              ? _buildEmptyState(isDark)
+              ? _buildEmptyState()
               : filteredList.isEmpty
                   ? Center(
                       child: Text(
                         'No videos matching "$_searchQuery"',
-                        style: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                        style: TextStyle(color: tokens.onSurfaceMuted),
                       ),
                     )
                   : ListView.separated(
@@ -149,7 +153,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
                       itemBuilder: (context, index) {
                         final video = filteredList[index];
-                        return _buildHistoryRow(context, video, isDark);
+                        return _buildHistoryRow(context, video);
                       },
                     ),
         );
@@ -157,7 +161,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildEmptyState(bool isDark) {
+  Widget _buildEmptyState() {
+    final tokens = context.tokens;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -167,13 +172,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                color: tokens.surfaceVariant,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.history_rounded,
                 size: 56,
-                color: isDark ? Colors.white38 : Colors.black38,
+                color: tokens.onSurfaceDisabled,
               ),
             ),
             const SizedBox(height: 20),
@@ -182,7 +187,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
+                color: tokens.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -191,7 +196,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: isDark ? Colors.white60 : Colors.black54,
+                color: tokens.onSurfaceMuted,
                 height: 1.4,
               ),
             ),
@@ -201,7 +206,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildHistoryRow(BuildContext context, Video video, bool isDark) {
+  Widget _buildHistoryRow(BuildContext context, Video video) {
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -232,8 +237,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     errorWidget: (_, __, ___) => Container(
                       width: 120,
                       height: 68,
-                      color: Colors.grey.shade800,
-                      child: const Icon(Icons.play_circle_outline, color: Colors.white54),
+                      color: context.tokens.surfaceVariant,
+                      child: Icon(Icons.play_circle_outline, color: context.tokens.onSurfaceDisabled),
                     ),
                   ),
                   if (video.duration != null && video.duration!.isNotEmpty)
@@ -274,7 +279,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.25,
-                      color: isDark ? Colors.white : Colors.black87,
+                      color: context.tokens.onSurface,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -284,7 +289,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDark ? Colors.white60 : Colors.black54,
+                      color: context.tokens.onSurfaceMuted,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -292,7 +297,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     '${Formatters.formatViews(video.viewCount)} views • ${Formatters.formatTimeAgo(video.publishedAt)}',
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? Colors.white38 : Colors.black38,
+                      color: context.tokens.onSurfaceDisabled,
                     ),
                   ),
                 ],
@@ -301,7 +306,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
             // 3-dots Menu
             PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, size: 18, color: isDark ? Colors.white60 : Colors.black54),
+              icon: Icon(Icons.more_vert, size: 18, color: context.tokens.onSurfaceMuted),
               onSelected: (action) async {
                 if (action == 'remove') {
                   await _userService.removeFromHistory(video.id);
@@ -319,13 +324,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 }
               },
               itemBuilder: (ctx) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'remove',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
-                      SizedBox(width: 8),
-                      Text('Remove from history'),
+                      Icon(Icons.delete_outline, size: 18, color: Theme.of(context).colorScheme.error),
+                      const SizedBox(width: 8),
+                      const Text('Remove from history'),
                     ],
                   ),
                 ),

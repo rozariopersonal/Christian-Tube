@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/engines/active_engine.g.dart';
 import '../core/services/bottom_bar_visibility_service.dart';
+import '../core/theme/app_tokens.dart';
 import '../features/shorts/players/shorts_player.dart';
 import '../features/update/update_service.dart';
 
@@ -102,8 +103,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final tokens = context.tokens;
     final currentPath = GoRouterState.of(context).uri.path;
     final selectedIndex = _getSelectedIndex(currentPath);
 
@@ -129,8 +129,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                         fontSize: 11,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         color: isSelected
-                            ? (isDark ? Colors.white : Colors.black)
-                            : (isDark ? Colors.white70 : Colors.black54),
+                            ? tokens.onSurface
+                            : tokens.onSurfaceMuted,
                       );
                     }),
                     iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -138,44 +138,44 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                       return IconThemeData(
                         size: 24,
                         color: isSelected
-                            ? (isDark ? Colors.white : Colors.black)
-                            : (isDark ? Colors.white70 : Colors.black54),
+                            ? tokens.onSurface
+                            : tokens.onSurfaceMuted,
                       );
                     }),
                   ),
                   child: NavigationBar(
                     selectedIndex: selectedIndex,
-                    backgroundColor: isDark ? Colors.black : Colors.white,
+                    backgroundColor: tokens.surface,
                     elevation: 0,
                     onDestinationSelected: _onTabSelected,
-                    destinations: [
-                      const NavigationDestination(
+                    destinations: const [
+                      NavigationDestination(
                         icon: Icon(Icons.home_outlined),
                         selectedIcon: Icon(Icons.home_filled),
                         label: 'Home',
                       ),
-                      const NavigationDestination(
+                      NavigationDestination(
                         icon: Icon(Icons.bolt_outlined),
                         selectedIcon: Icon(Icons.bolt),
                         label: 'Shorts',
                       ),
-                      const NavigationDestination(
+                      NavigationDestination(
                         icon: Icon(Icons.menu_book_outlined),
                         selectedIcon: Icon(Icons.menu_book),
                         label: 'Bible',
                       ),
                       if (kMicroFeedEnabled)
-                        const NavigationDestination(
+                        NavigationDestination(
                           icon: Icon(Icons.auto_awesome_outlined),
                           selectedIcon: Icon(Icons.auto_awesome),
                           label: 'Words',
                         ),
-                      const NavigationDestination(
+                      NavigationDestination(
                         icon: Icon(Icons.subscriptions_outlined),
                         selectedIcon: Icon(Icons.subscriptions),
                         label: 'Subscriptions',
                       ),
-                      const NavigationDestination(
+                      NavigationDestination(
                         icon: Icon(Icons.account_circle_outlined),
                         selectedIcon: Icon(Icons.account_circle),
                         label: 'You',

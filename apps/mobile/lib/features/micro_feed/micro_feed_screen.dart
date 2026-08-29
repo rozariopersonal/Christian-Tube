@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/engines/base_feed_engine.dart';
 import '../../core/services/bottom_bar_visibility_service.dart';
+import '../../core/theme/app_tokens.dart';
 import '../engines/scripture/models/scripture_card.dart';
 import '../engines/scripture/models/scripture_filter_state.dart';
 import '../engines/scripture/scripture_engine.dart';
@@ -196,7 +197,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
     if (_isLoading) {
       if (widget.engine is ScriptureEngine) {
         return Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: context.tokens.scrim,
           body: Center(
             child: ValueListenableBuilder<double>(
               valueListenable: OfflineFeedDatabase().downloadProgress,
@@ -204,8 +205,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const CircularProgressIndicator(
-                      color: Color(0xFFF59E0B),
+                    CircularProgressIndicator(
+                      color: context.accent,
                       strokeWidth: 2.5,
                     ),
                     const SizedBox(height: 24),
@@ -215,8 +216,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                               ? 'Downloading offline database... ${(progress * 100).toInt()}%'
                               : 'Setting up offline engine...')
                           : 'Loading feed...',
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: context.tokens.onSurfaceMuted,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 0.5,
@@ -227,8 +228,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                         padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
                         child: LinearProgressIndicator(
                           value: progress,
-                          backgroundColor: Colors.white12,
-                          color: const Color(0xFFF59E0B),
+                          backgroundColor: context.tokens.surfaceBorder,
+                          color: context.accent,
                           minHeight: 4,
                         ),
                       ),
@@ -240,11 +241,11 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
         );
       }
 
-      return const Scaffold(
-        backgroundColor: Colors.black,
+      return Scaffold(
+        backgroundColor: context.tokens.scrim,
         body: Center(
           child: CircularProgressIndicator(
-            color: Color(0xFFF59E0B),
+            color: context.accent,
             strokeWidth: 2.5,
           ),
         ),
@@ -253,22 +254,22 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
     if (_errorMessage != null && _items.isEmpty) {
       return Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: context.tokens.scrim,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.signal_wifi_connected_no_internet_4_rounded,
-                  color: Colors.white38,
+                  color: context.tokens.onSurfaceDisabled,
                   size: 54,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   _errorMessage!,
-                  style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -277,7 +278,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   icon: const Icon(Icons.refresh),
                   label: const Text('Refresh'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF59E0B),
+                    backgroundColor: context.accent,
                     foregroundColor: Colors.black,
                   ),
                 ),
@@ -290,22 +291,22 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
     if (_items.isEmpty && _errorMessage == null) {
       return Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: context.tokens.scrim,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.auto_stories_rounded,
-                  color: Colors.white38,
+                  color: context.tokens.onSurfaceDisabled,
                   size: 54,
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'No verses matched your filters yet.',
-                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -314,7 +315,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   icon: const Icon(Icons.refresh),
                   label: const Text('Refresh'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF59E0B),
+                    backgroundColor: context.accent,
                     foregroundColor: Colors.black,
                   ),
                 ),
@@ -332,7 +333,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
         hasValidCurrentItem ? _getKeyForIndex(_currentPage) : null;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: context.tokens.scrim,
       body: Stack(
         children: [
           // 1. Vertical PageView (ONLY content cards slide)

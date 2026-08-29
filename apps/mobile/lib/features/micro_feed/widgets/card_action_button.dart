@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class CardActionButton extends StatelessWidget {
   final IconData icon;
@@ -35,17 +36,17 @@ class CardActionButton extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isActive
-                    ? Colors.white.withOpacity(0.25)
-                    : Colors.black.withOpacity(0.4),
+                    ? Colors.white.withValues(alpha: 0.25)
+                    : context.tokens.scrim.withValues(alpha: 0.4),
                 border: Border.all(
                   color: isActive
-                      ? Colors.white.withOpacity(0.6)
-                      : Colors.white.withOpacity(0.15),
+                      ? Colors.white.withValues(alpha: 0.6)
+                      : Colors.white.withValues(alpha: 0.15),
                   width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -61,7 +62,7 @@ class CardActionButton extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 shadows: const [

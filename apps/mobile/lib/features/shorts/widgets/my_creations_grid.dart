@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/models/local_short_item.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
 
 class MyCreationsGrid extends StatelessWidget {
@@ -29,8 +30,8 @@ class MyCreationsGrid extends StatelessWidget {
                 : 2;
 
         return RefreshIndicator(
-          color: const Color(0xFFF59E0B),
-          backgroundColor: const Color(0xFF1E293B),
+          color: context.accent,
+          backgroundColor: context.tokens.surface,
           onRefresh: onRefresh,
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -43,18 +44,18 @@ class MyCreationsGrid extends StatelessWidget {
                     children: [
                       Text(
                         '${items.length} ${items.length == 1 ? 'Creation' : 'Creations'}',
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: context.tokens.onSurfaceMuted,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       TextButton.icon(
                         onPressed: onRefresh,
-                        icon: const Icon(Icons.sync, size: 16, color: Color(0xFFF59E0B)),
-                        label: const Text(
+                        icon: Icon(Icons.sync, size: 16, color: context.accent),
+                        label: Text(
                           'Refresh',
-                          style: TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: context.accent, fontSize: 13, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -116,11 +117,11 @@ class CreationGridCard extends StatelessWidget {
       onLongPress: onDeleteTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: context.tokens.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: item.status == ShortCreationStatus.published
-                ? Colors.white12
+                ? context.tokens.surfaceBorder
                 : item.statusColor.withValues(alpha: 0.75),
             width: item.status == ShortCreationStatus.published ? 1.0 : 1.5,
           ),
@@ -141,30 +142,30 @@ class CreationGridCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: item.sourceVideoThumbnail!,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: const Color(0xFF0F172A)),
+                placeholder: (_, __) => Container(color: context.tokens.background),
                 errorWidget: (_, __, ___) => Container(
-                  color: const Color(0xFF0F172A),
+                  color: context.tokens.background,
                   child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
                 ),
               )
             else
               Container(
-                color: const Color(0xFF0F172A),
+                color: context.tokens.background,
                 child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
               ),
 
             // Subtle Gradient Overlay
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0x77000000),
-                    Color(0x00000000),
-                    Color(0xDD000000),
+                    context.tokens.scrim.withValues(alpha: 0.47),
+                    context.tokens.scrim.withValues(alpha: 0.0),
+                    context.tokens.scrim.withValues(alpha: 0.87),
                   ],
-                  stops: [0.0, 0.4, 1.0],
+                  stops: const [0.0, 0.4, 1.0],
                 ),
               ),
             ),
@@ -290,7 +291,7 @@ class CreationGridBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: context.tokens.background.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.75), width: 1.2),
         boxShadow: [
@@ -362,7 +363,7 @@ class CreationStatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: context.tokens.background.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.8), width: 1.2),
         boxShadow: [
@@ -411,10 +412,10 @@ class CreationStatusChip extends StatelessWidget {
             const SizedBox(width: 6),
             GestureDetector(
               onTap: onRetry,
-              child: const Text(
+              child: Text(
                 'Retry',
                 style: TextStyle(
-                  color: Color(0xFFF59E0B),
+                  color: context.accent,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   decoration: TextDecoration.underline,
@@ -458,15 +459,15 @@ class NonPlayableShortCard extends StatelessWidget {
           CachedNetworkImage(
             imageUrl: item.sourceVideoThumbnail!,
             fit: BoxFit.cover,
-            placeholder: (_, __) => Container(color: const Color(0xFF0F172A)),
-            errorWidget: (_, __, ___) => Container(color: const Color(0xFF0F172A)),
+            placeholder: (_, __) => Container(color: context.tokens.background),
+            errorWidget: (_, __, ___) => Container(color: context.tokens.background),
           )
         else
-          Container(color: const Color(0xFF0F172A)),
+          Container(color: context.tokens.background),
 
         // Dark frosted overlay
         Container(
-          color: Colors.black.withValues(alpha: 0.78),
+          color: context.tokens.scrim.withValues(alpha: 0.78),
         ),
 
         // Central Status Card
@@ -476,7 +477,7 @@ class NonPlayableShortCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withValues(alpha: 0.92),
+                color: context.tokens.surface.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: color.withValues(alpha: 0.75),
@@ -567,7 +568,7 @@ class NonPlayableShortCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.black45,
+                        color: context.tokens.surfaceElevated.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -575,8 +576,8 @@ class NonPlayableShortCard extends StatelessWidget {
                         textAlign: TextAlign.center,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white54,
+                        style: TextStyle(
+                          color: context.tokens.onSurfaceMuted,
                           fontSize: 11,
                         ),
                       ),
@@ -592,7 +593,7 @@ class NonPlayableShortCard extends StatelessWidget {
                       children: [
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF59E0B),
+                            backgroundColor: context.accent,
                             foregroundColor: Colors.black,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
@@ -612,8 +613,8 @@ class NonPlayableShortCard extends StatelessWidget {
                         const SizedBox(width: 10),
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white70,
-                            side: const BorderSide(color: Colors.white24),
+                            foregroundColor: context.tokens.onSurfaceMuted,
+                            side: BorderSide(color: context.tokens.surfaceBorder),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),

@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../../core/theme/app_tokens.dart';
 
 class ChannelAvatar extends StatelessWidget {
   final String? avatarUrl;
@@ -18,7 +19,7 @@ class ChannelAvatar extends StatelessWidget {
     if (avatarUrl != null && avatarUrl!.isNotEmpty) {
       return CircleAvatar(
         radius: radius,
-        backgroundColor: Colors.grey.shade300,
+        backgroundColor: context.tokens.surfaceVariant,
         backgroundImage: CachedNetworkImageProvider(avatarUrl!),
       );
     }

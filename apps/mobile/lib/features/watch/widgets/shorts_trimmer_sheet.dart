@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../auth/auth_service.dart';
 import '../../../../core/models/local_short_item.dart';
 import '../../shorts/services/shorts_orchestrator_service.dart';
@@ -78,8 +79,8 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
 
     final currentUser = _authService.currentUser;
     _creatorNameController = TextEditingController(
-      text: (currentUser?.displayName != null && currentUser!.displayName!.isNotEmpty)
-          ? currentUser.displayName!
+      text: (currentUser?.displayName != null && currentUser!.displayName.isNotEmpty)
+          ? currentUser.displayName
           : 'Believer in Christ',
     );
     _creatorEmailController = TextEditingController(
@@ -210,17 +211,17 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: context.tokens.surface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Row(
           children: [
-            const Icon(Icons.auto_awesome, color: Color(0xFFF59E0B), size: 20),
+            Icon(Icons.auto_awesome, color: context.tokens.accent, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 '✂️ Clipping Short (${_formatSeconds(_clipDuration)})... You can check progress under "My Creations"!',
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+                style: TextStyle(color: context.tokens.onSurface, fontSize: 13),
               ),
             ),
           ],
@@ -233,13 +234,14 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final is9x16 = _framingMode == ShortsFramingMode.portrait9x16;
+    final tokens = context.tokens;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.94,
       padding: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F172A),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: tokens.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
@@ -250,13 +252,13 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
-                  children: const [
-                    Icon(Icons.content_cut, color: Color(0xFFF59E0B), size: 22),
-                    SizedBox(width: 8),
+                  children: [
+                    Icon(Icons.content_cut, color: tokens.accent, size: 22),
+                    const SizedBox(width: 8),
                     Text(
                       'Create Short (Up to 3 mins)',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: tokens.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -264,13 +266,13 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70),
+                  icon: Icon(Icons.close, color: tokens.onSurfaceMuted),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
           ),
-          const Divider(color: Colors.white12, height: 1),
+          Divider(color: tokens.surfaceBorder, height: 1),
 
           Expanded(
             child: SingleChildScrollView(
@@ -330,25 +332,25 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B),
+                                color: tokens.surface,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.6),
+                                  color: tokens.accent.withValues(alpha: 0.6),
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
-                                children: const [
+                                children: [
                                   Icon(
                                     Icons.play_arrow_rounded,
                                     size: 13,
-                                    color: Color(0xFFF59E0B),
+                                    color: tokens.accent,
                                   ),
-                                  SizedBox(width: 3),
+                                  const SizedBox(width: 3),
                                   Text(
                                     'Play/Pause',
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: tokens.onSurface,
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -370,10 +372,10 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B),
+                                color: tokens.surface,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: _isLooping ? const Color(0xFFF59E0B) : Colors.white24,
+                                  color: _isLooping ? tokens.accent : tokens.surfaceBorder,
                                 ),
                               ),
                               child: Row(
@@ -382,13 +384,13 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                   Icon(
                                     Icons.repeat,
                                     size: 12,
-                                    color: _isLooping ? const Color(0xFFF59E0B) : Colors.white70,
+                                    color: _isLooping ? tokens.accent : tokens.onSurfaceMuted,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     _isLooping ? 'Loop On' : 'Loop Off',
                                     style: TextStyle(
-                                      color: _isLooping ? const Color(0xFFF59E0B) : Colors.white70,
+                                      color: _isLooping ? tokens.accent : tokens.onSurfaceMuted,
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -405,13 +407,13 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                   if (is9x16) ...[
                     const SizedBox(height: 6),
                     Row(
-                      children: const [
-                        Icon(Icons.touch_app_outlined, color: Color(0xFFF59E0B), size: 13),
-                        SizedBox(width: 5),
+                      children: [
+                        Icon(Icons.touch_app_outlined, color: tokens.accent, size: 13),
+                        const SizedBox(width: 5),
                         Text(
                           'Drag on the preview to move the 9:16 crop window across the stage',
                           style: TextStyle(
-                            color: Colors.white54,
+                            color: tokens.onSurfaceMuted,
                             fontSize: 11,
                             fontStyle: FontStyle.italic,
                           ),
@@ -426,10 +428,10 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'POSITION IN FULL VIDEO',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: tokens.onSurfaceMuted,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.1,
@@ -439,14 +441,14 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B),
+                          color: tokens.surface,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white24),
+                          border: Border.all(color: tokens.surfaceBorder),
                         ),
                         child: Text(
                           '${_formatSeconds(_clipStartTime)}  ➔  ${_formatSeconds(_clipEndTime)}',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: tokens.onSurface,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             fontFamily: 'monospace',
@@ -462,9 +464,9 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                     height: 48,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
+                      color: tokens.background,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white12),
+                      border: Border.all(color: tokens.surfaceBorder),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: LayoutBuilder(
@@ -502,9 +504,9 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                         imageUrl: _getTimelineThumbnailUrl(
                                             i, thumbnailCount),
                                         fit: BoxFit.cover,
-                                        placeholder: (context, url) =>
+placeholder: (context, url) =>
                                             Container(
-                                          color: const Color(0xFF1E293B),
+                                          color: tokens.surface,
                                           child: const Center(
                                             child: SizedBox(
                                               width: 12,
@@ -513,7 +515,7 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                                 strokeWidth: 1.5,
                                                 valueColor:
                                                     AlwaysStoppedAnimation<
-                                                            Color>(
+                                                        Color>(
                                                         Colors.white24),
                                               ),
                                             ),
@@ -521,10 +523,10 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                         ),
                                         errorWidget: (context, url, error) =>
                                             Container(
-                                          color: const Color(0xFF1E293B),
-                                          child: const Icon(
+                                          color: tokens.surface,
+                                          child: Icon(
                                             Icons.movie_creation_outlined,
-                                            color: Colors.white24,
+                                            color: tokens.onSurfaceDisabled,
                                             size: 16,
                                           ),
                                         ),
@@ -569,16 +571,16 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                               bottom: 0,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF59E0B)
+                                  color: tokens.accent
                                       .withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                    color: const Color(0xFFF59E0B),
+                                    color: tokens.accent,
                                     width: 2.0,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFFF59E0B)
+                                      color: tokens.accent
                                           .withValues(alpha: 0.35),
                                       blurRadius: 6,
                                       spreadRadius: 0.5,
@@ -614,14 +616,14 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                         borderRadius:
                                             BorderRadius.circular(4),
                                         border: Border.all(
-                                          color: const Color(0xFFF59E0B),
+                                          color: tokens.accent,
                                           width: 1,
                                         ),
                                       ),
                                       child: Text(
                                         _formatSeconds(_clipDuration),
-                                        style: const TextStyle(
-                                          color: Color(0xFFF59E0B),
+                                        style: TextStyle(
+                                          color: tokens.accent,
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
                                           fontFamily: 'monospace',
@@ -665,7 +667,7 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                       color: Colors.white,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.amber
+                                          color: tokens.accent
                                               .withValues(alpha: 0.9),
                                           blurRadius: 5,
                                           spreadRadius: 1.5,
@@ -727,9 +729,9 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                       // Start Nudge (-5s, -1s, +1s, +5s)
                       Row(
                         children: [
-                          const Text('Start: ',
+                          Text('Start: ',
                               style: TextStyle(
-                                  color: Colors.white54, fontSize: 11)),
+                                  color: tokens.onSurfaceMuted, fontSize: 11)),
                           _buildNudgeBtn('-5s', () => _nudgeStartTime(-5.0)),
                           const SizedBox(width: 3),
                           _buildNudgeBtn('-1s', () => _nudgeStartTime(-1.0)),
@@ -747,20 +749,20 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
+                            color: tokens.surface,
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.white24),
+                            border: Border.all(color: tokens.surfaceBorder),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: const [
+                            children: [
                               Icon(Icons.my_location,
-                                  size: 12, color: Colors.white70),
-                              SizedBox(width: 4),
+                                  size: 12, color: tokens.onSurfaceMuted),
+                              const SizedBox(width: 4),
                               Text(
                                 'Snap',
                                 style: TextStyle(
-                                  color: Colors.white70,
+                                  color: tokens.onSurfaceMuted,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -772,9 +774,9 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                       // End Nudge (-5s, -1s, +1s, +5s)
                       Row(
                         children: [
-                          const Text('End: ',
+                          Text('End: ',
                               style: TextStyle(
-                                  color: Colors.white54, fontSize: 11)),
+                                  color: tokens.onSurfaceMuted, fontSize: 11)),
                           _buildNudgeBtn('-5s', () => _nudgeEndTime(-5.0)),
                           const SizedBox(width: 3),
                           _buildNudgeBtn('-1s', () => _nudgeEndTime(-1.0)),
@@ -793,10 +795,10 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'CLIP DURATION',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: tokens.onSurfaceMuted,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.1,
@@ -806,14 +808,14 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                          color: tokens.accent.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFF59E0B)),
+                          border: Border.all(color: tokens.accent),
                         ),
                         child: Text(
                           _formatSeconds(_clipDuration),
-                          style: const TextStyle(
-                            color: Color(0xFFF59E0B),
+                          style: TextStyle(
+                            color: tokens.accent,
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
@@ -840,13 +842,13 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                   SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       trackHeight: 6,
-                      activeTrackColor: const Color(0xFFF59E0B),
-                      inactiveTrackColor: Colors.white12,
-                      thumbColor: const Color(0xFFF59E0B),
+                      activeTrackColor: tokens.accent,
+                      inactiveTrackColor: tokens.surfaceBorder,
+                      thumbColor: tokens.accent,
                       thumbShape:
                           const RoundSliderThumbShape(enabledThumbRadius: 10),
-                      overlayColor: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                      valueIndicatorColor: const Color(0xFFF59E0B),
+                      overlayColor: tokens.accent.withValues(alpha: 0.2),
+                      valueIndicatorColor: tokens.accent,
                       valueIndicatorTextStyle: const TextStyle(
                         color: Colors.black,
                         fontWeight: FontWeight.bold,
@@ -874,10 +876,10 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                   const SizedBox(height: 20),
 
                   // 5. METADATA INPUTS
-                  const Text(
+                  Text(
                     'SHORT DETAILS',
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: tokens.onSurfaceMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.1,
@@ -888,19 +890,19 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                   // Title Field
                   TextField(
                     controller: _titleController,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: TextStyle(color: tokens.onSurface, fontSize: 14),
                     decoration: InputDecoration(
                       labelText: 'Short Title',
-                      labelStyle: const TextStyle(color: Colors.white60),
+                      labelStyle: TextStyle(color: tokens.onSurfaceMuted),
                       filled: true,
-                      fillColor: const Color(0xFF1E293B),
+                      fillColor: tokens.surface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFF59E0B)),
+                        borderSide: BorderSide(color: tokens.accent),
                       ),
                     ),
                   ),
@@ -909,19 +911,19 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                   // Creator Name Field
                   TextField(
                     controller: _creatorNameController,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: TextStyle(color: tokens.onSurface, fontSize: 14),
                     decoration: InputDecoration(
                       labelText: 'Clipped by (Your Name)',
-                      labelStyle: const TextStyle(color: Colors.white60),
+                      labelStyle: TextStyle(color: tokens.onSurfaceMuted),
                       filled: true,
-                      fillColor: const Color(0xFF1E293B),
+                      fillColor: tokens.surface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFF59E0B)),
+                        borderSide: BorderSide(color: tokens.accent),
                       ),
                     ),
                   ),
@@ -935,16 +937,16 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                     child: ElevatedButton(
                       onPressed: _onPublish,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF59E0B),
+                        backgroundColor: tokens.accent,
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                         elevation: 4,
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
+                        children: [
                           Icon(Icons.rocket_launch, size: 20),
                           SizedBox(width: 10),
                           Text(
@@ -986,11 +988,11 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.2)
-              : const Color(0xFF1E293B),
+              ? context.tokens.accent.withValues(alpha: 0.2)
+              : context.tokens.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF59E0B) : Colors.white12,
+            color: isSelected ? context.tokens.accent : context.tokens.surfaceBorder,
           ),
         ),
         child: Row(
@@ -999,13 +1001,13 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
             Icon(
               icon,
               size: 13,
-              color: isSelected ? const Color(0xFFF59E0B) : Colors.white70,
+              color: isSelected ? context.tokens.accent : context.tokens.onSurfaceMuted,
             ),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? const Color(0xFFF59E0B) : Colors.white70,
+                color: isSelected ? context.tokens.accent : context.tokens.onSurfaceMuted,
                 fontSize: 11.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
@@ -1023,14 +1025,14 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: context.tokens.surface,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white24),
+          border: Border.all(color: context.tokens.surfaceBorder),
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.tokens.onSurface,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -1048,17 +1050,17 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.2)
-              : const Color(0xFF1E293B),
+              ? context.tokens.accent.withValues(alpha: 0.2)
+              : context.tokens.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF59E0B) : Colors.white12,
+            color: isSelected ? context.tokens.accent : context.tokens.surfaceBorder,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? const Color(0xFFF59E0B) : Colors.white60,
+            color: isSelected ? context.tokens.accent : context.tokens.onSurfaceMuted,
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),

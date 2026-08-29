@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../models/bible_verse.dart';
 
 class VerseText extends StatelessWidget {
@@ -18,7 +19,6 @@ class VerseText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     if (verse.isChapterHeader) {
       return Padding(
@@ -52,7 +52,7 @@ class VerseText extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
                   color: verse.isSecondary
-                      ? Colors.grey.withValues(alpha: 0.25)
+                      ? context.tokens.surfaceVariant
                       : theme.colorScheme.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -60,7 +60,7 @@ class VerseText extends StatelessWidget {
                   verse.versionLabel!,
                   style: TextStyle(
                     color: verse.isSecondary
-                        ? (isDark ? Colors.white54 : Colors.black54)
+                        ? context.tokens.onSurfaceMuted
                         : theme.colorScheme.primary,
                     fontSize: fontSize * 0.55,
                     fontWeight: FontWeight.bold,
@@ -76,7 +76,7 @@ class VerseText extends StatelessWidget {
                     TextSpan(
                       text: '${verse.number} ',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.white54 : Colors.black54,
+                        color: context.tokens.onSurfaceMuted,
                         fontWeight: FontWeight.bold,
                         fontSize: fontSize * 0.7,
                       ),
@@ -87,9 +87,7 @@ class VerseText extends StatelessWidget {
                         height: 1.6,
                         fontSize: fontSize,
                         color: verse.isSecondary
-                            ? (isDark
-                                ? Colors.white.withValues(alpha: 0.85)
-                                : Colors.black.withValues(alpha: 0.72))
+                            ? context.tokens.onSurfaceMuted
                             : null,
                       ),
                     ),

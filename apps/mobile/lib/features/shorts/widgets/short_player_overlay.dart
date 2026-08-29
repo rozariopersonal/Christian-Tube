@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/short.dart';
 import '../../../core/models/local_short_item.dart';
+import '../../../core/theme/app_tokens.dart';
 import 'short_action_bar.dart';
 import 'short_bottom_details.dart';
 
@@ -75,7 +76,7 @@ class ShortPlayerOverlay extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
+                          color: context.tokens.scrim.withValues(alpha: 0.4),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -154,7 +155,7 @@ class ShortPlayerOverlay extends StatelessWidget {
                 child: Container(
                   width: 3,
                   decoration: BoxDecoration(
-                    color: Colors.white12,
+                    color: context.tokens.surfaceBorder,
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: FractionallySizedBox(
@@ -162,7 +163,7 @@ class ShortPlayerOverlay extends StatelessWidget {
                     heightFactor: verticalRailHeightFactor,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B),
+                        color: context.accent,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),

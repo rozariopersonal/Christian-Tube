@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class VerseActionBar extends StatelessWidget {
   final int selectedCount;
@@ -20,14 +21,16 @@ class VerseActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (selectedCount == 0) return const SizedBox.shrink();
 
+    final tokens = context.tokens;
+
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: tokens.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: tokens.scrim.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -38,27 +41,27 @@ class VerseActionBar extends StatelessWidget {
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.close, color: Colors.white70),
+              icon: Icon(Icons.close, color: tokens.onSurfaceMuted),
               onPressed: onClear,
             ),
             Expanded(
               child: Text(
                 '$selectedCount selected',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: tokens.onSurface,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             IconButton(
               tooltip: 'Share',
-              icon: const Icon(Icons.share, color: Colors.white70),
+              icon: Icon(Icons.share, color: tokens.onSurfaceMuted),
               onPressed: onShare,
             ),
             IconButton(
               tooltip: 'Bookmark',
-              icon: const Icon(Icons.bookmark_add_outlined,
-                  color: Colors.white70),
+              icon: Icon(Icons.bookmark_add_outlined,
+                  color: tokens.onSurfaceMuted),
               onPressed: onBookmark,
             ),
             ElevatedButton.icon(
@@ -66,8 +69,8 @@ class VerseActionBar extends StatelessWidget {
               icon: const Icon(Icons.copy, size: 18),
               label: const Text('Copy'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF59E0B),
-                foregroundColor: Colors.white,
+                backgroundColor: tokens.accent,
+                foregroundColor: tokens.onSurface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),

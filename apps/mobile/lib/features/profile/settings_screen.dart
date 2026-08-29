@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/theme/theme_service.dart';
 import '../update/update_service.dart';
 import 'widgets/app_share_dialog.dart';
@@ -53,7 +54,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return AnimatedBuilder(
       animation: widget.themeService,
@@ -85,9 +85,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Choose an accent color for the entire interface:',
-                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                        style: TextStyle(fontSize: 13, color: context.tokens.onSurfaceMuted),
                       ),
                       const SizedBox(height: 14),
                       Wrap(
@@ -103,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? colTheme.color.withValues(alpha: 0.15)
-                                    : (isDark ? Colors.grey.shade900 : Colors.grey.shade100),
+                                    : context.tokens.surfaceVariant,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: isSelected ? colTheme.color : Colors.transparent,
@@ -198,9 +198,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Select a font family for the app:',
-                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                        style: TextStyle(fontSize: 13, color: context.tokens.onSurfaceMuted),
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -232,7 +232,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     final isSelected = currentLang == lang['code'];
                     return ListTile(
                       title: Text(lang['name']!),
-                      subtitle: Text(lang['native']!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      subtitle: Text(lang['native']!, style: TextStyle(fontSize: 12, color: context.tokens.onSurfaceMuted)),
                       trailing: isSelected ? Icon(Icons.check_circle, color: theme.colorScheme.primary) : null,
                       onTap: () => widget.themeService.setLanguage(lang['code']!),
                     );

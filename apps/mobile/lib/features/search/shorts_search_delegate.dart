@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/short.dart';
 import '../../core/config/app_config.dart';
@@ -14,17 +15,18 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
   @override
   ThemeData appBarTheme(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
     return theme.copyWith(
       appBarTheme: theme.appBarTheme.copyWith(
-        backgroundColor: const Color(0xFF0F172A),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: tokens.background,
+        iconTheme: IconThemeData(color: tokens.onSurface),
       ),
-      inputDecorationTheme: const InputDecorationTheme(
-        hintStyle: TextStyle(color: Colors.white54, fontSize: 16),
+      inputDecorationTheme: InputDecorationTheme(
+        hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 16),
         border: InputBorder.none,
       ),
       textTheme: theme.textTheme.copyWith(
-        titleLarge: const TextStyle(color: Colors.white, fontSize: 16),
+        titleLarge: TextStyle(color: tokens.onSurface, fontSize: 16),
       ),
     );
   }
@@ -34,7 +36,7 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
     return [
       if (query.isNotEmpty)
         IconButton(
-          icon: const Icon(Icons.clear, color: Colors.white70),
+          icon: Icon(Icons.clear, color: context.tokens.onSurfaceMuted),
           onPressed: () => query = '',
         ),
     ];
@@ -43,7 +45,7 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
   @override
   Widget? buildLeading(BuildContext context) {
     return IconButton(
-      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+      icon: Icon(Icons.arrow_back_ios_new, color: context.tokens.onSurface, size: 20),
       onPressed: () => close(context, null),
     );
   }
@@ -51,22 +53,22 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
   @override
   Widget buildResults(BuildContext context) {
     if (query.trim().isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Type keywords to search Shorts',
-          style: TextStyle(color: Colors.white60),
+          style: TextStyle(color: context.tokens.onSurfaceMuted),
         ),
       );
     }
 
     return Container(
-      color: const Color(0xFF0A0F1D),
+      color: context.tokens.background,
       child: FutureBuilder<List<Short>>(
         future: _searchShorts(query.trim()),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFFF59E0B)),
+            return Center(
+              child: CircularProgressIndicator(color: context.tokens.accent),
             );
           }
           final shorts = snapshot.data ?? [];
@@ -75,11 +77,11 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.search_off, size: 56, color: Colors.white38),
+                  Icon(Icons.search_off, size: 56, color: context.tokens.onSurfaceDisabled),
                   const SizedBox(height: 12),
                   Text(
                     'No Shorts found for "$query"',
-                    style: const TextStyle(color: Colors.white70, fontSize: 15),
+                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 15),
                   ),
                 ],
               ),
@@ -89,7 +91,7 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
           return ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             itemCount: shorts.length,
-            separatorBuilder: (_, __) => const Divider(color: Colors.white12, height: 16),
+            separatorBuilder: (_, __) => Divider(color: context.tokens.surfaceBorder, height: 16),
             itemBuilder: (context, index) {
               final short = shorts[index];
               final durSec = short.durationSeconds > 0
@@ -113,12 +115,12 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
                               width: 80,
                               height: 120,
                               fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(color: const Color(0xFF1E293B)),
+                              placeholder: (_, __) => Container(color: context.tokens.surface),
                               errorWidget: (_, __, ___) => Container(
                                 width: 80,
                                 height: 120,
-                                color: const Color(0xFF1E293B),
-                                child: const Icon(Icons.movie, color: Colors.white24),
+                                color: context.tokens.surface,
+                                child: Icon(Icons.movie, color: context.tokens.onSurfaceDisabled),
                               ),
                             ),
                             if (durSec > 0)
@@ -151,8 +153,8 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
                               short.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: context.tokens.onSurface,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -162,8 +164,8 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
                               short.channelTitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFFF59E0B),
+                              style: TextStyle(
+                                color: context.tokens.accent,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -173,15 +175,15 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
                               short.viewCount > 0
                                   ? '${Formatters.formatViews(short.viewCount)} views'
                                   : 'Short',
-                              style: const TextStyle(
-                                color: Colors.white54,
+                              style: TextStyle(
+                                color: context.tokens.onSurfaceMuted,
                                 fontSize: 11,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.play_arrow_rounded, color: Color(0xFFF59E0B), size: 28),
+                      Icon(Icons.play_arrow_rounded, color: context.tokens.accent, size: 28),
                     ],
                   ),
                 ),
@@ -196,11 +198,11 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
   @override
   Widget buildSuggestions(BuildContext context) {
     return Container(
-      color: const Color(0xFF0A0F1D),
-      child: const Center(
+      color: context.tokens.background,
+      child: Center(
         child: Text(
           'Search Christian Shorts by title, preacher, or topic',
-          style: TextStyle(color: Colors.white38, fontSize: 13),
+          style: TextStyle(color: context.tokens.onSurfaceDisabled, fontSize: 13),
         ),
       ),
     );

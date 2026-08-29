@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class EmptyMyCreations extends StatelessWidget {
   const EmptyMyCreations({super.key});
@@ -14,30 +15,30 @@ class EmptyMyCreations extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: context.tokens.surface,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white12),
+                border: Border.all(color: context.tokens.surfaceBorder),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.content_cut,
                 size: 48,
-                color: Color(0xFFF59E0B),
+                color: context.accent,
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
+            Text(
               'No Clips Created Yet',
               style: TextStyle(
-                color: Colors.white,
+                color: context.tokens.onSurface,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'While watching any sermon or worship video, tap the "✂️ Clip Short" button to create an inspiring 1 to 3 minute clip!',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
+              style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13, height: 1.4),
             ),
           ],
         ),

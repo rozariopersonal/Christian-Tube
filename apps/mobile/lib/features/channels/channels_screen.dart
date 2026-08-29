@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/channel_request.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../shared/ui/channel_avatar.dart';
 import '../auth/auth_service.dart';
 import 'channel_service.dart';
@@ -42,7 +43,6 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final isAdmin = _authService.isAdmin;
 
     return AnimatedBuilder(
@@ -61,7 +61,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
             actions: [
               if (isAdmin)
                 IconButton(
-                  icon: const Icon(Icons.add_circle_outline, color: Color(0xFF3B82F6)),
+                  icon: Icon(Icons.add_circle_outline, color: Theme.of(context).colorScheme.primary),
                   tooltip: 'Add Channel Directly',
                   onPressed: () => _showAddChannelDialog(context),
                 )
@@ -86,7 +86,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                                color: context.tokens.surfaceVariant,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -107,12 +107,12 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.amber.shade700,
+                                  color: context.tokens.accent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
                                   '${pendingRequests.length}',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.tokens.onSurface),
                                 ),
                               ),
                             ],
@@ -127,11 +127,11 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
               ? TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildChannelsList(channels, isDark, isAdmin: true),
-                    _buildRequestsList(requests, isDark),
+                    _buildChannelsList(channels, isAdmin: true),
+                    _buildRequestsList(requests),
                   ],
                 )
-              : _buildChannelsList(channels, isDark, isAdmin: false),
+              : _buildChannelsList(channels, isAdmin: false),
           floatingActionButton: !isAdmin
               ? FloatingActionButton.extended(
                   onPressed: () => _showRequestChannelDialog(context),
@@ -144,7 +144,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildChannelsList(List<dynamic> channels, bool isDark, {required bool isAdmin}) {
+  Widget _buildChannelsList(List<dynamic> channels, {required bool isAdmin}) {
     if (_channelService.isLoading && channels.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -156,7 +156,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.tv_off_outlined, size: 64, color: Colors.grey.shade400),
+              Icon(Icons.tv_off_outlined, size: 64, color: context.tokens.onSurfaceDisabled),
               const SizedBox(height: 16),
               Text(
                 'No channels added yet',
@@ -168,7 +168,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                     ? 'As an Admin, you can search and add channels directly.'
                     : 'Submit a channel request to get it approved by the administrator.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
@@ -195,10 +195,10 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
           return Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: context.tokens.surface,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                color: context.tokens.surfaceBorder,
               ),
             ),
             child: Row(
@@ -220,7 +220,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                       const SizedBox(height: 4),
                       Text(
                         '${Formatters.formatSubscribers(ch.subscriberCount)} subscribers • ${ch.videoCount} videos',
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
                       ),
                     ],
                   ),
@@ -228,11 +228,11 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isSubscribed
-                        ? (isDark ? Colors.grey.shade800 : Colors.grey.shade200)
-                        : const Color(0xFF3B82F6),
+                        ? context.tokens.surfaceVariant
+                        : Theme.of(context).colorScheme.primary,
                     foregroundColor: isSubscribed
-                        ? (isDark ? Colors.white70 : Colors.black87)
-                        : Colors.white,
+                        ? context.tokens.onSurfaceMuted
+                        : Theme.of(context).colorScheme.onPrimary,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -259,13 +259,13 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                       }
                     },
                     itemBuilder: (ctx) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                            SizedBox(width: 8),
-                            Text('Remove Channel', style: TextStyle(color: Colors.red)),
+                            Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 20),
+                            const SizedBox(width: 8),
+                            Text('Remove Channel', style: TextStyle(color: Theme.of(context).colorScheme.error)),
                           ],
                         ),
                       ),
@@ -280,29 +280,29 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildRequestsList(List<Map<String, dynamic>> requests, bool isDark) {
+  Widget _buildRequestsList(List<Map<String, dynamic>> requests) {
     if (_channelService.isLoadingRequests && requests.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (requests.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.inbox_outlined, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
+              Icon(Icons.inbox_outlined, size: 64, color: context.tokens.onSurfaceDisabled),
+              const SizedBox(height: 16),
+              const Text(
                 'No channel requests',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 'When users request new channels, they will appear here for review.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
               ),
             ],
           ),
@@ -326,14 +326,14 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
 
           Color statusColor = Colors.amber;
           if (status == 'APPROVED') statusColor = Colors.green;
-          if (status == 'REJECTED') statusColor = Colors.red;
+          if (status == 'REJECTED') statusColor = Theme.of(context).colorScheme.error;
 
           return Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: context.tokens.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+              border: Border.all(color: context.tokens.surfaceBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,12 +363,12 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                 const SizedBox(height: 6),
                 Text(
                   'URL: $channelUrl',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Requested by: $submittedBy',
-                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 11),
                 ),
                 if (status == 'PENDING') ...[
                   const SizedBox(height: 12),
@@ -377,8 +377,8 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                     children: [
                       TextButton.icon(
                         onPressed: () => _confirmRejectRequest(context, id),
-                        icon: const Icon(Icons.close, color: Colors.red, size: 18),
-                        label: const Text('Reject', style: TextStyle(color: Colors.red)),
+                        icon: Icon(Icons.close, color: Theme.of(context).colorScheme.error, size: 18),
+                        label: Text('Reject', style: TextStyle(color: Theme.of(context).colorScheme.error)),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
@@ -392,7 +392,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(success ? 'Channel approved & video ingestion started!' : 'Approval failed'),
-                                backgroundColor: success ? Colors.green : Colors.red,
+                                backgroundColor: success ? Colors.green : Theme.of(context).colorScheme.error,
                               ),
                             );
                           }
@@ -427,7 +427,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(success ? 'Channel added successfully!' : 'Failed to add channel'),
-                backgroundColor: success ? Colors.green : Colors.red,
+                backgroundColor: success ? Colors.green : Theme.of(context).colorScheme.error,
               ),
             );
           }
@@ -456,7 +456,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(success ? 'Channel request submitted to admin!' : 'Failed to submit request'),
-                backgroundColor: success ? Colors.green : Colors.red,
+                backgroundColor: success ? Colors.green : Theme.of(context).colorScheme.error,
               ),
             );
           }
@@ -475,7 +475,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error, foregroundColor: Theme.of(context).colorScheme.onError),
             onPressed: () async {
               Navigator.pop(ctx);
               await _channelService.removeChannel(channelId);
@@ -500,7 +500,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error, foregroundColor: Theme.of(context).colorScheme.onError),
             onPressed: () async {
               Navigator.pop(ctx);
               await _channelService.rejectRequest(requestId, reasonController.text.trim());
@@ -545,13 +545,11 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+        color: context.tokens.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -575,7 +573,7 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
                 onPressed: () => _performSearch(_queryController.text),
               ),
               filled: true,
-              fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+              fillColor: context.tokens.surfaceVariant,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
             ),
             onSubmitted: _performSearch,
@@ -585,13 +583,13 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.flash_on_rounded, color: Color(0xFF2563EB), size: 20),
+                  Icon(Icons.flash_on_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -601,8 +599,8 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
                   ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
@@ -628,7 +626,7 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
                   ? Center(
                       child: Text(
                         'Search YouTube to directly ingest channels into the instance',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                        style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                       ),
                     )
                   : ListView.separated(
@@ -697,13 +695,11 @@ class _RequestChannelBottomSheetState extends State<_RequestChannelBottomSheet> 
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+        color: context.tokens.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -717,9 +713,9 @@ class _RequestChannelBottomSheetState extends State<_RequestChannelBottomSheet> 
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Find a YouTube channel you would like the admin to approve and add to the platform:',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+            style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -732,7 +728,7 @@ class _RequestChannelBottomSheetState extends State<_RequestChannelBottomSheet> 
                 onPressed: () => _search(_searchController.text),
               ),
               filled: true,
-              fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+              fillColor: context.tokens.surfaceVariant,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
             ),
             onSubmitted: _search,
@@ -747,9 +743,9 @@ class _RequestChannelBottomSheetState extends State<_RequestChannelBottomSheet> 
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.search, size: 48, color: Colors.grey.shade400),
+                          Icon(Icons.search, size: 48, color: context.tokens.onSurfaceDisabled),
                           const SizedBox(height: 8),
-                          const Text('Search for a YouTube channel above', style: TextStyle(color: Colors.grey)),
+                          Text('Search for a YouTube channel above', style: TextStyle(color: context.tokens.onSurfaceMuted)),
                         ],
                       ),
                     )

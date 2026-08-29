@@ -416,7 +416,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
                         // Secondary Verse Body Text (smaller, subdued)
                         Text(
-                          comparisonText!,
+                          comparisonText,
                           textAlign: textAlign,
                           softWrap: true,
                           textWidthBasis: TextWidthBasis.parent,
@@ -445,7 +445,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                         // Reference Attribution Badge (Secondary)
                         _ReferenceBadge(
                           reference: '— ${widget.card.referenceLabel}',
-                          versionId: comparisonVersionId!,
+                          versionId: comparisonVersionId,
                           subdued: true,
                         ),
                       ],

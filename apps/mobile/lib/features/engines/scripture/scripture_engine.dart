@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile/core/engines/base_feed_engine.dart';
+import '../../../core/theme/app_tokens.dart';
 import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models/scripture_card.dart';
@@ -239,6 +240,8 @@ class ScriptureEngine
       availableBooks.addAll(ntBooks);
     }
 
+    final tokens = context.tokens;
+
     return Row(
       children: [
         Expanded(
@@ -268,15 +271,15 @@ class ScriptureEngine
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.45),
+                      color: tokens.scrim.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
+                        color: tokens.surfaceBorder,
                         width: 1.0,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
+                          color: tokens.scrim.withValues(alpha: 0.3),
                           blurRadius: 6,
                         ),
                       ],
@@ -284,25 +287,25 @@ class ScriptureEngine
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.menu_book_rounded,
                           size: 15,
-                          color: Color(0xFFF59E0B),
+                          color: tokens.accent,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           filterState.activeVersionId,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: tokens.onSurface,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
+                        Icon(
                           Icons.keyboard_arrow_down_rounded,
                           size: 16,
-                          color: Colors.white70,
+                          color: tokens.onSurfaceMuted,
                         ),
                       ],
                     ),
@@ -312,7 +315,7 @@ class ScriptureEngine
 
                 // 2. Testament Picker Pill
                 PopupMenuButton<String>(
-                  color: const Color(0xFF1E293B),
+                  color: tokens.surface,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   onSelected: (value) {
                     final newTestament = value == 'All' ? null : value;
@@ -329,17 +332,17 @@ class ScriptureEngine
                     return testaments.map((t) {
                       return PopupMenuItem<String>(
                         value: t,
-                        child: Text(t, style: const TextStyle(color: Colors.white)),
+                        child: Text(t, style: TextStyle(color: tokens.onSurface)),
                       );
                     }).toList();
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.45),
+                      color: tokens.scrim.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
+                        color: tokens.surfaceBorder,
                         width: 1.0,
                       ),
                     ),
@@ -348,17 +351,17 @@ class ScriptureEngine
                       children: [
                         Text(
                           filterState.testamentFilter ?? 'All',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: tokens.onSurface,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
+                        Icon(
                           Icons.keyboard_arrow_down_rounded,
                           size: 16,
-                          color: Colors.white70,
+                          color: tokens.onSurfaceMuted,
                         ),
                       ],
                     ),
@@ -368,7 +371,7 @@ class ScriptureEngine
 
                 // 3. Book Picker Pill
                 PopupMenuButton<String>(
-                  color: const Color(0xFF1E293B),
+                  color: tokens.surface,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   constraints: const BoxConstraints(maxHeight: 350),
                   onSelected: (value) {
@@ -384,17 +387,17 @@ class ScriptureEngine
                     return availableBooks.map((b) {
                       return PopupMenuItem<String>(
                         value: b,
-                        child: Text(b, style: const TextStyle(color: Colors.white)),
+                        child: Text(b, style: TextStyle(color: tokens.onSurface)),
                       );
                     }).toList();
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.45),
+                      color: tokens.scrim.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
+                        color: tokens.surfaceBorder,
                         width: 1.0,
                       ),
                     ),
@@ -403,17 +406,17 @@ class ScriptureEngine
                       children: [
                         Text(
                           filterState.bookFilter ?? 'All Books',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: tokens.onSurface,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
+                        Icon(
                           Icons.keyboard_arrow_down_rounded,
                           size: 16,
-                          color: Colors.white70,
+                          color: tokens.onSurfaceMuted,
                         ),
                       ],
                     ),
@@ -441,12 +444,12 @@ class ScriptureEngine
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
+                  color: tokens.scrim.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: count > 0
-                        ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
-                        : Colors.white12,
+                        ? tokens.accent.withValues(alpha: 0.6)
+                        : tokens.surfaceBorder,
                     width: 1.0,
                   ),
                 ),
@@ -458,16 +461,16 @@ class ScriptureEngine
                           ? Icons.bookmark_rounded
                           : Icons.bookmark_border_rounded,
                       color: count > 0
-                          ? const Color(0xFFF59E0B)
-                          : Colors.white70,
+                          ? tokens.accent
+                          : tokens.onSurfaceMuted,
                       size: 16,
                     ),
                     if (count > 0) ...[
                       const SizedBox(width: 4),
                       Text(
                         '$count',
-                        style: const TextStyle(
-                          color: Color(0xFFF59E0B),
+                        style: TextStyle(
+                          color: tokens.accent,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -511,6 +514,8 @@ class ScriptureEngine
     VoidCallback onRefreshCard,
     ValueChanged<ScriptureFilterState> onFilterChanged,
   ) {
+    final tokens = context.tokens;
+
     return [
       // 1. Share Image Button
       CardActionButton(
@@ -538,7 +543,7 @@ class ScriptureEngine
           showModalBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
-            barrierColor: Colors.black.withValues(alpha: 0.25),
+            barrierColor: tokens.scrim.withValues(alpha: 0.25),
             isScrollControlled: true,
             builder: (ctx) => StyleStudioSheet(
               card: item,
@@ -560,14 +565,14 @@ class ScriptureEngine
             ? Icons.compare_arrows_rounded
             : Icons.compare_rounded,
         iconColor: filterState.comparisonVersionId != null
-            ? const Color(0xFFF59E0B)
-            : Colors.white,
+            ? tokens.accent
+            : tokens.onSurface,
         label: filterState.comparisonVersionId ?? 'Compare',
         onTap: () {
           showModalBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
-            barrierColor: Colors.black.withValues(alpha: 0.25),
+            barrierColor: tokens.scrim.withValues(alpha: 0.25),
             isScrollControlled: true,
             builder: (ctx) => CompareVersionPickerSheet(
               activeVersionId: filterState.activeVersionId,
@@ -608,7 +613,7 @@ class ScriptureEngine
       // 4. Bookmark / Favorite
       CardActionButton(
         icon: item.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-        iconColor: item.isSaved ? const Color(0xFFF59E0B) : Colors.white,
+        iconColor: item.isSaved ? tokens.accent : tokens.onSurface,
         label: item.isSaved ? 'Saved' : 'Save',
         onTap: () async {
           final isNowSaved = await SavedScriptureService().toggleSave(
@@ -629,7 +634,7 @@ class ScriptureEngine
                 action: isNowSaved
                     ? SnackBarAction(
                         label: 'View Saved',
-                        textColor: const Color(0xFFF59E0B),
+                        textColor: tokens.accent,
                         onPressed: () {
                           Navigator.push(
                             context,

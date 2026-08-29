@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import '../../../core/theme/app_tokens.dart';
 
 /// A rich, ultra-smooth Flutter-native video player control overlay.
 /// Replaces YouTube webview/iframe native controls with a clean, branded Christian-Tube UI.
@@ -358,7 +359,7 @@ class _FlutterVideoControlsOverlayState
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
                 child: Container(
-                  color: Colors.black.withValues(alpha: 0.42),
+                  color: context.tokens.scrim.withValues(alpha: 0.42),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -386,12 +387,12 @@ class _FlutterVideoControlsOverlayState
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.black.withValues(alpha: 0.6),
+                                color: context.tokens.scrim.withValues(alpha: 0.6),
                               ),
-                              child: const CircularProgressIndicator(
+                              child: CircularProgressIndicator(
                                 strokeWidth: 3.5,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  Color(0xFFF59E0B),
+                                  context.tokens.accent,
                                 ),
                               ),
                             )
@@ -444,7 +445,7 @@ class _FlutterVideoControlsOverlayState
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        splashColor: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+        splashColor: context.tokens.accent.withValues(alpha: 0.3),
         highlightColor: Colors.white24,
         child: Container(
           width: buttonSize,
@@ -452,8 +453,8 @@ class _FlutterVideoControlsOverlayState
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isPrimary
-                ? const Color(0xFFF59E0B).withValues(alpha: 0.9)
-                : Colors.black.withValues(alpha: 0.5),
+                ? context.tokens.accent.withValues(alpha: 0.9)
+                : context.tokens.scrim.withValues(alpha: 0.5),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.18),
               width: 1.2,
@@ -480,7 +481,7 @@ class _FlutterVideoControlsOverlayState
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: [
-            Colors.black.withValues(alpha: 0.85),
+            context.tokens.scrim.withValues(alpha: 0.85),
             Colors.transparent,
           ],
         ),
@@ -493,14 +494,14 @@ class _FlutterVideoControlsOverlayState
             data: SliderTheme.of(context).copyWith(
               trackHeight: 3.5,
               trackShape: const RoundedRectSliderTrackShape(),
-              activeTrackColor: const Color(0xFFF59E0B),
+              activeTrackColor: context.tokens.accent,
               inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
-              thumbColor: const Color(0xFFF59E0B),
+              thumbColor: context.tokens.accent,
               thumbShape: RoundSliderThumbShape(
                 enabledThumbRadius: _isScrubbing ? 7.5 : 5.5,
                 pressedElevation: 4,
               ),
-              overlayColor: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+              overlayColor: context.tokens.accent.withValues(alpha: 0.25),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
             ),
             child: Slider(
@@ -558,7 +559,7 @@ class _FlutterVideoControlsOverlayState
                   onOpened: () => _hideTimer?.cancel(),
                   onCanceled: _startHideTimer,
                   onSelected: _onSpeedSelected,
-                  color: const Color(0xFF1E293B),
+                  color: context.tokens.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -573,8 +574,8 @@ class _FlutterVideoControlsOverlayState
                             '${s}x',
                             style: TextStyle(
                               color: isSelected
-                                  ? const Color(0xFFF59E0B)
-                                  : Colors.white,
+                                  ? context.tokens.accent
+                                  : context.tokens.onSurface,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -583,9 +584,9 @@ class _FlutterVideoControlsOverlayState
                           ),
                           if (isSelected) ...[
                             const Spacer(),
-                            const Icon(
+                            Icon(
                               Icons.check_rounded,
-                              color: Color(0xFFF59E0B),
+                              color: context.tokens.accent,
                               size: 16,
                             ),
                           ],

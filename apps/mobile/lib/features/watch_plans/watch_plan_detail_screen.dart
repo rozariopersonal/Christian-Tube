@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/video.dart';
 import '../../core/models/watch_plan.dart';
 import '../../core/api/api_client.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 
 class WatchPlanDetailScreen extends StatefulWidget {
@@ -60,7 +61,6 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.plan.title)),
@@ -73,7 +73,7 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
           ),
           const SizedBox(height: 8),
           if (widget.plan.description != null)
-            Text(widget.plan.description!, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            Text(widget.plan.description!, style: TextStyle(fontSize: 14, color: context.tokens.onSurfaceMuted)),
           const SizedBox(height: 16),
           Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -83,8 +83,8 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildStat('Daily Goal', '${widget.plan.targetMinutesPerDay}m', theme.colorScheme.primary),
-                  _buildStat('Streak', '${widget.plan.streakDays} days', Colors.orange.shade800),
-                  _buildStat('Videos', '${_videos.length}', Colors.green.shade700),
+                  _buildStat('Streak', '${widget.plan.streakDays} days', context.tokens.accent),
+                  _buildStat('Videos', '${_videos.length}', theme.colorScheme.tertiary),
                 ],
               ),
             ),
@@ -95,8 +95,8 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
           if (_videos.isNotEmpty)
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3B82F6),
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
@@ -113,7 +113,7 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Playlist Queue', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text('${_videos.length} items', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text('${_videos.length} items', style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 10),
@@ -124,18 +124,18 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: context.tokens.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+                border: Border.all(color: context.tokens.surfaceBorder),
               ),
               child: Column(
                 children: [
-                  Icon(Icons.video_library_outlined, size: 48, color: Colors.grey.shade400),
+                  Icon(Icons.video_library_outlined, size: 48, color: context.tokens.onSurfaceDisabled),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'No videos in playlist queue.\nTap "Save" on any video to add it here!',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                   ),
                 ],
               ),
@@ -159,7 +159,7 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
       children: [
         Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(label, style: TextStyle(fontSize: 12, color: context.tokens.onSurfaceMuted)),
       ],
     );
   }

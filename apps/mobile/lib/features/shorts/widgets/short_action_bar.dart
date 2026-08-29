@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../core/models/short.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class ShortActionBar extends StatelessWidget {
   final Short short;
@@ -17,12 +17,12 @@ class ShortActionBar extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildShareButton(),
+        _buildShareButton(context),
       ],
     );
   }
 
-  Widget _buildShareButton() {
+  Widget _buildShareButton(BuildContext context) {
     return GestureDetector(
       onTap: onShare,
       child: Column(
@@ -32,17 +32,17 @@ class ShortActionBar extends StatelessWidget {
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [
-                  Color(0xFFFBBF24),
-                  Color(0xFFF59E0B),
+                  context.accent,
+                  context.accent,
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.65),
+                  color: context.accent.withValues(alpha: 0.65),
                   blurRadius: 12,
                   spreadRadius: 1,
                   offset: const Offset(0, 3),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class ShortsTabChip extends StatelessWidget {
   final String label;
@@ -24,20 +25,20 @@ class ShortsTabChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF59E0B) : Colors.black,
+          color: isSelected ? context.accent : context.tokens.scrim,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: activeJobs > 0
-                ? const Color(0xFFF59E0B)
+                ? context.accent
                 : isSelected
-                    ? const Color(0xFFF59E0B)
-                    : Colors.white30,
+                    ? context.accent
+                    : context.tokens.surfaceBorder,
             width: activeJobs > 0 ? 1.5 : 1.0,
           ),
           boxShadow: activeJobs > 0
               ? [
                   BoxShadow(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                    color: context.accent.withValues(alpha: 0.3),
                     blurRadius: 8,
                     spreadRadius: 1,
                   )
@@ -50,7 +51,7 @@ class ShortsTabChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.black : Colors.white,
+                color: isSelected ? Colors.black : context.tokens.onSurface,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
@@ -60,7 +61,7 @@ class ShortsTabChip extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.black : const Color(0xFFF59E0B),
+                  color: isSelected ? Colors.black : context.accent,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -69,7 +70,7 @@ class ShortsTabChip extends StatelessWidget {
                     Icon(
                       Icons.bolt,
                       size: 11,
-                      color: isSelected ? const Color(0xFFF59E0B) : Colors.black,
+                      color: isSelected ? context.accent : Colors.black,
                     ),
                     Text(
                       '$activeJobs',
@@ -87,7 +88,7 @@ class ShortsTabChip extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.black : const Color(0xFFF59E0B),
+                  color: isSelected ? Colors.black : context.accent,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(

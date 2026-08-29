@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_tokens.dart';
 import '../services/bible_download_manager.dart';
 
 class BibleVersionPickerModal extends StatelessWidget {
@@ -15,6 +16,7 @@ class BibleVersionPickerModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final downloadManager = BibleDownloadManager();
     final installedIds = downloadManager.installedIds;
     final installedList = BibleDownloadManager.catalog
@@ -22,9 +24,9 @@ class BibleVersionPickerModal extends StatelessWidget {
         .toList();
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E293B),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: tokens.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       child: Column(
@@ -37,7 +39,7 @@ class BibleVersionPickerModal extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: tokens.onSurfaceDisabled,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -48,16 +50,16 @@ class BibleVersionPickerModal extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Bible Translation',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: tokens.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                icon: Icon(Icons.close, color: tokens.onSurfaceMuted, size: 20),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -70,7 +72,7 @@ class BibleVersionPickerModal extends StatelessWidget {
               shrinkWrap: true,
               itemCount: installedList.length,
               separatorBuilder: (context, index) =>
-                  const Divider(color: Colors.white10, height: 1),
+                  Divider(color: tokens.surfaceBorder, height: 1),
               itemBuilder: (context, index) {
                 final meta = installedList[index];
                 final isSelected = meta.id == activeVersionId;
@@ -80,7 +82,7 @@ class BibleVersionPickerModal extends StatelessWidget {
                   title: Text(
                     meta.name,
                     style: TextStyle(
-                      color: isSelected ? const Color(0xFFF59E0B) : Colors.white,
+                      color: isSelected ? tokens.accent : tokens.onSurface,
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.normal,
                       fontSize: 15,
@@ -90,20 +92,20 @@ class BibleVersionPickerModal extends StatelessWidget {
                     '${meta.language} • ${meta.sizeDisplay}',
                     style: TextStyle(
                       color: isSelected
-                          ? const Color(0xFFF59E0B).withOpacity(0.8)
-                          : Colors.white54,
+                          ? tokens.accent.withValues(alpha: 0.8)
+                          : tokens.onSurfaceMuted,
                       fontSize: 12,
                     ),
                   ),
                   trailing: isSelected
-                      ? const Icon(
+                      ? Icon(
                           Icons.check_circle_rounded,
-                          color: Color(0xFFF59E0B),
+                          color: tokens.accent,
                           size: 22,
                         )
-                      : const Icon(
+                      : Icon(
                           Icons.radio_button_unchecked,
-                          color: Colors.white30,
+                          color: tokens.onSurfaceDisabled,
                           size: 22,
                         ),
                   onTap: () {
@@ -127,8 +129,8 @@ class BibleVersionPickerModal extends StatelessWidget {
               icon: const Icon(Icons.download_rounded, size: 18),
               label: const Text('Manage & Download More Translations'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white24),
+                foregroundColor: tokens.onSurface,
+                side: BorderSide(color: tokens.surfaceBorder),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

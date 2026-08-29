@@ -12,6 +12,7 @@ import 'settings_screen.dart';
 import 'subscriptions_screen.dart';
 import 'user_service.dart';
 import 'widgets/app_share_dialog.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/theme/theme_service.dart';
 import '../../core/config/app_config.dart';
 import '../../core/models/video.dart';
@@ -107,8 +108,6 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return AnimatedBuilder(
       animation: Listenable.merge([authService, userService]),
       builder: (context, _) {
@@ -125,7 +124,7 @@ class ProfileScreen extends StatelessWidget {
                   'assets/logo.png',
                   height: 24,
                   width: 24,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.play_circle_fill, color: Colors.red),
+                  errorBuilder: (ctx, __, ___) => Icon(Icons.play_circle_fill, color: Theme.of(ctx).colorScheme.error),
                 ),
                 const SizedBox(width: 8),
                 const Text('You', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
@@ -172,7 +171,7 @@ class ProfileScreen extends StatelessWidget {
                             child: user.photoUrl == null
                                 ? Text(
                                     user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : 'U',
-                                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 24, fontWeight: FontWeight.bold),
                                   )
                                 : null,
                           ),
@@ -194,27 +193,27 @@ class ProfileScreen extends StatelessWidget {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.blue,
+                                          color: Theme.of(context).colorScheme.primary,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
-                                        child: const Text('ADMIN', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                        child: Text('ADMIN', style: TextStyle(color: ColorScheme.of(context).onPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
                                       ),
                                     ],
                                   ],
                                 ),
                                 const SizedBox(height: 2),
-                                Text(user.email, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13)),
+                                Text(user.email, style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13)),
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
                                     InkWell(
                                       onTap: () => _showQuickSignInDialog(context),
-                                      child: const Text('Switch account', style: TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.w600)),
+                                      child: Text('Switch account', style: TextStyle(color: context.tokens.accent, fontSize: 12, fontWeight: FontWeight.w600)),
                                     ),
-                                    const Text('  •  ', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                    Text('  •  ', style: TextStyle(color: context.tokens.onSurfaceDisabled, fontSize: 12)),
                                     InkWell(
                                       onTap: () => authService.signOut(),
-                                      child: const Text('Sign out', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                      child: Text('Sign out', style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12)),
                                     ),
                                   ],
                                 ),
@@ -226,7 +225,7 @@ class ProfileScreen extends StatelessWidget {
                     : Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                          color: context.tokens.surfaceVariant,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
@@ -242,8 +241,8 @@ class ProfileScreen extends StatelessWidget {
                             else ...[
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: isDark ? Colors.white : Colors.black,
-                                  foregroundColor: isDark ? Colors.black : Colors.white,
+                                  backgroundColor: context.tokens.onSurface,
+                                  foregroundColor: context.tokens.background,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -252,7 +251,7 @@ class ProfileScreen extends StatelessWidget {
                                 icon: Image.network(
                                   'https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png',
                                   height: 18,
-                                  errorBuilder: (_, __, ___) => const Icon(Icons.account_circle, color: Colors.blue),
+                                  errorBuilder: (ctx, __, ___) => Icon(Icons.account_circle, color: Theme.of(ctx).colorScheme.primary),
                                 ),
                                 label: const Text('Continue with Google', style: TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -276,24 +275,24 @@ class ProfileScreen extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : Colors.blue.shade50,
+                      color: context.tokens.surfaceVariant,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isDark ? Colors.white10 : Colors.blue.shade100),
+                      border: Border.all(color: context.tokens.surfaceBorder),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.admin_panel_settings, color: Colors.blue, size: 20),
+                            Icon(Icons.admin_panel_settings, color: context.tokens.accent, size: 20),
                             const SizedBox(width: 8),
-                            Text('Admin Console', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? Colors.white : Colors.blue.shade900)),
+                            Text('Admin Console', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: context.tokens.onSurface)),
                           ],
                         ),
                         const SizedBox(height: 8),
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.people_alt_outlined, color: Colors.blue),
+                          leading: Icon(Icons.people_alt_outlined, color: context.tokens.accent),
                           title: const Text('User Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           subtitle: const Text('View registered users, block or unblock accounts', style: TextStyle(fontSize: 11)),
                           trailing: const Icon(Icons.chevron_right, size: 20),
@@ -340,7 +339,7 @@ class ProfileScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Text(
                     'Videos you watch will show up here.',
-                    style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13),
+                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                   ),
                 )
               else
@@ -352,7 +351,7 @@ class ProfileScreen extends StatelessWidget {
                     itemCount: history.length > 8 ? 8 : history.length,
                     itemBuilder: (context, index) {
                       final video = history[index];
-                      return _buildHistoryItem(context, video, isDark);
+                      return _buildHistoryItem(context, video);
                     },
                   ),
                 ),
@@ -366,17 +365,17 @@ class ProfileScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                    color: context.tokens.accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.bookmark_rounded, color: Color(0xFFF59E0B)),
+                  child: Icon(Icons.bookmark_rounded, color: context.tokens.accent),
                 ),
                 title: const Text('Saved Scriptures & Verses', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 subtitle: ValueListenableBuilder<int>(
                   valueListenable: SavedScriptureService().savedCountNotifier,
                   builder: (context, count, _) => Text(
                     count == 1 ? '1 favorite verse saved' : '$count favorite verses saved',
-                    style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12),
+                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
                   ),
                 ),
                 trailing: const Icon(Icons.chevron_right, size: 20),
@@ -428,7 +427,7 @@ class ProfileScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Text(
                     'No playlists yet. Tap + to create your first playlist!',
-                    style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13),
+                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                   ),
                 )
               else
@@ -439,13 +438,13 @@ class ProfileScreen extends StatelessWidget {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                        color: context.tokens.surfaceVariant,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.playlist_play, color: Colors.red),
+                      child: Icon(Icons.playlist_play, color: Theme.of(context).colorScheme.error),
                     ),
                     title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    subtitle: Text('${p.videoCount} videos', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12)),
+                    subtitle: Text('${p.videoCount} videos', style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12)),
                     trailing: const Icon(Icons.chevron_right, size: 20),
                     onTap: () {
                       Navigator.push(
@@ -509,7 +508,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHistoryItem(BuildContext context, Video video, bool isDark) {
+  Widget _buildHistoryItem(BuildContext context, Video video) {
     return Container(
       width: 140,
       margin: const EdgeInsets.only(right: 12),
@@ -529,7 +528,7 @@ class ProfileScreen extends StatelessWidget {
                     child: CachedNetworkImage(
                       imageUrl: video.thumbnailUrl,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => Container(color: Colors.grey.shade800),
+                      errorWidget: (_, __, ___) => Container(color: context.tokens.surfaceVariant),
                     ),
                   ),
                 ),
@@ -540,12 +539,12 @@ class ProfileScreen extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        video.duration!,
-                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+color: context.tokens.scrim,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    video.duration!,
+                    style: TextStyle(color: context.tokens.onSurface, fontSize: 9, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -562,7 +561,7 @@ class ProfileScreen extends StatelessWidget {
               video.channelTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 10, color: isDark ? Colors.white60 : Colors.black54),
+              style: TextStyle(fontSize: 10, color: context.tokens.onSurfaceMuted),
             ),
           ],
         ),

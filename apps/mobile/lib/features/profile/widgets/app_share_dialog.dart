@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class AppShareDialog extends StatefulWidget {
   final String? customVersion;
@@ -56,16 +57,19 @@ class _AppShareDialogState extends State<AppShareDialog> {
     if (!mounted) return;
     setState(() => _isCopied = true);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Row(
           children: [
-            Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-            SizedBox(width: 8),
-            Text('Download link copied to clipboard!'),
+            Icon(Icons.check_circle_outline, color: Theme.of(context).colorScheme.onPrimary, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              'Download link copied to clipboard!',
+              style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+            ),
           ],
         ),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -127,15 +131,14 @@ class _AppShareDialogState extends State<AppShareDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF131C2E) : Colors.white,
+        color: context.tokens.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: context.tokens.scrim.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -156,7 +159,7 @@ class _AppShareDialogState extends State<AppShareDialog> {
               width: 44,
               height: 5,
               decoration: BoxDecoration(
-                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                color: context.tokens.surfaceBorder,
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -195,7 +198,7 @@ class _AppShareDialogState extends State<AppShareDialog> {
                           'Scan QR or share release link',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            color: context.tokens.onSurfaceMuted,
                           ),
                         ),
                       ],
@@ -338,10 +341,10 @@ class _AppShareDialogState extends State<AppShareDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                color: context.tokens.surfaceVariant,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                  color: context.tokens.surfaceBorder,
                   width: 1,
                 ),
               ),
@@ -361,7 +364,7 @@ class _AppShareDialogState extends State<AppShareDialog> {
                       style: TextStyle(
                         fontSize: 12,
                         fontFamily: 'monospace',
-                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade800,
+                        color: context.tokens.onSurfaceMuted,
                       ),
                     ),
                   ),
@@ -406,10 +409,10 @@ class _AppShareDialogState extends State<AppShareDialog> {
                   child: ElevatedButton.icon(
                     onPressed: _isSharing ? null : _shareQrImageAndLink,
                     icon: _isSharing
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary),
                           )
                         : const Icon(Icons.share_rounded, size: 18),
                     label: Text(
@@ -418,7 +421,7 @@ class _AppShareDialogState extends State<AppShareDialog> {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -457,7 +460,7 @@ class _AppShareDialogState extends State<AppShareDialog> {
                   icon: const Icon(Icons.open_in_browser_rounded),
                   tooltip: 'Open in Browser',
                   style: IconButton.styleFrom(
-                    backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                    backgroundColor: context.tokens.surfaceVariant,
                     padding: const EdgeInsets.all(12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

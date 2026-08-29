@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../models/bible_book.dart';
 
 class BookChapterSelector extends StatefulWidget {
@@ -41,11 +42,10 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
+        color: context.tokens.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       constraints: BoxConstraints(
@@ -59,14 +59,14 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: isDark ? Colors.white24 : Colors.black26,
+              color: context.tokens.onSurfaceDisabled,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           TabBar(
             controller: _tabController,
             labelColor: theme.colorScheme.primary,
-            unselectedLabelColor: isDark ? Colors.white54 : Colors.black54,
+            unselectedLabelColor: context.tokens.onSurfaceMuted,
             indicatorColor: theme.colorScheme.primary,
             tabs: const [
               Tab(text: 'BOOKS'),
@@ -125,7 +125,7 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
                         decoration: BoxDecoration(
                           color: isSelected 
                             ? theme.colorScheme.primary 
-                            : (isDark ? Colors.white12 : Colors.black12),
+                            : context.tokens.surfaceVariant,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.center,
@@ -136,7 +136,7 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             color: isSelected 
                               ? theme.colorScheme.onPrimary 
-                              : (isDark ? Colors.white : Colors.black),
+                              : context.tokens.onSurface,
                           ),
                         ),
                       ),

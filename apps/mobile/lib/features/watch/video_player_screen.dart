@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 import '../../core/utils/formatters.dart';
@@ -226,8 +227,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final tokens = context.tokens;
     final hasPlaylist = _playlist.isNotEmpty;
     final orientation = MediaQuery.of(context).orientation;
     final isLandscape = orientation == Orientation.landscape;
@@ -241,7 +241,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       builder: (context, player) {
         if (isLandscape) {
           return Scaffold(
-            backgroundColor: Colors.black,
+            backgroundColor: context.tokens.scrim,
             body: SizedBox.expand(child: player),
           );
         }
@@ -282,7 +282,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           Text(
                             '${Formatters.formatViews(_video?.viewCount ?? 0)} views',
                             style: TextStyle(
-                              color: isDark ? Colors.white60 : Colors.black54,
+                              color: tokens.onSurfaceMuted,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -292,7 +292,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             Text(
                               '•  ${Formatters.formatTimeAgo(_video!.publishedAt)}',
                               style: TextStyle(
-                                color: isDark ? Colors.white60 : Colors.black54,
+                                color: tokens.onSurfaceMuted,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -334,7 +334,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                       Text(
                                         '${Formatters.formatSubscribers(_video!.subscriberCount)} subscribers',
                                         style: TextStyle(
-                                          color: isDark ? Colors.white60 : Colors.black54,
+                                          color: tokens.onSurfaceMuted,
                                           fontSize: 11,
                                         ),
                                       ),
@@ -347,11 +347,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: isSubscribed
-                                      ? (isDark ? Colors.grey.shade800 : Colors.grey.shade200)
-                                      : (isDark ? Colors.white : Colors.black),
+                                      ? tokens.surfaceVariant
+                                      : tokens.onSurface,
                                   foregroundColor: isSubscribed
-                                      ? (isDark ? Colors.white70 : Colors.black87)
-                                      : (isDark ? Colors.black : Colors.white),
+                                      ? tokens.onSurfaceMuted
+                                      : tokens.surface,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -385,7 +385,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           // Like / Dislike Pill
                           Container(
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                              color: tokens.surfaceVariant,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
@@ -406,7 +406,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                         Icon(
                                           _isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
                                           size: 16,
-                                          color: _isLiked ? Colors.blue : null,
+                                          color: _isLiked ? Theme.of(context).colorScheme.primary : null,
                                         ),
                                         const SizedBox(width: 5),
                                         Text(
@@ -420,7 +420,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 Container(
                                   width: 1,
                                   height: 18,
-                                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                                  color: tokens.surfaceBorder,
                                 ),
                                 InkWell(
                                   borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
@@ -435,7 +435,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                     child: Icon(
                                       _isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined,
                                       size: 16,
-                                      color: _isDisliked ? Colors.red : null,
+                                      color: _isDisliked ? Theme.of(context).colorScheme.error : null,
                                     ),
                                   ),
                                 ),
@@ -449,7 +449,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             icon: Icons.content_cut,
                             label: 'Clip',
                             onTap: _openShortsTrimmer,
-                            isDark: isDark,
                           ),
                           const SizedBox(width: 8),
 
@@ -460,7 +459,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             onTap: () {
                               Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
                             },
-                            isDark: isDark,
                           ),
                           const SizedBox(width: 8),
 
@@ -476,7 +474,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 );
                               }
                             },
-                            isDark: isDark,
                           ),
                           const SizedBox(width: 8),
 
@@ -485,7 +482,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             icon: Icons.open_in_new,
                             label: 'YouTube',
                             onTap: _openInYouTubeApp,
-                            isDark: isDark,
                           ),
                         ],
                       ),
@@ -502,7 +498,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                              color: tokens.surfaceVariant,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
@@ -520,7 +516,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                   style: TextStyle(
                                     fontSize: 12,
                                     height: 1.35,
-                                    color: isDark ? Colors.white70 : Colors.black87,
+                                    color: tokens.onSurface,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -563,7 +559,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
-                          color: isDark ? Colors.white : Colors.black,
+                          color: tokens.onSurface,
                         ),
                       ),
                     ),
@@ -594,7 +590,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
-    required bool isDark,
   }) {
     return InkWell(
       onTap: onTap,
@@ -602,7 +597,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+          color: context.tokens.surfaceVariant,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(

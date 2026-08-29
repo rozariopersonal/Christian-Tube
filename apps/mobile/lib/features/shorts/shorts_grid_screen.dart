@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/short.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/utils/formatters.dart';
 
 class ShortsGridScreen extends StatefulWidget {
@@ -89,7 +90,7 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
                     imageUrl: short.thumbnailUrl,
                     fit: BoxFit.cover,
                     errorWidget: (_, __, ___) => Container(
-                      color: Colors.grey.shade900,
+                      color: context.tokens.surface,
                       child: const Icon(Icons.play_circle_outline, color: Colors.white38),
                     ),
                   ),
@@ -99,15 +100,15 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
                           Colors.transparent,
-                          Colors.black87,
+                          context.tokens.scrim.withValues(alpha: 0.87),
                         ],
-                        stops: [0.0, 0.5, 1.0],
+                        stops: const [0.0, 0.5, 1.0],
                       ),
                     ),
                   ),

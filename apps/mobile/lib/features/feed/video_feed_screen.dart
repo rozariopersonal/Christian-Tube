@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/config/app_config.dart';
 import '../../core/models/video.dart';
 import '../../shared/ui/video_card.dart';
@@ -60,12 +61,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return AnimatedBuilder(
       animation: Listenable.merge([_videoService, _channelService]),
       builder: (context, _) {
+        final tokens = context.tokens;
         final videos = _videoService.videos;
         final channels = _channelService.channels;
         final subscribedIds = _channelService.subscribedChannelIds;
@@ -81,7 +80,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   'assets/logo.png',
                   height: 26,
                   width: 26,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.play_circle_fill, color: Colors.red),
+                  errorBuilder: (_, __, ___) => Icon(Icons.play_circle_fill, color: context.primary),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -141,8 +140,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
                           color: _selectedCategory == 'All'
-                              ? (isDark ? Colors.white : Colors.black)
-                              : (isDark ? Colors.grey.shade900 : Colors.grey.shade200),
+                              ? tokens.onSurface
+                              : tokens.surfaceVariant,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Center(
@@ -152,8 +151,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                               fontSize: 13,
                               fontWeight: _selectedCategory == 'All' ? FontWeight.bold : FontWeight.w500,
                               color: _selectedCategory == 'All'
-                                  ? (isDark ? Colors.black : Colors.white)
-                                  : (isDark ? Colors.white70 : Colors.black87),
+                                  ? tokens.surface
+                                  : tokens.onSurfaceMuted,
                             ),
                           ),
                         ),
@@ -178,8 +177,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? (isDark ? Colors.white : Colors.black)
-                                  : (isDark ? Colors.grey.shade900 : Colors.grey.shade200),
+                                  ? tokens.onSurface
+                                  : tokens.surfaceVariant,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -199,15 +198,15 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                   const Icon(Icons.account_circle, size: 18),
                                 const SizedBox(width: 6),
                                 Text(
-                                  ch.name,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                    color: isSelected
-                                        ? (isDark ? Colors.black : Colors.white)
-                                        : (isDark ? Colors.white70 : Colors.black87),
+                                    ch.name,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                      color: isSelected
+                                          ? tokens.surface
+                                          : tokens.onSurfaceMuted,
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                           ),
@@ -224,20 +223,20 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: isDark ? Colors.grey.shade900 : Colors.grey.shade200,
+                            color: tokens.surfaceVariant,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.add, size: 16, color: isDark ? Colors.white70 : Colors.black87),
+                              Icon(Icons.add, size: 16, color: tokens.onSurfaceMuted),
                               const SizedBox(width: 4),
                               Text(
                                 'Explore Channels',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white70 : Colors.black87,
+                                  color: tokens.onSurfaceMuted,
                                 ),
                               ),
                             ],
@@ -250,15 +249,15 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               ),
             ),
           ),
-          body: _buildBody(videos, isDark, subscribedIds.isEmpty),
+          body: _buildBody(videos, subscribedIds.isEmpty),
         );
       },
     );
   }
 
-  Widget _buildBody(List<Video> videos, bool isDark, bool hasNoSubscriptions) {
+  Widget _buildBody(List<Video> videos, bool hasNoSubscriptions) {
     if (_videoService.isLoading && videos.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: Colors.red));
+      return Center(child: CircularProgressIndicator(color: context.primary));
     }
 
     if (hasNoSubscriptions) {
@@ -271,13 +270,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                  color: context.tokens.surfaceVariant,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.subscriptions_outlined,
                   size: 56,
-                  color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                  color: context.primary,
                 ),
               ),
               const SizedBox(height: 20),
@@ -286,7 +285,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: context.tokens.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
@@ -295,15 +294,15 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: isDark ? Colors.white60 : Colors.black54,
+                  color: context.tokens.onSurfaceMuted,
                   height: 1.4,
                 ),
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  foregroundColor: Colors.white,
+                  backgroundColor: context.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -324,7 +323,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.video_library_outlined, size: 56, color: Colors.grey),
+              Icon(Icons.video_library_outlined, size: 56, color: context.tokens.onSurfaceMuted),
               const SizedBox(height: 16),
               const Text(
                 'No videos found for selected filter',
@@ -345,7 +344,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     }
 
     return RefreshIndicator(
-      color: Colors.red,
+      color: context.primary,
       onRefresh: () async {
         await _channelService.loadSubscriptions();
         _videoService.updateSubscribedChannelIds(_channelService.subscribedChannelIds);
@@ -361,10 +360,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             if (_videoService.hasMore) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator(color: Colors.red)),
+                child: Center(child: CircularProgressIndicator()),
               );
             }
-            return _buildAllCaughtUpFooter(isDark);
+            return _buildAllCaughtUpFooter();
           }
 
           final video = videos[index];
@@ -381,15 +380,16 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     );
   }
 
-  Widget _buildAllCaughtUpFooter(bool isDark) {
+  Widget _buildAllCaughtUpFooter() {
+    final tokens = context.tokens;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+        color: tokens.surfaceVariant,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white12 : Colors.black12,
+          color: tokens.surfaceBorder,
           width: 1,
         ),
       ),
@@ -399,13 +399,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+              color: tokens.surfaceVariant,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.check_circle_outline_rounded,
               size: 32,
-              color: Color(0xFF10B981),
+              color: tokens.accent,
             ),
           ),
           const SizedBox(height: 14),
@@ -414,7 +414,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
+              color: tokens.onSurface,
             ),
           ),
           const SizedBox(height: 6),
@@ -423,15 +423,15 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? Colors.white60 : Colors.black54,
+              color: tokens.onSurfaceMuted,
               height: 1.4,
             ),
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: isDark ? Colors.white70 : Colors.black87,
-              side: BorderSide(color: isDark ? Colors.white24 : Colors.black26),
+              foregroundColor: tokens.onSurfaceMuted,
+              side: BorderSide(color: tokens.surfaceBorder),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),

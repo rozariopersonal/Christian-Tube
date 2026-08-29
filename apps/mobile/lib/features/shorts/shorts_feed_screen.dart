@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/models/short.dart';
+import '../../core/theme/app_tokens.dart';
 import 'players/shorts_player.dart';
 import '../search/shorts_search_delegate.dart';
-import '../../core/config/app_config.dart';
 import '../../core/services/bottom_bar_visibility_service.dart';
 import 'services/shorts_orchestrator_service.dart';
 import 'widgets/my_creations_grid.dart';
@@ -171,7 +171,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: context.tokens.scrim,
         body: Stack(
           children: [
             // 1. Main Feed Viewport
@@ -193,17 +193,17 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                   right: 16,
                   bottom: 32,
                 ),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black,
-                      Colors.black,
-                      Color(0xCC000000),
-                      Color(0x00000000),
+                      context.tokens.scrim,
+                      context.tokens.scrim,
+                      context.tokens.scrim.withValues(alpha: 0.8),
+                      const Color(0x00000000),
                     ],
-                    stops: [0.0, 0.55, 0.80, 1.0],
+                    stops: const [0.0, 0.55, 0.80, 1.0],
                   ),
                 ),
                 child: Row(
@@ -322,8 +322,8 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       listenable: _communityController,
       builder: (context, _) {
         if (_communityController.isLoading) {
-          return const Center(
-            child: CircularProgressIndicator(color: Color(0xFFF59E0B)),
+          return Center(
+            child: CircularProgressIndicator(color: context.accent),
           );
         }
 

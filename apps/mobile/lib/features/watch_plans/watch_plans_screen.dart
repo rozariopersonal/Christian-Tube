@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/models/watch_plan.dart';
 import '../../core/config/app_config.dart';
+import '../../core/theme/app_tokens.dart';
 import 'watch_plan_detail_screen.dart';
 
 class WatchPlansScreen extends StatefulWidget {
@@ -226,7 +227,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.school_outlined, size: 64, color: Colors.grey.shade400),
+                      Icon(Icons.school_outlined, size: 64, color: context.tokens.onSurfaceDisabled),
                       const SizedBox(height: 12),
                       const Text('No watch plans created yet.'),
                       const SizedBox(height: 16),
@@ -272,16 +273,16 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.shade100,
+                                      color: context.tokens.accent.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.local_fire_department, size: 16, color: Colors.orange),
+                                        Icon(Icons.local_fire_department, size: 16, color: context.tokens.accent),
                                         const SizedBox(width: 4),
                                         Text(
                                           '${plan.streakDays}d streak',
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.brown),
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: context.tokens.accent),
                                         ),
                                       ],
                                     ),
@@ -292,7 +293,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                               if (plan.description != null)
                                 Text(
                                   plan.description!,
-                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                                 ),
                               const SizedBox(height: 14),
                               Row(
@@ -301,7 +302,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                                   const SizedBox(width: 6),
                                   Text('${plan.targetMinutesPerDay} mins/day', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                                   const SizedBox(width: 16),
-                                  const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
+                                  Icon(Icons.check_circle_outline, size: 16, color: Theme.of(context).colorScheme.primary),
                                   const SizedBox(width: 6),
                                   Text('${plan.completedVideosCount} completed', style: const TextStyle(fontSize: 12)),
                                   const Spacer(),

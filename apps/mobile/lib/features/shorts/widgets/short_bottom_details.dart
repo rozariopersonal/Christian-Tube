@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/models/short.dart';
 import '../../../core/models/local_short_item.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/ui/channel_avatar.dart';
 
@@ -75,11 +76,11 @@ class ShortBottomDetails extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.95),
+                      color: context.accent.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                          color: context.accent.withValues(alpha: 0.35),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -242,7 +243,7 @@ class ShortBottomDetails extends StatelessWidget {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF59E0B),
+                                  color: context.accent,
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: const [
                                     BoxShadow(
@@ -283,17 +284,16 @@ class ShortBottomDetails extends StatelessWidget {
                             height: trackHeight,
                             width: totalWidth * progressRatio,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 colors: [
-                                  Color(0xFFFBBF24),
-                                  Color(0xFFF59E0B),
+                                  context.accent,
+                                  context.accent,
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(3),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFF59E0B)
-                                      .withValues(alpha: 0.6),
+                                  color: context.accent.withValues(alpha: 0.6),
                                   blurRadius: 6,
                                 ),
                               ],
@@ -312,12 +312,12 @@ class ShortBottomDetails extends StatelessWidget {
                                 shape: BoxShape.circle,
                                 color: Colors.white,
                                 border: Border.all(
-                                  color: const Color(0xFFF59E0B),
+                                  color: context.accent,
                                   width: isScrubbing ? 3.5 : 2.5,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFF59E0B).withValues(
+                                    color: context.accent.withValues(
                                       alpha: isScrubbing ? 0.8 : 0.4,
                                     ),
                                     blurRadius: isScrubbing ? 10 : 6,

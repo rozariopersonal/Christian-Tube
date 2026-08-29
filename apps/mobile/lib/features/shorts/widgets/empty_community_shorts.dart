@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class EmptyCommunityShorts extends StatelessWidget {
   final VoidCallback onRefresh;
@@ -15,11 +16,11 @@ class EmptyCommunityShorts extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.movie_outlined, size: 64, color: Colors.white54),
+          Icon(Icons.movie_outlined, size: 64, color: context.tokens.onSurfaceMuted),
           const SizedBox(height: 12),
           Text(
             'No ${AppConfig.appName} Shorts available',
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: context.tokens.onSurface),
           ),
           const SizedBox(height: 12),
           ElevatedButton(

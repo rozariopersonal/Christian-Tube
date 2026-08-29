@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/models/short.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
 
 class CommunityShortsGrid extends StatelessWidget {
@@ -37,8 +38,8 @@ class CommunityShortsGrid extends StatelessWidget {
                 : 2;
 
         return RefreshIndicator(
-          color: const Color(0xFFF59E0B),
-          backgroundColor: const Color(0xFF1E293B),
+          color: context.accent,
+          backgroundColor: context.tokens.surface,
           onRefresh: onRefresh,
           child: CustomScrollView(
             controller: scrollController,
@@ -55,18 +56,18 @@ class CommunityShortsGrid extends StatelessWidget {
                         children: [
                           Text(
                             '${allShorts.length} Shorts',
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            style: TextStyle(
+                              color: context.tokens.onSurfaceMuted,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           TextButton.icon(
                             onPressed: onRefresh,
-                            icon: const Icon(Icons.refresh, size: 16, color: Color(0xFFF59E0B)),
-                            label: const Text(
+                            icon: Icon(Icons.refresh, size: 16, color: context.accent),
+                            label: Text(
                               'Refresh',
-                              style: TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: context.accent, fontSize: 13, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
@@ -132,11 +133,11 @@ class CommunityShortsGrid extends StatelessWidget {
                 ),
               ),
               if (isLoadingMore)
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
+                    padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Center(
-                      child: CircularProgressIndicator(color: Color(0xFFF59E0B)),
+                      child: CircularProgressIndicator(color: context.accent),
                     ),
                   ),
                 ),
@@ -177,10 +178,10 @@ class CommunityFilterChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF59E0B) : const Color(0xFF1E293B),
+          color: isSelected ? context.accent : context.tokens.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF59E0B) : Colors.white24,
+            color: isSelected ? context.accent : context.tokens.surfaceBorder,
           ),
         ),
         child: Row(
@@ -189,13 +190,13 @@ class CommunityFilterChip extends StatelessWidget {
             Icon(
               icon,
               size: 13,
-              color: isSelected ? Colors.black : Colors.white70,
+              color: isSelected ? Colors.black : context.tokens.onSurfaceMuted,
             ),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.black : Colors.white,
+                color: isSelected ? Colors.black : context.tokens.onSurface,
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
@@ -227,9 +228,9 @@ class CommunityGridCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: context.tokens.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: context.tokens.surfaceBorder),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.4),
@@ -247,30 +248,30 @@ class CommunityGridCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: short.thumbnailUrl,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: const Color(0xFF0F172A)),
+                placeholder: (_, __) => Container(color: context.tokens.background),
                 errorWidget: (_, __, ___) => Container(
-                  color: const Color(0xFF0F172A),
+                  color: context.tokens.background,
                   child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
                 ),
               )
             else
               Container(
-                color: const Color(0xFF0F172A),
+                color: context.tokens.background,
                 child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
               ),
 
             // 2. Gradient Overlay
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0x77000000),
-                    Color(0x00000000),
-                    Color(0xDD000000),
+                    context.tokens.scrim.withValues(alpha: 0.47),
+                    context.tokens.scrim.withValues(alpha: 0.0),
+                    context.tokens.scrim.withValues(alpha: 0.87),
                   ],
-                  stops: [0.0, 0.4, 1.0],
+                  stops: const [0.0, 0.4, 1.0],
                 ),
               ),
             ),
@@ -282,14 +283,14 @@ class CommunityGridCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.black87,
+                  color: context.tokens.scrim.withValues(alpha: 0.87),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white24, width: 0.8),
+                  border: Border.all(color: context.tokens.surfaceBorder, width: 0.8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.remove_red_eye, size: 10, color: Color(0xFFF59E0B)),
+                    Icon(Icons.remove_red_eye, size: 10, color: context.accent),
                     const SizedBox(width: 4),
                     Text(
                       short.viewCount > 0 ? Formatters.formatViews(short.viewCount) : 'Short',

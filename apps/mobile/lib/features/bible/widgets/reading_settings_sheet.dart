@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../models/bible_settings.dart';
 
 class ReadingSettingsSheet extends StatelessWidget {
@@ -13,10 +14,11 @@ class ReadingSettingsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E293B),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: tokens.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       child: Column(
@@ -29,7 +31,7 @@ class ReadingSettingsSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: tokens.onSurfaceDisabled,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -40,16 +42,16 @@ class ReadingSettingsSheet extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Reading Settings',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: tokens.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                icon: Icon(Icons.close, color: tokens.onSurfaceMuted, size: 20),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -57,10 +59,10 @@ class ReadingSettingsSheet extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Font Size Slider
-          const Text(
+          Text(
             'Font Size',
             style: TextStyle(
-              color: Colors.white70,
+              color: tokens.onSurfaceMuted,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -68,21 +70,21 @@ class ReadingSettingsSheet extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Text('A', style: TextStyle(color: Colors.white, fontSize: 14)),
+              Text('A', style: TextStyle(color: tokens.onSurface, fontSize: 14)),
               Expanded(
                 child: Slider(
                   value: settings.fontSize,
                   min: 12.0,
                   max: 32.0,
                   divisions: 10,
-                  activeColor: const Color(0xFFF59E0B),
-                  inactiveColor: Colors.white24,
+                  activeColor: tokens.accent,
+                  inactiveColor: tokens.onSurfaceDisabled,
                   onChanged: (value) {
                     onSettingsChanged(settings.copyWith(fontSize: value));
                   },
                 ),
               ),
-              const Text('A', style: TextStyle(color: Colors.white, fontSize: 24)),
+              Text('A', style: TextStyle(color: tokens.onSurface, fontSize: 24)),
             ],
           ),
           const SizedBox(height: 16),

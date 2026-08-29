@@ -14,6 +14,7 @@ import '../widgets/reading_settings_sheet.dart';
 import '../widgets/verse_action_bar.dart';
 import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../models/bible_verse.dart';
 import '../models/bible_book.dart';
 import '../models/bible_settings.dart';
@@ -831,7 +832,7 @@ class _BibleScreenState extends State<BibleScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: _secondaryVersion == null
-                        ? Colors.grey.withValues(alpha: 0.4)
+                        ? context.tokens.surfaceBorder
                         : Theme.of(context)
                             .colorScheme
                             .primary
@@ -892,10 +893,10 @@ class _BibleScreenState extends State<BibleScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: context.tokens.background,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: context.tokens.scrim.withValues(alpha: 0.1),
                   blurRadius: 4,
                   offset: const Offset(0, -2),
                 ),

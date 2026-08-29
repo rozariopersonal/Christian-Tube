@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../../core/theme/app_tokens.dart';
 import 'user_service.dart';
 
 class AdminUsersScreen extends StatefulWidget {
@@ -27,9 +28,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -50,7 +48,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               // Search & Stats Bar
               Container(
                 padding: const EdgeInsets.all(16),
-                color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
+                color: context.tokens.surfaceVariant,
                 child: Column(
                   children: [
                     TextField(
@@ -68,12 +66,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                               )
                             : null,
                         filled: true,
-                        fillColor: isDark ? Colors.white10 : Colors.white,
+                        fillColor: context.tokens.surface,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: isDark ? Colors.white12 : Colors.black12,
+                            color: context.tokens.surfaceBorder,
                           ),
                         ),
                       ),
@@ -83,9 +81,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildStatCard('Total Users', '$total', Colors.blue, isDark),
-                        _buildStatCard('Active', '$activeCount', Colors.green, isDark),
-                        _buildStatCard('Blocked', '$blockedCount', Colors.red, isDark),
+                        _buildStatCard('Total Users', '$total', Theme.of(context).colorScheme.primary),
+                        _buildStatCard('Active', '$activeCount', Colors.green),
+                        _buildStatCard('Blocked', '$blockedCount', Theme.of(context).colorScheme.error),
                       ],
                     ),
                   ],
@@ -103,7 +101,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.people_outline, size: 56, color: Colors.grey.shade400),
+                                  Icon(Icons.people_outline, size: 56, color: context.tokens.onSurfaceDisabled),
                                   const SizedBox(height: 12),
                                   const Text('No users found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                 ],
@@ -131,12 +129,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                 return Container(
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                    color: context.tokens.surface,
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
                                       color: isBlocked
-                                          ? Colors.red.withValues(alpha: 0.3)
-                                          : isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                                          ? Theme.of(context).colorScheme.error.withValues(alpha: 0.3)
+                                          : context.tokens.surfaceBorder,
                                     ),
                                   ),
                                   child: Row(
@@ -144,13 +142,17 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                       CircleAvatar(
                                         radius: 22,
                                         backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                                        backgroundColor: isBlocked ? Colors.red.shade100 : Colors.blue.shade100,
+                                        backgroundColor: isBlocked
+                                            ? Theme.of(context).colorScheme.errorContainer
+                                            : Theme.of(context).colorScheme.primaryContainer,
                                         child: photoUrl == null
                                             ? Text(
                                                 name.isNotEmpty ? name[0].toUpperCase() : 'U',
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  color: isBlocked ? Colors.red : Colors.blue,
+                                                  color: isBlocked
+                                                      ? Theme.of(context).colorScheme.onErrorContainer
+                                                      : Theme.of(context).colorScheme.onPrimaryContainer,
                                                 ),
                                               )
                                             : null,
@@ -175,12 +177,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.blue.withValues(alpha: 0.15),
+                                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                                                       borderRadius: BorderRadius.circular(6),
                                                     ),
-                                                    child: const Text(
+                                                    child: Text(
                                                       'ADMIN',
-                                                      style: TextStyle(color: Colors.blue, fontSize: 9, fontWeight: FontWeight.bold),
+                                                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 9, fontWeight: FontWeight.bold),
                                                     ),
                                                   ),
                                               ],
@@ -188,14 +190,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                             const SizedBox(height: 2),
                                             Text(
                                               email,
-                                              style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                              style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
                                               'Active: $lastLogin',
-                                              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                              style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 11),
                                             ),
                                           ],
                                         ),
@@ -206,8 +208,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                       if (role != 'ADMIN')
                                         ElevatedButton(
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: isBlocked ? Colors.green.shade600 : Colors.red.shade600,
-                                            foregroundColor: Colors.white,
+                                            backgroundColor: isBlocked ? Colors.green.shade600 : Theme.of(context).colorScheme.error,
+                                            foregroundColor: isBlocked ? Colors.white : Theme.of(context).colorScheme.onError,
                                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                             elevation: 0,
@@ -232,7 +234,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color, bool isDark) {
+  Widget _buildStatCard(String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -243,7 +245,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         children: [
           Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(label, style: TextStyle(fontSize: 11, color: context.tokens.onSurfaceMuted)),
         ],
       ),
     );
@@ -263,8 +265,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: currentlyBlocked ? Colors.green : Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: currentlyBlocked ? Colors.green : Theme.of(context).colorScheme.error,
+              foregroundColor: currentlyBlocked ? Colors.white : Theme.of(context).colorScheme.onError,
             ),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -273,7 +275,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(success ? (currentlyBlocked ? 'User unblocked' : 'User blocked') : 'Action failed'),
-                    backgroundColor: currentlyBlocked ? Colors.green : Colors.red,
+                    backgroundColor: currentlyBlocked ? Colors.green : Theme.of(context).colorScheme.error,
                   ),
                 );
               }

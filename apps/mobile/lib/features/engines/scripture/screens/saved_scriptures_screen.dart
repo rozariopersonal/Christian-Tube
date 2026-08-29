@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/theme/app_tokens.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
 import '../services/bible_download_manager.dart';
@@ -50,24 +51,29 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
   }
 
   Future<void> _confirmClearAll() async {
+    final scheme = Theme.of(context).colorScheme;
+    final tokens = context.tokens;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Clear All Saved Scriptures?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text(
+        backgroundColor: tokens.surface,
+        title: Text('Clear All Saved Scriptures?', style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold)),
+        content: Text(
           'Are you sure you want to remove all saved verses and bookmarks?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: tokens.onSurfaceMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+            child: Text('Cancel', style: TextStyle(color: tokens.onSurfaceMuted)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: scheme.error,
+              foregroundColor: scheme.onError,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Clear All', style: TextStyle(color: Colors.white)),
+            child: const Text('Clear All'),
           ),
         ],
       ),
@@ -81,16 +87,16 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tokens = context.tokens;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: tokens.background,
       appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        backgroundColor: tokens.background,
         elevation: 0,
         title: Row(
           children: [
-            const Icon(Icons.bookmark_rounded, color: Color(0xFFF59E0B), size: 22),
+            Icon(Icons.bookmark_rounded, color: tokens.accent, size: 22),
             const SizedBox(width: 8),
             const Text(
               'Saved Scriptures',
@@ -101,13 +107,13 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                  color: tokens.accent.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${_cards.length}',
-                  style: const TextStyle(
-                    color: Color(0xFFF59E0B),
+                  style: TextStyle(
+                    color: tokens.accent,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),
@@ -119,7 +125,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
         actions: [
           if (_cards.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined, color: Colors.white70),
+              icon: Icon(Icons.delete_sweep_outlined, color: tokens.onSurfaceMuted),
               tooltip: 'Clear All',
               onPressed: _confirmClearAll,
             ),
@@ -128,7 +134,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _cards.isEmpty
-              ? _buildEmptyState(isDark)
+              ? _buildEmptyState(context)
               : ListView.separated(
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.all(16),
@@ -136,13 +142,15 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 14),
                   itemBuilder: (context, index) {
                     final card = _cards[index];
-                    return _buildSavedCard(context, card, isDark);
+                    return _buildSavedCard(context, card);
                   },
                 ),
     );
   }
 
-  Widget _buildEmptyState(bool isDark) {
+  Widget _buildEmptyState(BuildContext context) {
+    final tokens = context.tokens;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -152,13 +160,13 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                color: tokens.accent.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.bookmark_border_rounded,
                 size: 56,
-                color: Color(0xFFF59E0B),
+                color: tokens.accent,
               ),
             ),
             const SizedBox(height: 20),
@@ -167,7 +175,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
+                color: tokens.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -176,7 +184,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: isDark ? Colors.white60 : Colors.black54,
+                color: tokens.onSurfaceMuted,
                 height: 1.4,
               ),
             ),
@@ -186,7 +194,8 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
     );
   }
 
-  Widget _buildSavedCard(BuildContext context, ScriptureCard card, bool isDark) {
+  Widget _buildSavedCard(BuildContext context, ScriptureCard card) {
+    final tokens = context.tokens;
     final preset = ScriptureThemeCatalog.getPreset(card.activeBackground);
     final version = card.resolvedVersion ?? BibleDownloadManager.defaultVersionId;
     final verseText = card.resolvedText ??
@@ -194,15 +203,15 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: tokens.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
+          color: tokens.surfaceBorder,
           width: 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            color: tokens.scrim.withValues(alpha: tokens.isDark ? 0.3 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -215,7 +224,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: isDark ? Colors.black26 : const Color(0xFFF1F5F9),
+              color: tokens.surfaceVariant,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(
@@ -226,13 +235,13 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                        color: tokens.accent.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         version,
-                        style: const TextStyle(
-                          color: Color(0xFFF59E0B),
+                        style: TextStyle(
+                          color: tokens.accent,
                           fontWeight: FontWeight.w800,
                           fontSize: 11,
                         ),
@@ -244,7 +253,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: isDark ? Colors.white : Colors.black87,
+                        color: tokens.onSurface,
                       ),
                     ),
                   ],
@@ -252,14 +261,14 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                    color: tokens.surfaceVariant,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     preset.name,
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? Colors.white60 : Colors.black54,
+                      color: tokens.onSurfaceMuted,
                     ),
                   ),
                 ),
@@ -276,7 +285,9 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
                 fontSize: 15,
                 height: 1.5,
                 fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white.withValues(alpha: 0.95) : const Color(0xFF1E293B),
+                color: tokens.isDark
+                    ? tokens.onSurface.withValues(alpha: 0.95)
+                    : tokens.onSurface,
               ),
             ),
           ),
@@ -292,7 +303,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
                   icon: const Icon(Icons.copy_rounded, size: 16),
                   label: const Text('Copy', style: TextStyle(fontSize: 12)),
                   style: TextButton.styleFrom(
-                    foregroundColor: isDark ? Colors.white70 : Colors.black87,
+                    foregroundColor: tokens.onSurfaceMuted,
                   ),
                   onPressed: () async {
                     final textToCopy = '“$verseText”\n\n— ${card.referenceLabel} ($version)';
@@ -314,7 +325,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
                   icon: const Icon(Icons.share_rounded, size: 16),
                   label: const Text('Share Graphic', style: TextStyle(fontSize: 12)),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFF59E0B),
+                    foregroundColor: tokens.accent,
                   ),
                   onPressed: () async {
                     try {
@@ -345,7 +356,8 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
 
                 // Delete Action
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                  icon: Icon(Icons.delete_outline_rounded,
+                      size: 18, color: Theme.of(context).colorScheme.error),
                   tooltip: 'Remove',
                   onPressed: () => _removeCard(card),
                 ),

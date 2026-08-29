@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/models/video.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/utils/formatters.dart';
 
 class RecommendationVideoCard extends StatelessWidget {
@@ -17,6 +18,7 @@ class RecommendationVideoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     return InkWell(
       onTap: onTap ?? () => context.push('/watch/${video.id}', extra: video),
@@ -38,8 +40,8 @@ class RecommendationVideoCard extends StatelessWidget {
                         imageUrl: video.thumbnailUrl,
                         fit: BoxFit.cover,
                         errorWidget: (_, __, ___) => Container(
-                          color: Colors.grey.shade800,
-                          child: const Icon(Icons.play_circle_outline, color: Colors.white54),
+                          color: tokens.surfaceVariant,
+                          child: Icon(Icons.play_circle_outline, color: tokens.onSurfaceDisabled),
                         ),
                       ),
                     ),
@@ -81,7 +83,7 @@ class RecommendationVideoCard extends StatelessWidget {
                     '${video.channelTitle} • ${Formatters.formatViews(video.viewCount)} views • ${Formatters.formatTimeAgo(video.publishedAt)}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11),
                   ),
                 ],
               ),

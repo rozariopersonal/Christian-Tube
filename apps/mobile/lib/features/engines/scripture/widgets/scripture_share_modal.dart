@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/theme/app_tokens.dart';
 import '../models/scripture_card.dart';
 import '../services/file_saver.dart';
 
@@ -27,7 +28,7 @@ class ScriptureShareModal extends StatelessWidget {
   }) {
     return showDialog(
       context: context,
-      barrierColor: Colors.black87,
+      barrierColor: context.tokens.scrim,
       builder: (ctx) => ScriptureShareModal(
         imageBytes: imageBytes,
         card: card,
@@ -39,20 +40,22 @@ class ScriptureShareModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
+          color: tokens.background,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white12),
-          boxShadow: const [
+          border: Border.all(color: tokens.surfaceBorder),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black87,
+              color: tokens.scrim.withValues(alpha: 0.87),
               blurRadius: 30,
-              offset: Offset(0, 10),
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -64,15 +67,15 @@ class ScriptureShareModal extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.auto_awesome,
-                        color: Color(0xFFF59E0B), size: 20),
-                    SizedBox(width: 8),
+                        color: tokens.accent, size: 20),
+                    const SizedBox(width: 8),
                     Text(
                       'Generated Graphic Card',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: tokens.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -80,8 +83,8 @@ class ScriptureShareModal extends StatelessWidget {
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded,
-                      color: Colors.white70, size: 20),
+                  icon: Icon(Icons.close_rounded,
+                      color: tokens.onSurfaceMuted, size: 20),
                   onPressed: () => Navigator.pop(context),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -99,14 +102,14 @@ class ScriptureShareModal extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                      color: tokens.accent.withValues(alpha: 0.3),
                       width: 1.5,
                     ),
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                        color: Colors.black54,
+                        color: tokens.scrim.withValues(alpha: 0.54),
                         blurRadius: 16,
-                        offset: Offset(0, 6),
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
@@ -135,8 +138,8 @@ class ScriptureShareModal extends StatelessWidget {
                     icon: const Icon(Icons.copy_rounded, size: 16),
                     label: const Text('Copy Text'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      side: const BorderSide(color: Colors.white24),
+                      foregroundColor: tokens.onSurfaceMuted,
+                      side: BorderSide(color: tokens.surfaceBorder),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -155,10 +158,11 @@ class ScriptureShareModal extends StatelessWidget {
                         await saveOrDownloadFile(imageBytes, fileName);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Graphic image downloaded!'),
-                              backgroundColor: Color(0xFF10B981),
-                              duration: Duration(seconds: 2),
+                            SnackBar(
+                              content: const Text('Graphic image downloaded!'),
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.inverseSurface,
+                              duration: const Duration(seconds: 2),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -173,8 +177,8 @@ class ScriptureShareModal extends StatelessWidget {
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF59E0B),
-                      foregroundColor: Colors.black,
+                      backgroundColor: tokens.accent,
+                      foregroundColor: tokens.scrim,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
