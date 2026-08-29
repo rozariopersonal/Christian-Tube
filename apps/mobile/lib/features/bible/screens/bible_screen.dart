@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/bible_version.dart';
+import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
 import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
 import '../../engines/scripture/screens/bible_manager_screen.dart';
@@ -69,7 +70,16 @@ class _BibleScreenState extends State<BibleScreen> {
     if (_versions.isEmpty) {
       final versionIds = await _localBibleService.getInstalledVersionIds();
       if (mounted) {
-        _versions = versionIds.map((id) => BibleVersion(id: id, name: id, shortname: id)).toList();
+        _versions = versionIds.map((id) {
+          final meta = BibleDownloadManager.getMeta(id);
+          return BibleVersion(
+            id: id,
+            name: meta.id == id ? meta.name : id,
+            shortname: id,
+            description: meta.description,
+            lang: meta.languageCode,
+          );
+        }).toList();
         if (_versions.isNotEmpty) {
           _selectedVersion = _versions.firstWhere(
             (v) => v.shortname == 'KJV',
@@ -209,7 +219,16 @@ class _BibleScreenState extends State<BibleScreen> {
         onSelectVersion: (versionId) {
           final version = _versions.firstWhere(
             (v) => v.shortname == versionId,
-            orElse: () => BibleVersion(id: versionId, name: versionId, shortname: versionId),
+            orElse: () {
+              final meta = BibleDownloadManager.getMeta(versionId);
+              return BibleVersion(
+                id: versionId,
+                name: meta.name,
+                shortname: versionId,
+                description: meta.description,
+                lang: meta.languageCode,
+              );
+            },
           );
           setState(() {
             _selectedVersion = version;
