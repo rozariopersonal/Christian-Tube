@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/bible_version.dart';
-import '../services/bible_service.dart';
+import '../../engines/scripture/services/local_bible_service.dart';
 import '../widgets/verse_text.dart';
 import '../widgets/version_selector_sheet.dart';
 import '../widgets/book_chapter_selector.dart';
@@ -14,7 +14,7 @@ class BibleScreen extends StatefulWidget {
 }
 
 class _BibleScreenState extends State<BibleScreen> {
-  final BibleService _bibleService = BibleService();
+  final LocalBibleService _localBibleService = LocalBibleService();
   List<BibleVersion> _versions = [];
   List<BibleVerse> _verses = [];
   BibleVersion? _selectedVersion;
@@ -31,9 +31,9 @@ class _BibleScreenState extends State<BibleScreen> {
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     if (_versions.isEmpty) {
-      final versions = await _bibleService.getVersions();
+      final versionIds = await _localBibleService.getInstalledVersionIds();
       if (mounted) {
-        _versions = versions;
+        _versions = versionIds.map((id) => BibleVersion(id: id, name: id, shortname: id)).toList();
         if (_versions.isNotEmpty) {
           _selectedVersion = _versions.firstWhere(
             (v) => v.shortname == 'KJV',
@@ -44,14 +44,23 @@ class _BibleScreenState extends State<BibleScreen> {
     }
     
     if (_selectedVersion != null) {
-      final verses = await _bibleService.getChapter(
+      final versesMap = await _localBibleService.getChapter(
         _selectedVersion!.shortname,
         _currentBook,
         _currentChapter,
       );
       if (mounted) {
         setState(() {
-          _verses = verses;
+          _verses = versesMap.map((map) => BibleVerse(
+            number: map['verse'] as int,
+            text: map['text'] as String,
+          )).toList();
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
           _isLoading = false;
         });
       }
@@ -127,13 +136,17 @@ class _BibleScreenState extends State<BibleScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              itemCount: _verses.length,
-              itemBuilder: (context, index) {
-                return VerseText(verse: _verses[index]);
-              },
-            ),
+          : _versions.isEmpty
+              ? const Center(
+                  child: Text('No Bibles installed. Please install a Bible from the Scripture Engine.'),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  itemCount: _verses.length,
+                  itemBuilder: (context, index) {
+                    return VerseText(verse: _verses[index]);
+                  },
+                ),
     );
   }
 }

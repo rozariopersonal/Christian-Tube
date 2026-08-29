@@ -678,10 +678,50 @@ class LocalBibleService {
     _webInstalledVersions.remove(versionId);
     _webVerses.removeWhere((key, _) => key.startsWith('${versionId}_'));
 
-    final db = _db;
-    if (db == null) return;
+    if (kIsWeb) return;
+    if (_db == null) await initialize();
 
-    await db.delete('installed_versions', where: 'id = ?', whereArgs: [versionId]);
-    await db.delete('verses', where: 'version_id = ?', whereArgs: [versionId]);
+    await _db!.delete(
+      'verses',
+      where: 'version_id = ?',
+      whereArgs: [versionId],
+    );
+
+    await _db!.delete(
+      'installed_versions',
+      where: 'id = ?',
+      whereArgs: [versionId],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getChapter(String versionId, String bookName, int chapter) async {
+    if (kIsWeb) {
+      // In web, we could return dummy data or filter _webVerses if we wanted full web support.
+      // For now, return empty or a basic list if it matches a seeded verse.
+      List<Map<String, dynamic>> results = [];
+      _webVerses.forEach((key, value) {
+        final parts = key.split('_');
+        if (parts[0] == versionId && parts[2] == chapter.toString()) {
+          // Simplistic web fallback - doesn't have full book names mapped to numbers here easily
+          results.add({
+            'verse': int.tryParse(parts[3]) ?? 1,
+            'text': value,
+          });
+        }
+      });
+      results.sort((a, b) => (a['verse'] as int).compareTo(b['verse'] as int));
+      return results;
+    }
+
+    if (_db == null) await initialize();
+
+    final List<Map<String, dynamic>> maps = await _db!.query(
+      'verses',
+      where: 'version_id = ? AND book_name = ? AND chapter = ?',
+      whereArgs: [versionId, bookName, chapter],
+      orderBy: 'verse ASC',
+    );
+
+    return maps;
   }
 }
