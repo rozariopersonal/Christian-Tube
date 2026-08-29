@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../models/bible_version.dart';
+import '../models/bible_verse.dart';
 
 class BibleService {
   static const String baseUrl = 'https://api.biblesupersearch.com/api';
