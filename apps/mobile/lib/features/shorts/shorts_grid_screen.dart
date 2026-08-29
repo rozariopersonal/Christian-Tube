@@ -70,8 +70,8 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
       appBar: AppBar(title: const Text('Explore Shorts')),
       body: GridView.builder(
         padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 150,
           childAspectRatio: 9 / 16,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,

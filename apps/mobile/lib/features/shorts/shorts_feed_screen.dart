@@ -275,9 +275,12 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             Positioned(
               top: MediaQuery.of(context).padding.top + 8,
               left: 44,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              right: 84,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   ShortsTabChip(
                     label: '🌐 Community',
                     isSelected: _activeTab == ShortsViewTab.community,
@@ -309,6 +312,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                     },
                   ),
                 ],
+              ),
               ),
             ),
           ],

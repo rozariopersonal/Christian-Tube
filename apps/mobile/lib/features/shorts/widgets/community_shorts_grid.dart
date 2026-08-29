@@ -29,15 +29,7 @@ class CommunityShortsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth > 900
-            ? 4
-            : constraints.maxWidth > 600
-                ? 3
-                : 2;
-
-        return RefreshIndicator(
+    return RefreshIndicator(
           color: context.accent,
           backgroundColor: context.tokens.surface,
           onRefresh: onRefresh,
@@ -111,8 +103,8 @@ class CommunityShortsGrid extends StatelessWidget {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 150,
                     childAspectRatio: 9 / 16,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
@@ -144,8 +136,6 @@ class CommunityShortsGrid extends StatelessWidget {
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           ),
-        );
-      },
     );
   }
 }

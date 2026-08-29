@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/config/app_config.dart';
 import '../../core/models/video.dart';
 import '../../core/utils/formatters.dart';
@@ -147,7 +148,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         style: TextStyle(color: tokens.onSurfaceMuted),
                       ),
                     )
-                  : ListView.separated(
+                  : MaxWidthBox(
+                      child: ListView.separated(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: filteredList.length,
                       separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
@@ -156,6 +158,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         return _buildHistoryRow(context, video);
                       },
                     ),
+                  ),
         );
       },
     );

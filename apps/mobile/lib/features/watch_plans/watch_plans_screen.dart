@@ -297,15 +297,23 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                                 ),
                               const SizedBox(height: 14),
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.timer_outlined, size: 16, color: theme.colorScheme.primary),
-                                  const SizedBox(width: 6),
-                                  Text('${plan.targetMinutesPerDay} mins/day', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                                  const SizedBox(width: 16),
-                                  Icon(Icons.check_circle_outline, size: 16, color: Theme.of(context).colorScheme.primary),
-                                  const SizedBox(width: 6),
-                                  Text('${plan.completedVideosCount} completed', style: const TextStyle(fontSize: 12)),
-                                  const Spacer(),
+                                  Expanded(
+                                    child: Wrap(
+                                      spacing: 12,
+                                      runSpacing: 8,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        Icon(Icons.timer_outlined, size: 16, color: theme.colorScheme.primary),
+                                        const SizedBox(width: 6),
+                                        Text('${plan.targetMinutesPerDay} mins/day', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                        Icon(Icons.check_circle_outline, size: 16, color: Theme.of(context).colorScheme.primary),
+                                        const SizedBox(width: 6),
+                                        Text('${plan.completedVideosCount} completed', style: const TextStyle(fontSize: 12)),
+                                      ],
+                                    ),
+                                  ),
                                   TextButton(
                                     onPressed: () {
                                       Navigator.push(

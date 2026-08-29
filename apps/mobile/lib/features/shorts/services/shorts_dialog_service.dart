@@ -8,6 +8,7 @@ import '../../../core/models/local_short_item.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/layout/content_width.dart';
 import '../../../shared/ui/channel_avatar.dart';
 import 'shorts_orchestrator_service.dart';
 
@@ -105,7 +106,7 @@ class ShortsDialogService {
 
   static void showShortDetailsSheet(BuildContext context, Short short, VoidCallback onStopAllPlatformShorts) {
     HapticFeedback.lightImpact();
-    showModalBottomSheet(
+    showAdaptiveBottomSheet(
       context: context,
       backgroundColor: context.tokens.background,
       shape: const RoundedRectangleBorder(

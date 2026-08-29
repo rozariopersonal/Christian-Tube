@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/core/engines/base_feed_engine.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../core/layout/content_width.dart';
 import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models/scripture_card.dart';
 import 'models/scripture_filter_state.dart';
 import 'models/scripture_theme_state.dart';
 import 'services/bible_download_manager.dart';
+import 'services/book_name_service.dart';
 import 'services/saved_scripture_service.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
@@ -253,7 +256,7 @@ class ScriptureEngine
                 // 1. Version Picker Pill
                 GestureDetector(
                   onTap: () {
-                    showModalBottomSheet(
+                    showAdaptiveBottomSheet(
                       context: context,
                       backgroundColor: Colors.transparent,
                       isScrollControlled: true,
@@ -502,7 +505,35 @@ class ScriptureEngine
       filterState: filterState,
       isActive: isActive,
       onEdgePageShift: onEdgePageShift,
+      onReferenceTap: () => _openInBibleReader(context, item, filterState),
     );
+  }
+
+  /// Launches the Bible reader at the passage shown on the tapped card,
+  /// switching the reader to the feed's active version and scrolling to the
+  /// verse. Uses the version-specific verse mapping so the reader lands on the
+  /// exact passage the reader would display for that translation.
+  void _openInBibleReader(
+    BuildContext context,
+    ScriptureCard card,
+    ScriptureFilterState filterState,
+  ) {
+    final versionId = card.resolvedVersion ?? filterState.activeVersionId;
+    int bookNumber = card.bookNumber;
+    int chapter = card.chapter;
+    int verse = card.startVerse;
+
+    final mapping = card.verseMappings?[versionId];
+    if (mapping is Map) {
+      bookNumber = mapping['bookNumber'] ?? bookNumber;
+      chapter = mapping['chapter'] ?? chapter;
+      verse = mapping['startVerse'] ?? verse;
+    }
+
+    final bookName = BookNameService.englishNameFor(bookNumber);
+    final encoded = Uri.encodeQueryComponent(bookName);
+    context.push(
+        '/bible?version=$versionId&book=$encoded&chapter=$chapter&verse=$verse');
   }
 
   @override
@@ -540,7 +571,7 @@ class ScriptureEngine
         icon: Icons.palette_outlined,
         label: 'Style',
         onTap: () {
-          showModalBottomSheet(
+          showAdaptiveBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
             barrierColor: tokens.scrim.withValues(alpha: 0.25),
@@ -569,7 +600,7 @@ class ScriptureEngine
             : tokens.onSurface,
         label: filterState.comparisonVersionId ?? 'Compare',
         onTap: () {
-          showModalBottomSheet(
+          showAdaptiveBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
             barrierColor: tokens.scrim.withValues(alpha: 0.25),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
@@ -96,11 +97,13 @@ class _SearchScreenState extends State<SearchScreen> {
                     ],
                   ),
                 )
-              : ListView.builder(
-                  itemCount: _searchResults.length,
-                  itemBuilder: (context, index) {
-                    return SearchVideoCard(video: _searchResults[index]);
-                  },
+              : MaxWidthBox(
+                  child: ListView.builder(
+                    itemCount: _searchResults.length,
+                    itemBuilder: (context, index) {
+                      return SearchVideoCard(video: _searchResults[index]);
+                    },
+                  ),
                 ),
     );
   }

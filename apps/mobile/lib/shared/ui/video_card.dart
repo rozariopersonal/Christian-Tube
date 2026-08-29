@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/utils/formatters.dart';
@@ -139,7 +140,7 @@ class VideoCard extends StatelessWidget {
                     if (onOptionTap != null) {
                       onOptionTap!();
                     } else {
-                      showModalBottomSheet(
+                      showAdaptiveBottomSheet(
                         context: context,
                         builder: (ctx) => VideoOptionsBottomSheet(video: video),
                       );
@@ -148,6 +149,112 @@ class VideoCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact vertical video card for `medium`/`expanded` grid feeds.
+class VideoGridCard extends StatelessWidget {
+  final Video video;
+  final VoidCallback? onTap;
+  final VoidCallback? onOptionTap;
+
+  const VideoGridCard({
+    super.key,
+    required this.video,
+    this.onTap,
+    this.onOptionTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = context.tokens;
+
+    return InkWell(
+      onTap: onTap ?? () => context.push('/watch/${video.id}', extra: video),
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: CachedNetworkImage(
+                  imageUrl: video.thumbnailUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(color: tokens.surfaceVariant),
+                  errorWidget: (context, url, error) => Container(
+                    color: tokens.surfaceVariant,
+                    child: Icon(Icons.broken_image, color: tokens.onSurfaceDisabled),
+                  ),
+                ),
+              ),
+              if (video.duration != null && video.duration!.isNotEmpty && video.duration != '0:00')
+                Positioned(
+                  right: 6,
+                  bottom: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      video.duration!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              video.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                height: 1.25,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${video.channelTitle} • ${Formatters.formatViews(video.viewCount)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(color: tokens.onSurfaceMuted),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.more_vert, size: 16, color: tokens.onSurfaceMuted),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () {
+                  if (onOptionTap != null) {
+                    onOptionTap!();
+                  } else {
+                    showAdaptiveBottomSheet(
+                      context: context,
+                      builder: (ctx) => VideoOptionsBottomSheet(video: video),
+                    );
+                  }
+                },
+              ),
+            ],
           ),
         ],
       ),

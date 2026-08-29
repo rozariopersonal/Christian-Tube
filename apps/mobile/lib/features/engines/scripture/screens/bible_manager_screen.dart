@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../../core/layout/content_width.dart';
 import '../models/bible_version_meta.dart';
 import '../services/bible_download_manager.dart';
 
@@ -52,7 +53,8 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
                   v.language.toLowerCase().contains(_searchQuery.toLowerCase()))
               .toList();
 
-          return ListView(
+          return MaxWidthBox(
+            child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             children: [
               // 1. Storage Summary Banner
@@ -167,6 +169,7 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
                 ...availableList
                     .map((meta) => _buildAvailableItem(context, meta)),
             ],
+            ),
           );
         },
       ),

@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/engines/active_engine.g.dart';
+import '../core/layout/adaptivity.dart';
 import '../core/services/bottom_bar_visibility_service.dart';
 import '../core/theme/app_tokens.dart';
 import '../features/shorts/players/shorts_player.dart';
@@ -101,91 +103,182 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     }
   }
 
+  List<_NavSpec> _destinations() {
+    return [
+      const _NavSpec(
+        label: 'Home',
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home_filled,
+      ),
+      const _NavSpec(
+        label: 'Shorts',
+        icon: Icons.bolt_outlined,
+        selectedIcon: Icons.bolt,
+      ),
+      const _NavSpec(
+        label: 'Bible',
+        icon: Icons.menu_book_outlined,
+        selectedIcon: Icons.menu_book,
+      ),
+      if (kMicroFeedEnabled)
+        const _NavSpec(
+          label: 'Words',
+          icon: Icons.auto_awesome_outlined,
+          selectedIcon: Icons.auto_awesome,
+        ),
+      const _NavSpec(
+        label: 'Subscriptions',
+        icon: Icons.subscriptions_outlined,
+        selectedIcon: Icons.subscriptions,
+      ),
+      const _NavSpec(
+        label: 'You',
+        icon: Icons.account_circle_outlined,
+        selectedIcon: Icons.account_circle,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final tokens = theme.extension<AppTokens>();
     final currentPath = GoRouterState.of(context).uri.path;
     final selectedIndex = _getSelectedIndex(currentPath);
 
     return ListenableBuilder(
       listenable: BottomBarVisibilityService.instance,
       builder: (context, _) {
-        final shouldShowBottomNav = BottomBarVisibilityService.instance.shouldShow(
-          context: context,
-          currentPath: currentPath,
-          selectedIndex: selectedIndex,
+        final service = BottomBarVisibilityService.instance;
+        final size = MediaQuery.sizeOf(context);
+        final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
+        final navMode = resolveNavMode(
+          width: size.width,
+          isLandscape: isLandscape,
+          isShortPlaying: service.isShortPlaying,
+          isExplicitlyHidden: service.isExplicitlyHidden,
+          isWatchRoute: currentPath.startsWith('/watch'),
+          isWeb: kIsWeb,
         );
 
-        return Scaffold(
-          body: widget.child,
-          bottomNavigationBar: shouldShowBottomNav
-              ? NavigationBarTheme(
-                  data: NavigationBarThemeData(
-                    height: 60,
-                    indicatorColor: Colors.transparent,
-                    labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                      final isSelected = states.contains(WidgetState.selected);
-                      return TextStyle(
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected
-                            ? tokens.onSurface
-                            : tokens.onSurfaceMuted,
-                      );
-                    }),
-                    iconTheme: WidgetStateProperty.resolveWith((states) {
-                      final isSelected = states.contains(WidgetState.selected);
-                      return IconThemeData(
-                        size: 24,
-                        color: isSelected
-                            ? tokens.onSurface
-                            : tokens.onSurfaceMuted,
-                      );
-                    }),
+        switch (navMode) {
+          case AppNavMode.bottomBar:
+            return Scaffold(
+              body: widget.child,
+              bottomNavigationBar: _buildBottomBar(isDark, selectedIndex),
+            );
+          case AppNavMode.rail:
+            return Scaffold(
+              body: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildNavigationRail(isDark, selectedIndex),
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: tokens?.surfaceBorder ?? theme.dividerColor,
                   ),
-                  child: NavigationBar(
-                    selectedIndex: selectedIndex,
-                    backgroundColor: tokens.surface,
-                    elevation: 0,
-                    onDestinationSelected: _onTabSelected,
-                    destinations: const [
-                      NavigationDestination(
-                        icon: Icon(Icons.home_outlined),
-                        selectedIcon: Icon(Icons.home_filled),
-                        label: 'Home',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.bolt_outlined),
-                        selectedIcon: Icon(Icons.bolt),
-                        label: 'Shorts',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.menu_book_outlined),
-                        selectedIcon: Icon(Icons.menu_book),
-                        label: 'Bible',
-                      ),
-                      if (kMicroFeedEnabled)
-                        NavigationDestination(
-                          icon: Icon(Icons.auto_awesome_outlined),
-                          selectedIcon: Icon(Icons.auto_awesome),
-                          label: 'Words',
-                        ),
-                      NavigationDestination(
-                        icon: Icon(Icons.subscriptions_outlined),
-                        selectedIcon: Icon(Icons.subscriptions),
-                        label: 'Subscriptions',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.account_circle_outlined),
-                        selectedIcon: Icon(Icons.account_circle),
-                        label: 'You',
-                      ),
-                    ],
-                  ),
-                )
-              : null,
-        );
+                  Expanded(child: widget.child),
+                ],
+              ),
+            );
+          case AppNavMode.hidden:
+            return Scaffold(body: widget.child);
+        }
       },
     );
   }
+
+  Widget _buildBottomBar(bool isDark, int selectedIndex) {
+    return NavigationBarTheme(
+      data: NavigationBarThemeData(
+        height: 60,
+        indicatorColor: Colors.transparent,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected
+                ? (isDark ? Colors.white : Colors.black)
+                : (isDark ? Colors.white70 : Colors.black54),
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            size: 24,
+            color: isSelected
+                ? (isDark ? Colors.white : Colors.black)
+                : (isDark ? Colors.white70 : Colors.black54),
+          );
+        }),
+      ),
+      child: NavigationBar(
+        selectedIndex: selectedIndex,
+        backgroundColor: isDark ? Colors.black : Colors.white,
+        elevation: 0,
+        onDestinationSelected: _onTabSelected,
+        destinations: _destinations()
+            .map(
+              (d) => NavigationDestination(
+                icon: Icon(d.icon),
+                selectedIcon: Icon(d.selectedIcon),
+                label: d.label,
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildNavigationRail(bool isDark, int selectedIndex) {
+    final tokens = Theme.of(context).extension<AppTokens>();
+    final background = tokens?.background ?? (isDark ? Colors.black : Colors.white);
+    final selectedColor = isDark ? Colors.white : Colors.black;
+    final unselectedColor = isDark ? Colors.white70 : Colors.black54;
+    final indicator = tokens?.surfaceVariant ?? (isDark ? Colors.grey.shade800 : Colors.grey.shade200);
+
+    return NavigationRail(
+      backgroundColor: background,
+      selectedIndex: selectedIndex,
+      onDestinationSelected: _onTabSelected,
+      labelType: NavigationRailLabelType.all,
+      minWidth: 76,
+      indicatorColor: indicator,
+      selectedIconTheme: IconThemeData(color: selectedColor),
+      unselectedIconTheme: IconThemeData(color: unselectedColor),
+      selectedLabelTextStyle: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        color: selectedColor,
+      ),
+      unselectedLabelTextStyle: TextStyle(
+        fontSize: 11,
+        color: unselectedColor,
+      ),
+      destinations: _destinations()
+          .map(
+            (d) => NavigationRailDestination(
+              icon: Icon(d.icon),
+              selectedIcon: Icon(d.selectedIcon),
+              label: Text(d.label),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _NavSpec {
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+
+  const _NavSpec({
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+  });
 }

@@ -5,7 +5,6 @@ import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
 import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
-import '../../engines/scripture/widgets/compare_version_picker_sheet.dart';
 import '../../engines/scripture/screens/bible_manager_screen.dart';
 import 'package:flutter/services.dart';
 import '../widgets/verse_text.dart';
@@ -15,6 +14,8 @@ import '../widgets/verse_action_bar.dart';
 import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../core/layout/content_width.dart';
+import '../../../core/layout/adaptivity.dart';
 import '../models/bible_verse.dart';
 import '../models/bible_book.dart';
 import '../models/bible_settings.dart';
@@ -22,7 +23,21 @@ import '../services/bible_settings_service.dart';
 import '../services/bible_bookmark_service.dart';
 
 class BibleScreen extends StatefulWidget {
-  const BibleScreen({super.key});
+  const BibleScreen({
+    super.key,
+    this.initialVersionId,
+    this.initialBook,
+    this.initialChapter,
+    this.initialVerse,
+  });
+
+  /// When launching the reader from the Words feed, [initialVersionId] activates
+  /// the feed's version, [initialBook]/[initialChapter] position the reader at
+  /// the passage, and [initialVerse] scrolls to / highlights the verse.
+  final String? initialVersionId;
+  final String? initialBook;
+  final int? initialChapter;
+  final int? initialVerse;
 
   @override
   State<BibleScreen> createState() => _BibleScreenState();
@@ -39,7 +54,6 @@ class _BibleScreenState extends State<BibleScreen> {
   List<BibleVersion> _versions = [];
   List<BibleVerse> _verses = [];
   BibleVersion? _selectedVersion;
-  BibleVersion? _secondaryVersion;
   String _currentBook = 'Genesis';
   int _currentChapter = 1;
   bool _isLoading = true;
@@ -52,6 +66,7 @@ class _BibleScreenState extends State<BibleScreen> {
   BibleSettings _settings = const BibleSettings();
   bool _settingsLoaded = false;
   bool _resumeApplied = false;
+  bool _initialJumpPending = true;
 
   @override
   void initState() {
@@ -87,8 +102,14 @@ class _BibleScreenState extends State<BibleScreen> {
   /// Restores the user's last reading position. Returns true when a saved
   /// location was applied (and therefore the chapter should be re-loaded).
   bool _applySavedProgress() {
-    if (_resumeApplied || !_settingsLoaded || !_settings.hasProgress) return false;
+    if (_resumeApplied) return false;
     _resumeApplied = true;
+    // When launched from the Words feed, honor the requested passage/version
+    // instead of the saved reading position.
+    if (widget.initialBook != null || widget.initialVersionId != null) {
+      return false;
+    }
+    if (!_settingsLoaded || !_settings.hasProgress) return false;
     final savedBook = _settings.lastBook;
     final savedChapter = _settings.lastChapter;
     final savedVersion = _settings.lastVersion;
@@ -100,6 +121,26 @@ class _BibleScreenState extends State<BibleScreen> {
     _currentBook = savedBook;
     _currentChapter = savedChapter;
     return true;
+  }
+
+  /// Applies the reader-launch target (version + book + chapter + verse) once
+  /// the installed versions are known.
+  void _applyInitialJump() {
+    if (!_initialJumpPending || _versions.isEmpty) return;
+    final targetVersionId = widget.initialVersionId;
+    if (targetVersionId != null &&
+        _versions.any((v) => v.shortname == targetVersionId)) {
+      _selectedVersion =
+          _versions.firstWhere((v) => v.shortname == targetVersionId);
+    }
+    final targetBook = widget.initialBook;
+    if (targetBook != null && bibleBooks.containsKey(targetBook)) {
+      _currentBook = targetBook;
+    }
+    final targetChapter = widget.initialChapter;
+    if (targetChapter != null && targetChapter >= 1) {
+      _currentChapter = targetChapter;
+    }
   }
 
   @override
@@ -182,54 +223,33 @@ class _BibleScreenState extends State<BibleScreen> {
       _selectedVersion =
           _versions.isNotEmpty ? _versions.first : null;
     }
+    _applyInitialJump();
     _applySavedProgress();
   }
 
-  /// Merges the primary and (optional) secondary chapter verse maps into a
-  /// single stacked list aligned by verse number: for each verse, the primary
-  /// rendering is followed by the secondary rendering when the sources differ.
-  List<BibleVerse> _mergeChapterVerses(
-    List<Map<String, dynamic>> primaryMap,
-    List<Map<String, dynamic>>? secondaryMap,
-    String primaryId,
-    String? secondaryId,
+  /// Builds the verse list for a single version's chapter, tagged with the
+  /// version label so each row shows which translation it came from.
+  List<BibleVerse> _buildChapterVerses(
+    List<Map<String, dynamic>> chapterMap,
+    String versionId,
   ) {
-    final primaryByNum = {
-      for (final m in primaryMap) m['verse'] as int: m['text'] as String,
-    };
-    final secondaryByNum = secondaryMap == null
-        ? null
-        : {
-            for (final m in secondaryMap) m['verse'] as int: m['text'] as String,
-          };
-
-    final verseNumbers = <int>{...primaryByNum.keys, ...?secondaryByNum?.keys}.toList()
+    final numbers = chapterMap.map((m) => m['verse'] as int).toList()
       ..sort((a, b) => a.compareTo(b));
-
-    final merged = <BibleVerse>[];
-    for (final n in verseNumbers) {
-      final primaryText = primaryByNum[n];
-      if (primaryText != null) {
-        merged.add(BibleVerse(
-          number: n,
-          text: primaryText,
-          versionLabel: primaryId,
-        ));
-      }
-      final secondaryText = secondaryByNum?[n];
-      if (secondaryText != null && secondaryText != primaryText) {
-        merged.add(BibleVerse(
-          number: n,
-          text: secondaryText,
-          versionLabel: secondaryId,
-          isSecondary: true,
-        ));
-      }
+    final verses = <BibleVerse>[];
+    for (final n in numbers) {
+      final text = chapterMap
+          .firstWhere((m) => m['verse'] == n, orElse: () => const {})['text'];
+      if (text == null) continue;
+      verses.add(BibleVerse(
+        number: n,
+        text: text as String,
+        versionLabel: versionId,
+      ));
     }
-    return merged;
+    return verses;
   }
 
-  /// Fetches [book] [chapter] for both the primary and secondary versions.
+  /// Fetches [book] [chapter] for [version].
   Future<List<Map<String, dynamic>>> _fetchVersesForChapter(
     BibleVersion version,
     String book,
@@ -246,34 +266,43 @@ class _BibleScreenState extends State<BibleScreen> {
     if (_selectedVersion == null) return;
     final primaryMap = await _fetchVersesForChapter(
         _selectedVersion!, _currentBook, _currentChapter);
-    List<Map<String, dynamic>>? secondaryMap;
-    if (_secondaryVersion != null) {
-      secondaryMap = await _fetchVersesForChapter(
-          _secondaryVersion!, _currentBook, _currentChapter);
-    }
     if (!mounted) return;
-    final merged = _mergeChapterVerses(
-      primaryMap,
-      secondaryMap,
-      _selectedVersion!.shortname,
-      _secondaryVersion?.shortname,
-    );
+    final verses = _buildChapterVerses(primaryMap, _selectedVersion!.shortname);
     setState(() {
-      _verses = merged;
-      _chapterEmpty = merged.isEmpty;
+      _verses = verses;
+      _chapterEmpty = verses.isEmpty;
       _selectedVerses.clear();
     });
-    // Scroll to top when data is re-fetched completely
-    if (_scrollController.hasClients) {
+    // Scroll to the launched verse (when present) or top when re-fetched.
+    final shouldScrollToVerse = _initialJumpPending && widget.initialVerse != null;
+    if (shouldScrollToVerse) {
+      _initialJumpPending = false;
+      final targetVerse = widget.initialVerse!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          _scrollToVerse(targetVerse);
+        }
+      });
+    } else if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
-    if (merged.isNotEmpty) {
+    if (verses.isNotEmpty) {
       _settingsService.saveReadingProgress(
         _selectedVersion!.shortname,
         _currentBook,
         _currentChapter,
       );
     }
+  }
+
+  /// Scrolls the reader so a target verse is near the top of the viewport.
+  void _scrollToVerse(int verseNumber) {
+    int index = _verses.indexWhere((v) => v.number == verseNumber);
+    if (index == -1) {
+      index = (verseNumber - 1).clamp(0, _verses.length - 1);
+    }
+    final estimate = index * 56.0;
+    _scrollController.jumpTo(estimate);
   }
 
   Future<void> _fetchNextChapter({bool append = false}) async {
@@ -303,18 +332,9 @@ class _BibleScreenState extends State<BibleScreen> {
 
     final primaryMap =
         await _fetchVersesForChapter(_selectedVersion!, nextBook, nextChapter);
-    List<Map<String, dynamic>>? secondaryMap;
-    if (_secondaryVersion != null) {
-      secondaryMap = await _fetchVersesForChapter(
-          _secondaryVersion!, nextBook, nextChapter);
-    }
 
-    final newVerses = _mergeChapterVerses(
-      primaryMap,
-      secondaryMap,
-      _selectedVersion!.shortname,
-      _secondaryVersion?.shortname,
-    );
+    final newVerses =
+        _buildChapterVerses(primaryMap, _selectedVersion!.shortname);
 
     if (mounted) {
       setState(() {
@@ -372,7 +392,7 @@ class _BibleScreenState extends State<BibleScreen> {
   void _showVersionSelector() {
     if (_selectedVersion == null) return;
     
-    showModalBottomSheet(
+    showAdaptiveBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -402,40 +422,8 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
-  void _showSecondaryVersionSelector() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => CompareVersionPickerSheet(
-        activeVersionId: _selectedVersion?.shortname ?? 'TAOBVSI',
-        currentComparisonId: _secondaryVersion?.shortname,
-        onSelectComparison: (versionId) {
-          setState(() {
-            _secondaryVersion = versionId == null
-                ? null
-                : _versions.firstWhere(
-                    (v) => v.shortname == versionId,
-                    orElse: () {
-                      final meta = BibleDownloadManager.getMeta(versionId);
-                      return BibleVersion(
-                        id: versionId,
-                        name: meta.name,
-                        shortname: versionId,
-                        description: meta.description,
-                        lang: meta.languageCode,
-                      );
-                    },
-                  );
-          });
-          _loadChapter();
-        },
-      ),
-    );
-  }
-
   void _showBookChapterSelector() {
-    showModalBottomSheet(
+    showAdaptiveBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -527,7 +515,7 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   void _showReadingSettings() {
-    showModalBottomSheet(
+    showAdaptiveBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
@@ -556,7 +544,7 @@ class _BibleScreenState extends State<BibleScreen> {
 
   void _showSearch() {
     if (_selectedVersion == null) return;
-    showModalBottomSheet(
+    showAdaptiveBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -692,7 +680,8 @@ class _BibleScreenState extends State<BibleScreen> {
           return SlideTransition(position: outAnimation, child: child);
         }
       },
-      child: ListView.builder(
+      child: MaxWidthBox(
+        child: ListView.builder(
         key: ValueKey('$_currentBook-$_currentChapter'),
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -711,6 +700,7 @@ class _BibleScreenState extends State<BibleScreen> {
             onTap: () => _toggleVerseSelection(_verses[index].number),
           );
         },
+        ),
       ),
     );
   }
@@ -766,91 +756,19 @@ class _BibleScreenState extends State<BibleScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '${_displayBookName(_currentBook)} $_currentChapter',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              Flexible(
+                child: Text(
+                  '${_displayBookName(_currentBook)} $_currentChapter',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
               const Icon(Icons.arrow_drop_down),
             ],
           ),
         ),
         actions: [
-          if (_selectedVersion != null)
-            PopupMenuButton<String>(
-              tooltip: 'Versions',
-              onSelected: (value) {
-                if (value == 'primary') {
-                  _showVersionSelector();
-                } else if (value == 'secondary') {
-                  _showSecondaryVersionSelector();
-                } else if (value == 'none') {
-                  setState(() => _secondaryVersion = null);
-                  _loadChapter();
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem<String>(
-                  value: 'primary',
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.check_circle_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Primary: ${_selectedVersion!.shortname}'),
-                    ],
-                  ),
-                ),
-                if (_secondaryVersion != null)
-                  PopupMenuItem<String>(
-                    value: 'secondary',
-                    child:
-                        Text('Edit secondary: ${_secondaryVersion!.shortname}'),
-                  )
-                else
-                  const PopupMenuItem<String>(
-                    value: 'secondary',
-                    child: Text('Add secondary version…'),
-                  ),
-                const PopupMenuItem<String>(
-                  value: 'none',
-                  child: Text('No secondary version'),
-                ),
-              ],
-              child: Container(
-                margin: const EdgeInsets.only(right: 2),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: _secondaryVersion == null ? 0.12 : 0.18),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _secondaryVersion == null
-                        ? context.tokens.surfaceBorder
-                        : Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Text(
-                  _secondaryVersion?.shortname ?? '+ Compare',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: _secondaryVersion == null
-                        ? Theme.of(context).colorScheme.onSurfaceVariant
-                        : Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-            ),
           IconButton(
             tooltip: 'Search Bible',
             icon: const Icon(Icons.search),
@@ -861,19 +779,41 @@ class _BibleScreenState extends State<BibleScreen> {
             icon: const Icon(Icons.bookmark_border),
             onPressed: _openBookmarks,
           ),
-          IconButton(
-            tooltip: 'Reading settings',
-            icon: const Icon(Icons.text_format),
-            onPressed: _showReadingSettings,
-          ),
-          if (_selectedVersion != null)
-            TextButton(
-              onPressed: _showVersionSelector,
-              child: Text(
-                _selectedVersion!.shortname,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+          if (ScreenClass.of(context).isCompact)
+            PopupMenuButton<String>(
+              tooltip: 'More',
+              onSelected: (value) {
+                switch (value) {
+                  case 'settings':
+                    _showReadingSettings();
+                  case 'version':
+                    _showVersionSelector();
+                }
+              },
+              itemBuilder: (ctx) => [
+                const PopupMenuItem(value: 'settings', child: Text('Reading settings')),
+                if (_selectedVersion != null)
+                  PopupMenuItem(
+                    value: 'version',
+                    child: Text('Version: ${_selectedVersion!.shortname}'),
+                  ),
+              ],
+            )
+          else ...[
+            IconButton(
+              tooltip: 'Reading settings',
+              icon: const Icon(Icons.text_format),
+              onPressed: _showReadingSettings,
             ),
+            if (_selectedVersion != null)
+              TextButton(
+                onPressed: _showVersionSelector,
+                child: Text(
+                  _selectedVersion!.shortname,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+          ],
         ],
       ),
       body: Column(

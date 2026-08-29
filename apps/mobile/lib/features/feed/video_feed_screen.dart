@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_tokens.dart';
 import '../../core/config/app_config.dart';
+import '../../core/theme/app_tokens.dart';
+import '../../core/layout/adaptivity.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
 import '../../shared/ui/video_card.dart';
 import '../channels/channel_service.dart';
@@ -76,16 +78,20 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             titleSpacing: 16,
             title: Row(
               children: [
+                Flexible(
+                  child: Text(
+                    AppConfig.appName,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19, letterSpacing: -0.5),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Image.asset(
                   'assets/logo.png',
                   height: 26,
                   width: 26,
                   errorBuilder: (_, __, ___) => Icon(Icons.play_circle_fill, color: context.primary),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  AppConfig.appName,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19, letterSpacing: -0.5),
                 ),
               ],
             ),
@@ -350,10 +356,18 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         _videoService.updateSubscribedChannelIds(_channelService.subscribedChannelIds);
         await _videoService.refreshVideos();
       },
+      child: ScreenClass.of(context).isCompact
+          ? _buildFeedList(videos)
+          : _buildFeedGrid(videos),
+    );
+  }
+
+  Widget _buildFeedList(List<Video> videos) {
+    return MaxWidthBox(
       child: ListView.separated(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: videos.length + (_videoService.hasMore ? 1 : 1),
+        itemCount: videos.length + 1,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           if (index == videos.length) {
@@ -368,6 +382,45 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
           final video = videos[index];
           return VideoCard(
+            video: video,
+            onTap: () {
+              context.push('/watch/${video.id}', extra: {
+                'video': video,
+              });
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFeedGrid(List<Video> videos) {
+    return MaxWidthBox(
+      child: GridView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(12),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: gridColumnsFor(context),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 16,
+          childAspectRatio: 1.1,
+        ),
+        itemCount: videos.length + 1,
+        itemBuilder: (context, index) {
+          if (index == videos.length) {
+            if (_videoService.hasMore) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }
+
+          final video = videos[index];
+          return VideoGridCard(
             video: video,
             onTap: () {
               context.push('/watch/${video.id}', extra: {

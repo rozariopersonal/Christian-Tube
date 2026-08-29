@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../core/layout/content_width.dart';
 
 class AppShareDialog extends StatefulWidget {
   final String? customVersion;
@@ -16,7 +17,7 @@ class AppShareDialog extends StatefulWidget {
   const AppShareDialog({super.key, this.customVersion});
 
   static Future<void> show(BuildContext context, {String? version}) {
-    return showModalBottomSheet(
+    return showAdaptiveBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

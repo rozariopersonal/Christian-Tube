@@ -15,6 +15,7 @@ import 'widgets/app_share_dialog.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/theme/theme_service.dart';
 import '../../core/config/app_config.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -155,7 +156,8 @@ class ProfileScreen extends StatelessWidget {
               ),
             ],
           ),
-          body: ListView(
+          body: MaxWidthBox(
+            child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
               // User Account Header Card
@@ -204,7 +206,8 @@ class ProfileScreen extends StatelessWidget {
                                 const SizedBox(height: 2),
                                 Text(user.email, style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13)),
                                 const SizedBox(height: 4),
-                                Row(
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     InkWell(
                                       onTap: () => _showQuickSignInDialog(context),
@@ -502,6 +505,7 @@ class ProfileScreen extends StatelessWidget {
                 onTap: () => AppShareDialog.show(context),
               ),
             ],
+            ),
           ),
         );
       },

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/layout/content_width.dart';
 import '../../shared/ui/channel_avatar.dart';
 import '../channels/channel_service.dart';
 
@@ -44,7 +45,8 @@ class SubscriptionsScreen extends StatelessWidget {
             );
           }
 
-          return ListView.separated(
+          return MaxWidthBox(
+            child: ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: subs.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -97,6 +99,7 @@ class SubscriptionsScreen extends StatelessWidget {
                 ),
               );
             },
+            ),
           );
         },
       ),

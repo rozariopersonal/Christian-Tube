@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/models/channel_request.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/theme/app_tokens.dart';
@@ -184,7 +185,8 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
 
     return RefreshIndicator(
       onRefresh: () async => _channelService.fetchChannels(),
-      child: ListView.separated(
+      child: MaxWidthBox(
+        child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: channels.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -271,11 +273,12 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                       ),
                     ],
                   ),
-                ],
+              ],
               ],
             ),
           );
         },
+        ),
       ),
     );
   }
@@ -312,7 +315,8 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
 
     return RefreshIndicator(
       onRefresh: () async => _channelService.fetchRequests(),
-      child: ListView.separated(
+      child: MaxWidthBox(
+        child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: requests.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -407,12 +411,13 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
             ),
           );
         },
+        ),
       ),
     );
   }
 
   void _showAddChannelDialog(BuildContext context) {
-    showModalBottomSheet(
+    showAdaptiveBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -438,7 +443,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
   }
 
   void _showRequestChannelDialog(BuildContext context) {
-    showModalBottomSheet(
+    showAdaptiveBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
