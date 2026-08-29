@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/bible_version.dart';
 import '../services/bible_service.dart';
+import '../widgets/verse_text.dart';
 import '../widgets/version_selector_sheet.dart';
+import '../models/bible_verse.dart';
 
 class BibleScreen extends StatefulWidget {
   const BibleScreen({super.key});
@@ -13,19 +15,23 @@ class BibleScreen extends StatefulWidget {
 class _BibleScreenState extends State<BibleScreen> {
   final BibleService _bibleService = BibleService();
   List<BibleVersion> _versions = [];
+  List<BibleVerse> _verses = [];
   BibleVersion? _selectedVersion;
+  String _currentBook = 'Genesis';
+  int _currentChapter = 1;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchVersions();
+    _fetchData();
   }
 
-  Future<void> _fetchVersions() async {
-    final versions = await _bibleService.getVersions();
-    if (mounted) {
-      setState(() {
+  Future<void> _fetchData() async {
+    setState(() => _isLoading = true);
+    if (_versions.isEmpty) {
+      final versions = await _bibleService.getVersions();
+      if (mounted) {
         _versions = versions;
         if (_versions.isNotEmpty) {
           _selectedVersion = _versions.firstWhere(
@@ -33,8 +39,21 @@ class _BibleScreenState extends State<BibleScreen> {
             orElse: () => _versions.first,
           );
         }
-        _isLoading = false;
-      });
+      }
+    }
+    
+    if (_selectedVersion != null) {
+      final verses = await _bibleService.getChapter(
+        _selectedVersion!.shortname,
+        _currentBook,
+        _currentChapter,
+      );
+      if (mounted) {
+        setState(() {
+          _verses = verses;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -51,6 +70,7 @@ class _BibleScreenState extends State<BibleScreen> {
             _selectedVersion = version;
           });
           Navigator.pop(context);
+          _fetchData();
         },
       ),
     );
@@ -60,7 +80,7 @@ class _BibleScreenState extends State<BibleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bible'),
+        title: Text('$_currentBook $_currentChapter'),
         actions: [
           if (_selectedVersion != null)
             TextButton(
@@ -74,7 +94,13 @@ class _BibleScreenState extends State<BibleScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : const Center(child: Text('Bible content coming soon')),
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              itemCount: _verses.length,
+              itemBuilder: (context, index) {
+                return VerseText(verse: _verses[index]);
+              },
+            ),
     );
   }
 }
