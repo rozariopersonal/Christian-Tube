@@ -8,19 +8,10 @@ import '../features/update/update_service.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   final Widget child;
-  final StatefulNavigationShell? navigationShell;
-
   const MainLayoutScreen({
     super.key,
     required this.child,
-    this.navigationShell,
   });
-
-  const MainLayoutScreen.shell({
-    super.key,
-    required StatefulNavigationShell navigationShell,
-  })  : child = navigationShell,
-        navigationShell = navigationShell;
 
   @override
   State<MainLayoutScreen> createState() => _MainLayoutScreenState();
@@ -46,21 +37,18 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   }
 
   int _getSelectedIndex(String currentPath) {
-    if (widget.navigationShell != null) {
-      _lastSelectedTabIndex = widget.navigationShell!.currentIndex;
-      return _lastSelectedTabIndex;
-    }
-
     if (currentPath.startsWith('/feed')) {
       _lastSelectedTabIndex = 0;
     } else if (currentPath.startsWith('/shorts')) {
       _lastSelectedTabIndex = 1;
-    } else if (kMicroFeedEnabled && currentPath.startsWith('/words')) {
+    } else if (currentPath.startsWith('/bible')) {
       _lastSelectedTabIndex = 2;
+    } else if (kMicroFeedEnabled && currentPath.startsWith('/words')) {
+      _lastSelectedTabIndex = 3;
     } else if (currentPath.startsWith('/channels')) {
-      _lastSelectedTabIndex = kMicroFeedEnabled ? 3 : 2;
-    } else if (currentPath.startsWith('/profile')) {
       _lastSelectedTabIndex = kMicroFeedEnabled ? 4 : 3;
+    } else if (currentPath.startsWith('/profile')) {
+      _lastSelectedTabIndex = kMicroFeedEnabled ? 5 : 4;
     }
 
     return _lastSelectedTabIndex;
@@ -71,28 +59,17 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       stopAllPlatformShorts();
     }
 
-    // Re-tapping the Shorts tab while it is already active → reset to grid
-    if (index == 1 &&
-        widget.navigationShell != null &&
-        widget.navigationShell!.currentIndex == 1) {
+    if (index == 1 && _lastSelectedTabIndex == 1) {
       BottomBarVisibilityService.instance.requestShortsReset();
       return;
     }
 
     // Always reset the Words feed to a new random list when navigated
-    if (kMicroFeedEnabled && index == 2) {
+    if (kMicroFeedEnabled && index == 3) {
       BottomBarVisibilityService.instance.requestWordsReset();
     }
 
-    if (widget.navigationShell != null) {
-      widget.navigationShell!.goBranch(
-        index,
-        initialLocation: index == widget.navigationShell!.currentIndex,
-      );
-      return;
-    }
-
-    // Direct navigation fallback
+    // Direct navigation
     switch (index) {
       case 0:
         context.go('/feed');
@@ -101,20 +78,23 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         context.go('/shorts');
         break;
       case 2:
+        context.go('/bible');
+        break;
+      case 3:
         if (kMicroFeedEnabled) {
           context.go('/words');
         } else {
           context.go('/channels');
         }
         break;
-      case 3:
+      case 4:
         if (kMicroFeedEnabled) {
           context.go('/channels');
         } else {
           context.go('/profile');
         }
         break;
-      case 4:
+      case 5:
         context.go('/profile');
         break;
     }
@@ -178,6 +158,11 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                         icon: Icon(Icons.bolt_outlined),
                         selectedIcon: Icon(Icons.bolt),
                         label: 'Shorts',
+                      ),
+                      const NavigationDestination(
+                        icon: Icon(Icons.menu_book_outlined),
+                        selectedIcon: Icon(Icons.menu_book),
+                        label: 'Bible',
                       ),
                       if (kMicroFeedEnabled)
                         const NavigationDestination(

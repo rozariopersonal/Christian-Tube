@@ -33,7 +33,7 @@ dependencies:
   # Authentication & Storage
   google_sign_in: ^6.2.1
   sqflite: ^2.3.3+1
-  shared_preferences: ^2.2.3
+  shared_preferences: ^2.5.5
   path: ^1.9.0
   uuid: ^4.4.0
   rxdart: ^0.27.7

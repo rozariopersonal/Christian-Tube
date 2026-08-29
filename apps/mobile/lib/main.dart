@@ -17,6 +17,7 @@ import 'features/search/search_screen.dart';
 import 'features/shorts/shorts_feed_screen.dart';
 import 'features/watch/video_player_screen.dart';
 import 'features/watch_plans/watch_plans_screen.dart';
+import 'features/bible/screens/bible_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'layout/main_layout_screen.dart';
 
@@ -64,77 +65,49 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             return MainLayoutScreen(child: child);
           },
           routes: [
-            StatefulShellRoute.indexedStack(
-              builder: (context, state, navigationShell) {
-                return navigationShell;
+            GoRoute(
+              path: '/feed',
+              builder: (context, state) => const VideoFeedScreen(),
+            ),
+            GoRoute(
+              path: '/shorts',
+              builder: (context, state) {
+                final shortId = state.uri.queryParameters['id'] ??
+                    state.uri.queryParameters['videoId'] ??
+                    (state.extra as Map<String, dynamic>?)?['shortId'] as String?;
+                final initialIndex = (state.extra as Map<String, dynamic>?)?['initialIndex'] as int?;
+                return ShortsFeedScreen(
+                  initialShortId: shortId,
+                  initialIndex: initialIndex,
+                );
               },
-              branches: [
-                // Tab 1: Home Feed
-                StatefulShellBranch(
-                  routes: [
-                    GoRoute(
-                      path: '/feed',
-                      builder: (context, state) => const VideoFeedScreen(),
-                    ),
-                  ],
-                ),
-                // Tab 2: YouTube Shorts Feed
-                StatefulShellBranch(
-                  routes: [
-                    GoRoute(
-                      path: '/shorts',
-                      builder: (context, state) {
-                        final shortId = state.uri.queryParameters['id'] ??
-                            state.uri.queryParameters['videoId'] ??
-                            (state.extra as Map<String, dynamic>?)?['shortId'] as String?;
-                        final initialIndex = (state.extra as Map<String, dynamic>?)?['initialIndex'] as int?;
-                        return ShortsFeedScreen(
-                          initialShortId: shortId,
-                          initialIndex: initialIndex,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                // Tab 3: Words / Micro-Feed (when enabled)
-                if (kMicroFeedEnabled)
-                  StatefulShellBranch(
-                    routes: [
-                      GoRoute(
-                        path: '/words',
-                        builder: (context, state) {
-                          final engine = createActiveFeedEngine();
-                          return engine != null
-                              ? MicroFeedScreen(engine: engine)
-                              : const SizedBox.shrink();
-                        },
-                      ),
-                    ],
-                  ),
-                // Tab 4: Subscriptions / Channels
-                StatefulShellBranch(
-                  routes: [
-                    GoRoute(
-                      path: '/channels',
-                      builder: (context, state) => const ChannelsScreen(),
-                    ),
-                  ],
-                ),
-                // Tab 5: You (Profile, History, Playlists & Settings)
-                StatefulShellBranch(
-                  routes: [
-                    GoRoute(
-                      path: '/profile',
-                      builder: (context, state) => ProfileScreen(
-                        authService: _authService,
-                        userService: _userService,
-                        channelService: _channelService,
-                        themeService: _themeService,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            ),
+            GoRoute(
+              path: '/bible',
+              builder: (context, state) => const BibleScreen(),
+            ),
+            if (kMicroFeedEnabled)
+              GoRoute(
+                path: '/words',
+                builder: (context, state) {
+                  final engine = createActiveFeedEngine();
+                  return engine != null
+                      ? MicroFeedScreen(engine: engine)
+                      : const SizedBox.shrink();
+                },
+              ),
+            GoRoute(
+              path: '/channels',
+              builder: (context, state) => const ChannelsScreen(),
+            ),
+            GoRoute(
+              path: '/profile',
+              builder: (context, state) => ProfileScreen(
+                authService: _authService,
+                userService: _userService,
+                channelService: _channelService,
+                themeService: _themeService,
+              ),
             ),
             GoRoute(
               path: '/watch/:id',
