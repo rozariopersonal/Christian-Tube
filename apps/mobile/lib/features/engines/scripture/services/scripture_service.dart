@@ -124,7 +124,7 @@ class ScriptureService {
       }
     }
 
-    // 1. Try local/in-memory database first (0ms latency)
+    // Try local/in-memory database (0ms latency)
     String? text = await _localBible.resolvePassage(
       versionId: versionId,
       bookNumber: reqBookNumber,
@@ -133,19 +133,6 @@ class ScriptureService {
       endVerse: reqEndVerse,
     );
 
-    // 2. If not found locally and not default WEB, try Remote Bible API
-    if (text == null && versionId.toUpperCase() != 'WEB') {
-      text = await _remoteApi.fetchPassage(
-        versionId: versionId,
-        referenceLabel: reqLabel,
-        bookNumber: reqBookNumber,
-        chapter: reqChapter,
-        startVerse: reqStartVerse,
-        endVerse: reqEndVerse,
-      );
-    }
-
-    // 3. Fallback to authentic verse text from the database
     card.resolvedText = text ?? originalDbText ?? '"For God so loved the world, that he gave his one and only Son..."';
     card.resolvedVersion = text != null ? versionId : (originalDbText != null ? 'WEB' : versionId);
   }
