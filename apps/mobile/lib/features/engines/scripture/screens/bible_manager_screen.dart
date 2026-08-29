@@ -161,7 +161,8 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
                   ),
                 )
               else
-                ...availableList.map((meta) => _buildAvailableItem(meta)),
+                ...availableList
+                    .map((meta) => _buildAvailableItem(context, meta)),
             ],
           );
         },
@@ -215,9 +216,24 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
     );
   }
 
-  Widget _buildAvailableItem(BibleVersionMeta meta) {
+  Widget _buildAvailableItem(BuildContext context, BibleVersionMeta meta) {
     final isDownloading = _manager.isDownloading(meta.id);
     final progress = _manager.getProgress(meta.id);
+
+    Future<void> startDownload() async {
+      final messenger = ScaffoldMessenger.of(context);
+      final ok = await _manager.downloadVersion(meta);
+      if (!ok && context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not download ${meta.name}. Check your connection and try again.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -262,7 +278,7 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
                 )
               else
                 ElevatedButton.icon(
-                  onPressed: () => _manager.downloadVersion(meta),
+                  onPressed: startDownload,
                   icon: const Icon(Icons.download, size: 16),
                   label: const Text('Download'),
                   style: ElevatedButton.styleFrom(

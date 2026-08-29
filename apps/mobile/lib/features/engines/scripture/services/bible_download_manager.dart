@@ -44,38 +44,6 @@ class BibleDownloadManager extends ChangeNotifier {
       description: 'The historic and revered 1611 English Bible.',
     ),
     BibleVersionMeta(
-      id: 'MSG',
-      name: 'The Message (MSG)',
-      language: 'English',
-      languageCode: 'en',
-      sizeDisplay: '1.6 MB',
-      description: 'Eugene Peterson’s vibrant contemporary paraphrase bringing scripture to life.',
-    ),
-    BibleVersionMeta(
-      id: 'TLB',
-      name: 'The Living Bible (TLB)',
-      language: 'English',
-      languageCode: 'en',
-      sizeDisplay: '1.5 MB',
-      description: 'Kenneth N. Taylor’s beloved thought-for-thought English translation.',
-    ),
-    BibleVersionMeta(
-      id: 'NASB',
-      name: 'New American Standard Bible (NASB)',
-      language: 'English',
-      languageCode: 'en',
-      sizeDisplay: '1.4 MB',
-      description: 'Strict word-for-word accuracy based on original Hebrew and Greek manuscripts.',
-    ),
-    BibleVersionMeta(
-      id: 'BSB',
-      name: 'Berean Standard Bible',
-      language: 'English',
-      languageCode: 'en',
-      sizeDisplay: '1.4 MB',
-      description: 'Faithful, modern word-for-word translation based on original Greek/Hebrew.',
-    ),
-    BibleVersionMeta(
       id: 'ASV',
       name: 'American Standard Version',
       language: 'English',
@@ -102,14 +70,6 @@ class BibleDownloadManager extends ChangeNotifier {
       description: 'The classic Bower revision standard Tamil Bible used across Tamil churches.',
       isDefaultBundled: true,
     ),
-    BibleVersionMeta(
-      id: 'TAM_IRV',
-      name: 'Tamil IRV (இந்தியத் திருத்தப்பட்ட வேதாகமம்)',
-      language: 'Tamil',
-      languageCode: 'tam',
-      sizeDisplay: '1.6 MB',
-      description: 'Clear, modern contemporary Tamil revision.',
-    ),
 
     // Malayalam
     BibleVersionMeta(
@@ -119,7 +79,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'mal',
       sizeDisplay: '1.5 MB',
       description: 'Indian Revised Version in Malayalam, faithful to original texts.',
-      isDefaultBundled: true,
     ),
 
     // Telugu
@@ -130,7 +89,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'tel',
       sizeDisplay: '1.5 MB',
       description: 'Indian Revised Version in Telugu with clear devotional phrasing.',
-      isDefaultBundled: true,
     ),
 
     // Kannada
@@ -141,7 +99,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'kan',
       sizeDisplay: '1.5 MB',
       description: 'Indian Revised Version in Kannada language.',
-      isDefaultBundled: true,
     ),
 
     // Hindi
@@ -152,17 +109,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'hin',
       sizeDisplay: '1.5 MB',
       description: 'Clear modern Hindi translation for everyday devotions.',
-      isDefaultBundled: true,
-    ),
-
-    // Spanish
-    BibleVersionMeta(
-      id: 'RVR09',
-      name: 'Reina-Valera 1909',
-      language: 'Spanish',
-      languageCode: 'es',
-      sizeDisplay: '1.4 MB',
-      description: 'Classic Spanish Protestant Bible.',
     ),
   ];
 
@@ -196,10 +142,12 @@ class BibleDownloadManager extends ChangeNotifier {
     unawaited(downloadVersion(getMeta(defaultVersionId)));
   }
 
-  Future<void> downloadVersion(BibleVersionMeta meta) async {
-    if (_installedIds.contains(meta.id) || _downloadingIds.contains(meta.id)) {
-      return;
-    }
+  /// Downloads and installs [meta]. Returns true when the version is ready for
+  /// offline use; false when it could not be fetched (no data source, or a
+  /// network failure on every mirror).
+  Future<bool> downloadVersion(BibleVersionMeta meta) async {
+    if (_installedIds.contains(meta.id)) return true;
+    if (_downloadingIds.contains(meta.id)) return true;
 
     _downloadingIds.add(meta.id);
     _downloadProgress[meta.id] = 0.0;
@@ -211,7 +159,7 @@ class BibleDownloadManager extends ChangeNotifier {
         // No servable data source for this version (e.g. copyrighted), so do
         // not mark it installed.
         debugPrint('Version ${meta.id} is not available for download.');
-        return;
+        return false;
       }
 
       // Register in local SQLite database
@@ -224,8 +172,10 @@ class BibleDownloadManager extends ChangeNotifier {
       );
 
       _installedIds.add(meta.id);
+      return true;
     } catch (e) {
       debugPrint('Error downloading version ${meta.id}: $e');
+      return false;
     } finally {
       _downloadingIds.remove(meta.id);
       _downloadProgress.remove(meta.id);
