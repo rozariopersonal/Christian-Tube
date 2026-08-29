@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -6,14 +7,17 @@ import '../core/engines/active_engine.g.dart';
 import '../core/layout/adaptivity.dart';
 import '../core/services/bottom_bar_visibility_service.dart';
 import '../core/theme/app_tokens.dart';
+import '../features/auth/auth_service.dart';
 import '../features/shorts/players/shorts_player.dart';
 import '../features/update/update_service.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   final Widget child;
+  final AuthService authService;
   const MainLayoutScreen({
     super.key,
     required this.child,
+    required this.authService,
   });
 
   @override
@@ -48,10 +52,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       _lastSelectedTabIndex = 2;
     } else if (kMicroFeedEnabled && currentPath.startsWith('/words')) {
       _lastSelectedTabIndex = 3;
-    } else if (currentPath.startsWith('/channels')) {
-      _lastSelectedTabIndex = kMicroFeedEnabled ? 4 : 3;
     } else if (currentPath.startsWith('/profile')) {
-      _lastSelectedTabIndex = kMicroFeedEnabled ? 5 : 4;
+      _lastSelectedTabIndex = kMicroFeedEnabled ? 4 : 3;
     }
 
     return _lastSelectedTabIndex;
@@ -87,26 +89,19 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         if (kMicroFeedEnabled) {
           context.go('/words');
         } else {
-          context.go('/channels');
-        }
-        break;
-      case 4:
-        if (kMicroFeedEnabled) {
-          context.go('/channels');
-        } else {
           context.go('/profile');
         }
         break;
-      case 5:
+      case 4:
         context.go('/profile');
         break;
     }
   }
 
-  List<_NavSpec> _destinations() {
+  List<_NavSpec> _destinations(BuildContext context) {
     return [
       const _NavSpec(
-        label: 'Home',
+        label: 'Videos',
         icon: Icons.home_outlined,
         selectedIcon: Icons.home_filled,
       ),
@@ -126,17 +121,61 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           icon: Icons.auto_awesome_outlined,
           selectedIcon: Icons.auto_awesome,
         ),
-      const _NavSpec(
-        label: 'Subscriptions',
-        icon: Icons.subscriptions_outlined,
-        selectedIcon: Icons.subscriptions,
-      ),
-      const _NavSpec(
+      _NavSpec(
         label: 'You',
-        icon: Icons.account_circle_outlined,
-        selectedIcon: Icons.account_circle,
+        iconBuilder: () => _buildProfileAvatar(context, 64 * 0.66),
+        selectedIconBuilder: () => _buildProfileAvatar(context, 64 * 0.66),
       ),
     ];
+  }
+
+  Widget _buildProfileAvatar(BuildContext context, double size) {
+    final user = widget.authService.currentUser;
+    final tokens = Theme.of(context).extension<AppTokens>();
+    final fallbackColor = tokens?.onSurface ?? Theme.of(context).colorScheme.onSurface;
+
+    if (user != null && user.photoUrl != null && user.photoUrl!.isNotEmpty) {
+      return ClipOval(
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: CachedNetworkImage(
+            imageUrl: user.photoUrl!,
+            fit: BoxFit.cover,
+            errorWidget: (_, __, ___) => Icon(
+              Icons.account_circle,
+              size: size,
+              color: fallbackColor,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Fallback: initial of the display name, or a generic account icon.
+    final initial = (user?.displayName.isNotEmpty ?? false)
+        ? user!.displayName[0].toUpperCase()
+        : null;
+    if (initial != null) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Text(
+          initial,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onPrimary,
+            fontSize: size * 0.45,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    return Icon(
+      Icons.account_circle_outlined,
+      size: size,
+      color: fallbackColor,
+    );
   }
 
   @override
@@ -148,7 +187,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     final selectedIndex = _getSelectedIndex(currentPath);
 
     return ListenableBuilder(
-      listenable: BottomBarVisibilityService.instance,
+      listenable: Listenable.merge(
+          [BottomBarVisibilityService.instance, widget.authService]),
       builder: (context, _) {
         final service = BottomBarVisibilityService.instance;
         final size = MediaQuery.sizeOf(context);
@@ -220,11 +260,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         backgroundColor: isDark ? Colors.black : Colors.white,
         elevation: 0,
         onDestinationSelected: _onTabSelected,
-        destinations: _destinations()
+        destinations: _destinations(context)
             .map(
               (d) => NavigationDestination(
-                icon: Icon(d.icon),
-                selectedIcon: Icon(d.selectedIcon),
+                icon: d.iconBuilder != null ? d.iconBuilder!() : Icon(d.icon),
+                selectedIcon: d.selectedIconBuilder != null
+                    ? d.selectedIconBuilder!()
+                    : Icon(d.selectedIcon),
                 label: d.label,
               ),
             )
@@ -258,11 +300,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         fontSize: 11,
         color: unselectedColor,
       ),
-      destinations: _destinations()
+      destinations: _destinations(context)
           .map(
             (d) => NavigationRailDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
+              icon: d.iconBuilder != null ? d.iconBuilder!() : Icon(d.icon),
+              selectedIcon: d.selectedIconBuilder != null
+                  ? d.selectedIconBuilder!()
+                  : Icon(d.selectedIcon),
               label: Text(d.label),
             ),
           )
@@ -273,12 +317,16 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
 
 class _NavSpec {
   final String label;
-  final IconData icon;
-  final IconData selectedIcon;
+  final IconData? icon;
+  final IconData? selectedIcon;
+  final Widget Function()? iconBuilder;
+  final Widget Function()? selectedIconBuilder;
 
   const _NavSpec({
     required this.label,
-    required this.icon,
-    required this.selectedIcon,
+    this.icon,
+    this.selectedIcon,
+    this.iconBuilder,
+    this.selectedIconBuilder,
   });
 }

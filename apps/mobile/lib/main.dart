@@ -68,7 +68,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
       routes: [
         ShellRoute(
           builder: (context, state, child) {
-            return MainLayoutScreen(child: child);
+            return MainLayoutScreen(child: child, authService: _authService);
           },
           routes: [
             GoRoute(
