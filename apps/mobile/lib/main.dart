@@ -91,6 +91,14 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             GoRoute(
               path: '/bible',
               builder: (context, state) {
+                // Bible is only available for christian_tube, not centum_academy
+                if (AppConfig.instanceId == 'centum_academy') {
+                  return const Scaffold(
+                    body: Center(
+                      child: Text('Bible not available for this instance'),
+                    ),
+                  );
+                }
                 final qp = state.uri.queryParameters;
                 final extra = state.extra as Map<String, dynamic>?;
                 return BibleScreen(

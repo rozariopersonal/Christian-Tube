@@ -61,6 +61,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isShuffle = false;
   bool _isAutoplay = true;
 
+  int _buildKey = 0;
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +70,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _video = widget.initialVideo;
     _playlist = widget.playlist != null ? List.from(widget.playlist!) : [];
     _playlistIndex = widget.initialPlaylistIndex;
+    _lastOrientation = MediaQuery.of(context).orientation == Orientation.landscape;
 
     if (_video != null) {
       UserService().addToHistory(_video!);
@@ -232,6 +235,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final orientation = MediaQuery.of(context).orientation;
     final isLandscape = orientation == Orientation.landscape;
 
+    // Increment key when orientation changes to force full widget rebuild
+    if (_lastOrientation != isLandscape) {
+      _buildKey++;
+      _lastOrientation = isLandscape;
+    }
+
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
       startSeconds: widget.startSeconds,
@@ -241,6 +250,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       builder: (context, player) {
         if (isLandscape) {
           return Scaffold(
+            key: ValueKey('landscape_$_buildKey'),
             backgroundColor: context.tokens.scrim,
             body: SizedBox.expand(child: player),
           );
@@ -257,6 +267,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
         if (ScreenClass.of(context).isCompact) {
           return Scaffold(
+            key: ValueKey('compact_$_buildKey'),
             body: SafeArea(
               top: true,
               bottom: false,
@@ -284,6 +295,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
         // medium / expanded: player + description left, related as a sidebar.
         return Scaffold(
+          key: ValueKey('portrait_$_buildKey'),
           body: SafeArea(
             top: true,
             bottom: false,
