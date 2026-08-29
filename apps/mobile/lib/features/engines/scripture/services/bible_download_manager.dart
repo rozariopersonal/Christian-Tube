@@ -224,12 +224,14 @@ class BibleDownloadManager extends ChangeNotifier {
       for (final rawBook in books) {
         final book = rawBook as Map<String, dynamic>;
         final bookNumber = book['b'] as int;
+        final bookName = book['n'] as String;
         final chapters = book['ch'] as List<dynamic>;
         for (var c = 0; c < chapters.length; c++) {
           final chapterVerses = chapters[c] as List<dynamic>;
           for (var v = 0; v < chapterVerses.length; v++) {
             verses.add({
               'bookNumber': bookNumber,
+              'bookName': bookName,
               'chapter': c + 1,
               'verse': v + 1,
               'text': chapterVerses[v],
@@ -253,6 +255,9 @@ class BibleDownloadManager extends ChangeNotifier {
   }
 
   Future<void> removeVersion(String versionId) async {
+    // Bundled bibles ship with the app and cannot be removed; only an
+    // (optional) default lock applies otherwise.
+    if (_localBible.isBundledVersion(versionId)) return;
     if (versionId == defaultVersionId) return; // Keep the default installed
     await _localBible.deleteVersion(versionId);
     _installedIds.remove(versionId);

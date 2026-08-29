@@ -1,6 +1,10 @@
 {
   "name": "bible-tools",
   "private": true,
+  "scripts": {
+    "prepare:christian": "node prepare_assets.js christian_tube",
+    "prepare:centum": "node prepare_assets.js centum_academy"
+  },
   "devDependencies": {
     "adm-zip": "^0.5.16"
   }
