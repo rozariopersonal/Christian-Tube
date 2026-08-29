@@ -24,6 +24,7 @@ class _BibleScreenState extends State<BibleScreen> {
   int _currentChapter = 1;
   bool _isLoading = true;
   bool _isFetchingNextChapter = false;
+  int _transitionDirection = 1;
 
   @override
   void initState() {
@@ -90,7 +91,10 @@ class _BibleScreenState extends State<BibleScreen> {
   Future<void> _fetchNextChapter({bool append = false}) async {
     if (_isFetchingNextChapter || _selectedVersion == null) return;
     
-    setState(() => _isFetchingNextChapter = true);
+    setState(() {
+      _isFetchingNextChapter = true;
+      if (!append) _transitionDirection = 1;
+    });
     
     int maxChapters = bibleBooks[_currentBook] ?? 1;
     String nextBook = _currentBook;
@@ -165,6 +169,7 @@ class _BibleScreenState extends State<BibleScreen> {
     setState(() {
       _currentBook = prevBook;
       _currentChapter = prevChapter;
+      _transitionDirection = -1;
       _isLoading = true;
     });
 
@@ -247,19 +252,39 @@ class _BibleScreenState extends State<BibleScreen> {
                     ? const Center(
                         child: Text('No Bibles installed. Please install a Bible from the Scripture Engine.'),
                       )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        itemCount: _verses.length + (_isFetchingNextChapter ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index == _verses.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Center(child: CircularProgressIndicator()),
-                            );
+                    : AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: (child, animation) {
+                          final inAnimation = Tween<Offset>(
+                                  begin: Offset(_transitionDirection.toDouble(), 0.0), 
+                                  end: Offset.zero)
+                              .animate(animation);
+                          final outAnimation = Tween<Offset>(
+                                  begin: Offset(-_transitionDirection.toDouble(), 0.0), 
+                                  end: Offset.zero)
+                              .animate(animation);
+
+                          if (child.key == ValueKey('$_currentBook-$_currentChapter')) {
+                            return SlideTransition(position: inAnimation, child: child);
+                          } else {
+                            return SlideTransition(position: outAnimation, child: child);
                           }
-                          return VerseText(verse: _verses[index]);
                         },
+                        child: ListView.builder(
+                          key: ValueKey('$_currentBook-$_currentChapter'),
+                          controller: _scrollController,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          itemCount: _verses.length + (_isFetchingNextChapter ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == _verses.length) {
+                              return const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Center(child: CircularProgressIndicator()),
+                              );
+                            }
+                            return VerseText(verse: _verses[index]);
+                          },
+                        ),
                       ),
           ),
           Container(
