@@ -1,5 +1,10 @@
-import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:mobile/core/api/release_assets.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../models/bible_version_meta.dart';
 import 'local_bible_service.dart';
 
@@ -13,22 +18,15 @@ class BibleDownloadManager extends ChangeNotifier {
 
   final Map<String, double> _downloadProgress = {};
   final Set<String> _downloadingIds = {};
-  Set<String> _installedIds = {
-    'WEB',
-    'KJV',
-    'BSB',
-    'MSG',
-    'TLB',
-    'NASB',
-    'ASV',
-    'BBE',
+  // Only the public domain versions bundled with the app are pre-installed.
+  static const Set<String> _bundledVersions = {
     'TAOBVSI',
-    'TAM_IRV',
     'MAL_IRV',
     'TEL_IRV',
-    'HIN_IRV',
     'KAN_IRV',
+    'HIN_IRV',
   };
+  Set<String> _installedIds = {..._bundledVersions};
 
   static const List<BibleVersionMeta> catalog = [
     // English
@@ -39,7 +37,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'en',
       sizeDisplay: '1.4 MB',
       description: 'Modern, accurate, and easy to read English translation.',
-      isDefaultBundled: true,
     ),
     BibleVersionMeta(
       id: 'KJV',
@@ -48,7 +45,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'en',
       sizeDisplay: '1.3 MB',
       description: 'The historic and revered 1611 English Bible.',
-      isDefaultBundled: true,
     ),
     BibleVersionMeta(
       id: 'MSG',
@@ -57,7 +53,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'en',
       sizeDisplay: '1.6 MB',
       description: 'Eugene Peterson’s vibrant contemporary paraphrase bringing scripture to life.',
-      isDefaultBundled: true,
     ),
     BibleVersionMeta(
       id: 'TLB',
@@ -66,7 +61,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'en',
       sizeDisplay: '1.5 MB',
       description: 'Kenneth N. Taylor’s beloved thought-for-thought English translation.',
-      isDefaultBundled: true,
     ),
     BibleVersionMeta(
       id: 'NASB',
@@ -75,7 +69,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'en',
       sizeDisplay: '1.4 MB',
       description: 'Strict word-for-word accuracy based on original Hebrew and Greek manuscripts.',
-      isDefaultBundled: true,
     ),
     BibleVersionMeta(
       id: 'BSB',
@@ -119,7 +112,6 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'tam',
       sizeDisplay: '1.6 MB',
       description: 'Clear, modern contemporary Tamil revision.',
-      isDefaultBundled: true,
     ),
 
     // Malayalam
@@ -185,7 +177,14 @@ class BibleDownloadManager extends ChangeNotifier {
 
   Future<void> refreshInstalledList() async {
     final ids = await _localBible.getInstalledVersionIds();
-    _installedIds = ids.toSet();
+    // Only count versions that actually contain verse text as installed.
+    final usable = <String>[];
+    for (final id in ids) {
+      if (await _localBible.hasVerses(id)) {
+        usable.add(id);
+      }
+    }
+    _installedIds = usable.toSet();
     notifyListeners();
   }
 
@@ -199,11 +198,12 @@ class BibleDownloadManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Smooth progress animation for seamless UX
-      for (int i = 1; i <= 10; i++) {
-        await Future.delayed(const Duration(milliseconds: 120));
-        _downloadProgress[meta.id] = i / 10.0;
-        notifyListeners();
+      final downloaded = await _downloadVersionText(meta);
+      if (!downloaded) {
+        // No servable data source for this version (e.g. copyrighted), so do
+        // not mark it installed.
+        debugPrint('Version ${meta.id} is not available for download.');
+        return;
       }
 
       // Register in local SQLite database
@@ -225,8 +225,77 @@ class BibleDownloadManager extends ChangeNotifier {
     }
   }
 
+  Future<bool> _downloadVersionText(BibleVersionMeta meta) async {
+    final tempDir = await getTemporaryDirectory();
+    final filePath =
+        p.join(tempDir.path, 'bible_${meta.id.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.json');
+    final urls = ReleaseAssets.urlsFor('bibles/bible_${meta.id.toLowerCase()}.json');
+    final dio = Dio();
+    var downloaded = false;
+    for (final url in urls) {
+      try {
+        await dio.download(
+          url,
+          filePath,
+          options: Options(
+            // Large payloads can take a while on slow networks.
+            receiveTimeout: const Duration(minutes: 5),
+          ),
+          onReceiveProgress: (received, total) {
+            if (total != -1) {
+              _downloadProgress[meta.id] = received / total;
+              notifyListeners();
+            }
+          },
+        );
+        downloaded = true;
+        break;
+      } catch (e) {
+        debugPrint('Failed to download ${meta.id} from $url: $e');
+      }
+    }
+    if (!downloaded) return false;
+
+    try {
+      final jsonStr = await File(filePath).readAsString();
+      await File(filePath).delete();
+
+      final books =
+          (jsonDecode(jsonStr) as Map<String, dynamic>)['books'] as List<dynamic>;
+      final verses = <Map<String, dynamic>>[];
+      for (final rawBook in books) {
+        final book = rawBook as Map<String, dynamic>;
+        final bookNumber = book['b'] as int;
+        final chapters = book['ch'] as List<dynamic>;
+        for (var c = 0; c < chapters.length; c++) {
+          final chapterVerses = chapters[c] as List<dynamic>;
+          for (var v = 0; v < chapterVerses.length; v++) {
+            verses.add({
+              'bookNumber': bookNumber,
+              'chapter': c + 1,
+              'verse': v + 1,
+              'text': chapterVerses[v],
+            });
+          }
+        }
+      }
+
+      await _localBible.insertVerses(meta.id, verses);
+      debugPrint('Downloaded ${meta.id} (${verses.length} verses).');
+      return true;
+    } catch (e) {
+      debugPrint('Failed to process ${meta.id}: $e');
+      if (await File(filePath).exists()) {
+        try {
+          await File(filePath).delete();
+        } catch (_) {}
+      }
+      return false;
+    }
+  }
+
   Future<void> removeVersion(String versionId) async {
-    if (versionId == 'WEB') return; // Do not delete default fallback
+    if (_bundledVersions.contains(versionId)) return;
     await _localBible.deleteVersion(versionId);
     _installedIds.remove(versionId);
     notifyListeners();

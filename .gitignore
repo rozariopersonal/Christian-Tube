@@ -46,3 +46,7 @@ migrate_working_dir/
 *.jks
 key.properties
 temp_repo/
+
+# Node (build tooling)
+**/node_modules/
+

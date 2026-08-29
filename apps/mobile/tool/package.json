@@ -1,0 +1,7 @@
+{
+  "name": "bible-tools",
+  "private": true,
+  "devDependencies": {
+    "adm-zip": "^0.5.16"
+  }
+}

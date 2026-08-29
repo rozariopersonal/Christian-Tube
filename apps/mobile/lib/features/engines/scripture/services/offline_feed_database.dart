@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:dio/dio.dart';
-import 'package:mobile/core/api/api_client.dart';
+import 'package:mobile/core/api/release_assets.dart';
 
 class OfflineFeedDatabase {
   static final OfflineFeedDatabase _instance = OfflineFeedDatabase._internal();
@@ -64,24 +64,38 @@ class OfflineFeedDatabase {
   Future<void> _downloadAndBuildDatabase(String dbPath) async {
     debugPrint('Downloading offline feed database payload...');
     downloadProgress.value = 0.0;
-    final client = ApiClient();
+    final dio = Dio();
     final jsonPath = join((await getTemporaryDirectory()).path, 'scriptures.json');
 
-    // Download the raw JSON payload
-    await client.dio.download(
-      '/words/offline-db',
-      jsonPath,
-      options: Options(
-        // Give Render's free tier up to 2 minutes to wake up, 
-        // plus time to download the 7.5MB file.
-        receiveTimeout: const Duration(minutes: 5),
-      ),
-      onReceiveProgress: (received, total) {
-        if (total != -1) {
-          downloadProgress.value = received / total;
-        }
-      },
-    );
+    // Try the CDN first, then the raw GitHub source; the payload is served
+    // from the releases repo so we never wait on the Render-hosted backend.
+    final urls = ReleaseAssets.urlsFor('scriptures.json');
+    Object? lastError;
+    for (final url in urls) {
+      try {
+        await dio.download(
+          url,
+          jsonPath,
+          options: Options(
+            // Time to download the 7.5MB file on slow networks.
+            receiveTimeout: const Duration(minutes: 5),
+          ),
+          onReceiveProgress: (received, total) {
+            if (total != -1) {
+              downloadProgress.value = received / total;
+            }
+          },
+        );
+        lastError = null;
+        break;
+      } catch (e) {
+        lastError = e;
+        debugPrint('Failed to download feed payload from $url: $e');
+      }
+    }
+    if (lastError != null) {
+      throw StateError('Unable to download scriptures payload: $lastError');
+    }
 
     debugPrint('Building SQLite database from JSON...');
     final jsonStr = await File(jsonPath).readAsString();
