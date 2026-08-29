@@ -45,7 +45,7 @@ class ScriptureCard {
 
   factory ScriptureCard.fromJson(Map<String, dynamic> json) {
     return ScriptureCard(
-      id: json['id'] ??
+      id: json['id']?.toString() ??
           '${json['bookNumber']}_${json['chapter']}_${json['startVerse']}',
       bookNumber: json['bookNumber'] ?? 43,
       bookName: json['bookName'] ?? 'John',

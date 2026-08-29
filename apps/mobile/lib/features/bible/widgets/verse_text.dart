@@ -3,10 +3,16 @@ import '../models/bible_verse.dart';
 
 class VerseText extends StatelessWidget {
   final BibleVerse verse;
+  final bool isSelected;
+  final VoidCallback? onTap;
+  final double fontSize;
 
   const VerseText({
     super.key,
     required this.verse,
+    this.isSelected = false,
+    this.onTap,
+    this.fontSize = 18.0,
   });
 
   @override
@@ -14,26 +20,34 @@ class VerseText extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
-      child: SelectableText.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: '${verse.number} ',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: isDark ? Colors.white54 : Colors.black54,
-                fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        color: isSelected 
+            ? theme.colorScheme.primary.withValues(alpha: 0.2) 
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: '${verse.number} ',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isDark ? Colors.white54 : Colors.black54,
+                  fontWeight: FontWeight.bold,
+                  fontSize: fontSize * 0.7,
+                ),
               ),
-            ),
-            TextSpan(
-              text: verse.text,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                height: 1.6,
-                fontSize: 18,
+              TextSpan(
+                text: verse.text,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  height: 1.6,
+                  fontSize: fontSize,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

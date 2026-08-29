@@ -66,7 +66,7 @@ class ScriptureService {
       return [];
     } catch (e, st) {
       debugPrint('Error fetching offline scripture cards: $e\n$st');
-      return [];
+      rethrow;
     }
   }
 
