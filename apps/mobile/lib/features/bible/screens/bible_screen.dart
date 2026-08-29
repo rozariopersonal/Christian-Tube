@@ -82,7 +82,7 @@ class _BibleScreenState extends State<BibleScreen> {
         }).toList();
         if (_versions.isNotEmpty) {
           _selectedVersion = _versions.firstWhere(
-            (v) => v.shortname == 'KJV',
+            (v) => v.shortname == BibleDownloadManager.defaultVersionId,
             orElse: () => _versions.first,
           );
         }

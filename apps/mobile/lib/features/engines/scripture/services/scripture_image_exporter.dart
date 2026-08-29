@@ -299,7 +299,7 @@ class ScriptureImageExporter {
     BuildContext? context,
     required GlobalKey boundaryKey,
     required ScriptureCard card,
-    String activeVersionId = 'WEB',
+    String activeVersionId = BibleDownloadManager.defaultVersionId,
     String fontFamily = 'Playfair',
     double fontSizeScale = 1.0,
     String textColorHex = '#FFFFFF',

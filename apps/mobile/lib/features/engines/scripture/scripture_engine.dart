@@ -23,7 +23,7 @@ class ScriptureEngine
 
   final ScriptureService _service = ScriptureService();
   static ScriptureFilterState _cachedFilterState =
-      const ScriptureFilterState(activeVersionId: 'WEB');
+      const ScriptureFilterState(activeVersionId: BibleDownloadManager.defaultVersionId);
   static bool _hasLoadedPrefs = false;
 
   @override
@@ -49,6 +49,10 @@ class ScriptureEngine
       _cachedFilterState = await loadFilterStateForVersion(savedVersion);
       _hasLoadedPrefs = true;
     } catch (_) {}
+
+    // Pull the default bible (TAOBVSI) on first run so the feed and bible page
+    // have real verse text; it is served from the releases repo.
+    await BibleDownloadManager().ensureDefaultInstalled();
   }
 
   void resetRandomDeck() {

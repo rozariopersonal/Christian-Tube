@@ -4,7 +4,7 @@ const https = require('https');
 const AdmZip = require('adm-zip');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const OUT_MOBILE = path.join(ROOT, 'apps', 'mobile', 'assets', 'data');
+const OUT_BIBLES = path.join(ROOT, 'apps', 'backend', 'data', 'bibles');
 
 // Canonical 66-book order matching the app's bible_book.dart names.
 const BOOK_NAMES = [
@@ -150,9 +150,9 @@ function buildCompact(bookChapters) {
 }
 
 function writeAsset(fileId, compact) {
-  fs.mkdirSync(OUT_MOBILE, { recursive: true });
+  fs.mkdirSync(OUT_BIBLES, { recursive: true });
   const out = JSON.stringify({ books: compact.books });
-  const file = path.join(OUT_MOBILE, `bible_${fileId}.json`);
+  const file = path.join(OUT_BIBLES, `bible_${fileId}.json`);
   fs.writeFileSync(file, out);
   console.log(`  ${file} (${out.length} bytes, ${compact.totalVerses} verses)`);
   return { file, verses: compact.totalVerses };

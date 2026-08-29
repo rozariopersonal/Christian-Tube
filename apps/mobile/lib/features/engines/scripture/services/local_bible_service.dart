@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -12,16 +10,9 @@ class LocalBibleService {
 
   Database? _db;
   final Map<String, String> _webVerses = {};
-  // Only versions bundled with the app ship real text out of the box. Other
-  // catalog versions must be downloaded (public domain ones) to become usable.
-  final Set<String> _webInstalledVersions = {
-    'TAOBVSI',
-    'MAL_IRV',
-    'TEL_IRV',
-    'KAN_IRV',
-    'HIN_IRV',
-  };
-  static bool _bundledInMemorySeeded = false;
+  // Bibles are downloaded on demand from the releases repo and registered
+  // here; nothing ships pre-installed with the app.
+  final Set<String> _webInstalledVersions = {};
 
   Future<void> initialize() async {
     _seedAllPolyglotVerses();
@@ -66,94 +57,6 @@ class LocalBibleService {
         await _seedDefaultBibles(db);
       },
     );
-
-    // Populate real verse text for the bundled public domain bibles.
-    await _seedBundledBibles();
-  }
-
-  Future<void> _seedBundledBibles() async {
-    const bundled = {
-      'TAOBVSI': 'assets/data/bible_taobvsi.json',
-      'MAL_IRV': 'assets/data/bible_mal_irv.json',
-      'TEL_IRV': 'assets/data/bible_tel_irv.json',
-      'KAN_IRV': 'assets/data/bible_kan_irv.json',
-      'HIN_IRV': 'assets/data/bible_hin_irv.json',
-    };
-    if (kIsWeb) {
-      if (_bundledInMemorySeeded) return;
-      _bundledInMemorySeeded = true;
-      for (final entry in bundled.entries) {
-        await _seedInMemoryFromAsset(entry.key, entry.value);
-      }
-      return;
-    }
-
-    for (final entry in bundled.entries) {
-      await _seedDbFromAsset(entry.key, entry.value);
-    }
-  }
-
-  Future<void> _seedDbFromAsset(String versionId, String assetPath) async {
-    final db = _db;
-    if (db == null) return;
-
-    final existing = Sqflite.firstIntValue(await db.rawQuery(
-      'SELECT COUNT(*) FROM verses WHERE version_id = ?',
-      [versionId],
-    ));
-    if (existing != null && existing > 0) return;
-
-    try {
-      final jsonStr = await rootBundle.loadString(assetPath);
-      final books = (jsonDecode(jsonStr) as Map<String, dynamic>)['books']
-          as List<dynamic>;
-      final batch = db.batch();
-      for (final rawBook in books) {
-        final book = rawBook as Map<String, dynamic>;
-        final bookNumber = book['b'] as int;
-        final bookName = book['n'] as String;
-        final chapters = book['ch'] as List<dynamic>;
-        for (var c = 0; c < chapters.length; c++) {
-          final verses = chapters[c] as List<dynamic>;
-          for (var v = 0; v < verses.length; v++) {
-            batch.insert(
-              'verses',
-              {
-                'version_id': versionId,
-                'book_number': bookNumber,
-                'book_name': bookName,
-                'chapter': c + 1,
-                'verse': v + 1,
-                'text': verses[v],
-              },
-              conflictAlgorithm: ConflictAlgorithm.replace,
-            );
-          }
-        }
-      }
-      await batch.commit(noResult: true);
-      debugPrint('Seeded bundled $versionId bible into local database.');
-    } catch (e) {
-      debugPrint('Failed to seed bundled $versionId: $e');
-    }
-  }
-
-  Future<void> _seedInMemoryFromAsset(String versionId, String assetPath) async {
-    final jsonStr = await rootBundle.loadString(assetPath);
-    final books =
-        (jsonDecode(jsonStr) as Map<String, dynamic>)['books'] as List<dynamic>;
-    for (final rawBook in books) {
-      final book = rawBook as Map<String, dynamic>;
-      final bookNumber = book['b'] as int;
-      final chapters = book['ch'] as List<dynamic>;
-      for (var c = 0; c < chapters.length; c++) {
-        final verses = chapters[c] as List<dynamic>;
-        for (var v = 0; v < verses.length; v++) {
-          _webVerses['${versionId}_${bookNumber}_${c + 1}_${v + 1}'] =
-              verses[v] as String;
-        }
-      }
-    }
   }
 
   Future<bool> hasVerses(String versionId) async {

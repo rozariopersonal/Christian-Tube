@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
+import '../services/bible_download_manager.dart';
 import '../services/saved_scripture_service.dart';
 import '../services/scripture_image_exporter.dart';
 import '../widgets/scripture_share_modal.dart';
@@ -187,7 +188,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
 
   Widget _buildSavedCard(BuildContext context, ScriptureCard card, bool isDark) {
     final preset = ScriptureThemeCatalog.getPreset(card.activeBackground);
-    final version = card.resolvedVersion ?? 'WEB';
+    final version = card.resolvedVersion ?? BibleDownloadManager.defaultVersionId;
     final verseText = card.resolvedText ??
         '“Peace I leave with you; my peace I give you. Do not let your hearts be troubled.”';
 

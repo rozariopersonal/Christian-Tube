@@ -4,8 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const ASSETS = path.join(ROOT, 'apps', 'mobile', 'assets', 'data');
-const LEGACY = path.join(ROOT, 'bibles'); // web/kjv/asv/bbe built by fetch_bibles.js
+const BIBLES = path.join(ROOT, 'apps', 'backend', 'data', 'bibles');
 const SCRIPTURES = path.join(ROOT, 'apps', 'backend', 'data', 'scriptures.json');
 
 const staging = process.argv[2];
@@ -89,10 +88,8 @@ function countVerses(pathStr) {
 }
 
 function findSource(fileId) {
-  const assetPath = path.join(ASSETS, `bible_${fileId}.json`);
-  if (fs.existsSync(assetPath)) return assetPath;
-  const legacyPath = path.join(LEGACY, `bible_${fileId}.json`);
-  if (fs.existsSync(legacyPath)) return legacyPath;
+  const p = path.join(BIBLES, `bible_${fileId}.json`);
+  if (fs.existsSync(p)) return p;
   throw new Error(`No source for bible_${fileId}.json`);
 }
 

@@ -13,7 +13,7 @@ class ScriptureFilterState extends BaseFeedFilterState {
   final String? testamentFilter;
 
   const ScriptureFilterState({
-    this.activeVersionId = 'WEB',
+    this.activeVersionId = 'TAOBVSI',
     this.fontSizeScale = 1.0,
     this.activeFontFamily = 'Playfair',
     this.textColorHex = '#FFFFFF',

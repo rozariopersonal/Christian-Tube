@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -14,19 +15,15 @@ class BibleDownloadManager extends ChangeNotifier {
   factory BibleDownloadManager() => _instance;
   BibleDownloadManager._internal();
 
+  static const String defaultVersionId = 'TAOBVSI';
+
   final LocalBibleService _localBible = LocalBibleService();
 
   final Map<String, double> _downloadProgress = {};
   final Set<String> _downloadingIds = {};
-  // Only the public domain versions bundled with the app are pre-installed.
-  static const Set<String> _bundledVersions = {
-    'TAOBVSI',
-    'MAL_IRV',
-    'TEL_IRV',
-    'KAN_IRV',
-    'HIN_IRV',
-  };
-  Set<String> _installedIds = {..._bundledVersions};
+  // Bibles are downloaded on demand from the releases repo; nothing ships in
+  // the app bundle.
+  Set<String> _installedIds = {};
 
   static const List<BibleVersionMeta> catalog = [
     // English
@@ -188,6 +185,17 @@ class BibleDownloadManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ensures the app's default bible (TAOBVSI) is installed, downloading it on
+  /// demand from the releases repo on first run when a network is available.
+  Future<void> ensureDefaultInstalled() async {
+    await refreshInstalledList();
+    if (_installedIds.contains(defaultVersionId) ||
+        _downloadingIds.contains(defaultVersionId)) {
+      return;
+    }
+    unawaited(downloadVersion(getMeta(defaultVersionId)));
+  }
+
   Future<void> downloadVersion(BibleVersionMeta meta) async {
     if (_installedIds.contains(meta.id) || _downloadingIds.contains(meta.id)) {
       return;
@@ -295,7 +303,7 @@ class BibleDownloadManager extends ChangeNotifier {
   }
 
   Future<void> removeVersion(String versionId) async {
-    if (_bundledVersions.contains(versionId)) return;
+    if (versionId == defaultVersionId) return; // Keep the default installed
     await _localBible.deleteVersion(versionId);
     _installedIds.remove(versionId);
     notifyListeners();
