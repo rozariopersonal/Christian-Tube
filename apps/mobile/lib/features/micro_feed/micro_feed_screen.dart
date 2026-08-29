@@ -32,6 +32,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
   int _currentPage = 0;
   int _feedPageIndex = 0;
   String? _errorMessage;
+  int _loadGeneration = 0;
+  bool _isFirstLoad = true;
 
   StreamSubscription<void>? _resetSubscription;
 
@@ -41,24 +43,35 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
     _filterState = widget.engine.initialFilterState;
     _initializeAndLoad();
     _resetSubscription = BottomBarVisibilityService.instance.onWordsResetRequested.listen((_) {
+      // Reset brings a brand-new random session: return all seen cards to the pool
+      if (widget.engine is ScriptureEngine) {
+        (widget.engine as ScriptureEngine).resetRandomDeck();
+      }
       _initializeAndLoad();
     });
   }
 
   Future<void> _initializeAndLoad() async {
+    final generation = ++_loadGeneration;
     setState(() {
       _isLoading = true;
+      _isFetchingMore = false;
       _errorMessage = null;
     });
 
     try {
       await widget.engine.initialize();
-      // Ensure we use the current filterState, not the initial one which would wipe the user's selection
+      // Prefs are only loaded during initialize(); on the very first load adopt
+      // the engine's persisted filter state instead of the default snapshot.
+      if (_isFirstLoad) {
+        _filterState = widget.engine.initialFilterState;
+        _isFirstLoad = false;
+      }
       final items = await widget.engine.fetchItems(
         filterState: _filterState,
         page: 0,
       );
-      if (mounted) {
+      if (mounted && generation == _loadGeneration) {
         setState(() {
           _items = items;
           _isLoading = false;
@@ -66,7 +79,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && generation == _loadGeneration) {
         setState(() {
           _isLoading = false;
           _errorMessage = 'Failed to load feed. Please try again.';
@@ -76,7 +89,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
   }
 
   Future<void> _loadMoreItems() async {
-    if (_isFetchingMore) return;
+    if (_isFetchingMore || _isLoading) return;
+    final generation = _loadGeneration;
     _isFetchingMore = true;
 
     try {
@@ -84,7 +98,9 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
         filterState: _filterState,
         page: _feedPageIndex,
       );
-      if (mounted && more.isNotEmpty) {
+      // Only append if this page belongs to the current load generation, so a
+      // stale response started before a reset/reload can never leak in.
+      if (mounted && generation == _loadGeneration && more.isNotEmpty) {
         setState(() {
           _items.addAll(more);
           _feedPageIndex++;
@@ -112,6 +128,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
       // If structural feed filters changed, we must clear and reload the feed
       if (oldScriptureState.bookFilter != newScriptureState.bookFilter ||
           oldScriptureState.testamentFilter != newScriptureState.testamentFilter) {
+        // Drop the seen-cards history so cards from the previous filter can return
+        scriptureEngine.resetRandomDeck();
         _initializeAndLoad();
         return;
       }
@@ -224,6 +242,43 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                 Text(
                   _errorMessage!,
                   style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: _initializeAndLoad,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF59E0B),
+                    foregroundColor: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_items.isEmpty && _errorMessage == null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.auto_stories_rounded,
+                  color: Colors.white38,
+                  size: 54,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No verses matched your filters yet.',
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),

@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:mobile/core/api/api_client.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
 import 'local_bible_service.dart';
@@ -35,10 +34,21 @@ class ScriptureService {
     String? testamentFilter,
   }) async {
     try {
+      // Exclude already-served cards (bounded window) so infinite-scroll pages
+      // never repeat verses until the deck is intentionally reset.
+      final seenIds = _cachedDeck.length > 800
+          ? _cachedDeck
+              .skip(_cachedDeck.length - 800)
+              .map((c) => c.id)
+              .whereType<String>()
+              .toSet()
+          : _cachedDeck.map((c) => c.id).whereType<String>().toSet();
+
       final items = await _offlineDb.getRandomItems(
         limit,
         bookFilter: bookFilter,
         testamentFilter: testamentFilter,
+        excludeIds: seenIds.toList(),
       );
 
       if (items.isNotEmpty) {
@@ -95,8 +105,10 @@ class ScriptureService {
     );
     if (localText != null) return localText;
 
-    // 2. If requesting WEB (or matched resolved version), return database text
-    if (versionId.toUpperCase() == 'WEB' || card.resolvedVersion == versionId) {
+    // 2. If requesting WEB (or matched resolved version), return known text
+    if (versionId.toUpperCase() == 'WEB' ||
+        (card.resolvedVersion != null &&
+            card.resolvedVersion!.toUpperCase() == versionId.toUpperCase())) {
       return card.resolvedText;
     }
 
@@ -133,7 +145,33 @@ class ScriptureService {
       endVerse: reqEndVerse,
     );
 
-    card.resolvedText = text ?? originalDbText ?? '"For God so loved the world, that he gave his one and only Son..."';
-    card.resolvedVersion = text != null ? versionId : (originalDbText != null ? 'WEB' : versionId);
+    // Feed metadata contains only references (no text), so fall back to the
+    // remote Bible API when the local database lacks this passage, then cache
+    // the verse into the local database for zero-latency resolution later.
+    if (text == null) {
+      text = await _remoteApi.fetchPassage(
+        versionId: versionId,
+        referenceLabel: reqLabel,
+        bookNumber: reqBookNumber,
+        chapter: reqChapter,
+        startVerse: reqStartVerse,
+        endVerse: reqEndVerse,
+      );
+      if (text != null && text.isNotEmpty) {
+        await _localBible.insertVerses(versionId, [
+          {
+            'bookNumber': reqBookNumber,
+            'bookName': card.bookName,
+            'chapter': reqChapter,
+            'verse': reqStartVerse,
+            'text': text,
+          },
+        ]);
+      }
+    }
+
+    card.resolvedText = text ?? originalDbText;
+    card.resolvedVersion =
+        text != null ? versionId : (originalDbText != null ? card.resolvedVersion : null);
   }
 }

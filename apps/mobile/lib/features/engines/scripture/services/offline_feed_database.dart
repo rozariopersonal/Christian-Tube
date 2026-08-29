@@ -63,6 +63,7 @@ class OfflineFeedDatabase {
 
   Future<void> _downloadAndBuildDatabase(String dbPath) async {
     debugPrint('Downloading offline feed database payload...');
+    downloadProgress.value = 0.0;
     final client = ApiClient();
     final jsonPath = join((await getTemporaryDirectory()).path, 'scriptures.json');
 
@@ -142,6 +143,7 @@ class OfflineFeedDatabase {
     int limit, {
     String? bookFilter,
     String? testamentFilter,
+    List<String>? excludeIds,
   }) async {
     if (_db == null) await initialize();
     if (_db == null) return [];
@@ -160,6 +162,11 @@ class OfflineFeedDatabase {
       } else if (testamentFilter == 'New Testament') {
         query += ' AND bookNumber >= 40';
       }
+    }
+
+    if (excludeIds != null && excludeIds.isNotEmpty) {
+      query += ' AND id NOT IN (${List.filled(excludeIds.length, '?').join(', ')})';
+      args.addAll(excludeIds);
     }
 
     query += ' ORDER BY RANDOM() LIMIT ?';

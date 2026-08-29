@@ -29,6 +29,8 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   final ScriptureService _service = ScriptureService();
   String? _displayedText;
   String? _displayedVersion;
+  bool _isResolving = false;
+  String? _lastAttemptedVersion;
 
   @override
   void initState() {
@@ -72,10 +74,15 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   }
 
   Future<void> _checkAndResolveVersion() async {
+    // Guard against concurrent resolutions for the same version / redundant retries
+    if (_isResolving) return;
     final targetVersion = widget.filterState.activeVersionId;
-    if (_displayedVersion != targetVersion ||
-        _displayedText == null ||
-        widget.card.resolvedVersion != targetVersion) {
+    if (_displayedVersion == targetVersion && _displayedText != null) return;
+    if (_lastAttemptedVersion == targetVersion) return;
+
+    _lastAttemptedVersion = targetVersion;
+    _isResolving = true;
+    try {
       final syncText = _service.resolvePassageSync(widget.card, targetVersion);
       if (syncText != null) {
         widget.card.resolvedText = syncText;
@@ -94,10 +101,12 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
       if (mounted) {
         setState(() {
           _displayedText = widget.card.resolvedText;
-          _displayedVersion = targetVersion;
+          _displayedVersion = widget.card.resolvedVersion ?? targetVersion;
         });
         _pregenerateImage();
       }
+    } finally {
+      _isResolving = false;
     }
   }
 

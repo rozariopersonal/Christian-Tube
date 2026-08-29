@@ -51,6 +51,10 @@ class ScriptureEngine
     } catch (_) {}
   }
 
+  void resetRandomDeck() {
+    _service.resetRandomDeck();
+  }
+
   Future<ScriptureFilterState> loadFilterStateForVersion(String versionId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
