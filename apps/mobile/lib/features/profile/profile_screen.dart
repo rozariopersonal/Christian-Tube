@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../auth/auth_service.dart';
 import '../channels/channel_service.dart';
+import '../channels/channels_screen.dart';
 import '../engines/scripture/screens/saved_scriptures_screen.dart';
 import '../engines/scripture/services/saved_scripture_service.dart';
 import '../history/history_screen.dart';
@@ -473,6 +474,22 @@ class ProfileScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (ctx) => SubscriptionsScreen(channelService: channelService),
+                    ),
+                  );
+                },
+              ),
+
+              // Channels Section
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                leading: const Icon(Icons.category_outlined),
+                title: const Text('Channels', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                trailing: const Icon(Icons.chevron_right, size: 20),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (ctx) => const ChannelsScreen(),
                     ),
                   );
                 },
