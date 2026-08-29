@@ -17,6 +17,15 @@ class RemoteBibleApiService {
   // In-memory LRU cache for fetched remote verses
   final Map<String, String> _verseCache = {};
 
+  /// English translations the free API can serve in their own language.
+  /// Non-English versions (Tamil, Malayalam, Telugu, ...) must never be
+  /// silently replaced with English, or the user sees the wrong language.
+  static const Set<String> _supportedTranslations = {'WEB', 'KJV', 'ASV', 'BBE'};
+
+  /// Whether the remote API can return [versionId] in its own language.
+  bool supportsVersion(String versionId) =>
+      _supportedTranslations.contains(versionId.toUpperCase());
+
   Future<String?> fetchPassage({
     required String versionId,
     required String referenceLabel, // e.g. "John 14:27"
@@ -25,6 +34,10 @@ class RemoteBibleApiService {
     required int startVerse,
     int? endVerse,
   }) async {
+    if (!supportsVersion(versionId)) {
+      return null;
+    }
+
     final cacheKey =
         '${versionId}_${bookNumber}_${chapter}_${startVerse}_${endVerse ?? startVerse}';
     if (_verseCache.containsKey(cacheKey)) {

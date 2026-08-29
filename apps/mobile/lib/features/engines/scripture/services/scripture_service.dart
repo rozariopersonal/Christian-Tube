@@ -146,9 +146,11 @@ class ScriptureService {
     );
 
     // Feed metadata contains only references (no text), so fall back to the
-    // remote Bible API when the local database lacks this passage, then cache
-    // the verse into the local database for zero-latency resolution later.
-    if (text == null) {
+    // remote Bible API when the local database lacks this passage. This is used
+    // solely for English translations that the API can serve in their own
+    // language; non-English versions resolve only from installed local bibles
+    // so the correct-language text is never substituted with English.
+    if (text == null && _remoteApi.supportsVersion(versionId)) {
       text = await _remoteApi.fetchPassage(
         versionId: versionId,
         referenceLabel: reqLabel,
@@ -157,17 +159,6 @@ class ScriptureService {
         startVerse: reqStartVerse,
         endVerse: reqEndVerse,
       );
-      if (text != null && text.isNotEmpty) {
-        await _localBible.insertVerses(versionId, [
-          {
-            'bookNumber': reqBookNumber,
-            'bookName': card.bookName,
-            'chapter': reqChapter,
-            'verse': reqStartVerse,
-            'text': text,
-          },
-        ]);
-      }
     }
 
     card.resolvedText = text ?? originalDbText;

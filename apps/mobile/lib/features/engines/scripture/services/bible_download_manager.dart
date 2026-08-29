@@ -256,6 +256,16 @@ class BibleDownloadManager extends ChangeNotifier {
     }
   }
 
+  /// Wipes any existing (possibly stale/partial) default bible data and
+  /// re-downloads it from scratch.
+  Future<void> forceRedownloadDefault() async {
+    await _localBible.initialize();
+    _installedIds.remove(defaultVersionId);
+    _downloadingIds.remove(defaultVersionId);
+    await _localBible.deleteVersion(defaultVersionId);
+    unawaited(downloadVersion(getMeta(defaultVersionId)));
+  }
+
   Future<void> removeVersion(String versionId) async {
     // The default version stays installed so the app always has a working
     // bible; every other version can be removed freely.

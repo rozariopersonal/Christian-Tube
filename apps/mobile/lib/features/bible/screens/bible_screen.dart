@@ -36,6 +36,7 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _isFetchingNextChapter = false;
   int _transitionDirection = 1;
   int _lastKnownInstalledCount = -1;
+  bool _chapterEmpty = false;
 
   Set<int> _selectedVerses = {};
   BibleSettings _settings = const BibleSettings();
@@ -151,6 +152,7 @@ class _BibleScreenState extends State<BibleScreen> {
         number: map['verse'] as int,
         text: map['text'] as String,
       )).toList();
+      _chapterEmpty = _verses.isEmpty;
       _selectedVerses.clear();
     });
     // Scroll to top when data is re-fetched completely
@@ -417,6 +419,101 @@ class _BibleScreenState extends State<BibleScreen> {
     });
   }
 
+  Future<void> _redownloadDefault() async {
+    setState(() {
+      _chapterEmpty = false;
+      _isLoading = true;
+    });
+    await BibleDownloadManager().forceRedownloadDefault();
+  }
+
+  Widget _buildContent() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_versions.isEmpty) return _buildEmptyState();
+    if (_chapterEmpty) return _buildChapterEmptyState();
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      transitionBuilder: (child, animation) {
+        final inAnimation = Tween<Offset>(
+                begin: Offset(_transitionDirection.toDouble(), 0.0),
+                end: Offset.zero)
+            .animate(animation);
+        final outAnimation = Tween<Offset>(
+                begin: Offset(-_transitionDirection.toDouble(), 0.0),
+                end: Offset.zero)
+            .animate(animation);
+
+        if (child.key == ValueKey('$_currentBook-$_currentChapter')) {
+          return SlideTransition(position: inAnimation, child: child);
+        } else {
+          return SlideTransition(position: outAnimation, child: child);
+        }
+      },
+      child: ListView.builder(
+        key: ValueKey('$_currentBook-$_currentChapter'),
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        itemCount: _verses.length + (_isFetchingNextChapter ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _verses.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return VerseText(
+            verse: _verses[index],
+            isSelected: _selectedVerses.contains(_verses[index].number),
+            fontSize: _settings.fontSize,
+            onTap: () => _toggleVerseSelection(_verses[index].number),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildChapterEmptyState() {
+    if (_downloadManager
+        .isDownloading(BibleDownloadManager.defaultVersionId)) {
+      return _buildEmptyState();
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.menu_book_outlined,
+                size: 40,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(height: 12),
+            Text(
+              'No verses found for $_currentBook $_currentChapter.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'The offline copy of this translation may be incomplete.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _redownloadDefault,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Re-download Tamil Bible'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -452,49 +549,7 @@ class _BibleScreenState extends State<BibleScreen> {
       body: Column(
         children: [
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _versions.isEmpty
-                    ? _buildEmptyState()
-                    : AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (child, animation) {
-                          final inAnimation = Tween<Offset>(
-                                  begin: Offset(_transitionDirection.toDouble(), 0.0), 
-                                  end: Offset.zero)
-                              .animate(animation);
-                          final outAnimation = Tween<Offset>(
-                                  begin: Offset(-_transitionDirection.toDouble(), 0.0), 
-                                  end: Offset.zero)
-                              .animate(animation);
-
-                          if (child.key == ValueKey('$_currentBook-$_currentChapter')) {
-                            return SlideTransition(position: inAnimation, child: child);
-                          } else {
-                            return SlideTransition(position: outAnimation, child: child);
-                          }
-                        },
-                        child: ListView.builder(
-                          key: ValueKey('$_currentBook-$_currentChapter'),
-                          controller: _scrollController,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          itemCount: _verses.length + (_isFetchingNextChapter ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == _verses.length) {
-                              return const Padding(
-                                padding: EdgeInsets.all(16.0),
-                                child: Center(child: CircularProgressIndicator()),
-                              );
-                            }
-                            return VerseText(
-                              verse: _verses[index],
-                              isSelected: _selectedVerses.contains(_verses[index].number),
-                              fontSize: _settings.fontSize,
-                              onTap: () => _toggleVerseSelection(_verses[index].number),
-                            );
-                          },
-                        ),
-                      ),
+            child: _buildContent(),
           ),
           if (_selectedVerses.isNotEmpty)
             VerseActionBar(

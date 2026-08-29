@@ -14,49 +14,72 @@ class LocalBibleService {
   // repo and registered here; nothing ships pre-installed with the app.
   final Set<String> _webInstalledVersions = {};
 
+  // Allows unit tests to isolate the database behind a custom path so real
+  // device/app data is never touched.
+  @visibleForTesting
+  static String? overrideDbPath;
+
+  @visibleForTesting
+  static Future<void> resetForTest() async {
+    await _instance._db?.close();
+    _instance._db = null;
+    _instance._webVerses.clear();
+    _instance._webInstalledVersions.clear();
+  }
+
   Future<void> initialize() async {
     _seedAllPolyglotVerses();
 
     if (kIsWeb) return;
     if (_db != null) return;
 
-    final dbPath = await getDatabasesPath();
-    final path = p.join(dbPath, 'christian_tube_bibles.db');
+    final path = overrideDbPath ??
+        p.join(await getDatabasesPath(), 'christian_tube_bibles.db');
 
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE verses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            version_id TEXT NOT NULL,
-            book_number INTEGER NOT NULL,
-            book_name TEXT NOT NULL,
-            chapter INTEGER NOT NULL,
-            verse INTEGER NOT NULL,
-            text TEXT NOT NULL
-          );
-        ''');
-        await db.execute('''
-          CREATE INDEX idx_bible_lookup 
-          ON verses (version_id, book_number, chapter, verse);
-        ''');
-
-        await db.execute('''
-          CREATE TABLE installed_versions (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            language TEXT NOT NULL,
-            language_code TEXT NOT NULL,
-            size_display TEXT NOT NULL,
-            installed_at TEXT NOT NULL
-          );
-        ''');
-
+        await _createSchema(db);
         await _seedDefaultBibles(db);
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // On-demand app data: purge and recreate from scratch. This also
+        // removes stale wrong-language rows cached by earlier builds.
+        await db.execute('DROP TABLE IF EXISTS verses');
+        await db.execute('DROP TABLE IF EXISTS installed_versions');
+        await _createSchema(db);
+      },
     );
+  }
+
+  Future<void> _createSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE verses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        version_id TEXT NOT NULL,
+        book_number INTEGER NOT NULL,
+        book_name TEXT NOT NULL,
+        chapter INTEGER NOT NULL,
+        verse INTEGER NOT NULL,
+        text TEXT NOT NULL
+      );
+    ''');
+    await db.execute('''
+      CREATE UNIQUE INDEX idx_bible_lookup 
+      ON verses (version_id, book_number, chapter, verse);
+    ''');
+
+    await db.execute('''
+      CREATE TABLE installed_versions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        language TEXT NOT NULL,
+        language_code TEXT NOT NULL,
+        size_display TEXT NOT NULL,
+        installed_at TEXT NOT NULL
+      );
+    ''');
   }
 
   Future<bool> hasVerses(String versionId) async {
@@ -647,6 +670,10 @@ class LocalBibleService {
 
   Future<void> insertVerses(
       String versionId, List<Map<String, dynamic>> verses) async {
+    // Full rewrite semantics: drop every existing in-memory row for this
+    // version first, so stale partial/wrong-language rows can never mix with
+    // freshly written text.
+    _webVerses.removeWhere((key, _) => key.startsWith('${versionId}_'));
     for (final v in verses) {
       final book = v['bookNumber'] ?? v['book_number'];
       final chapter = v['chapter'];
@@ -657,6 +684,13 @@ class LocalBibleService {
 
     final db = _db;
     if (db == null) return;
+
+    // Drop every existing row for this version in SQLite too.
+    await db.delete(
+      'verses',
+      where: 'version_id = ?',
+      whereArgs: [versionId],
+    );
 
     final batch = db.batch();
     for (final v in verses) {
