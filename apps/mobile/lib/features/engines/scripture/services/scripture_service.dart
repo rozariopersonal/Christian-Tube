@@ -43,22 +43,21 @@ class ScriptureService {
 
       if (items.isNotEmpty) {
         const presets = ScriptureThemeCatalog.presets;
-        final List<ScriptureCard> fetchedCards = [];
+        final List<ScriptureCard> fetchedCards = await Future.wait(
+          items.asMap().entries.map((entry) async {
+            final i = entry.key;
+            final item = entry.value;
+            final card = ScriptureCard.fromJson(item);
 
-        for (int i = 0; i < items.length; i++) {
-          final item = items[i];
-          final card = ScriptureCard.fromJson(item);
+            if (card.backgroundPreset.isEmpty) {
+              final presetIdx = (page * limit + i) % presets.length;
+              card.customBackgroundPreset = presets[presetIdx].id;
+            }
 
-          // If no preset was set, assign one from the catalog
-          if (card.backgroundPreset.isEmpty) {
-            final presetIdx = (page * limit + i) % presets.length;
-            card.customBackgroundPreset = presets[presetIdx].id;
-          }
-
-          // Resolve version text using the existing function
-          await resolveCardText(card, activeVersionId);
-          fetchedCards.add(card);
-        }
+            await resolveCardText(card, activeVersionId);
+            return card;
+          }),
+        );
 
         _cachedDeck.addAll(fetchedCards);
         return fetchedCards;

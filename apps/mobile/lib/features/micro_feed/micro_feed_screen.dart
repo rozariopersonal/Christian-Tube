@@ -53,7 +53,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
     try {
       await widget.engine.initialize();
-      _filterState = widget.engine.initialFilterState;
+      // Ensure we use the current filterState, not the initial one which would wipe the user's selection
       final items = await widget.engine.fetchItems(
         filterState: _filterState,
         page: 0,

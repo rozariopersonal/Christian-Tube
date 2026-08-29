@@ -236,7 +236,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         // 3. Typographic Content Canvas (Scroll-safe, centered, zero-overflow)
         Center(
           child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 680),
               child: Padding(
