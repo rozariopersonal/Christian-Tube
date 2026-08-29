@@ -3,6 +3,7 @@ import '../models/bible_version.dart';
 import '../services/bible_service.dart';
 import '../widgets/verse_text.dart';
 import '../widgets/version_selector_sheet.dart';
+import '../widgets/book_chapter_selector.dart';
 import '../models/bible_verse.dart';
 
 class BibleScreen extends StatefulWidget {
@@ -76,11 +77,43 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
+  void _showBookChapterSelector() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => BookChapterSelector(
+        currentBook: _currentBook,
+        currentChapter: _currentChapter,
+        onSelection: (book, chapter) {
+          setState(() {
+            _currentBook = book;
+            _currentChapter = chapter;
+          });
+          Navigator.pop(context);
+          _fetchData();
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('$_currentBook $_currentChapter'),
+        title: GestureDetector(
+          onTap: _showBookChapterSelector,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$_currentBook $_currentChapter',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const Icon(Icons.arrow_drop_down),
+            ],
+          ),
+        ),
         actions: [
           if (_selectedVersion != null)
             TextButton(
