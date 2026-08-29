@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -14,15 +15,41 @@ class OfflineFeedDatabase {
 
   Database? _db;
   bool _isInitializing = false;
+  Future<void>? _initFuture;
   
   // Expose initialization state so UI can show a loading spinner
   bool get isInitializing => _isInitializing;
   final ValueNotifier<double> downloadProgress = ValueNotifier(0.0);
 
   Future<void> initialize() async {
-    if (_db != null || _isInitializing) return;
+    if (_db != null) return;
+    // If an initialization is already in flight, wait for it instead of
+    // returning early with a null DB (otherwise callers would see an empty
+    // feed because _db is still null when they read it).
+    final inFlight = _initFuture;
+    if (inFlight != null) {
+      try {
+        await inFlight;
+      } catch (_) {}
+      return;
+    }
+
+    final completer = Completer<void>();
+    _initFuture = completer.future;
     _isInitializing = true;
-    
+    try {
+      await _doInitialize();
+      completer.complete();
+    } catch (e) {
+      completer.completeError(e);
+      rethrow;
+    } finally {
+      _isInitializing = false;
+      _initFuture = null;
+    }
+  }
+
+  Future<void> _doInitialize() async {
     try {
       final appSupportDir = await getApplicationSupportDirectory();
       final dbPath = join(appSupportDir.path, 'feed.db');
@@ -56,8 +83,6 @@ class OfflineFeedDatabase {
     } catch (e) {
       debugPrint('Failed to initialize offline feed db: $e');
       rethrow;
-    } finally {
-      _isInitializing = false;
     }
   }
 

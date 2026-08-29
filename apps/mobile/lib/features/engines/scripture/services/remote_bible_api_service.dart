@@ -32,10 +32,14 @@ class RemoteBibleApiService {
     }
 
     try {
-      // Free public Bible API endpoint (bible-api.com) with translation fallback
-      final queryRef = endVerse != null && endVerse > startVerse
-          ? '$referenceLabel'
-          : '$referenceLabel';
+      // Free public Bible API endpoint (bible-api.com) with translation fallback.
+      // For a multi-verse range, request the explicit "Book Ch:Start-End" form so
+      // the whole passage is returned rather than only the labelled verse.
+      final isRange = endVerse != null && endVerse > startVerse;
+      final book = _extractBook(referenceLabel);
+      final queryRef = book != null && isRange
+          ? '$book $chapter:$startVerse-$endVerse'
+          : referenceLabel;
 
       final response = await _dio.get(
         'https://bible-api.com/${Uri.encodeComponent(queryRef)}',
@@ -58,6 +62,14 @@ class RemoteBibleApiService {
     }
 
     return null;
+  }
+
+  /// Extracts the leading book name from a reference label like "John 14:27"
+  /// or "1 Peter 5:7", returning null if no book prefix can be determined.
+  String? _extractBook(String referenceLabel) {
+    final trimmed = referenceLabel.trim();
+    final match = RegExp(r'^(.+?)\s+\d+:\d+').firstMatch(trimmed);
+    return match?.group(1);
   }
 
   String _mapToApiTranslation(String versionId) {
