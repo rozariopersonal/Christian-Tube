@@ -90,7 +90,18 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             ),
             GoRoute(
               path: '/bible',
-              builder: (context, state) => const BibleScreen(),
+              builder: (context, state) {
+                final qp = state.uri.queryParameters;
+                final extra = state.extra as Map<String, dynamic>?;
+                return BibleScreen(
+                  initialVersionId: qp['version'] ?? extra?['version'] as String?,
+                  initialBook: qp['book'] ?? extra?['book'] as String?,
+                  initialChapter: int.tryParse(qp['chapter'] ?? '') ??
+                      (extra?['chapter'] as int?),
+                  initialVerse: int.tryParse(qp['verse'] ?? '') ??
+                      (extra?['verse'] as int?),
+                );
+              },
             ),
             if (kMicroFeedEnabled)
               GoRoute(

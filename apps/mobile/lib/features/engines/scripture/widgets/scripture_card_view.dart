@@ -14,6 +14,7 @@ class ScriptureCardView extends StatefulWidget {
   final ScriptureFilterState filterState;
   final bool isActive;
   final ValueChanged<int>? onEdgePageShift;
+  final VoidCallback? onReferenceTap;
 
   const ScriptureCardView({
     super.key,
@@ -21,6 +22,7 @@ class ScriptureCardView extends StatefulWidget {
     required this.filterState,
     required this.isActive,
     this.onEdgePageShift,
+    this.onReferenceTap,
   });
 
   @override
@@ -401,6 +403,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                       _ReferenceBadge(
                         reference: '— ${widget.card.referenceLabel}',
                         versionId: primaryVersionId,
+                        onTap: widget.onReferenceTap,
                       ),
 
                       if (comparisonText != null &&
@@ -538,11 +541,13 @@ class _ReferenceBadge extends StatelessWidget {
   final String reference;
   final String versionId;
   final bool subdued;
+  final VoidCallback? onTap;
 
   const _ReferenceBadge({
     required this.reference,
     required this.versionId,
     this.subdued = false,
+    this.onTap,
   });
 
   @override
@@ -554,51 +559,57 @@ class _ReferenceBadge extends StatelessWidget {
     final accentBg =
         subdued ? Colors.white10 : const Color(0xFFF59E0B).withValues(alpha: 0.25);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              reference,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: onTap != null
+              ? Colors.black.withValues(alpha: 0.55)
+              : Colors.black.withValues(alpha: 0.45),
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
+          border: Border.all(color: onTap != null ? const Color(0xFFF59E0B).withValues(alpha: 0.7) : borderColor, width: 1.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                reference,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: accentBg,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              versionId,
-              style: TextStyle(
-                color: accent,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: accentBg,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                versionId,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
