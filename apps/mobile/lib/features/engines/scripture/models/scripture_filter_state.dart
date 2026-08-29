@@ -11,6 +11,7 @@ class ScriptureFilterState extends BaseFeedFilterState {
   final String backgroundPreset;
   final String? bookFilter;
   final String? testamentFilter;
+  final String? comparisonVersionId;
 
   const ScriptureFilterState({
     this.activeVersionId = 'TAOBVSI',
@@ -23,6 +24,7 @@ class ScriptureFilterState extends BaseFeedFilterState {
     this.backgroundPreset = 'mountain_dawn',
     this.bookFilter,
     this.testamentFilter,
+    this.comparisonVersionId,
   });
 
   ScriptureFilterState copyWith({
@@ -36,8 +38,10 @@ class ScriptureFilterState extends BaseFeedFilterState {
     String? backgroundPreset,
     String? bookFilter,
     String? testamentFilter,
+    String? comparisonVersionId,
     bool clearBookFilter = false,
     bool clearTestamentFilter = false,
+    bool clearComparisonVersion = false,
   }) {
     return ScriptureFilterState(
       activeVersionId: activeVersionId ?? this.activeVersionId,
@@ -50,6 +54,9 @@ class ScriptureFilterState extends BaseFeedFilterState {
       backgroundPreset: backgroundPreset ?? this.backgroundPreset,
       bookFilter: clearBookFilter ? null : (bookFilter ?? this.bookFilter),
       testamentFilter: clearTestamentFilter ? null : (testamentFilter ?? this.testamentFilter),
+      comparisonVersionId: clearComparisonVersion
+          ? null
+          : (comparisonVersionId ?? this.comparisonVersionId),
     );
   }
 
@@ -67,7 +74,8 @@ class ScriptureFilterState extends BaseFeedFilterState {
           textAlign == other.textAlign &&
           backgroundPreset == other.backgroundPreset &&
           bookFilter == other.bookFilter &&
-          testamentFilter == other.testamentFilter;
+          testamentFilter == other.testamentFilter &&
+          comparisonVersionId == other.comparisonVersionId;
 
   @override
   int get hashCode => Object.hash(
@@ -81,5 +89,6 @@ class ScriptureFilterState extends BaseFeedFilterState {
         backgroundPreset,
         bookFilter,
         testamentFilter,
+        comparisonVersionId,
       );
 }

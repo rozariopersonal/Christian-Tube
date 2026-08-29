@@ -34,13 +34,17 @@ abstract class BaseFeedEngine<T, F extends BaseFeedFilterState> {
   );
 
   /// Builds the main visual card canvas slot inside the vertical PageView.
+  /// [onEdgePageShift] lets cards report that the user kept dragging past the
+  /// content's top/bottom scroll edge, so the pager can move to the next page
+  /// (direction: -1 = previous page, +1 = next page).
   Widget buildCard(
     BuildContext context,
     T item,
     F filterState,
     bool isActive,
-    GlobalKey repaintBoundaryKey,
-  );
+    GlobalKey repaintBoundaryKey, {
+    ValueChanged<int>? onEdgePageShift,
+  });
 
   /// Builds the Right Side Action Column slot (e.g., Share, Style, Copy, Bookmark).
   List<Widget> buildSideActions(

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
+
 import 'package:mobile/features/engines/scripture/models/scripture_card.dart';
 
 void main() {

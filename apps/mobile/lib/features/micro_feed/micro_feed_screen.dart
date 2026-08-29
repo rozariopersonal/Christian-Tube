@@ -136,14 +136,29 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
       // Otherwise, it's a cosmetic/version change, so update in place
       final newVersionId = newScriptureState.activeVersionId;
+      final activeChanged =
+          oldScriptureState.activeVersionId != newVersionId;
+      final comparisonChanged = oldScriptureState.comparisonVersionId !=
+          newScriptureState.comparisonVersionId;
       for (final item in _items) {
         if (item is ScriptureCard) {
-          item.customFontFamily = null;
-          scriptureEngine.resolveCard(item, newVersionId).then((_) {
-            if (mounted) {
-              setState(() {});
-            }
-          });
+          if (activeChanged) {
+            item.customFontFamily = null;
+            scriptureEngine.resolveCard(item, newVersionId).then((_) {
+              if (mounted) {
+                setState(() {});
+              }
+            });
+          } else if (comparisonChanged) {
+            scriptureEngine
+                .resolveCardComparison(
+                    item, newScriptureState.comparisonVersionId)
+                .then((_) {
+              if (mounted) {
+                setState(() {});
+              }
+            });
+          }
         }
       }
     }
@@ -151,6 +166,18 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
   void _openManager() {
     context.push('/bible-manager');
+  }
+
+  // Scroll-past-edge paging fallback for long text: when a card's content is
+  // taller than the screen, swiping past its top/bottom edge advances pages.
+  void _onEdgePageShift(int direction) {
+    final target = _currentPage + direction;
+    if (target < 0 || target >= _items.length) return;
+    _pageController.animateToPage(
+      target,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   GlobalKey _getKeyForIndex(int index) {
@@ -333,6 +360,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   _filterState,
                   isCurrent,
                   boundaryKey,
+                  onEdgePageShift: _onEdgePageShift,
                 ),
               );
             },

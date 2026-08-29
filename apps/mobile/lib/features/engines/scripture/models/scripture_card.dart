@@ -16,6 +16,8 @@ class ScriptureCard {
   // Live state per card
   String? resolvedText;
   String? resolvedVersion;
+  String? comparisonText;
+  String? comparisonVersion;
   bool isSaved;
   String? customBackgroundPreset;
   String? customFontFamily;
@@ -36,6 +38,8 @@ class ScriptureCard {
     this.verseMappings,
     this.resolvedText,
     this.resolvedVersion,
+    this.comparisonText,
+    this.comparisonVersion,
     this.isSaved = false,
     this.customBackgroundPreset,
     this.customFontFamily,

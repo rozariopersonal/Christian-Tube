@@ -30,7 +30,8 @@ void main() {
     when(() => mockEngine.initialFilterState).thenReturn(mockFilterState);
     when(() => mockEngine.buildTopControls(any(), any(), any(), any())).thenReturn(const SizedBox.shrink());
     when(() => mockEngine.buildSideActions(any(), any(), any(), any(), any(), any())).thenReturn([]);
-    when(() => mockEngine.buildCard(any(), any(), any(), any(), any())).thenAnswer(
+    when(() => mockEngine.buildCard(any(), any(), any(), any(), any(),
+        onEdgePageShift: any(named: 'onEdgePageShift'))).thenAnswer(
       (invocation) => Text('Card ${invocation.positionalArguments[1]}', key: ValueKey(invocation.positionalArguments[1])),
     );
   });

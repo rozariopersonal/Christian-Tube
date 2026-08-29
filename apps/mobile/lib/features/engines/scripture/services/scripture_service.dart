@@ -117,7 +117,14 @@ class ScriptureService {
 
   Future<void> resolveCardText(ScriptureCard card, String versionId) async {
     final originalDbText = card.resolvedText;
+    final text = await _fetchTextForVersion(card, versionId);
 
+    card.resolvedText = text ?? originalDbText;
+    card.resolvedVersion =
+        text != null ? versionId : (originalDbText != null ? card.resolvedVersion : null);
+  }
+
+  Future<String?> _fetchTextForVersion(ScriptureCard card, String versionId) async {
     // Apply verse mapping overrides if they exist for this version
     int reqBookNumber = card.bookNumber;
     int reqChapter = card.chapter;
@@ -160,9 +167,18 @@ class ScriptureService {
         endVerse: reqEndVerse,
       );
     }
+    return text;
+  }
 
-    card.resolvedText = text ?? originalDbText;
-    card.resolvedVersion =
-        text != null ? versionId : (originalDbText != null ? card.resolvedVersion : null);
+  /// Resolves [versionId] text onto [card] as the comparison column. Never
+  /// substitutes English for non-English versions (same guard as
+  /// [resolveCardText]); null result leaves the comparison column empty.
+  Future<void> resolveCardComparisonText(
+    ScriptureCard card,
+    String versionId,
+  ) async {
+    final text = await _fetchTextForVersion(card, versionId);
+    card.comparisonText = text;
+    card.comparisonVersion = text != null ? versionId : null;
   }
 }

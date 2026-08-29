@@ -5,12 +5,14 @@ class BookChapterSelector extends StatefulWidget {
   final String currentBook;
   final int currentChapter;
   final Function(String book, int chapter) onSelection;
+  final String Function(String canonicalBook, int bookNumber)? displayNameOf;
 
   const BookChapterSelector({
     super.key,
     required this.currentBook,
     required this.currentChapter,
     required this.onSelection,
+    this.displayNameOf,
   });
 
   @override
@@ -80,10 +82,13 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
                   itemCount: bibleBooks.length,
                   itemBuilder: (context, index) {
                     final book = bibleBooks.keys.elementAt(index);
+                    final bookNumber = index + 1;
                     final isSelected = book == _selectedBook;
+                    final displayName =
+                        widget.displayNameOf?.call(book, bookNumber) ?? book;
                     return ListTile(
                       title: Text(
-                        book,
+                        displayName,
                         style: TextStyle(
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           color: isSelected ? theme.colorScheme.primary : null,

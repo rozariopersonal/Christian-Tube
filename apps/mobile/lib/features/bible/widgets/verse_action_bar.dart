@@ -3,12 +3,16 @@ import 'package:flutter/material.dart';
 class VerseActionBar extends StatelessWidget {
   final int selectedCount;
   final VoidCallback onCopy;
+  final VoidCallback onShare;
+  final VoidCallback onBookmark;
   final VoidCallback onClear;
 
   const VerseActionBar({
     super.key,
     required this.selectedCount,
     required this.onCopy,
+    required this.onShare,
+    required this.onBookmark,
     required this.onClear,
   });
 
@@ -45,6 +49,17 @@ class VerseActionBar extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+            ),
+            IconButton(
+              tooltip: 'Share',
+              icon: const Icon(Icons.share, color: Colors.white70),
+              onPressed: onShare,
+            ),
+            IconButton(
+              tooltip: 'Bookmark',
+              icon: const Icon(Icons.bookmark_add_outlined,
+                  color: Colors.white70),
+              onPressed: onBookmark,
             ),
             ElevatedButton.icon(
               onPressed: onCopy,

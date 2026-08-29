@@ -12,6 +12,7 @@ import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
 import 'screens/saved_scriptures_screen.dart';
 import 'widgets/bible_version_picker_modal.dart';
+import 'widgets/compare_version_picker_sheet.dart';
 import 'widgets/scripture_card_view.dart';
 import 'widgets/style_studio_sheet.dart';
 
@@ -91,6 +92,7 @@ class ScriptureEngine
       final savedBg = prefs.getString('pref_bible_${lang}_bg_preset') ??
           prefs.getString('pref_bible_bg_preset') ??
           _cachedFilterState.backgroundPreset;
+      final savedComparison = prefs.getString('pref_bible_comparison_version');
 
       return ScriptureFilterState(
         activeVersionId: versionId,
@@ -101,6 +103,7 @@ class ScriptureEngine
         isItalic: savedItalic,
         textAlign: savedAlign,
         backgroundPreset: savedBg,
+        comparisonVersionId: savedComparison,
       );
     } catch (_) {
       return ScriptureFilterState(activeVersionId: versionId);
@@ -116,6 +119,14 @@ class ScriptureEngine
 
       // 1. Save Active Version
       await prefs.setString('pref_bible_version', state.activeVersionId);
+
+      // 1b. Save Comparison Version
+      if (state.comparisonVersionId != null) {
+        await prefs.setString(
+            'pref_bible_comparison_version', state.comparisonVersionId!);
+      } else {
+        await prefs.remove('pref_bible_comparison_version');
+      }
 
       // 2. Save Per-Language Styles
       await prefs.setDouble('pref_bible_${lang}_font_scale', state.fontSizeScale);
@@ -156,12 +167,44 @@ class ScriptureEngine
     for (final c in cards) {
       c.isSaved = savedService.isSaved(c.id);
     }
+    final comparisonId = filterState.comparisonVersionId;
+    if (comparisonId != null && comparisonId != filterState.activeVersionId) {
+      for (final c in cards) {
+        await _service.resolveCardComparisonText(c, comparisonId);
+      }
+    }
     return cards;
   }
 
-  Future<void> resolveCard(ScriptureCard card, String versionId) async {
+  Future<void> resolveCard(
+    ScriptureCard card,
+    String versionId, {
+    String? comparisonVersionId,
+  }) async {
     await _service.resolveCardText(card, versionId);
+    final comparison = comparisonVersionId ?? _cachedFilterState.comparisonVersionId;
+    if (comparison != null && comparison != versionId) {
+      await _service.resolveCardComparisonText(card, comparison);
+    } else {
+      card.comparisonText = null;
+      card.comparisonVersion = null;
+    }
     card.isSaved = SavedScriptureService().isSaved(card.id);
+  }
+
+  /// Resolves (or clears) only the comparison column, leaving the primary
+  /// version text untouched. Used when the comparison version changes.
+  Future<void> resolveCardComparison(
+    ScriptureCard card,
+    String? comparisonVersionId,
+  ) async {
+    if (comparisonVersionId != null &&
+        comparisonVersionId != _cachedFilterState.activeVersionId) {
+      await _service.resolveCardComparisonText(card, comparisonVersionId);
+    } else {
+      card.comparisonText = null;
+      card.comparisonVersion = null;
+    }
   }
 
   @override
@@ -446,14 +489,16 @@ class ScriptureEngine
     ScriptureCard item,
     ScriptureFilterState filterState,
     bool isActive,
-    GlobalKey repaintBoundaryKey,
-  ) {
+    GlobalKey repaintBoundaryKey, {
+    ValueChanged<int>? onEdgePageShift,
+  }) {
     return ScriptureCardView(
       key: ValueKey(
           '${item.id}_${filterState.activeVersionId}_${filterState.textColorHex}_${filterState.activeFontFamily}_${filterState.fontSizeScale}_${filterState.isBold}_${filterState.isItalic}_${filterState.textAlign}_${item.activeBackground}'),
       card: item,
       filterState: filterState,
       isActive: isActive,
+      onEdgePageShift: onEdgePageShift,
     );
   }
 
@@ -504,6 +549,37 @@ class ScriptureEngine
                 onRefreshCard();
               },
               onRefreshCard: onRefreshCard,
+            ),
+          );
+        },
+      ),
+
+      // 2b. Compare Version
+      CardActionButton(
+        icon: filterState.comparisonVersionId == null
+            ? Icons.compare_arrows_rounded
+            : Icons.compare_rounded,
+        iconColor: filterState.comparisonVersionId != null
+            ? const Color(0xFFF59E0B)
+            : Colors.white,
+        label: filterState.comparisonVersionId ?? 'Compare',
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            barrierColor: Colors.black.withValues(alpha: 0.25),
+            isScrollControlled: true,
+            builder: (ctx) => CompareVersionPickerSheet(
+              activeVersionId: filterState.activeVersionId,
+              currentComparisonId: filterState.comparisonVersionId,
+              onSelectComparison: (comparisonId) {
+                final newState = filterState.copyWith(
+                  comparisonVersionId: comparisonId,
+                  clearComparisonVersion: comparisonId == null,
+                );
+                _savePreferences(newState);
+                onFilterChanged(newState);
+              },
             ),
           );
         },

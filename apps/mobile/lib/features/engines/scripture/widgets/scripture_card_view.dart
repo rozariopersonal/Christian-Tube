@@ -13,12 +13,14 @@ class ScriptureCardView extends StatefulWidget {
   final ScriptureCard card;
   final ScriptureFilterState filterState;
   final bool isActive;
+  final ValueChanged<int>? onEdgePageShift;
 
   const ScriptureCardView({
     super.key,
     required this.card,
     required this.filterState,
     required this.isActive,
+    this.onEdgePageShift,
   });
 
   @override
@@ -31,6 +33,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   String? _displayedVersion;
   bool _isResolving = false;
   String? _lastAttemptedVersion;
+  DateTime _lastEdgeShift = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void initState() {
@@ -56,6 +59,10 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
     if (widget.isActive) {
       _pregenerateImage();
     }
+    final comparison = widget.filterState.comparisonVersionId;
+    if (comparison != null && widget.card.comparisonVersion != comparison) {
+      _resolveComparison();
+    }
   }
 
   @override
@@ -68,9 +75,54 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         _displayedVersion != widget.filterState.activeVersionId) {
       _checkAndResolveVersion();
     }
+    if (oldWidget.filterState.comparisonVersionId !=
+            widget.filterState.comparisonVersionId ||
+        (widget.filterState.comparisonVersionId != null &&
+            widget.card.comparisonVersion !=
+                widget.filterState.comparisonVersionId)) {
+      _resolveComparison();
+    }
     if (widget.isActive && (!oldWidget.isActive || oldWidget.filterState != widget.filterState)) {
       _pregenerateImage();
     }
+  }
+
+  Future<void> _resolveComparison() async {
+    final comparison = widget.filterState.comparisonVersionId;
+    if (comparison == null ||
+        comparison == widget.filterState.activeVersionId) {
+      widget.card.comparisonText = null;
+      widget.card.comparisonVersion = null;
+      return;
+    }
+    await _service.resolveCardComparisonText(widget.card, comparison);
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  // Scroll-past-edge detection: when the card's text overflows the screen,
+  // continuing the drag past the top/bottom edge pages to the prev/next card.
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (widget.onEdgePageShift == null) return false;
+    if (notification is! ScrollUpdateNotification ||
+        notification.dragDetails == null) {
+      return false;
+    }
+    final metrics = notification.metrics;
+    if (metrics.maxScrollExtent <= 0) return false;
+    if (DateTime.now().difference(_lastEdgeShift).inMilliseconds < 600) {
+      return false;
+    }
+    final delta = notification.dragDetails!.primaryDelta ?? 0;
+    if (delta < -1 && metrics.pixels >= metrics.maxScrollExtent - 1) {
+      _lastEdgeShift = DateTime.now();
+      widget.onEdgePageShift!(1);
+    } else if (delta > 1 && metrics.pixels <= 1) {
+      _lastEdgeShift = DateTime.now();
+      widget.onEdgePageShift!(-1);
+    }
+    return false;
   }
 
   Future<void> _checkAndResolveVersion() async {
@@ -141,55 +193,80 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   Widget build(BuildContext context) {
     final preset = ScriptureThemeCatalog.getPreset(widget.card.activeBackground);
     final targetVersion = widget.filterState.activeVersionId;
-    
-    String versionId;
-    String text;
+
+    String primaryText;
+    String primaryVersionId;
+    bool primaryIsFallback = false;
 
     if (_displayedVersion == targetVersion && _displayedText != null) {
-      text = _displayedText!;
-      versionId = targetVersion;
+      primaryText = _displayedText!;
+      primaryVersionId = targetVersion;
     } else if (widget.card.resolvedVersion == targetVersion && widget.card.resolvedText != null) {
-      text = widget.card.resolvedText!;
-      versionId = targetVersion;
+      primaryText = widget.card.resolvedText!;
+      primaryVersionId = targetVersion;
     } else {
       final syncText = _service.resolvePassageSync(widget.card, targetVersion);
       if (syncText != null) {
-        text = syncText;
-        versionId = targetVersion;
+        primaryText = syncText;
+        primaryVersionId = targetVersion;
       } else if (widget.card.resolvedText != null) {
-        text = widget.card.resolvedText!;
-        versionId = widget.card.resolvedVersion ?? targetVersion;
+        primaryText = widget.card.resolvedText!;
+        primaryVersionId = widget.card.resolvedVersion ?? targetVersion;
       } else {
-        text = '“Peace I leave with you; my peace I give you. Do not let your hearts be troubled.”';
-        versionId = targetVersion;
+        primaryText = '“Peace I leave with you; my peace I give you. Do not let your hearts be troubled.”';
+        primaryVersionId = targetVersion;
+        primaryIsFallback = true;
       }
     }
 
-    final versionMeta = BibleDownloadManager.getMeta(versionId);
+    // Comparison column (secondary version) — read from the card's pre-resolved
+    // state with a synchronous local lookup as a fast path.
+    String? comparisonText;
+    String? comparisonVersionId;
+    final desiredComparison = widget.filterState.comparisonVersionId;
+    if (desiredComparison != null && desiredComparison != targetVersion) {
+      String? text;
+      String? version;
+      if (widget.card.comparisonVersion == desiredComparison &&
+          widget.card.comparisonText != null) {
+        text = widget.card.comparisonText;
+        version = desiredComparison;
+      } else {
+        final syncText =
+            _service.resolvePassageSync(widget.card, desiredComparison);
+        if (syncText != null) {
+          text = syncText;
+          version = desiredComparison;
+        }
+      }
+      // "Pick the best": if the active version has no real text yet, promote
+      // the comparison text to the primary (hero) slot instead of the
+      // hardcoded placeholder so the feed never shows dead text.
+      if (primaryIsFallback && text != null) {
+        primaryText = text;
+        primaryVersionId = version!;
+        primaryIsFallback = false;
+      } else {
+        comparisonText = text;
+        comparisonVersionId = version;
+      }
+    }
+
+    final primaryMeta = BibleDownloadManager.getMeta(primaryVersionId);
+    final comparisonMeta = comparisonVersionId != null
+        ? BibleDownloadManager.getMeta(comparisonVersionId)
+        : null;
 
     final screenWidth = MediaQuery.sizeOf(context).width;
     final screenHeight = MediaQuery.sizeOf(context).height;
     final heightFactor = (screenHeight / 800.0).clamp(0.75, 1.15);
 
-    // Auto-calculate dynamic font size based on verse text length, longest word, screen height & user scale
-    final words = text.split(RegExp(r'\s+'));
-    int maxWordLength = 0;
-    for (final w in words) {
-      if (w.length > maxWordLength) maxWordLength = w.length;
-    }
+    final double effectiveFontSize =
+        _dynamicFontSize(primaryText, heightFactor) * widget.filterState.fontSizeScale;
 
-    final length = text.length;
-    double dynamicBaseSize =
-        ((28.0 - (length / 32.0)).clamp(15.0, 26.0) * heightFactor);
-
-    // If verse has extra long compound words (e.g. Indic words with 12+ chars), adaptively scale down font size so words never break mid-word!
-    if (maxWordLength > 12) {
-      final wordLengthPenalty = (maxWordLength - 12) * 0.7;
-      dynamicBaseSize = (dynamicBaseSize - wordLengthPenalty).clamp(13.0, 26.0);
-    }
-
-    final effectiveFontSize =
-        dynamicBaseSize * widget.filterState.fontSizeScale;
+    final comparisonFontSize = comparisonText != null
+        ? _dynamicFontSize(comparisonText, heightFactor) * 0.75 * widget.filterState.fontSizeScale
+        : 0.0;
 
     final activeFontFamily =
         widget.card.customFontFamily ?? widget.filterState.activeFontFamily;
@@ -216,7 +293,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
     final textStyle = ScriptureThemeCatalog.getTextStyle(
       fontFamily: activeFontFamily,
-      languageCode: versionMeta.languageCode,
+      languageCode: primaryMeta.languageCode,
       baseSize: effectiveFontSize,
       color: textColor,
       fontWeight: fontWeight,
@@ -244,138 +321,165 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
         // 3. Typographic Content Canvas (Scroll-safe, centered, zero-overflow)
         Center(
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: (screenWidth * 0.08).clamp(24.0, 48.0),
-                  vertical: verticalPadding,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-              children: [
-                // Opening Quote Mark
-                Text(
-                  '“',
-                  style: TextStyle(
-                    fontSize: 48,
-                    height: 0.8,
-                    fontFamily: 'serif',
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.9),
-                    shadows: const [
-                      Shadow(
-                        color: Colors.black87,
-                        blurRadius: 12,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: (screenWidth * 0.08).clamp(24.0, 48.0),
+                    vertical: verticalPadding,
                   ),
-                ),
-                const SizedBox(height: 8),
-
-                // Verse Body Text with Smooth Animated Replacement
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  transitionBuilder: (child, animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0.0, 0.04),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: Text(
-                    text,
-                    key: ValueKey(
-                        '${versionId}_${text.hashCode}_${widget.filterState.textColorHex}_${activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.isBold}_${widget.filterState.isItalic}_${widget.filterState.textAlign}'),
-                    textAlign: textAlign,
-                    softWrap: true,
-                    textWidthBasis: TextWidthBasis.parent,
-                    style: textStyle.copyWith(
-                      color: textColor,
-                      shadows: const [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 16,
-                          offset: Offset(0, 2),
-                        ),
-                        Shadow(
-                          color: Colors.black54,
-                          blurRadius: 6,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Reference Attribution Badge
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
-                      width: 1.0,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: Row(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Opening Quote Mark
                       Text(
-                        '— ${widget.card.referenceLabel}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+                        '“',
+                        style: TextStyle(
+                          fontSize: 48,
+                          height: 0.8,
+                          fontFamily: 'serif',
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.9),
+                          shadows: const [
+                            Shadow(
+                              color: Colors.black87,
+                              blurRadius: 12,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
+                      const SizedBox(height: 8),
+
+                      // Primary Verse Body Text with Smooth Animated Replacement
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0.0, 0.04),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
                         child: Text(
-                          versionId,
-                          style: const TextStyle(
-                            color: Color(0xFFFBBF24),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
+                          primaryText,
+                          key: ValueKey(
+                              '${primaryVersionId}_${primaryText.hashCode}_${widget.filterState.textColorHex}_${activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.isBold}_${widget.filterState.isItalic}_${widget.filterState.textAlign}'),
+                          textAlign: textAlign,
+                          softWrap: true,
+                          textWidthBasis: TextWidthBasis.parent,
+                          style: textStyle.copyWith(
+                            color: textColor,
+                            shadows: const [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 16,
+                                offset: Offset(0, 2),
+                              ),
+                              Shadow(
+                                color: Colors.black54,
+                                blurRadius: 6,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
                           ),
                         ),
                       ),
+                      const SizedBox(height: 20),
+
+                      // Reference Attribution Badge (Primary)
+                      _ReferenceBadge(
+                        reference: '— ${widget.card.referenceLabel}',
+                        versionId: primaryVersionId,
+                      ),
+
+                      if (comparisonText != null &&
+                          comparisonVersionId != null) ...[
+                        const SizedBox(height: 20),
+                        const Divider(
+                          color: Colors.white24,
+                          height: 1,
+                          indent: 60,
+                          endIndent: 60,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Secondary Verse Body Text (smaller, subdued)
+                        Text(
+                          comparisonText!,
+                          textAlign: textAlign,
+                          softWrap: true,
+                          textWidthBasis: TextWidthBasis.parent,
+                          style: ScriptureThemeCatalog.getTextStyle(
+                            fontFamily: activeFontFamily,
+                            languageCode: comparisonMeta?.languageCode ?? 'en',
+                            baseSize: comparisonFontSize,
+                            color: Colors.white.withValues(alpha: 0.88),
+                            fontWeight: FontWeight.w400,
+                            fontStyle: FontStyle.italic,
+                          ).copyWith(shadows: const [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 16,
+                              offset: Offset(0, 2),
+                            ),
+                            Shadow(
+                              color: Colors.black54,
+                              blurRadius: 6,
+                              offset: Offset(0, 1),
+                            ),
+                          ]),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Reference Attribution Badge (Secondary)
+                        _ReferenceBadge(
+                          reference: '— ${widget.card.referenceLabel}',
+                          versionId: comparisonVersionId!,
+                          subdued: true,
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
-      ),
-    ),
-  ],
-);
+      ],
+    );
+  }
+
+  double _dynamicFontSize(String text, double heightFactor) {
+    // Auto-calculate dynamic font size based on verse text length, longest
+    // word, screen height & user scale
+    final words = text.split(RegExp(r'\s+'));
+    int maxWordLength = 0;
+    for (final w in words) {
+      if (w.length > maxWordLength) maxWordLength = w.length;
+    }
+
+    final length = text.length;
+    double dynamicBaseSize =
+        ((28.0 - (length / 32.0)).clamp(15.0, 26.0) * heightFactor);
+
+    // If verse has extra long compound words (e.g. Indic words with 12+ chars),
+    // adaptively scale down font size so words never break mid-word!
+    if (maxWordLength > 12) {
+      final wordLengthPenalty = (maxWordLength - 12) * 0.7;
+      dynamicBaseSize = (dynamicBaseSize - wordLengthPenalty).clamp(13.0, 26.0);
+    }
+    return dynamicBaseSize;
   }
 
   Widget _buildBackground(BackgroundPreset preset) {
@@ -426,5 +530,76 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         color: const Color(0xFF0A0A0A),
       );
     }
+  }
+}
+
+/// Small attribution pill showing a reference label plus a version badge.
+class _ReferenceBadge extends StatelessWidget {
+  final String reference;
+  final String versionId;
+  final bool subdued;
+
+  const _ReferenceBadge({
+    required this.reference,
+    required this.versionId,
+    this.subdued = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = subdued
+        ? Colors.white.withValues(alpha: 0.25)
+        : const Color(0xFFF59E0B).withValues(alpha: 0.4);
+    final accent = subdued ? Colors.white70 : const Color(0xFFFBBF24);
+    final accentBg =
+        subdued ? Colors.white10 : const Color(0xFFF59E0B).withValues(alpha: 0.25);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              reference,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: accentBg,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              versionId,
+              style: TextStyle(
+                color: accent,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

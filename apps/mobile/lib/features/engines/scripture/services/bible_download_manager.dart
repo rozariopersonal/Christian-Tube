@@ -59,6 +59,224 @@ class BibleDownloadManager extends ChangeNotifier {
       sizeDisplay: '1.2 MB',
       description: 'Simplified 850-word standard English vocabulary.',
     ),
+    BibleVersionMeta(
+      id: 'YLT',
+      name: "Young's Literal Translation",
+      language: 'English',
+      languageCode: 'en',
+      sizeDisplay: '4.1 MB',
+      description: 'Ultra-literal 1898 translation that preserves the word order of the originals.',
+    ),
+    BibleVersionMeta(
+      id: 'WB',
+      name: "Webster's Bible (1833)",
+      language: 'English',
+      languageCode: 'en',
+      sizeDisplay: '4.0 MB',
+      description: 'Noah Webster\'s 1833 revision of the King James with modernized grammar.',
+    ),
+
+    // German
+    BibleVersionMeta(
+      id: 'LUTHER1545',
+      name: 'Lutherbibel (1545)',
+      language: 'German',
+      languageCode: 'de',
+      sizeDisplay: '4.0 MB',
+      description: 'Martin Luther\'s classic 1545 German Bible.',
+    ),
+    BibleVersionMeta(
+      id: 'ELBERFELDER1905',
+      name: 'Elberfelder Bibel (1905)',
+      language: 'German',
+      languageCode: 'de',
+      sizeDisplay: '4.2 MB',
+      description: 'Highly literal German translation from 1905.',
+    ),
+    BibleVersionMeta(
+      id: 'ELBERFELDER',
+      name: 'Elberfelder Bibel (1871)',
+      language: 'German',
+      languageCode: 'de',
+      sizeDisplay: '4.2 MB',
+      description: 'The original 1871 Elberfelder translation.',
+    ),
+
+    // Spanish
+    BibleVersionMeta(
+      id: 'SSE',
+      name: 'Sagradas Escrituras (1569)',
+      language: 'Spanish',
+      languageCode: 'es',
+      sizeDisplay: '3.8 MB',
+      description: 'The classic 1569 Spanish Bible of Casiodoro de Reina.',
+    ),
+
+    // French
+    BibleVersionMeta(
+      id: 'MARTIN',
+      name: 'Bible Martin (1744)',
+      language: 'French',
+      languageCode: 'fr',
+      sizeDisplay: '4.4 MB',
+      description: 'David Martin\'s faithful 1744 French translation.',
+    ),
+
+    // Italian
+    BibleVersionMeta(
+      id: 'RIVEDUTA',
+      name: 'Riveduta (1927)',
+      language: 'Italian',
+      languageCode: 'it',
+      sizeDisplay: '4.1 MB',
+      description: 'The 1927 revised Italian Bible.',
+    ),
+    BibleVersionMeta(
+      id: 'DIODATI',
+      name: 'Bibbia Diodati',
+      language: 'Italian',
+      languageCode: 'it',
+      sizeDisplay: '4.2 MB',
+      description: 'Giovanni Diodati\'s 1607 classic Italian translation.',
+    ),
+
+    // Dutch
+    BibleVersionMeta(
+      id: 'STATENVERTALING',
+      name: 'Statenvertaling (1637)',
+      language: 'Dutch',
+      languageCode: 'nl',
+      sizeDisplay: '4.2 MB',
+      description: 'The authorized Dutch State Translation of 1637.',
+    ),
+
+    // Polish
+    BibleVersionMeta(
+      id: 'POLGDANSKA',
+      name: 'Biblia Gdańska (1881)',
+      language: 'Polish',
+      languageCode: 'pl',
+      sizeDisplay: '3.9 MB',
+      description: 'The beloved Polish Gdańsk Bible.',
+    ),
+
+    // Hungarian
+    BibleVersionMeta(
+      id: 'KAROLI',
+      name: 'Károlyi Biblia',
+      language: 'Hungarian',
+      languageCode: 'hu',
+      sizeDisplay: '4.1 MB',
+      description: 'The classic Hungarian Bible of Gáspár Károlyi (1590).',
+    ),
+
+    // Nordic
+    BibleVersionMeta(
+      id: 'SWEDISH',
+      name: 'Svenska Bibeln (1917)',
+      language: 'Swedish',
+      languageCode: 'sv',
+      sizeDisplay: '4.2 MB',
+      description: 'The official 1917 Swedish Bible.',
+    ),
+    BibleVersionMeta(
+      id: 'DANISH',
+      name: 'Dansk Bibel',
+      language: 'Danish',
+      languageCode: 'da',
+      sizeDisplay: '3.6 MB',
+      description: 'The classic Danish Bible translation.',
+    ),
+    BibleVersionMeta(
+      id: 'PYHAAMATTU1933',
+      name: 'Pyhä Raamattu (1933/1938)',
+      language: 'Finnish',
+      languageCode: 'fi',
+      sizeDisplay: '4.1 MB',
+      description: 'The classical Finnish Bible translation.',
+    ),
+
+    // Slavic
+    BibleVersionMeta(
+      id: 'BKR',
+      name: 'Bible kralická',
+      language: 'Czech',
+      languageCode: 'cs',
+      sizeDisplay: '3.8 MB',
+      description: 'The historic Czech King James of 1613.',
+    ),
+    BibleVersionMeta(
+      id: 'CROATIA',
+      name: 'Biblija (Croatian)',
+      language: 'Croatian',
+      languageCode: 'hr',
+      sizeDisplay: '3.3 MB',
+      description: 'A classic Croatian Bible translation.',
+    ),
+
+    // Albanian
+    BibleVersionMeta(
+      id: 'ALB',
+      name: 'Bibla Shqipe',
+      language: 'Albanian',
+      languageCode: 'sq',
+      sizeDisplay: '4.2 MB',
+      description: 'The 1827 Albanian Bible, the oldest Albanian translation.',
+    ),
+
+    // East Asian
+    BibleVersionMeta(
+      id: 'KOREAN',
+      name: 'Korean Bible',
+      language: 'Korean',
+      languageCode: 'ko',
+      sizeDisplay: '4.3 MB',
+      description: 'Classic Korean Bible translation.',
+    ),
+    BibleVersionMeta(
+      id: 'VIETNAMESE',
+      name: 'Kinh Thánh (1934)',
+      language: 'Vietnamese',
+      languageCode: 'vi',
+      sizeDisplay: '4.9 MB',
+      description: 'The 1934 public domain Vietnamese Bible.',
+    ),
+    BibleVersionMeta(
+      id: 'CUT',
+      name: 'Union Version (Traditional)',
+      language: 'Chinese',
+      languageCode: 'zh-Hant',
+      sizeDisplay: '3.4 MB',
+      description: 'The classic traditional Chinese Union Version.',
+    ),
+    BibleVersionMeta(
+      id: 'JAPKOUGO',
+      name: '口語訳聖書 (1954/1955)',
+      language: 'Japanese',
+      languageCode: 'ja',
+      sizeDisplay: '5.1 MB',
+      description: 'The Japanese colloquial translation of 1954/1955.',
+    ),
+
+    // Southeast Asian
+    BibleVersionMeta(
+      id: 'TAGALOG',
+      name: 'Ang Dating Biblia (1905)',
+      language: 'Tagalog',
+      languageCode: 'tl',
+      sizeDisplay: '4.7 MB',
+      description: 'The classic public domain 1905 Tagalog Bible.',
+    ),
+
+    // Esperanto
+    BibleVersionMeta(
+      id: 'ESPERANTO',
+      name: 'Esperanta Biblio',
+      language: 'Esperanto',
+      languageCode: 'eo',
+      sizeDisplay: '3.8 MB',
+      description: 'A complete Esperanto translation of the Bible.',
+    ),
 
     // Tamil
     BibleVersionMeta(
@@ -109,6 +327,16 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'hin',
       sizeDisplay: '1.5 MB',
       description: 'Clear modern Hindi translation for everyday devotions.',
+    ),
+
+    // Malayalam (1910)
+    BibleVersionMeta(
+      id: 'MAL1910',
+      name: 'Sathyavedapusthakam (1910)',
+      language: 'Malayalam',
+      languageCode: 'ml',
+      sizeDisplay: '10.5 MB',
+      description: 'The historic 1910 Malayalam Bible, Sathyavedapusthakam.',
     ),
   ];
 

@@ -730,6 +730,33 @@ class LocalBibleService {
     );
   }
 
+  /// Case-insensitive full-text search across the installed [versionId].
+  /// Returns matching rows (with book_name, chapter, verse, text) limited to
+  /// [limit] results, newest/most relevant first. Only supported on mobile
+  /// where the SQLite database is available.
+  Future<List<Map<String, dynamic>>> search(
+    String versionId,
+    String query, {
+    int limit = 100,
+  }) async {
+    if (kIsWeb) return [];
+    final term = query.trim();
+    if (term.isEmpty) return [];
+    if (_db == null) await initialize();
+    final db = _db;
+    if (db == null) return [];
+
+    final like = '%$term%';
+    return db.query(
+      'verses',
+      columns: ['book_name', 'chapter', 'verse', 'text'],
+      where: 'version_id = ? AND text LIKE ?',
+      whereArgs: [versionId, like],
+      orderBy: 'book_number ASC, chapter ASC, verse ASC',
+      limit: limit,
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getChapter(String versionId, String bookName, int chapter) async {
     if (kIsWeb) {
       // In web, we could return dummy data or filter _webVerses if we wanted full web support.

@@ -10,7 +10,7 @@ void main() {
     bool playTriggered = false;
     bool pauseTriggered = false;
     Duration? seekTarget;
-    double? selectedSpeed;
+    double? _selectedSpeed;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -27,7 +27,7 @@ void main() {
               onPlay: () => playTriggered = true,
               onPause: () => pauseTriggered = true,
               onSeek: (pos) => seekTarget = pos,
-              onSetSpeed: (speed) => selectedSpeed = speed,
+              onSetSpeed: (speed) => _selectedSpeed = speed,
             ),
           ),
         ),

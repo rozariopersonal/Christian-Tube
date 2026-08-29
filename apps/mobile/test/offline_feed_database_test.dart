@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite/sqflite.dart';
@@ -6,7 +5,6 @@ import 'package:mobile/features/engines/scripture/services/offline_feed_database
 
 void main() {
   late OfflineFeedDatabase dbService;
-  late String dbPath;
 
   setUpAll(() {
     // Initialize FFI for desktop/unit test environments
@@ -16,14 +14,6 @@ void main() {
 
   setUp(() async {
     dbService = OfflineFeedDatabase();
-    
-    // Create an in-memory database for testing
-    dbPath = inMemoryDatabasePath;
-    
-    // The singleton normally uses getDatabasesPath(). 
-    // For this test, we can override the factory, but OfflineFeedDatabase is hardcoded.
-    // Wait, OfflineFeedDatabase uses getDatabasesPath().
-    // By overriding databaseFactory, sqflite automatically intercepts.
   });
 
   test('OfflineFeedDatabase correctly calculates count and handles random queries', () async {
