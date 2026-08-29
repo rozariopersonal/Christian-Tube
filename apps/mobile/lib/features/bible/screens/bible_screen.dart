@@ -3,10 +3,15 @@ import '../models/bible_version.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
 import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
 import '../../engines/scripture/screens/bible_manager_screen.dart';
+import 'package:flutter/services.dart';
 import '../widgets/verse_text.dart';
 import '../widgets/book_chapter_selector.dart';
+import '../widgets/reading_settings_sheet.dart';
+import '../widgets/verse_action_bar.dart';
 import '../models/bible_verse.dart';
 import '../models/bible_book.dart';
+import '../models/bible_settings.dart';
+import '../services/bible_settings_service.dart';
 
 class BibleScreen extends StatefulWidget {
   const BibleScreen({super.key});
@@ -17,7 +22,9 @@ class BibleScreen extends StatefulWidget {
 
 class _BibleScreenState extends State<BibleScreen> {
   final LocalBibleService _localBibleService = LocalBibleService();
+  final BibleSettingsService _settingsService = BibleSettingsService();
   final ScrollController _scrollController = ScrollController();
+  
   List<BibleVersion> _versions = [];
   List<BibleVerse> _verses = [];
   BibleVersion? _selectedVersion;
@@ -26,12 +33,23 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _isLoading = true;
   bool _isFetchingNextChapter = false;
   int _transitionDirection = 1;
+  
+  Set<int> _selectedVerses = {};
+  BibleSettings _settings = const BibleSettings();
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _loadSettings();
     _fetchData();
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await _settingsService.loadSettings();
+    if (mounted) {
+      setState(() => _settings = settings);
+    }
   }
 
   @override
@@ -73,6 +91,7 @@ class _BibleScreenState extends State<BibleScreen> {
             number: map['verse'] as int,
             text: map['text'] as String,
           )).toList();
+          _selectedVerses.clear();
           _isLoading = false;
         });
         // Scroll to top when data is re-fetched completely
@@ -140,6 +159,7 @@ class _BibleScreenState extends State<BibleScreen> {
           _verses.addAll(newVerses);
         } else {
           _verses = newVerses;
+          _selectedVerses.clear();
           if (_scrollController.hasClients) {
             _scrollController.jumpTo(0);
           }
@@ -229,6 +249,54 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
+  void _showReadingSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return ReadingSettingsSheet(
+            settings: _settings,
+            onSettingsChanged: (newSettings) {
+              setModalState(() => _settings = newSettings);
+              setState(() => _settings = newSettings);
+              _settingsService.saveSettings(newSettings);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  void _toggleVerseSelection(int verseNumber) {
+    if (verseNumber == 0) return; // Ignore headers
+    setState(() {
+      if (_selectedVerses.contains(verseNumber)) {
+        _selectedVerses.remove(verseNumber);
+      } else {
+        _selectedVerses.add(verseNumber);
+      }
+    });
+  }
+
+  void _copySelectedVerses() {
+    if (_selectedVerses.isEmpty) return;
+    
+    final selectedTexts = _verses
+        .where((v) => _selectedVerses.contains(v.number))
+        .map((v) => '[${v.number}] ${v.text}')
+        .join('\n');
+    
+    Clipboard.setData(ClipboardData(text: selectedTexts)).then((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verses copied to clipboard')),
+        );
+        setState(() => _selectedVerses.clear());
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -247,6 +315,10 @@ class _BibleScreenState extends State<BibleScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.text_format),
+            onPressed: _showReadingSettings,
+          ),
           if (_selectedVersion != null)
             TextButton(
               onPressed: _showVersionSelector,
@@ -296,11 +368,23 @@ class _BibleScreenState extends State<BibleScreen> {
                                 child: Center(child: CircularProgressIndicator()),
                               );
                             }
-                            return VerseText(verse: _verses[index]);
+                            return VerseText(
+                              verse: _verses[index],
+                              isSelected: _selectedVerses.contains(_verses[index].number),
+                              fontSize: _settings.fontSize,
+                              onTap: () => _toggleVerseSelection(_verses[index].number),
+                            );
                           },
                         ),
                       ),
           ),
+          if (_selectedVerses.isNotEmpty)
+            VerseActionBar(
+              selectedCount: _selectedVerses.length,
+              onCopy: _copySelectedVerses,
+              onClear: () => setState(() => _selectedVerses.clear()),
+            )
+          else
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
