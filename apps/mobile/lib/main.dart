@@ -9,6 +9,7 @@ import 'features/auth/auth_service.dart';
 import 'features/channels/channel_service.dart';
 import 'features/channels/channels_screen.dart';
 import 'features/engines/scripture/screens/bible_manager_screen.dart';
+import 'features/engines/scripture/services/bible_download_manager.dart';
 import 'features/feed/video_feed_screen.dart';
 import 'features/micro_feed/micro_feed_screen.dart';
 import 'features/profile/profile_screen.dart';
@@ -27,6 +28,11 @@ void main() async {
 
   // Run secondary initializations in background to eliminate startup blank screen
   NotificationService().initialize().catchError((e) => debugPrint('Notification init error: $e'));
+  // Ensure the default bible (TAOBVSI) starts downloading right away so the
+  // Words feed and Bible page have text even if the user never opens the
+  // scripture engine first.
+  BibleDownloadManager().ensureDefaultInstalled()
+      .catchError((e) => debugPrint('Default bible download error: $e'));
   if (kMicroFeedEnabled) {
     try {
       final engine = createActiveFeedEngine();

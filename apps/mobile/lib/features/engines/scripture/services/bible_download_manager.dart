@@ -134,6 +134,7 @@ class BibleDownloadManager extends ChangeNotifier {
   /// Ensures the app's default bible (TAOBVSI) is installed, downloading it on
   /// demand from the releases repo on first run when a network is available.
   Future<void> ensureDefaultInstalled() async {
+    await _localBible.initialize();
     await refreshInstalledList();
     if (_installedIds.contains(defaultVersionId) ||
         _downloadingIds.contains(defaultVersionId)) {
@@ -146,6 +147,7 @@ class BibleDownloadManager extends ChangeNotifier {
   /// offline use; false when it could not be fetched (no data source, or a
   /// network failure on every mirror).
   Future<bool> downloadVersion(BibleVersionMeta meta) async {
+    await _localBible.initialize();
     if (_installedIds.contains(meta.id)) return true;
     if (_downloadingIds.contains(meta.id)) return true;
 

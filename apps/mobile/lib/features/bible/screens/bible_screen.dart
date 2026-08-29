@@ -24,8 +24,9 @@ class BibleScreen extends StatefulWidget {
 class _BibleScreenState extends State<BibleScreen> {
   final LocalBibleService _localBibleService = LocalBibleService();
   final BibleSettingsService _settingsService = BibleSettingsService();
+  final BibleDownloadManager _downloadManager = BibleDownloadManager();
   final ScrollController _scrollController = ScrollController();
-  
+
   List<BibleVersion> _versions = [];
   List<BibleVerse> _verses = [];
   BibleVersion? _selectedVersion;
@@ -34,7 +35,8 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _isLoading = true;
   bool _isFetchingNextChapter = false;
   int _transitionDirection = 1;
-  
+  int _lastKnownInstalledCount = -1;
+
   Set<int> _selectedVerses = {};
   BibleSettings _settings = const BibleSettings();
 
@@ -42,6 +44,7 @@ class _BibleScreenState extends State<BibleScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _downloadManager.addListener(_onDownloadManagerChanged);
     _loadSettings();
     _fetchData();
   }
@@ -55,8 +58,40 @@ class _BibleScreenState extends State<BibleScreen> {
 
   @override
   void dispose() {
+    _downloadManager.removeListener(_onDownloadManagerChanged);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // Reacts only to install/uninstall transitions (not to per-chunk download
+  // progress notifications) so the page fills in automatically when the
+  // default bible finishes downloading in the background.
+  Future<void> _onDownloadManagerChanged() async {
+    if (!mounted) return;
+    final count = _downloadManager.installedIds.length;
+    if (count == _lastKnownInstalledCount) return;
+    _lastKnownInstalledCount = count;
+
+    final hadVersions = _versions.isNotEmpty;
+    await _loadVersions();
+    if (!mounted) return;
+    if (_selectedVersion != null) {
+      if (!hadVersions) setState(() => _isLoading = true);
+      await _loadChapter();
+      if (mounted) setState(() => _isLoading = false);
+    } else if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _pushManager() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const BibleManagerScreen()),
+    );
+    // Refetch versions after returning from the manager screen
+    _lastKnownInstalledCount = _downloadManager.installedIds.length;
+    await _fetchData();
   }
 
   void _onScroll() {
@@ -67,54 +102,60 @@ class _BibleScreenState extends State<BibleScreen> {
 
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-    if (_versions.isEmpty) {
-      final versionIds = await _localBibleService.getInstalledVersionIds();
-      if (mounted) {
-        _versions = versionIds.map((id) {
-          final meta = BibleDownloadManager.getMeta(id);
-          return BibleVersion(
-            id: id,
-            name: meta.id == id ? meta.name : id,
-            shortname: id,
-            description: meta.description,
-            lang: meta.languageCode,
-          );
-        }).toList();
-        if (_versions.isNotEmpty) {
-          _selectedVersion = _versions.firstWhere(
-            (v) => v.shortname == BibleDownloadManager.defaultVersionId,
-            orElse: () => _versions.first,
-          );
-        }
-      }
-    }
-    
+    await _loadVersions();
+    if (!mounted) return;
     if (_selectedVersion != null) {
-      final versesMap = await _localBibleService.getChapter(
-        _selectedVersion!.shortname,
-        _currentBook,
-        _currentChapter,
+      await _loadChapter();
+      if (mounted) setState(() => _isLoading = false);
+    } else if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadVersions() async {
+    final versionIds = await _localBibleService.getInstalledVersionIds();
+    if (!mounted) return;
+    _versions = versionIds.map((id) {
+      final meta = BibleDownloadManager.getMeta(id);
+      return BibleVersion(
+        id: id,
+        name: meta.id == id ? meta.name : id,
+        shortname: id,
+        description: meta.description,
+        lang: meta.languageCode,
       );
-      if (mounted) {
-        setState(() {
-          _verses = versesMap.map((map) => BibleVerse(
-            number: map['verse'] as int,
-            text: map['text'] as String,
-          )).toList();
-          _selectedVerses.clear();
-          _isLoading = false;
-        });
-        // Scroll to top when data is re-fetched completely
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(0);
-        }
-      }
-    } else {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    }).toList();
+    if (_versions.isNotEmpty && _selectedVersion == null) {
+      _selectedVersion = _versions.firstWhere(
+        (v) => v.shortname == BibleDownloadManager.defaultVersionId,
+        orElse: () => _versions.first,
+      );
+    } else if (_selectedVersion != null &&
+        !_versions.any((v) => v.shortname == _selectedVersion!.shortname)) {
+      // Previously selected version was removed; fall back to the default.
+      _selectedVersion =
+          _versions.isNotEmpty ? _versions.first : null;
+    }
+  }
+
+  Future<void> _loadChapter() async {
+    if (_selectedVersion == null) return;
+    final versesMap = await _localBibleService.getChapter(
+      _selectedVersion!.shortname,
+      _currentBook,
+      _currentChapter,
+    );
+    if (!mounted) return;
+    setState(() {
+      _verses = versesMap.map((map) => BibleVerse(
+        number: map['verse'] as int,
+        text: map['text'] as String,
+      )).toList();
+      _selectedVerses.clear();
+    });
+    // Scroll to top when data is re-fetched completely
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
     }
   }
 
@@ -235,15 +276,7 @@ class _BibleScreenState extends State<BibleScreen> {
           });
           _fetchData();
         },
-        onOpenManager: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const BibleManagerScreen()),
-          );
-          // Refetch versions after returning from the manager
-          _versions.clear();
-          await _fetchData();
-        },
+        onOpenManager: _pushManager,
       ),
     );
   }
@@ -264,6 +297,74 @@ class _BibleScreenState extends State<BibleScreen> {
           Navigator.pop(context);
           _fetchData();
         },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final isDownloading = _downloadManager.isDownloading(
+        BibleDownloadManager.defaultVersionId);
+    final progress = _downloadManager.getProgress(
+        BibleDownloadManager.defaultVersionId);
+
+    if (isDownloading) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Downloading the Tamil Bible (${BibleDownloadManager.defaultVersionId})…',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${(progress * 100).toStringAsFixed(0)}%',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'No Bibles installed yet.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Download one from the Bible Translations page.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _pushManager,
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: const Text('Manage Bibles'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -354,9 +455,7 @@ class _BibleScreenState extends State<BibleScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _versions.isEmpty
-                    ? const Center(
-                        child: Text('No Bibles installed. Please install a Bible from the Scripture Engine.'),
-                      )
+                    ? _buildEmptyState()
                     : AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
                         transitionBuilder: (child, animation) {
