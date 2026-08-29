@@ -45,30 +45,6 @@ class VerseText extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (verse.versionLabel != null) ...[
-              Container(
-                margin: const EdgeInsets.only(right: 8, top: 3),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: verse.isSecondary
-                      ? context.tokens.surfaceVariant
-                      : theme.colorScheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  verse.versionLabel!,
-                  style: TextStyle(
-                    color: verse.isSecondary
-                        ? context.tokens.onSurfaceMuted
-                        : theme.colorScheme.primary,
-                    fontSize: fontSize * 0.55,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-            ],
             Expanded(
               child: Text.rich(
                 TextSpan(

@@ -58,7 +58,6 @@ class _BibleScreenState extends State<BibleScreen> {
   int _currentChapter = 1;
   bool _isLoading = true;
   bool _isFetchingNextChapter = false;
-  int _transitionDirection = 1;
   int _lastKnownInstalledCount = -1;
   bool _chapterEmpty = false;
 
@@ -310,7 +309,6 @@ class _BibleScreenState extends State<BibleScreen> {
     
     setState(() {
       _isFetchingNextChapter = true;
-      if (!append) _transitionDirection = 1;
     });
     
     int maxChapters = bibleBooks[_currentBook] ?? 1;
@@ -382,7 +380,6 @@ class _BibleScreenState extends State<BibleScreen> {
     setState(() {
       _currentBook = prevBook;
       _currentChapter = prevChapter;
-      _transitionDirection = -1;
       _isLoading = true;
     });
 
@@ -662,26 +659,8 @@ class _BibleScreenState extends State<BibleScreen> {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     if (_versions.isEmpty) return _buildEmptyState();
     if (_chapterEmpty) return _buildChapterEmptyState();
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      transitionBuilder: (child, animation) {
-        final inAnimation = Tween<Offset>(
-                begin: Offset(_transitionDirection.toDouble(), 0.0),
-                end: Offset.zero)
-            .animate(animation);
-        final outAnimation = Tween<Offset>(
-                begin: Offset(-_transitionDirection.toDouble(), 0.0),
-                end: Offset.zero)
-            .animate(animation);
-
-        if (child.key == ValueKey('$_currentBook-$_currentChapter')) {
-          return SlideTransition(position: inAnimation, child: child);
-        } else {
-          return SlideTransition(position: outAnimation, child: child);
-        }
-      },
-      child: MaxWidthBox(
-        child: ListView.builder(
+    return MaxWidthBox(
+      child: ListView.builder(
         key: ValueKey('$_currentBook-$_currentChapter'),
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -700,7 +679,6 @@ class _BibleScreenState extends State<BibleScreen> {
             onTap: () => _toggleVerseSelection(_verses[index].number),
           );
         },
-        ),
       ),
     );
   }
