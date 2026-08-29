@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
-import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import '../../../core/models/local_short_item.dart';
+import 'ffmpeg_downloader.dart';
 
 class ShortsRenderResult {
   final bool isSuccess;
@@ -75,7 +75,7 @@ class ShortsRenderEngine {
           '${tempDir.path}/short_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
       final cropFilter = _buildCropFilter(framingMode, cropOffsetX);
-      final ffmpegCmd = _buildFfmpegCommand(
+      final ffmpegArgs = _buildFfmpegArgs(
         streamUrl: streamUrl,
         startSeconds: startSeconds,
         duration: duration,
@@ -83,39 +83,61 @@ class ShortsRenderEngine {
         outputPath: outputPath,
       );
 
-      debugPrint('ShortsRenderEngine: $ffmpegCmd');
+      debugPrint('ShortsRenderEngine: $ffmpegArgs');
       onProgress(0.2, 'Trimming & encoding clip...');
 
-      // 3. Enable log-based progress parsing
-      FFmpegKitConfig.enableLogCallback((log) {
-        final msg = log.getMessage();
-        final match = RegExp(r'time=(\d+):(\d+):([\d.]+)').firstMatch(msg);
-        if (match != null) {
-          final h = int.tryParse(match.group(1) ?? '0') ?? 0;
-          final m = int.tryParse(match.group(2) ?? '0') ?? 0;
-          final s = double.tryParse(match.group(3) ?? '0') ?? 0.0;
-          final elapsed = h * 3600 + m * 60 + s;
-          final p = (0.2 + ((elapsed / duration) * 0.75)).clamp(0.2, 0.95);
-          onProgress(p, 'Encoding ${elapsed.toInt()}s / ${duration.toInt()}s...');
+      // 3. Ensure the ffmpeg binary is available (downloaded on demand, once).
+      //    The full FFmpeg engine is NOT bundled in the APK to keep it slim.
+      final String ffmpegPath;
+      try {
+        onProgress(0.22, 'Checking media engine...');
+        ffmpegPath = await FfmpegDownloader().ensureBinary(
+          onProgress: (p) {
+            onProgress(0.22 + (p * 0.1).clamp(0.0, 0.1),
+                'Downloading media engine ${(p * 100).toInt()}%...');
+          },
+        );
+      } catch (e) {
+        debugPrint('ShortsRenderEngine: media engine unavailable: $e');
+        return ShortsRenderResult(
+          isSuccess: false,
+          errorMessage: e.toString(),
+        );
+      }
+
+      // 4. Execute ffmpeg as a subprocess, streaming stderr for progress.
+      final process = await Process.start(ffmpegPath, ffmpegArgs);
+
+      var lastElapsed = 0.0;
+      // stderr carries the ffmpeg progress/log lines.
+      process.stderr.transform(utf8.decoder).listen((chunk) {
+        for (final line in chunk.split('\n')) {
+          final match = RegExp(r'time=(\d+):(\d+):([\d.]+)').firstMatch(line);
+          if (match != null) {
+            final h = int.tryParse(match.group(1) ?? '0') ?? 0;
+            final m = int.tryParse(match.group(2) ?? '0') ?? 0;
+            final s = double.tryParse(match.group(3) ?? '0') ?? 0.0;
+            final elapsed = h * 3600 + m * 60 + s;
+            lastElapsed = elapsed;
+            final p = (0.32 + ((elapsed / duration) * 0.63)).clamp(0.32, 0.95);
+            onProgress(p, 'Encoding ${elapsed.toInt()}s / ${duration.toInt()}s...');
+          }
         }
       });
 
-      // 4. Execute ffmpeg session
-      final session = await FFmpegKit.execute(ffmpegCmd);
-      final returnCode = await session.getReturnCode();
+      // Drain stdout so the subprocess never blocks.
+      process.stdout.drain<void>();
+      final exitCode = await process.exitCode;
 
-      FFmpegKitConfig.enableLogCallback(null);
-
-      if (!ReturnCode.isSuccess(returnCode)) {
-        final logs = await session.getAllLogsAsString();
-        throw 'ffmpeg failed (exit ${returnCode?.getValue()}): $logs';
+      if (exitCode != 0) {
+        throw 'ffmpeg failed (exit $exitCode) after encoding '
+            '${lastElapsed.toInt()}s.';
       }
 
       onProgress(1.0, 'Clip rendered successfully');
       return ShortsRenderResult(isSuccess: true, outputPath: outputPath);
     } catch (e) {
       debugPrint('ShortsRenderEngine error: $e');
-      FFmpegKitConfig.enableLogCallback(null);
       return ShortsRenderResult(isSuccess: false, errorMessage: e.toString());
     }
   }
@@ -147,27 +169,28 @@ class ShortsRenderEngine {
     return 'crop=ih*9/16:ih:(iw-ih*9/16)/2*(1+$offset):0';
   }
 
-  /// Assembles the full ffmpeg command string.
+  /// Assembles the full ffmpeg argument list.
   ///
   /// -ss BEFORE -i = fast keyframe-level seek — ffmpeg does not decode frames
   /// before [startSeconds]. -t specifies duration (not end time).
-  String _buildFfmpegCommand({
+  List<String> _buildFfmpegArgs({
     required String streamUrl,
     required double startSeconds,
     required double duration,
     String? cropFilter,
     required String outputPath,
   }) {
-    final vf = cropFilter != null ? '-vf "$cropFilter"' : '';
-    return '-y '
-        '-ss ${startSeconds.toStringAsFixed(3)} '
-        '-i "$streamUrl" '
-        '-t ${duration.toStringAsFixed(3)} '
-        '$vf '
-        '-c:v libx264 -preset fast -crf 23 '
-        '-c:a aac -b:a 128k '
-        '-movflags +faststart '
-        '"$outputPath"';
+    return [
+      '-y',
+      '-ss', startSeconds.toStringAsFixed(3),
+      '-i', streamUrl,
+      '-t', duration.toStringAsFixed(3),
+      if (cropFilter != null) ...['-vf', cropFilter],
+      '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+      '-c:a', 'aac', '-b:a', '128k',
+      '-movflags', '+faststart',
+      outputPath,
+    ];
   }
 
   void dispose() {
