@@ -7,6 +7,7 @@ import '../core/engines/active_engine.g.dart';
 import '../core/layout/adaptivity.dart';
 import '../core/services/bottom_bar_visibility_service.dart';
 import '../core/theme/app_tokens.dart';
+import '../core/config/app_config.dart';
 import '../features/auth/auth_service.dart';
 import '../features/shorts/players/shorts_player.dart';
 import '../features/update/update_service.dart';
@@ -56,6 +57,12 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       _lastSelectedTabIndex = kMicroFeedEnabled ? 4 : 3;
     }
 
+    // On centum academy, Bible tab is hidden, so reset index if needed
+    final isCentumAcademy = AppConfig.instanceId == 'centum_academy';
+    if (isCentumAcademy && _lastSelectedTabIndex == 2) {
+      _lastSelectedTabIndex = 0;
+    }
+
     return _lastSelectedTabIndex;
   }
 
@@ -99,6 +106,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   }
 
   List<_NavSpec> _destinations(BuildContext context) {
+    final isCentumAcademy = AppConfig.instanceId == 'centum_academy';
     return [
       const _NavSpec(
         label: 'Videos',
@@ -110,11 +118,12 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         icon: Icons.bolt_outlined,
         selectedIcon: Icons.bolt,
       ),
-      const _NavSpec(
-        label: 'Bible',
-        icon: Icons.menu_book_outlined,
-        selectedIcon: Icons.menu_book,
-      ),
+      if (!isCentumAcademy)
+        const _NavSpec(
+          label: 'Bible',
+          icon: Icons.menu_book_outlined,
+          selectedIcon: Icons.menu_book,
+        ),
       if (kMicroFeedEnabled)
         const _NavSpec(
           label: 'Words',
