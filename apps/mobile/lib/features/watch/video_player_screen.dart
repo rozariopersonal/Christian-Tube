@@ -62,6 +62,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isAutoplay = true;
 
   int _buildKey = 0;
+  bool _lastOrientation = false;
 
   @override
   void initState() {
