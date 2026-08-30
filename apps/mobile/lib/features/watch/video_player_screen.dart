@@ -256,10 +256,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       },
       builder: (context, player) {
         if (isLandscape || _isFullScreen) {
-          return Scaffold(
-            key: ValueKey('landscape_$_buildKey'),
-            backgroundColor: context.tokens.scrim,
-            body: SizedBox.expand(child: player),
+          return PopScope(
+            canPop: !_isFullScreen,
+            onPopInvokedWithResult: (didPop, result) {
+              // System back should exit app-fullscreen first, not leave the
+              // watch screen (matches the old native fullscreen behavior).
+              if (!didPop && _isFullScreen) {
+                setState(() => _isFullScreen = false);
+              }
+            },
+            child: Scaffold(
+              key: ValueKey('landscape_$_buildKey'),
+              backgroundColor: context.tokens.scrim,
+              body: SizedBox.expand(child: player),
+            ),
           );
         }
 

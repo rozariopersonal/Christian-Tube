@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import '../../../core/theme/app_tokens.dart';
 
 InAppWebViewController? _activeMainWebViewController;
 
@@ -24,6 +25,8 @@ Widget buildPlatformVideoPlayer({
     videoId: videoId,
     startSeconds: startSeconds,
     onPositionChanged: onPositionChanged,
+    isFullScreen: isFullScreen,
+    onToggleFullScreen: onToggleFullScreen,
     builder: builder,
   );
 }
@@ -32,12 +35,16 @@ class _MobileVideoPlayerWrapper extends StatefulWidget {
   final String videoId;
   final double? startSeconds;
   final ValueChanged<Duration>? onPositionChanged;
+  final bool isFullScreen;
+  final VoidCallback? onToggleFullScreen;
   final Widget Function(BuildContext context, Widget player) builder;
 
   const _MobileVideoPlayerWrapper({
     required this.videoId,
     this.startSeconds,
     this.onPositionChanged,
+    this.isFullScreen = false,
+    this.onToggleFullScreen,
     required this.builder,
   });
 
@@ -61,6 +68,30 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoId != widget.videoId) {
       _loadVideo(widget.videoId, widget.startSeconds);
+    }
+    if (oldWidget.isFullScreen != widget.isFullScreen) {
+      _applyFullscreenMode(widget.isFullScreen);
+    }
+  }
+
+  /// App-level fullscreen: rotates to landscape + immersive system UI on entry,
+  /// restores portrait + edge-to-edge on exit. Everything is Flutter state so
+  /// it can never get stuck (the broken platform WebView fullscreen path is
+  /// disabled via `fs=0` / stripped `allowfullscreen` in the embed HTML).
+  void _applyFullscreenMode(bool full) {
+    if (full) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+        }
+      });
     }
   }
 
@@ -127,7 +158,7 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
                     'controls': 1,
                     'playsinline': 1,
                     'enablejsapi': 1,
-                    'fs': 1,
+                    'fs': 0,
                     'rel': 0,
                     'modestbranding': 1,
                     'origin': 'https://www.youtube-nocookie.com',
@@ -135,7 +166,18 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
                 },
                 events: {
                     'onReady': function(e) {
-                        try { e.target.playVideo(); } catch(err){}
+                        try {
+                            // Block YouTube's native (platform) fullscreen: in a
+                            // WebView it renders a broken half-black/half-white
+                            // screen and cannot be exited. Fullscreen is handled
+                            // by the Flutter overlay toggle instead.
+                            var ifr = e.target.getIframe();
+                            if (ifr) {
+                                ifr.removeAttribute('allowfullscreen');
+                                ifr.setAttribute('donotallowfullscreen', '');
+                            }
+                            e.target.playVideo();
+                        } catch(err){}
                     },
                     'onStateChange': function(event) {
                         try {
@@ -181,58 +223,58 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
 
     final webView = Container(
       color: Colors.black,
-      child: InAppWebView(
-        initialData: InAppWebViewInitialData(
-          data: _buildPlayerHtml(widget.videoId, widget.startSeconds),
-          encoding: 'utf-8',
-          baseUrl: WebUri.uri(Uri.https('www.youtube-nocookie.com')),
-          mimeType: 'text/html',
-        ),
-        initialSettings: InAppWebViewSettings(
-          mediaPlaybackRequiresUserGesture: false,
-          allowsInlineMediaPlayback: true,
-          useHybridComposition: true,
-          transparentBackground: false,
-          supportZoom: false,
-          allowsPictureInPictureMediaPlayback: true,
-        ),
-        onWebViewCreated: (controller) {
-          _webViewController = controller;
-          _activeMainWebViewController = controller;
-          controller.addJavaScriptHandler(
-            handlerName: 'onTimeUpdate',
-            callback: (args) {
-              if (args.isNotEmpty && args[0] is num) {
-                final sec = (args[0] as num).toDouble();
-                widget.onPositionChanged
-                    ?.call(Duration(milliseconds: (sec * 1000).toInt()));
-              }
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          InAppWebView(
+            initialData: InAppWebViewInitialData(
+              data: _buildPlayerHtml(widget.videoId, widget.startSeconds),
+              encoding: 'utf-8',
+              baseUrl: WebUri.uri(Uri.https('www.youtube-nocookie.com')),
+              mimeType: 'text/html',
+            ),
+            initialSettings: InAppWebViewSettings(
+              mediaPlaybackRequiresUserGesture: false,
+              allowsInlineMediaPlayback: true,
+              useHybridComposition: true,
+              transparentBackground: false,
+              supportZoom: false,
+              allowsPictureInPictureMediaPlayback: true,
+            ),
+            onWebViewCreated: (controller) {
+              _webViewController = controller;
+              _activeMainWebViewController = controller;
+              controller.addJavaScriptHandler(
+                handlerName: 'onTimeUpdate',
+                callback: (args) {
+                  if (args.isNotEmpty && args[0] is num) {
+                    final sec = (args[0] as num).toDouble();
+                    widget.onPositionChanged
+                        ?.call(Duration(milliseconds: (sec * 1000).toInt()));
+                  }
+                },
+              );
             },
-          );
-        },
-        onEnterFullscreen: (controller) {
-          SystemChrome.setPreferredOrientations([
-            DeviceOrientation.landscapeLeft,
-            DeviceOrientation.landscapeRight,
-          ]);
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        },
-        onExitFullscreen: (controller) {
-          SystemChrome.setPreferredOrientations([
-            DeviceOrientation.portraitUp,
-            DeviceOrientation.portraitDown,
-          ]);
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) {
-              SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-            }
-          });
-        },
+            onEnterFullscreen: (controller) {
+              // Safety net only: native WebView fullscreen is disabled in the
+              // embed HTML (`fs=0`, `allowfullscreen` stripped), so this should
+              // never fire. Kept to avoid leaving the device in a broken state.
+              _applyFullscreenMode(true);
+            },
+            onExitFullscreen: (controller) {
+              _applyFullscreenMode(false);
+            },
+          ),
+          // Flutter-supported fullscreen toggle. The native YouTube fullscreen
+          // control is hidden (`fs=0`); this rotates the player to landscape /
+          // fills the window and is always exit-able in-app.
+          if (widget.onToggleFullScreen != null)
+            _buildFullScreenButton(context),
+        ],
       ),
     );
 
-    final playerWidget = isLandscape
+    final playerWidget = (isLandscape || widget.isFullScreen)
         ? SizedBox.expand(child: webView)
         : AspectRatio(
             aspectRatio: 16 / 9,
@@ -240,5 +282,39 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
           );
 
     return widget.builder(context, playerWidget);
+  }
+
+  Widget _buildFullScreenButton(BuildContext context) {
+    return Positioned(
+      right: 10,
+      top: 10,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: const ValueKey('video_fullscreen_toggle'),
+          onTap: () => widget.onToggleFullScreen?.call(),
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: context.tokens.scrim.withValues(alpha: 0.62),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.24),
+                width: 1.2,
+              ),
+            ),
+            child: Icon(
+              widget.isFullScreen
+                  ? Icons.fullscreen_exit_rounded
+                  : Icons.fullscreen_rounded,
+              color: Colors.white,
+              size: 21,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

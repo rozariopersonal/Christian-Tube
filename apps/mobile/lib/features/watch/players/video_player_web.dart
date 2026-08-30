@@ -185,7 +185,7 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
   Widget _buildFullScreenButton(BuildContext context) {
     return Positioned(
       right: 10,
-      bottom: 10,
+      top: 10,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
