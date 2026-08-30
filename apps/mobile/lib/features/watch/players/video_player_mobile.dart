@@ -218,9 +218,6 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final orientation = MediaQuery.of(context).orientation;
-    final isLandscape = orientation == Orientation.landscape;
-
     final webView = Container(
       color: Colors.black,
       child: Stack(
@@ -274,12 +271,10 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
       ),
     );
 
-    final playerWidget = (isLandscape || widget.isFullScreen)
-        ? SizedBox.expand(child: webView)
-        : AspectRatio(
-            aspectRatio: 16 / 9,
-            child: webView,
-          );
+    // The player element type and depth are kept identical in every mode so the
+    // underlying WebView is never torn down on rotation / fullscreen toggle
+    // (which would restart the video). The parent positions and sizes it.
+    final playerWidget = SizedBox.expand(child: webView);
 
     return widget.builder(context, playerWidget);
   }

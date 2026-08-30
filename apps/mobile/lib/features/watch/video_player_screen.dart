@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -65,9 +66,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isShuffle = false;
   bool _isAutoplay = true;
 
-  int _buildKey = 0;
-  bool _lastOrientation = false;
-
   @override
   void initState() {
     super.initState();
@@ -75,7 +73,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _video = widget.initialVideo;
     _playlist = widget.playlist != null ? List.from(widget.playlist!) : [];
     _playlistIndex = widget.initialPlaylistIndex;
-    _lastOrientation = MediaQuery.of(context).orientation == Orientation.landscape;
 
     if (_video != null) {
       UserService().addToHistory(_video!);
@@ -240,12 +237,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final orientation = MediaQuery.of(context).orientation;
     final isLandscape = orientation == Orientation.landscape;
 
-    // Increment key when orientation changes to force full widget rebuild
-    if (_lastOrientation != isLandscape) {
-      _buildKey++;
-      _lastOrientation = isLandscape;
-    }
-
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
       startSeconds: widget.startSeconds,
@@ -255,100 +246,138 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _currentPositionSeconds = pos.inMilliseconds / 1000.0;
       },
       builder: (context, player) {
-        if (isLandscape || _isFullScreen) {
-          return PopScope(
-            canPop: !_isFullScreen,
-            onPopInvokedWithResult: (didPop, result) {
-              // System back should exit app-fullscreen first, not leave the
-              // watch screen (matches the old native fullscreen behavior).
-              if (!didPop && _isFullScreen) {
-                setState(() => _isFullScreen = false);
-              }
-            },
-            child: Scaffold(
-              key: ValueKey('landscape_$_buildKey'),
-              backgroundColor: context.tokens.scrim,
-              body: SizedBox.expand(child: player),
-            ),
-          );
-        }
-
-        // Width-capped player so it never stretches edge-to-edge on wide
-        // windows (single-column tablet portrait / web).
-        final playerArea = Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1280),
-            child: player,
-          ),
-        );
-
-        if (ScreenClass.of(context).isCompact) {
-          return Scaffold(
-            key: ValueKey('compact_$_buildKey'),
+        final fullscreen = isLandscape || _isFullScreen;
+        return PopScope(
+          canPop: !_isFullScreen,
+          onPopInvokedWithResult: (didPop, result) {
+            // System back should exit app-fullscreen first, not leave the
+            // watch screen (matches the old native fullscreen behavior).
+            if (!didPop && _isFullScreen) {
+              setState(() => _isFullScreen = false);
+            }
+          },
+          child: Scaffold(
+            backgroundColor: fullscreen ? context.tokens.scrim : null,
             body: SafeArea(
-              top: true,
+              top: !fullscreen,
               bottom: false,
-              child: Column(
-                children: [
-                  // YouTube Player
-                  playerArea,
-
-                  // Video Metadata & Recommendations
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      children: [
-                        ..._metadataChildren(context),
-                        const SizedBox(height: 14),
-                        ..._relatedChildren(context),
-                      ],
-                    ),
-                  ),
-                ],
+              left: !fullscreen,
+              right: !fullscreen,
+              child: LayoutBuilder(
+                builder: (context, constraints) => _buildStage(
+                  context,
+                  player,
+                  constraints,
+                  fullscreen,
+                ),
               ),
-            ),
-          );
-        }
-
-        // medium / expanded: player + description left, related as a sidebar.
-        return Scaffold(
-          key: ValueKey('portrait_$_buildKey'),
-          body: SafeArea(
-            top: true,
-            bottom: false,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: Column(
-                    children: [
-                      playerArea,
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          children: _metadataChildren(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const VerticalDivider(width: 1, thickness: 1),
-                Expanded(
-                  flex: 3,
-                  child: MaxWidthBox(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      children: _relatedChildren(context),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
         );
       },
+    );
+  }
+
+  /// Single stable layout tree: the player `Positioned` is always the first
+  /// Stack child in every mode so its platform view is never unmounted on
+  /// rotation / fullscreen toggle (which would restart the video). Only its
+  /// geometry changes; content layers come after it and are replaced freely.
+  Widget _buildStage(
+    BuildContext context,
+    Widget player,
+    BoxConstraints constraints,
+    bool fullscreen,
+  ) {
+    final w = constraints.maxWidth;
+
+    // Fullscreen (landscape or app toggle): player fills the whole window.
+    if (fullscreen) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(child: player),
+        ],
+      );
+    }
+
+    if (ScreenClass.of(context).isCompact) {
+      // Vertical: width-capped 16:9 player on top, content below it.
+      final playerWidth = math.min(w, 1280.0);
+      final playerHeight = playerWidth * 9 / 16;
+      return Stack(
+        children: [
+          Positioned(
+            left: (w - playerWidth) / 2,
+            top: 0,
+            width: playerWidth,
+            height: playerHeight,
+            child: player,
+          ),
+          Positioned(
+            left: 0,
+            top: playerHeight,
+            right: 0,
+            bottom: 0,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              children: [
+                ..._metadataChildren(context),
+                const SizedBox(height: 14),
+                ..._relatedChildren(context),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // medium / expanded: player + description in the left column, related as a
+    // sidebar on the right (matches the 5:3 column split with a 1px divider).
+    final leftColWidth = (w - 1) * 5 / 8;
+    final sidebarLeft = leftColWidth + 1;
+    final playerWidth = math.min(leftColWidth, 1280.0);
+    final playerHeight = playerWidth * 9 / 16;
+
+    return Stack(
+      children: [
+        Positioned(
+          left: (leftColWidth - playerWidth) / 2,
+          top: 0,
+          width: playerWidth,
+          height: playerHeight,
+          child: player,
+        ),
+        Positioned(
+          left: 0,
+          top: playerHeight,
+          width: leftColWidth,
+          bottom: 0,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            children: _metadataChildren(context),
+          ),
+        ),
+        Positioned(
+          left: sidebarLeft,
+          top: 0,
+          bottom: 0,
+          width: 1,
+          child: const VerticalDivider(width: 1, thickness: 1),
+        ),
+        Positioned(
+          left: sidebarLeft + 1,
+          top: 0,
+          right: 0,
+          bottom: 0,
+          child: MaxWidthBox(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              children: _relatedChildren(context),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
