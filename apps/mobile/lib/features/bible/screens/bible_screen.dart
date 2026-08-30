@@ -273,7 +273,7 @@ class _BibleScreenState extends State<BibleScreen> {
       _selectedVerses.clear();
     });
     // Scroll to the launched verse (when present) or top when re-fetched.
-    final shouldScrollToVerse = _initialJumpPending && widget.initialVerse != null;
+    final shouldScrollToVerse = widget.initialVerse != null;
     if (shouldScrollToVerse) {
       _initialJumpPending = false;
       final targetVerse = widget.initialVerse!;
