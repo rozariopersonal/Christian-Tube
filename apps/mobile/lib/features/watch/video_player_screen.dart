@@ -57,6 +57,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   double _currentPositionSeconds = 0.0;
 
+  /// App-level fullscreen (web). Kept in Flutter state so it can always be
+  /// exited in-app; the browser-native iframe fullscreen path is disabled.
+  bool _isFullScreen = false;
+
   PlaylistLoopMode _loopMode = PlaylistLoopMode.off;
   bool _isShuffle = false;
   bool _isAutoplay = true;
@@ -245,11 +249,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
       startSeconds: widget.startSeconds,
+      isFullScreen: _isFullScreen,
+      onToggleFullScreen: () => setState(() => _isFullScreen = !_isFullScreen),
       onPositionChanged: (pos) {
         _currentPositionSeconds = pos.inMilliseconds / 1000.0;
       },
       builder: (context, player) {
-        if (isLandscape) {
+        if (isLandscape || _isFullScreen) {
           return Scaffold(
             key: ValueKey('landscape_$_buildKey'),
             backgroundColor: context.tokens.scrim,
