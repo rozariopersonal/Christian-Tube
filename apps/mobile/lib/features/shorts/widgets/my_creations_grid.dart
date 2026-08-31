@@ -108,7 +108,7 @@ class CreationGridCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: context.tokens.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: item.status == ShortCreationStatus.published
                 ? context.tokens.surfaceBorder
@@ -117,9 +117,9 @@ class CreationGridCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
