@@ -36,17 +36,17 @@ class CardActionButton extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isActive
-                    ? Colors.white.withValues(alpha: 0.25)
+                    ? context.tokens.onScrim.withValues(alpha: 0.25)
                     : context.tokens.scrim.withValues(alpha: 0.4),
                 border: Border.all(
                   color: isActive
-                      ? Colors.white.withValues(alpha: 0.6)
-                      : Colors.white.withValues(alpha: 0.15),
+                      ? context.tokens.onScrim.withValues(alpha: 0.6)
+                      : context.tokens.onScrim.withValues(alpha: 0.15),
                   width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
+                    color: context.tokens.scrim.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -54,7 +54,7 @@ class CardActionButton extends StatelessWidget {
               ),
               child: Icon(
                 icon,
-                color: iconColor ?? Colors.white,
+                color: iconColor ?? context.tokens.onScrim,
                 size: 24,
               ),
             ),
@@ -62,12 +62,12 @@ class CardActionButton extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
+                color: context.tokens.onScrim.withValues(alpha: 0.9),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 shadows: const [
                   Shadow(
-                    color: Colors.black87,
+                    color: context.tokens.scrim.withValues(alpha: 0.87),
                     blurRadius: 4,
                     offset: Offset(0, 1),
                   ),

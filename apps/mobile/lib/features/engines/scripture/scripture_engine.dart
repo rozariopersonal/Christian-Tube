@@ -245,6 +245,9 @@ class ScriptureEngine
 
     final tokens = context.tokens;
 
+    final onScrim = tokens.onScrim;
+    final onScrimMuted = tokens.onScrimMuted;
+
     return Row(
       children: [
         Expanded(
@@ -299,7 +302,7 @@ class ScriptureEngine
                         Text(
                           filterState.activeVersionId,
                           style: TextStyle(
-                            color: tokens.onSurface,
+                            color: onScrim,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
@@ -308,7 +311,7 @@ class ScriptureEngine
                         Icon(
                           Icons.keyboard_arrow_down_rounded,
                           size: 16,
-                          color: tokens.onSurfaceMuted,
+                          color: onScrimMuted,
                         ),
                       ],
                     ),
@@ -355,7 +358,7 @@ class ScriptureEngine
                         Text(
                           filterState.testamentFilter ?? 'All',
                           style: TextStyle(
-                            color: tokens.onSurface,
+                            color: onScrim,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
@@ -364,7 +367,7 @@ class ScriptureEngine
                         Icon(
                           Icons.keyboard_arrow_down_rounded,
                           size: 16,
-                          color: tokens.onSurfaceMuted,
+                          color: onScrimMuted,
                         ),
                       ],
                     ),
@@ -410,7 +413,7 @@ class ScriptureEngine
                         Text(
                           filterState.bookFilter ?? 'All Books',
                           style: TextStyle(
-                            color: tokens.onSurface,
+                            color: onScrim,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
@@ -419,7 +422,7 @@ class ScriptureEngine
                         Icon(
                           Icons.keyboard_arrow_down_rounded,
                           size: 16,
-                          color: tokens.onSurfaceMuted,
+                          color: onScrimMuted,
                         ),
                       ],
                     ),
@@ -465,7 +468,7 @@ class ScriptureEngine
                           : Icons.bookmark_border_rounded,
                       color: count > 0
                           ? tokens.accent
-                          : tokens.onSurfaceMuted,
+                          : onScrimMuted,
                       size: 16,
                     ),
                     if (count > 0) ...[
@@ -597,7 +600,7 @@ class ScriptureEngine
             : Icons.compare_rounded,
         iconColor: filterState.comparisonVersionId != null
             ? tokens.accent
-            : tokens.onSurface,
+            : tokens.onScrim,
         label: filterState.comparisonVersionId ?? 'Compare',
         onTap: () {
           showAdaptiveBottomSheet(
@@ -649,7 +652,7 @@ class ScriptureEngine
       // 4. Bookmark / Favorite
       CardActionButton(
         icon: item.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-        iconColor: item.isSaved ? tokens.accent : tokens.onSurface,
+        iconColor: item.isSaved ? tokens.accent : tokens.onScrim,
         label: item.isSaved ? 'Saved' : 'Save',
         onTap: () async {
           final isNowSaved = await SavedScriptureService().toggleSave(

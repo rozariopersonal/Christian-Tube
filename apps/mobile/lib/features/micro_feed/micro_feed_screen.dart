@@ -217,7 +217,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                               : 'Setting up offline engine...')
                           : 'Loading feed...',
                       style: TextStyle(
-                        color: context.tokens.onSurfaceMuted,
+                        color: context.tokens.onScrimMuted,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 0.5,
@@ -263,13 +263,13 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
               children: [
                 Icon(
                   Icons.signal_wifi_connected_no_internet_4_rounded,
-                  color: context.tokens.onSurfaceDisabled,
+                  color: context.tokens.onScrimMuted,
                   size: 54,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   _errorMessage!,
-                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 16),
+                  style: TextStyle(color: context.tokens.onScrimMuted, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -300,13 +300,13 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
               children: [
                 Icon(
                   Icons.auto_stories_rounded,
-                  color: context.tokens.onSurfaceDisabled,
+                  color: context.tokens.onScrimMuted,
                   size: 54,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'No verses matched your filters yet.',
-                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 16),
+                  style: TextStyle(color: context.tokens.onScrimMuted, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),

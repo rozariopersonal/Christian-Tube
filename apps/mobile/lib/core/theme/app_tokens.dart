@@ -37,6 +37,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// Dark scrim used over media / immersive surfaces.
   final Color scrim;
 
+  /// Primary foreground for content displayed on an immersive [scrim].
+  final Color onScrim;
+
+  /// Secondary foreground for content displayed on an immersive [scrim].
+  final Color onScrimMuted;
+
   /// Whether this token set represents a dark theme.
   final bool isDark;
 
@@ -51,6 +57,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.onSurfaceDisabled,
     required this.accent,
     required this.scrim,
+    required this.onScrim,
+    required this.onScrimMuted,
     required this.isDark,
   });
 
@@ -65,6 +73,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
     onSurfaceDisabled: Colors.black38,
     accent: Color(0xFFF59E0B),
     scrim: Colors.black,
+    onScrim: Colors.white,
+    onScrimMuted: Colors.white70,
     isDark: false,
   );
 
@@ -79,6 +89,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
     onSurfaceDisabled: Colors.white38,
     accent: Color(0xFFF59E0B),
     scrim: Colors.black,
+    onScrim: Colors.white,
+    onScrimMuted: Colors.white70,
     isDark: true,
   );
 
@@ -94,6 +106,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? onSurfaceDisabled,
     Color? accent,
     Color? scrim,
+    Color? onScrim,
+    Color? onScrimMuted,
     bool? isDark,
   }) {
     return AppTokens(
@@ -107,6 +121,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
       onSurfaceDisabled: onSurfaceDisabled ?? this.onSurfaceDisabled,
       accent: accent ?? this.accent,
       scrim: scrim ?? this.scrim,
+      onScrim: onScrim ?? this.onScrim,
+      onScrimMuted: onScrimMuted ?? this.onScrimMuted,
       isDark: isDark ?? this.isDark,
     );
   }
@@ -125,6 +141,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
       onSurfaceDisabled: Color.lerp(onSurfaceDisabled, other.onSurfaceDisabled, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
       scrim: Color.lerp(scrim, other.scrim, t)!,
+      onScrim: Color.lerp(onScrim, other.onScrim, t)!,
+      onScrimMuted: Color.lerp(onScrimMuted, other.onScrimMuted, t)!,
       isDark: other.isDark,
     );
   }
