@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/models/short.dart';
 
 class CommunityShortsController extends ChangeNotifier {
+  static const String _cacheKey = 'ct_cached_community_shorts';
+
   final ApiClient _apiClient = ApiClient();
 
   List<Short> _shorts = [];
@@ -10,6 +14,43 @@ class CommunityShortsController extends ChangeNotifier {
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
+
+  CommunityShortsController() {
+    _loadCachedShorts();
+  }
+
+  /// Loads the last-fetched shorts from disk immediately so the feed can
+  /// render without waiting on the network. A background refresh then updates
+  /// it in place (stale-while-revalidate).
+  Future<void> _loadCachedShorts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJson = prefs.getString(_cacheKey);
+      if (cachedJson == null || cachedJson.isEmpty) return;
+      final List<dynamic> list = jsonDecode(cachedJson);
+      final cached = list
+          .whereType<Map<String, dynamic>>()
+          .map((j) => Short.fromJson(j))
+          .toList();
+      if (cached.isEmpty) return;
+      _shorts = cached;
+      _isLoading = false;
+      notifyListeners();
+    } catch (_) {
+      // Corrupt/old cache is non-fatal; fall through to the network.
+    }
+  }
+
+  Future<void> _saveCachedShorts(List<Short> shorts) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _cacheKey,
+        jsonEncode(shorts.take(50).map((s) => s.toJson()).toList()),
+      );
+    } catch (_) {}
+  }
+
 
   bool _isLoadingMore = false;
   bool get isLoadingMore => _isLoadingMore;
@@ -44,7 +85,8 @@ class CommunityShortsController extends ChangeNotifier {
   Future<void> fetchShorts() async {
     _page = 1;
     _hasMore = true;
-    _isLoading = true;
+    // Only block the whole feed on the network when we have nothing to show yet.
+    _isLoading = _shorts.isEmpty;
     notifyListeners();
 
     try {
@@ -81,6 +123,7 @@ class CommunityShortsController extends ChangeNotifier {
           _shorts = shortsOnly;
           _isLoading = false;
           notifyListeners();
+          await _saveCachedShorts(shortsOnly);
           return;
         }
       }
