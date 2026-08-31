@@ -654,40 +654,44 @@ class _BibleScreenState extends State<BibleScreen> {
     await BibleDownloadManager().forceRedownloadDefault();
   }
 
+  Widget _buildVerseText(BibleVerse verse) {
+    // Register a GlobalKey per real verse (not headers) for
+    // Scrollable.ensureVisible in _scrollToVerse.
+    final Key? itemKey = verse.isChapterHeader
+        ? null
+        : (_verseKeys[verse.number] ??= GlobalKey());
+    return VerseText(
+      key: itemKey,
+      verse: verse,
+      isSelected: _selectedVerses.contains(verse.number),
+      isHighlighted: _highlightedVerse == verse.number,
+      fontSize: _settings.fontSize,
+      onTap: () => _toggleVerseSelection(verse.number),
+    );
+  }
+
   Widget _buildContent() {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     if (_versions.isEmpty) return _buildEmptyState();
     if (_chapterEmpty) return _buildChapterEmptyState();
     return MaxWidthBox(
-      child: ListView.builder(
+      child: ListView(
         // No ValueKey here — using one caused the list to be destroyed and
         // recreated (resetting scroll to 0) whenever _currentBook/_currentChapter
         // changed, including during the infinite-scroll append path.
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        itemCount: _verses.length + (_isFetchingNextChapter ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == _verses.length) {
-            return const Padding(
+        // Each chapter is intentionally a small, eagerly-built list. This
+        // keeps every verse key mounted, so a Words-feed deep link can use
+        // Scrollable.ensureVisible even when its verse starts off-screen.
+        children: [
+          ..._verses.map(_buildVerseText),
+          if (_isFetchingNextChapter)
+            const Padding(
               padding: EdgeInsets.all(16.0),
               child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          final verse = _verses[index];
-          // Register a GlobalKey per real verse (not headers) for
-          // Scrollable.ensureVisible in _scrollToVerse.
-          final Key? itemKey = verse.isChapterHeader
-              ? null
-              : (_verseKeys[verse.number] ??= GlobalKey());
-          return VerseText(
-            key: itemKey,
-            verse: verse,
-            isSelected: _selectedVerses.contains(verse.number),
-            isHighlighted: _highlightedVerse == verse.number,
-            fontSize: _settings.fontSize,
-            onTap: () => _toggleVerseSelection(verse.number),
-          );
-        },
+            ),
+        ],
       ),
     );
   }
