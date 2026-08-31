@@ -44,26 +44,32 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     }
   }
 
+  bool get _isBibleTabEnabled {
+    return AppConfig.instanceId != 'centum_academy';
+  }
+
   int _getSelectedIndex(String currentPath) {
-    if (currentPath.startsWith('/feed')) {
-      _lastSelectedTabIndex = 0;
-    } else if (currentPath.startsWith('/shorts')) {
-      _lastSelectedTabIndex = 1;
-    } else if (currentPath.startsWith('/bible')) {
-      _lastSelectedTabIndex = 2;
-    } else if (kMicroFeedEnabled && currentPath.startsWith('/words')) {
-      _lastSelectedTabIndex = 3;
-    } else if (currentPath.startsWith('/profile')) {
-      _lastSelectedTabIndex = kMicroFeedEnabled ? 4 : 3;
+    // Build the destination paths in the same order they appear in the bar.
+    final destinations = _destinationPaths();
+    for (var i = 0; i < destinations.length; i++) {
+      final path = destinations[i];
+      if (currentPath.startsWith(path)) {
+        _lastSelectedTabIndex = i;
+        break;
+      }
     }
-
-    // On centum academy, Bible tab is hidden, so reset index if needed
-    final isCentumAcademy = AppConfig.instanceId == 'centum_academy';
-    if (isCentumAcademy && _lastSelectedTabIndex == 2) {
-      _lastSelectedTabIndex = 0;
-    }
-
     return _lastSelectedTabIndex;
+  }
+
+  /// The route path each tab index navigates to, in bar order.
+  List<String> _destinationPaths() {
+    return [
+      '/feed',
+      '/shorts',
+      if (_isBibleTabEnabled) '/bible',
+      if (kMicroFeedEnabled) '/words',
+      '/profile',
+    ];
   }
 
   void _onTabSelected(int index) {
@@ -77,36 +83,18 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     }
 
     // Always reset the Words feed to a new random list when navigated
-    if (kMicroFeedEnabled && index == 3) {
+    final wordsIndex = _destinationPaths().indexOf('/words');
+    if (wordsIndex != -1 && index == wordsIndex) {
       BottomBarVisibilityService.instance.requestWordsReset();
     }
 
-    // Direct navigation
-    switch (index) {
-      case 0:
-        context.go('/feed');
-        break;
-      case 1:
-        context.go('/shorts');
-        break;
-      case 2:
-        context.go('/bible');
-        break;
-      case 3:
-        if (kMicroFeedEnabled) {
-          context.go('/words');
-        } else {
-          context.go('/profile');
-        }
-        break;
-      case 4:
-        context.go('/profile');
-        break;
-    }
+    // Direct navigation using the same dynamic path list as the bar.
+    final destinations = _destinationPaths();
+    if (index < 0 || index >= destinations.length) return;
+    context.go(destinations[index]);
   }
 
   List<_NavSpec> _destinations(BuildContext context) {
-    final isCentumAcademy = AppConfig.instanceId == 'centum_academy';
     return [
       const _NavSpec(
         label: 'Videos',
@@ -118,7 +106,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         icon: Icons.bolt_outlined,
         selectedIcon: Icons.bolt,
       ),
-      if (!isCentumAcademy)
+      if (_isBibleTabEnabled)
         const _NavSpec(
           label: 'Bible',
           icon: Icons.menu_book_outlined,
