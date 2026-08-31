@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/bible_version.dart';
@@ -66,6 +67,11 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _settingsLoaded = false;
   bool _resumeApplied = false;
   bool _initialJumpPending = true;
+
+  // Per-verse GlobalKeys for pixel-perfect Scrollable.ensureVisible.
+  final Map<int, GlobalKey> _verseKeys = {};
+  int? _highlightedVerse;
+  Timer? _highlightTimer;
 
   @override
   void initState() {
@@ -144,6 +150,7 @@ class _BibleScreenState extends State<BibleScreen> {
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     _downloadManager.removeListener(_onDownloadManagerChanged);
     _scrollController.dispose();
     super.dispose();
@@ -271,16 +278,19 @@ class _BibleScreenState extends State<BibleScreen> {
       _verses = verses;
       _chapterEmpty = verses.isEmpty;
       _selectedVerses.clear();
+      _verseKeys.clear(); // fresh chapter — old keys are no longer valid
+      _highlightedVerse = null;
     });
     // Scroll to the launched verse (when present) or top when re-fetched.
     final shouldScrollToVerse = widget.initialVerse != null;
     if (shouldScrollToVerse) {
       _initialJumpPending = false;
       final targetVerse = widget.initialVerse!;
+      // Wait two frames: one for setState to finish, one for the list to lay out.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          _scrollToVerse(targetVerse);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollToVerse(targetVerse);
+        });
       });
     } else if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
@@ -294,14 +304,38 @@ class _BibleScreenState extends State<BibleScreen> {
     }
   }
 
-  /// Scrolls the reader so a target verse is near the top of the viewport.
+  /// Scrolls the reader so a target verse is near the top of the viewport,
+  /// then highlights it for 5 seconds.
   void _scrollToVerse(int verseNumber) {
-    int index = _verses.indexWhere((v) => v.number == verseNumber);
-    if (index == -1) {
-      index = (verseNumber - 1).clamp(0, _verses.length - 1);
+    // Resolve which key to use: exact match or nearest verse.
+    GlobalKey? key = _verseKeys[verseNumber];
+    if (key == null) {
+      // Find the closest verse number that has a key.
+      int best = -1;
+      for (final k in _verseKeys.keys) {
+        if (best == -1 || (k - verseNumber).abs() < (best - verseNumber).abs()) {
+          best = k;
+        }
+      }
+      if (best != -1) key = _verseKeys[best];
     }
-    final estimate = index * 56.0;
-    _scrollController.jumpTo(estimate);
+
+    final BuildContext? ctx = key?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOut,
+        alignment: 0.1, // show near top of viewport
+      );
+    }
+
+    // Start 5-second highlight.
+    _highlightTimer?.cancel();
+    setState(() => _highlightedVerse = verseNumber);
+    _highlightTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _highlightedVerse = null);
+    });
   }
 
   Future<void> _fetchNextChapter({bool append = false}) async {
@@ -661,7 +695,9 @@ class _BibleScreenState extends State<BibleScreen> {
     if (_chapterEmpty) return _buildChapterEmptyState();
     return MaxWidthBox(
       child: ListView.builder(
-        key: ValueKey('$_currentBook-$_currentChapter'),
+        // No ValueKey here — using one caused the list to be destroyed and
+        // recreated (resetting scroll to 0) whenever _currentBook/_currentChapter
+        // changed, including during the infinite-scroll append path.
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 16),
         itemCount: _verses.length + (_isFetchingNextChapter ? 1 : 0),
@@ -672,11 +708,19 @@ class _BibleScreenState extends State<BibleScreen> {
               child: Center(child: CircularProgressIndicator()),
             );
           }
+          final verse = _verses[index];
+          // Register a GlobalKey per real verse (not headers) for
+          // Scrollable.ensureVisible in _scrollToVerse.
+          final Key? itemKey = verse.isChapterHeader
+              ? null
+              : (_verseKeys[verse.number] ??= GlobalKey());
           return VerseText(
-            verse: _verses[index],
-            isSelected: _selectedVerses.contains(_verses[index].number),
+            key: itemKey,
+            verse: verse,
+            isSelected: _selectedVerses.contains(verse.number),
+            isHighlighted: _highlightedVerse == verse.number,
             fontSize: _settings.fontSize,
-            onTap: () => _toggleVerseSelection(_verses[index].number),
+            onTap: () => _toggleVerseSelection(verse.number),
           );
         },
       ),

@@ -5,6 +5,7 @@ import '../models/bible_verse.dart';
 class VerseText extends StatelessWidget {
   final BibleVerse verse;
   final bool isSelected;
+  final bool isHighlighted;
   final VoidCallback? onTap;
   final double fontSize;
 
@@ -12,6 +13,7 @@ class VerseText extends StatelessWidget {
     super.key,
     required this.verse,
     this.isSelected = false,
+    this.isHighlighted = false,
     this.onTap,
     this.fontSize = 18.0,
   });
@@ -37,10 +39,14 @@ class VerseText extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOut,
         color: isSelected
             ? theme.colorScheme.primary.withValues(alpha: 0.2)
-            : Colors.transparent,
+            : isHighlighted
+                ? theme.colorScheme.tertiary.withValues(alpha: 0.28)
+                : Colors.transparent,
         padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,3 +83,4 @@ class VerseText extends StatelessWidget {
     );
   }
 }
+
