@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/micro_feed/widgets/card_scrim_overlay.dart';
 import 'package:mobile/core/widgets/animated_fluid_gradient.dart';
 import '../models/scripture_card.dart';
@@ -346,7 +347,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                           fontSize: 48,
                           height: 0.8,
                           fontFamily: 'serif',
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.9),
+                          color: context.accent.withValues(alpha: 0.9),
                           shadows: const [
                             Shadow(
                               color: Colors.black87,
@@ -409,13 +410,12 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                       if (comparisonText != null &&
                           comparisonVersionId != null) ...[
                         const SizedBox(height: 20),
-                        const Divider(
-                          color: Colors.white24,
+                        Divider(
+                          color: context.tokens.onSurfaceDisabled,
                           height: 1,
                           indent: 60,
                           endIndent: 60,
-                        ),
-                        const SizedBox(height: 16),
+                        ),                        const SizedBox(height: 16),
 
                         // Secondary Verse Body Text (smaller, subdued)
                         Text(
@@ -554,10 +554,11 @@ class _ReferenceBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final borderColor = subdued
         ? Colors.white.withValues(alpha: 0.25)
-        : const Color(0xFFF59E0B).withValues(alpha: 0.4);
-    final accent = subdued ? Colors.white70 : const Color(0xFFFBBF24);
-    final accentBg =
-        subdued ? Colors.white10 : const Color(0xFFF59E0B).withValues(alpha: 0.25);
+        : context.accent.withValues(alpha: 0.4);
+    final accent = subdued ? Colors.white70 : context.tokens.accent;
+    final accentBg = subdued
+        ? Colors.white10
+        : context.accent.withValues(alpha: 0.25);
 
     return GestureDetector(
       onTap: onTap,
@@ -569,7 +570,7 @@ class _ReferenceBadge extends StatelessWidget {
               ? Colors.black.withValues(alpha: 0.55)
               : Colors.black.withValues(alpha: 0.45),
           borderRadius: const BorderRadius.all(Radius.circular(20)),
-          border: Border.all(color: onTap != null ? const Color(0xFFF59E0B).withValues(alpha: 0.7) : borderColor, width: 1.0),
+          border: Border.all(color: onTap != null ? context.accent.withValues(alpha: 0.7) : borderColor, width: 1.0),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.3),

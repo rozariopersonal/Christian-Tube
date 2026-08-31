@@ -23,6 +23,9 @@ class ShortActionBar extends StatelessWidget {
   }
 
   Widget _buildShareButton(BuildContext context) {
+    final onAccent = context.accent.computeLuminance() > 0.45
+        ? context.tokens.scrim
+        : context.tokens.onSurface;
     return GestureDetector(
       onTap: onShare,
       child: Column(
@@ -55,9 +58,9 @@ class ShortActionBar extends StatelessWidget {
               ],
               border: Border.all(color: Colors.white, width: 1.5),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.share_rounded,
-              color: Colors.black,
+              color: onAccent,
               size: 24,
             ),
           ),

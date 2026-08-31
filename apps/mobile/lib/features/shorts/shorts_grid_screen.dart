@@ -63,10 +63,14 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: context.tokens.scrim,
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     return Scaffold(
+      backgroundColor: context.tokens.scrim,
       appBar: AppBar(title: const Text('Explore Shorts')),
       body: GridView.builder(
         padding: const EdgeInsets.all(8),
@@ -91,7 +95,7 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
                     fit: BoxFit.cover,
                     errorWidget: (_, __, ___) => Container(
                       color: context.tokens.surface,
-                      child: const Icon(Icons.play_circle_outline, color: Colors.white38),
+                      child: Icon(Icons.play_circle_outline, color: context.tokens.onSurfaceDisabled),
                     ),
                   ),
                 ),

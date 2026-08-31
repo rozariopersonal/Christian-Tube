@@ -271,7 +271,7 @@ class ShortBottomDetails extends StatelessWidget {
                             height: trackHeight,
                             width: totalWidth,
                             decoration: BoxDecoration(
-                              color: Colors.white24,
+                              color: context.tokens.onSurfaceDisabled,
                               borderRadius: BorderRadius.circular(3),
                             ),
                           ),

@@ -159,6 +159,9 @@ class CommunityFilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelected = currentFilter == filterKey;
+    final onAccent = context.accent.computeLuminance() > 0.45
+        ? context.tokens.scrim
+        : context.tokens.onSurface;
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -180,13 +183,13 @@ class CommunityFilterChip extends StatelessWidget {
             Icon(
               icon,
               size: 13,
-              color: isSelected ? Colors.black : context.tokens.onSurfaceMuted,
+              color: isSelected ? onAccent : context.tokens.onSurfaceMuted,
             ),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.black : context.tokens.onSurface,
+                color: isSelected ? onAccent : context.tokens.onSurface,
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
@@ -241,13 +244,13 @@ class CommunityGridCard extends StatelessWidget {
                 placeholder: (_, __) => Container(color: context.tokens.background),
                 errorWidget: (_, __, ___) => Container(
                   color: context.tokens.background,
-                  child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
+                  child: Center(child: Icon(Icons.movie, color: context.tokens.onSurfaceDisabled, size: 36)),
                 ),
               )
             else
               Container(
                 color: context.tokens.background,
-                child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
+                child: Center(child: Icon(Icons.movie, color: context.tokens.onSurfaceDisabled, size: 36)),
               ),
 
             // 2. Gradient Overlay

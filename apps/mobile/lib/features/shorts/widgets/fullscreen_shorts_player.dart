@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/short.dart';
 import '../../../core/models/local_short_item.dart';
 import '../../../core/services/bottom_bar_visibility_service.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../services/shorts_orchestrator_service.dart';
 import '../services/shorts_dialog_service.dart';
 import '../players/shorts_player.dart';
@@ -187,8 +188,8 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
           CachedNetworkImage(
             imageUrl: short.thumbnailUrl,
             fit: BoxFit.cover,
-            placeholder: (_, __) => Container(color: Colors.black),
-            errorWidget: (_, __, ___) => Container(color: Colors.black),
+            placeholder: (_, __) => Container(color: context.tokens.scrim),
+            errorWidget: (_, __, ___) => Container(color: context.tokens.scrim),
           ),
 
         ShortPlayerOverlay(
@@ -276,9 +277,9 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: context.tokens.scrim.withValues(alpha: 0.87),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white30),
+                border: Border.all(color: context.tokens.onSurfaceMuted),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,

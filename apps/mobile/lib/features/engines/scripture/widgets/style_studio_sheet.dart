@@ -417,25 +417,25 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                      width: 1.0,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: context.accent.withValues(alpha: 0.3),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Text(
+                      '— ${widget.card.referenceLabel} (${widget.card.resolvedVersion ?? widget.filterState.activeVersionId}) —',
+                      style: TextStyle(
+                        color: context.tokens.accent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  child: Text(
-                    '— ${widget.card.referenceLabel} (${widget.card.resolvedVersion ?? widget.filterState.activeVersionId}) —',
-                    style: const TextStyle(
-                      color: Color(0xFFFBBF24),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),

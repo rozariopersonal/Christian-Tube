@@ -19,26 +19,30 @@ class ShortsTabChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = context.accent;
+    final onAccent = accent.computeLuminance() > 0.45
+        ? context.tokens.scrim
+        : context.tokens.onSurface;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? context.accent : context.tokens.scrim,
+          color: isSelected ? accent : context.tokens.scrim,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: activeJobs > 0
-                ? context.accent
+                ? accent
                 : isSelected
-                    ? context.accent
+                    ? accent
                     : context.tokens.surfaceBorder,
             width: activeJobs > 0 ? 1.5 : 1.0,
           ),
           boxShadow: activeJobs > 0
               ? [
                   BoxShadow(
-                    color: context.accent.withValues(alpha: 0.3),
+                    color: accent.withValues(alpha: 0.3),
                     blurRadius: 8,
                     spreadRadius: 1,
                   )
@@ -51,7 +55,7 @@ class ShortsTabChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.black : context.tokens.onSurface,
+                color: isSelected ? onAccent : context.tokens.onSurface,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
@@ -61,7 +65,7 @@ class ShortsTabChip extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.black : context.accent,
+                  color: isSelected ? onAccent : accent,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -70,12 +74,12 @@ class ShortsTabChip extends StatelessWidget {
                     Icon(
                       Icons.bolt,
                       size: 11,
-                      color: isSelected ? context.accent : Colors.black,
+                      color: isSelected ? accent : onAccent,
                     ),
                     Text(
                       '$activeJobs',
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black,
+                        color: isSelected ? onAccent : onAccent,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -88,13 +92,13 @@ class ShortsTabChip extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.black : context.accent,
+                  color: isSelected ? onAccent : accent,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   count.toString(),
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black,
+                    color: isSelected ? onAccent : onAccent,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),

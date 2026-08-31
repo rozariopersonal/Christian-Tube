@@ -279,7 +279,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   label: const Text('Refresh'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: context.accent,
-                    foregroundColor: Colors.black,
+                    foregroundColor: context.tokens.scrim,
                   ),
                 ),
               ],
@@ -316,7 +316,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   label: const Text('Refresh'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: context.accent,
-                    foregroundColor: Colors.black,
+                    foregroundColor: context.tokens.scrim,
                   ),
                 ),
               ],

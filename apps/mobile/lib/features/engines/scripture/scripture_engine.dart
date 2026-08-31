@@ -630,10 +630,15 @@ class ScriptureEngine
               '“${item.resolvedText ?? ""}”\n\n— ${item.referenceLabel} (${item.resolvedVersion ?? filterState.activeVersionId})';
           await Clipboard.setData(ClipboardData(text: text));
           if (context.mounted) {
+            final tokens = context.tokens;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Scripture copied to clipboard!'),
-                duration: Duration(seconds: 2),
+              SnackBar(
+                content: Text(
+                  'Scripture copied to clipboard!',
+                  style: TextStyle(color: tokens.onSurface),
+                ),
+                backgroundColor: tokens.surfaceElevated,
+                duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -657,9 +662,13 @@ class ScriptureEngine
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(isNowSaved
-                    ? 'Saved ${item.referenceLabel} to favorites!'
-                    : 'Removed from favorites'),
+                content: Text(
+                  isNowSaved
+                      ? 'Saved ${item.referenceLabel} to favorites!'
+                      : 'Removed from favorites',
+                  style: TextStyle(color: tokens.onSurface),
+                ),
+                backgroundColor: tokens.surfaceElevated,
                 duration: const Duration(seconds: 3),
                 behavior: SnackBarBehavior.floating,
                 action: isNowSaved

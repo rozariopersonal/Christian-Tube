@@ -135,13 +135,13 @@ class CreationGridCard extends StatelessWidget {
                 placeholder: (_, __) => Container(color: context.tokens.background),
                 errorWidget: (_, __, ___) => Container(
                   color: context.tokens.background,
-                  child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
+                  child: Center(child: Icon(Icons.movie, color: context.tokens.onSurfaceDisabled, size: 36)),
                 ),
               )
             else
               Container(
                 color: context.tokens.background,
-                child: const Center(child: Icon(Icons.movie, color: Colors.white24, size: 36)),
+                child: Center(child: Icon(Icons.movie, color: context.tokens.onSurfaceDisabled, size: 36)),
               ),
 
             // Subtle Gradient Overlay
@@ -250,7 +250,7 @@ class CreationGridCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: item.progress > 0 ? item.progress : null,
                         minHeight: 3,
-                        backgroundColor: Colors.white24,
+                        backgroundColor: context.tokens.onSurfaceDisabled,
                         color: item.statusColor,
                       ),
                     ),
@@ -584,7 +584,7 @@ class NonPlayableShortCard extends StatelessWidget {
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: context.accent,
-                            foregroundColor: Colors.black,
+                            foregroundColor: context.tokens.scrim,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
