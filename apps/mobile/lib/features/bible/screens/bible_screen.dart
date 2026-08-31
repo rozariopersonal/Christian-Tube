@@ -5,7 +5,6 @@ import '../models/bible_version.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
-import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
 import '../../engines/scripture/screens/bible_manager_screen.dart';
 import 'package:flutter/services.dart';
 import '../widgets/verse_text.dart';
@@ -16,7 +15,6 @@ import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
-import '../../../core/layout/adaptivity.dart';
 import '../models/bible_verse.dart';
 import '../models/bible_book.dart';
 import '../models/bible_settings.dart';
@@ -420,39 +418,6 @@ class _BibleScreenState extends State<BibleScreen> {
     await _fetchData();
   }
 
-  void _showVersionSelector() {
-    if (_selectedVersion == null) return;
-    
-    showAdaptiveBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => BibleVersionPickerModal(
-        activeVersionId: _selectedVersion!.shortname,
-        onSelectVersion: (versionId) {
-          final version = _versions.firstWhere(
-            (v) => v.shortname == versionId,
-            orElse: () {
-              final meta = BibleDownloadManager.getMeta(versionId);
-              return BibleVersion(
-                id: versionId,
-                name: meta.name,
-                shortname: versionId,
-                description: meta.description,
-                lang: meta.languageCode,
-              );
-            },
-          );
-          setState(() {
-            _selectedVersion = version;
-          });
-          _fetchData();
-        },
-        onOpenManager: _pushManager,
-      ),
-    );
-  }
-
   void _showBookChapterSelector() {
     showAdaptiveBottomSheet(
       context: context,
@@ -775,6 +740,7 @@ class _BibleScreenState extends State<BibleScreen> {
       appBar: AppBar(
         title: GestureDetector(
           onTap: _showBookChapterSelector,
+          behavior: HitTestBehavior.opaque,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -786,56 +752,121 @@ class _BibleScreenState extends State<BibleScreen> {
                   maxLines: 1,
                 ),
               ),
-              const Icon(Icons.arrow_drop_down),
+              const Padding(
+                padding: EdgeInsets.only(left: 2),
+                child: Icon(Icons.arrow_drop_down, size: 20),
+              ),
             ],
           ),
         ),
         actions: [
+          if (_selectedVersion != null)
+            PopupMenuButton<String>(
+              tooltip: 'Version',
+              offset: const Offset(0, 40),
+              onSelected: (value) {
+                if (value == '__manage__') {
+                  _pushManager();
+                } else {
+                  final version = _versions.firstWhere(
+                    (v) => v.shortname == value,
+                    orElse: () {
+                      final meta = BibleDownloadManager.getMeta(value);
+                      return BibleVersion(
+                        id: value,
+                        name: meta.name,
+                        shortname: value,
+                        description: meta.description,
+                        lang: meta.languageCode,
+                      );
+                    },
+                  );
+                  setState(() => _selectedVersion = version);
+                  _fetchData();
+                }
+              },
+              itemBuilder: (ctx) => [
+                PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    _selectedVersion!.shortname,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const PopupMenuDivider(height: 1),
+                ..._versions.map((v) => PopupMenuItem(
+                      value: v.shortname,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              v.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (v.shortname == _selectedVersion!.shortname)
+                            Icon(Icons.check,
+                                size: 16,
+                                color: Theme.of(context).colorScheme.primary),
+                        ],
+                      ),
+                    )),
+                const PopupMenuDivider(height: 1),
+                const PopupMenuItem(
+                  value: '__manage__',
+                  child: Text('Manage translations…'),
+                ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _selectedVersion!.shortname,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 2),
+                      child: Icon(Icons.arrow_drop_down, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           IconButton(
             tooltip: 'Search Bible',
             icon: const Icon(Icons.search),
             onPressed: _showSearch,
           ),
-          IconButton(
-            tooltip: 'Bookmarks',
-            icon: const Icon(Icons.bookmark_border),
-            onPressed: _openBookmarks,
-          ),
-          if (ScreenClass.of(context).isCompact)
-            PopupMenuButton<String>(
-              tooltip: 'More',
-              onSelected: (value) {
-                switch (value) {
-                  case 'settings':
-                    _showReadingSettings();
-                  case 'version':
-                    _showVersionSelector();
-                }
-              },
-              itemBuilder: (ctx) => [
-                const PopupMenuItem(value: 'settings', child: Text('Reading settings')),
-                if (_selectedVersion != null)
-                  PopupMenuItem(
-                    value: 'version',
-                    child: Text('Version: ${_selectedVersion!.shortname}'),
-                  ),
-              ],
-            )
-          else ...[
-            IconButton(
-              tooltip: 'Reading settings',
-              icon: const Icon(Icons.text_format),
-              onPressed: _showReadingSettings,
-            ),
-            if (_selectedVersion != null)
-              TextButton(
-                onPressed: _showVersionSelector,
-                child: Text(
-                  _selectedVersion!.shortname,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            onSelected: (value) {
+              switch (value) {
+                case 'bookmarks':
+                  _openBookmarks();
+                case 'settings':
+                  _showReadingSettings();
+              }
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'bookmarks',
+                child: Text('Bookmarks'),
               ),
-          ],
+              const PopupMenuItem(
+                value: 'settings',
+                child: Text('Reading settings'),
+              ),
+            ],
+          ),
         ],
       ),
       body: Column(
