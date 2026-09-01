@@ -35,6 +35,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   }
 
   Future<void> _checkAutoUpdate() async {
+    if (kIsWeb) return;
     // Wait for the root navigator and initial frame to settle
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/bible_version.dart';
@@ -118,15 +119,24 @@ class _BibleScreenState extends State<BibleScreen> {
       _bookNames.nameFor(_selectedVersion?.shortname ?? 'TAOBVSI', _bookNumber(book));
 
   Future<void> _loadSettings() async {
-    final settings = await _settingsService.loadSettings();
-    if (!mounted) return;
-    setState(() {
-      _settings = settings;
-      _settingsLoaded = true;
-    });
-    final applied = _applySavedProgress();
-    if (applied && _selectedVersion != null) {
-      await _loadChapter();
+    try {
+      final settings = await _settingsService.loadSettings();
+      if (!mounted) return;
+      setState(() {
+        _settings = settings;
+        _settingsLoaded = true;
+      });
+      final applied = _applySavedProgress();
+      if (applied && _selectedVersion != null) {
+        await _loadChapter();
+      }
+    } catch (e, stack) {
+      debugPrint('BibleScreen _loadSettings error: $e\n$stack');
+      if (mounted) {
+        setState(() {
+          _settingsLoaded = true;
+        });
+      }
     }
   }
 
@@ -221,13 +231,18 @@ class _BibleScreenState extends State<BibleScreen> {
 
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-    await _loadVersions();
-    if (!mounted) return;
-    if (_selectedVersion != null) {
-      await _loadChapter();
-      if (mounted) setState(() => _isLoading = false);
-    } else if (mounted) {
-      setState(() => _isLoading = false);
+    try {
+      await _loadVersions();
+      if (!mounted) return;
+      if (_selectedVersion != null) {
+        await _loadChapter();
+      }
+    } catch (e, stack) {
+      debugPrint('BibleScreen _fetchData error: $e\n$stack');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -267,12 +282,12 @@ class _BibleScreenState extends State<BibleScreen> {
     List<Map<String, dynamic>> chapterMap,
     String versionId,
   ) {
-    final numbers = chapterMap.map((m) => m['verse'] as int).toList()
+    final numbers = chapterMap.map((m) => (m['verse'] as num).toInt()).toList()
       ..sort((a, b) => a.compareTo(b));
     final verses = <BibleVerse>[];
     for (final n in numbers) {
       final text = chapterMap
-          .firstWhere((m) => m['verse'] == n, orElse: () => const {})['text'];
+          .firstWhere((m) => (m['verse'] as num).toInt() == n, orElse: () => const {})['text'];
       if (text == null) continue;
       verses.add(BibleVerse(
         number: n,
@@ -1147,11 +1162,13 @@ class _BibleScreenState extends State<BibleScreen> {
                         ],
                       ),
                     )),
-                const PopupMenuDivider(height: 1),
-                const PopupMenuItem(
-                  value: '__manage__',
-                  child: Text('Manage translations…'),
-                ),
+                if (!kIsWeb) ...[
+                  const PopupMenuDivider(height: 1),
+                  const PopupMenuItem(
+                    value: '__manage__',
+                    child: Text('Manage translations…'),
+                  ),
+                ],
               ],
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),

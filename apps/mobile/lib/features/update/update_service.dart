@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -128,6 +129,7 @@ class UpdateService {
   }
 
   static Future<Map<String, dynamic>?> checkForUpdate() async {
+    if (kIsWeb) return null;
     try {
       String currentVersion = AppConfig.version;
       try {
@@ -209,6 +211,7 @@ class UpdateService {
   }
 
   static Future<void> showUpdatePopup(BuildContext context, Map<String, dynamic> updateData) async {
+    if (kIsWeb) return;
     return UpdateDialog.show(context, updateData);
   }
 

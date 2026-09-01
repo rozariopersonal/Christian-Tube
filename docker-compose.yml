@@ -1,0 +1,60 @@
+# Local development stack for the PrivateTube backend.
+#
+# Provides:
+#   - `db`:      PostgreSQL (the same image/port the backend's Prisma client targets).
+#   - `backend`: the NestJS API built from deployment/prod/Dockerfile.backend.
+#
+# The standalone transcription tool (scripts/transcribe.py) connects directly to
+# the `db` PostgreSQL service, so you can run local Whisper transcription against
+# the same database the API uses.
+#
+# Usage:
+#   docker compose up -d db            # start only Postgres (fastest for transcription testing)
+#   docker compose up -d               # start Postgres + the backend API
+#   docker compose down -v             # stop and delete volumes
+#
+# The transcription script then connects via:
+#   DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<db>?schema=public
+
+services:
+  db:
+    image: postgres:16
+    container_name: christiantube-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: christiantube
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d christiantube"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional: the full API, wired to the Postgres above.
+  backend:
+    build:
+      context: .
+      dockerfile: deployment/prod/Dockerfile.backend
+    container_name: christiantube-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      INSTANCE_ID: christian_tube
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/christiantube?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@db:5432/christiantube?schema=public
+      ADMIN_EMAILS: arul.rozario4@gmail.com,admin@privatetube.org
+      SHORTS_CUSTOM_CHANNEL_ID: UCSaJppP4zb2vivjxYfTqOKw
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

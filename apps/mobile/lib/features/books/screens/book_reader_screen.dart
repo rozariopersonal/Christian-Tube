@@ -71,7 +71,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   final List<int> _prevPages = [];
   final List<int> _nextPages = [];
   final Map<int, GlobalKey> _pageKeys = {};
-  final Map<int, GlobalKey> _blockKeys = {}; // Key per startLine for exact paragraph resume
+  final Map<String, GlobalKey> _blockKeys = {}; // Key per '$pageNum:$startLine' for exact paragraph resume without collisions
   bool _isLoadingDown = false;
   bool _isLoadingUp = false;
 
@@ -84,6 +84,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   // In-memory page & highlight cache for instantaneous rendering
   final Map<int, List<BookLine>> _pageCache = {};
   final Map<int, List<BookHighlight>> _highlightCache = {};
+  final Map<int, Future<List<BookLine>>> _inFlightPageFetches = {};
+  final Set<int> _failedPages = {};
 
   @override
   void initState() {
@@ -136,7 +138,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   }
 
   void _updateVisiblePageAndLine() {
-    // 1. First find the active reading block (around Y = 80..220px)
+    // 1. First find the active reading block (around Y = 150px)
     int? activeLine;
     int? activePage;
 
@@ -147,8 +149,13 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       if (box != null && box.hasSize) {
         final top = box.localToGlobal(Offset.zero).dy;
         final bottom = top + box.size.height;
-        if (top <= 200 && bottom >= 90) {
-          activeLine = entry.key;
+        // Exactly one block will cross Y = 150
+        if (top <= 150 && bottom >= 150) {
+          final parts = entry.key.split(':');
+          if (parts.length == 2) {
+            activePage = int.tryParse(parts[0]);
+            activeLine = int.tryParse(parts[1]);
+          }
           break;
         }
       }
@@ -169,7 +176,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         if (box != null && box.hasSize) {
           final top = box.localToGlobal(Offset.zero).dy;
           final bottom = top + box.size.height;
-          if (top <= 300 && bottom >= 100) {
+          // Exactly one page will cross Y = 250
+          if (top <= 250 && bottom >= 250) {
             activePage = p;
             break;
           }
@@ -177,8 +185,11 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       }
     }
 
+    bool shouldUpdateState = false;
+    
     if (activePage != null && activePage != _currentPage) {
-      setState(() => _currentPage = activePage!);
+      _currentPage = activePage;
+      shouldUpdateState = true;
     }
 
     if (activeLine != null || activePage != null) {
@@ -186,7 +197,16 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       final line = activeLine ?? _lastReadLine;
       final totalLines = _book?.totalLines ?? 1;
       final percent = (line / (totalLines > 0 ? totalLines : 1)).clamp(0.0, 1.0);
+      
+      if ((percent * 100).toInt() != (_lastPercent * 100).toInt()) {
+        shouldUpdateState = true;
+      }
+
       _markProgressChanged(page, line, percent);
+    }
+    
+    if (shouldUpdateState && mounted) {
+      setState(() {});
     }
   }
 
@@ -223,16 +243,19 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     _isLoadingDown = true;
     final p1 = currentLast + 1;
     final p2 = p1 + 1 <= maxPage ? p1 + 1 : null;
+    final currentCenter = _centerKey;
 
     await _fetchPageLines(p1);
     if (p2 != null) await _fetchPageLines(p2);
 
-    if (mounted) {
+    if (mounted && _centerKey == currentCenter) {
       setState(() {
         _nextPages.add(p1);
         if (p2 != null) _nextPages.add(p2);
         _isLoadingDown = false;
       });
+    } else if (mounted) {
+      setState(() => _isLoadingDown = false);
     }
   }
 
@@ -244,16 +267,19 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     _isLoadingUp = true;
     final p1 = currentFirst - 1;
     final p2 = p1 - 1 >= 1 ? p1 - 1 : null;
+    final currentCenter = _centerKey;
 
     await _fetchPageLines(p1);
     if (p2 != null) await _fetchPageLines(p2);
 
-    if (mounted) {
+    if (mounted && _centerKey == currentCenter) {
       setState(() {
         _prevPages.add(p1);
         if (p2 != null) _prevPages.add(p2);
         _isLoadingUp = false;
       });
+    } else if (mounted) {
+      setState(() => _isLoadingUp = false);
     }
   }
 
@@ -307,15 +333,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         });
       }
 
-      // Pre-warm center and adjacent pages
-      await _fetchPageLines(initialPage);
-      if (initialPage < book.totalPages) await _fetchPageLines(initialPage + 1);
-      for (final p in _prevPages) {
-        _fetchPageLines(p);
-      }
-      for (final p in _nextPages) {
-        _fetchPageLines(p);
-      }
+      // Preload current pages first, then preload next & previous in background
+      _preloadAdjacentPages(initialPage);
 
       // Scroll to resumed line or initial target
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -328,7 +347,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
   void _scrollToResumedPosition(int targetLine, int targetPage) {
     if (!mounted) return;
-    final blockKey = _blockKeys[targetLine];
+    final blockKey = _blockKeys['$targetPage:$targetLine'];
     final blockCtx = blockKey?.currentContext;
     if (blockCtx != null) {
       Scrollable.ensureVisible(
@@ -351,13 +370,102 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   }
 
   Future<List<BookLine>> _fetchPageLines(int page) async {
-    if (_pageCache.containsKey(page)) return _pageCache[page]!;
-    final lines = await _bookService.getPageLines(widget.bookId, page);
-    final highlights = await _bookService.getHighlightsForPage(widget.bookId, page);
-    _pageCache[page] = lines;
-    _highlightCache[page] = highlights;
-    if (mounted) setState(() {});
-    return lines;
+    if (_pageCache.containsKey(page) && _pageCache[page]!.isNotEmpty) {
+      return _pageCache[page]!;
+    }
+    // Fast-path: Check if BookService has already cached this page from an existing chapter load
+    final cached = _bookService.getCachedPageLines(widget.bookId, page);
+    if (cached != null && cached.isNotEmpty) {
+      _pageCache[page] = cached;
+      return cached;
+    }
+    if (_inFlightPageFetches.containsKey(page)) {
+      return _inFlightPageFetches[page]!;
+    }
+
+    final future = _loadPageLinesInternal(page);
+    _inFlightPageFetches[page] = future;
+    return future;
+  }
+
+  Future<List<BookLine>> _loadPageLinesInternal(int page) async {
+    try {
+      final lines = await _bookService.getPageLines(widget.bookId, page);
+      final highlights = await _bookService.getHighlightsForPage(widget.bookId, page);
+      if (lines.isNotEmpty) {
+        _pageCache[page] = lines;
+        _highlightCache[page] = highlights;
+        _failedPages.remove(page);
+      } else {
+        _failedPages.add(page);
+      }
+      if (mounted) setState(() {});
+      return lines;
+    } catch (e) {
+      _failedPages.add(page);
+      debugPrint('Error loading page $page: $e');
+      return [];
+    } finally {
+      _inFlightPageFetches.remove(page);
+    }
+  }
+
+  Future<void> _preloadAdjacentPages(int centerPage) async {
+    if (_book == null || !mounted) return;
+    final total = _book!.totalPages;
+    if (total <= 1) return;
+
+    final screen = ScreenClass.of(context);
+    final isDual = screen == ScreenClass.expanded;
+
+    if (isDual) {
+      final left = (centerPage % 2 == 0) ? (centerPage - 1).clamp(1, total) : centerPage;
+      final right = (left + 1 <= total) ? left + 1 : null;
+
+      // 1. Await CURRENT visible pages first so they load with highest priority
+      await Future.wait([
+        _fetchPageLines(left),
+        if (right != null) _fetchPageLines(right),
+      ]);
+
+      if (!mounted || _spreadLeftPage != left) return;
+
+      // 2. Preload NEXT spread and PREVIOUS spread after current pages are loaded!
+      final preloadQueue = <int>[];
+      // Next spread (2 pages)
+      if (left + 2 <= total) preloadQueue.add(left + 2);
+      if (left + 3 <= total) preloadQueue.add(left + 3);
+      // Previous spread (2 pages)
+      if (left - 1 >= 1) preloadQueue.add(left - 1);
+      if (left - 2 >= 1) preloadQueue.add(left - 2);
+      // Further buffer (next-next spread)
+      if (left + 4 <= total) preloadQueue.add(left + 4);
+      if (left + 5 <= total) preloadQueue.add(left + 5);
+
+      for (final p in preloadQueue) {
+        if (!mounted || _spreadLeftPage != left) break;
+        if (!_pageCache.containsKey(p) || _pageCache[p]!.isEmpty) {
+          await _fetchPageLines(p);
+        }
+      }
+    } else {
+      // Single column: load current centerPage first
+      await _fetchPageLines(centerPage);
+      if (!mounted) return;
+
+      final preloadQueue = <int>[];
+      if (centerPage + 1 <= total) preloadQueue.add(centerPage + 1);
+      if (centerPage + 2 <= total) preloadQueue.add(centerPage + 2);
+      if (centerPage - 1 >= 1) preloadQueue.add(centerPage - 1);
+      if (centerPage - 2 >= 1) preloadQueue.add(centerPage - 2);
+
+      for (final p in preloadQueue) {
+        if (!mounted) break;
+        if (!_pageCache.containsKey(p) || _pageCache[p]!.isEmpty) {
+          await _fetchPageLines(p);
+        }
+      }
+    }
   }
 
   void _turnSpread(int delta) {
@@ -369,14 +477,15 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         _spreadLeftPage = newLeft;
         _currentPage = newLeft;
       });
-      _fetchPageLines(newLeft);
-      if (newLeft + 1 <= totalPages) _fetchPageLines(newLeft + 1);
 
       // Track active line on the spread
       final lines = _pageCache[newLeft];
       final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
       final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
       _markProgressChanged(newLeft, firstLine, percent);
+
+      // Preload adjacent pages after current spread loads
+      _preloadAdjacentPages(newLeft);
     }
   }
 
@@ -393,12 +502,13 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         _spreadLeftPage = newLeft;
         _currentPage = newLeft;
       });
-      await _fetchPageLines(newLeft);
-      if (newLeft + 1 <= _book!.totalPages) await _fetchPageLines(newLeft + 1);
       final lines = _pageCache[newLeft];
       final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
       final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
       _markProgressChanged(newLeft, firstLine, percent);
+
+      // Preload adjacent pages after current spread loads
+      _preloadAdjacentPages(newLeft);
       return;
     }
 
@@ -694,24 +804,23 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     );
   }
 
-  int _currentChapterIndex() {
-    for (final ch in _chapters) {
-      if (_currentPage >= ch.startPage && _currentPage <= ch.endPage) {
-        return ch.chapterIndex;
-      }
-    }
-    return 1;
-  }
 
-  // --- Highlight Creation ---
-  Future<void> _createHighlight(String text, int startChar, {int color = 0}) async {
+  Future<void> _createHighlight(String text, int startChar, int pageNum, {int color = 0}) async {
     if (_book == null || text.trim().isEmpty) return;
 
+    int chapterIndex = 1;
+    for (final ch in _chapters) {
+      if (pageNum >= ch.startPage && pageNum <= ch.endPage) {
+        chapterIndex = ch.chapterIndex;
+        break;
+      }
+    }
+
     final highlight = BookHighlight(
-      id: '${_book!.id}_${_currentPage}_${DateTime.now().millisecondsSinceEpoch}',
+      id: '${_book!.id}_${pageNum}_${DateTime.now().millisecondsSinceEpoch}',
       bookId: _book!.id,
-      chapterIndex: _currentChapterIndex(),
-      pageNumber: _currentPage,
+      chapterIndex: chapterIndex,
+      pageNumber: pageNum,
       startChar: startChar,
       endChar: startChar + text.length,
       text: text,
@@ -738,8 +847,9 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     String pageText,
     Color textColor,
     AppTokens tokens,
+    int pageNum,
   ) {
-    final pageHighlights = _highlightCache[_currentPage] ?? const [];
+    final pageHighlights = _highlightCache[pageNum] ?? const [];
     final matches = ScriptureRefParser.scriptureRegex.allMatches(pageText).toList();
 
     if (matches.isEmpty) {
@@ -871,7 +981,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   }
 
   // --- Context Menu Toolbar for Selection ---
-  Widget _buildSelectionToolbar(BuildContext context, SelectableRegionState selectableRegionState) {
+  Widget _buildSelectionToolbar(BuildContext context, SelectableRegionState selectableRegionState, int pageNum) {
     String selectedText = '';
     try {
       final dynamic dyn = selectableRegionState;
@@ -896,7 +1006,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           onPressed: () {
             selectableRegionState.hideToolbar();
             if (selectedText.isNotEmpty) {
-              _createHighlight(selectedText, 0);
+              _createHighlight(selectedText, 0, pageNum);
             }
           },
         ),
@@ -930,52 +1040,53 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     return GestureDetector(
       onTap: () => setState(() => _showChrome = !_showChrome),
       behavior: HitTestBehavior.opaque,
-      child: SelectionArea(
-        contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state),
-        child: CustomScrollView(
-          controller: _scrollController,
-          center: _centerKey,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // Upward infinite scroll (previous pages)
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final pageNum = _prevPages[index];
-                    return _buildPageSection(pageNum, tokens, textColor);
-                  },
-                  childCount: _prevPages.length,
-                ),
+      child: CustomScrollView(
+        controller: _scrollController,
+        center: _centerKey,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Upward infinite scroll (previous pages)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final pageNum = _prevPages[index];
+                  return _buildPageSection(pageNum, tokens, textColor);
+                },
+                childCount: _prevPages.length,
               ),
             ),
+          ),
 
-            // Downward infinite scroll (center and subsequent pages)
-            SliverPadding(
-              key: _centerKey,
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final pageNum = _nextPages[index];
-                    return _buildPageSection(pageNum, tokens, textColor);
-                  },
-                  childCount: _nextPages.length,
-                ),
+          // Downward infinite scroll (center and subsequent pages)
+          SliverPadding(
+            key: _centerKey,
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final pageNum = _nextPages[index];
+                  return _buildPageSection(pageNum, tokens, textColor);
+                },
+                childCount: _nextPages.length,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildPageSection(int pageNum, AppTokens tokens, Color textColor) {
     final lines = _pageCache[pageNum];
+    final isLoading = _inFlightPageFetches.containsKey(pageNum);
+    final hasFailed = _failedPages.contains(pageNum);
 
-    if (lines == null) {
-      _fetchPageLines(pageNum);
+    if (lines == null || (lines.isEmpty && isLoading)) {
+      if (!isLoading && !hasFailed) {
+        _fetchPageLines(pageNum);
+      }
       return Container(
         key: _pageKeys[pageNum] ??= GlobalKey(),
         padding: const EdgeInsets.symmetric(vertical: 32),
@@ -989,17 +1100,48 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       );
     }
 
+    if (lines.isEmpty) {
+      return Container(
+        key: _pageKeys[pageNum] ??= GlobalKey(),
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Page $pageNum not available',
+                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Retry'),
+                onPressed: () {
+                  _pageCache.remove(pageNum);
+                  _failedPages.remove(pageNum);
+                  _fetchPageLines(pageNum);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final blocks = BookParagraphGrouper.groupLines(lines);
 
     return Container(
       key: _pageKeys[pageNum] ??= GlobalKey(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // On mobile screens, NO page numbers are rendered
-          if (pageNum > 1) const SizedBox(height: 16),
-          ...blocks.map((b) => _buildBlockWidget(b, pageNum, textColor, tokens)),
-        ],
+      child: SelectionArea(
+        contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state, pageNum),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // On mobile screens, NO page numbers are rendered
+            if (pageNum > 1) const SizedBox(height: 16),
+            ...blocks.map((b) => _buildBlockWidget(b, pageNum, textColor, tokens)),
+          ],
+        ),
       ),
     );
   }
@@ -1087,9 +1229,63 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     required bool isRightPage,
   }) {
     final lines = _pageCache[pageNum];
-    if (lines == null) {
-      _fetchPageLines(pageNum);
-      return const Center(child: CircularProgressIndicator());
+    final isLoading = _inFlightPageFetches.containsKey(pageNum);
+    final hasFailed = _failedPages.contains(pageNum);
+
+    if (lines == null || (lines.isEmpty && isLoading)) {
+      if (!isLoading && !hasFailed) {
+        _fetchPageLines(pageNum);
+      }
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(color: tokens.accent, strokeWidth: 2.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Loading page $pageNum...',
+              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (lines.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.menu_book_rounded, size: 36, color: tokens.onSurfaceMuted.withValues(alpha: 0.5)),
+              const SizedBox(height: 12),
+              Text(
+                'Page $pageNum not available',
+                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Retry'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: tokens.accent,
+                  side: BorderSide(color: tokens.accent.withValues(alpha: 0.5)),
+                ),
+                onPressed: () {
+                  _pageCache.remove(pageNum);
+                  _failedPages.remove(pageNum);
+                  _fetchPageLines(pageNum);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     final blocks = BookParagraphGrouper.groupLines(lines);
@@ -1101,7 +1297,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: SelectionArea(
-              contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state),
+              contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state, pageNum),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: blocks.map((b) => _buildBlockWidget(b, pageNum, textColor, tokens)).toList(),
@@ -1254,7 +1450,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           ),
           child: Text.rich(
             TextSpan(
-              children: _buildFormattedParagraphs(block.text, textColor, tokens),
+              children: _buildFormattedParagraphs(block.text, textColor, tokens, pageNum),
             ),
             style: TextStyle(
               fontStyle: FontStyle.italic,
@@ -1272,7 +1468,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           padding: const EdgeInsets.only(bottom: 14),
           child: Text.rich(
             TextSpan(
-              children: _buildFormattedParagraphs(block.text, textColor, tokens),
+              children: _buildFormattedParagraphs(block.text, textColor, tokens, pageNum),
             ),
             textAlign: TextAlign.justify,
           ),
@@ -1289,7 +1485,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
             ),
             child: Text.rich(
               TextSpan(
-                children: _buildFormattedParagraphs(block.text, textColor, tokens),
+                children: _buildFormattedParagraphs(block.text, textColor, tokens, pageNum),
               ),
               textAlign: TextAlign.justify,
             ),
@@ -1301,21 +1497,37 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     }
 
     return KeyedSubtree(
-      key: _blockKeys[block.startLine] ??= GlobalKey(),
+      key: _blockKeys['$pageNum:${block.startLine}'] ??= GlobalKey(),
       child: content,
     );
   }
+
+  bool _isPopping = false;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final bgColor = _readerBackground(context);
-    final totalPages = _book?.totalPages ?? 1;
+    final rawTotal = _book?.totalPages ?? 1;
+    final totalPages = rawTotal < 1 ? 1 : rawTotal;
     final screen = ScreenClass.of(context);
     final isDualPage = screen == ScreenClass.expanded;
-    final rightPage = _spreadLeftPage + 1 <= totalPages ? _spreadLeftPage + 1 : null;
+    
+    // Ensure _spreadLeftPage is valid for the slider
+    final validLeftPage = _spreadLeftPage.clamp(1, totalPages);
+    final rightPage = validLeftPage + 1 <= totalPages ? validLeftPage + 1 : null;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop || _isPopping) return;
+        _isPopping = true;
+        await _flushProgressToDb();
+        if (context.mounted) {
+          Navigator.of(context).pop(result);
+        }
+      },
+      child: Scaffold(
       backgroundColor: bgColor,
       appBar: _showChrome
           ? AppBar(
@@ -1337,8 +1549,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                   if (isDualPage)
                     Text(
                       _currentChapterTitle().isNotEmpty
-                          ? '${_currentChapterTitle()} • Pages $_spreadLeftPage–${rightPage ?? _spreadLeftPage} of $totalPages'
-                          : 'Pages $_spreadLeftPage–${rightPage ?? _spreadLeftPage} of $totalPages',
+                          ? '${_currentChapterTitle()} • Pages $validLeftPage–${rightPage ?? validLeftPage} of $totalPages'
+                          : 'Pages $validLeftPage–${rightPage ?? validLeftPage} of $totalPages',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
@@ -1401,7 +1613,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                           ),
                           Expanded(
                             child: Slider(
-                              value: _spreadLeftPage.toDouble(),
+                              value: validLeftPage.toDouble(),
                               min: 1.0,
                               max: totalPages.toDouble(),
                               activeColor: tokens.accent,
@@ -1420,7 +1632,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          'Pages $_spreadLeftPage–${rightPage ?? _spreadLeftPage} of $totalPages • ${(_lastPercent * 100).toInt()}% complete',
+                          'Pages $validLeftPage–${rightPage ?? validLeftPage} of $totalPages • ${(_lastPercent * 100).toInt()}% complete',
                           style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
                         ),
                       ),
@@ -1456,6 +1668,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
               ),
             )
           : null,
+      ),
     );
   }
 }

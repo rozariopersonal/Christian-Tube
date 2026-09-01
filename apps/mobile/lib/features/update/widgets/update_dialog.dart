@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // Import removed
 import '../../../core/config/app_config.dart';
@@ -11,6 +12,7 @@ class UpdateDialog extends StatefulWidget {
   const UpdateDialog({super.key, required this.updateData});
 
   static Future<void> show(BuildContext context, Map<String, dynamic> updateData) {
+    if (kIsWeb) return Future.value();
     return showGeneralDialog(
       context: context,
       barrierDismissible: true,

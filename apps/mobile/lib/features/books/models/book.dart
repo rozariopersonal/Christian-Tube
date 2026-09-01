@@ -48,11 +48,11 @@ class Book {
       subject: map['subject'] as String? ?? 'Christian Living',
       categories: parsedCategories,
       description: map['description'] as String? ?? '',
-      coverFile: (map['cover_file'] ?? map['localCoverFile'] ?? '') as String,
-      totalPages: (map['total_pages'] as num?)?.toInt() ?? 0,
-      totalLines: (map['total_lines'] as num?)?.toInt() ?? 0,
+      coverFile: (map['cover_file'] ?? map['coverFile'] ?? map['localCoverFile'] ?? '') as String,
+      totalPages: ((map['total_pages'] ?? map['totalPages']) as num?)?.toInt() ?? 0,
+      totalLines: ((map['total_lines'] ?? map['totalLines']) as num?)?.toInt() ?? 0,
       downloadSizeFormatted: (map['downloadSizeFormatted'] ?? map['download_size_formatted'] ?? '') as String,
-      createdAt: (map['created_at'] ?? '') as String,
+      createdAt: (map['created_at'] ?? map['createdAt'] ?? '') as String,
     );
   }
 

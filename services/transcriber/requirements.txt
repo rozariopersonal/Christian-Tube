@@ -1,0 +1,6 @@
+yt-dlp
+faster-whisper
+onnxruntime
+psycopg2-binary
+numpy
+requests

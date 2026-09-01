@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
@@ -285,38 +286,39 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                 style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
               ),
               const SizedBox(height: 16),
-              if (isInstalled)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                  title: const Text('Remove Download', style: TextStyle(color: Colors.redAccent)),
-                  subtitle: Text(
-                    'Frees storage. Notes and reading progress are preserved.',
-                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+              if (!kIsWeb)
+                if (isInstalled)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                    title: const Text('Remove Download', style: TextStyle(color: Colors.redAccent)),
+                    subtitle: Text(
+                      'Frees storage. Notes and reading progress are preserved.',
+                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                    ),
+                    onTap: () async {
+                      Navigator.of(ctx).pop();
+                      await _bookService.removeBookDownload(book.id);
+                      setState(() {
+                        _installedBookIds.remove(book.id);
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Removed "${book.title}" from storage.')),
+                        );
+                      }
+                    },
+                  )
+                else
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.download_rounded, color: tokens.accent),
+                    title: Text('Download Book (${book.downloadSizeFormatted})', style: TextStyle(color: tokens.onSurface)),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      _promptDownloadSingleBook(book);
+                    },
                   ),
-                  onTap: () async {
-                    Navigator.of(ctx).pop();
-                    await _bookService.removeBookDownload(book.id);
-                    setState(() {
-                      _installedBookIds.remove(book.id);
-                    });
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Removed "${book.title}" from storage.')),
-                      );
-                    }
-                  },
-                )
-              else
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.download_rounded, color: tokens.accent),
-                  title: Text('Download Book (${book.downloadSizeFormatted})', style: TextStyle(color: tokens.onSurface)),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    _promptDownloadSingleBook(book);
-                  },
-                ),
             ],
           ),
         ),
@@ -326,13 +328,44 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
 
   void _openReader(Book book, {int? initialPage, int? initialLine}) async {
     final isInstalled = _installedBookIds.contains(book.id);
-    if (!isInstalled) {
+    if (!kIsWeb && !isInstalled) {
       _promptDownloadSingleBook(book);
       return;
     }
 
     final progress = _progressMap[book.id];
-    final targetPage = initialPage ?? progress?.currentPage ?? 1;
+    int targetPage = 1;
+
+    if (initialPage != null) {
+      targetPage = initialPage;
+    } else if (progress != null && progress.currentPage > 1) {
+      final tokens = context.tokens;
+      final shouldResume = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: tokens.surface,
+          title: Text('Resume Reading?', style: TextStyle(color: tokens.onSurface)),
+          content: Text(
+            'You were previously on page ${progress.currentPage}. Would you like to resume from where you left off or start over from the beginning?',
+            style: TextStyle(color: tokens.onSurfaceMuted),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text('Start Over', style: TextStyle(color: tokens.onSurfaceMuted)),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: tokens.accent),
+              child: const Text('Resume'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldResume == null) return; // User cancelled
+      targetPage = shouldResume ? progress.currentPage : 1;
+    }
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(

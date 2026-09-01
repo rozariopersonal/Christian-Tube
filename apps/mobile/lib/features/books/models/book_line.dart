@@ -17,11 +17,11 @@ class BookLine {
 
   factory BookLine.fromMap(Map<String, dynamic> map) {
     return BookLine(
-      bookId: map['book_id'] as String? ?? '',
-      pageNumber: (map['page_number'] as num?)?.toInt() ?? 1,
-      lineNumber: (map['line_number'] as num?)?.toInt() ?? 1,
-      chapterIndex: (map['chapter_index'] as num?)?.toInt() ?? 1,
-      contentType: map['content_type'] as String? ?? 'p',
+      bookId: (map['book_id'] ?? map['bookId']) as String? ?? '',
+      pageNumber: ((map['page_number'] ?? map['pageNumber'] ?? map['page']) as num?)?.toInt() ?? 1,
+      lineNumber: ((map['line_number'] ?? map['lineNumber'] ?? map['line']) as num?)?.toInt() ?? 1,
+      chapterIndex: ((map['chapter_index'] ?? map['chapterIndex'] ?? map['chapter']) as num?)?.toInt() ?? 1,
+      contentType: (map['content_type'] ?? map['contentType'] ?? map['type']) as String? ?? 'p',
       text: map['text'] as String? ?? '',
     );
   }

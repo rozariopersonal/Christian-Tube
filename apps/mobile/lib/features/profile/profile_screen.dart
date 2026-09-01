@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../auth/auth_service.dart';
@@ -394,33 +395,33 @@ class ProfileScreen extends StatelessWidget {
                 },
               ),
 
-              // Offline Library & Downloads Section
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: context.tokens.accent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.download_for_offline_rounded, color: context.tokens.accent),
-                ),
-                title: const Text('Offline Library & Downloads', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                subtitle: Text(
-                  'Bibles, Dictionaries, Books & Commentaries',
-                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
-                ),
-                trailing: const Icon(Icons.chevron_right, size: 20),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (ctx) => const DownloadsManagerScreen(),
+              if (!kIsWeb)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: context.tokens.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  );
-                },
-              ),
+                    child: Icon(Icons.download_for_offline_rounded, color: context.tokens.accent),
+                  ),
+                  title: const Text('Offline Library & Downloads', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  subtitle: Text(
+                    'Bibles, Dictionaries, Books & Commentaries',
+                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (ctx) => const DownloadsManagerScreen(),
+                      ),
+                    );
+                  },
+                ),
 
               const Divider(height: 24),
 

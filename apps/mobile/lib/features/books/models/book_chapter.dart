@@ -19,13 +19,13 @@ class BookChapter {
 
   factory BookChapter.fromMap(Map<String, dynamic> map) {
     return BookChapter(
-      bookId: map['book_id'] as String? ?? '',
-      chapterIndex: (map['chapter_index'] as num?)?.toInt() ?? 1,
-      chapterTitle: map['chapter_title'] as String? ?? '',
-      startPage: (map['start_page'] as num?)?.toInt() ?? 1,
-      startLine: (map['start_line'] as num?)?.toInt() ?? 1,
-      endPage: (map['end_page'] as num?)?.toInt() ?? 1,
-      endLine: (map['end_line'] as num?)?.toInt() ?? 1,
+      bookId: (map['book_id'] ?? map['bookId']) as String? ?? '',
+      chapterIndex: ((map['chapter_index'] ?? map['chapterIndex']) as num?)?.toInt() ?? 1,
+      chapterTitle: (map['chapter_title'] ?? map['chapterTitle'] ?? map['title']) as String? ?? '',
+      startPage: ((map['start_page'] ?? map['startPage']) as num?)?.toInt() ?? 1,
+      startLine: ((map['start_line'] ?? map['startLine']) as num?)?.toInt() ?? 1,
+      endPage: ((map['end_page'] ?? map['endPage']) as num?)?.toInt() ?? 1,
+      endLine: ((map['end_line'] ?? map['endLine']) as num?)?.toInt() ?? 1,
     );
   }
 

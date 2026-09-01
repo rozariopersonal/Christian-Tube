@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:mobile/core/api/release_assets.dart';
-import 'package:mobile/features/bible/models/bible_book.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Loads localized Bible book names (per version, keyed by canonical book
 /// number 1..66) from the releases repo's `book_names.json` on demand, with
@@ -70,7 +68,8 @@ class BookNameService {
   /// Localized name for [versionId]'s [bookNumber] book, English when
   /// unknown or not loaded yet.
   String nameFor(String versionId, int bookNumber) {
-    final localized = _namesByVersion[versionId]?['$bookNumber'];
+    final localized = _namesByVersion[versionId.toLowerCase()]?['$bookNumber'] ??
+        _namesByVersion[versionId.toUpperCase()]?['$bookNumber'];
     if (localized != null && localized.trim().isNotEmpty) {
       return localized;
     }
@@ -78,6 +77,15 @@ class BookNameService {
   }
 
   Future<Map<String, Map<String, String>>> _fetch() async {
+    // 1. First try bundled asset (instant, zero network, works offline and on web)
+    try {
+      final assetStr = await rootBundle.loadString('assets/book_names.json');
+      final raw = jsonDecode(assetStr) as Map<String, dynamic>;
+      final parsed = _parseMap(raw);
+      if (parsed.isNotEmpty) return parsed;
+    } catch (_) {}
+
+    // 2. Fall back to releases CDN / Raw GitHub
     final dio = Dio();
     for (final url in ReleaseAssets.urlsFor('book_names.json')) {
       try {
@@ -89,19 +97,8 @@ class BookNameService {
         final raw = response.data is String
             ? jsonDecode(response.data as String) as Map<String, dynamic>
             : response.data as Map<String, dynamic>;
-        final result = <String, Map<String, String>>{};
-        raw.forEach((versionId, value) {
-          final map = <String, String>{};
-          if (value is Map) {
-            (value as Map).forEach((k, v) {
-              if (k != null && v != null) {
-                map['$k'] = '$v';
-              }
-            });
-          }
-          result[versionId] = map;
-        });
-        if (result.isNotEmpty) return result;
+        final parsed = _parseMap(raw);
+        if (parsed.isNotEmpty) return parsed;
       } catch (e) {
         debugPrint('BookNameService fetch failed for $url: $e');
       }
@@ -109,11 +106,27 @@ class BookNameService {
     return <String, Map<String, String>>{};
   }
 
+  Map<String, Map<String, String>> _parseMap(Map<String, dynamic> raw) {
+    final result = <String, Map<String, String>>{};
+    raw.forEach((versionId, value) {
+      final map = <String, String>{};
+      if (value is Map) {
+        (value as Map).forEach((k, v) {
+          if (k != null && v != null) {
+            map['$k'] = '$v';
+          }
+        });
+      }
+      result[versionId.toLowerCase()] = map;
+      result[versionId.toUpperCase()] = map;
+    });
+    return result;
+  }
+
   Future<void> _writeCache() async {
     try {
-      final dir = await getApplicationSupportDirectory();
-      final file = File(p.join(dir.path, 'book_names.json'));
-      await file.writeAsString(jsonEncode(_namesByVersion));
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('book_names_cache', jsonEncode(_namesByVersion));
     } catch (e) {
       debugPrint('BookNameService cache write failed: $e');
     }
@@ -121,20 +134,12 @@ class BookNameService {
 
   Future<Map<String, Map<String, String>>> _readCached() async {
     try {
-      final dir = await getApplicationSupportDirectory();
-      final file = File(p.join(dir.path, 'book_names.json'));
-      if (!await file.exists()) return <String, Map<String, String>>{};
-      final raw =
-          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      final result = <String, Map<String, String>>{};
-      raw.forEach((versionId, value) {
-        final map = <String, String>{};
-        if (value is Map) {
-          (value as Map).forEach((k, v) => map['$k'] = '$v');
-        }
-        result[versionId] = map;
-      });
-      return result;
+      final prefs = await SharedPreferences.getInstance();
+      final str = prefs.getString('book_names_cache');
+      if (str == null) return <String, Map<String, String>>{};
+      
+      final raw = jsonDecode(str) as Map<String, dynamic>;
+      return _parseMap(raw);
     } catch (e) {
       debugPrint('BookNameService cache read failed: $e');
       return <String, Map<String, String>>{};

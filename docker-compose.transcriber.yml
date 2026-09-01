@@ -1,0 +1,68 @@
+# Transcription + AI-insights service for the Christian-Tube instance.
+#
+# Stack:
+#   llm      - Ollama serving Qwen2.5 7B Instruct on CPU (no GPU needed).
+#   worker   - polls the PrivateTube DB, transcibes pending videos with
+#              faster-whisper large-v3-turbo, and publishes transcripts +
+#              extracted biblical insights to the releases repo via the
+#              GitHub Contents API (no git credentials on this machine).
+#
+# Database connection: the app DB is PostgreSQL running on the Windows host
+# (inside WSL). Containers reach it through host.docker.internal.
+#
+# Usage:
+#   .transcriber.env           # copy from .transcriber.env.example, fill secrets
+#   scripts/start-transcriber.ps1   # builds + starts + registers logon task
+#   docker compose -f docker-compose.transcriber.yml up -d --build
+#
+# All model caches and scratch space are bind-mounted onto D:\ml-models and
+# D:\ml-data so images stay small and C: is not consumed.
+
+services:
+  llm:
+    image: ollama/ollama:latest
+    container_name: christiantube-llm
+    restart: unless-stopped
+    environment:
+      OLLAMA_MODELS: /root/.ollama/models
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - D:\ml-models\ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - transcriber
+
+  worker:
+    build:
+      context: ./services/transcriber
+    container_name: christiantube-transcriber
+    restart: unless-stopped
+    depends_on:
+      llm:
+        condition: service_healthy
+    env_file:
+      - .transcriber.env
+    environment:
+      WHISPER_MODEL: large-v3-turbo
+      WHISPER_DEVICE: cpu
+      WHISPER_COMPUTE: int8
+      WHISPER_MODEL_DIR: /opt/models
+      WORK_DIR: /work
+      POLL_INTERVAL: "300"
+      BATCH_LIMIT: "5"
+      LLM_URL: http://llm:11434
+      LLM_MODEL: qwen2.5:7b
+      LLM_CONTEXT: "32768"
+    volumes:
+      - D:\ml-models\whisper:/opt/models
+      - D:\ml-data\transcriber:/work
+    networks:
+      - transcriber
+
+networks:
+  transcriber:
+    driver: bridge

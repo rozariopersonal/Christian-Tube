@@ -1,0 +1,8 @@
+# Required by scripts/transcribe.py (local Whisper transcription)
+# Install with:  python -m pip install -r scripts/requirements-transcribe.txt
+faster-whisper>=1.0
+yt-dlp
+psycopg2-binary
+python-dotenv
+numpy
+boto3  # optional: upload transcripts to Cloudflare R2
