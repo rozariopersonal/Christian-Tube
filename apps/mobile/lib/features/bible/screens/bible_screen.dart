@@ -13,10 +13,8 @@ import '../widgets/reading_settings_sheet.dart';
 import '../widgets/verse_action_bar.dart';
 import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
-import '../screens/cross_references_screen.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
-import '../../../core/layout/adaptivity.dart';
 import '../models/bible_verse.dart';
 import '../models/bible_book.dart';
 import '../models/bible_settings.dart';
@@ -26,8 +24,7 @@ import '../services/bible_settings_service.dart';
 import '../services/bible_bookmark_service.dart';
 import '../services/cross_reference_service.dart';
 import '../services/bible_background_service.dart';
-import '../widgets/bible_background_sheet.dart';
-import '../screens/bible_background_screen.dart';
+import '../screens/verse_study_screen.dart';
 
 class BibleScreen extends StatefulWidget {
   const BibleScreen({
@@ -916,6 +913,10 @@ class _BibleScreenState extends State<BibleScreen> {
     final Key? itemKey = verse.isChapterHeader
         ? null
         : (_verseKeys[verse.number] ??= GlobalKey());
+
+    final verseCrossRefs = _chapterCrossRefs[verse.number] ?? const [];
+    final verseBackgrounds = _chapterBackgrounds[verse.number] ?? const [];
+
     return VerseItem(
       key: itemKey,
       verse: verse,
@@ -923,46 +924,47 @@ class _BibleScreenState extends State<BibleScreen> {
       isHighlighted: _highlightedVerse == verse.number,
       fontSize: _settings.fontSize,
       onVerseTap: () => _toggleVerseSelection(verse.number),
-      showCrossReferences: true,
-      crossRefsExpanded: _expandedCrossRefVerses.contains(verse.number),
-      crossReferences: _chapterCrossRefs[verse.number] ?? const [],
+      crossReferences: verseCrossRefs,
+      backgroundNotes: verseBackgrounds,
       resolvedTexts: _crossRefTexts,
-      onBadgeTap: () => _onCrossRefBadgeTap(verse.number),
+      isInlineExpanded: _expandedCrossRefVerses.contains(verse.number),
+      onToggleInline: () => _toggleCrossRefExpansion(verse.number),
+      onOpenStudyPage: (initialTab) =>
+          _openVerseStudyScreen(verse.number, initialTab: initialTab),
       onReferenceTap: _onReferenceTap,
-      onReviewPageOpen: () => _openCrossReferencesScreen(verse.number),
-      backgroundNotesCount: _chapterBackgrounds[verse.number]?.length ?? 0,
-      onBackgroundTap: () => _openBackgroundNotes(verse.number),
     );
   }
 
-  /// Routes a cross-reference badge tap. Verses with more than two references
-  /// open the dedicated references page; smaller sets toggle inline expansion.
-  void _onCrossRefBadgeTap(int verseNumber) {
-    final count = _chapterCrossRefs[verseNumber]?.length ?? 0;
-    if (count > 2) {
-      _openCrossReferencesScreen(verseNumber);
-    } else {
-      _toggleCrossRefExpansion(verseNumber);
-    }
-  }
-
-  /// Opens the dedicated cross-references screen for a single verse, showing
-  /// every reference (used when a verse has more than two). Navigating to a
-  /// reference from there reuses the standard reader jump.
-  void _openCrossReferencesScreen(int verseNumber) {
+  void _openVerseStudyScreen(int verseNumber, {int initialTab = 0}) {
     final verse = _verses.firstWhere(
       (v) => v.number == verseNumber,
-      orElse: () => _verses.first,
+      orElse: () => _verses.isNotEmpty
+          ? _verses.first
+          : BibleVerse(
+              number: verseNumber,
+              text: '',
+            ),
     );
+    final verseLabel =
+        '${_displayBookName(_currentBook)} $_currentChapter:$verseNumber';
+
+    final refs = _chapterCrossRefs[verseNumber] ?? const [];
+    var notes = _chapterBackgrounds[verseNumber] ?? const [];
+    if (notes.isEmpty && _chapterBackgrounds[0] != null) {
+      notes = _chapterBackgrounds[0]!;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CrossReferencesScreen(
+        builder: (_) => VerseStudyScreen(
           verseText: verse.text,
-          verseLabel:
-              '${_displayBookName(_currentBook)} $_currentChapter:$verseNumber',
-          references: _chapterCrossRefs[verseNumber] ?? const [],
+          verseLabel: verseLabel,
+          versionLabel: _selectedVersion?.name,
+          references: refs,
           resolvedTexts: _crossRefTexts,
+          commentaryNotes: notes,
           baseFontSize: _settings.fontSize,
+          initialTab: initialTab,
           onTapReference: _onReferenceTap,
         ),
       ),
@@ -982,51 +984,6 @@ class _BibleScreenState extends State<BibleScreen> {
         setState(() => _chapterBackgrounds = map);
       }
     } catch (_) {}
-  }
-
-  void _openBackgroundNotes([int? specificVerse]) {
-    final verseNum = specificVerse ??
-        (_selectedVerses.isNotEmpty
-            ? (_selectedVerses.toList()..sort()).first
-            : 1);
-    final verse = _verses.firstWhere(
-      (v) => v.number == verseNum,
-      orElse: () => _verses.isNotEmpty
-          ? _verses.first
-          : BibleVerse(
-              number: verseNum,
-              text: '',
-            ),
-    );
-    final verseLabel =
-        '${_displayBookName(_currentBook)} $_currentChapter:$verseNum';
-
-    List<BibleBackgroundNote> notes = _chapterBackgrounds[verseNum] ?? [];
-    if (notes.isEmpty && _chapterBackgrounds[0] != null) {
-      notes = _chapterBackgrounds[0]!;
-    }
-
-    final screen = ScreenClass.of(context);
-    if (screen.isCompact) {
-      BibleBackgroundSheet.show(
-        context: context,
-        verseLabel: verseLabel,
-        verseText: verse.text,
-        notes: notes,
-      );
-    } else {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => BibleBackgroundScreen(
-            verseText: verse.text,
-            verseLabel: verseLabel,
-            versionLabel: _selectedVersion?.name,
-            notes: notes,
-            baseFontSize: _settings.fontSize,
-          ),
-        ),
-      );
-    }
   }
 
   Widget _buildContent() {
@@ -1244,7 +1201,12 @@ class _BibleScreenState extends State<BibleScreen> {
               onShare: _shareSelectedVerses,
               onBookmark: _bookmarkSelectedVerses,
               onClear: () => setState(() => _selectedVerses.clear()),
-              onBackground: () => _openBackgroundNotes(),
+              onBackground: () => _openVerseStudyScreen(
+                _selectedVerses.isNotEmpty
+                    ? (_selectedVerses.toList()..sort()).first
+                    : 1,
+                initialTab: 1,
+              ),
             )
           else
           Container(

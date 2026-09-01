@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../core/layout/adaptivity.dart';
 import '../models/bible_verse.dart';
 import '../models/cross_reference.dart';
+import '../models/bible_background_note.dart';
 import 'verse_text.dart';
-import 'cross_reference_badge.dart';
-import 'cross_reference_expansion.dart';
+import 'verse_study_badge.dart';
+import 'verse_study_inline.dart';
 
 /// A single row in the bible reader's `ListView`.
 ///
-/// Combines the verse text, its (optional) cross-reference badge, historical
-/// context badge, and inline cross-reference expansion into one self-contained item.
+/// Combines the verse text, the unified study badge (reference and commentary counts),
+/// and inline study expansion (for verses with single reference/commentary).
 class VerseItem extends StatelessWidget {
   final BibleVerse verse;
   final bool isSelected;
@@ -18,30 +17,26 @@ class VerseItem extends StatelessWidget {
   final VoidCallback? onVerseTap;
   final double fontSize;
 
-  /// Whether the cross-reference UI is available at all.
-  final bool showCrossReferences;
-
-  /// Whether this verse's cross-reference section is currently expanded.
-  final bool crossRefsExpanded;
-
-  /// The cross-references resolved for `verse.number` (empty = none).
+  /// The cross-references resolved for this verse.
   final List<CrossReference> crossReferences;
+
+  /// The historical/cultural background notes resolved for this verse.
+  final List<BibleBackgroundNote> backgroundNotes;
 
   /// Resolved verse text keyed by [CrossReference.textKey].
   final Map<String, String> resolvedTexts;
 
-  final VoidCallback? onBadgeTap;
+  /// Whether the inline expansion is currently open.
+  final bool isInlineExpanded;
+
+  /// Toggles the inline expansion (used when counts <= 1).
+  final VoidCallback? onToggleInline;
+
+  /// Opens the dedicated tabbed study page (0 = references tab, 1 = commentary tab).
+  final void Function(int initialTab)? onOpenStudyPage;
+
+  /// Callback when a referenced scripture is tapped.
   final void Function(CrossReference)? onReferenceTap;
-
-  /// Invoked when a verse with more than two references wants to open its
-  /// dedicated cross-references page.
-  final VoidCallback? onReviewPageOpen;
-
-  /// Number of historical/cultural background notes available for this verse.
-  final int backgroundNotesCount;
-
-  /// Invoked when the historical context badge is tapped.
-  final VoidCallback? onBackgroundTap;
 
   const VerseItem({
     super.key,
@@ -50,27 +45,21 @@ class VerseItem extends StatelessWidget {
     required this.isHighlighted,
     required this.onVerseTap,
     required this.fontSize,
-    this.showCrossReferences = false,
-    this.crossRefsExpanded = false,
     this.crossReferences = const [],
+    this.backgroundNotes = const [],
     this.resolvedTexts = const {},
-    this.onBadgeTap,
+    this.isInlineExpanded = false,
+    this.onToggleInline,
+    this.onOpenStudyPage,
     this.onReferenceTap,
-    this.onReviewPageOpen,
-    this.backgroundNotesCount = 0,
-    this.onBackgroundTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final screen = ScreenClass.of(context);
-    final badgeFontSize = screen.isCompact ? 12.0 : 13.0;
-
-    final count = verse.crossReferenceCount;
-    final renderCrossRefs = showCrossReferences && count > 0;
-    final openReviewPage = count > 2;
-    final renderBackground = backgroundNotesCount > 0 && onBackgroundTap != null;
+    final refCount = crossReferences.length;
+    final commentaryCount = backgroundNotes.length;
+    final hasStudyContent = refCount > 0 || commentaryCount > 0;
+    final canExpandInline = refCount <= 1 && commentaryCount <= 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,74 +72,34 @@ class VerseItem extends StatelessWidget {
           onTap: onVerseTap,
           fontSize: fontSize,
         ),
-        if (renderCrossRefs || renderBackground) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (renderCrossRefs)
-                  CrossReferenceBadge(
-                    count: count,
-                    expanded: crossRefsExpanded && !openReviewPage,
-                    openPage: openReviewPage,
-                    onTap: onBadgeTap ?? () {},
-                  ),
-                if (renderBackground)
-                  Semantics(
-                    label:
-                        '$backgroundNotesCount historical context notes, tap to view',
-                    button: true,
-                    child: InkWell(
-                      onTap: onBackgroundTap,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: tokens.surfaceVariant,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: tokens.surfaceBorder),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.history_edu,
-                              size: badgeFontSize,
-                              color: tokens.accent,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Context ($backgroundNotesCount)',
-                              style: TextStyle(
-                                color: tokens.onSurface,
-                                fontSize: badgeFontSize,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+
+        // Unified badge with reference and commentary counts
+        if (hasStudyContent) ...[
+          VerseStudyBadge(
+            referenceCount: refCount,
+            commentaryCount: commentaryCount,
+            isInlineExpanded: isInlineExpanded,
+            canExpandInline: canExpandInline,
+            onOpenStudyPage: (tab) => onOpenStudyPage?.call(tab),
+            onToggleInline: onToggleInline ?? () {},
           ),
-          if (renderCrossRefs && !openReviewPage)
+
+          // Inline expansion when there is only 1 reference and/or 1 commentary
+          if (canExpandInline)
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOut,
               alignment: Alignment.topCenter,
-              child: crossRefsExpanded
-                  ? CrossReferenceExpansion(
+              child: isInlineExpanded
+                  ? VerseStudyInline(
                       references: crossReferences,
+                      commentaryNotes: backgroundNotes,
                       resolvedTexts: resolvedTexts,
                       baseFontSize: fontSize,
-                      onViewAll: onReviewPageOpen,
-                      onTapReference: onReferenceTap ?? (_) {},
+                      onReferenceTap: onReferenceTap,
+                      onOpenFullPage: onOpenStudyPage != null
+                          ? () => onOpenStudyPage!(0)
+                          : null,
                     )
                   : const SizedBox.shrink(),
             ),
