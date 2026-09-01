@@ -44,6 +44,9 @@ migrate_working_dir/
 # Release keystores
 *.keystore
 *.jks
+# Release keystores
+*.keystore
+*.jks
 key.properties
 temp_repo/
 
@@ -54,3 +57,9 @@ temp_repo/
 # and published to the releases repo, not committed here)
 data/cross_references.json
 
+# Book crawler raw scrapings (compiled into data/books.sqlite and data/books.sql)
+data/books_raw/html/
+data/books_raw/epubs/
+data/books_raw/sample_epub/
+data/books_raw/*.html
+.codex/

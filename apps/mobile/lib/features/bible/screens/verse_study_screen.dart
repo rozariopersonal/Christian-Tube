@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../books/models/book_scripture_link.dart';
+import '../../books/screens/book_reader_screen.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
 import '../widgets/cross_reference_card.dart';
@@ -20,6 +22,7 @@ class VerseStudyScreen extends StatelessWidget {
   final List<CrossReference> references;
   final Map<String, String> resolvedTexts;
   final List<BibleBackgroundNote> commentaryNotes;
+  final List<BookScriptureLink> bookCommentaries;
   final double baseFontSize;
   final int initialTab;
   final void Function(CrossReference)? onTapReference;
@@ -32,6 +35,7 @@ class VerseStudyScreen extends StatelessWidget {
     this.references = const [],
     this.resolvedTexts = const {},
     this.commentaryNotes = const [],
+    this.bookCommentaries = const [],
     required this.baseFontSize,
     this.initialTab = 0,
     this.onTapReference,
@@ -147,7 +151,9 @@ class VerseStudyScreen extends StatelessWidget {
 
   Widget _buildCommentaryTab(BuildContext context) {
     final tokens = context.tokens;
-    if (commentaryNotes.isEmpty) {
+    final totalCount = bookCommentaries.length + commentaryNotes.length;
+
+    if (totalCount == 0) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -169,17 +175,179 @@ class VerseStudyScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          '${commentaryNotes.length} commentary ${commentaryNotes.length == 1 ? 'note' : 'notes'}',
-          style: TextStyle(
-            color: tokens.onSurfaceMuted,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+        if (bookCommentaries.isNotEmpty) ...[
+          Row(
+            children: [
+              Icon(Icons.auto_stories_rounded, size: 16, color: tokens.accent),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${bookCommentaries.length} Zac Poonen ${bookCommentaries.length == 1 ? 'Exposition' : 'Expositions'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tokens.onSurface,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 10),
-        for (final note in commentaryNotes) _buildCommentaryItem(context, note),
+          const SizedBox(height: 10),
+          for (final link in bookCommentaries) _buildBookCommentaryItem(context, link),
+          const SizedBox(height: 16),
+        ],
+        if (commentaryNotes.isNotEmpty) ...[
+          Row(
+            children: [
+              Icon(Icons.history_edu_rounded, size: 16, color: tokens.onSurfaceMuted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${commentaryNotes.length} Historical & Cultural Context',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tokens.onSurfaceMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final note in commentaryNotes) _buildCommentaryItem(context, note),
+        ],
       ],
+    );
+  }
+
+  Widget _buildBookCommentaryItem(BuildContext context, BookScriptureLink link) {
+    final tokens = context.tokens;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tokens.surfaceVariant,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tokens.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      link.bookTitle,
+                      style: TextStyle(
+                        color: tokens.onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14.5,
+                      ),
+                    ),
+                    Text(
+                      'by ${link.author}',
+                      style: TextStyle(
+                        color: tokens.onSurfaceMuted,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: tokens.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'Page ${link.pageNumber}',
+                  style: TextStyle(
+                    color: tokens.accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (link.headline.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              link.headline,
+              style: TextStyle(
+                color: tokens.accent,
+                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+          if (link.excerpt.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(color: tokens.accent, width: 2.5)),
+                color: tokens.background.withValues(alpha: 0.4),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(6),
+                  bottomRight: Radius.circular(6),
+                ),
+              ),
+              child: Text(
+                '"${link.excerpt}"',
+                style: TextStyle(
+                  color: tokens.onSurface.withValues(alpha: 0.9),
+                  fontSize: 13,
+                  height: 1.45,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                backgroundColor: tokens.accent.withValues(alpha: 0.12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: Icon(Icons.arrow_forward_rounded, size: 16, color: tokens.accent),
+              label: Text(
+                'Read in Book (p. ${link.pageNumber})',
+                style: TextStyle(
+                  color: tokens.accent,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => BookReaderScreen(
+                      bookId: link.bookId,
+                      initialPage: link.pageNumber,
+                      highlightStartLine: link.startLine,
+                      highlightEndLine: link.endLine,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -25,6 +25,8 @@ import '../services/bible_bookmark_service.dart';
 import '../services/cross_reference_service.dart';
 import '../services/bible_background_service.dart';
 import '../screens/verse_study_screen.dart';
+import '../../books/services/book_service.dart';
+import '../../books/screens/books_catalog_screen.dart';
 
 class BibleScreen extends StatefulWidget {
   const BibleScreen({
@@ -935,7 +937,7 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
-  void _openVerseStudyScreen(int verseNumber, {int initialTab = 0}) {
+  Future<void> _openVerseStudyScreen(int verseNumber, {int initialTab = 0}) async {
     final verse = _verses.firstWhere(
       (v) => v.number == verseNumber,
       orElse: () => _verses.isNotEmpty
@@ -954,6 +956,15 @@ class _BibleScreenState extends State<BibleScreen> {
       notes = _chapterBackgrounds[0]!;
     }
 
+    final bookNum = _bookNumber(_currentBook);
+    final bookCommentaries = await BookService.instance.getCommentariesForVerse(
+      bookNum,
+      _currentChapter,
+      verseNumber,
+    );
+
+    if (!mounted) return;
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => VerseStudyScreen(
@@ -963,6 +974,7 @@ class _BibleScreenState extends State<BibleScreen> {
           references: refs,
           resolvedTexts: _crossRefTexts,
           commentaryNotes: notes,
+          bookCommentaries: bookCommentaries,
           baseFontSize: _settings.fontSize,
           initialTab: initialTab,
           onTapReference: _onReferenceTap,
@@ -1162,6 +1174,17 @@ class _BibleScreenState extends State<BibleScreen> {
               ),
             ),
           IconButton(
+            tooltip: 'Books Library',
+            icon: const Icon(Icons.auto_stories_rounded),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BooksCatalogScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             tooltip: 'Search Bible',
             icon: const Icon(Icons.search),
             onPressed: _showSearch,
@@ -1170,6 +1193,12 @@ class _BibleScreenState extends State<BibleScreen> {
             tooltip: 'More',
             onSelected: (value) {
               switch (value) {
+                case 'books':
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BooksCatalogScreen(),
+                    ),
+                  );
                 case 'bookmarks':
                   _openBookmarks();
                 case 'settings':
@@ -1177,6 +1206,16 @@ class _BibleScreenState extends State<BibleScreen> {
               }
             },
             itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'books',
+                child: Row(
+                  children: [
+                    Icon(Icons.library_books_rounded, size: 18),
+                    SizedBox(width: 10),
+                    Text('Books Library'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'bookmarks',
                 child: Text('Bookmarks'),

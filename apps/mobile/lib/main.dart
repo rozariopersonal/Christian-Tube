@@ -19,6 +19,8 @@ import 'features/shorts/shorts_feed_screen.dart';
 import 'features/watch/video_player_screen.dart';
 import 'features/watch_plans/watch_plans_screen.dart';
 import 'features/bible/screens/bible_screen.dart';
+import 'features/books/screens/books_catalog_screen.dart';
+import 'features/books/screens/book_reader_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'layout/main_layout_screen.dart';
 
@@ -68,7 +70,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
       routes: [
         ShellRoute(
           builder: (context, state, child) {
-            return MainLayoutScreen(child: child, authService: _authService);
+            return MainLayoutScreen(authService: _authService, child: child);
           },
           routes: [
             GoRoute(
@@ -124,6 +126,26 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             GoRoute(
               path: '/channels',
               builder: (context, state) => const ChannelsScreen(),
+            ),
+            GoRoute(
+              path: '/books',
+              builder: (context, state) => const BooksCatalogScreen(),
+            ),
+            GoRoute(
+              path: '/books/:id',
+              builder: (context, state) {
+                final bookId = state.pathParameters['id'] ?? '';
+                final qp = state.uri.queryParameters;
+                final page = int.tryParse(qp['page'] ?? '');
+                final startLine = int.tryParse(qp['startLine'] ?? '');
+                final endLine = int.tryParse(qp['endLine'] ?? '');
+                return BookReaderScreen(
+                  bookId: bookId,
+                  initialPage: page,
+                  highlightStartLine: startLine,
+                  highlightEndLine: endLine,
+                );
+              },
             ),
             GoRoute(
               path: '/profile',
