@@ -160,8 +160,9 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               path: '/watch/:id',
               builder: (context, state) {
                 final videoId = state.pathParameters['id'] ?? '';
-                final extraMap = state.extra as Map<String, dynamic>?;
-                final video = extraMap?['video'] as Video?;
+                final extra = state.extra;
+                final extraMap = extra is Map<String, dynamic> ? extra : null;
+                final video = extra is Video ? extra : (extraMap?['video'] as Video?);
                 final playlist = extraMap?['playlist'] as List<Video>?;
                 final playlistTitle = extraMap?['playlistTitle'] as String?;
                 final initialIndex = extraMap?['initialIndex'] as int? ?? 0;

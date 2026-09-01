@@ -135,14 +135,22 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
         _viewId,
         (int id) {
           final origin = html.window.location.origin;
+          final isLocal = origin.contains('localhost') ||
+              origin.contains('127.0.0.1') ||
+              origin.isEmpty ||
+              origin == 'null' ||
+              !origin.startsWith('https://');
+          final originParam = isLocal ? '' : '&origin=$origin';
+
           final iframe = html.IFrameElement()
             ..src =
-                'https://www.youtube.com/embed/${widget.videoId}?autoplay=1&mute=0&playsinline=1&controls=1&rel=0&modestbranding=1&fs=0&enablejsapi=1&origin=$origin$startParam'
+                'https://www.youtube-nocookie.com/embed/${widget.videoId}?autoplay=1&mute=0&playsinline=1&controls=1&rel=0&modestbranding=1&fs=0&enablejsapi=1$originParam$startParam'
             ..style.border = 'none'
             ..style.width = '100%'
             ..style.height = '100%'
             ..allow =
                 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+            ..referrerPolicy = 'strict-origin-when-cross-origin'
             // Native iframe fullscreen inside a Flutter HtmlElementView renders
             // a corrupt half-black/half-white screen and is impossible to exit.
             ..allowFullscreen = false;

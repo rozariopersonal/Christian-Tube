@@ -218,6 +218,18 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    if (InAppWebViewPlatform.instance == null) {
+      return widget.builder(
+        context,
+        Container(
+          color: Colors.black,
+          child: const Center(
+            child: Icon(Icons.play_circle_fill, color: Colors.white, size: 48),
+          ),
+        ),
+      );
+    }
+
     final webView = Container(
       color: Colors.black,
       child: Stack(

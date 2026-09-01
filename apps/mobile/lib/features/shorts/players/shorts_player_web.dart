@@ -115,7 +115,6 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
 
     if (!_registeredSlotViews.contains(_viewId)) {
       _registeredSlotViews.add(_viewId);
-      final origin = html.window.location.origin;
       ui_web.platformViewRegistry.registerViewFactory(
         _viewId,
         (int viewId) {
@@ -123,10 +122,18 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
           final cropOffset = widget.short.cropOffsetX.clamp(-1.0, 1.0);
           final offsetPercent = cropOffset * 50;
 
+          final origin = html.window.location.origin;
+          final isLocal = origin.contains('localhost') ||
+              origin.contains('127.0.0.1') ||
+              origin.isEmpty ||
+              origin == 'null' ||
+              !origin.startsWith('https://');
+          final originParam = isLocal ? '' : '&origin=$origin';
+
           final iframe = html.IFrameElement()
             ..id = _viewId
             ..src =
-                'https://www.youtube.com/embed/$videoId?autoplay=1&mute=0&loop=1&playlist=$videoId&playsinline=1&controls=0&rel=0&modestbranding=1&enablejsapi=1$startParam$endParam&origin=$origin'
+                'https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&mute=0&loop=1&playlist=$videoId&playsinline=1&controls=0&rel=0&modestbranding=1&enablejsapi=1$startParam$endParam$originParam'
             ..style.border = 'none'
             ..style.position = isClipped ? 'absolute' : 'relative'
             ..style.top = '0'
@@ -140,6 +147,7 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
             ..style.pointerEvents = 'none'
             ..allow =
                 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+            ..referrerPolicy = 'strict-origin-when-cross-origin'
             ..allowFullscreen = false;
 
           _iframeElement = iframe;

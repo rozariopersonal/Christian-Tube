@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/layout/adaptivity.dart';
@@ -58,8 +59,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   double _currentPositionSeconds = 0.0;
 
-  /// App-level fullscreen (web). Kept in Flutter state so it can always be
-  /// exited in-app; the browser-native iframe fullscreen path is disabled.
+  /// App-level fullscreen toggle.
   bool _isFullScreen = false;
 
   PlaylistLoopMode _loopMode = PlaylistLoopMode.off;
@@ -153,20 +153,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         'type': 'VIDEO',
         'limit': 20,
       };
-      if (_video?.category != null && _video!.category != 'All' && _video!.category!.isNotEmpty) {
+      if (_video?.category != null &&
+          _video!.category != 'All' &&
+          _video!.category!.isNotEmpty) {
         queryParams['category'] = _video!.category;
       }
 
       dynamic response;
       try {
-        response = await _apiClient.dio.get('/api/videos', queryParameters: queryParams);
+        response =
+            await _apiClient.dio.get('/api/videos', queryParameters: queryParams);
       } catch (_) {
-        response = await _apiClient.dio.get('/videos', queryParameters: queryParams);
+        response =
+            await _apiClient.dio.get('/videos', queryParameters: queryParams);
       }
 
       if (response.statusCode == 200 && response.data != null) {
         final dynamic raw = response.data;
-        final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
+        final List<dynamic> list =
+            raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
         if (mounted) {
           setState(() {
             _relatedVideos = list
@@ -196,9 +201,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ? Short.parseDurationInSeconds(_video!.duration).toDouble()
         : 1800.0;
 
-    final initialPlayhead = _currentPositionSeconds > 0
-        ? _currentPositionSeconds
-        : 60.0;
+    final initialPlayhead =
+        _currentPositionSeconds > 0 ? _currentPositionSeconds : 60.0;
 
     showAdaptiveBottomSheet(
       context: context,
@@ -223,6 +227,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _loadRelatedVideos();
   }
 
+  void _handleBack(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/feed');
+    }
+  }
+
   @override
   void dispose() {
     SystemChrome.setPreferredOrientations([
@@ -235,41 +247,50 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final orientation = MediaQuery.of(context).orientation;
-    final isLandscape = orientation == Orientation.landscape;
+    final screenClass = ScreenClass.of(context);
+    final size = MediaQuery.sizeOf(context);
+    final isPhone = size.shortestSide < 600;
+    // On native mobile phones, rotating to landscape automatically enters fullscreen.
+    // On tablets, web, and desktop, landscape is normal orientation and renders
+    // the two-column YouTube layout.
+    final isPhoneLandscape = isPhone && orientation == Orientation.landscape;
+    final isFullscreen = _isFullScreen || (!kIsWeb && isPhoneLandscape);
 
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
       startSeconds: widget.startSeconds,
-      isFullScreen: _isFullScreen,
+      isFullScreen: isFullscreen,
       onToggleFullScreen: () => setState(() => _isFullScreen = !_isFullScreen),
       onPositionChanged: (pos) {
         _currentPositionSeconds = pos.inMilliseconds / 1000.0;
       },
       builder: (context, player) {
-        final fullscreen = isLandscape || _isFullScreen;
+        if (isFullscreen) {
+          return PopScope(
+            canPop: !_isFullScreen,
+            onPopInvokedWithResult: (didPop, result) {
+              if (!didPop && _isFullScreen) {
+                setState(() => _isFullScreen = false);
+              }
+            },
+            child: Scaffold(
+              backgroundColor: Colors.black,
+              body: SizedBox.expand(child: player),
+            ),
+          );
+        }
+
         return PopScope(
-          canPop: !_isFullScreen,
-          onPopInvokedWithResult: (didPop, result) {
-            // System back should exit app-fullscreen first, not leave the
-            // watch screen (matches the old native fullscreen behavior).
-            if (!didPop && _isFullScreen) {
-              setState(() => _isFullScreen = false);
-            }
-          },
+          canPop: true,
           child: Scaffold(
-            backgroundColor: fullscreen ? context.tokens.scrim : null,
+            appBar: _buildAppBar(context),
             body: SafeArea(
-              top: !fullscreen,
-              bottom: false,
-              left: !fullscreen,
-              right: !fullscreen,
-              child: LayoutBuilder(
-                builder: (context, constraints) => _buildStage(
-                  context,
-                  player,
-                  constraints,
-                  fullscreen,
-                ),
+              top: false,
+              bottom: true,
+              child: SingleChildScrollView(
+                child: screenClass.isCompact
+                    ? _buildCompactLayout(context, player)
+                    : _buildExpandedLayout(context, player),
               ),
             ),
           ),
@@ -278,418 +299,562 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
-  /// Single stable layout tree: the player `Positioned` is always the first
-  /// Stack child in every mode so its platform view is never unmounted on
-  /// rotation / fullscreen toggle (which would restart the video). Only its
-  /// geometry changes; content layers come after it and are replaced freely.
-  Widget _buildStage(
-    BuildContext context,
-    Widget player,
-    BoxConstraints constraints,
-    bool fullscreen,
-  ) {
-    final w = constraints.maxWidth;
-
-    // Fullscreen (landscape or app toggle): player fills the whole window.
-    if (fullscreen) {
-      return Stack(
-        fit: StackFit.expand,
+  // ── Top Navigation Bar ─────────────────────────────────────────────────────
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final tokens = context.tokens;
+    return AppBar(
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      backgroundColor: tokens.background,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded),
+        tooltip: 'Back',
+        onPressed: () => _handleBack(context),
+      ),
+      titleSpacing: 0,
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Positioned.fill(child: player),
+          Icon(Icons.play_circle_fill, color: context.primary, size: 24),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              AppConfig.appName.isNotEmpty ? AppConfig.appName : 'ChristianTube',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
         ],
-      );
-    }
+      ),
+      actions: [
+        if (_video != null)
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'Share',
+            onPressed: () {
+              Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
+            },
+          ),
+        IconButton(
+          icon: const Icon(Icons.open_in_new_rounded),
+          tooltip: 'Watch on YouTube',
+          onPressed: _openInYouTubeApp,
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
 
-    if (ScreenClass.of(context).isCompact) {
-      // Vertical: width-capped 16:9 player on top, content below it.
-      final playerWidth = math.min(w, 1280.0);
-      final playerHeight = playerWidth * 9 / 16;
-      return Stack(
-        children: [
-          Positioned(
-            left: (w - playerWidth) / 2,
-            top: 0,
-            width: playerWidth,
-            height: playerHeight,
+  // ── Compact (Phone Portrait) Layout ────────────────────────────────────────
+  Widget _buildCompactLayout(BuildContext context, Widget player) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Video Player (fills width)
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Container(
+            color: Colors.black,
             child: player,
           ),
-          Positioned(
-            left: 0,
-            top: playerHeight,
-            right: 0,
-            bottom: 0,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              children: [
-                ..._metadataChildren(context),
-                const SizedBox(height: 14),
-                ..._relatedChildren(context),
-              ],
-            ),
+        ),
+        const SizedBox(height: 12),
+
+        // Title & Views
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: _buildTitle(context, fontSize: 16),
+        ),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: _buildViewsAndDate(context),
+        ),
+        const SizedBox(height: 12),
+
+        // Channel Header Row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: _buildChannelInfo(context),
+        ),
+        const SizedBox(height: 12),
+
+        // Horizontally Scrollable Action Pills
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: _buildActionButtons(context),
+        ),
+        const SizedBox(height: 12),
+
+        // Expandable Description Box
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: _buildDescriptionCard(context),
+        ),
+        const SizedBox(height: 14),
+
+        // Playlist Queue Widget (if active)
+        if (_playlist.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            child: _buildPlaylistWidget(context),
           ),
-        ],
-      );
-    }
 
-    // medium / expanded: player + description in the left column, related as a
-    // sidebar on the right (matches the 5:3 column split with a 1px divider).
-    final leftColWidth = (w - 1) * 5 / 8;
-    final sidebarLeft = leftColWidth + 1;
-    final playerWidth = math.min(leftColWidth, 1280.0);
-    final playerHeight = playerWidth * 9 / 16;
+        // Up Next Recommendations
+        ..._relatedChildren(context),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
 
-    return Stack(
+  // ── Real YouTube Desktop / Tablet (Medium & Expanded) Layout ───────────────
+  Widget _buildExpandedLayout(BuildContext context, Widget player) {
+    final screenClass = ScreenClass.of(context);
+    final isExpanded = screenClass == ScreenClass.expanded;
+    final sidebarWidth = isExpanded ? 380.0 : 240.0;
+    final outerPadding = isExpanded ? 24.0 : 16.0;
+
+    return Center(
+      child: MaxWidthBox(
+        maxWidth: 1680,
+        padding: EdgeInsets.symmetric(horizontal: outerPadding, vertical: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Primary Column (Left) ────────────────────────────────────────
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Video Player (16:9 Aspect Ratio with rounded corners, capped at 1280)
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1280),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            color: Colors.black,
+                            child: player,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Video Title (Large bold typography)
+                  _buildTitle(context, fontSize: 20),
+                  const SizedBox(height: 8),
+
+                  // Channel & Action Bar (Desktop Row or responsive wrap)
+                  _buildDesktopChannelAndActionsRow(context),
+                  const SizedBox(height: 16),
+
+                  // Expandable Description Box
+                  _buildDescriptionCard(context),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+            SizedBox(width: outerPadding),
+
+            // ── Secondary Column (Right Sidebar) ─────────────────────────────
+            SizedBox(
+              width: sidebarWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_playlist.isNotEmpty) ...[
+                    _buildPlaylistWidget(context),
+                    const SizedBox(height: 16),
+                  ],
+                  ..._relatedChildren(context),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Desktop Channel & Actions Row ──────────────────────────────────────────
+  Widget _buildDesktopChannelAndActionsRow(BuildContext context) {
+    final channelWidget = _buildChannelInfo(context);
+    final actionsWidget = _buildActionButtons(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 720) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: channelWidget),
+              const SizedBox(width: 16),
+              actionsWidget,
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            channelWidget,
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: actionsWidget,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ── Video Title ────────────────────────────────────────────────────────────
+  Widget _buildTitle(BuildContext context, {required double fontSize}) {
+    return Text(
+      _video?.title ?? 'Loading video...',
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.bold,
+        height: 1.28,
+        color: context.tokens.onSurface,
+      ),
+    );
+  }
+
+  // ── Views & Upload Date ────────────────────────────────────────────────────
+  Widget _buildViewsAndDate(BuildContext context) {
+    final tokens = context.tokens;
+    return Wrap(
+      spacing: 6,
+      runSpacing: 2,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Positioned(
-          left: (leftColWidth - playerWidth) / 2,
-          top: 0,
-          width: playerWidth,
-          height: playerHeight,
-          child: player,
-        ),
-        Positioned(
-          left: 0,
-          top: playerHeight,
-          width: leftColWidth,
-          bottom: 0,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            children: _metadataChildren(context),
+        Text(
+          '${Formatters.formatViews(_video?.viewCount ?? 0)} views',
+          style: TextStyle(
+            color: tokens.onSurfaceMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
-        Positioned(
-          left: sidebarLeft,
-          top: 0,
-          bottom: 0,
-          width: 1,
-          child: const VerticalDivider(width: 1, thickness: 1),
-        ),
-        Positioned(
-          left: sidebarLeft + 1,
-          top: 0,
-          right: 0,
-          bottom: 0,
-          child: MaxWidthBox(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              children: _relatedChildren(context),
+        if (_video?.publishedAt != null)
+          Text(
+            '•  ${Formatters.formatTimeAgo(_video!.publishedAt)}',
+            style: TextStyle(
+              color: tokens.onSurfaceMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
+      ],
+    );
+  }
+
+  // ── Channel Info Header ────────────────────────────────────────────────────
+  Widget _buildChannelInfo(BuildContext context) {
+    final tokens = context.tokens;
+    return AnimatedBuilder(
+      animation: _channelService,
+      builder: (context, _) {
+        final isSubscribed = _video?.channelId.isNotEmpty == true &&
+            _channelService.subscribedChannelIds.contains(_video!.channelId);
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ChannelAvatar(
+              avatarUrl: _video?.channelAvatarUrl,
+              channelTitle: _video?.channelTitle ?? 'Channel',
+              radius: 19,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _video?.channelTitle ?? 'Channel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  if (_video?.subscriberCount != null)
+                    Text(
+                      '${Formatters.formatSubscribers(_video!.subscriberCount)} subscribers',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tokens.onSurfaceMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Subscribe Button
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSubscribed
+                    ? tokens.surfaceVariant
+                    : tokens.onSurface,
+                foregroundColor: isSubscribed
+                    ? tokens.onSurfaceMuted
+                    : tokens.surface,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () {
+                if (_video?.channelId.isNotEmpty == true) {
+                  _channelService.toggleSubscribe(_video!.channelId);
+                }
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isSubscribed ? Icons.notifications_active : Icons.add,
+                    size: 15,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isSubscribed ? 'Subscribed' : 'Subscribe',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ── Action Buttons (Like, Dislike, Clip, Share, Save, YouTube) ─────────────
+  Widget _buildActionButtons(BuildContext context) {
+    final tokens = context.tokens;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Like / Dislike Segmented Pill
+        Container(
+          decoration: BoxDecoration(
+            color: tokens.surfaceVariant,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+                onTap: () {
+                  setState(() {
+                    _isLiked = !_isLiked;
+                    if (_isLiked) _isDisliked = false;
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                        size: 16,
+                        color: _isLiked ? Theme.of(context).colorScheme.primary : null,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        _isLiked ? '1' : 'Like',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 18,
+                color: tokens.surfaceBorder,
+              ),
+              InkWell(
+                borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+                onTap: () {
+                  setState(() {
+                    _isDisliked = !_isDisliked;
+                    if (_isDisliked) _isLiked = false;
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  child: Icon(
+                    _isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined,
+                    size: 16,
+                    color: _isDisliked ? Theme.of(context).colorScheme.error : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // Clip Short
+        _buildActionPill(
+          icon: Icons.content_cut,
+          label: 'Clip',
+          onTap: _openShortsTrimmer,
+        ),
+        const SizedBox(width: 8),
+
+        // Share
+        _buildActionPill(
+          icon: Icons.share_outlined,
+          label: 'Share',
+          onTap: () {
+            Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
+          },
+        ),
+        const SizedBox(width: 8),
+
+        // Save
+        _buildActionPill(
+          icon: Icons.bookmark_add_outlined,
+          label: 'Save',
+          onTap: () {
+            if (_video != null) {
+              showAdaptiveBottomSheet(
+                context: context,
+                builder: (ctx) => VideoOptionsBottomSheet(video: _video!),
+              );
+            }
+          },
+        ),
+        const SizedBox(width: 8),
+
+        // YouTube
+        _buildActionPill(
+          icon: Icons.open_in_new,
+          label: 'YouTube',
+          onTap: _openInYouTubeApp,
         ),
       ],
     );
   }
 
-  // ── Metadata column (title → playlist) ──────────────────────────────────
-  List<Widget> _metadataChildren(BuildContext context) {
+  // ── Description Box ────────────────────────────────────────────────────────
+  Widget _buildDescriptionCard(BuildContext context) {
     final tokens = context.tokens;
-    final hasPlaylist = _playlist.isNotEmpty;
-    return [
-      // Video Title
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Text(
-          _video?.title ?? 'Loading video...',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            height: 1.25,
-          ),
-        ),
-      ),
-      const SizedBox(height: 6),
+    final description = _video?.description;
+    final hasDescription = description != null && description.isNotEmpty;
 
-      // View Count & Upload Date
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
+    return InkWell(
+      onTap: hasDescription
+          ? () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded)
+          : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: tokens.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${Formatters.formatViews(_video?.viewCount ?? 0)} views',
-              style: TextStyle(
-                color: tokens.onSurfaceMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (_video?.publishedAt != null) ...[
-              const SizedBox(width: 6),
-              Text(
-                '•  ${Formatters.formatTimeAgo(_video!.publishedAt)}',
-                style: TextStyle(
-                  color: tokens.onSurfaceMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '${Formatters.formatViews(_video?.viewCount ?? 0)} views',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
+                if (_video?.publishedAt != null)
+                  Text(
+                    '•  ${Formatters.formatTimeAgo(_video!.publishedAt)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                if (_video?.category != null && _video!.category!.isNotEmpty)
+                  Text(
+                    '•  ${_video!.category}',
+                    style: TextStyle(
+                      color: tokens.onSurfaceMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+            if (hasDescription) ...[
+              const SizedBox(height: 8),
+              Text(
+                description,
+                maxLines: _isDescriptionExpanded ? null : 3,
+                overflow: _isDescriptionExpanded ? null : TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: tokens.onSurface,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _isDescriptionExpanded ? 'Show less' : '...more',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ],
           ],
         ),
       ),
-      const SizedBox(height: 12),
-
-      // Channel Header Row
-      AnimatedBuilder(
-        animation: _channelService,
-        builder: (context, _) {
-          final isSubscribed = _video?.channelId.isNotEmpty == true &&
-              _channelService.subscribedChannelIds.contains(_video!.channelId);
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                ChannelAvatar(
-                  avatarUrl: _video?.channelAvatarUrl,
-                  channelTitle: _video?.channelTitle ?? 'Channel',
-                  radius: 19,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _video?.channelTitle ?? 'Channel',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                      if (_video?.subscriberCount != null)
-                        Text(
-                          '${Formatters.formatSubscribers(_video!.subscriberCount)} subscribers',
-                          style: TextStyle(
-                            color: tokens.onSurfaceMuted,
-                            fontSize: 11,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                // Subscribe Button
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isSubscribed
-                        ? tokens.surfaceVariant
-                        : tokens.onSurface,
-                    foregroundColor: isSubscribed
-                        ? tokens.onSurfaceMuted
-                        : tokens.surface,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  ),
-                  onPressed: () {
-                    if (_video?.channelId.isNotEmpty == true) {
-                      _channelService.toggleSubscribe(_video!.channelId);
-                    }
-                  },
-                  icon: isSubscribed
-                      ? const Icon(Icons.notifications_active, size: 16)
-                      : const Icon(Icons.add, size: 16),
-                  label: Text(
-                    isSubscribed ? 'Subscribed' : 'Subscribe',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-      const SizedBox(height: 12),
-
-      // Action Buttons Row
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
-          children: [
-            // Like / Dislike Pill
-            Container(
-              decoration: BoxDecoration(
-                color: tokens.surfaceVariant,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  InkWell(
-                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
-                    onTap: () {
-                      setState(() {
-                        _isLiked = !_isLiked;
-                        if (_isLiked) _isDisliked = false;
-                      });
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                            size: 16,
-                            color: _isLiked ? Theme.of(context).colorScheme.primary : null,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            _isLiked ? '1' : 'Like',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 18,
-                    color: tokens.surfaceBorder,
-                  ),
-                  InkWell(
-                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
-                    onTap: () {
-                      setState(() {
-                        _isDisliked = !_isDisliked;
-                        if (_isDisliked) _isLiked = false;
-                      });
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      child: Icon(
-                        _isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined,
-                        size: 16,
-                        color: _isDisliked ? Theme.of(context).colorScheme.error : null,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Clip Short (Up to 3 mins)
-            _buildActionPill(
-              icon: Icons.content_cut,
-              label: 'Clip',
-              onTap: _openShortsTrimmer,
-            ),
-            const SizedBox(width: 8),
-
-            // Share
-            _buildActionPill(
-              icon: Icons.share_outlined,
-              label: 'Share',
-              onTap: () {
-                Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
-              },
-            ),
-            const SizedBox(width: 8),
-
-            // Save
-            _buildActionPill(
-              icon: Icons.bookmark_add_outlined,
-              label: 'Save',
-              onTap: () {
-                if (_video != null) {
-                  showAdaptiveBottomSheet(
-                    context: context,
-                    builder: (ctx) => VideoOptionsBottomSheet(video: _video!),
-                  );
-                }
-              },
-            ),
-            const SizedBox(width: 8),
-
-            // Open in YouTube
-            _buildActionPill(
-              icon: Icons.open_in_new,
-              label: 'YouTube',
-              onTap: _openInYouTubeApp,
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 12),
-
-      // Expandable Description
-      if (_video?.description != null && _video!.description!.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: InkWell(
-            onTap: () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: tokens.surfaceVariant,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${Formatters.formatViews(_video?.viewCount ?? 0)} views  ${_video?.publishedAt != null ? Formatters.formatTimeAgo(_video!.publishedAt) : ""}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _video!.description!,
-                    maxLines: _isDescriptionExpanded ? null : 3,
-                    overflow: _isDescriptionExpanded ? null : TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.35,
-                      color: tokens.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _isDescriptionExpanded ? 'Show less' : '...more',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      const SizedBox(height: 14),
-
-      // Playlist Widget
-      if (hasPlaylist)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: YouTubePlaylistWidget(
-            title: widget.playlistTitle ?? 'Playlist',
-            playlist: _playlist,
-            currentIndex: _playlistIndex,
-            onSelectVideo: _selectVideoFromPlaylist,
-            onPrevious: _playPreviousInPlaylist,
-            onNext: _playNextInPlaylist,
-            loopMode: _loopMode,
-            onToggleLoop: (mode) => setState(() => _loopMode = mode),
-            isShuffle: _isShuffle,
-            onToggleShuffle: _toggleShuffle,
-            isAutoplay: _isAutoplay,
-            onToggleAutoplay: (val) => setState(() => _isAutoplay = val),
-          ),
-        ),
-    ];
+    );
   }
 
-  // ── Related column (Up Next) ────────────────────────────────────────────
+  // ── Playlist Widget ────────────────────────────────────────────────────────
+  Widget _buildPlaylistWidget(BuildContext context) {
+    return YouTubePlaylistWidget(
+      title: widget.playlistTitle ?? 'Playlist',
+      playlist: _playlist,
+      currentIndex: _playlistIndex,
+      onSelectVideo: _selectVideoFromPlaylist,
+      onPrevious: _playPreviousInPlaylist,
+      onNext: _playNextInPlaylist,
+      loopMode: _loopMode,
+      onToggleLoop: (mode) => setState(() => _loopMode = mode),
+      isShuffle: _isShuffle,
+      onToggleShuffle: _toggleShuffle,
+      isAutoplay: _isAutoplay,
+      onToggleAutoplay: (val) => setState(() => _isAutoplay = val),
+    );
+  }
+
+  // ── Up Next / Related Videos List ──────────────────────────────────────────
   List<Widget> _relatedChildren(BuildContext context) {
     final tokens = context.tokens;
     return [
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: Text(
           'Up Next',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 15,
+            fontSize: 16,
             color: tokens.onSurface,
           ),
         ),
@@ -703,9 +868,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         )
       else
         ..._relatedVideos.map((rv) => RecommendationVideoCard(
-          video: rv,
-          onTap: () => _navigateToVideo(rv),
-        )),
+              video: rv,
+              onTap: () => _navigateToVideo(rv),
+            )),
     ];
   }
 
@@ -728,7 +893,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           children: [
             Icon(icon, size: 16),
             const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(label,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
