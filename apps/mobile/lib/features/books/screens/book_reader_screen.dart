@@ -44,7 +44,7 @@ class BookReaderScreen extends StatefulWidget {
 
 class _BookReaderScreenState extends State<BookReaderScreen> {
   final BookService _bookService = BookService.instance;
-  late final PageController _pageController;
+  late final ScrollController _scrollController;
 
   Book? _book;
   List<BookChapter> _chapters = [];
@@ -52,13 +52,22 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
   int _currentPage = 1;
   bool _showChrome = true;
 
+  // Infinite scroll two-way pagination state
+  late int _centerPage;
+  late Key _centerKey;
+  final List<int> _prevPages = []; // Pages before center (ordered from center-1 backwards)
+  final List<int> _nextPages = []; // Pages at and after center (ordered from center forwards)
+  final Map<int, GlobalKey> _pageKeys = {};
+  bool _isLoadingDown = false;
+  bool _isLoadingUp = false;
+
   // Reading appearance settings
   double _fontSize = 17.0;
   final double _lineHeight = 1.65;
   bool _useSerifFont = true;
   ReaderThemeMode _themeMode = ReaderThemeMode.system;
 
-  // In-memory page & highlight cache for instantaneous page flips
+  // In-memory page & highlight cache for instantaneous rendering
   final Map<int, List<BookLine>> _pageCache = {};
   final Map<int, List<BookHighlight>> _highlightCache = {};
 
@@ -66,15 +75,108 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
   void initState() {
     super.initState();
     _currentPage = widget.initialPage ?? 1;
-    _pageController = PageController(initialPage: _currentPage - 1);
+    _centerPage = _currentPage;
+    _centerKey = UniqueKey();
+    _nextPages.add(_centerPage);
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
     _loadBook();
   }
 
   @override
   void dispose() {
     _saveProgress();
-    _pageController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+
+    // 1. Infinite scroll DOWN: load next pages when near bottom
+    if (pos.pixels >= pos.maxScrollExtent - 800) {
+      _loadMorePagesDown();
+    }
+
+    // 2. Infinite scroll UP: load previous pages when near top
+    if (pos.pixels <= pos.minScrollExtent + 600) {
+      _loadMorePagesUp();
+    }
+
+    // 3. Track currently visible page in viewport
+    _updateVisiblePage();
+  }
+
+  void _updateVisiblePage() {
+    final allPages = <int>[];
+    for (int i = _prevPages.length - 1; i >= 0; i--) {
+      allPages.add(_prevPages[i]);
+    }
+    allPages.addAll(_nextPages);
+
+    for (final p in allPages) {
+      final key = _pageKeys[p];
+      final ctx = key?.currentContext;
+      if (ctx != null) {
+        final box = ctx.findRenderObject() as RenderBox?;
+        if (box != null && box.hasSize) {
+          final top = box.localToGlobal(Offset.zero).dy;
+          final bottom = top + box.size.height;
+          if (top <= 300 && bottom >= 100) {
+            if (_currentPage != p) {
+              setState(() => _currentPage = p);
+              _saveProgress();
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _loadMorePagesDown() async {
+    if (_isLoadingDown || _book == null) return;
+    final maxPage = _book!.totalPages;
+    final currentLast = _nextPages.isNotEmpty ? _nextPages.last : _centerPage;
+    if (currentLast >= maxPage) return;
+
+    _isLoadingDown = true;
+    final p1 = currentLast + 1;
+    final p2 = p1 + 1 <= maxPage ? p1 + 1 : null;
+
+    await _fetchPageLines(p1);
+    if (p2 != null) await _fetchPageLines(p2);
+
+    if (mounted) {
+      setState(() {
+        _nextPages.add(p1);
+        if (p2 != null) _nextPages.add(p2);
+        _isLoadingDown = false;
+      });
+    }
+  }
+
+  Future<void> _loadMorePagesUp() async {
+    if (_isLoadingUp || _book == null) return;
+    final currentFirst = _prevPages.isNotEmpty ? _prevPages.last : _centerPage;
+    if (currentFirst <= 1) return;
+
+    _isLoadingUp = true;
+    final p1 = currentFirst - 1;
+    final p2 = p1 - 1 >= 1 ? p1 - 1 : null;
+
+    await _fetchPageLines(p1);
+    if (p2 != null) await _fetchPageLines(p2);
+
+    if (mounted) {
+      setState(() {
+        _prevPages.add(p1);
+        if (p2 != null) _prevPages.add(p2);
+        _isLoadingUp = false;
+      });
+    }
   }
 
   Future<void> _loadBook() async {
@@ -82,6 +184,24 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     final chapters = await _bookService.getChapters(widget.bookId);
 
     if (book != null) {
+      final initial = widget.initialPage ?? 1;
+      _centerPage = initial;
+      _centerKey = UniqueKey();
+      _currentPage = initial;
+
+      _prevPages.clear();
+      if (initial > 1) {
+        _prevPages.add(initial - 1);
+        if (initial > 2) _prevPages.add(initial - 2);
+      }
+
+      _nextPages.clear();
+      _nextPages.add(initial);
+      if (initial < book.totalPages) {
+        _nextPages.add(initial + 1);
+        if (initial + 1 < book.totalPages) _nextPages.add(initial + 2);
+      }
+
       if (mounted) {
         setState(() {
           _book = book;
@@ -89,10 +209,29 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
           _isLoading = false;
         });
       }
-      // Pre-warm the current and surrounding pages
-      await _fetchPageLines(_currentPage);
-      if (_currentPage > 1) _fetchPageLines(_currentPage - 1);
-      if (_currentPage < book.totalPages) _fetchPageLines(_currentPage + 1);
+
+      // Pre-warm center and adjacent pages
+      await _fetchPageLines(_centerPage);
+      for (final p in _prevPages) {
+        _fetchPageLines(p);
+      }
+      for (final p in _nextPages) {
+        _fetchPageLines(p);
+      }
+
+      if (widget.highlightStartLine != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final key = _pageKeys[initial];
+          final ctx = key?.currentContext;
+          if (ctx != null) {
+            Scrollable.ensureVisible(
+              ctx,
+              duration: const Duration(milliseconds: 400),
+              alignment: 0.1,
+            );
+          }
+        });
+      }
     } else {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -108,29 +247,53 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     return lines;
   }
 
-  void _onPageChanged(int pageIndex) {
-    final newPage = pageIndex + 1;
-    setState(() {
-      _currentPage = newPage;
-    });
-
-    _saveProgress();
-
-    // Pre-cache adjacent pages
-    if (_book != null) {
-      if (newPage > 1 && !_pageCache.containsKey(newPage - 1)) {
-        _fetchPageLines(newPage - 1);
-      }
-      if (newPage < _book!.totalPages && !_pageCache.containsKey(newPage + 1)) {
-        _fetchPageLines(newPage + 1);
-      }
-    }
-  }
-
-  void _jumpToPage(int page) {
+  Future<void> _jumpToPage(int page) async {
     if (_book == null) return;
     final targetPage = page.clamp(1, _book!.totalPages);
-    _pageController.jumpToPage(targetPage - 1);
+
+    final key = _pageKeys[targetPage];
+    final ctx = key?.currentContext;
+    if (ctx != null) {
+      await Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+        alignment: 0.0,
+      );
+      setState(() => _currentPage = targetPage);
+      _saveProgress();
+      return;
+    }
+
+    setState(() {
+      _centerPage = targetPage;
+      _centerKey = UniqueKey();
+      _prevPages.clear();
+      if (targetPage > 1) {
+        _prevPages.add(targetPage - 1);
+        if (targetPage > 2) _prevPages.add(targetPage - 2);
+      }
+      _nextPages.clear();
+      _nextPages.add(targetPage);
+      if (targetPage < _book!.totalPages) {
+        _nextPages.add(targetPage + 1);
+        if (targetPage + 1 < _book!.totalPages) _nextPages.add(targetPage + 2);
+      }
+      _currentPage = targetPage;
+    });
+
+    await _fetchPageLines(targetPage);
+    for (final p in _prevPages) {
+      _fetchPageLines(p);
+    }
+    for (final p in _nextPages) {
+      _fetchPageLines(p);
+    }
+
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+    _saveProgress();
   }
 
   void _saveProgress() {
@@ -498,75 +661,150 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     }
   }
 
-  Widget _buildPageView(AppTokens tokens) {
-    final totalPages = _book?.totalPages ?? 1;
+  Widget _buildInfiniteScrollView(AppTokens tokens) {
+    final textColor = _readerTextColor(context);
 
-    return PageView.builder(
-      controller: _pageController,
-      itemCount: totalPages,
-      onPageChanged: _onPageChanged,
-      itemBuilder: (context, index) {
-        final pageNum = index + 1;
-        final lines = _pageCache[pageNum];
+    return GestureDetector(
+      onTap: () => setState(() => _showChrome = !_showChrome),
+      behavior: HitTestBehavior.opaque,
+      child: SelectionArea(
+        contextMenuBuilder: (context, selectableRegionState) {
+          final val = selectableRegionState.textEditingValue;
+          final selectedText = (val.selection.isValid && !val.selection.isCollapsed)
+              ? val.selection.textInside(val.text).trim()
+              : val.text.trim();
 
-        if (lines == null) {
-          _fetchPageLines(pageNum);
-          return const Center(child: CircularProgressIndicator());
-        }
+          return AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: selectableRegionState.contextMenuAnchors,
+            buttonItems: [
+              ContextMenuButtonItem(
+                label: 'Highlight',
+                onPressed: () {
+                  selectableRegionState.hideToolbar();
+                  _createHighlight(selectedText, 0);
+                },
+              ),
+              ContextMenuButtonItem(
+                label: 'Define',
+                onPressed: () {
+                  selectableRegionState.hideToolbar();
+                  final lookupWord = selectedText.split(RegExp(r'\s+')).length <= 3
+                      ? selectedText
+                      : selectedText.split(RegExp(r'\s+')).first;
+                  InlineDictionaryPopover.show(context, word: lookupWord);
+                },
+              ),
+              ContextMenuButtonItem(
+                label: 'Copy',
+                onPressed: () {
+                  selectableRegionState.copySelection(SelectionChangedCause.toolbar);
+                },
+              ),
+            ],
+          );
+        },
+        child: CustomScrollView(
+          controller: _scrollController,
+          center: _centerKey,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // Upward infinite scroll (previous pages)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final pageNum = _prevPages[index];
+                    return _buildPageSection(pageNum, tokens, textColor);
+                  },
+                  childCount: _prevPages.length,
+                ),
+              ),
+            ),
 
-        final textColor = _readerTextColor(context);
+            // Downward infinite scroll (center and subsequent pages)
+            SliverPadding(
+              key: _centerKey,
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final pageNum = _nextPages[index];
+                    return _buildPageSection(pageNum, tokens, textColor);
+                  },
+                  childCount: _nextPages.length,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-        return GestureDetector(
-          onTap: () => setState(() => _showChrome = !_showChrome),
-          behavior: HitTestBehavior.opaque,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-            child: SelectionArea(
-              contextMenuBuilder: (context, selectableRegionState) {
-                final val = selectableRegionState.textEditingValue;
-                final selectedText = (val.selection.isValid && !val.selection.isCollapsed)
-                    ? val.selection.textInside(val.text).trim()
-                    : val.text.trim();
+  Widget _buildPageSection(int pageNum, AppTokens tokens, Color textColor) {
+    final lines = _pageCache[pageNum];
 
-                return AdaptiveTextSelectionToolbar.buttonItems(
-                  anchors: selectableRegionState.contextMenuAnchors,
-                  buttonItems: [
-                    ContextMenuButtonItem(
-                      label: 'Highlight',
-                      onPressed: () {
-                        selectableRegionState.hideToolbar();
-                        _createHighlight(selectedText, 0);
-                      },
-                    ),
-                    ContextMenuButtonItem(
-                      label: 'Define',
-                      onPressed: () {
-                        selectableRegionState.hideToolbar();
-                        final lookupWord = selectedText.split(RegExp(r'\s+')).length <= 3
-                            ? selectedText
-                            : selectedText.split(RegExp(r'\s+')).first;
-                        InlineDictionaryPopover.show(context, word: lookupWord);
-                      },
-                    ),
-                    ContextMenuButtonItem(
-                      label: 'Copy',
-                      onPressed: () {
-                        selectableRegionState.copySelection(SelectionChangedCause.toolbar);
-                      },
-                    ),
-                  ],
-                );
-              },
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: BookParagraphGrouper.groupLines(lines)
-                    .map((b) => _buildBlockWidget(b, pageNum, textColor, tokens))
-                    .toList(),
+    if (lines == null) {
+      _fetchPageLines(pageNum);
+      return Container(
+        key: _pageKeys[pageNum] ??= GlobalKey(),
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(color: tokens.accent, strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    final blocks = BookParagraphGrouper.groupLines(lines);
+
+    return Container(
+      key: _pageKeys[pageNum] ??= GlobalKey(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (pageNum > 1) _buildPageDivider(pageNum, tokens),
+          ...blocks.map((b) => _buildBlockWidget(b, pageNum, textColor, tokens)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageDivider(int pageNumber, AppTokens tokens) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 0.8,
+              color: tokens.surfaceBorder.withValues(alpha: 0.6),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Text(
+              'Page $pageNumber of ${_book?.totalPages ?? ""}',
+              style: TextStyle(
+                color: tokens.onSurfaceMuted,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
               ),
             ),
           ),
-        );
-      },
+          Expanded(
+            child: Container(
+              height: 0.8,
+              color: tokens.surfaceBorder.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -786,7 +1024,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
                 ? Center(
                     child: Text('Book not found', style: TextStyle(color: tokens.onSurfaceMuted)),
                   )
-                : _buildPageView(tokens),
+                : _buildInfiniteScrollView(tokens),
       ),
       bottomNavigationBar: _showChrome && _book != null
           ? Container(
