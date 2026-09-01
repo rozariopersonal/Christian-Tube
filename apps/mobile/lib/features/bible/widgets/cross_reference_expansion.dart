@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
-import '../../../core/layout/adaptivity.dart';
 import '../models/cross_reference.dart';
 import 'cross_reference_card.dart';
 
 /// The inline expandable cross-reference section shown below a verse.
 ///
-/// Caps the visible cards by screen size (compact 6, medium 8, expanded 10)
-/// with a "Show all N" / "Show fewer" toggle. Owns its own truncated-vs-full
-/// state so the parent (a `ListView` item) only has to mount/unmount it —
-/// the item count never changes, only the height of this widget.
-class CrossReferenceExpansion extends StatefulWidget {
+/// Used for verses with at most two references (the reader routes verses with
+/// more than two to the dedicated [CrossReferencesScreen] instead). Renders
+/// each reference as a compact card; if it is ever handed more than two, it
+/// shows a "View all" affordance so the rest are never hidden.
+class CrossReferenceExpansion extends StatelessWidget {
   final List<CrossReference> references;
   final Map<String, String> resolvedTexts;
   final double baseFontSize;
+  final VoidCallback? onViewAll;
   final void Function(CrossReference) onTapReference;
 
   const CrossReferenceExpansion({
@@ -21,37 +21,15 @@ class CrossReferenceExpansion extends StatefulWidget {
     required this.references,
     required this.resolvedTexts,
     required this.baseFontSize,
+    this.onViewAll,
     required this.onTapReference,
   });
 
   @override
-  State<CrossReferenceExpansion> createState() =>
-      _CrossReferenceExpansionState();
-}
-
-class _CrossReferenceExpansionState extends State<CrossReferenceExpansion> {
-  bool _showAll = false;
-
-  int get _maxVisible {
-    switch (ScreenClass.of(context)) {
-      case ScreenClass.compact:
-        return 6;
-      case ScreenClass.medium:
-        return 8;
-      case ScreenClass.expanded:
-        return 10;
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final references = widget.references;
-    final maxVisible = _maxVisible;
-    final hasMore = references.length > maxVisible;
-    final visible = hasMore && !_showAll
-        ? references.sublist(0, maxVisible)
-        : references;
+    final visible =
+        references.length > 2 ? references.sublist(0, 2) : references;
 
     return RepaintBoundary(
       child: Padding(
@@ -63,14 +41,14 @@ class _CrossReferenceExpansionState extends State<CrossReferenceExpansion> {
             for (final ref in visible)
               CrossReferenceCard(
                 reference: ref,
-                text: widget.resolvedTexts[ref.textKey],
-                fontSize: widget.baseFontSize,
-                onTap: () => widget.onTapReference(ref),
+                text: resolvedTexts[ref.textKey],
+                fontSize: baseFontSize,
+                onTap: () => onTapReference(ref),
               ),
-            if (hasMore) ...[
+            if (references.length > 2) ...[
               const SizedBox(height: 2),
               InkWell(
-                onTap: () => setState(() => _showAll = !_showAll),
+                onTap: onViewAll,
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
                   padding:
@@ -79,9 +57,7 @@ class _CrossReferenceExpansionState extends State<CrossReferenceExpansion> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        _showAll
-                            ? 'Show fewer'
-                            : 'Show all ${references.length} references',
+                        'View all ${references.length} references',
                         style: TextStyle(
                           color: tokens.accent,
                           fontSize: 13,
@@ -89,9 +65,7 @@ class _CrossReferenceExpansionState extends State<CrossReferenceExpansion> {
                         ),
                       ),
                       Icon(
-                        _showAll
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
+                        Icons.chevron_right,
                         size: 16,
                         color: tokens.accent,
                       ),

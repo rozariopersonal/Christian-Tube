@@ -13,6 +13,7 @@ import '../widgets/reading_settings_sheet.dart';
 import '../widgets/verse_action_bar.dart';
 import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
+import '../screens/cross_references_screen.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
 import '../models/bible_verse.dart';
@@ -278,11 +279,15 @@ class _BibleScreenState extends State<BibleScreen> {
   /// Loads cross-references for the chapter identified by [bookNumber] and
   /// [chapter], resolves their verse text in the selected version, and applies
   /// the results to the current reader state.
+  ///
+  /// When the bundled dataset is not installed, [CrossReferenceService] falls
+  /// back to fetching the chapter on demand from the online `open-cross-ref`
+  /// API so references still appear without the large download.
   Future<void> _loadCrossReferencesForChapter(
     int bookNumber,
     int chapter,
   ) async {
-    if (!_crossRefsInstalled || _selectedVersion == null) return;
+    if (_selectedVersion == null) return;
     final isNewChapter =
         bookNumber != _crossRefBookNumber || chapter != _crossRefChapter;
     if (_crossRefsLoading && isNewChapter) return;
@@ -290,8 +295,13 @@ class _BibleScreenState extends State<BibleScreen> {
     setState(() => _crossRefsLoading = true);
     Map<int, List<CrossReference>> chapterRefs;
     try {
-      chapterRefs =
-          await _crossRefService.getForChapter(bookNumber, chapter);
+      chapterRefs = await _crossRefService.getForChapter(
+        bookNumber,
+        chapter,
+        // When installed, the local copy is authoritative (identical data);
+        // otherwise pull the chapter from the network on demand.
+        allowOnline: !_crossRefsInstalled,
+      );
     } catch (_) {
       chapterRefs = {};
     }
@@ -342,10 +352,14 @@ class _BibleScreenState extends State<BibleScreen> {
         );
       }).toList();
 
-      // Auto-expand every verse that has references when the user has the
-      // "expand all" preference on.
+      // Auto-expand verses with references when the user has the "expand all"
+      // preference on. Verses with more than two references are left as a
+      // badge that opens the dedicated references page, so they stay collapsed
+      // here even with the preference enabled.
       if (_settings.expandCrossReferences) {
-        _expandedCrossRefVerses.addAll(chapterRefs.keys);
+        _expandedCrossRefVerses.addAll(
+          chapterRefs.keys.where((v) => (chapterRefs[v]?.length ?? 0) <= 2),
+        );
       }
       _crossRefsLoading = false;
     });
@@ -472,36 +486,36 @@ class _BibleScreenState extends State<BibleScreen> {
     final newVerses =
         _buildChapterVerses(primaryMap, _selectedVersion!.shortname);
 
-    // Load cross-references for the appended chapter (if installed) so the
-    // new verses show badges / expansions too. Merge into the existing map so
-    // previously-loaded chapters keep their data.
+    // Load cross-references for the appended chapter (locally installed or
+    // fetched on demand online) so the new verses show badges / expansions.
     Map<int, List<CrossReference>> nextRefs = {};
     Map<String, String> nextTexts = {};
-    if (_crossRefsInstalled) {
+    try {
+      nextRefs = await _crossRefService.getForChapter(
+        _bookNumber(nextBook),
+        nextChapter,
+        allowOnline: !_crossRefsInstalled,
+      );
+    } catch (_) {
+      nextRefs = {};
+    }
+    final passages = <(int, int, int, int?)>[];
+    final seen = <String>{};
+    for (final refs in nextRefs.values) {
+      for (final ref in refs) {
+        if (seen.add(ref.textKey)) {
+          passages.add((ref.bookNumber, ref.chapter, ref.verse, ref.endVerse));
+        }
+      }
+    }
+    if (passages.isNotEmpty) {
       try {
-        nextRefs = await _crossRefService.getForChapter(
-            _bookNumber(nextBook), nextChapter);
+        nextTexts = await _localBibleService.resolvePassages(
+          versionId: _selectedVersion!.shortname,
+          passages: passages,
+        );
       } catch (_) {
-        nextRefs = {};
-      }
-      final passages = <(int, int, int, int?)>[];
-      final seen = <String>{};
-      for (final refs in nextRefs.values) {
-        for (final ref in refs) {
-          if (seen.add(ref.textKey)) {
-            passages.add((ref.bookNumber, ref.chapter, ref.verse, ref.endVerse));
-          }
-        }
-      }
-      if (passages.isNotEmpty) {
-        try {
-          nextTexts = await _localBibleService.resolvePassages(
-            versionId: _selectedVersion!.shortname,
-            passages: passages,
-          );
-        } catch (_) {
-          nextTexts = {};
-        }
+        nextTexts = {};
       }
     }
 
@@ -526,7 +540,10 @@ class _BibleScreenState extends State<BibleScreen> {
           _chapterCrossRefs.addAll(nextRefs);
           _crossRefTexts.addAll(nextTexts);
           if (_settings.expandCrossReferences) {
-            _expandedCrossRefVerses.addAll(nextRefs.keys);
+            _expandedCrossRefVerses.addAll(
+              nextRefs.keys
+                  .where((v) => (nextRefs[v]?.length ?? 0) <= 2),
+            );
           }
         }
 
@@ -604,6 +621,8 @@ class _BibleScreenState extends State<BibleScreen> {
   Widget _buildEmptyState() {
     final isDownloading = _downloadManager.isDownloading(
         BibleDownloadManager.defaultVersionId);
+    final indeterminate = _downloadManager.isIndeterminate(
+        BibleDownloadManager.defaultVersionId);
     final progress = _downloadManager.getProgress(
         BibleDownloadManager.defaultVersionId);
 
@@ -614,8 +633,17 @@ class _BibleScreenState extends State<BibleScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: indeterminate ? null : progress,
+                    minHeight: 4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               Text(
                 'Downloading the Tamil Bible (${BibleDownloadManager.defaultVersionId})…',
                 textAlign: TextAlign.center,
@@ -625,7 +653,9 @@ class _BibleScreenState extends State<BibleScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '${(progress * 100).toStringAsFixed(0)}%',
+                indeterminate
+                    ? 'Downloading…'
+                    : '${(progress * 100).toStringAsFixed(0)}%',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 12,
@@ -679,12 +709,17 @@ class _BibleScreenState extends State<BibleScreen> {
             settings: _settings,
             onSettingsChanged: (newSettings) {
               // Re-apply auto-expansion when the toggle flips: turning it on
-              // expands every verse that has refs; turning it off collapses all.
+              // expands every verse that has up to two refs (larger sets stay
+              // as badges that open the dedicated references page); turning it
+              // off collapses all.
               if (newSettings.expandCrossReferences !=
                   _settings.expandCrossReferences) {
                 setState(() {
                   if (newSettings.expandCrossReferences) {
-                    _expandedCrossRefVerses.addAll(_chapterCrossRefs.keys);
+                    _expandedCrossRefVerses.addAll(
+                      _chapterCrossRefs.keys
+                          .where((v) => (_chapterCrossRefs[v]?.length ?? 0) <= 2),
+                    );
                   } else {
                     _expandedCrossRefVerses.clear();
                   }
@@ -878,12 +913,47 @@ class _BibleScreenState extends State<BibleScreen> {
       isHighlighted: _highlightedVerse == verse.number,
       fontSize: _settings.fontSize,
       onVerseTap: () => _toggleVerseSelection(verse.number),
-      showCrossReferences: _crossRefsInstalled,
+      showCrossReferences: true,
       crossRefsExpanded: _expandedCrossRefVerses.contains(verse.number),
       crossReferences: _chapterCrossRefs[verse.number] ?? const [],
       resolvedTexts: _crossRefTexts,
-      onBadgeTap: () => _toggleCrossRefExpansion(verse.number),
+      onBadgeTap: () => _onCrossRefBadgeTap(verse.number),
       onReferenceTap: _onReferenceTap,
+      onReviewPageOpen: () => _openCrossReferencesScreen(verse.number),
+    );
+  }
+
+  /// Routes a cross-reference badge tap. Verses with more than two references
+  /// open the dedicated references page; smaller sets toggle inline expansion.
+  void _onCrossRefBadgeTap(int verseNumber) {
+    final count = _chapterCrossRefs[verseNumber]?.length ?? 0;
+    if (count > 2) {
+      _openCrossReferencesScreen(verseNumber);
+    } else {
+      _toggleCrossRefExpansion(verseNumber);
+    }
+  }
+
+  /// Opens the dedicated cross-references screen for a single verse, showing
+  /// every reference (used when a verse has more than two). Navigating to a
+  /// reference from there reuses the standard reader jump.
+  void _openCrossReferencesScreen(int verseNumber) {
+    final verse = _verses.firstWhere(
+      (v) => v.number == verseNumber,
+      orElse: () => _verses.first,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CrossReferencesScreen(
+          verseText: verse.text,
+          verseLabel:
+              '${_displayBookName(_currentBook)} $_currentChapter:$verseNumber',
+          references: _chapterCrossRefs[verseNumber] ?? const [],
+          resolvedTexts: _crossRefTexts,
+          baseFontSize: _settings.fontSize,
+          onTapReference: _onReferenceTap,
+        ),
+      ),
     );
   }
 

@@ -20,6 +20,9 @@ class BibleDownloadManager extends ChangeNotifier {
   final LocalBibleService _localBible = LocalBibleService();
 
   final Map<String, double> _downloadProgress = {};
+  // Versions whose download does not advertise a total byte count (so the bar
+  // must render indeterminate instead of a frozen 0-progress bar).
+  final Set<String> _indeterminateIds = {};
   final Set<String> _downloadingIds = {};
   // Bibles are downloaded on demand from the releases repo; nothing ships in
   // the app bundle.
@@ -65,7 +68,8 @@ class BibleDownloadManager extends ChangeNotifier {
       language: 'English',
       languageCode: 'en',
       sizeDisplay: '4.1 MB',
-      description: 'Ultra-literal 1898 translation that preserves the word order of the originals.',
+      description:
+          'Ultra-literal 1898 translation that preserves the word order of the originals.',
     ),
     BibleVersionMeta(
       id: 'WB',
@@ -73,7 +77,8 @@ class BibleDownloadManager extends ChangeNotifier {
       language: 'English',
       languageCode: 'en',
       sizeDisplay: '4.0 MB',
-      description: 'Noah Webster\'s 1833 revision of the King James with modernized grammar.',
+      description:
+          'Noah Webster\'s 1833 revision of the King James with modernized grammar.',
     ),
 
     // German
@@ -285,7 +290,8 @@ class BibleDownloadManager extends ChangeNotifier {
       language: 'Tamil',
       languageCode: 'tam',
       sizeDisplay: '1.5 MB',
-      description: 'The classic Bower revision standard Tamil Bible used across Tamil churches.',
+      description:
+          'The classic Bower revision standard Tamil Bible used across Tamil churches.',
       isDefaultBundled: true,
     ),
 
@@ -296,7 +302,8 @@ class BibleDownloadManager extends ChangeNotifier {
       language: 'Malayalam',
       languageCode: 'mal',
       sizeDisplay: '1.5 MB',
-      description: 'Indian Revised Version in Malayalam, faithful to original texts.',
+      description:
+          'Indian Revised Version in Malayalam, faithful to original texts.',
     ),
 
     // Telugu
@@ -306,7 +313,8 @@ class BibleDownloadManager extends ChangeNotifier {
       language: 'Telugu',
       languageCode: 'tel',
       sizeDisplay: '1.5 MB',
-      description: 'Indian Revised Version in Telugu with clear devotional phrasing.',
+      description:
+          'Indian Revised Version in Telugu with clear devotional phrasing.',
     ),
 
     // Kannada
@@ -345,6 +353,11 @@ class BibleDownloadManager extends ChangeNotifier {
   bool isInstalled(String versionId) => _installedIds.contains(versionId);
   bool isDownloading(String versionId) => _downloadingIds.contains(versionId);
   double getProgress(String versionId) => _downloadProgress[versionId] ?? 0.0;
+
+  /// True when the running download for [versionId] has no known total byte
+  /// count, so the UI must show an indeterminate progress bar.
+  bool isIndeterminate(String versionId) =>
+      _indeterminateIds.contains(versionId);
 
   Future<void> refreshInstalledList() async {
     final ids = await _localBible.getInstalledVersionIds();
@@ -409,18 +422,23 @@ class BibleDownloadManager extends ChangeNotifier {
     } finally {
       _downloadingIds.remove(meta.id);
       _downloadProgress.remove(meta.id);
+      _indeterminateIds.remove(meta.id);
       notifyListeners();
     }
   }
 
   Future<bool> _downloadVersionText(BibleVersionMeta meta) async {
     final tempDir = await getTemporaryDirectory();
-    final filePath =
-        p.join(tempDir.path, 'bible_${meta.id.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.json');
-    final urls = ReleaseAssets.urlsFor('bibles/bible_${meta.id.toLowerCase()}.json');
+    final filePath = p.join(tempDir.path,
+        'bible_${meta.id.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.json');
+    final urls =
+        ReleaseAssets.urlsFor('bibles/bible_${meta.id.toLowerCase()}.json');
     final dio = Dio();
     var downloaded = false;
     for (final url in urls) {
+      _downloadProgress[meta.id] = 0.0;
+      _indeterminateIds.add(meta.id);
+      notifyListeners();
       try {
         await dio.download(
           url,
@@ -430,13 +448,22 @@ class BibleDownloadManager extends ChangeNotifier {
             receiveTimeout: const Duration(minutes: 5),
           ),
           onReceiveProgress: (received, total) {
-            if (total != -1) {
+            if (total != -1 && total > 0) {
+              // The server told us the total size -> determinate progress.
+              _indeterminateIds.remove(meta.id);
               _downloadProgress[meta.id] = received / total;
-              notifyListeners();
+            } else {
+              // Unknown total (chunked/no content-length) -> keep the bar in
+              // an animated indeterminate state so progress is always visible.
+              _indeterminateIds.add(meta.id);
             }
+            notifyListeners();
           },
         );
         downloaded = true;
+        _indeterminateIds.remove(meta.id);
+        _downloadProgress[meta.id] = 1.0;
+        notifyListeners();
         break;
       } catch (e) {
         debugPrint('Failed to download ${meta.id} from $url: $e');
@@ -448,8 +475,8 @@ class BibleDownloadManager extends ChangeNotifier {
       final jsonStr = await File(filePath).readAsString();
       await File(filePath).delete();
 
-      final books =
-          (jsonDecode(jsonStr) as Map<String, dynamic>)['books'] as List<dynamic>;
+      final books = (jsonDecode(jsonStr) as Map<String, dynamic>)['books']
+          as List<dynamic>;
       final verses = <Map<String, dynamic>>[];
       for (final rawBook in books) {
         final book = rawBook as Map<String, dynamic>;

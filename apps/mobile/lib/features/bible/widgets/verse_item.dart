@@ -13,8 +13,11 @@ import 'cross_reference_expansion.dart';
 /// list entry), the `ListView`'s item count stays constant regardless of how
 /// many verses are expanded — no scroll jumps, no builder thrash.
 ///
-/// All cross-reference UI is hidden when [showCrossReferences] is false (e.g.
-/// data not installed) or when `verse.crossReferenceCount == 0`.
+/// Cross-reference routing rules:
+/// - zero references: no badge, no expansion.
+/// - 1–2 references: tapping the badge toggles a small inline expansion.
+/// - more than two references: tapping the badge opens the dedicated
+///   cross-references page (routed by [onReviewPageOpen]).
 class VerseItem extends StatelessWidget {
   final BibleVerse verse;
   final bool isSelected;
@@ -22,8 +25,8 @@ class VerseItem extends StatelessWidget {
   final VoidCallback? onVerseTap;
   final double fontSize;
 
-  /// Whether the embedded cross-reference UI is available at all (data
-  /// installed on device).
+  /// Whether the cross-reference UI is available at all (data available on
+  /// device or via the online fallback).
   final bool showCrossReferences;
 
   /// Whether this verse's cross-reference section is currently expanded.
@@ -38,6 +41,10 @@ class VerseItem extends StatelessWidget {
   final VoidCallback? onBadgeTap;
   final void Function(CrossReference)? onReferenceTap;
 
+  /// Invoked when a verse with more than two references wants to open its
+  /// dedicated cross-references page.
+  final VoidCallback? onReviewPageOpen;
+
   const VerseItem({
     super.key,
     required this.verse,
@@ -51,12 +58,16 @@ class VerseItem extends StatelessWidget {
     this.resolvedTexts = const {},
     this.onBadgeTap,
     this.onReferenceTap,
+    this.onReviewPageOpen,
   });
 
   @override
   Widget build(BuildContext context) {
-    final renderCrossRefs =
-        showCrossReferences && verse.crossReferenceCount > 0;
+    final count = verse.crossReferenceCount;
+    final renderCrossRefs = showCrossReferences && count > 0;
+    // Verses with more than two references route to a full page rather than an
+    // inline expansion; their badge stays in "view all" mode.
+    final openReviewPage = count > 2;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,23 +82,26 @@ class VerseItem extends StatelessWidget {
         ),
         if (renderCrossRefs) ...[
           CrossReferenceBadge(
-            count: verse.crossReferenceCount,
-            expanded: crossRefsExpanded,
+            count: count,
+            expanded: crossRefsExpanded && !openReviewPage,
+            openPage: openReviewPage,
             onTap: onBadgeTap ?? () {},
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut,
-            alignment: Alignment.topCenter,
-            child: crossRefsExpanded
-                ? CrossReferenceExpansion(
-                    references: crossReferences,
-                    resolvedTexts: resolvedTexts,
-                    baseFontSize: fontSize,
-                    onTapReference: onReferenceTap ?? (_) {},
-                  )
-                : const SizedBox.shrink(),
-          ),
+          if (!openReviewPage)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: crossRefsExpanded
+                  ? CrossReferenceExpansion(
+                      references: crossReferences,
+                      resolvedTexts: resolvedTexts,
+                      baseFontSize: fontSize,
+                      onViewAll: onReviewPageOpen,
+                      onTapReference: onReferenceTap ?? (_) {},
+                    )
+                  : const SizedBox.shrink(),
+            ),
         ],
       ],
     );

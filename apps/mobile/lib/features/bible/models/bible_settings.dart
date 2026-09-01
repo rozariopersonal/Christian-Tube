@@ -3,9 +3,10 @@ class BibleSettings {
   final double lineHeight;
   final bool isDarkMode;
 
-  /// When true, cross-references are auto-expanded for every verse that has
-  /// them (the default). When false, the reader shows only a small badge and
-  /// the user taps it to expand individual verses.
+  /// When true, cross-references are auto-expanded inline for every verse that
+  /// has 1–2 of them (verses with more open a dedicated page). When false (the
+  /// default), the reader shows only a small badge and the user taps it to
+  /// reveal references.
   final bool expandCrossReferences;
 
   // Reading progress (last visited location).
@@ -17,7 +18,7 @@ class BibleSettings {
     this.fontSize = 18.0,
     this.lineHeight = 1.6,
     this.isDarkMode = false,
-    this.expandCrossReferences = true,
+    this.expandCrossReferences = false,
     this.lastVersion,
     this.lastBook,
     this.lastChapter = 1,
@@ -38,7 +39,8 @@ class BibleSettings {
       fontSize: fontSize ?? this.fontSize,
       lineHeight: lineHeight ?? this.lineHeight,
       isDarkMode: isDarkMode ?? this.isDarkMode,
-      expandCrossReferences: expandCrossReferences ?? this.expandCrossReferences,
+      expandCrossReferences:
+          expandCrossReferences ?? this.expandCrossReferences,
       lastVersion: lastVersion ?? this.lastVersion,
       lastBook: lastBook ?? this.lastBook,
       lastChapter: lastChapter ?? this.lastChapter,

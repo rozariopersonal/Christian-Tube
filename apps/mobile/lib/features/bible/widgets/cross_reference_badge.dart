@@ -4,18 +4,22 @@ import '../../../core/layout/adaptivity.dart';
 
 /// A small tappable chip shown below a verse when it has cross-references.
 ///
-/// Displayed only when the verse has at least one reference and the reader has
-/// cross-reference data installed. Tapping it toggles the inline expansion for
-/// that verse. When [expanded] it flips its icon, giving a clear affordance.
+/// Two modes:
+/// - [openPage] `false` (verse has 1–2 references): tapping toggles the small
+///   inline expansion; [expanded] flips its icon to show collapse.
+/// - [openPage] `true` (verse has more than two references): tapping opens the
+///   dedicated cross-references page, labelled "View all N references".
 class CrossReferenceBadge extends StatelessWidget {
   final int count;
   final bool expanded;
+  final bool openPage;
   final VoidCallback onTap;
 
   const CrossReferenceBadge({
     super.key,
     required this.count,
     required this.expanded,
+    this.openPage = false,
     required this.onTap,
   });
 
@@ -25,8 +29,23 @@ class CrossReferenceBadge extends StatelessWidget {
     final screen = ScreenClass.of(context);
     final fontSize = screen.isCompact ? 12.0 : 13.0;
 
+    final label = openPage
+        ? 'View all $count references'
+        : expanded
+            ? 'Collapse'
+            : 'Cross-references';
+    final trailingIcon = openPage
+        ? Icons.chevron_right
+        : expanded
+            ? Icons.keyboard_arrow_up
+            : Icons.keyboard_arrow_down;
+
+    final semanticsLabel = openPage
+        ? 'View all $count cross-references'
+        : '$count cross-reference${count == 1 ? '' : 's'}, tap to ${expanded ? 'collapse' : 'expand'}';
+
     return Semantics(
-      label: '$count cross-reference${count == 1 ? '' : 's'}, tap to ${expanded ? 'collapse' : 'expand'}',
+      label: semanticsLabel,
       button: true,
       child: Padding(
         // Pad the hit area up to the minimum 48dp touch target while keeping
@@ -46,7 +65,7 @@ class CrossReferenceBadge extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  expanded ? Icons.link_off : Icons.link,
+                  Icons.link,
                   size: fontSize,
                   color: tokens.accent,
                 ),
@@ -61,16 +80,14 @@ class CrossReferenceBadge extends StatelessWidget {
                 ),
                 const SizedBox(width: 2),
                 Text(
-                  expanded ? 'Collapse' : 'Cross-references',
+                  label,
                   style: TextStyle(
                     color: tokens.onSurfaceMuted,
                     fontSize: fontSize,
                   ),
                 ),
                 Icon(
-                  expanded
-                      ? Icons.keyboard_arrow_up
-                      : Icons.keyboard_arrow_down,
+                  trailingIcon,
                   size: fontSize,
                   color: tokens.onSurfaceMuted,
                 ),

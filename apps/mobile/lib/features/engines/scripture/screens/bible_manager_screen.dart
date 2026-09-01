@@ -329,10 +329,20 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: progress,
+                value: _crossRefService.isIndeterminate ? null : progress,
                 backgroundColor: tokens.surfaceBorder,
                 color: tokens.accent,
                 minHeight: 4,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _crossRefService.isIndeterminate
+                  ? 'Downloading…'
+                  : '${(progress * 100).toStringAsFixed(0)}%',
+              style: TextStyle(
+                color: tokens.onSurfaceMuted,
+                fontSize: 11,
               ),
             ),
           ],
@@ -472,10 +482,20 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: progress,
+                value: _manager.isIndeterminate(meta.id) ? null : progress,
                 backgroundColor: tokens.surfaceBorder,
                 color: tokens.accent,
                 minHeight: 4,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _manager.isIndeterminate(meta.id)
+                  ? 'Downloading…'
+                  : '${(progress * 100).toStringAsFixed(0)}%',
+              style: TextStyle(
+                color: tokens.onSurfaceMuted,
+                fontSize: 11,
               ),
             ),
           ],

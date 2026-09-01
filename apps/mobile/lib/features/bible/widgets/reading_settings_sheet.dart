@@ -70,7 +70,8 @@ class ReadingSettingsSheet extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              Text('A', style: TextStyle(color: tokens.onSurface, fontSize: 14)),
+              Text('A',
+                  style: TextStyle(color: tokens.onSurface, fontSize: 14)),
               Expanded(
                 child: Slider(
                   value: settings.fontSize,
@@ -84,7 +85,8 @@ class ReadingSettingsSheet extends StatelessWidget {
                   },
                 ),
               ),
-              Text('A', style: TextStyle(color: tokens.onSurface, fontSize: 24)),
+              Text('A',
+                  style: TextStyle(color: tokens.onSurface, fontSize: 24)),
             ],
           ),
           const SizedBox(height: 16),
@@ -98,8 +100,7 @@ class ReadingSettingsSheet extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               child: Row(
                 children: [
                   Icon(
@@ -123,8 +124,8 @@ class ReadingSettingsSheet extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Automatically show inline reference cards for every '
-                          'verse that has them.',
+                          'Automatically show inline reference cards for '
+                          'verses with a few references.',
                           style: TextStyle(
                             color: tokens.onSurfaceMuted,
                             fontSize: 12,

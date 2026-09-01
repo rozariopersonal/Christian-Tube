@@ -30,11 +30,20 @@ class CrossReferenceService extends ChangeNotifier {
 
   static const String _assetPath = 'data/cross_references.json';
 
+  static const String _apiBase =
+      'https://bible.helloao.org/api/d/open-cross-ref';
+
+  // In-memory cache of chapters fetched online (opted in per chapter when the
+  // bundled dataset is not installed). Keyed "bookNumber_chapter".
+  final Map<String, Map<int, List<CrossReference>>> _onlineCache = {};
+
   bool _isDownloading = false;
+  bool _isIndeterminate = false;
   double _progress = 0.0;
   String? _lastError;
 
   bool get isDownloading => _isDownloading;
+  bool get isIndeterminate => _isIndeterminate;
   double get progress => _progress;
   String? get lastError => _lastError;
 
@@ -60,19 +69,29 @@ class CrossReferenceService extends ChangeNotifier {
     var downloaded = false;
     try {
       for (final url in urls) {
+        _progress = 0.0;
+        _isIndeterminate = true;
+        notifyListeners();
         try {
           await dio.download(
             url,
             filePath,
             options: Options(receiveTimeout: const Duration(minutes: 5)),
             onReceiveProgress: (received, total) {
-              if (total != -1) {
+              if (total != -1 && total > 0) {
+                _isIndeterminate = false;
                 _progress = received / total;
-                notifyListeners();
+              } else {
+                // Unknown total -> keep the bar animating indistinguishably.
+                _isIndeterminate = true;
               }
+              notifyListeners();
             },
           );
           downloaded = true;
+          _isIndeterminate = false;
+          _progress = 1.0;
+          notifyListeners();
           break;
         } catch (e) {
           debugPrint('CrossReference download failed from $url: $e');
@@ -152,8 +171,7 @@ class CrossReferenceService extends ChangeNotifier {
           final refsList = ve['refs'] as List<dynamic>? ?? [];
           for (final rawRef in refsList) {
             final rf = rawRef as Map<String, dynamic>;
-            final refBook = BookAbbreviation.bookNumberFor(
-                rf['bt'] as String);
+            final refBook = BookAbbreviation.bookNumberFor(rf['bt'] as String);
             if (refBook == null) continue;
             rows.add({
               'bookNumber': bookNumber,
@@ -162,8 +180,7 @@ class CrossReferenceService extends ChangeNotifier {
               'refBookNumber': refBook,
               'refChapter': (rf['c'] as num).toInt(),
               'refVerse': (rf['v'] as num).toInt(),
-              'refEndVerse':
-                  rf['e'] == null ? null : (rf['e'] as num).toInt(),
+              'refEndVerse': rf['e'] == null ? null : (rf['e'] as num).toInt(),
               'score': (rf['s'] as num?)?.toInt() ?? 0,
             });
           }
@@ -174,11 +191,84 @@ class CrossReferenceService extends ChangeNotifier {
   }
 
   /// Fetches all cross-references for a chapter, grouped by verse.
+  ///
+  /// When [allowOnline] is true and the local database has no data for this
+  /// chapter (e.g. the bundled dataset was never installed), the chapter is
+  /// fetched on demand from the online `open-cross-ref` API so cross-references
+  /// still work without the ~14 MB download. Result is cached in memory for the
+  /// session.
   Future<Map<int, List<CrossReference>>> getForChapter(
     int bookNumber,
+    int chapter, {
+    bool allowOnline = true,
+  }) async {
+    final local =
+        await _localBible.getCrossReferencesForChapter(bookNumber, chapter);
+    if (local.isNotEmpty || !allowOnline) return local;
+
+    final cacheKey = '${bookNumber}_$chapter';
+    final cached = _onlineCache[cacheKey];
+    if (cached != null) return cached;
+
+    try {
+      final online = await fetchOnlineForChapter(bookNumber, chapter);
+      _onlineCache[cacheKey] = online;
+      return online;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Fetches a single chapter of cross-references from the HelloAO
+  /// `open-cross-ref` API and maps it into [CrossReference] rows grouped by
+  /// verse. Throws on network/parse failure so callers can decide to fall back.
+  Future<Map<int, List<CrossReference>>> fetchOnlineForChapter(
+    int bookNumber,
     int chapter,
-  ) =>
-      _localBible.getCrossReferencesForChapter(bookNumber, chapter);
+  ) async {
+    final abbrev = BookAbbreviation.abbreviationFor(bookNumber);
+    if (abbrev == null) return {};
+    final dio = Dio();
+    final response = await dio.get<Map<String, dynamic>>(
+      '$_apiBase/$abbrev/$chapter.json',
+      options: Options(
+        responseType: ResponseType.json,
+        receiveTimeout: const Duration(seconds: 30),
+        connectTimeout: const Duration(seconds: 15),
+      ),
+    );
+    final body = response.data;
+    if (body == null) return {};
+
+    final content = (body['chapter'] as Map<String, dynamic>?)?['content']
+        as List<dynamic>?;
+    if (content == null) return {};
+
+    final grouped = <int, List<CrossReference>>{};
+    for (final entry in content) {
+      final em = entry as Map<String, dynamic>;
+      final verse = (em['verse'] as num).toInt();
+      final refs = (em['references'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>();
+      final list = <CrossReference>[];
+      for (final rf in refs) {
+        final refBook =
+            BookAbbreviation.bookNumberFor(rf['book'] as String? ?? '');
+        if (refBook == null) continue;
+        final endVerse =
+            rf['endVerse'] == null ? null : (rf['endVerse'] as num).toInt();
+        list.add(CrossReference(
+          bookNumber: refBook,
+          chapter: (rf['chapter'] as num).toInt(),
+          verse: (rf['verse'] as num).toInt(),
+          endVerse: endVerse,
+          score: (rf['score'] as num?)?.toInt() ?? 0,
+        ));
+      }
+      if (list.isNotEmpty) grouped[verse] = list;
+    }
+    return grouped;
+  }
 
   /// Removes all cross-reference data (reclaims storage).
   Future<void> removeAll() async {
