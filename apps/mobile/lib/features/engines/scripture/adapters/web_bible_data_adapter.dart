@@ -505,20 +505,29 @@ class WebBibleDataAdapter implements BibleDataAdapter {
             ),
           );
           if (res.statusCode == 200 && res.data != null) {
-            final List<dynamic> list = res.data is String ? jsonDecode(res.data as String) : (res.data as List<dynamic>);
-            final List<Map<String, dynamic>> results = list.map((item) {
-              return {
-                'version_id': versionId,
-                'book_name': bookName,
-                'book_number': bookNum,
-                'chapter': chapter,
-                'verse': (item['verse'] as num).toInt(),
-                'text': (item['text'] as String?)?.trim() ?? '',
-              };
-            }).toList();
-
-            _liveChapterCache[cacheKey] = results;
-            return results;
+            final dynamic rawData = res.data;
+            final List<dynamic> list = rawData is String
+                ? (jsonDecode(rawData) as List<dynamic>)
+                : (rawData as List<dynamic>);
+            final List<Map<String, dynamic>> results = [];
+            for (final item in list) {
+              if (item is Map) {
+                final verseNum = (item['verse'] as num?)?.toInt() ?? 1;
+                final text = (item['text'] as String?)?.trim() ?? '';
+                results.add({
+                  'version_id': versionId,
+                  'book_name': bookName,
+                  'book_number': bookNum,
+                  'chapter': chapter,
+                  'verse': verseNum,
+                  'text': text,
+                });
+              }
+            }
+            if (results.isNotEmpty) {
+              _liveChapterCache[cacheKey] = results;
+              return results;
+            }
           }
         } catch (_) {
           continue;
@@ -529,8 +538,14 @@ class WebBibleDataAdapter implements BibleDataAdapter {
     List<Map<String, dynamic>> results = [];
     _webVerses.forEach((key, value) {
       final parts = key.split('_');
-      if (parts[0] == versionId && parts[2] == chapter.toString()) {
+      if (parts[0].toUpperCase() == versionId.toUpperCase() &&
+          (bookNum <= 0 || parts[1] == bookNum.toString()) &&
+          parts[2] == chapter.toString()) {
         results.add({
+          'version_id': versionId,
+          'book_name': bookName,
+          'book_number': bookNum,
+          'chapter': chapter,
           'verse': int.tryParse(parts[3]) ?? 1,
           'text': value,
         });

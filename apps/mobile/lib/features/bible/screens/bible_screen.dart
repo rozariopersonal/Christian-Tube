@@ -107,9 +107,13 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   Future<void> _checkCrossRefsInstalled() async {
-    final installed = await _crossRefService.isInstalled();
-    if (!mounted) return;
-    setState(() => _crossRefsInstalled = installed);
+    try {
+      final installed = await _crossRefService.isInstalled();
+      if (!mounted) return;
+      setState(() => _crossRefsInstalled = installed);
+    } catch (e) {
+      debugPrint('BibleScreen _checkCrossRefsInstalled error: $e');
+    }
   }
 
   int _bookNumber(String book) =>
@@ -232,6 +236,7 @@ class _BibleScreenState extends State<BibleScreen> {
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     try {
+      await _localBibleService.initialize();
       await _loadVersions();
       if (!mounted) return;
       if (_selectedVersion != null) {

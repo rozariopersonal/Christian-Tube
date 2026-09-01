@@ -10,32 +10,59 @@ class LocalBibleService {
   factory LocalBibleService() => _instance;
   LocalBibleService._internal();
 
-  late BibleDataAdapter _adapter;
+  BibleDataAdapter? _adapterInstance;
 
   @visibleForTesting
   static String? overrideDbPath;
 
+  BibleDataAdapter get _adapter {
+    if (_adapterInstance == null) {
+      if (kIsWeb) {
+        _adapterInstance = WebBibleDataAdapter();
+      } else {
+        _adapterInstance = SqliteBibleDataAdapter(overrideDbPath: overrideDbPath);
+      }
+      _adapterInstance!.initialize();
+    }
+    return _adapterInstance!;
+  }
+
+  Future<BibleDataAdapter> _getAdapter() async {
+    if (_adapterInstance == null) {
+      await initialize();
+    }
+    return _adapterInstance!;
+  }
+
   @visibleForTesting
   static Future<void> resetForTest() async {
-    await _instance._adapter.close();
-    if (kIsWeb) {
-      _instance._adapter = WebBibleDataAdapter();
-    } else {
-      _instance._adapter = SqliteBibleDataAdapter(overrideDbPath: overrideDbPath);
+    if (_instance._adapterInstance != null) {
+      await _instance._adapterInstance!.close();
     }
+    if (kIsWeb) {
+      _instance._adapterInstance = WebBibleDataAdapter();
+    } else {
+      _instance._adapterInstance = SqliteBibleDataAdapter(overrideDbPath: overrideDbPath);
+    }
+    await _instance._adapterInstance!.initialize();
   }
 
   Future<void> initialize() async {
-    if (kIsWeb) {
-      _adapter = WebBibleDataAdapter();
-    } else {
-      _adapter = SqliteBibleDataAdapter(overrideDbPath: overrideDbPath);
+    if (_adapterInstance != null) {
+      await _adapterInstance!.initialize();
+      return;
     }
-    await _adapter.initialize();
+    if (kIsWeb) {
+      _adapterInstance = WebBibleDataAdapter();
+    } else {
+      _adapterInstance = SqliteBibleDataAdapter(overrideDbPath: overrideDbPath);
+    }
+    await _adapterInstance!.initialize();
   }
 
-  Future<bool> hasVerses(String versionId) {
-    return _adapter.hasVerses(versionId);
+  Future<bool> hasVerses(String versionId) async {
+    final adapter = await _getAdapter();
+    return adapter.hasVerses(versionId);
   }
 
   Future<String?> resolvePassage({
@@ -44,8 +71,9 @@ class LocalBibleService {
     required int chapter,
     required int startVerse,
     int? endVerse,
-  }) {
-    return _adapter.resolvePassage(
+  }) async {
+    final adapter = await _getAdapter();
+    return adapter.resolvePassage(
       versionId: versionId,
       bookNumber: bookNumber,
       chapter: chapter,
@@ -73,12 +101,14 @@ class LocalBibleService {
   Future<Map<String, String>> resolvePassages({
     required String versionId,
     required List<(int bookNumber, int chapter, int verse, int? endVerse)> passages,
-  }) {
-    return _adapter.resolvePassages(versionId: versionId, passages: passages);
+  }) async {
+    final adapter = await _getAdapter();
+    return adapter.resolvePassages(versionId: versionId, passages: passages);
   }
 
-  Future<List<String>> getInstalledVersionIds() {
-    return _adapter.getInstalledVersionIds();
+  Future<List<String>> getInstalledVersionIds() async {
+    final adapter = await _getAdapter();
+    return adapter.getInstalledVersionIds();
   }
 
   Future<void> registerInstalledVersion({
@@ -87,8 +117,9 @@ class LocalBibleService {
     required String language,
     required String languageCode,
     required String sizeDisplay,
-  }) {
-    return _adapter.registerInstalledVersion(
+  }) async {
+    final adapter = await _getAdapter();
+    return adapter.registerInstalledVersion(
       id: id,
       name: name,
       language: language,
@@ -97,44 +128,54 @@ class LocalBibleService {
     );
   }
 
-  Future<void> insertVerses(String versionId, List<Map<String, dynamic>> verses) {
-    return _adapter.insertVerses(versionId, verses);
+  Future<void> insertVerses(String versionId, List<Map<String, dynamic>> verses) async {
+    final adapter = await _getAdapter();
+    return adapter.insertVerses(versionId, verses);
   }
 
-  Future<void> deleteVersion(String versionId) {
-    return _adapter.deleteVersion(versionId);
+  Future<void> deleteVersion(String versionId) async {
+    final adapter = await _getAdapter();
+    return adapter.deleteVersion(versionId);
   }
 
-  Future<bool> hasCrossReferences() {
-    return _adapter.hasCrossReferences();
+  Future<bool> hasCrossReferences() async {
+    final adapter = await _getAdapter();
+    return adapter.hasCrossReferences();
   }
 
-  Future<void> insertCrossReferences(List<Map<String, dynamic>> items) {
-    return _adapter.insertCrossReferences(items);
+  Future<void> insertCrossReferences(List<Map<String, dynamic>> items) async {
+    final adapter = await _getAdapter();
+    return adapter.insertCrossReferences(items);
   }
 
-  Future<void> deleteCrossReferences() {
-    return _adapter.deleteCrossReferences();
+  Future<void> deleteCrossReferences() async {
+    final adapter = await _getAdapter();
+    return adapter.deleteCrossReferences();
   }
 
-  Future<Map<int, List<CrossReference>>> getCrossReferencesForChapter(int bookNumber, int chapter) {
-    return _adapter.getCrossReferencesForChapter(bookNumber, chapter);
+  Future<Map<int, List<CrossReference>>> getCrossReferencesForChapter(int bookNumber, int chapter) async {
+    final adapter = await _getAdapter();
+    return adapter.getCrossReferencesForChapter(bookNumber, chapter);
   }
 
-  Future<bool> hasBibleBackgrounds() {
-    return _adapter.hasBackgrounds();
+  Future<bool> hasBibleBackgrounds() async {
+    final adapter = await _getAdapter();
+    return adapter.hasBackgrounds();
   }
 
-  Future<void> insertBibleBackgrounds(List<Map<String, dynamic>> items) {
-    return _adapter.insertBackgrounds(items);
+  Future<void> insertBibleBackgrounds(List<Map<String, dynamic>> items) async {
+    final adapter = await _getAdapter();
+    return adapter.insertBackgrounds(items);
   }
 
-  Future<void> deleteBibleBackgrounds() {
-    return _adapter.deleteBackgrounds();
+  Future<void> deleteBibleBackgrounds() async {
+    final adapter = await _getAdapter();
+    return adapter.deleteBackgrounds();
   }
 
-  Future<Map<int, List<BibleBackgroundNote>>> getBackgroundsForChapter(int bookNumber, int chapter) {
-    return _adapter.getBackgroundsForChapter(bookNumber, chapter);
+  Future<Map<int, List<BibleBackgroundNote>>> getBackgroundsForChapter(int bookNumber, int chapter) async {
+    final adapter = await _getAdapter();
+    return adapter.getBackgroundsForChapter(bookNumber, chapter);
   }
 
   Future<List<BibleBackgroundNote>> getBackgroundsForVerse(int bookNumber, int chapter, int verse) async {
@@ -142,11 +183,13 @@ class LocalBibleService {
     return chapterMap[verse] ?? [];
   }
 
-  Future<List<Map<String, dynamic>>> search(String versionId, String query, {int limit = 100}) {
-    return _adapter.search(versionId, query, limit: limit);
+  Future<List<Map<String, dynamic>>> search(String versionId, String query, {int limit = 100}) async {
+    final adapter = await _getAdapter();
+    return adapter.search(versionId, query, limit: limit);
   }
 
-  Future<List<Map<String, dynamic>>> getChapter(String versionId, String bookName, int chapter) {
-    return _adapter.getChapter(versionId, bookName, chapter);
+  Future<List<Map<String, dynamic>>> getChapter(String versionId, String bookName, int chapter) async {
+    final adapter = await _getAdapter();
+    return adapter.getChapter(versionId, bookName, chapter);
   }
 }
