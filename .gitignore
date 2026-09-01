@@ -63,6 +63,7 @@ data/books_raw/epubs/
 data/books_raw/sample_epub/
 data/books_raw/*.html
 data/books_published/
+data/dictionaries_published/
 data/books.sqlite
 data/books.sqlite.gz
 apps/mobile/assets/books/*.sqlite*
