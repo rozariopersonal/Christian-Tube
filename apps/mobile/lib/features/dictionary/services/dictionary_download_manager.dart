@@ -125,7 +125,31 @@ class DictionaryDownloadManager extends ChangeNotifier {
       language: 'Tamil',
       languageCode: 'ta',
       sizeDisplay: '2.6 MB',
-      description: 'தமிழ் சொற்பொருள் மற்றும் விளக்கங்கள்.',
+      description: 'தமிழ் வேதாகம சொற்பொருள் மற்றும் விளக்கங்கள் (Tamil Bible & Literature).',
+    ),
+    DictionaryMeta(
+      id: 'ml',
+      name: 'മലയാളം നിഘണ്ടു (Malayalam Dictionary)',
+      language: 'Malayalam',
+      languageCode: 'ml',
+      sizeDisplay: '2.5 MB',
+      description: 'മലയാളം സത്യവേദപുസ്തക പദാവലിയും ആത്മീയ അർത്ഥങ്ങളും (Malayalam Bible).',
+    ),
+    DictionaryMeta(
+      id: 'te',
+      name: 'తెలుగు నిఘంటువు (Telugu Dictionary)',
+      language: 'Telugu',
+      languageCode: 'te',
+      sizeDisplay: '2.5 MB',
+      description: 'తెలుగు పరిశుద్ధ గ్రంథ పదకోశము మరియు వివరణలు (Telugu Bible).',
+    ),
+    DictionaryMeta(
+      id: 'kn',
+      name: 'ಕನ್ನಡ ನಿಘಂಟು (Kannada Dictionary)',
+      language: 'Kannada',
+      languageCode: 'kn',
+      sizeDisplay: '2.4 MB',
+      description: 'ಕನ್ನಡ ಸತ್ಯವೇದ ಪದಕೋಶ ಮತ್ತು ಆಧ್ಯಾತ್ಮಿಕ ವಿವರಣೆಗಳು (Kannada Bible).',
     ),
   ];
 

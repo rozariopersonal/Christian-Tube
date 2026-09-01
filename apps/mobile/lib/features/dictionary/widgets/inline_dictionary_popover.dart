@@ -98,8 +98,19 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
     }
   }
 
-  Future<void> _downloadEnglishDict() async {
-    await _downloadManager.downloadDictionary('en');
+  String get _targetLang =>
+      widget.preferredLanguageCode ??
+      DictionaryService.detectLanguageCode(widget.word) ??
+      'en';
+
+  DictionaryMeta get _targetMeta =>
+      DictionaryDownloadManager.catalog.firstWhere(
+        (c) => c.id == _targetLang,
+        orElse: () => DictionaryDownloadManager.catalog.first,
+      );
+
+  Future<void> _downloadTargetDict() async {
+    await _downloadManager.downloadDictionary(_targetLang);
     await _lookup();
   }
 
@@ -107,6 +118,8 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final cleanWord = _service.cleanWord(widget.word);
+    final targetLangNotInstalled =
+        !_downloadManager.installedIds.contains(_targetLang);
 
     return Container(
       decoration: BoxDecoration(
@@ -178,8 +191,8 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
                 ? Center(
                     child: CircularProgressIndicator(color: tokens.accent),
                   )
-                : !_hasAnyDictionary
-                    ? _buildNoDictionaryCard(tokens)
+                : (!_hasAnyDictionary || targetLangNotInstalled && _entries.isEmpty)
+                    ? _buildDownloadDictionaryCard(tokens)
                     : _entries.isEmpty
                         ? Center(
                             child: Column(
@@ -208,9 +221,10 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
     );
   }
 
-  Widget _buildNoDictionaryCard(AppTokens tokens) {
-    final isDownloading = _downloadManager.isDownloading('en');
-    final progress = _downloadManager.getProgress('en');
+  Widget _buildDownloadDictionaryCard(AppTokens tokens) {
+    final meta = _targetMeta;
+    final isDownloading = _downloadManager.isDownloading(meta.id);
+    final progress = _downloadManager.getProgress(meta.id);
 
     return Center(
       child: Container(
@@ -226,16 +240,17 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
             Icon(Icons.download_for_offline_rounded, size: 36, color: tokens.accent),
             const SizedBox(height: 10),
             Text(
-              'Dictionary Not Downloaded',
+              '${meta.name} Not Downloaded',
               style: TextStyle(
                 color: tokens.onSurface,
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
             Text(
-              'Download the offline English Dictionary (3.4 MB) for instant word definitions in Books and the Bible.',
+              'Download the offline ${meta.name} (${meta.sizeDisplay}) for instant word definitions in Scripture and Books.',
               textAlign: TextAlign.center,
               style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
             ),
@@ -254,9 +269,9 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
             ] else
               FilledButton.icon(
                 style: FilledButton.styleFrom(backgroundColor: tokens.accent),
-                onPressed: _downloadEnglishDict,
+                onPressed: _downloadTargetDict,
                 icon: const Icon(Icons.download_rounded, size: 18),
-                label: const Text('Download Dictionary (3.4 MB)'),
+                label: Text('Download ${meta.name} (${meta.sizeDisplay})'),
               ),
           ],
         ),

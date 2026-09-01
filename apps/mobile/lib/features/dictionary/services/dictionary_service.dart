@@ -35,11 +35,26 @@ class DictionaryService {
     }
   }
 
-  /// Cleans and normalizes query word (e.g. "sanctification," -> "sanctification").
+  /// Cleans and normalizes query word while preserving Indian and international scripts.
   String cleanWord(String raw) {
     return raw
-        .replaceAll(RegExp(r'''[^\w\s\-\u0900-\u097F\u0B80-\u0BFF\u0600-\u06FF\u0400-\u04FF]'''), '')
+        .replaceAll(
+          RegExp(
+            r'''[^\w\s\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0600-\u06FF\u0400-\u04FF]''',
+          ),
+          '',
+        )
         .trim();
+  }
+
+  /// Automatically detects language code from the characters in [text].
+  static String? detectLanguageCode(String text) {
+    if (RegExp(r'[\u0B80-\u0BFF]').hasMatch(text)) return 'ta'; // Tamil
+    if (RegExp(r'[\u0D00-\u0D7F]').hasMatch(text)) return 'ml'; // Malayalam
+    if (RegExp(r'[\u0C00-\u0C7F]').hasMatch(text)) return 'te'; // Telugu
+    if (RegExp(r'[\u0C80-\u0CFF]').hasMatch(text)) return 'kn'; // Kannada
+    if (RegExp(r'[\u0900-\u097F]').hasMatch(text)) return 'hi'; // Hindi / Devanagari
+    return null;
   }
 
   /// Looks up definitions for a word across active/installed dictionaries.
@@ -47,18 +62,26 @@ class DictionaryService {
     final cleaned = cleanWord(word);
     if (cleaned.isEmpty) return [];
 
+    final targetLang = preferredLangCode ?? detectLanguageCode(cleaned);
+
     final manager = DictionaryDownloadManager();
     await manager.initialize();
 
     final results = <DictionaryEntry>[];
     final installed = manager.installedIds.toList();
 
-    // Priority order: Easton's / Strong's first for theological precision, then general dictionaries
+    // Priority order:
+    // If target language is non-English (e.g. Tamil, Malayalam, Telugu, Kannada, Hindi),
+    // prioritize that language's dictionary first!
     final orderedIds = <String>[];
-    if (installed.contains('eastons')) orderedIds.add('eastons');
-    if (installed.contains('strongs')) orderedIds.add('strongs');
-    if (preferredLangCode != null && installed.contains(preferredLangCode)) {
-      orderedIds.add(preferredLangCode);
+    if (targetLang != null && installed.contains(targetLang)) {
+      orderedIds.add(targetLang);
+    }
+    if (installed.contains('eastons') && !orderedIds.contains('eastons')) {
+      orderedIds.add('eastons');
+    }
+    if (installed.contains('strongs') && !orderedIds.contains('strongs')) {
+      orderedIds.add('strongs');
     }
     if (installed.contains('en') && !orderedIds.contains('en')) {
       orderedIds.add('en');
