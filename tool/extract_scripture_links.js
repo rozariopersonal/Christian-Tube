@@ -170,9 +170,9 @@ function main() {
       if (seenVersesOnPage.has(dedupKey)) continue;
       seenVersesOnPage.add(dedupKey);
 
-      // Slicing context: capture ~3 lines before to ~3 lines after on this page
-      const startLine = Math.max(1, row.line_number - 2);
-      const endLine = Math.min(28, row.line_number + 3);
+      // Slicing context: capture the complete paragraph containing the reference
+      const startLine = row.line_number;
+      const endLine = row.line_number;
 
       const headline = row.chapter_title || `${rawBook} ${chap}:${verse}`;
 

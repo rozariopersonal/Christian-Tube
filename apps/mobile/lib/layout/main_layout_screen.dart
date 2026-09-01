@@ -48,6 +48,10 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     return AppConfig.instanceId != 'centum_academy';
   }
 
+  bool get _isBooksTabEnabled {
+    return AppConfig.instanceId != 'centum_academy';
+  }
+
   int _getSelectedIndex(String currentPath) {
     // Build the destination paths in the same order they appear in the bar.
     final destinations = _destinationPaths();
@@ -67,6 +71,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       '/feed',
       '/shorts',
       if (_isBibleTabEnabled) '/bible',
+      if (_isBooksTabEnabled) '/books',
       if (kMicroFeedEnabled) '/words',
       '/profile',
     ];
@@ -111,6 +116,12 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           label: 'Bible',
           icon: Icons.menu_book_outlined,
           selectedIcon: Icons.menu_book,
+        ),
+      if (_isBooksTabEnabled)
+        const _NavSpec(
+          label: 'Books',
+          icon: Icons.auto_stories_outlined,
+          selectedIcon: Icons.auto_stories,
         ),
       if (kMicroFeedEnabled)
         const _NavSpec(

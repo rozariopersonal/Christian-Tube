@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/book.dart';
@@ -8,7 +7,8 @@ import '../services/book_service.dart';
 import '../widgets/book_card.dart';
 import 'book_reader_screen.dart';
 
-/// Screen displaying the Books Library grid with search and recent reading progress.
+/// Screen displaying the Books Library organized by subject groups with search,
+/// individual book on-demand downloading, and recent reading progress.
 class BooksCatalogScreen extends StatefulWidget {
   const BooksCatalogScreen({super.key});
 
@@ -21,29 +21,54 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   List<Book> _books = [];
+  Map<String, List<Book>> _booksBySubject = {};
   Map<String, UserReadingProgress> _progressMap = {};
   List<Book> _recentBooks = [];
+  Set<String> _installedBookIds = {};
+  List<String> _subjects = ['All'];
+
   bool _isLoading = true;
   String _searchQuery = '';
+  String _selectedSubject = 'All';
+  bool _viewBySubjects = true;
 
   @override
   void initState() {
     super.initState();
+    _bookService.addListener(_onServiceUpdate);
     _loadCatalog();
   }
 
   @override
   void dispose() {
+    _bookService.removeListener(_onServiceUpdate);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onServiceUpdate() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadCatalog() async {
     setState(() => _isLoading = true);
     await _bookService.initialize();
 
-    final books = await _bookService.getBooks(query: _searchQuery);
+    final installedIds = await _bookService.getInstalledBookIds();
+    final books = await _bookService.getBooks(
+      query: _searchQuery,
+      subject: _selectedSubject,
+    );
+    final allBooks = await _bookService.getBooks();
     final recentProgress = await _bookService.getRecentProgress(limit: 5);
+    final subjects = await _bookService.getSubjects();
+
+    // Group all books by subject
+    final map = <String, List<Book>>{};
+    for (final b in allBooks) {
+      final s = b.subject.isNotEmpty ? b.subject : 'Christian Living';
+      map.putIfAbsent(s, () => []).add(b);
+    }
 
     final progressMap = <String, UserReadingProgress>{};
     for (final p in recentProgress) {
@@ -52,21 +77,259 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
 
     final recentBooks = <Book>[];
     for (final p in recentProgress) {
-      final match = books.where((b) => b.id == p.bookId).firstOrNull;
+      final match = allBooks.where((b) => b.id == p.bookId).firstOrNull;
       if (match != null) recentBooks.add(match);
     }
 
     if (mounted) {
       setState(() {
+        _installedBookIds = installedIds;
         _books = books;
+        _booksBySubject = map;
         _progressMap = progressMap;
         _recentBooks = recentBooks;
+        _subjects = subjects;
         _isLoading = false;
       });
     }
   }
 
+  Future<void> _promptDownloadSingleBook(Book book) async {
+    final tokens = context.tokens;
+    final sizeText = book.downloadSizeFormatted.isNotEmpty
+        ? book.downloadSizeFormatted
+        : 'under 100 KB';
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: tokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: tokens.surfaceBorder,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      width: 44,
+                      height: 64,
+                      color: tokens.surfaceVariant,
+                      child: book.coverFile.isNotEmpty
+                          ? Image.asset(
+                              'assets/books/covers/${book.coverFile}',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(Icons.menu_book, color: tokens.accent),
+                            )
+                          : Icon(Icons.menu_book, color: tokens.accent),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          book.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: tokens.onSurface,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${book.author} • ${book.subject}',
+                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${book.totalPages} pages • $sizeText',
+                          style: TextStyle(color: tokens.accent, fontSize: 11.5, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Download this book for instant offline reading. Fast download (~$sizeText).',
+                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: tokens.accent,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: Text('Download & Read ($sizeText)'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onPressed: () {
+                    Navigator.of(ctx).pop(false);
+                    _startDownloadAll();
+                  },
+                  icon: Icon(Icons.all_inclusive_rounded, color: tokens.onSurfaceMuted, size: 16),
+                  label: Text('Download All 38 Books (3.8 MB)', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final success = await _bookService.downloadSingleBook(book.id);
+      if (success && mounted) {
+        setState(() {
+          _installedBookIds.add(book.id);
+        });
+        _openReader(book);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to download "${book.title}". Please check internet connection.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _startDownloadAll() async {
+    final success = await _bookService.downloadAndInstall();
+    if (success) {
+      await _loadCatalog();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All 38 books installed offline!')),
+        );
+      }
+    } else if (mounted && _bookService.lastError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Download failed: ${_bookService.lastError}')),
+      );
+    }
+  }
+
+  void _showBookOptions(Book book) {
+    final tokens = context.tokens;
+    final isInstalled = _installedBookIds.contains(book.id);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: tokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: tokens.surfaceBorder,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                book.title,
+                style: TextStyle(
+                  color: tokens.onSurface,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'By ${book.author} • ${book.subject}',
+                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              if (isInstalled)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  title: const Text('Remove Download', style: TextStyle(color: Colors.redAccent)),
+                  subtitle: Text(
+                    'Frees storage. Notes and reading progress are preserved.',
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                  ),
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    await _bookService.removeBookDownload(book.id);
+                    setState(() {
+                      _installedBookIds.remove(book.id);
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Removed "${book.title}" from storage.')),
+                      );
+                    }
+                  },
+                )
+              else
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.download_rounded, color: tokens.accent),
+                  title: Text('Download Book (${book.downloadSizeFormatted})', style: TextStyle(color: tokens.onSurface)),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _promptDownloadSingleBook(book);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _openReader(Book book, {int? initialPage, int? initialLine}) async {
+    final isInstalled = _installedBookIds.contains(book.id);
+    if (!isInstalled) {
+      _promptDownloadSingleBook(book);
+      return;
+    }
+
     final progress = _progressMap[book.id];
     final targetPage = initialPage ?? progress?.currentPage ?? 1;
 
@@ -85,10 +348,53 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     _loadCatalog();
   }
 
+  Widget _buildSubjectFilterChips(AppTokens tokens) {
+    return SizedBox(
+      height: 44,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: _subjects.length,
+        itemBuilder: (context, index) {
+          final s = _subjects[index];
+          final isSelected = _selectedSubject == s;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(s),
+              selected: isSelected,
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() {
+                    _selectedSubject = s;
+                  });
+                  _loadCatalog();
+                }
+              },
+              backgroundColor: tokens.surfaceVariant,
+              selectedColor: tokens.accent,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : tokens.onSurface,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 12.5,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              side: BorderSide(
+                color: isSelected ? tokens.accent : tokens.surfaceBorder,
+                width: 0.8,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildSearchBar(AppTokens tokens) {
     return Container(
-      height: 46,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      height: 44,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       decoration: BoxDecoration(
         color: tokens.surfaceVariant,
         borderRadius: BorderRadius.circular(12),
@@ -96,14 +402,14 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
       ),
       child: TextField(
         controller: _searchController,
-        style: TextStyle(color: tokens.onSurface, fontSize: 14),
+        style: TextStyle(color: tokens.onSurface, fontSize: 13.5),
         decoration: InputDecoration(
-          hintText: 'Search 38 books by Zac Poonen...',
-          hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
-          prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 20),
+          hintText: 'Search 38 books by title, author, or subject...',
+          hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+          prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 19),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 18),
+                  icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 17),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
@@ -112,7 +418,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(vertical: 11),
         ),
         onChanged: (val) {
           setState(() => _searchQuery = val);
@@ -131,24 +437,24 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: Row(
             children: [
-              Icon(Icons.history_rounded, size: 18, color: tokens.accent),
+              Icon(Icons.history_rounded, size: 17, color: tokens.accent),
               const SizedBox(width: 6),
               Text(
                 'Continue Reading',
                 style: TextStyle(
                   color: tokens.onSurface,
                   fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                  fontSize: 14.5,
                 ),
               ),
             ],
           ),
         ),
         SizedBox(
-          height: 125,
+          height: 120,
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -159,12 +465,12 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
               final percent = progress?.completionPercent ?? 0.0;
 
               return Container(
-                width: 250,
+                width: 240,
                 margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: tokens.surfaceVariant,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: tokens.surfaceBorder),
                 ),
                 child: InkWell(
@@ -174,20 +480,16 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: Container(
-                          width: 50,
-                          height: 75,
+                          width: 48,
+                          height: 72,
                           color: tokens.surface,
                           child: book.coverFile.isNotEmpty
                               ? Image.asset(
                                   'assets/books/covers/${book.coverFile}',
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Center(
-                                    child: Icon(Icons.menu_book, color: tokens.accent, size: 24),
-                                  ),
+                                  errorBuilder: (_, __, ___) => Icon(Icons.menu_book, color: tokens.accent, size: 22),
                                 )
-                              : Center(
-                                  child: Icon(Icons.menu_book, color: tokens.accent, size: 24),
-                                ),
+                              : Icon(Icons.menu_book, color: tokens.accent, size: 22),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -203,23 +505,25 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                               style: TextStyle(
                                 color: tokens.onSurface,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                                fontSize: 12.5,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
                             Text(
-                              'p. ${progress?.currentPage ?? 1} of ${book.totalPages}',
+                              '${book.author} • p. ${progress?.currentPage ?? 1}/${book.totalPages}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: tokens.onSurfaceMuted,
-                                fontSize: 11.5,
+                                fontSize: 11,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 5),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(3),
                               child: LinearProgressIndicator(
                                 value: percent,
-                                minHeight: 4,
+                                minHeight: 3.5,
                                 backgroundColor: tokens.surface,
                                 valueColor: AlwaysStoppedAnimation<Color>(tokens.accent),
                               ),
@@ -234,7 +538,74 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
             },
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
+      ],
+    );
+  }
+
+  Widget _buildSubjectShelf(String subject, List<Book> books, AppTokens tokens) {
+    if (books.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            children: [
+              Text(
+                subject,
+                style: TextStyle(
+                  color: tokens.onSurface,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: tokens.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${books.length}',
+                  style: TextStyle(
+                    color: tokens.accent,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 255,
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: books.length,
+            itemBuilder: (context, index) {
+              final book = books[index];
+              final isInstalled = _installedBookIds.contains(book.id);
+              final isDownloading = _bookService.isBookDownloading(book.id);
+
+              return Container(
+                width: 140,
+                margin: const EdgeInsets.only(right: 12),
+                child: BookCard(
+                  book: book,
+                  progress: _progressMap[book.id],
+                  isInstalled: isInstalled,
+                  isDownloading: isDownloading,
+                  onTap: () => _openReader(book),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -242,7 +613,6 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final screen = ScreenClass.of(context);
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -261,17 +631,28 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
               ),
             ),
             Text(
-              'Zac Poonen • CFC India',
+              '38 Books • Zac Poonen & Annie Poonen',
               style: TextStyle(
                 color: tokens.onSurfaceMuted,
-                fontSize: 12,
+                fontSize: 11.5,
               ),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: tokens.onSurfaceMuted),
+            icon: Icon(
+              _viewBySubjects ? Icons.grid_view_rounded : Icons.view_agenda_rounded,
+              color: tokens.onSurfaceMuted,
+              size: 21,
+            ),
+            tooltip: _viewBySubjects ? 'Show flat grid' : 'Group by subjects',
+            onPressed: () {
+              setState(() => _viewBySubjects = !_viewBySubjects);
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.refresh, color: tokens.onSurfaceMuted, size: 21),
             tooltip: 'Refresh library',
             onPressed: _loadCatalog,
           ),
@@ -287,7 +668,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                     CircularProgressIndicator(color: tokens.accent),
                     const SizedBox(height: 16),
                     Text(
-                      'Opening books library...',
+                      'Loading books catalog...',
                       style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
                     ),
                   ],
@@ -299,48 +680,57 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                     child: _buildSearchBar(tokens),
                   ),
                   SliverToBoxAdapter(
+                    child: _buildSubjectFilterChips(tokens),
+                  ),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 4),
+                  ),
+                  SliverToBoxAdapter(
                     child: _buildContinueReading(tokens),
                   ),
-                  if (_books.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.search_off_rounded, size: 48, color: tokens.onSurfaceMuted),
-                            const SizedBox(height: 12),
-                            Text(
-                              'No books matching "$_searchQuery"',
-                              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
-                            ),
-                          ],
-                        ),
+
+                  // If browsing all books with subjects view enabled:
+                  if (_viewBySubjects && _selectedSubject == 'All' && _searchQuery.isEmpty) ...[
+                    for (final entry in _booksBySubject.entries)
+                      SliverToBoxAdapter(
+                        child: _buildSubjectShelf(entry.key, entry.value, tokens),
                       ),
-                    )
-                  else
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: 40),
+                    ),
+                  ] else ...[
+                    // Filtered or Flat Grid view
                     SliverPadding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
                       sliver: SliverGrid(
-                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: screen.isCompact ? 160 : 180,
-                          childAspectRatio: 0.58,
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 170,
+                          mainAxisSpacing: 16,
                           crossAxisSpacing: 14,
-                          mainAxisSpacing: 18,
+                          childAspectRatio: 0.58,
                         ),
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
                             final book = _books[index];
-                            return BookCard(
-                              book: book,
-                              progress: _progressMap[book.id],
-                              onTap: () => _openReader(book),
+                            final isInstalled = _installedBookIds.contains(book.id);
+                            final isDownloading = _bookService.isBookDownloading(book.id);
+
+                            return GestureDetector(
+                              onLongPress: () => _showBookOptions(book),
+                              child: BookCard(
+                                book: book,
+                                progress: _progressMap[book.id],
+                                isInstalled: isInstalled,
+                                isDownloading: isDownloading,
+                                onTap: () => _openReader(book),
+                              ),
                             );
                           },
                           childCount: _books.length,
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
       ),

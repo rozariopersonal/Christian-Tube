@@ -3,23 +3,29 @@
  * tool/ingest_books.js
  *
  * Converts downloaded raw books into structured SQLite database and SQL file
- * with deterministic page and line coordinates:
+ * while strictly preserving the original layout:
+ *  - Chapter numbers and Chapter titles
+ *  - Section headings (h2)
+ *  - Subheadings (h3, h4, h5)
+ *  - Callout quotes (blockquote)
+ *  - Continuous, natural paragraphs (p)
  *
  * Tables created:
  *  - books: Catalog metadata, page & line counts, covers
  *  - book_chapters: TOC chapters with start/end page & line boundaries
- *  - book_content: Every line with (book_id, page_number, line_number, chapter_index, text)
+ *  - book_content: (book_id, page_number, line_number, chapter_index, content_type, text)
  *
  * Output:
  *  - data/books.sqlite (SQLite database)
  *  - data/books.sql (Raw SQL statements)
  *
  * Usage:
- *  node tool/ingest_books.js [--limit N]
+ *  node tool/ingest_books.js
  */
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { DatabaseSync } = require('node:sqlite');
 
 const RAW_DIR = path.join(__dirname, '..', 'data', 'books_raw');
@@ -27,19 +33,22 @@ const CATALOG_PATH = path.join(RAW_DIR, 'catalog.json');
 const HTML_DIR = path.join(RAW_DIR, 'html');
 const OUT_SQLITE = path.join(__dirname, '..', 'data', 'books.sqlite');
 const OUT_SQL = path.join(__dirname, '..', 'data', 'books.sql');
+const OUT_GZ = path.join(__dirname, '..', 'data', 'books.sqlite.gz');
+const APP_CATALOG = path.join(__dirname, '..', 'apps', 'mobile', 'assets', 'books', 'catalog.json');
 
-// Configuration for virtual pagination
-const LINES_PER_PAGE = 28;
-const TARGET_CHARS_PER_LINE = 72;
+// Target reading page size for digital books (~250-320 words)
+const TARGET_CHARS_PER_PAGE = 1500;
 
-function cleanHtml(raw) {
-  return raw
+function cleanHtmlText(html) {
+  return html
+    .replace(/<a\b[^>]*>(.*?)<\/a>/gi, '$1')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#039;/g, "'")
+    .replace(/&#39;/g, "'")
     .replace(/&rsquo;/g, "'")
     .replace(/&lsquo;/g, "'")
     .replace(/&rdquo;/g, '"')
@@ -47,86 +56,118 @@ function cleanHtml(raw) {
     .replace(/&mdash;/g, '—')
     .replace(/&ndash;/g, '–')
     .replace(/<[^>]+>/g, '')
+    .replace(/\r\n|\r|\n/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 /**
- * Splits a paragraph into natural, readable line chunks.
+ * Splits a very long paragraph (> 1500 chars) at sentence boundaries
+ * so it flows across page boundaries without cutting sentences in half.
  */
-function splitIntoLines(text, maxChars = TARGET_CHARS_PER_LINE) {
-  const words = text.split(/\s+/).filter(w => w.length > 0);
-  if (words.length === 0) return [];
+function splitParagraphIntoSentences(text, maxChars = TARGET_CHARS_PER_PAGE) {
+  if (text.length <= maxChars) return [text];
 
-  const lines = [];
-  let currentLine = '';
+  const sentences = text.match(/[^.!?]+[.!?]+["'”]?\s*/g) || [text];
+  const chunks = [];
+  let currentChunk = '';
 
-  for (const word of words) {
-    if (!currentLine) {
-      currentLine = word;
-    } else if ((currentLine.length + 1 + word.length) <= maxChars) {
-      currentLine += ' ' + word;
+  for (const sentence of sentences) {
+    if (!currentChunk) {
+      currentChunk = sentence.trim();
+    } else if ((currentChunk.length + sentence.length) <= maxChars) {
+      currentChunk += ' ' + sentence.trim();
     } else {
-      lines.push(currentLine);
-      currentLine = word;
+      chunks.push(currentChunk);
+      currentChunk = sentence.trim();
     }
   }
-  if (currentLine) {
-    lines.push(currentLine);
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
   }
-  return lines;
+
+  return chunks.length > 0 ? chunks : [text];
 }
 
 /**
- * Parses the book's chapter structure and paragraphs from its HTML file.
+ * Parses the book's chapter structure and elements preserving original layout.
  */
 function parseBookHtml(htmlContent) {
   const chapters = [];
-
-  // Match each chapter container:
-  // <div id="..." class="chapter ..."> ... </div>
-  const chapterChunks = htmlContent.split(/<div\s+id=["'][^"']+["']\s+class=["'][^"']*chapter[^"']*["']/);
+  const chapterChunks = htmlContent.split(/<div\s+id=["'][^"']+["']\s+class=["'][^"']*chapter[^"']*["']/i);
 
   for (let i = 1; i < chapterChunks.length; i++) {
     const chunk = chapterChunks[i];
 
-    // Extract title: <h4 class="books-chapter-title">...</h4>
-    const titleMatch = chunk.match(/<h4 class=["']books-chapter-title["']>([\s\S]*?)<\/h4>/);
-    let chapterTitle = 'Chapter';
+    // Extract chapter title & number
+    const titleMatch = chunk.match(/<h4 class=["']books-chapter-title["']>([\s\S]*?)<\/h4>/i);
+    let chapterNum = '';
+    let chapterTitle = 'Chapter ' + i;
+
     if (titleMatch) {
-      chapterTitle = cleanHtml(titleMatch[1]).replace(/\s+/g, ' ');
+      const numMatch = titleMatch[1].match(/<div class=["']chapter-number["']>([\s\S]*?)<\/div>/i);
+      if (numMatch) {
+        chapterNum = cleanHtmlText(numMatch[1]);
+      }
+      const rawTitle = titleMatch[1].replace(/<div class=["']chapter-number["']>[\s\S]*?<\/div>/i, '');
+      chapterTitle = cleanHtmlText(rawTitle);
+      if (!chapterTitle && chapterNum) {
+        chapterTitle = chapterNum;
+      }
     }
 
-    // Extract paragraphs and headings within chapter
-    const paragraphs = [];
-    const pMatches = chunk.matchAll(/<(?:p|h3|h4|h5)(?:\s+[^>]*)?>([\s\S]*?)<\/(?:p|h3|h4|h5)>/g);
-    for (const pm of pMatches) {
-      const pText = cleanHtml(pm[1]);
-      // Skip empty or purely address/order form boilerplate
-      if (!pText || pText.startsWith('Chapter ') && pText === chapterTitle) continue;
-      if (pText.includes('austincfc.church/books') || pText.includes('order by Email')) continue;
-      paragraphs.push(pText);
+    // Extract elements in exact sequential order: h2, h3, h4, h5, blockquote, p
+    const elements = [];
+    const elemRegex = /<(h2|h3|h4|h5|blockquote|p)(?:\s+[^>]*)?>([\s\S]*?)<\/\1>/gi;
+    let match;
+
+    while ((match = elemRegex.exec(chunk)) !== null) {
+      const tag = match[1].toLowerCase();
+      const text = cleanHtmlText(match[2]);
+
+      if (!text || text.length < 2) continue;
+      if (text.includes('austincfc.church/books') || text.includes('order by Email')) continue;
+      if (text.startsWith('Chapter ') && text === chapterTitle) continue;
+
+      let type = 'p';
+      if (tag === 'h2') type = 'h2';
+      else if (tag === 'h3' || tag === 'h4' || tag === 'h5') type = 'h3';
+      else if (tag === 'blockquote') type = 'blockquote';
+
+      elements.push({ type, text });
     }
 
-    if (paragraphs.length > 0) {
+    if (elements.length > 0) {
       chapters.push({
+        chapterNum,
         title: chapterTitle,
-        paragraphs,
+        elements,
       });
     }
   }
 
-  // Fallback: If no chapter divs matched, extract all <p> tags
+  // Fallback: If no chapter divs matched
   if (chapters.length === 0) {
-    const allP = [];
-    const pMatches = htmlContent.matchAll(/<p(?:\s+[^>]*)?>([\s\S]*?)<\/p>/g);
-    for (const pm of pMatches) {
-      const pText = cleanHtml(pm[1]);
-      if (pText.length > 20) allP.push(pText);
+    const allElements = [];
+    const elemRegex = /<(h2|h3|h4|blockquote|p)(?:\s+[^>]*)?>([\s\S]*?)<\/\1>/gi;
+    let match;
+    while ((match = elemRegex.exec(htmlContent)) !== null) {
+      const tag = match[1].toLowerCase();
+      const text = cleanHtmlText(match[2]);
+      if (text && text.length > 20 && !text.includes('austincfc.church')) {
+        let type = 'p';
+        if (tag === 'h2') type = 'h2';
+        else if (tag === 'h3' || tag === 'h4') type = 'h3';
+        else if (tag === 'blockquote') type = 'blockquote';
+        allElements.push({ type, text });
+      }
     }
-    if (allP.length > 0) {
+    if (allElements.length > 0) {
       chapters.push({
+        chapterNum: '',
         title: 'Full Book',
-        paragraphs: allP,
+        elements: allElements,
       });
     }
   }
@@ -137,6 +178,43 @@ function parseBookHtml(htmlContent) {
 function escapeSql(str) {
   if (str === null || str === undefined) return 'NULL';
   return "'" + str.replace(/'/g, "''") + "'";
+}
+
+function resolvePrimarySubject(cats, author, bookId) {
+  if (author.toLowerCase().includes('annie') || cats.includes('Woman')) {
+    return 'Women & Mothers';
+  }
+  if (cats.includes('The home') || bookId.includes('marriage') || bookId.includes('family')) {
+    return 'The Home & Family';
+  }
+  if (cats.includes('Foundational Truth') || cats.includes('Seeker') || bookId.includes('foundation') || bookId.includes('truth')) {
+    return 'Foundational Truths';
+  }
+  if (cats.includes('The Church') || cats.includes('Leader') || bookId.includes('church') || bookId.includes('leader')) {
+    return 'The Church & Leadership';
+  }
+  if (cats.includes('Spirit Filled life') || cats.includes('Devotion to Christ') || bookId.includes('spirit') || bookId.includes('praying')) {
+    return 'Spirit-Filled Life & Devotion';
+  }
+  return 'Discipleship & Christian Living';
+}
+
+function extractBookMetadata(html, fallbackAuthor, bookId) {
+  const authorMatch = html.match(/writen-by[\s\S]*?Written by\s*:\s*([\s\S]*?)<\/span>/i);
+  const catMatch = html.match(/categories-list[\s\S]*?Categories\s*:\s*([\s\S]*?)<\/span>/i);
+
+  const author = authorMatch ? cleanHtmlText(authorMatch[1]) : (fallbackAuthor || 'Zac Poonen');
+  const cats = [];
+  if (catMatch) {
+    const aMatches = catMatch[1].matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi);
+    for (const a of aMatches) {
+      const c = cleanHtmlText(a[1]);
+      if (c) cats.push(c);
+    }
+  }
+
+  const subject = resolvePrimarySubject(cats, author, bookId);
+  return { author, categories: cats, subject };
 }
 
 async function main() {
@@ -157,6 +235,8 @@ async function main() {
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       author TEXT NOT NULL,
+      subject TEXT NOT NULL DEFAULT '',
+      categories TEXT NOT NULL DEFAULT '[]',
       description TEXT,
       cover_file TEXT,
       total_pages INTEGER NOT NULL,
@@ -181,6 +261,7 @@ async function main() {
       page_number INTEGER NOT NULL,
       line_number INTEGER NOT NULL,
       chapter_index INTEGER NOT NULL,
+      content_type TEXT NOT NULL DEFAULT 'p',
       text TEXT NOT NULL,
       PRIMARY KEY (book_id, page_number, line_number),
       FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
@@ -190,8 +271,8 @@ async function main() {
   `);
 
   const insertBook = db.prepare(`
-    INSERT INTO books (id, title, author, description, cover_file, total_pages, total_lines, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO books (id, title, author, subject, categories, description, cover_file, total_pages, total_lines, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertChapter = db.prepare(`
@@ -200,8 +281,8 @@ async function main() {
   `);
 
   const insertLine = db.prepare(`
-    INSERT INTO book_content (book_id, page_number, line_number, chapter_index, text)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO book_content (book_id, page_number, line_number, chapter_index, content_type, text)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
 
   const sqlStatements = [
@@ -213,7 +294,7 @@ async function main() {
 
   let totalIngestedBooks = 0;
   let totalIngestedChapters = 0;
-  let totalIngestedLines = 0;
+  let totalIngestedElements = 0;
 
   for (const book of catalog) {
     const htmlFile = path.join(HTML_DIR, `${book.id}.html`);
@@ -232,39 +313,71 @@ async function main() {
 
     let currentPage = 1;
     let currentLine = 1;
-    let bookTotalLines = 0;
+    let currentCharsOnPage = 0;
+    let bookTotalElements = 0;
 
     const chapterRecords = [];
     const contentRecords = [];
 
     for (let cIdx = 0; cIdx < parsedChapters.length; cIdx++) {
       const ch = parsedChapters[cIdx];
+
+      // New chapter always begins on a fresh page (except if page 1 is completely empty)
+      if (currentCharsOnPage > 0 || currentLine > 1) {
+        currentPage++;
+        currentLine = 1;
+        currentCharsOnPage = 0;
+      }
+
       const startPage = currentPage;
       const startLine = currentLine;
 
-      for (const paragraph of ch.paragraphs) {
-        const lines = splitIntoLines(paragraph);
-        for (const lineText of lines) {
+      // 1. Chapter Header entry
+      const headerText = (ch.chapterNum ? ch.chapterNum + ' ' : '') + ch.title;
+      contentRecords.push({
+        bookId: book.id,
+        pageNumber: currentPage,
+        lineNumber: currentLine,
+        chapterIndex: cIdx + 1,
+        contentType: 'chapter_header',
+        text: headerText,
+      });
+
+      bookTotalElements++;
+      currentLine++;
+      currentCharsOnPage += headerText.length;
+
+      // 2. Elements within chapter
+      for (const elem of ch.elements) {
+        const textChunks = (elem.type === 'p' && elem.text.length > TARGET_CHARS_PER_PAGE)
+          ? splitParagraphIntoSentences(elem.text, TARGET_CHARS_PER_PAGE)
+          : [elem.text];
+
+        for (const chunk of textChunks) {
+          // If adding this chunk exceeds page capacity, advance to next page
+          if (currentCharsOnPage > 0 && (currentCharsOnPage + chunk.length > TARGET_CHARS_PER_PAGE)) {
+            currentPage++;
+            currentLine = 1;
+            currentCharsOnPage = 0;
+          }
+
           contentRecords.push({
             bookId: book.id,
             pageNumber: currentPage,
             lineNumber: currentLine,
             chapterIndex: cIdx + 1,
-            text: lineText,
+            contentType: elem.type,
+            text: chunk,
           });
 
-          bookTotalLines++;
+          bookTotalElements++;
           currentLine++;
-          if (currentLine > LINES_PER_PAGE) {
-            currentPage++;
-            currentLine = 1;
-          }
+          currentCharsOnPage += chunk.length;
         }
-        // Small paragraph gap represented by line progression
       }
 
-      const endPage = currentLine === 1 ? Math.max(1, currentPage - 1) : currentPage;
-      const endLine = currentLine === 1 ? LINES_PER_PAGE : Math.max(1, currentLine - 1);
+      const endPage = currentPage;
+      const endLine = Math.max(1, currentLine - 1);
 
       chapterRecords.push({
         bookId: book.id,
@@ -277,22 +390,31 @@ async function main() {
       });
     }
 
-    const finalTotalPages = (currentLine === 1 && currentPage > 1) ? currentPage - 1 : currentPage;
+    const finalTotalPages = currentPage;
     const nowIso = new Date().toISOString();
+
+    const meta = extractBookMetadata(rawHtml, book.author, book.id);
+    book.author = meta.author;
+    book.subject = meta.subject;
+    book.categories = meta.categories;
+    book.totalPages = finalTotalPages;
+    book.totalLines = bookTotalElements;
 
     // 1. Insert book metadata
     insertBook.run(
       book.id,
       book.title,
-      book.author || 'Zac Poonen',
+      meta.author,
+      meta.subject,
+      JSON.stringify(meta.categories),
       book.description || '',
       book.localCoverFile || '',
       finalTotalPages,
-      bookTotalLines,
+      bookTotalElements,
       nowIso
     );
 
-    sqlStatements.push(`INSERT INTO books VALUES (${escapeSql(book.id)}, ${escapeSql(book.title)}, ${escapeSql(book.author)}, ${escapeSql(book.description)}, ${escapeSql(book.localCoverFile)}, ${finalTotalPages}, ${bookTotalLines}, ${escapeSql(nowIso)});`);
+    sqlStatements.push(`INSERT INTO books VALUES (${escapeSql(book.id)}, ${escapeSql(book.title)}, ${escapeSql(meta.author)}, ${escapeSql(meta.subject)}, ${escapeSql(JSON.stringify(meta.categories))}, ${escapeSql(book.description)}, ${escapeSql(book.localCoverFile)}, ${finalTotalPages}, ${bookTotalElements}, ${escapeSql(nowIso)});`);
 
     // 2. Insert chapters
     for (const ch of chapterRecords) {
@@ -308,32 +430,64 @@ async function main() {
       sqlStatements.push(`INSERT INTO book_chapters VALUES (${escapeSql(ch.bookId)}, ${ch.chapterIndex}, ${escapeSql(ch.chapterTitle)}, ${ch.startPage}, ${ch.startLine}, ${ch.endPage}, ${ch.endLine});`);
     }
 
-    // 3. Insert content lines
+    // 3. Insert content elements
     db.exec('BEGIN TRANSACTION;');
     for (const row of contentRecords) {
-      insertLine.run(row.bookId, row.pageNumber, row.lineNumber, row.chapterIndex, row.text);
-      sqlStatements.push(`INSERT INTO book_content VALUES (${escapeSql(row.bookId)}, ${row.pageNumber}, ${row.lineNumber}, ${row.chapterIndex}, ${escapeSql(row.text)});`);
+      insertLine.run(row.bookId, row.pageNumber, row.lineNumber, row.chapterIndex, row.contentType, row.text);
+      sqlStatements.push(`INSERT INTO book_content VALUES (${escapeSql(row.bookId)}, ${row.pageNumber}, ${row.lineNumber}, ${row.chapterIndex}, ${escapeSql(row.contentType)}, ${escapeSql(row.text)});`);
     }
     db.exec('COMMIT;');
 
     totalIngestedBooks++;
     totalIngestedChapters += chapterRecords.length;
-    totalIngestedLines += bookTotalLines;
+    totalIngestedElements += bookTotalElements;
 
-    console.log(`✓ Ingested: "${book.title}" (${chapterRecords.length} chapters, ${finalTotalPages} pages, ${bookTotalLines} lines)`);
+    console.log(`✓ Ingested: "${book.title}" (${chapterRecords.length} chapters, ${finalTotalPages} pages, ${bookTotalElements} elements)`);
   }
 
   sqlStatements.push(`COMMIT;`);
+
+  // Write SQL file
   fs.writeFileSync(OUT_SQL, sqlStatements.join('\n'), 'utf8');
 
-  console.log(`\n========================================`);
-  console.log(`Books ingestion completed!`);
-  console.log(`SQLite database: ${OUT_SQLITE} (${(fs.statSync(OUT_SQLITE).size / (1024 * 1024)).toFixed(2)} MB)`);
-  console.log(`SQL statements:  ${OUT_SQL} (${(fs.statSync(OUT_SQL).size / (1024 * 1024)).toFixed(2)} MB)`);
+  function safeWriteFile(filePath, data) {
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        fs.writeFileSync(filePath, data, 'utf8');
+        return;
+      } catch (err) {
+        if (attempt === 5) throw err;
+        const end = Date.now() + attempt * 100;
+        while (Date.now() < end) {}
+      }
+    }
+  }
+
+  // Update catalog JSONs
+  safeWriteFile(CATALOG_PATH, JSON.stringify(catalog, null, 2));
+  if (fs.existsSync(APP_CATALOG)) {
+    safeWriteFile(APP_CATALOG, JSON.stringify(catalog, null, 2));
+  }
+
+  // Compress sqlite to .gz
+  console.log('\nCompressing books.sqlite to books.sqlite.gz...');
+  const dbBuffer = fs.readFileSync(OUT_SQLITE);
+  const gzBuffer = zlib.gzipSync(dbBuffer, { level: 9 });
+  fs.writeFileSync(OUT_GZ, gzBuffer);
+
+  const sqliteSizeMb = (fs.statSync(OUT_SQLITE).size / (1024 * 1024)).toFixed(2);
+  const sqlSizeMb = (fs.statSync(OUT_SQL).size / (1024 * 1024)).toFixed(2);
+  const gzSizeMb = (fs.statSync(OUT_GZ).size / (1024 * 1024)).toFixed(2);
+
+  console.log('\n========================================');
+  console.log('Books ingestion with original layout completed!');
+  console.log(`SQLite database: ${OUT_SQLITE} (${sqliteSizeMb} MB)`);
+  console.log(`Gzipped bundle:  ${OUT_GZ} (${gzSizeMb} MB)`);
+  console.log(`SQL statements:  ${OUT_SQL} (${sqlSizeMb} MB)`);
   console.log(`Total Books:     ${totalIngestedBooks}`);
   console.log(`Total Chapters:  ${totalIngestedChapters}`);
-  console.log(`Total Lines:     ${totalIngestedLines}`);
-  console.log(`========================================`);
+  console.log(`Total Elements:  ${totalIngestedElements}`);
+  console.log('========================================\n');
 }
 
 main().catch(err => {

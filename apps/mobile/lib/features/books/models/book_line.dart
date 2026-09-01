@@ -3,6 +3,7 @@ class BookLine {
   final int pageNumber;
   final int lineNumber;
   final int chapterIndex;
+  final String contentType;
   final String text;
 
   const BookLine({
@@ -10,6 +11,7 @@ class BookLine {
     required this.pageNumber,
     required this.lineNumber,
     required this.chapterIndex,
+    this.contentType = 'p',
     required this.text,
   });
 
@@ -19,6 +21,7 @@ class BookLine {
       pageNumber: (map['page_number'] as num?)?.toInt() ?? 1,
       lineNumber: (map['line_number'] as num?)?.toInt() ?? 1,
       chapterIndex: (map['chapter_index'] as num?)?.toInt() ?? 1,
+      contentType: map['content_type'] as String? ?? 'p',
       text: map['text'] as String? ?? '',
     );
   }
@@ -29,6 +32,7 @@ class BookLine {
       'page_number': pageNumber,
       'line_number': lineNumber,
       'chapter_index': chapterIndex,
+      'content_type': contentType,
       'text': text,
     };
   }

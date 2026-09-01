@@ -88,6 +88,16 @@ void main() {
         ),
         isTrue,
       );
+
+      // Books catalog screen
+      expect(
+        service.shouldShow(
+          context: capturedContext,
+          currentPath: '/books',
+          selectedIndex: 3,
+        ),
+        isTrue,
+      );
     });
 
     testWidgets('hides bottom bar in landscape mode (fullscreen video)', (tester) async {

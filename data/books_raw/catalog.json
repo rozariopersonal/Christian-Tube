@@ -2,13 +2,24 @@
   {
     "id": "mother_in_law_and_daughter_in_law_bond",
     "title": "Mother-in-law And Daughter-in-Law Bond",
-    "author": "Zac Poonen",
+    "author": "Dr.Annie Poonen",
     "description": "Love alone has the power to transform strained relationships.",
     "pageUrl": "https://www.cfcindia.com/books/motherinlaw-and-daughterinlaw-bond",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/mil-dil-bond.jpg",
     "epubUrl": "",
     "localCoverFile": "mother_in_law_and_daughter_in_law_bond.jpg",
-    "localHtmlFile": "mother_in_law_and_daughter_in_law_bond.html"
+    "localHtmlFile": "mother_in_law_and_daughter_in_law_bond.html",
+    "totalPages": 47,
+    "totalLines": 267,
+    "downloadFile": "mother_in_law_and_daughter_in_law_bond.sqlite.gz",
+    "downloadSizeBytes": 36802,
+    "downloadSizeFormatted": "35.9 KB",
+    "subject": "Women & Mothers",
+    "categories": [
+      "Woman",
+      "Foundational Truth",
+      "Disciples"
+    ]
   },
   {
     "id": "a_godly_family_life",
@@ -19,7 +30,18 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/a-godly-family.jpg",
     "epubUrl": "",
     "localCoverFile": "a_godly_family_life.jpg",
-    "localHtmlFile": "a_godly_family_life.html"
+    "localHtmlFile": "a_godly_family_life.html",
+    "totalPages": 210,
+    "totalLines": 402,
+    "downloadFile": "a_godly_family_life.sqlite.gz",
+    "downloadSizeBytes": 101938,
+    "downloadSizeFormatted": "99.5 KB",
+    "subject": "The Home & Family",
+    "categories": [
+      "The home",
+      "Spirit Filled life",
+      "Devotion to Christ"
+    ]
   },
   {
     "id": "fundamental_biblical_truths",
@@ -30,7 +52,17 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/FBT.jpg",
     "epubUrl": "",
     "localCoverFile": "fundamental_biblical_truths.jpg",
-    "localHtmlFile": "fundamental_biblical_truths.html"
+    "localHtmlFile": "fundamental_biblical_truths.html",
+    "totalPages": 455,
+    "totalLines": 553,
+    "downloadFile": "fundamental_biblical_truths.sqlite.gz",
+    "downloadSizeBytes": 203608,
+    "downloadSizeFormatted": "198.8 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Foundational Truth",
+      "Seeker"
+    ]
   },
   {
     "id": "basic_christian_teachings",
@@ -39,7 +71,17 @@
     "description": "",
     "pageUrl": "https://www.cfcindia.com/books/basic-christian-teachings",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/BCT.jpg",
-    "epubUrl": ""
+    "epubUrl": "",
+    "totalPages": 638,
+    "totalLines": 1168,
+    "downloadFile": "basic_christian_teachings.sqlite.gz",
+    "downloadSizeBytes": 288931,
+    "downloadSizeFormatted": "282.2 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Foundational Truth",
+      "Seeker"
+    ]
   },
   {
     "id": "all_that_jesus_taught",
@@ -48,7 +90,18 @@
     "description": "The Great Commission that Jesus gave His apostles consisted of TWO parts:\r\n (1) To preach the gospel to everyone (Mark 16:15, 16).\r\n (2) To make disciples, baptize them, and then teach them all that Jesus taught (Matt. 28:29, 20).",
     "pageUrl": "https://www.cfcindia.com/books/all-that-jesus-taught",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/atjtnew.jpg",
-    "epubUrl": ""
+    "epubUrl": "",
+    "totalPages": 1449,
+    "totalLines": 2866,
+    "downloadFile": "all_that_jesus_taught.sqlite.gz",
+    "downloadSizeBytes": 681455,
+    "downloadSizeFormatted": "665.5 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Knowing God",
+      "Disciples"
+    ]
   },
   {
     "id": "the_way_of_wisdom",
@@ -58,18 +111,40 @@
     "pageUrl": "https://www.cfcindia.com/books/the-way-of-wisdom",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/TWOW.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/the-way-of-wisdom/index.html",
-    "localEpubFile": "the_way_of_wisdom.epub"
+    "localEpubFile": "the_way_of_wisdom.epub",
+    "totalPages": 981,
+    "totalLines": 3992,
+    "downloadFile": "the_way_of_wisdom.sqlite.gz",
+    "downloadSizeBytes": 529242,
+    "downloadSizeFormatted": "516.8 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Youth",
+      "Foundational Truth",
+      "Spiritual Treasure",
+      "Seeker"
+    ]
   },
   {
     "id": "the_congregation_the_club_and_the_church",
     "title": "The Congregation The Club And The Church",
-    "author": "Zac Poonen",
+    "author": "Santosh Poonen",
     "description": "To understand the difference between a congreation and a club and a church, read this book.",
     "pageUrl": "https://www.cfcindia.com/books/the-congregation-the-club-and-the-church",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/CCC.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/CCC.epub",
     "localCoverFile": "the_congregation_the_club_and_the_church.jpg",
-    "localHtmlFile": "the_congregation_the_club_and_the_church.html"
+    "localHtmlFile": "the_congregation_the_club_and_the_church.html",
+    "totalPages": 49,
+    "totalLines": 189,
+    "downloadFile": "the_congregation_the_club_and_the_church.sqlite.gz",
+    "downloadSizeBytes": 32126,
+    "downloadSizeFormatted": "31.4 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Religious or Spiritual"
+    ]
   },
   {
     "id": "hear_o_my_sons",
@@ -81,18 +156,38 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/HOMS.epub",
     "localCoverFile": "hear_o_my_sons.jpg",
     "localEpubFile": "hear_o_my_sons.epub",
-    "localHtmlFile": "hear_o_my_sons.html"
+    "localHtmlFile": "hear_o_my_sons.html",
+    "totalPages": 543,
+    "totalLines": 2273,
+    "downloadFile": "hear_o_my_sons.sqlite.gz",
+    "downloadSizeBytes": 349130,
+    "downloadSizeFormatted": "340.9 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Youth",
+      "Man"
+    ]
   },
   {
     "id": "encouragement_for_mothers",
     "title": "Encouragement For Mothers",
-    "author": "Zac Poonen",
+    "author": "Dr.Annie Poonen",
     "description": "God is our heavenly Father who is interested in helping us to be a better parent and a better wife. Read and be encouraged by the truths that helped Annie Poonen in building a Godly home.",
     "pageUrl": "https://www.cfcindia.com/books/encouragement-for-mothers",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/encouragement-for-mothers.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/EFM.epub",
     "localCoverFile": "encouragement_for_mothers.jpg",
-    "localHtmlFile": "encouragement_for_mothers.html"
+    "localHtmlFile": "encouragement_for_mothers.html",
+    "totalPages": 31,
+    "totalLines": 139,
+    "downloadFile": "encouragement_for_mothers.sqlite.gz",
+    "downloadSizeBytes": 22405,
+    "downloadSizeFormatted": "21.9 KB",
+    "subject": "Women & Mothers",
+    "categories": [
+      "Woman",
+      "The home"
+    ]
   },
   {
     "id": "a_good_foundation",
@@ -103,7 +198,17 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/a-good-foundation.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/AGF.epub",
     "localCoverFile": "a_good_foundation.jpg",
-    "localHtmlFile": "a_good_foundation.html"
+    "localHtmlFile": "a_good_foundation.html",
+    "totalPages": 68,
+    "totalLines": 456,
+    "downloadFile": "a_good_foundation.sqlite.gz",
+    "downloadSizeBytes": 54029,
+    "downloadSizeFormatted": "52.8 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Foundational Truth",
+      "Seeker"
+    ]
   },
   {
     "id": "a_heavenly_home",
@@ -114,7 +219,17 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/a-heavenly-home.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/AHH.epub",
     "localCoverFile": "a_heavenly_home.jpg",
-    "localHtmlFile": "a_heavenly_home.html"
+    "localHtmlFile": "a_heavenly_home.html",
+    "totalPages": 49,
+    "totalLines": 244,
+    "downloadFile": "a_heavenly_home.sqlite.gz",
+    "downloadSizeBytes": 32758,
+    "downloadSizeFormatted": "32.0 KB",
+    "subject": "The Home & Family",
+    "categories": [
+      "The home",
+      "Spirit Filled life"
+    ]
   },
   {
     "id": "a_spiritual_leader",
@@ -126,7 +241,17 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/ASL.epub",
     "localCoverFile": "a_spiritual_leader.jpg",
     "localEpubFile": "a_spiritual_leader.epub",
-    "localHtmlFile": "a_spiritual_leader.html"
+    "localHtmlFile": "a_spiritual_leader.html",
+    "totalPages": 120,
+    "totalLines": 521,
+    "downloadFile": "a_spiritual_leader.sqlite.gz",
+    "downloadSizeBytes": 77718,
+    "downloadSizeFormatted": "75.9 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Leader"
+    ]
   },
   {
     "id": "beauty_for_ashes",
@@ -136,7 +261,17 @@
     "pageUrl": "https://www.cfcindia.com/books/beauty-for-ashes",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/beauty-for-ashes.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/BFA.epub",
-    "localCoverFile": "beauty_for_ashes.jpg"
+    "localCoverFile": "beauty_for_ashes.jpg",
+    "totalPages": 119,
+    "totalLines": 410,
+    "downloadFile": "beauty_for_ashes.sqlite.gz",
+    "downloadSizeBytes": 74654,
+    "downloadSizeFormatted": "72.9 KB",
+    "subject": "Spirit-Filled Life & Devotion",
+    "categories": [
+      "Spirit Filled life",
+      "Devotion to Christ"
+    ]
   },
   {
     "id": "fifty_marks_of_pharisees",
@@ -148,7 +283,16 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/FMP.epub",
     "localCoverFile": "fifty_marks_of_pharisees.jpg",
     "localEpubFile": "fifty_marks_of_pharisees.epub",
-    "localHtmlFile": "fifty_marks_of_pharisees.html"
+    "localHtmlFile": "fifty_marks_of_pharisees.html",
+    "totalPages": 96,
+    "totalLines": 366,
+    "downloadFile": "fifty_marks_of_pharisees.sqlite.gz",
+    "downloadSizeBytes": 58736,
+    "downloadSizeFormatted": "57.4 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Religious or Spiritual"
+    ]
   },
   {
     "id": "god_centred_praying",
@@ -160,18 +304,38 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/GCP.epub",
     "localCoverFile": "god_centred_praying.jpg",
     "localEpubFile": "god_centred_praying.epub",
-    "localHtmlFile": "god_centred_praying.html"
+    "localHtmlFile": "god_centred_praying.html",
+    "totalPages": 101,
+    "totalLines": 576,
+    "downloadFile": "god_centred_praying.sqlite.gz",
+    "downloadSizeBytes": 74007,
+    "downloadSizeFormatted": "72.3 KB",
+    "subject": "Spirit-Filled Life & Devotion",
+    "categories": [
+      "Disciples",
+      "Devotion to Christ"
+    ]
   },
   {
     "id": "god_made_mothers",
     "title": "God Made Mothers",
-    "author": "Zac Poonen",
+    "author": "Dr.Annie Poonen",
     "description": "A book for mothers...",
     "pageUrl": "https://www.cfcindia.com/books/god-made-mothers",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/god-made-mothers.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/GMM.epub",
     "localCoverFile": "god_made_mothers.jpg",
-    "localHtmlFile": "god_made_mothers.html"
+    "localHtmlFile": "god_made_mothers.html",
+    "totalPages": 87,
+    "totalLines": 468,
+    "downloadFile": "god_made_mothers.sqlite.gz",
+    "downloadSizeBytes": 58989,
+    "downloadSizeFormatted": "57.6 KB",
+    "subject": "Women & Mothers",
+    "categories": [
+      "Woman",
+      "The home"
+    ]
   },
   {
     "id": "know_your_enemy",
@@ -182,7 +346,20 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/know-your-enemy.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/KYE.epub",
     "localCoverFile": "know_your_enemy.jpg",
-    "localHtmlFile": "know_your_enemy.html"
+    "localHtmlFile": "know_your_enemy.html",
+    "totalPages": 48,
+    "totalLines": 227,
+    "downloadFile": "know_your_enemy.sqlite.gz",
+    "downloadSizeBytes": 33417,
+    "downloadSizeFormatted": "32.6 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Youth",
+      "Struggling",
+      "Foundational Truth",
+      "Disciples",
+      "Man"
+    ]
   },
   {
     "id": "living_as_jesus_lived",
@@ -193,7 +370,18 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/living-as-jesus-lived.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/LJL.epub",
     "localCoverFile": "living_as_jesus_lived.jpg",
-    "localEpubFile": "living_as_jesus_lived.epub"
+    "localEpubFile": "living_as_jesus_lived.epub",
+    "totalPages": 86,
+    "totalLines": 459,
+    "downloadFile": "living_as_jesus_lived.sqlite.gz",
+    "downloadSizeBytes": 65705,
+    "downloadSizeFormatted": "64.2 KB",
+    "subject": "Spirit-Filled Life & Devotion",
+    "categories": [
+      "Disciples",
+      "Spirit Filled life",
+      "Devotion to Christ"
+    ]
   },
   {
     "id": "needed_men_of_god",
@@ -204,7 +392,17 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/needed-men-of-god.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/NMG.epub",
     "localCoverFile": "needed_men_of_god.jpg",
-    "localHtmlFile": "needed_men_of_god.html"
+    "localHtmlFile": "needed_men_of_god.html",
+    "totalPages": 62,
+    "totalLines": 254,
+    "downloadFile": "needed_men_of_god.sqlite.gz",
+    "downloadSizeBytes": 40914,
+    "downloadSizeFormatted": "40.0 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Disciples",
+      "Man"
+    ]
   },
   {
     "id": "new_wine_in_new_wineskins",
@@ -216,7 +414,18 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/NWWS.epub",
     "localCoverFile": "new_wine_in_new_wineskins.jpg",
     "localEpubFile": "new_wine_in_new_wineskins.epub",
-    "localHtmlFile": "new_wine_in_new_wineskins.html"
+    "localHtmlFile": "new_wine_in_new_wineskins.html",
+    "totalPages": 295,
+    "totalLines": 968,
+    "downloadFile": "new_wine_in_new_wineskins.sqlite.gz",
+    "downloadSizeBytes": 182123,
+    "downloadSizeFormatted": "177.9 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Disciples",
+      "Spirit Filled life"
+    ]
   },
   {
     "id": "one_body_in_christ",
@@ -227,7 +436,17 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/OBIC.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/OBC.epub",
     "localEpubFile": "one_body_in_christ.epub",
-    "localHtmlFile": "one_body_in_christ.html"
+    "localHtmlFile": "one_body_in_christ.html",
+    "totalPages": 80,
+    "totalLines": 377,
+    "downloadFile": "one_body_in_christ.sqlite.gz",
+    "downloadSizeBytes": 55781,
+    "downloadSizeFormatted": "54.5 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Disciples"
+    ]
   },
   {
     "id": "practical_discipleship",
@@ -237,7 +456,16 @@
     "pageUrl": "https://www.cfcindia.com/books/practical-discipleship",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/PD.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/PDS.epub",
-    "localHtmlFile": "practical_discipleship.html"
+    "localHtmlFile": "practical_discipleship.html",
+    "totalPages": 94,
+    "totalLines": 380,
+    "downloadFile": "practical_discipleship.sqlite.gz",
+    "downloadSizeBytes": 63405,
+    "downloadSizeFormatted": "61.9 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Disciples"
+    ]
   },
   {
     "id": "principles_of_serving_god",
@@ -248,7 +476,18 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/POSG.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/PSG.epub",
     "localCoverFile": "principles_of_serving_god.jpg",
-    "localEpubFile": "principles_of_serving_god.epub"
+    "localEpubFile": "principles_of_serving_god.epub",
+    "totalPages": 28,
+    "totalLines": 121,
+    "downloadFile": "principles_of_serving_god.sqlite.gz",
+    "downloadSizeBytes": 20110,
+    "downloadSizeFormatted": "19.6 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Leader",
+      "Man"
+    ]
   },
   {
     "id": "secrets_of_victory",
@@ -260,7 +499,17 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/SOV.epub",
     "localCoverFile": "secrets_of_victory.jpg",
     "localEpubFile": "secrets_of_victory.epub",
-    "localHtmlFile": "secrets_of_victory.html"
+    "localHtmlFile": "secrets_of_victory.html",
+    "totalPages": 64,
+    "totalLines": 373,
+    "downloadFile": "secrets_of_victory.sqlite.gz",
+    "downloadSizeBytes": 45402,
+    "downloadSizeFormatted": "44.3 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Disciples",
+      "Seeker"
+    ]
   },
   {
     "id": "sex_love_marriage",
@@ -271,7 +520,17 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/sex-love-marriage.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/SLM.epub",
     "localCoverFile": "sex_love_marriage.jpg",
-    "localHtmlFile": "sex_love_marriage.html"
+    "localHtmlFile": "sex_love_marriage.html",
+    "totalPages": 154,
+    "totalLines": 542,
+    "downloadFile": "sex_love_marriage.sqlite.gz",
+    "downloadSizeBytes": 94691,
+    "downloadSizeFormatted": "92.5 KB",
+    "subject": "The Home & Family",
+    "categories": [
+      "Youth",
+      "Seeker"
+    ]
   },
   {
     "id": "the_day_of_small_beginnings",
@@ -283,7 +542,18 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/DSB.epub",
     "localCoverFile": "the_day_of_small_beginnings.jpg",
     "localEpubFile": "the_day_of_small_beginnings.epub",
-    "localHtmlFile": "the_day_of_small_beginnings.html"
+    "localHtmlFile": "the_day_of_small_beginnings.html",
+    "totalPages": 228,
+    "totalLines": 668,
+    "downloadFile": "the_day_of_small_beginnings.sqlite.gz",
+    "downloadSizeBytes": 126516,
+    "downloadSizeFormatted": "123.6 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Foundational Truth",
+      "Disciples",
+      "Seeker"
+    ]
   },
   {
     "id": "the_final_triumph",
@@ -295,7 +565,17 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TFT.epub",
     "localCoverFile": "the_final_triumph.jpg",
     "localEpubFile": "the_final_triumph.epub",
-    "localHtmlFile": "the_final_triumph.html"
+    "localHtmlFile": "the_final_triumph.html",
+    "totalPages": 399,
+    "totalLines": 1795,
+    "downloadFile": "the_final_triumph.sqlite.gz",
+    "downloadSizeBytes": 254953,
+    "downloadSizeFormatted": "249.0 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Knowing God",
+      "Seeker"
+    ]
   },
   {
     "id": "the_full_gospel",
@@ -306,7 +586,16 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-full-gospel.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TFG.epub",
     "localCoverFile": "the_full_gospel.jpg",
-    "localHtmlFile": "the_full_gospel.html"
+    "localHtmlFile": "the_full_gospel.html",
+    "totalPages": 297,
+    "totalLines": 1467,
+    "downloadFile": "the_full_gospel.sqlite.gz",
+    "downloadSizeBytes": 203567,
+    "downloadSizeFormatted": "198.8 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Seeker"
+    ]
   },
   {
     "id": "the_lord_and_his_church",
@@ -318,7 +607,16 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TLC.epub",
     "localCoverFile": "the_lord_and_his_church.jpg",
     "localEpubFile": "the_lord_and_his_church.epub",
-    "localHtmlFile": "the_lord_and_his_church.html"
+    "localHtmlFile": "the_lord_and_his_church.html",
+    "totalPages": 115,
+    "totalLines": 595,
+    "downloadFile": "the_lord_and_his_church.sqlite.gz",
+    "downloadSizeBytes": 78578,
+    "downloadSizeFormatted": "76.7 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church"
+    ]
   },
   {
     "id": "the_new_covenant_servant",
@@ -328,7 +626,18 @@
     "pageUrl": "https://www.cfcindia.com/books/the-new-covenant-servant",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-new-covenant-servant.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TNS.epub",
-    "localCoverFile": "the_new_covenant_servant.jpg"
+    "localCoverFile": "the_new_covenant_servant.jpg",
+    "totalPages": 125,
+    "totalLines": 694,
+    "downloadFile": "the_new_covenant_servant.sqlite.gz",
+    "downloadSizeBytes": 90225,
+    "downloadSizeFormatted": "88.1 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "Leader",
+      "Disciples",
+      "Man"
+    ]
   },
   {
     "id": "the_purpose_of_failure",
@@ -338,7 +647,18 @@
     "pageUrl": "https://www.cfcindia.com/books/the-purpose-of-failure",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/TPOF.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TPF.epub",
-    "localHtmlFile": "the_purpose_of_failure.html"
+    "localHtmlFile": "the_purpose_of_failure.html",
+    "totalPages": 53,
+    "totalLines": 251,
+    "downloadFile": "the_purpose_of_failure.sqlite.gz",
+    "downloadSizeBytes": 36788,
+    "downloadSizeFormatted": "35.9 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Struggling",
+      "Foundational Truth",
+      "Seeker"
+    ]
   },
   {
     "id": "the_supreme_priorities",
@@ -349,30 +669,61 @@
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-supreme-priorities.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TSP.epub",
     "localEpubFile": "the_supreme_priorities.epub",
-    "localHtmlFile": "the_supreme_priorities.html"
+    "localHtmlFile": "the_supreme_priorities.html",
+    "totalPages": 151,
+    "totalLines": 282,
+    "downloadFile": "the_supreme_priorities.sqlite.gz",
+    "downloadSizeBytes": 82185,
+    "downloadSizeFormatted": "80.3 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Knowing God",
+      "Disciples",
+      "Seeker"
+    ]
   },
   {
     "id": "what_the_lord_has_done_for_me",
     "title": "What The Lord Has Done For Me",
-    "author": "Zac Poonen",
+    "author": "Dr.Annie Poonen",
     "description": "A Testimony.",
     "pageUrl": "https://www.cfcindia.com/books/what-the-lord-has-done-for-me",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/what-the-lord-has-done-for-me.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/WLDFM.epub",
     "localCoverFile": "what_the_lord_has_done_for_me.jpg",
-    "localHtmlFile": "what_the_lord_has_done_for_me.html"
+    "localHtmlFile": "what_the_lord_has_done_for_me.html",
+    "totalPages": 59,
+    "totalLines": 261,
+    "downloadFile": "what_the_lord_has_done_for_me.sqlite.gz",
+    "downloadSizeBytes": 37280,
+    "downloadSizeFormatted": "36.4 KB",
+    "subject": "Women & Mothers",
+    "categories": [
+      "Woman",
+      "The home"
+    ]
   },
   {
     "id": "woman_why_are_you_weeping",
     "title": "Woman, Why are you Weeping?",
-    "author": "Zac Poonen",
+    "author": "Dr.Annie Poonen",
     "description": "Comfort for suffering women.",
     "pageUrl": "https://www.cfcindia.com/books/woman-why-are-you-weeping",
     "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/woman-why-are-you-weeping.jpg",
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/WWW.epub",
     "localCoverFile": "woman_why_are_you_weeping.jpg",
     "localEpubFile": "woman_why_are_you_weeping.epub",
-    "localHtmlFile": "woman_why_are_you_weeping.html"
+    "localHtmlFile": "woman_why_are_you_weeping.html",
+    "totalPages": 83,
+    "totalLines": 318,
+    "downloadFile": "woman_why_are_you_weeping.sqlite.gz",
+    "downloadSizeBytes": 56806,
+    "downloadSizeFormatted": "55.5 KB",
+    "subject": "Women & Mothers",
+    "categories": [
+      "Woman",
+      "Disciples"
+    ]
   },
   {
     "id": "fifty_marks_of_phariseesbooklet",
@@ -384,7 +735,16 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/FMOP.epub",
     "localCoverFile": "fifty_marks_of_phariseesbooklet.jpg",
     "localEpubFile": "fifty_marks_of_phariseesbooklet.epub",
-    "localHtmlFile": "fifty_marks_of_phariseesbooklet.html"
+    "localHtmlFile": "fifty_marks_of_phariseesbooklet.html",
+    "totalPages": 7,
+    "totalLines": 59,
+    "downloadFile": "fifty_marks_of_phariseesbooklet.sqlite.gz",
+    "downloadSizeBytes": 7746,
+    "downloadSizeFormatted": "7.6 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Religious or Spiritual"
+    ]
   },
   {
     "id": "fifty_marks_of_godly_men_booklet",
@@ -396,7 +756,20 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/FMOGM.epub",
     "localCoverFile": "fifty_marks_of_godly_men_booklet.jpg",
     "localEpubFile": "fifty_marks_of_godly_men_booklet.epub",
-    "localHtmlFile": "fifty_marks_of_godly_men_booklet.html"
+    "localHtmlFile": "fifty_marks_of_godly_men_booklet.html",
+    "totalPages": 6,
+    "totalLines": 62,
+    "downloadFile": "fifty_marks_of_godly_men_booklet.sqlite.gz",
+    "downloadSizeBytes": 6337,
+    "downloadSizeFormatted": "6.2 KB",
+    "subject": "Spirit-Filled Life & Devotion",
+    "categories": [
+      "Knowing God",
+      "Man",
+      "Religious or Spiritual",
+      "Spirit Filled life",
+      "Devotion to Christ"
+    ]
   },
   {
     "id": "amazing_facts",
@@ -408,7 +781,18 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/AMF.epub",
     "localCoverFile": "amazing_facts.jpg",
     "localEpubFile": "amazing_facts.epub",
-    "localHtmlFile": "amazing_facts.html"
+    "localHtmlFile": "amazing_facts.html",
+    "totalPages": 36,
+    "totalLines": 140,
+    "downloadFile": "amazing_facts.sqlite.gz",
+    "downloadSizeBytes": 21034,
+    "downloadSizeFormatted": "20.5 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Youth",
+      "Foundational Truth",
+      "Seeker"
+    ]
   },
   {
     "id": "the_real_truth",
@@ -420,6 +804,17 @@
     "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TRT.epub",
     "localCoverFile": "the_real_truth.jpg",
     "localEpubFile": "the_real_truth.epub",
-    "localHtmlFile": "the_real_truth.html"
+    "localHtmlFile": "the_real_truth.html",
+    "totalPages": 43,
+    "totalLines": 305,
+    "downloadFile": "the_real_truth.sqlite.gz",
+    "downloadSizeBytes": 31677,
+    "downloadSizeFormatted": "30.9 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Youth",
+      "Foundational Truth",
+      "Seeker"
+    ]
   }
 ]

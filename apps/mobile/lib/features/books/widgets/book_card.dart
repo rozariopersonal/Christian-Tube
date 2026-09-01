@@ -5,17 +5,23 @@ import '../models/user_reading_progress.dart';
 import 'book_cover_fallback.dart';
 
 /// Card displaying a single book in the library grid.
-/// Shows cover artwork (with fallback jacket) and reading progress indicator.
+/// Shows cover artwork (with fallback jacket), author, subject, reading progress, and download status.
 class BookCard extends StatelessWidget {
   final Book book;
   final UserReadingProgress? progress;
+  final bool isInstalled;
+  final bool isDownloading;
   final VoidCallback? onTap;
+  final VoidCallback? onDownloadTap;
 
   const BookCard({
     super.key,
     required this.book,
     this.progress,
+    this.isInstalled = false,
+    this.isDownloading = false,
     this.onTap,
+    this.onDownloadTap,
   });
 
   Widget _buildCover(BuildContext context) {
@@ -70,13 +76,70 @@ class BookCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cover surface with progress bar overlay
+          // Cover surface with progress bar and download status overlay
           Expanded(
             child: Stack(
               children: [
                 Positioned.fill(
                   child: _buildCover(context),
                 ),
+
+                // Download / Installed Badge
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: tokens.surface.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: tokens.scrim.withValues(alpha: 0.2),
+                          blurRadius: 3,
+                        ),
+                      ],
+                    ),
+                    child: isDownloading
+                        ? SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(tokens.accent),
+                            ),
+                          )
+                        : isInstalled
+                            ? Icon(
+                                Icons.check_circle_rounded,
+                                size: 13,
+                                color: tokens.accent,
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.download_rounded,
+                                    size: 11,
+                                    color: tokens.onSurfaceMuted,
+                                  ),
+                                  if (book.downloadSizeFormatted.isNotEmpty) ...[
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      book.downloadSizeFormatted,
+                                      style: TextStyle(
+                                        color: tokens.onSurfaceMuted,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                  ),
+                ),
+
+                // Reading Progress bar
                 if (percent > 0.0)
                   Positioned(
                     left: 2,
@@ -98,7 +161,29 @@ class BookCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
+
+          // Subject Tag
+          if (book.subject.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: tokens.accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                book.subject.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tokens.accent,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
 
           // Title
           Text(
@@ -125,6 +210,7 @@ class BookCard extends StatelessWidget {
                   style: TextStyle(
                     color: tokens.onSurfaceMuted,
                     fontSize: 11,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),

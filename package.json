@@ -8,7 +8,8 @@
     "prepare:centum": "node scripts/prepare-instance.js centum_academy",
     "build:mobile": "flutter build apk --release",
     "start:backend": "pnpm --filter @privatetube/backend start:dev",
-    "build:backend": "pnpm --filter @privatetube/backend build"
+    "build:backend": "pnpm --filter @privatetube/backend build",
+    "books": "node tool/manage_books.js"
   },
   "devDependencies": {
     "nx": "^19.5.0",

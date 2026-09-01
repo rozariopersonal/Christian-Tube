@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../models/bible_verse.dart';
 
 class VerseText extends StatelessWidget {
@@ -52,28 +53,51 @@ class VerseText extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '${verse.number} ',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: context.tokens.onSurfaceMuted,
-                        fontWeight: FontWeight.bold,
-                        fontSize: fontSize * 0.7,
+              child: SelectionArea(
+                contextMenuBuilder: (context, selectableRegionState) {
+                  final selectedText = selectableRegionState.textEditingValue.text;
+                  return AdaptiveTextSelectionToolbar.buttonItems(
+                    anchors: selectableRegionState.contextMenuAnchors,
+                    buttonItems: [
+                      ContextMenuButtonItem(
+                        label: 'Define',
+                        onPressed: () {
+                          selectableRegionState.hideToolbar();
+                          InlineDictionaryPopover.show(context, word: selectedText);
+                        },
                       ),
-                    ),
-                    TextSpan(
-                      text: verse.text,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        height: 1.6,
-                        fontSize: fontSize,
-                        color: verse.isSecondary
-                            ? context.tokens.onSurfaceMuted
-                            : null,
+                      ContextMenuButtonItem(
+                        label: 'Copy',
+                        onPressed: () {
+                          selectableRegionState.copySelection(SelectionChangedCause.toolbar);
+                        },
                       ),
-                    ),
-                  ],
+                    ],
+                  );
+                },
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${verse.number} ',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: context.tokens.onSurfaceMuted,
+                          fontWeight: FontWeight.bold,
+                          fontSize: fontSize * 0.7,
+                        ),
+                      ),
+                      TextSpan(
+                        text: verse.text,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          height: 1.6,
+                          fontSize: fontSize,
+                          color: verse.isSecondary
+                              ? context.tokens.onSurfaceMuted
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
