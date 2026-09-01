@@ -11,6 +11,7 @@ import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/books/widgets/book_card.dart';
 import 'package:mobile/features/books/widgets/book_cover_fallback.dart';
+import 'package:mobile/features/books/widgets/book_toc_sheet.dart';
 import 'package:mobile/features/dictionary/models/dictionary_entry.dart';
 import 'package:mobile/features/dictionary/services/dictionary_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -326,6 +327,54 @@ void main() {
       expect(find.text('Test Book Title'), findsNWidgets(2));
       expect(find.text('50%'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('BookTocSheet hides page numbers on mobile and shows on large screens', (tester) async {
+      const chapters = [
+        BookChapter(
+          bookId: 'test_book',
+          chapterIndex: 1,
+          chapterTitle: 'Introduction',
+          startPage: 1,
+          startLine: 1,
+          endPage: 5,
+          endLine: 100,
+        ),
+      ];
+
+      // 1. Mobile mode (showPageNumbers = false)
+      await tester.pumpWidget(
+        buildFrame(
+          BookTocSheet(
+            bookTitle: 'Test Book',
+            chapters: chapters,
+            currentPage: 1,
+            showPageNumbers: false,
+            onSelectPage: (_) {},
+          ),
+          size: const Size(360, 640),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Introduction'), findsOneWidget);
+      expect(find.text('p. 1'), findsNothing);
+
+      // 2. Large screen mode (showPageNumbers = true)
+      await tester.pumpWidget(
+        buildFrame(
+          BookTocSheet(
+            bookTitle: 'Test Book',
+            chapters: chapters,
+            currentPage: 1,
+            showPageNumbers: true,
+            onSelectPage: (_) {},
+          ),
+          size: const Size(1000, 800),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Introduction'), findsOneWidget);
+      expect(find.text('p. 1'), findsOneWidget);
     });
   });
 }

@@ -606,6 +606,24 @@ class BookService extends ChangeNotifier {
     return rows.map((r) => BookLine.fromMap(r)).toList();
   }
 
+  /// Resolves the page number that contains a specific line number.
+  Future<int?> getPageForLine(String bookId, int lineNumber) async {
+    final db = await database;
+    if (db == null) return null;
+
+    final rows = await db.query(
+      'book_content',
+      columns: ['page_number'],
+      where: 'book_id = ? AND line_number = ?',
+      whereArgs: [bookId, lineNumber],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      return (rows.first['page_number'] as num).toInt();
+    }
+    return null;
+  }
+
   /// Gets all lines for a chapter of a book.
   Future<List<BookLine>> getChapterLines(String bookId, int chapterIndex) async {
     final db = await database;

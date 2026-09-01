@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../dictionary/widgets/inline_dictionary_popover.dart';
@@ -16,14 +18,15 @@ import '../widgets/scripture_verse_popup.dart';
 
 enum ReaderThemeMode { system, paper, sepia, dark, amoled }
 
-/// Kindle-style reading screen featuring:
-/// - Smooth page-turning (Kindle swipe / tap page-turn) with full reverse & forward traversal
-/// - Natural paragraph typography with font family (Serif/Sans), size, and line-height controls
-/// - Multiple reading themes (Paper, Sepia, Slate Dark, AMOLED Black)
+/// Adaptive reading screen featuring:
+/// - Continuous two-way vertical infinite scroll for mobile screens without page numbers
+/// - Side-by-side dual-page spread view for large screens (tablets/desktop) with page numbers
+/// - Cross-device and cross-size exact line resumability
+/// - Persists reading position to SQLite upon app close / backgrounding and after 5 minutes of idleness
+/// - Typography controls (Serif/Sans, font size, line-height) and 4 reading themes
 /// - Text highlighting with 4 colors, persisted to SQLite
 /// - Inline scripture link detection with popover previews
 /// - Integrated dictionary lookup on text selection
-/// - Persisted reading position restoration on tap
 class BookReaderScreen extends StatefulWidget {
   final String bookId;
   final int? initialPage;
@@ -42,7 +45,7 @@ class BookReaderScreen extends StatefulWidget {
   State<BookReaderScreen> createState() => _BookReaderScreenState();
 }
 
-class _BookReaderScreenState extends State<BookReaderScreen> {
+class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBindingObserver {
   final BookService _bookService = BookService.instance;
   late final ScrollController _scrollController;
 
@@ -52,12 +55,23 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
   int _currentPage = 1;
   bool _showChrome = true;
 
-  // Infinite scroll two-way pagination state
+  // Persisted reading position
+  int _lastReadPage = 1;
+  int _lastReadLine = 1;
+  double _lastPercent = 0.0;
+  bool _hasUnsavedProgress = false;
+  Timer? _idleTimer;
+
+  // Dual-page spread state (for large screens: ScreenClass.expanded / width >= 840)
+  int _spreadLeftPage = 1;
+
+  // Infinite scroll two-way pagination state (for mobile screens: single column)
   late int _centerPage;
   late Key _centerKey;
-  final List<int> _prevPages = []; // Pages before center (ordered from center-1 backwards)
-  final List<int> _nextPages = []; // Pages at and after center (ordered from center forwards)
+  final List<int> _prevPages = [];
+  final List<int> _nextPages = [];
   final Map<int, GlobalKey> _pageKeys = {};
+  final Map<int, GlobalKey> _blockKeys = {}; // Key per startLine for exact paragraph resume
   bool _isLoadingDown = false;
   bool _isLoadingUp = false;
 
@@ -74,6 +88,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentPage = widget.initialPage ?? 1;
     _centerPage = _currentPage;
     _centerKey = UniqueKey();
@@ -85,10 +100,21 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
 
   @override
   void dispose() {
-    _saveProgress();
+    WidgetsBinding.instance.removeObserver(this);
+    _idleTimer?.cancel();
+    _flushProgressToDb();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _flushProgressToDb();
+    }
   }
 
   void _onScroll() {
@@ -105,11 +131,30 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
       _loadMorePagesUp();
     }
 
-    // 3. Track currently visible page in viewport
-    _updateVisiblePage();
+    // 3. Track currently visible page & line in viewport
+    _updateVisiblePageAndLine();
   }
 
-  void _updateVisiblePage() {
+  void _updateVisiblePageAndLine() {
+    // 1. First find the active reading block (around Y = 80..220px)
+    int? activeLine;
+    int? activePage;
+
+    for (final entry in _blockKeys.entries) {
+      final ctx = entry.value.currentContext;
+      if (ctx == null) continue;
+      final box = ctx.findRenderObject() as RenderBox?;
+      if (box != null && box.hasSize) {
+        final top = box.localToGlobal(Offset.zero).dy;
+        final bottom = top + box.size.height;
+        if (top <= 200 && bottom >= 90) {
+          activeLine = entry.key;
+          break;
+        }
+      }
+    }
+
+    // 2. Also track active page
     final allPages = <int>[];
     for (int i = _prevPages.length - 1; i >= 0; i--) {
       allPages.add(_prevPages[i]);
@@ -125,15 +170,48 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
           final top = box.localToGlobal(Offset.zero).dy;
           final bottom = top + box.size.height;
           if (top <= 300 && bottom >= 100) {
-            if (_currentPage != p) {
-              setState(() => _currentPage = p);
-              _saveProgress();
-            }
+            activePage = p;
             break;
           }
         }
       }
     }
+
+    if (activePage != null && activePage != _currentPage) {
+      setState(() => _currentPage = activePage!);
+    }
+
+    if (activeLine != null || activePage != null) {
+      final page = activePage ?? _currentPage;
+      final line = activeLine ?? _lastReadLine;
+      final totalLines = _book?.totalLines ?? 1;
+      final percent = (line / (totalLines > 0 ? totalLines : 1)).clamp(0.0, 1.0);
+      _markProgressChanged(page, line, percent);
+    }
+  }
+
+  void _markProgressChanged(int page, int line, double percent) {
+    _lastReadPage = page;
+    _lastReadLine = line;
+    _lastPercent = percent;
+    _hasUnsavedProgress = true;
+
+    // Persist in database after 5 minutes of idleness
+    _idleTimer?.cancel();
+    _idleTimer = Timer(const Duration(minutes: 5), () {
+      _flushProgressToDb();
+    });
+  }
+
+  Future<void> _flushProgressToDb() async {
+    if (_book == null || !_hasUnsavedProgress) return;
+    _hasUnsavedProgress = false;
+    await _bookService.saveProgress(
+      _book!.id,
+      _lastReadPage,
+      _lastReadLine,
+      _lastPercent,
+    );
   }
 
   Future<void> _loadMorePagesDown() async {
@@ -184,22 +262,41 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     final chapters = await _bookService.getChapters(widget.bookId);
 
     if (book != null) {
-      final initial = widget.initialPage ?? 1;
-      _centerPage = initial;
+      // 1. Resolve initial resume position
+      int initialPage = widget.initialPage ?? 1;
+      int initialLine = widget.highlightStartLine ?? 1;
+
+      if (widget.initialPage == null) {
+        final saved = await _bookService.getProgress(widget.bookId);
+        if (saved != null) {
+          initialPage = saved.currentPage.clamp(1, book.totalPages);
+          initialLine = saved.currentLine;
+          _lastPercent = saved.completionPercent;
+        }
+      }
+
+      _lastReadPage = initialPage;
+      _lastReadLine = initialLine;
+      _currentPage = initialPage;
+      _centerPage = initialPage;
       _centerKey = UniqueKey();
-      _currentPage = initial;
+
+      // For dual-page spread (1 & 2, 3 & 4, 5 & 6...):
+      _spreadLeftPage = (initialPage % 2 == 0)
+          ? (initialPage - 1).clamp(1, book.totalPages)
+          : initialPage;
 
       _prevPages.clear();
-      if (initial > 1) {
-        _prevPages.add(initial - 1);
-        if (initial > 2) _prevPages.add(initial - 2);
+      if (initialPage > 1) {
+        _prevPages.add(initialPage - 1);
+        if (initialPage > 2) _prevPages.add(initialPage - 2);
       }
 
       _nextPages.clear();
-      _nextPages.add(initial);
-      if (initial < book.totalPages) {
-        _nextPages.add(initial + 1);
-        if (initial + 1 < book.totalPages) _nextPages.add(initial + 2);
+      _nextPages.add(initialPage);
+      if (initialPage < book.totalPages) {
+        _nextPages.add(initialPage + 1);
+        if (initialPage + 1 < book.totalPages) _nextPages.add(initialPage + 2);
       }
 
       if (mounted) {
@@ -211,7 +308,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
       }
 
       // Pre-warm center and adjacent pages
-      await _fetchPageLines(_centerPage);
+      await _fetchPageLines(initialPage);
+      if (initialPage < book.totalPages) await _fetchPageLines(initialPage + 1);
       for (final p in _prevPages) {
         _fetchPageLines(p);
       }
@@ -219,21 +317,36 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
         _fetchPageLines(p);
       }
 
-      if (widget.highlightStartLine != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final key = _pageKeys[initial];
-          final ctx = key?.currentContext;
-          if (ctx != null) {
-            Scrollable.ensureVisible(
-              ctx,
-              duration: const Duration(milliseconds: 400),
-              alignment: 0.1,
-            );
-          }
-        });
-      }
+      // Scroll to resumed line or initial target
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToResumedPosition(initialLine, initialPage);
+      });
     } else {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _scrollToResumedPosition(int targetLine, int targetPage) {
+    if (!mounted) return;
+    final blockKey = _blockKeys[targetLine];
+    final blockCtx = blockKey?.currentContext;
+    if (blockCtx != null) {
+      Scrollable.ensureVisible(
+        blockCtx,
+        duration: const Duration(milliseconds: 350),
+        alignment: 0.05,
+      );
+      return;
+    }
+
+    final pageKey = _pageKeys[targetPage];
+    final pageCtx = pageKey?.currentContext;
+    if (pageCtx != null) {
+      Scrollable.ensureVisible(
+        pageCtx,
+        duration: const Duration(milliseconds: 350),
+        alignment: 0.0,
+      );
     }
   }
 
@@ -247,9 +360,47 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     return lines;
   }
 
+  void _turnSpread(int delta) {
+    if (_book == null) return;
+    final totalPages = _book!.totalPages;
+    final newLeft = (_spreadLeftPage + delta).clamp(1, totalPages);
+    if (newLeft != _spreadLeftPage) {
+      setState(() {
+        _spreadLeftPage = newLeft;
+        _currentPage = newLeft;
+      });
+      _fetchPageLines(newLeft);
+      if (newLeft + 1 <= totalPages) _fetchPageLines(newLeft + 1);
+
+      // Track active line on the spread
+      final lines = _pageCache[newLeft];
+      final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
+      final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
+      _markProgressChanged(newLeft, firstLine, percent);
+    }
+  }
+
   Future<void> _jumpToPage(int page) async {
     if (_book == null) return;
     final targetPage = page.clamp(1, _book!.totalPages);
+
+    final screen = ScreenClass.of(context);
+    if (screen == ScreenClass.expanded) {
+      final newLeft = (targetPage % 2 == 0)
+          ? (targetPage - 1).clamp(1, _book!.totalPages)
+          : targetPage;
+      setState(() {
+        _spreadLeftPage = newLeft;
+        _currentPage = newLeft;
+      });
+      await _fetchPageLines(newLeft);
+      if (newLeft + 1 <= _book!.totalPages) await _fetchPageLines(newLeft + 1);
+      final lines = _pageCache[newLeft];
+      final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
+      final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
+      _markProgressChanged(newLeft, firstLine, percent);
+      return;
+    }
 
     final key = _pageKeys[targetPage];
     final ctx = key?.currentContext;
@@ -261,7 +412,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
         alignment: 0.0,
       );
       setState(() => _currentPage = targetPage);
-      _saveProgress();
+      final lines = _pageCache[targetPage];
+      final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
+      final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
+      _markProgressChanged(targetPage, firstLine, percent);
       return;
     }
 
@@ -293,13 +447,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
-    _saveProgress();
-  }
-
-  void _saveProgress() {
-    if (_book == null || _book!.totalPages == 0) return;
-    final percent = _currentPage / _book!.totalPages;
-    _bookService.saveProgress(_book!.id, _currentPage, 1, percent);
+    final lines = _pageCache[targetPage];
+    final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
+    final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
+    _markProgressChanged(targetPage, firstLine, percent);
   }
 
   String _currentChapterTitle() {
@@ -311,13 +462,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     return '';
   }
 
-  void _openToc() {
+  void _openToc(bool isExpanded) {
     if (_book == null) return;
     BookTocSheet.show(
       context,
       bookTitle: _book!.title,
       chapters: _chapters,
       currentPage: _currentPage,
+      showPageNumbers: isExpanded,
       onSelectPage: _jumpToPage,
     );
   }
@@ -343,7 +495,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
       case ReaderThemeMode.dark:
         return const Color(0xFF1E212B);
       case ReaderThemeMode.amoled:
-        return Colors.black;
+        return const Color(0xFF000000);
       case ReaderThemeMode.system:
         return tokens.background;
     }
@@ -353,55 +505,15 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     final tokens = context.tokens;
     switch (_themeMode) {
       case ReaderThemeMode.paper:
-        return const Color(0xFF1C1917);
+        return const Color(0xFF1A1A1A);
       case ReaderThemeMode.sepia:
-        return const Color(0xFF382A1D);
+        return const Color(0xFF3B2F2F);
       case ReaderThemeMode.dark:
-        return const Color(0xFFE2E4EB);
+        return const Color(0xFFE6EDF3);
       case ReaderThemeMode.amoled:
-        return const Color(0xFFF3F3F3);
+        return const Color(0xFFFFFFFF);
       case ReaderThemeMode.system:
         return tokens.onSurface;
-    }
-  }
-
-  Color _highlightColor(int colorIndex) {
-    switch (colorIndex) {
-      case 1:
-        return const Color(0x6681C784); // Green
-      case 2:
-        return const Color(0x6664B5F6); // Blue
-      case 3:
-        return const Color(0x66F48FB1); // Pink
-      case 0:
-      default:
-        return const Color(0x77FFD54F); // Yellow / Amber
-    }
-  }
-
-  // --- Highlights & Annotation Actions ---
-  Future<void> _createHighlight(String text, int colorIndex) async {
-    if (_book == null || text.trim().isEmpty) return;
-
-    final highlight = BookHighlight(
-      id: 'hl_${DateTime.now().millisecondsSinceEpoch}',
-      bookId: _book!.id,
-      chapterIndex: 1,
-      pageNumber: _currentPage,
-      startChar: 0,
-      endChar: text.length,
-      text: text.trim(),
-      color: colorIndex,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-
-    await _bookService.saveHighlight(highlight);
-    _highlightCache[_currentPage] = await _bookService.getHighlightsForPage(widget.bookId, _currentPage);
-    if (mounted) {
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Highlight saved'), duration: Duration(seconds: 1)),
-      );
     }
   }
 
@@ -414,90 +526,167 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: tokens.surfaceBorder,
-                      borderRadius: BorderRadius.circular(2),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: tokens.surfaceBorder,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Text(
-                  'Reading Appearance',
-                  style: TextStyle(
-                    color: tokens.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Reading Appearance',
+                      style: TextStyle(
+                        color: tokens.onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
 
-                // Theme selector
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildThemeChip('System', ReaderThemeMode.system, tokens, setModalState),
-                    _buildThemeChip('Paper', ReaderThemeMode.paper, tokens, setModalState),
-                    _buildThemeChip('Sepia', ReaderThemeMode.sepia, tokens, setModalState),
-                    _buildThemeChip('Dark', ReaderThemeMode.dark, tokens, setModalState),
-                    _buildThemeChip('AMOLED', ReaderThemeMode.amoled, tokens, setModalState),
-                  ],
-                ),
-                const SizedBox(height: 18),
-
-                // Font family toggle
-                Row(
-                  children: [
-                    Text('Font Family', style: TextStyle(color: tokens.onSurface, fontSize: 14)),
-                    const Spacer(),
-                    SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(value: true, label: Text('Serif', style: TextStyle(fontFamily: 'serif'))),
-                        ButtonSegment(value: false, label: Text('Sans')),
+                    // Theme selector
+                    Text('Theme', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildThemeChip(ctx, 'Paper', ReaderThemeMode.paper, const Color(0xFFFAF9F6), const Color(0xFF1A1A1A), setModalState),
+                        const SizedBox(width: 8),
+                        _buildThemeChip(ctx, 'Sepia', ReaderThemeMode.sepia, const Color(0xFFFBF0D9), const Color(0xFF3B2F2F), setModalState),
+                        const SizedBox(width: 8),
+                        _buildThemeChip(ctx, 'Dark', ReaderThemeMode.dark, const Color(0xFF1E212B), const Color(0xFFE6EDF3), setModalState),
+                        const SizedBox(width: 8),
+                        _buildThemeChip(ctx, 'AMOLED', ReaderThemeMode.amoled, const Color(0xFF000000), const Color(0xFFFFFFFF), setModalState),
                       ],
-                      selected: {_useSerifFont},
-                      onSelectionChanged: (val) {
-                        setState(() => _useSerifFont = val.first);
-                        setModalState(() {});
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Font family
+                    Text('Font Family', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: _useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
+                              side: BorderSide(color: _useSerifFont ? tokens.accent : tokens.surfaceBorder),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () {
+                              setModalState(() => _useSerifFont = true);
+                              setState(() => _useSerifFont = true);
+                            },
+                            child: Text(
+                              'Serif (Book)',
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                color: _useSerifFont ? tokens.accent : tokens.onSurface,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: !_useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
+                              side: BorderSide(color: !_useSerifFont ? tokens.accent : tokens.surfaceBorder),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () {
+                              setModalState(() => _useSerifFont = false);
+                              setState(() => _useSerifFont = false);
+                            },
+                            child: Text(
+                              'Sans-Serif (Modern)',
+                              style: TextStyle(
+                                color: !_useSerifFont ? tokens.accent : tokens.onSurface,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Font size slider
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Font Size', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
+                        Text('${_fontSize.toInt()} pt', style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    Slider(
+                      value: _fontSize,
+                      min: 14.0,
+                      max: 26.0,
+                      divisions: 12,
+                      activeColor: tokens.accent,
+                      onChanged: (val) {
+                        setModalState(() => _fontSize = val);
+                        setState(() => _fontSize = val);
                       },
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
-                // Font size slider
-                Row(
-                  children: [
-                    Icon(Icons.format_size, size: 18, color: tokens.onSurfaceMuted),
-                    Expanded(
-                      child: Slider(
-                        value: _fontSize,
-                        min: 13.0,
-                        max: 26.0,
-                        divisions: 13,
-                        activeColor: tokens.accent,
-                        label: '${_fontSize.toInt()}sp',
-                        onChanged: (val) {
-                          setState(() => _fontSize = val);
-                          setModalState(() {});
-                        },
-                      ),
-                    ),
-                    Text('${_fontSize.toInt()}sp', style: TextStyle(color: tokens.onSurface, fontSize: 13)),
-                  ],
-                ),
-              ],
+  Widget _buildThemeChip(
+    BuildContext context,
+    String label,
+    ReaderThemeMode mode,
+    Color bg,
+    Color text,
+    StateSetter setModalState,
+  ) {
+    final tokens = context.tokens;
+    final isSelected = _themeMode == mode;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setModalState(() => _themeMode = mode);
+          setState(() => _themeMode = mode);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? tokens.accent : tokens.surfaceBorder,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: text,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             ),
           ),
         ),
@@ -505,44 +694,64 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     );
   }
 
-  Widget _buildThemeChip(String label, ReaderThemeMode mode, AppTokens tokens, StateSetter setModalState) {
-    final isSelected = _themeMode == mode;
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: () {
-        setState(() => _themeMode = mode);
-        setModalState(() {});
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? tokens.accent.withValues(alpha: 0.18) : tokens.surfaceVariant,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? tokens.accent : tokens.surfaceBorder,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? tokens.accent : tokens.onSurface,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
+  int _currentChapterIndex() {
+    for (final ch in _chapters) {
+      if (_currentPage >= ch.startPage && _currentPage <= ch.endPage) {
+        return ch.chapterIndex;
+      }
+    }
+    return 1;
   }
 
-  // --- Paragraph and Scripture Parsing ---
-  List<InlineSpan> _buildFormattedParagraphs(String pageText, Color textColor, AppTokens tokens) {
-    final spans = <InlineSpan>[];
-    final regex = ScriptureRefParser.scriptureRegex;
+  // --- Highlight Creation ---
+  Future<void> _createHighlight(String text, int startChar, {int color = 0}) async {
+    if (_book == null || text.trim().isEmpty) return;
+
+    final highlight = BookHighlight(
+      id: '${_book!.id}_${_currentPage}_${DateTime.now().millisecondsSinceEpoch}',
+      bookId: _book!.id,
+      chapterIndex: _currentChapterIndex(),
+      pageNumber: _currentPage,
+      startChar: startChar,
+      endChar: startChar + text.length,
+      text: text,
+      color: color,
+      createdAt: DateTime.now().toIso8601String(),
+    );
+
+    await _bookService.saveHighlight(highlight);
+    _highlightCache[_currentPage]?.add(highlight);
+    setState(() {});
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Highlight saved'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  // --- Inline Scripture Link & Text Rendering ---
+  List<InlineSpan> _buildFormattedParagraphs(
+    String pageText,
+    Color textColor,
+    AppTokens tokens,
+  ) {
     final pageHighlights = _highlightCache[_currentPage] ?? const [];
+    final matches = ScriptureRefParser.scriptureRegex.allMatches(pageText).toList();
+
+    if (matches.isEmpty) {
+      final spans = <InlineSpan>[];
+      _appendSpansWithHighlights(spans, pageText, textColor, pageHighlights);
+      return spans;
+    }
+
+    final spans = <InlineSpan>[];
     int lastMatchEnd = 0;
 
-    for (final match in regex.allMatches(pageText)) {
+    for (final match in matches) {
       if (match.start > lastMatchEnd) {
         final chunk = pageText.substring(lastMatchEnd, match.start);
         _appendSpansWithHighlights(spans, chunk, textColor, pageHighlights);
@@ -555,13 +764,12 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
         text: refText,
         style: TextStyle(
           color: tokens.accent,
+          fontWeight: FontWeight.bold,
+          decoration: TextDecoration.underline,
+          decorationColor: tokens.accent.withValues(alpha: 0.6),
           fontSize: _fontSize,
           height: _lineHeight,
-          fontWeight: FontWeight.w600,
           fontFamily: _useSerifFont ? 'serif' : null,
-          decoration: TextDecoration.underline,
-          decorationStyle: TextDecorationStyle.dotted,
-          decorationColor: tokens.accent,
         ),
         recognizer: TapGestureRecognizer()
           ..onTap = () {
@@ -639,12 +847,13 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
           text: matchedHighlight.text,
           style: TextStyle(
             color: textColor,
+            backgroundColor: Colors.amber.withValues(alpha: 0.35),
             fontSize: _fontSize,
             height: _lineHeight,
             fontFamily: _useSerifFont ? 'serif' : null,
-            backgroundColor: _highlightColor(matchedHighlight.color),
           ),
         ));
+
         current = nextMatchStart + matchedHighlight.text.length;
       } else {
         spans.add(TextSpan(
@@ -661,6 +870,44 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     }
   }
 
+  // --- Context Menu Toolbar for Selection ---
+  Widget _buildSelectionToolbar(BuildContext context, SelectableRegionState selectableRegionState) {
+    final val = selectableRegionState.textEditingValue;
+    final selectedText = (val.selection.isValid && !val.selection.isCollapsed)
+        ? val.selection.textInside(val.text).trim()
+        : val.text.trim();
+
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: selectableRegionState.contextMenuAnchors,
+      buttonItems: [
+        ContextMenuButtonItem(
+          label: 'Highlight',
+          onPressed: () {
+            selectableRegionState.hideToolbar();
+            _createHighlight(selectedText, 0);
+          },
+        ),
+        ContextMenuButtonItem(
+          label: 'Define',
+          onPressed: () {
+            selectableRegionState.hideToolbar();
+            final lookupWord = selectedText.split(RegExp(r'\s+')).length <= 3
+                ? selectedText
+                : selectedText.split(RegExp(r'\s+')).first;
+            InlineDictionaryPopover.show(context, word: lookupWord);
+          },
+        ),
+        ContextMenuButtonItem(
+          label: 'Copy',
+          onPressed: () {
+            selectableRegionState.copySelection(SelectionChangedCause.toolbar);
+          },
+        ),
+      ],
+    );
+  }
+
+  // --- Single Column Continuous Infinite Scroll (Mobile screens: NO page numbers) ---
   Widget _buildInfiniteScrollView(AppTokens tokens) {
     final textColor = _readerTextColor(context);
 
@@ -668,41 +915,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
       onTap: () => setState(() => _showChrome = !_showChrome),
       behavior: HitTestBehavior.opaque,
       child: SelectionArea(
-        contextMenuBuilder: (context, selectableRegionState) {
-          final val = selectableRegionState.textEditingValue;
-          final selectedText = (val.selection.isValid && !val.selection.isCollapsed)
-              ? val.selection.textInside(val.text).trim()
-              : val.text.trim();
-
-          return AdaptiveTextSelectionToolbar.buttonItems(
-            anchors: selectableRegionState.contextMenuAnchors,
-            buttonItems: [
-              ContextMenuButtonItem(
-                label: 'Highlight',
-                onPressed: () {
-                  selectableRegionState.hideToolbar();
-                  _createHighlight(selectedText, 0);
-                },
-              ),
-              ContextMenuButtonItem(
-                label: 'Define',
-                onPressed: () {
-                  selectableRegionState.hideToolbar();
-                  final lookupWord = selectedText.split(RegExp(r'\s+')).length <= 3
-                      ? selectedText
-                      : selectedText.split(RegExp(r'\s+')).first;
-                  InlineDictionaryPopover.show(context, word: lookupWord);
-                },
-              ),
-              ContextMenuButtonItem(
-                label: 'Copy',
-                onPressed: () {
-                  selectableRegionState.copySelection(SelectionChangedCause.toolbar);
-                },
-              ),
-            ],
-          );
-        },
+        contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state),
         child: CustomScrollView(
           controller: _scrollController,
           center: _centerKey,
@@ -767,65 +980,171 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (pageNum > 1) _buildPageDivider(pageNum, tokens),
+          // On mobile screens, NO page numbers are rendered
+          if (pageNum > 1) const SizedBox(height: 16),
           ...blocks.map((b) => _buildBlockWidget(b, pageNum, textColor, tokens)),
         ],
       ),
     );
   }
 
-  Widget _buildPageDivider(int pageNumber, AppTokens tokens) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 24),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 0.8,
-              color: tokens.surfaceBorder.withValues(alpha: 0.6),
+  // --- Dual-Page Spread View (Tablets / Desktop >= 840px: HAS page numbers) ---
+  Widget _buildDualPageSpreadView(AppTokens tokens) {
+    final textColor = _readerTextColor(context);
+    final totalPages = _book?.totalPages ?? 1;
+    final leftPage = _spreadLeftPage;
+    final rightPage = leftPage + 1 <= totalPages ? leftPage + 1 : null;
+
+    return GestureDetector(
+      onTap: () => setState(() => _showChrome = !_showChrome),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left page navigation chevron
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded, size: 36),
+              color: leftPage > 1 ? tokens.onSurface : tokens.onSurfaceDisabled.withValues(alpha: 0.3),
+              onPressed: leftPage > 1 ? () => _turnSpread(-2) : null,
+              tooltip: 'Previous pages',
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Text(
-              'Page $pageNumber of ${_book?.totalPages ?? ""}',
-              style: TextStyle(
-                color: tokens.onSurfaceMuted,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+
+            // Left Page Column
+            Expanded(
+              child: _buildPageColumnWithNumber(
+                leftPage,
+                tokens,
+                textColor,
+                isRightPage: false,
               ),
             ),
-          ),
-          Expanded(
-            child: Container(
-              height: 0.8,
+
+            // Center Book Spine
+            Container(
+              width: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               color: tokens.surfaceBorder.withValues(alpha: 0.6),
             ),
-          ),
-        ],
+
+            // Right Page Column
+            Expanded(
+              child: rightPage != null
+                  ? _buildPageColumnWithNumber(
+                      rightPage,
+                      tokens,
+                      textColor,
+                      isRightPage: true,
+                    )
+                  : Center(
+                      child: Text(
+                        'End of Book',
+                        style: TextStyle(
+                          color: tokens.onSurfaceMuted,
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+            ),
+
+            // Right page navigation chevron
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded, size: 36),
+              color: rightPage != null && rightPage < totalPages
+                  ? tokens.onSurface
+                  : tokens.onSurfaceDisabled.withValues(alpha: 0.3),
+              onPressed: rightPage != null && rightPage < totalPages ? () => _turnSpread(2) : null,
+              tooltip: 'Next pages',
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBlockWidget(BookRenderBlock block, int pageNum, Color textColor, AppTokens tokens) {
-    final isTargetPage = widget.initialPage == null || pageNum == widget.initialPage;
-    final isHighlighted = isTargetPage &&
-        widget.highlightStartLine != null &&
-        widget.highlightStartLine! <= block.endLine &&
-        (widget.highlightEndLine ?? widget.highlightStartLine!) >= block.startLine;
+  Widget _buildPageColumnWithNumber(
+    int pageNum,
+    AppTokens tokens,
+    Color textColor, {
+    required bool isRightPage,
+  }) {
+    final lines = _pageCache[pageNum];
+    if (lines == null) {
+      _fetchPageLines(pageNum);
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final blocks = BookParagraphGrouper.groupLines(lines);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: SelectionArea(
+              contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: blocks.map((b) => _buildBlockWidget(b, pageNum, textColor, tokens)).toList(),
+              ),
+            ),
+          ),
+        ),
+        // Dual page screens explicitly show page numbers at the bottom
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          alignment: isRightPage ? Alignment.centerRight : Alignment.centerLeft,
+          child: Text(
+            'Page $pageNum',
+            style: TextStyle(
+              color: tokens.onSurfaceMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- Block Widget Renderer ---
+  Widget _buildBlockWidget(
+    BookRenderBlock block,
+    int pageNum,
+    Color textColor,
+    AppTokens tokens,
+  ) {
+    final isHighlighted = widget.highlightStartLine != null &&
+        widget.highlightEndLine != null &&
+        block.startLine <= widget.highlightEndLine! &&
+        block.endLine >= widget.highlightStartLine!;
+
+    Widget content;
 
     switch (block.type) {
       case 'chapter_header':
-        final chapBadge = block.badge;
+        final chapBadge = block.badge ?? '';
         final chapTitle = block.title ?? block.text;
 
-        return Container(
-          margin: const EdgeInsets.only(top: 8, bottom: 28),
+        content = Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 24, bottom: 20),
+          padding: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: tokens.accent.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
+            ),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (chapBadge != null && chapBadge.isNotEmpty) ...[
+              if (chapBadge.isNotEmpty) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -870,9 +1189,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
             ],
           ),
         );
+        break;
 
       case 'h2':
-        return Padding(
+        content = Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 10),
           child: Text(
             block.text,
@@ -885,9 +1205,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
             ),
           ),
         );
+        break;
 
       case 'h3':
-        return Padding(
+        content = Padding(
           padding: const EdgeInsets.only(top: 18, bottom: 8),
           child: Text(
             block.text,
@@ -900,9 +1221,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
             ),
           ),
         );
+        break;
 
       case 'blockquote':
-        return Container(
+        content = Container(
           margin: const EdgeInsets.symmetric(vertical: 14),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           decoration: BoxDecoration(
@@ -926,6 +1248,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
             ),
           ),
         );
+        break;
 
       case 'p':
       default:
@@ -957,8 +1280,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
           );
         }
 
-        return paragraph;
+        content = paragraph;
+        break;
     }
+
+    return KeyedSubtree(
+      key: _blockKeys[block.startLine] ??= GlobalKey(),
+      child: content,
+    );
   }
 
   @override
@@ -966,7 +1295,9 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     final tokens = context.tokens;
     final bgColor = _readerBackground(context);
     final totalPages = _book?.totalPages ?? 1;
-    final percent = (_currentPage / totalPages).clamp(0.0, 1.0);
+    final screen = ScreenClass.of(context);
+    final isDualPage = screen == ScreenClass.expanded;
+    final rightPage = _spreadLeftPage + 1 <= totalPages ? _spreadLeftPage + 1 : null;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -987,14 +1318,22 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
                       fontSize: 15,
                     ),
                   ),
-                  Text(
-                    _currentChapterTitle().isNotEmpty
-                        ? '${_currentChapterTitle()} • Page $_currentPage of $totalPages'
-                        : 'Page $_currentPage of $totalPages',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
-                  ),
+                  if (isDualPage)
+                    Text(
+                      _currentChapterTitle().isNotEmpty
+                          ? '${_currentChapterTitle()} • Pages $_spreadLeftPage–${rightPage ?? _spreadLeftPage} of $totalPages'
+                          : 'Pages $_spreadLeftPage–${rightPage ?? _spreadLeftPage} of $totalPages',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                    )
+                  else if (_currentChapterTitle().isNotEmpty)
+                    Text(
+                      _currentChapterTitle(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                    ),
                 ],
               ),
               actions: [
@@ -1011,21 +1350,23 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
                 IconButton(
                   icon: Icon(Icons.list_alt_rounded, color: tokens.onSurfaceMuted, size: 21),
                   tooltip: 'Table of contents',
-                  onPressed: _openToc,
+                  onPressed: () => _openToc(isDualPage),
                 ),
               ],
             )
           : null,
-      body: MaxWidthBox(
-        maxWidth: 760,
-        child: _isLoading
-            ? Center(child: CircularProgressIndicator(color: tokens.accent))
-            : _book == null
-                ? Center(
-                    child: Text('Book not found', style: TextStyle(color: tokens.onSurfaceMuted)),
-                  )
-                : _buildInfiniteScrollView(tokens),
-      ),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator(color: tokens.accent))
+          : _book == null
+              ? Center(
+                  child: Text('Book not found', style: TextStyle(color: tokens.onSurfaceMuted)),
+                )
+              : isDualPage
+                  ? _buildDualPageSpreadView(tokens)
+                  : MaxWidthBox(
+                      maxWidth: 760,
+                      child: _buildInfiniteScrollView(tokens),
+                    ),
       bottomNavigationBar: _showChrome && _book != null
           ? Container(
               color: bgColor.withValues(alpha: 0.96),
@@ -1034,40 +1375,66 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left_rounded),
-                          color: _currentPage > 1 ? tokens.onSurface : tokens.onSurfaceDisabled,
-                          onPressed: _currentPage > 1 ? () => _jumpToPage(_currentPage - 1) : null,
-                        ),
-                        Expanded(
-                          child: Slider(
-                            value: _currentPage.toDouble(),
-                            min: 1.0,
-                            max: totalPages.toDouble(),
-                            activeColor: tokens.accent,
-                            onChanged: (val) => _jumpToPage(val.toInt()),
+                    if (isDualPage) ...[
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left_rounded),
+                            color: _spreadLeftPage > 1 ? tokens.onSurface : tokens.onSurfaceDisabled,
+                            onPressed: _spreadLeftPage > 1 ? () => _turnSpread(-2) : null,
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right_rounded),
-                          color: _currentPage < totalPages ? tokens.onSurface : tokens.onSurfaceDisabled,
-                          onPressed: _currentPage < totalPages ? () => _jumpToPage(_currentPage + 1) : null,
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        'Page $_currentPage of $totalPages • ${(percent * 100).toInt()}% complete',
-                        style: TextStyle(
-                          color: tokens.onSurfaceMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          Expanded(
+                            child: Slider(
+                              value: _spreadLeftPage.toDouble(),
+                              min: 1.0,
+                              max: totalPages.toDouble(),
+                              activeColor: tokens.accent,
+                              onChanged: (val) => _jumpToPage(val.toInt()),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right_rounded),
+                            color: rightPage != null && rightPage < totalPages
+                                ? tokens.onSurface
+                                : tokens.onSurfaceDisabled,
+                            onPressed: rightPage != null && rightPage < totalPages ? () => _turnSpread(2) : null,
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          'Pages $_spreadLeftPage–${rightPage ?? _spreadLeftPage} of $totalPages • ${(_lastPercent * 100).toInt()}% complete',
+                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
                         ),
                       ),
-                    ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Slider(
+                              value: _lastPercent,
+                              min: 0.0,
+                              max: 1.0,
+                              activeColor: tokens.accent,
+                              onChanged: (val) {
+                                final targetPage = ((val * totalPages).round()).clamp(1, totalPages);
+                                _jumpToPage(targetPage);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          _currentChapterTitle().isNotEmpty
+                              ? '${_currentChapterTitle()} • ${(_lastPercent * 100).toInt()}% complete'
+                              : '${(_lastPercent * 100).toInt()}% complete',
+                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

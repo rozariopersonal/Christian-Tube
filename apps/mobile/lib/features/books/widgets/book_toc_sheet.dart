@@ -9,6 +9,7 @@ class BookTocSheet extends StatelessWidget {
   final List<BookChapter> chapters;
   final int currentPage;
   final ValueChanged<int> onSelectPage;
+  final bool showPageNumbers;
 
   const BookTocSheet({
     super.key,
@@ -16,6 +17,7 @@ class BookTocSheet extends StatelessWidget {
     required this.chapters,
     required this.currentPage,
     required this.onSelectPage,
+    this.showPageNumbers = true,
   });
 
   static Future<void> show(
@@ -24,6 +26,7 @@ class BookTocSheet extends StatelessWidget {
     required List<BookChapter> chapters,
     required int currentPage,
     required ValueChanged<int> onSelectPage,
+    bool showPageNumbers = true,
   }) {
     final tokens = context.tokens;
     return showModalBottomSheet<void>(
@@ -40,6 +43,7 @@ class BookTocSheet extends StatelessWidget {
           chapters: chapters,
           currentPage: currentPage,
           onSelectPage: onSelectPage,
+          showPageNumbers: showPageNumbers,
         ),
       ),
     );
@@ -150,13 +154,15 @@ class BookTocSheet extends StatelessWidget {
                         fontSize: 14,
                       ),
                     ),
-                    trailing: Text(
-                      'p. ${ch.startPage}',
-                      style: TextStyle(
-                        color: isCurrent ? tokens.accent : tokens.onSurfaceMuted,
-                        fontSize: 12,
-                      ),
-                    ),
+                    trailing: showPageNumbers
+                        ? Text(
+                            'p. ${ch.startPage}',
+                            style: TextStyle(
+                              color: isCurrent ? tokens.accent : tokens.onSurfaceMuted,
+                              fontSize: 12,
+                            ),
+                          )
+                        : null,
                     onTap: () {
                       Navigator.of(context).pop();
                       onSelectPage(ch.startPage);
