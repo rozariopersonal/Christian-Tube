@@ -522,7 +522,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
             child: SelectionArea(
               contextMenuBuilder: (context, selectableRegionState) {
-                final selectedText = selectableRegionState.textEditingValue.text;
+                final val = selectableRegionState.textEditingValue;
+                final selectedText = (val.selection.isValid && !val.selection.isCollapsed)
+                    ? val.selection.textInside(val.text).trim()
+                    : val.text.trim();
 
                 return AdaptiveTextSelectionToolbar.buttonItems(
                   anchors: selectableRegionState.contextMenuAnchors,
@@ -538,7 +541,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
                       label: 'Define',
                       onPressed: () {
                         selectableRegionState.hideToolbar();
-                        InlineDictionaryPopover.show(context, word: selectedText);
+                        final lookupWord = selectedText.split(RegExp(r'\s+')).length <= 3
+                            ? selectedText
+                            : selectedText.split(RegExp(r'\s+')).first;
+                        InlineDictionaryPopover.show(context, word: lookupWord);
                       },
                     ),
                     ContextMenuButtonItem(
