@@ -247,6 +247,7 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
           child: PageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
+            allowImplicitScrolling: true,
             itemCount: _itemCount,
             onPageChanged: (index) {
               HapticFeedback.lightImpact();
@@ -263,7 +264,12 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
               }
             },
             itemBuilder: (context, index) {
-              return _buildShortPlayerStack(index);
+              return _ShortPageItem(
+                key: ValueKey('short_page_$index'),
+                index: index,
+                currentPage: _currentPage,
+                child: _buildShortPlayerStack(index),
+              );
             },
           ),
         ),
@@ -297,5 +303,40 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
         ),
       ],
     );
+  }
+}
+
+class _ShortPageItem extends StatefulWidget {
+  final int index;
+  final int currentPage;
+  final Widget child;
+
+  const _ShortPageItem({
+    super.key,
+    required this.index,
+    required this.currentPage,
+    required this.child,
+  });
+
+  @override
+  State<_ShortPageItem> createState() => _ShortPageItemState();
+}
+
+class _ShortPageItemState extends State<_ShortPageItem> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => (widget.index - widget.currentPage).abs() <= 1;
+
+  @override
+  void didUpdateWidget(covariant _ShortPageItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentPage != widget.currentPage) {
+      updateKeepAlive();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

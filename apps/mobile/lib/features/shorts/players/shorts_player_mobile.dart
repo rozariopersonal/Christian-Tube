@@ -194,6 +194,7 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
         
         var player;
         var isReady = false;
+        var pendingPlay = ${widget.isPlaying ? 'true' : 'false'};
         var pendingVideoId = '$initialVideoId';
         var clipStart = $startSec;
         var clipEnd = ${endSec ?? 'null'};
@@ -228,7 +229,7 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
                             }
                             if (pendingVideoId && pendingVideoId !== '$initialVideoId') {
                                 player.loadVideoById({ videoId: pendingVideoId, startSeconds: clipStart, endSeconds: clipEnd });
-                            } else if (${widget.isPlaying ? 'true' : 'false'}) {
+                            } else if (pendingPlay) {
                                 e.target.playVideo();
                             }
                             if (window.flutter_inappwebview) {
@@ -305,6 +306,7 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
         }
 
         function playVideo() {
+            pendingPlay = true;
             if (isReady && player && typeof player.playVideo === 'function') {
                 try {
                     player.playVideo();
@@ -313,6 +315,7 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
         }
 
         function pauseVideo() {
+            pendingPlay = false;
             if (isReady && player && typeof player.pauseVideo === 'function') {
                 try {
                     player.pauseVideo();
