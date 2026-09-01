@@ -633,7 +633,6 @@ class ScriptureEngine
               '“${item.resolvedText ?? ""}”\n\n— ${item.referenceLabel} (${item.resolvedVersion ?? filterState.activeVersionId})';
           await Clipboard.setData(ClipboardData(text: text));
           if (context.mounted) {
-            final tokens = context.tokens;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(

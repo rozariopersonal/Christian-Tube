@@ -45,7 +45,7 @@ class VerseText extends StatelessWidget {
         color: isSelected
             ? theme.colorScheme.primary.withValues(alpha: 0.2)
             : isHighlighted
-                ? theme.colorScheme.tertiary.withValues(alpha: 0.28)
+                ? theme.colorScheme.primaryContainer
                 : Colors.transparent,
         padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
         child: Row(
@@ -83,4 +83,3 @@ class VerseText extends StatelessWidget {
     );
   }
 }
-

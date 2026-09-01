@@ -305,6 +305,11 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
     final verticalPadding = (screenHeight * 0.05).clamp(24.0, 56.0);
 
+    // Reserve horizontal space on the right for the floating side-action rail
+    // (Share/Style/Compare/Copy/Save) so the verse text never underlaps it.
+    final double horizontalPad = (screenWidth * 0.08).clamp(24.0, 48.0);
+    final double rightInset = horizontalPad + 64.0;
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -331,9 +336,11 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 680),
                 child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: (screenWidth * 0.08).clamp(24.0, 48.0),
-                    vertical: verticalPadding,
+                  padding: EdgeInsets.only(
+                    left: horizontalPad,
+                    right: rightInset,
+                    top: verticalPadding,
+                    bottom: verticalPadding,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
