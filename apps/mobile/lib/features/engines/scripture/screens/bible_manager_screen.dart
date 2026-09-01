@@ -3,6 +3,7 @@ import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/layout/content_width.dart';
 import '../models/bible_version_meta.dart';
 import '../services/bible_download_manager.dart';
+import '../widgets/bible_version_info_sheet.dart';
 import '../../../bible/services/cross_reference_service.dart';
 
 class BibleManagerScreen extends StatefulWidget {
@@ -383,15 +384,21 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
                   ),
                 ),
                 Text(
-                  '${meta.language} • ${meta.sizeDisplay}',
+                  '${meta.language} • ${meta.sizeDisplay} • ${meta.license}',
                   style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
                 ),
               ],
             ),
           ),
+          IconButton(
+            icon: Icon(Icons.info_outline, color: tokens.onSurfaceMuted, size: 20),
+            tooltip: 'Version details & license',
+            onPressed: () => BibleVersionInfoSheet.show(context, meta),
+          ),
           if (!meta.isDefaultBundled)
             IconButton(
               icon: Icon(Icons.delete_outline, color: tokens.onSurfaceMuted, size: 20),
+              tooltip: 'Remove translation',
               onPressed: () => _manager.removeVersion(meta.id),
             ),
         ],
@@ -444,11 +451,16 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
                       ),
                     ),
                     Text(
-                      '${meta.language} • ${meta.sizeDisplay}',
+                      '${meta.language} • ${meta.sizeDisplay} • ${meta.license}',
                       style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                icon: Icon(Icons.info_outline, color: tokens.onSurfaceMuted, size: 20),
+                tooltip: 'Version details & license',
+                onPressed: () => BibleVersionInfoSheet.show(context, meta),
               ),
               if (isDownloading)
                 SizedBox(

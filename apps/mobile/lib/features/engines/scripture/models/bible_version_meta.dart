@@ -8,6 +8,11 @@ class BibleVersionMeta {
   final bool isDefaultBundled;
   final bool isOnlineOnly;
   final String? downloadUrl;
+  final String license;
+  final String? licenseUrl;
+  final String? copyrightHolder;
+  final String? attributionText;
+  final String? sourceUrl;
 
   const BibleVersionMeta({
     required this.id,
@@ -19,6 +24,11 @@ class BibleVersionMeta {
     this.isDefaultBundled = false,
     this.isOnlineOnly = false,
     this.downloadUrl,
+    this.license = 'Public Domain',
+    this.licenseUrl,
+    this.copyrightHolder,
+    this.attributionText,
+    this.sourceUrl,
   });
 
   Map<String, dynamic> toJson() => {
@@ -31,6 +41,11 @@ class BibleVersionMeta {
         'isDefaultBundled': isDefaultBundled,
         'isOnlineOnly': isOnlineOnly,
         'downloadUrl': downloadUrl,
+        'license': license,
+        'licenseUrl': licenseUrl,
+        'copyrightHolder': copyrightHolder,
+        'attributionText': attributionText,
+        'sourceUrl': sourceUrl,
       };
 
   factory BibleVersionMeta.fromJson(Map<String, dynamic> json) =>
@@ -44,5 +59,10 @@ class BibleVersionMeta {
         isDefaultBundled: json['isDefaultBundled'] ?? false,
         isOnlineOnly: json['isOnlineOnly'] ?? false,
         downloadUrl: json['downloadUrl'],
+        license: json['license'] ?? 'Public Domain',
+        licenseUrl: json['licenseUrl'],
+        copyrightHolder: json['copyrightHolder'],
+        attributionText: json['attributionText'],
+        sourceUrl: json['sourceUrl'],
       );
 }

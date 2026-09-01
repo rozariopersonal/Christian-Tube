@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import 'package:mobile/features/bible/models/bible_background_note.dart';
 import 'package:mobile/features/bible/models/cross_reference.dart';
 
 class LocalBibleService {
@@ -18,6 +19,11 @@ class LocalBibleService {
   // mobile). Keyed by "bookNumber_chapter_verse".
   final Map<String, Map<String, dynamic>> _webCrossRefs = {};
   bool _webCrossRefsInstalled = false;
+
+  // Historical & cultural background notes held in memory on web.
+  // Keyed by "bookNumber_chapter".
+  final Map<String, List<Map<String, dynamic>>> _webBackgrounds = {};
+  bool _webBackgroundsInstalled = false;
 
   // Allows unit tests to isolate the database behind a custom path so real
   // device/app data is never touched.
@@ -45,7 +51,7 @@ class LocalBibleService {
 
     _db = await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await _createSchema(db);
         await _seedDefaultBibles(db);
@@ -56,9 +62,9 @@ class LocalBibleService {
           await db.execute('DROP TABLE IF EXISTS verses');
           await db.execute('DROP TABLE IF EXISTS installed_versions');
           await _createSchema(db);
-        } else {
-          // v2 -> v3: only add the cross-references table; keep existing
-          // verse/version rows intact so the user's installed bibles survive.
+          return;
+        }
+        if (oldVersion < 3) {
           await db.execute('''
             CREATE TABLE IF NOT EXISTS cross_references (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,6 +85,25 @@ class LocalBibleService {
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_xref_ref '
             'ON cross_references (ref_book_number, ref_chapter, ref_verse);',
+          );
+        }
+        if (oldVersion < 4) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS bible_backgrounds (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              book_number INTEGER NOT NULL,
+              chapter INTEGER NOT NULL,
+              verse INTEGER NOT NULL,
+              note_id TEXT,
+              topic TEXT NOT NULL,
+              quote TEXT,
+              content TEXT NOT NULL,
+              source TEXT NOT NULL
+            );
+          ''');
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_bg_lookup '
+            'ON bible_backgrounds (book_number, chapter, verse);',
           );
         }
       },
@@ -133,6 +158,24 @@ class LocalBibleService {
     await db.execute('''
       CREATE INDEX idx_xref_ref
       ON cross_references (ref_book_number, ref_chapter, ref_verse);
+    ''');
+
+    await db.execute('''
+      CREATE TABLE bible_backgrounds (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_number INTEGER NOT NULL,
+        chapter INTEGER NOT NULL,
+        verse INTEGER NOT NULL,
+        note_id TEXT,
+        topic TEXT NOT NULL,
+        quote TEXT,
+        content TEXT NOT NULL,
+        source TEXT NOT NULL
+      );
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_bg_lookup
+      ON bible_backgrounds (book_number, chapter, verse);
     ''');
   }
 
@@ -995,6 +1038,106 @@ class LocalBibleService {
     }
     grouped.forEach((_, list) => list.sort((a, b) => b.score.compareTo(a.score)));
     return grouped;
+  }
+
+  /// Whether historical/cultural backgrounds data has been installed.
+  Future<bool> hasBibleBackgrounds() async {
+    if (kIsWeb) return _webBackgroundsInstalled;
+    final db = _db;
+    if (db == null) await initialize();
+    if (_db == null) return false;
+    final count = Sqflite.firstIntValue(
+      await _db!.rawQuery('SELECT COUNT(*) FROM bible_backgrounds'),
+    );
+    return (count ?? 0) > 0;
+  }
+
+  /// Replaces the entire bible_backgrounds store with [items].
+  Future<void> insertBibleBackgrounds(
+    List<Map<String, dynamic>> items,
+  ) async {
+    _webBackgrounds.clear();
+    for (final b in items) {
+      final key = '${b['bookNumber']}_${b['chapter']}';
+      _webBackgrounds.putIfAbsent(key, () => []).add(b);
+    }
+    _webBackgroundsInstalled = true;
+
+    final db = _db;
+    if (db == null) return;
+
+    await db.delete('bible_backgrounds');
+    if (items.isEmpty) return;
+
+    final batch = db.batch();
+    for (final b in items) {
+      batch.insert('bible_backgrounds', {
+        'book_number': b['bookNumber'],
+        'chapter': b['chapter'],
+        'verse': b['verse'],
+        'note_id': b['id'],
+        'topic': b['topic'],
+        'quote': b['quote'],
+        'content': b['text'] ?? b['content'],
+        'source': b['source'] ?? 'unfoldingWord Cultural Context',
+      });
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Removes all bible background data.
+  Future<void> deleteBibleBackgrounds() async {
+    _webBackgrounds.clear();
+    _webBackgroundsInstalled = false;
+    final db = _db;
+    if (db == null) return;
+    await db.delete('bible_backgrounds');
+  }
+
+  /// Fetches historical and cultural background notes for [bookNumber] [chapter],
+  /// grouped by verse number (verse 0 represents chapter overview).
+  Future<Map<int, List<BibleBackgroundNote>>> getBackgroundsForChapter(
+    int bookNumber,
+    int chapter,
+  ) async {
+    if (kIsWeb) {
+      final key = '${bookNumber}_$chapter';
+      final list = _webBackgrounds[key] ?? [];
+      final grouped = <int, List<BibleBackgroundNote>>{};
+      for (final r in list) {
+        final verse = (r['verse'] as int?) ?? 0;
+        grouped.putIfAbsent(verse, () => []).add(BibleBackgroundNote.fromMap(r));
+      }
+      return grouped;
+    }
+
+    final db = _db;
+    if (db == null) await initialize();
+    if (_db == null) return {};
+
+    final rows = await _db!.query(
+      'bible_backgrounds',
+      where: 'book_number = ? AND chapter = ?',
+      whereArgs: [bookNumber, chapter],
+      orderBy: 'verse ASC, id ASC',
+    );
+
+    final grouped = <int, List<BibleBackgroundNote>>{};
+    for (final r in rows) {
+      final verse = (r['verse'] as int?) ?? 0;
+      grouped.putIfAbsent(verse, () => []).add(BibleBackgroundNote.fromMap(r));
+    }
+    return grouped;
+  }
+
+  /// Fetches historical background notes for a specific verse.
+  Future<List<BibleBackgroundNote>> getBackgroundsForVerse(
+    int bookNumber,
+    int chapter,
+    int verse,
+  ) async {
+    final chapterMap = await getBackgroundsForChapter(bookNumber, chapter);
+    return chapterMap[verse] ?? [];
   }
 
   /// Case-insensitive full-text search across the installed [versionId].

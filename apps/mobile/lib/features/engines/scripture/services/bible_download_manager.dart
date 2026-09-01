@@ -31,12 +31,33 @@ class BibleDownloadManager extends ChangeNotifier {
   static const List<BibleVersionMeta> catalog = [
     // English
     BibleVersionMeta(
+      id: 'BSB',
+      name: 'Berean Standard Bible',
+      language: 'English',
+      languageCode: 'en',
+      sizeDisplay: '1.4 MB',
+      description:
+          'Modern, accurate English translation dedicated to the public domain by Bible Hub and Berean Bible Translation Committee.',
+      license: 'Public Domain (CC0)',
+      licenseUrl: 'https://berean.bible/licensing.htm',
+      copyrightHolder: 'Bible Hub / Berean.Bible',
+      attributionText:
+          'The Holy Bible, Berean Standard Bible, BSB is produced in cooperation with Bible Hub, Discovery Bible, OpenBible.com, and the Berean Bible Translation Committee. Dedicated to the Public Domain.',
+      sourceUrl: 'https://berean.bible',
+    ),
+    BibleVersionMeta(
       id: 'WEB',
       name: 'World English Bible',
       language: 'English',
       languageCode: 'en',
       sizeDisplay: '1.4 MB',
       description: 'Modern, accurate, and easy to read English translation.',
+      license: 'Public Domain',
+      licenseUrl: 'https://ebible.org/web/',
+      copyrightHolder: 'Rainbow Missions, Inc.',
+      attributionText:
+          'The World English Bible is in the Public Domain (not copyrighted). Dedicated to God.',
+      sourceUrl: 'https://ebible.org/web/',
     ),
     BibleVersionMeta(
       id: 'KJV',
@@ -45,6 +66,10 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'en',
       sizeDisplay: '1.3 MB',
       description: 'The historic and revered 1611 English Bible.',
+      license: 'Public Domain',
+      copyrightHolder: 'Public Domain (Crown rights in UK only)',
+      attributionText: 'King James Version 1611 Authorized Version. In the Public Domain.',
+      sourceUrl: 'https://ebible.org/kjv/',
     ),
     BibleVersionMeta(
       id: 'ASV',
@@ -53,6 +78,10 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'en',
       sizeDisplay: '1.4 MB',
       description: 'Accurate literal standard American translation.',
+      license: 'Public Domain',
+      copyrightHolder: 'Thomas Nelson & Sons (1901)',
+      attributionText: 'American Standard Version (1901). In the Public Domain.',
+      sourceUrl: 'https://ebible.org/asv/',
     ),
     BibleVersionMeta(
       id: 'BBE',
@@ -61,6 +90,10 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'en',
       sizeDisplay: '1.2 MB',
       description: 'Simplified 850-word standard English vocabulary.',
+      license: 'Public Domain',
+      copyrightHolder: 'S. H. Hooke / Cambridge University Press',
+      attributionText: 'Bible in Basic English (1949/1964). In the Public Domain.',
+      sourceUrl: 'https://ebible.org/bbe/',
     ),
     BibleVersionMeta(
       id: 'YLT',
@@ -70,6 +103,10 @@ class BibleDownloadManager extends ChangeNotifier {
       sizeDisplay: '4.1 MB',
       description:
           'Ultra-literal 1898 translation that preserves the word order of the originals.',
+      license: 'Public Domain',
+      copyrightHolder: 'Robert Young (1898)',
+      attributionText: 'Young\'s Literal Translation (1898 revision). Public Domain.',
+      sourceUrl: 'https://api.getbible.net/v2/ylt.json',
     ),
     BibleVersionMeta(
       id: 'WB',
@@ -79,6 +116,10 @@ class BibleDownloadManager extends ChangeNotifier {
       sizeDisplay: '4.0 MB',
       description:
           'Noah Webster\'s 1833 revision of the King James with modernized grammar.',
+      license: 'Public Domain',
+      copyrightHolder: 'Noah Webster (1833)',
+      attributionText: 'Webster\'s Bible (1833). Public Domain.',
+      sourceUrl: 'https://api.getbible.net/v2/wb.json',
     ),
 
     // German
@@ -89,6 +130,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'de',
       sizeDisplay: '4.0 MB',
       description: 'Martin Luther\'s classic 1545 German Bible.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/luther1545.json',
     ),
     BibleVersionMeta(
       id: 'ELBERFELDER1905',
@@ -97,6 +140,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'de',
       sizeDisplay: '4.2 MB',
       description: 'Highly literal German translation from 1905.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/elberfelder1905.json',
     ),
     BibleVersionMeta(
       id: 'ELBERFELDER',
@@ -105,6 +150,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'de',
       sizeDisplay: '4.2 MB',
       description: 'The original 1871 Elberfelder translation.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/elberfelder.json',
     ),
 
     // Spanish
@@ -115,6 +162,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'es',
       sizeDisplay: '3.8 MB',
       description: 'The classic 1569 Spanish Bible of Casiodoro de Reina.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/sse.json',
     ),
 
     // French
@@ -125,6 +174,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'fr',
       sizeDisplay: '4.4 MB',
       description: 'David Martin\'s faithful 1744 French translation.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/martin.json',
     ),
 
     // Italian
@@ -135,6 +186,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'it',
       sizeDisplay: '4.1 MB',
       description: 'The 1927 revised Italian Bible.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/riveduta.json',
     ),
     BibleVersionMeta(
       id: 'DIODATI',
@@ -143,6 +196,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'it',
       sizeDisplay: '4.2 MB',
       description: 'Giovanni Diodati\'s 1607 classic Italian translation.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/diodati.json',
     ),
 
     // Dutch
@@ -153,6 +208,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'nl',
       sizeDisplay: '4.2 MB',
       description: 'The authorized Dutch State Translation of 1637.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/statenvertaling.json',
     ),
 
     // Polish
@@ -163,6 +220,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'pl',
       sizeDisplay: '3.9 MB',
       description: 'The beloved Polish Gdańsk Bible.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/polgdanska.json',
     ),
 
     // Hungarian
@@ -173,6 +232,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'hu',
       sizeDisplay: '4.1 MB',
       description: 'The classic Hungarian Bible of Gáspár Károlyi (1590).',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/karoli.json',
     ),
 
     // Nordic
@@ -183,6 +244,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'sv',
       sizeDisplay: '4.2 MB',
       description: 'The official 1917 Swedish Bible.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/swedish.json',
     ),
     BibleVersionMeta(
       id: 'DANISH',
@@ -191,6 +254,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'da',
       sizeDisplay: '3.6 MB',
       description: 'The classic Danish Bible translation.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/danish.json',
     ),
     BibleVersionMeta(
       id: 'PYHAAMATTU1933',
@@ -199,6 +264,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'fi',
       sizeDisplay: '4.1 MB',
       description: 'The classical Finnish Bible translation.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/pyharaamattu1933.json',
     ),
 
     // Slavic
@@ -209,6 +276,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'cs',
       sizeDisplay: '3.8 MB',
       description: 'The historic Czech King James of 1613.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/bkr.json',
     ),
     BibleVersionMeta(
       id: 'CROATIA',
@@ -217,6 +286,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'hr',
       sizeDisplay: '3.3 MB',
       description: 'A classic Croatian Bible translation.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/croatia.json',
     ),
 
     // Albanian
@@ -227,6 +298,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'sq',
       sizeDisplay: '4.2 MB',
       description: 'The 1827 Albanian Bible, the oldest Albanian translation.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/alb.json',
     ),
 
     // East Asian
@@ -237,6 +310,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'ko',
       sizeDisplay: '4.3 MB',
       description: 'Classic Korean Bible translation.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/korean.json',
     ),
     BibleVersionMeta(
       id: 'VIETNAMESE',
@@ -245,6 +320,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'vi',
       sizeDisplay: '4.9 MB',
       description: 'The 1934 public domain Vietnamese Bible.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/vietnamese.json',
     ),
     BibleVersionMeta(
       id: 'CUT',
@@ -253,6 +330,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'zh-Hant',
       sizeDisplay: '3.4 MB',
       description: 'The classic traditional Chinese Union Version.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/cut.json',
     ),
     BibleVersionMeta(
       id: 'JAPKOUGO',
@@ -261,6 +340,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'ja',
       sizeDisplay: '5.1 MB',
       description: 'The Japanese colloquial translation of 1954/1955.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/japkougo.json',
     ),
 
     // Southeast Asian
@@ -271,6 +352,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'tl',
       sizeDisplay: '4.7 MB',
       description: 'The classic public domain 1905 Tagalog Bible.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/tagalog.json',
     ),
 
     // Esperanto
@@ -281,6 +364,8 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'eo',
       sizeDisplay: '3.8 MB',
       description: 'A complete Esperanto translation of the Bible.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/esperanto.json',
     ),
 
     // Tamil
@@ -293,6 +378,9 @@ class BibleDownloadManager extends ChangeNotifier {
       description:
           'The classic Bower revision standard Tamil Bible used across Tamil churches.',
       isDefaultBundled: true,
+      license: 'Public Domain (India)',
+      sourceUrl: 'https://github.com/berinaniesh/bible-tamil',
+      attributionText: 'Tamil Old Version Bible (Bower-Balfour Revision). In the Public Domain in India.',
     ),
 
     // Malayalam
@@ -304,6 +392,12 @@ class BibleDownloadManager extends ChangeNotifier {
       sizeDisplay: '1.5 MB',
       description:
           'Indian Revised Version in Malayalam, faithful to original texts.',
+      license: 'CC BY-SA 4.0',
+      licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      copyrightHolder: 'Bridge Connectivity Solutions Pvt. Ltd.',
+      attributionText:
+          'Indian Revised Version (IRV) Malayalam © 2017 by Bridge Connectivity Solutions Pvt. Ltd. is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License.',
+      sourceUrl: 'https://ebible.org/mal/',
     ),
 
     // Telugu
@@ -315,6 +409,12 @@ class BibleDownloadManager extends ChangeNotifier {
       sizeDisplay: '1.5 MB',
       description:
           'Indian Revised Version in Telugu with clear devotional phrasing.',
+      license: 'CC BY-SA 4.0',
+      licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      copyrightHolder: 'Bridge Connectivity Solutions Pvt. Ltd.',
+      attributionText:
+          'Indian Revised Version (IRV) Telugu © 2019 by Bridge Connectivity Solutions Pvt. Ltd. is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License.',
+      sourceUrl: 'https://ebible.org/tel2017/',
     ),
 
     // Kannada
@@ -325,6 +425,12 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'kan',
       sizeDisplay: '1.5 MB',
       description: 'Indian Revised Version in Kannada language.',
+      license: 'CC BY-SA 4.0',
+      licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      copyrightHolder: 'Bridge Connectivity Solutions Pvt. Ltd.',
+      attributionText:
+          'Indian Revised Version (IRV) Kannada © 2017 by Bridge Connectivity Solutions Pvt. Ltd. is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License.',
+      sourceUrl: 'https://ebible.org/kanirv/',
     ),
 
     // Hindi
@@ -335,6 +441,12 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'hin',
       sizeDisplay: '1.5 MB',
       description: 'Clear modern Hindi translation for everyday devotions.',
+      license: 'CC BY-SA 4.0',
+      licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      copyrightHolder: 'Bridge Connectivity Solutions Pvt. Ltd.',
+      attributionText:
+          'Indian Revised Version (IRV) Hindi © 2017 by Bridge Connectivity Solutions Pvt. Ltd. is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License.',
+      sourceUrl: 'https://ebible.org/hin2017/',
     ),
 
     // Malayalam (1910)
@@ -345,6 +457,9 @@ class BibleDownloadManager extends ChangeNotifier {
       languageCode: 'ml',
       sizeDisplay: '10.5 MB',
       description: 'The historic 1910 Malayalam Bible, Sathyavedapusthakam.',
+      license: 'Public Domain',
+      sourceUrl: 'https://api.getbible.net/v2/mal1910.json',
+      attributionText: 'Sathyavedapusthakam (1910). In the Public Domain.',
     ),
   ];
 

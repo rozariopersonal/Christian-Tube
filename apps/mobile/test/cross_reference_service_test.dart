@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-import 'package:mobile/features/bible/models/cross_reference.dart';
 import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
 
 void main() {
@@ -12,6 +10,7 @@ void main() {
 
   setUpAll(() {
     sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
   });
 
   setUp(() async {

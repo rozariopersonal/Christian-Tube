@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/layout/adaptivity.dart';
 import '../models/bible_verse.dart';
 import '../models/cross_reference.dart';
 import 'verse_text.dart';
@@ -7,17 +9,8 @@ import 'cross_reference_expansion.dart';
 
 /// A single row in the bible reader's `ListView`.
 ///
-/// Combines the verse text, its (optional) cross-reference badge and the
-/// inline cross-reference expansion into one self-contained item. Because the
-/// cross-reference section is a child of this item (rather than a separate
-/// list entry), the `ListView`'s item count stays constant regardless of how
-/// many verses are expanded — no scroll jumps, no builder thrash.
-///
-/// Cross-reference routing rules:
-/// - zero references: no badge, no expansion.
-/// - 1–2 references: tapping the badge toggles a small inline expansion.
-/// - more than two references: tapping the badge opens the dedicated
-///   cross-references page (routed by [onReviewPageOpen]).
+/// Combines the verse text, its (optional) cross-reference badge, historical
+/// context badge, and inline cross-reference expansion into one self-contained item.
 class VerseItem extends StatelessWidget {
   final BibleVerse verse;
   final bool isSelected;
@@ -25,8 +18,7 @@ class VerseItem extends StatelessWidget {
   final VoidCallback? onVerseTap;
   final double fontSize;
 
-  /// Whether the cross-reference UI is available at all (data available on
-  /// device or via the online fallback).
+  /// Whether the cross-reference UI is available at all.
   final bool showCrossReferences;
 
   /// Whether this verse's cross-reference section is currently expanded.
@@ -45,6 +37,12 @@ class VerseItem extends StatelessWidget {
   /// dedicated cross-references page.
   final VoidCallback? onReviewPageOpen;
 
+  /// Number of historical/cultural background notes available for this verse.
+  final int backgroundNotesCount;
+
+  /// Invoked when the historical context badge is tapped.
+  final VoidCallback? onBackgroundTap;
+
   const VerseItem({
     super.key,
     required this.verse,
@@ -59,15 +57,20 @@ class VerseItem extends StatelessWidget {
     this.onBadgeTap,
     this.onReferenceTap,
     this.onReviewPageOpen,
+    this.backgroundNotesCount = 0,
+    this.onBackgroundTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final screen = ScreenClass.of(context);
+    final badgeFontSize = screen.isCompact ? 12.0 : 13.0;
+
     final count = verse.crossReferenceCount;
     final renderCrossRefs = showCrossReferences && count > 0;
-    // Verses with more than two references route to a full page rather than an
-    // inline expansion; their badge stays in "view all" mode.
     final openReviewPage = count > 2;
+    final renderBackground = backgroundNotesCount > 0 && onBackgroundTap != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,14 +83,63 @@ class VerseItem extends StatelessWidget {
           onTap: onVerseTap,
           fontSize: fontSize,
         ),
-        if (renderCrossRefs) ...[
-          CrossReferenceBadge(
-            count: count,
-            expanded: crossRefsExpanded && !openReviewPage,
-            openPage: openReviewPage,
-            onTap: onBadgeTap ?? () {},
+        if (renderCrossRefs || renderBackground) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (renderCrossRefs)
+                  CrossReferenceBadge(
+                    count: count,
+                    expanded: crossRefsExpanded && !openReviewPage,
+                    openPage: openReviewPage,
+                    onTap: onBadgeTap ?? () {},
+                  ),
+                if (renderBackground)
+                  Semantics(
+                    label:
+                        '$backgroundNotesCount historical context notes, tap to view',
+                    button: true,
+                    child: InkWell(
+                      onTap: onBackgroundTap,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: tokens.surfaceVariant,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: tokens.surfaceBorder),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.history_edu,
+                              size: badgeFontSize,
+                              color: tokens.accent,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Context ($backgroundNotesCount)',
+                              style: TextStyle(
+                                color: tokens.onSurface,
+                                fontSize: badgeFontSize,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          if (!openReviewPage)
+          if (renderCrossRefs && !openReviewPage)
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOut,

@@ -159,20 +159,28 @@ function writeAsset(fileId, compact) {
 }
 
 async function main() {
-  // 1) IRV versions from eBible.org (CC BY-SA 4.0)
+  const targetId = (process.argv[2] || '').toLowerCase();
+
+  // 1) eBible.org versions: IRVs (CC BY-SA 4.0) & BSB (Public Domain CC0)
   const irv = [
+    { zip: 'https://ebible.org/Scriptures/engbsb_html.zip', outId: 'bsb' },
     { zip: 'https://ebible.org/Scriptures/mal_html.zip', outId: 'mal_irv' },
     { zip: 'https://ebible.org/Scriptures/kanirv_html.zip', outId: 'kan_irv' },
     { zip: 'https://ebible.org/Scriptures/hin2017_html.zip', outId: 'hin_irv' },
     { zip: 'https://ebible.org/Scriptures/tel2017_html.zip', outId: 'tel_irv' },
   ];
-  for (const v of irv) {
+  const irvToFetch = targetId ? irv.filter((v) => v.outId === targetId) : irv;
+  for (const v of irvToFetch) {
     console.log('Fetching', v.zip);
     const zipBytes = await fetchBuffer(v.zip);
     const zip = new AdmZip(zipBytes);
     const bookChapters = parseHtmlZip(zip);
     const compact = buildCompact(bookChapters);
     writeAsset(v.outId, compact);
+  }
+
+  if (targetId && targetId !== 'taobvsi') {
+    return;
   }
 
   // 2) Tamil Old Version (public domain) from USFM on GitHub

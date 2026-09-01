@@ -7,6 +7,7 @@ class VerseActionBar extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback onBookmark;
   final VoidCallback onClear;
+  final VoidCallback? onBackground;
 
   const VerseActionBar({
     super.key,
@@ -15,6 +16,7 @@ class VerseActionBar extends StatelessWidget {
     required this.onShare,
     required this.onBookmark,
     required this.onClear,
+    this.onBackground,
   });
 
   @override
@@ -37,7 +39,7 @@ class VerseActionBar extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
             IconButton(
@@ -47,12 +49,19 @@ class VerseActionBar extends StatelessWidget {
             Expanded(
               child: Text(
                 '$selectedCount selected',
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: tokens.onSurface,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
+            if (onBackground != null)
+              IconButton(
+                tooltip: 'Historical Context',
+                icon: Icon(Icons.history_edu_outlined, color: tokens.accent),
+                onPressed: onBackground,
+              ),
             IconButton(
               tooltip: 'Share',
               icon: Icon(Icons.share, color: tokens.onSurfaceMuted),
@@ -66,11 +75,12 @@ class VerseActionBar extends StatelessWidget {
             ),
             ElevatedButton.icon(
               onPressed: onCopy,
-              icon: const Icon(Icons.copy, size: 18),
+              icon: const Icon(Icons.copy, size: 16),
               label: const Text('Copy'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: tokens.accent,
                 foregroundColor: tokens.onSurface,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),

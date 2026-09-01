@@ -15,6 +15,13 @@ if (!staging) {
 
 // fileId -> { name, language, languageCode, license, source }
 const META = {
+  bsb: {
+    name: 'Berean Standard Bible',
+    language: 'English',
+    languageCode: 'en',
+    license: 'Public Domain (CC0)',
+    source: 'https://berean.bible',
+  },
   web: {
     name: 'World English Bible',
     language: 'English',
