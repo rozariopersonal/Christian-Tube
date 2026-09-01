@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import 'package:dio/dio.dart';
+import 'package:mobile/core/api/release_assets.dart';
 import 'package:mobile/features/bible/models/bible_background_note.dart';
 import 'package:mobile/features/bible/models/cross_reference.dart';
+import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
+import 'package:mobile/features/engines/scripture/services/bible_download_manager.dart';
 
 class LocalBibleService {
   static final LocalBibleService _instance = LocalBibleService._internal();
@@ -181,7 +186,8 @@ class LocalBibleService {
 
   Future<bool> hasVerses(String versionId) async {
     if (kIsWeb) {
-      return _webVerses.keys.any((k) => k.startsWith('${versionId}_'));
+      // On web, catalog translations are fetched live from CDN
+      return BibleDownloadManager.catalog.any((v) => v.id.toLowerCase() == versionId.toLowerCase());
     }
     final db = _db;
     if (db == null) await initialize();
@@ -835,7 +841,8 @@ class LocalBibleService {
 
   Future<List<String>> getInstalledVersionIds() async {
     if (kIsWeb) {
-      return _webInstalledVersions.toList();
+      // On web, all catalog translations are live and accessible via CDN
+      return BibleDownloadManager.catalog.map((v) => v.id).toList();
     }
 
     final db = _db;
@@ -1167,34 +1174,80 @@ class LocalBibleService {
     );
   }
 
+  // In-memory cache for live fetched chapters (used on web or when not downloaded yet)
+  final Map<String, List<Map<String, dynamic>>> _liveChapterCache = {};
+
   Future<List<Map<String, dynamic>>> getChapter(String versionId, String bookName, int chapter) async {
-    if (kIsWeb) {
-      // In web, we could return dummy data or filter _webVerses if we wanted full web support.
-      // For now, return empty or a basic list if it matches a seeded verse.
-      List<Map<String, dynamic>> results = [];
-      _webVerses.forEach((key, value) {
-        final parts = key.split('_');
-        if (parts[0] == versionId && parts[2] == chapter.toString()) {
-          // Simplistic web fallback - doesn't have full book names mapped to numbers here easily
-          results.add({
-            'verse': int.tryParse(parts[3]) ?? 1,
-            'text': value,
-          });
-        }
-      });
-      results.sort((a, b) => (a['verse'] as int).compareTo(b['verse'] as int));
-      return results;
+    // 1. Check local SQLite database first on native mobile
+    if (!kIsWeb) {
+      if (_db == null) await initialize();
+      if (_db != null && _db!.isOpen) {
+        final List<Map<String, dynamic>> maps = await _db!.query(
+          'verses',
+          where: 'version_id = ? AND book_name = ? AND chapter = ?',
+          whereArgs: [versionId, bookName, chapter],
+          orderBy: 'verse ASC',
+        );
+        if (maps.isNotEmpty) return maps;
+      }
     }
 
-    if (_db == null) await initialize();
+    // 2. Fallback to Live CDN chunked fetch (works on Web and uninstalled mobile versions)
+    final cacheKey = '${versionId.toLowerCase()}_${bookName}_$chapter';
+    if (_liveChapterCache.containsKey(cacheKey)) {
+      return _liveChapterCache[cacheKey]!;
+    }
 
-    final List<Map<String, dynamic>> maps = await _db!.query(
-      'verses',
-      where: 'version_id = ? AND book_name = ? AND chapter = ?',
-      whereArgs: [versionId, bookName, chapter],
-      orderBy: 'verse ASC',
-    );
+    final bookNum = BookNameService.englishBookNames.indexOf(bookName) + 1;
+    if (bookNum > 0) {
+      final urls = ReleaseAssets.urlsFor(
+        'bibles/${versionId.toLowerCase()}/$bookNum/$chapter.json',
+      );
 
-    return maps;
+      final dio = Dio();
+      for (final url in urls) {
+        try {
+          final res = await dio.get<dynamic>(
+            url,
+            options: Options(
+              responseType: ResponseType.json,
+              receiveTimeout: const Duration(seconds: 10),
+            ),
+          );
+          if (res.statusCode == 200 && res.data != null) {
+            final List<dynamic> list = res.data is String ? jsonDecode(res.data as String) : (res.data as List<dynamic>);
+            final List<Map<String, dynamic>> results = list.map((item) {
+              return {
+                'version_id': versionId,
+                'book_name': bookName,
+                'book_number': bookNum,
+                'chapter': chapter,
+                'verse': item['verse'] as int,
+                'text': (item['text'] as String?)?.trim() ?? '',
+              };
+            }).toList();
+
+            _liveChapterCache[cacheKey] = results;
+            return results;
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+
+    // 3. Fallback: in-memory seed (if matches)
+    List<Map<String, dynamic>> results = [];
+    _webVerses.forEach((key, value) {
+      final parts = key.split('_');
+      if (parts[0] == versionId && parts[2] == chapter.toString()) {
+        results.add({
+          'verse': int.tryParse(parts[3]) ?? 1,
+          'text': value,
+        });
+      }
+    });
+    results.sort((a, b) => (a['verse'] as int).compareTo(b['verse'] as int));
+    return results;
   }
 }

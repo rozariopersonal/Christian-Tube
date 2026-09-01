@@ -45,6 +45,11 @@ class BookService extends ChangeNotifier {
 
   final Set<String> _downloadingBookIds = {};
 
+  // In-memory caches for live CDN book data (used on web or when not downloaded yet)
+  final Map<String, List<BookChapter>> _liveTocCache = {};
+  final Map<String, List<BookLine>> _liveChapterLinesCache = {};
+  final Map<String, Map<String, dynamic>> _liveCommentariesCache = {};
+
   bool isBookDownloading(String bookId) => _downloadingBookIds.contains(bookId);
 
   Future<void> initialize() async {
@@ -566,16 +571,56 @@ class BookService extends ChangeNotifier {
 
   /// Gets all chapter entries (TOC) for a book.
   Future<List<BookChapter>> getChapters(String bookId) async {
-    final db = await database;
-    if (db == null) return [];
+    if (!kIsWeb) {
+      final db = await database;
+      if (db != null) {
+        final rows = await db.query(
+          'book_chapters',
+          where: 'book_id = ?',
+          whereArgs: [bookId],
+          orderBy: 'chapter_index ASC',
+        );
+        if (rows.isNotEmpty) {
+          return rows.map((r) => BookChapter.fromMap(r)).toList();
+        }
+      }
+    }
 
-    final rows = await db.query(
-      'book_chapters',
-      where: 'book_id = ?',
-      whereArgs: [bookId],
-      orderBy: 'chapter_index ASC',
-    );
-    return rows.map((r) => BookChapter.fromMap(r)).toList();
+    // Fallback to Live CDN chunked fetch
+    if (_liveTocCache.containsKey(bookId)) {
+      return _liveTocCache[bookId]!;
+    }
+
+    final urls = ReleaseAssets.urlsFor('books/$bookId/toc.json');
+    final dio = Dio();
+    for (final url in urls) {
+      try {
+        final res = await dio.get<dynamic>(
+          url,
+          options: Options(responseType: ResponseType.json, receiveTimeout: const Duration(seconds: 10)),
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final Map<String, dynamic> data = res.data is String ? jsonDecode(res.data as String) : (res.data as Map<String, dynamic>);
+          final rawChapters = data['chapters'] as List<dynamic>? ?? [];
+          final list = rawChapters.map((c) => BookChapter(
+            bookId: bookId,
+            chapterIndex: c['chapterIndex'] as int,
+            chapterTitle: (c['title'] as String?) ?? 'Chapter ${c['chapterIndex']}',
+            startLine: c['startLine'] as int? ?? 1,
+            endLine: c['endLine'] as int? ?? 1,
+            startPage: c['startPage'] as int? ?? 1,
+            endPage: c['endPage'] as int? ?? 1,
+          )).toList();
+
+          _liveTocCache[bookId] = list;
+          return list;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return [];
   }
 
   /// Gets all lines for a specific page of a book.
@@ -626,57 +671,140 @@ class BookService extends ChangeNotifier {
 
   /// Gets all lines for a chapter of a book.
   Future<List<BookLine>> getChapterLines(String bookId, int chapterIndex) async {
-    final db = await database;
-    if (db == null) return [];
+    if (!kIsWeb) {
+      final db = await database;
+      if (db != null) {
+        final rows = await db.query(
+          'book_content',
+          where: 'book_id = ? AND chapter_index = ?',
+          whereArgs: [bookId, chapterIndex],
+          orderBy: 'page_number ASC, line_number ASC',
+        );
+        if (rows.isNotEmpty) {
+          return rows.map((r) => BookLine.fromMap(r)).toList();
+        }
+      }
+    }
 
-    final rows = await db.query(
-      'book_content',
-      where: 'book_id = ? AND chapter_index = ?',
-      whereArgs: [bookId, chapterIndex],
-      orderBy: 'page_number ASC, line_number ASC',
-    );
-    return rows.map((r) => BookLine.fromMap(r)).toList();
+    // Fallback to Live CDN chunked fetch
+    final cacheKey = '${bookId}_$chapterIndex';
+    if (_liveChapterLinesCache.containsKey(cacheKey)) {
+      return _liveChapterLinesCache[cacheKey]!;
+    }
+
+    final urls = ReleaseAssets.urlsFor('books/$bookId/chapters/$chapterIndex.json');
+    final dio = Dio();
+    for (final url in urls) {
+      try {
+        final res = await dio.get<dynamic>(
+          url,
+          options: Options(responseType: ResponseType.json, receiveTimeout: const Duration(seconds: 10)),
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final List<dynamic> list = res.data is String ? jsonDecode(res.data as String) : (res.data as List<dynamic>);
+          final lines = list.map((l) => BookLine(
+            bookId: bookId,
+            lineNumber: l['line'] as int,
+            pageNumber: l['page'] as int? ?? 1,
+            chapterIndex: chapterIndex,
+            contentType: (l['contentType'] as String?) ?? (l['isHeading'] == true ? 'h2' : 'p'),
+            text: (l['text'] as String?) ?? '',
+          )).toList();
+
+          _liveChapterLinesCache[cacheKey] = lines;
+          return lines;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return [];
   }
 
   /// Queries all Zac Poonen book commentaries referencing a Bible verse.
-  /// Resolves the exact excerpt lines from the book text automatically.
   Future<List<BookScriptureLink>> getCommentariesForVerse(
     int bookNumber,
     int chapter,
     int verse,
   ) async {
-    final db = await database;
-    if (db == null) return [];
+    if (!kIsWeb) {
+      final db = await database;
+      if (db != null) {
+        final rows = await db.rawQuery('''
+          SELECT l.*, b.title, b.author
+          FROM book_scripture_links l
+          JOIN books b ON l.book_id = b.id
+          WHERE l.book_number = ? AND l.chapter = ? AND l.verse = ?
+          ORDER BY b.total_pages DESC, l.page_number ASC
+        ''', [bookNumber, chapter, verse]);
 
-    final rows = await db.rawQuery('''
-      SELECT l.*, b.title, b.author
-      FROM book_scripture_links l
-      JOIN books b ON l.book_id = b.id
-      WHERE l.book_number = ? AND l.chapter = ? AND l.verse = ?
-      ORDER BY b.total_pages DESC, l.page_number ASC
-    ''', [bookNumber, chapter, verse]);
+        if (rows.isNotEmpty) {
+          final results = <BookScriptureLink>[];
+          for (final row in rows) {
+            final bookId = row['book_id'] as String;
+            final pageNum = (row['page_number'] as num).toInt();
+            final startLine = (row['start_line'] as num).toInt();
+            final endLine = (row['end_line'] as num).toInt();
 
-    if (rows.isEmpty) return [];
+            final lineRows = await db.rawQuery('''
+              SELECT text FROM book_content
+              WHERE book_id = ? AND page_number = ? AND line_number >= ? AND line_number <= ?
+              ORDER BY line_number ASC
+            ''', [bookId, pageNum, startLine, endLine]);
 
-    final results = <BookScriptureLink>[];
-    for (final row in rows) {
-      final bookId = row['book_id'] as String;
-      final pageNum = (row['page_number'] as num).toInt();
-      final startLine = (row['start_line'] as num).toInt();
-      final endLine = (row['end_line'] as num).toInt();
-
-      // Fetch the excerpt lines
-      final lineRows = await db.rawQuery('''
-        SELECT text FROM book_content
-        WHERE book_id = ? AND page_number = ? AND line_number >= ? AND line_number <= ?
-        ORDER BY line_number ASC
-      ''', [bookId, pageNum, startLine, endLine]);
-
-      final excerpt = lineRows.map((lr) => lr['text'] as String).join(' ');
-      results.add(BookScriptureLink.fromMap(row, excerpt: excerpt));
+            final excerpt = lineRows.map((lr) => lr['text'] as String).join(' ');
+            results.add(BookScriptureLink.fromMap(row, excerpt: excerpt));
+          }
+          return results;
+        }
+      }
     }
 
-    return results;
+    // Fallback to Live CDN chunked fetch
+    final key = '${bookNumber}_$chapter';
+    Map<String, dynamic>? chapterData = _liveCommentariesCache[key];
+
+    if (chapterData == null) {
+      final urls = ReleaseAssets.urlsFor('commentaries/$bookNumber/$chapter.json');
+      final dio = Dio();
+      for (final url in urls) {
+        try {
+          final res = await dio.get<dynamic>(
+            url,
+            options: Options(responseType: ResponseType.json, receiveTimeout: const Duration(seconds: 10)),
+          );
+          if (res.statusCode == 200 && res.data != null) {
+            chapterData = res.data is String ? jsonDecode(res.data as String) : (res.data as Map<String, dynamic>);
+            _liveCommentariesCache[key] = chapterData!;
+            break;
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+
+    if (chapterData != null) {
+      final vStr = verse.toString();
+      final list = chapterData[vStr] as List<dynamic>? ?? [];
+      return list.map((item) => BookScriptureLink(
+        id: 0,
+        bookNumber: bookNumber,
+        chapter: chapter,
+        verse: verse,
+        endVerse: item['endVerse'] as int? ?? verse,
+        bookId: (item['bookId'] as String?) ?? '',
+        bookTitle: (item['bookTitle'] as String?) ?? '',
+        author: 'Zac Poonen',
+        pageNumber: item['pageNumber'] as int? ?? 1,
+        startLine: item['startLine'] as int? ?? 1,
+        endLine: item['endLine'] as int? ?? 1,
+        headline: (item['headline'] as String?) ?? '',
+      )).toList();
+    }
+
+    return [];
   }
 
   /// Retrieves user reading progress for a book.
