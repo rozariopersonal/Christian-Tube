@@ -7,6 +7,7 @@ import 'package:mobile/features/books/models/book_highlight.dart';
 import 'package:mobile/features/books/models/book_line.dart';
 import 'package:mobile/features/books/models/book_scripture_link.dart';
 import 'package:mobile/features/books/models/user_reading_progress.dart';
+import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/books/widgets/book_card.dart';
 import 'package:mobile/features/books/widgets/book_cover_fallback.dart';
@@ -169,6 +170,82 @@ void main() {
       final restored = UserReadingProgress.fromMap(map);
       expect(restored.currentPage, 13);
       expect(restored.completionPercent, 0.21);
+    });
+
+    test('BookParagraphGrouper groups consecutive lines into a single continuous paragraph', () {
+      const lines = [
+        BookLine(
+          bookId: 'a_good_foundation',
+          pageNumber: 2,
+          lineNumber: 1,
+          chapterIndex: 1,
+          contentType: 'p',
+          text: 'Yet the sad truth is that most Christians who claim to have accepted the gospel do not live this life.',
+        ),
+        BookLine(
+          bookId: 'a_good_foundation',
+          pageNumber: 2,
+          lineNumber: 2,
+          chapterIndex: 1,
+          contentType: 'p',
+          text: 'The purpose of this book is to enable you to lay a good foundation in your spiritual journey.',
+        ),
+        BookLine(
+          bookId: 'a_good_foundation',
+          pageNumber: 2,
+          lineNumber: 3,
+          chapterIndex: 1,
+          contentType: 'p',
+          text: 'Read on then and let the Holy Spirit speak to your heart.',
+        ),
+      ];
+
+      final blocks = BookParagraphGrouper.groupLines(lines);
+      // All 3 lines belong to the same continuous paragraph, so only 1 paragraph block is produced
+      expect(blocks.length, 1);
+      expect(blocks.first.type, 'p');
+      expect(blocks.first.text, contains('Yet the sad truth is that most Christians'));
+      expect(blocks.first.text, contains('The purpose of this book is to enable you'));
+      expect(blocks.first.text, contains('Read on then and let the Holy Spirit'));
+      expect(blocks.first.startLine, 1);
+      expect(blocks.first.endLine, 3);
+    });
+
+    test('BookParagraphGrouper isolates chapter headers and deduplicates redundant subheadings', () {
+      const lines = [
+        BookLine(
+          bookId: 'beauty_for_ashes',
+          pageNumber: 1,
+          lineNumber: 1,
+          chapterIndex: 1,
+          contentType: 'chapter_header',
+          text: 'Chapter 0 Introduction',
+        ),
+        BookLine(
+          bookId: 'beauty_for_ashes',
+          pageNumber: 1,
+          lineNumber: 2,
+          chapterIndex: 1,
+          contentType: 'h3',
+          text: 'Chapter 0 Introduction',
+        ),
+        BookLine(
+          bookId: 'beauty_for_ashes',
+          pageNumber: 1,
+          lineNumber: 3,
+          chapterIndex: 1,
+          contentType: 'p',
+          text: 'God had a great and glorious purpose for man when He created him.',
+        ),
+      ];
+
+      final blocks = BookParagraphGrouper.groupLines(lines);
+      expect(blocks.length, 2);
+      expect(blocks[0].type, 'chapter_header');
+      expect(blocks[0].badge?.toUpperCase(), 'CHAPTER 0');
+      expect(blocks[0].title, 'Introduction');
+      expect(blocks[1].type, 'p');
+      expect(blocks[1].text, contains('God had a great and glorious purpose'));
     });
   });
 

@@ -7,6 +7,7 @@ import '../models/book.dart';
 import '../models/book_chapter.dart';
 import '../models/book_highlight.dart';
 import '../models/book_line.dart';
+import '../services/book_paragraph_grouper.dart';
 import '../services/book_service.dart';
 import '../services/scripture_ref_parser.dart';
 import '../widgets/book_highlights_sheet.dart';
@@ -558,7 +559,9 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
               },
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: lines.map((l) => _buildElementWidget(l, textColor, tokens)).toList(),
+                children: BookParagraphGrouper.groupLines(lines)
+                    .map((b) => _buildBlockWidget(b, pageNum, textColor, tokens))
+                    .toList(),
               ),
             ),
           ),
@@ -567,142 +570,157 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     );
   }
 
-  Widget _buildElementWidget(BookLine line, Color textColor, AppTokens tokens) {
-    final type = line.contentType;
-    final text = line.text;
+  Widget _buildBlockWidget(BookRenderBlock block, int pageNum, Color textColor, AppTokens tokens) {
+    final isTargetPage = widget.initialPage == null || pageNum == widget.initialPage;
+    final isHighlighted = isTargetPage &&
+        widget.highlightStartLine != null &&
+        widget.highlightStartLine! <= block.endLine &&
+        (widget.highlightEndLine ?? widget.highlightStartLine!) >= block.startLine;
 
-    // 1. Chapter Header
-    if (type == 'chapter_header' ||
-        (type == 'p' && RegExp(r'^Chapter\s+\d+', caseSensitive: false).hasMatch(text) && text.length < 80)) {
-      final match = RegExp(r'^(Chapter\s+\d+|[A-Z\s]+)\s*(.*)$', caseSensitive: false).firstMatch(text);
-      final chapBadge = match != null ? match.group(1)?.trim() : null;
-      final chapTitle = match != null && (match.group(2)?.trim().isNotEmpty ?? false)
-          ? match.group(2)!.trim()
-          : text;
+    switch (block.type) {
+      case 'chapter_header':
+        final chapBadge = block.badge;
+        final chapTitle = block.title ?? block.text;
 
-      return Container(
-        margin: const EdgeInsets.only(top: 8, bottom: 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (chapBadge != null && chapBadge.isNotEmpty) ...[
+        return Container(
+          margin: const EdgeInsets.only(top: 8, bottom: 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (chapBadge != null && chapBadge.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: tokens.accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: tokens.accent.withValues(alpha: 0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    chapBadge.toUpperCase(),
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Text(
+                chapTitle,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: (_fontSize + 6).clamp(18.0, 32.0),
+                  fontWeight: FontWeight.bold,
+                  height: 1.25,
+                  fontFamily: _useSerifFont ? 'serif' : null,
+                ),
+              ),
+              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                height: 2.5,
+                width: 48,
                 decoration: BoxDecoration(
-                  color: tokens.accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: tokens.accent.withValues(alpha: 0.35),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  chapBadge.toUpperCase(),
-                  style: TextStyle(
-                    color: tokens.accent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                  ),
+                  color: tokens.accent,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 8),
             ],
-            Text(
-              chapTitle,
-              style: TextStyle(
-                color: textColor,
-                fontSize: (_fontSize + 6).clamp(18.0, 32.0),
-                fontWeight: FontWeight.bold,
-                height: 1.25,
-                fontFamily: _useSerifFont ? 'serif' : null,
-              ),
+          ),
+        );
+
+      case 'h2':
+        return Padding(
+          padding: const EdgeInsets.only(top: 24, bottom: 10),
+          child: Text(
+            block.text,
+            style: TextStyle(
+              color: tokens.accent,
+              fontSize: (_fontSize + 3.0).clamp(16.0, 26.0),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+              fontFamily: _useSerifFont ? 'serif' : null,
             ),
-            const SizedBox(height: 12),
-            Container(
-              height: 2.5,
-              width: 48,
-              decoration: BoxDecoration(
-                color: tokens.accent,
-                borderRadius: BorderRadius.circular(2),
-              ),
+          ),
+        );
+
+      case 'h3':
+        return Padding(
+          padding: const EdgeInsets.only(top: 18, bottom: 8),
+          child: Text(
+            block.text,
+            style: TextStyle(
+              color: tokens.accent,
+              fontSize: (_fontSize + 1.5).clamp(14.0, 22.0),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.15,
+              fontFamily: _useSerifFont ? 'serif' : null,
             ),
-          ],
-        ),
-      );
-    }
+          ),
+        );
 
-    // 2. Major Section Heading (h2)
-    if (type == 'h2' ||
-        (type == 'p' && RegExp(r'^(?:\d+\.|\([I|V|X]+\))\s+[A-Z]').hasMatch(text) && text.length < 65)) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 24, bottom: 10),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: tokens.accent,
-            fontSize: (_fontSize + 3.0).clamp(16.0, 26.0),
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-            fontFamily: _useSerifFont ? 'serif' : null,
+      case 'blockquote':
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: BoxDecoration(
+            color: isHighlighted
+                ? tokens.accent.withValues(alpha: 0.14)
+                : tokens.surfaceVariant.withValues(alpha: 0.45),
+            borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+            border: Border(
+              left: BorderSide(color: tokens.accent, width: 3.5),
+            ),
           ),
-        ),
-      );
-    }
+          child: Text.rich(
+            TextSpan(
+              children: _buildFormattedParagraphs(block.text, textColor, tokens),
+            ),
+            style: TextStyle(
+              fontStyle: FontStyle.italic,
+              fontSize: _fontSize,
+              height: _lineHeight,
+              fontFamily: _useSerifFont ? 'serif' : null,
+            ),
+          ),
+        );
 
-    // 3. Subheading (h3)
-    if (type == 'h3') {
-      return Padding(
-        padding: const EdgeInsets.only(top: 18, bottom: 8),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: tokens.accent,
-            fontSize: (_fontSize + 1.5).clamp(14.0, 22.0),
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.15,
-            fontFamily: _useSerifFont ? 'serif' : null,
+      case 'p':
+      default:
+        Widget paragraph = Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Text.rich(
+            TextSpan(
+              children: _buildFormattedParagraphs(block.text, textColor, tokens),
+            ),
+            textAlign: TextAlign.justify,
           ),
-        ),
-      );
-    }
+        );
 
-    // 4. Blockquote / Callout quote
-    if (type == 'blockquote') {
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 14),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        decoration: BoxDecoration(
-          color: tokens.surfaceVariant.withValues(alpha: 0.45),
-          borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
-          border: Border(
-            left: BorderSide(color: tokens.accent, width: 3.5),
-          ),
-        ),
-        child: Text.rich(
-          TextSpan(
-            children: _buildFormattedParagraphs(text, textColor, tokens),
-          ),
-          style: TextStyle(
-            fontStyle: FontStyle.italic,
-            fontSize: _fontSize,
-            height: _lineHeight,
-            fontFamily: _useSerifFont ? 'serif' : null,
-          ),
-        ),
-      );
-    }
+        if (isHighlighted) {
+          paragraph = Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: tokens.accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(6),
+              border: Border(left: BorderSide(color: tokens.accent, width: 3)),
+            ),
+            child: Text.rich(
+              TextSpan(
+                children: _buildFormattedParagraphs(block.text, textColor, tokens),
+              ),
+              textAlign: TextAlign.justify,
+            ),
+          );
+        }
 
-    // 5. Standard Paragraph (p)
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Text.rich(
-        TextSpan(
-          children: _buildFormattedParagraphs(text, textColor, tokens),
-        ),
-        textAlign: TextAlign.justify,
-      ),
-    );
+        return paragraph;
+    }
   }
 
   @override
