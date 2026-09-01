@@ -88,6 +88,63 @@ class ReadingSettingsSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+
+          // Cross-reference auto-expand toggle.
+          InkWell(
+            onTap: () => onSettingsChanged(
+              settings.copyWith(
+                expandCrossReferences: !settings.expandCrossReferences,
+              ),
+            ),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    settings.expandCrossReferences
+                        ? Icons.link
+                        : Icons.link_off,
+                    color: tokens.accent,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Expand cross-references',
+                          style: TextStyle(
+                            color: tokens.onSurface,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          'Automatically show inline reference cards for every '
+                          'verse that has them.',
+                          style: TextStyle(
+                            color: tokens.onSurfaceMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: settings.expandCrossReferences,
+                    activeColor: tokens.accent,
+                    onChanged: (value) => onSettingsChanged(
+                      settings.copyWith(expandCrossReferences: value),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );

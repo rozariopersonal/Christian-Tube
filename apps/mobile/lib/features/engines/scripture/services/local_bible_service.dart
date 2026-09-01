@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import 'package:mobile/features/bible/models/cross_reference.dart';
 
 class LocalBibleService {
   static final LocalBibleService _instance = LocalBibleService._internal();
@@ -13,6 +14,10 @@ class LocalBibleService {
   // Bibles and the scripture feed are downloaded on demand from the releases
   // repo and registered here; nothing ships pre-installed with the app.
   final Set<String> _webInstalledVersions = {};
+  // Cross-references held in memory on web (mirrors the SQLite table used on
+  // mobile). Keyed by "bookNumber_chapter_verse".
+  final Map<String, Map<String, dynamic>> _webCrossRefs = {};
+  bool _webCrossRefsInstalled = false;
 
   // Allows unit tests to isolate the database behind a custom path so real
   // device/app data is never touched.
@@ -25,6 +30,8 @@ class LocalBibleService {
     _instance._db = null;
     _instance._webVerses.clear();
     _instance._webInstalledVersions.clear();
+    _instance._webCrossRefs.clear();
+    _instance._webCrossRefsInstalled = false;
   }
 
   Future<void> initialize() async {
@@ -38,17 +45,42 @@ class LocalBibleService {
 
     _db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await _createSchema(db);
         await _seedDefaultBibles(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // On-demand app data: purge and recreate from scratch. This also
-        // removes stale wrong-language rows cached by earlier builds.
-        await db.execute('DROP TABLE IF EXISTS verses');
-        await db.execute('DROP TABLE IF EXISTS installed_versions');
-        await _createSchema(db);
+        if (oldVersion < 2) {
+          // On-demand app data from the earliest schema: purge and recreate.
+          await db.execute('DROP TABLE IF EXISTS verses');
+          await db.execute('DROP TABLE IF EXISTS installed_versions');
+          await _createSchema(db);
+        } else {
+          // v2 -> v3: only add the cross-references table; keep existing
+          // verse/version rows intact so the user's installed bibles survive.
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS cross_references (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              book_number INTEGER NOT NULL,
+              chapter INTEGER NOT NULL,
+              verse INTEGER NOT NULL,
+              ref_book_number INTEGER NOT NULL,
+              ref_chapter INTEGER NOT NULL,
+              ref_verse INTEGER NOT NULL,
+              ref_end_verse INTEGER,
+              score INTEGER NOT NULL
+            );
+          ''');
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_xref_lookup '
+            'ON cross_references (book_number, chapter, verse);',
+          );
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_xref_ref '
+            'ON cross_references (ref_book_number, ref_chapter, ref_verse);',
+          );
+        }
       },
     );
   }
@@ -79,6 +111,28 @@ class LocalBibleService {
         size_display TEXT NOT NULL,
         installed_at TEXT NOT NULL
       );
+    ''');
+
+    await db.execute('''
+      CREATE TABLE cross_references (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_number INTEGER NOT NULL,
+        chapter INTEGER NOT NULL,
+        verse INTEGER NOT NULL,
+        ref_book_number INTEGER NOT NULL,
+        ref_chapter INTEGER NOT NULL,
+        ref_verse INTEGER NOT NULL,
+        ref_end_verse INTEGER,
+        score INTEGER NOT NULL
+      );
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_xref_lookup
+      ON cross_references (book_number, chapter, verse);
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_xref_ref
+      ON cross_references (ref_book_number, ref_chapter, ref_verse);
     ''');
   }
 
@@ -630,6 +684,112 @@ class LocalBibleService {
     return null;
   }
 
+  /// Batch-resolves verse text for many passages in a single pass.
+  ///
+  /// Each passage is `(bookNumber, chapter, verse, endVerse?)`. Returns a map
+  /// keyed by [CrossReference.textKey] (`"book_chapter_verse"`) for passages
+  /// whose text could be resolved. Missing verses / unavailable translations
+  /// are simply absent from the result (caller decides how to present gaps).
+  ///
+  /// On mobile this groups passages by (book, chapter) and issues one query
+  /// per group over the full verse range, which is far faster than resolving
+  /// hundreds of single-verse references individually.
+  Future<Map<String, String>> resolvePassages({
+    required String versionId,
+    required List<(int bookNumber, int chapter, int verse, int? endVerse)>
+        passages,
+  }) async {
+    final result = <String, String>{};
+    if (passages.isEmpty) return result;
+
+    // Resolve from the in-memory map first (fast, works on web too).
+    final db = _db;
+    if (db == null && kIsWeb) {
+      for (final (book, chapter, verse, end) in passages) {
+        final text = resolvePassageSync(
+          versionId: versionId,
+          bookNumber: book,
+          chapter: chapter,
+          startVerse: verse,
+          endVerse: end,
+        );
+        if (text != null) result['${book}_${chapter}_$verse'] = text;
+      }
+      return result;
+    }
+
+    if (db == null) {
+      // Not initialized on mobile yet; try in-memory seed.
+      for (final (book, chapter, verse, end) in passages) {
+        final text = resolvePassageSync(
+          versionId: versionId,
+          bookNumber: book,
+          chapter: chapter,
+          startVerse: verse,
+          endVerse: end,
+        );
+        if (text != null) result['${book}_${chapter}_$verse'] = text;
+      }
+      return result;
+    }
+
+    // Group by (book, chapter) so one query covers many verses.
+    final byGroup = <(int, int), List<(int verse, int end)>>{};
+    for (final (book, chapter, verse, end) in passages) {
+      byGroup.putIfAbsent((book, chapter), () => []).add((verse, end ?? verse));
+    }
+
+    // Fallback: check the in-memory seed for any single verse first so web
+    // seeded passages resolve even though they aren't in SQLite.
+    for (final (book, chapter, verse, end) in passages) {
+      final sync = resolvePassageSync(
+        versionId: versionId,
+        bookNumber: book,
+        chapter: chapter,
+        startVerse: verse,
+        endVerse: end,
+      );
+      if (sync != null) result['${book}_${chapter}_$verse'] = sync;
+    }
+    final alreadyResolved =
+        result.keys.toSet();
+
+    for (final entry in byGroup.entries) {
+      final (book, chapter) = entry.key;
+      int minVerse = entry.value.first.$1;
+      int maxEnd = entry.value.first.$2;
+      for (final (v, e) in entry.value) {
+        if (v < minVerse) minVerse = v;
+        if (e > maxEnd) maxEnd = e;
+      }
+      final rows = await db.query(
+        'verses',
+        columns: ['book_number', 'chapter', 'verse', 'text'],
+        where:
+            'version_id = ? AND book_number = ? AND chapter = ? AND verse >= ? AND verse <= ?',
+        whereArgs: [versionId, book, chapter, minVerse, maxEnd],
+        orderBy: 'verse ASC',
+      );
+      // Build a lookup of verse -> text for the resolved range.
+      final textsByVerse = <int, String>{};
+      for (final r in rows) {
+        textsByVerse[r['verse'] as int] = r['text'] as String;
+      }
+      for (final (v, e) in entry.value) {
+        final key = '${book}_${chapter}_$v';
+        if (alreadyResolved.contains(key)) continue;
+        final parts = <String>[];
+        for (int x = v; x <= e; x++) {
+          final t = textsByVerse[x];
+          if (t != null && t.isNotEmpty) parts.add(t);
+        }
+        if (parts.isNotEmpty) result[key] = parts.join(' ');
+      }
+    }
+
+    return result;
+  }
+
   Future<List<String>> getInstalledVersionIds() async {
     if (kIsWeb) {
       return _webInstalledVersions.toList();
@@ -728,6 +888,113 @@ class LocalBibleService {
       where: 'id = ?',
       whereArgs: [versionId],
     );
+  }
+
+  /// Whether cross-reference data has been installed (either in the SQLite
+  /// table on mobile or the in-memory map on web).
+  Future<bool> hasCrossReferences() async {
+    if (kIsWeb) return _webCrossRefsInstalled;
+    final db = _db;
+    if (db == null) await initialize();
+    if (_db == null) return false;
+    final count = Sqflite.firstIntValue(
+      await _db!.rawQuery('SELECT COUNT(*) FROM cross_references'),
+    );
+    return (count ?? 0) > 0;
+  }
+
+  /// Replaces the entire cross-reference store with [items].
+  ///
+  /// [items] is a list of flattened reference rows with keys:
+  /// `bookNumber`, `chapter`, `verse`, `refBookNumber`, `refChapter`,
+  /// `refVerse`, `refEndVerse` (nullable), `score`.
+  Future<void> insertCrossReferences(
+    List<Map<String, dynamic>> items,
+  ) async {
+    _webCrossRefs.clear();
+    for (final r in items) {
+      final key =
+          '${r['bookNumber']}_${r['chapter']}_${r['verse']}';
+      _webCrossRefs[key] = r;
+    }
+    _webCrossRefsInstalled = true;
+
+    final db = _db;
+    if (db == null) return;
+
+    await db.delete('cross_references');
+    if (items.isEmpty) return;
+
+    final batch = db.batch();
+    for (final r in items) {
+      batch.insert('cross_references', {
+        'book_number': r['bookNumber'],
+        'chapter': r['chapter'],
+        'verse': r['verse'],
+        'ref_book_number': r['refBookNumber'],
+        'ref_chapter': r['refChapter'],
+        'ref_verse': r['refVerse'],
+        'ref_end_verse': r['refEndVerse'],
+        'score': r['score'],
+      });
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Removes all cross-reference data.
+  Future<void> deleteCrossReferences() async {
+    _webCrossRefs.clear();
+    _webCrossRefsInstalled = false;
+    final db = _db;
+    if (db == null) return;
+    await db.delete('cross_references');
+  }
+
+  /// Returns cross-references for a single verse, sorted by score descending.
+  /// Fetches all cross-references for [bookNumber] [chapter], grouped by verse
+  /// number. Returns a map of verse number -> ordered reference list.
+  Future<Map<int, List<CrossReference>>> getCrossReferencesForChapter(
+    int bookNumber,
+    int chapter,
+  ) async {
+    if (kIsWeb) {
+      final grouped = <int, List<CrossReference>>{};
+      _webCrossRefs.forEach((key, r) {
+        if (r['bookNumber'] == bookNumber && r['chapter'] == chapter) {
+          grouped.putIfAbsent(r['verse'] as int, () => []).add(CrossReference(
+                bookNumber: r['refBookNumber'] as int,
+                chapter: r['refChapter'] as int,
+                verse: r['refVerse'] as int,
+                endVerse: r['refEndVerse'] as int?,
+                score: r['score'] as int,
+              ));
+        }
+      });
+      grouped.forEach((_, list) => list.sort((a, b) => b.score.compareTo(a.score)));
+      return grouped;
+    }
+
+    final db = _db;
+    if (db == null) await initialize();
+    if (_db == null) return {};
+    final rows = await _db!.query(
+      'cross_references',
+      where: 'book_number = ? AND chapter = ?',
+      whereArgs: [bookNumber, chapter],
+      orderBy: 'verse ASC',
+    );
+    final grouped = <int, List<CrossReference>>{};
+    for (final r in rows) {
+      grouped.putIfAbsent(r['verse'] as int, () => []).add(CrossReference(
+            bookNumber: r['ref_book_number'] as int,
+            chapter: r['ref_chapter'] as int,
+            verse: r['ref_verse'] as int,
+            endVerse: r['ref_end_verse'] as int?,
+            score: r['score'] as int,
+          ));
+    }
+    grouped.forEach((_, list) => list.sort((a, b) => b.score.compareTo(a.score)));
+    return grouped;
   }
 
   /// Case-insensitive full-text search across the installed [versionId].

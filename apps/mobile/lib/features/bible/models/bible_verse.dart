@@ -6,6 +6,10 @@ class BibleVerse {
   final String? versionLabel;
   final bool isSecondary;
 
+  /// Number of cross-references for this verse. 0 hides the cross-reference
+  /// badge and expansion; >0 shows a badge and enables inline expansion.
+  final int crossReferenceCount;
+
   BibleVerse({
     required this.number,
     required this.text,
@@ -13,5 +17,6 @@ class BibleVerse {
     this.chapterTitle,
     this.versionLabel,
     this.isSecondary = false,
+    this.crossReferenceCount = 0,
   });
 }

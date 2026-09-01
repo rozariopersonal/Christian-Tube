@@ -3,6 +3,7 @@ import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/layout/content_width.dart';
 import '../models/bible_version_meta.dart';
 import '../services/bible_download_manager.dart';
+import '../../../bible/services/cross_reference_service.dart';
 
 class BibleManagerScreen extends StatefulWidget {
   const BibleManagerScreen({super.key});
@@ -13,12 +14,31 @@ class BibleManagerScreen extends StatefulWidget {
 
 class _BibleManagerScreenState extends State<BibleManagerScreen> {
   final BibleDownloadManager _manager = BibleDownloadManager();
+  final CrossReferenceService _crossRefService = CrossReferenceService();
   String _searchQuery = '';
+  bool _crossRefsInstalled = false;
 
   @override
   void initState() {
     super.initState();
     _manager.refreshInstalledList();
+    _crossRefService.addListener(_onCrossRefStateChanged);
+    _refreshCrossRefStatus();
+  }
+
+  @override
+  void dispose() {
+    _crossRefService.removeListener(_onCrossRefStateChanged);
+    super.dispose();
+  }
+
+  void _onCrossRefStateChanged() {
+    _refreshCrossRefStatus();
+  }
+
+  Future<void> _refreshCrossRefStatus() async {
+    final installed = await _crossRefService.isInstalled();
+    if (mounted) setState(() => _crossRefsInstalled = installed);
   }
 
   @override
@@ -112,6 +132,23 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
               ),
               const SizedBox(height: 20),
 
+              // 1.5 Study Tools: Cross-References
+              Text(
+                'STUDY TOOLS',
+                style: TextStyle(
+                  color: tokens.onSurfaceMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 8),
+              AnimatedBuilder(
+                animation: _crossRefService,
+                builder: (context, _) => _buildCrossRefItem(context),
+              ),
+              const SizedBox(height: 24),
+
               // 2. Installed Section
               Text(
                 'INSTALLED ON DEVICE',
@@ -176,6 +213,134 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
     );
   }
 
+  Widget _buildCrossRefItem(BuildContext context) {
+    final tokens = context.tokens;
+    final isDownloading = _crossRefService.isDownloading;
+    final progress = _crossRefService.progress;
+
+    Future<void> download() async {
+      final messenger = ScaffoldMessenger.of(context);
+      final ok = await _crossRefService.downloadAndInstall();
+      if (!ok && context.mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not download cross-references. Check your connection and try again.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: tokens.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tokens.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: tokens.accent.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isDownloading
+                      ? Icons.downloading
+                      : _crossRefsInstalled
+                          ? Icons.link
+                          : Icons.link,
+                  color: tokens.accent,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cross-References',
+                      style: TextStyle(
+                        color: tokens.onSurface,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      _crossRefsInstalled
+                          ? 'Installed • shown inline in the reader'
+                          : 'Enables inline study cards • ~14 MB',
+                      style: TextStyle(
+                        color: tokens.onSurfaceMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isDownloading)
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: tokens.accent,
+                  ),
+                )
+              else if (_crossRefsInstalled)
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: tokens.onSurfaceMuted,
+                    size: 20,
+                  ),
+                  tooltip: 'Remove cross-references',
+                  onPressed: () => _crossRefService.removeAll(),
+                )
+              else
+                ElevatedButton.icon(
+                  onPressed: download,
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('Download'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (isDownloading) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                backgroundColor: tokens.surfaceBorder,
+                color: tokens.accent,
+                minHeight: 4,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildInstalledItem(BuildContext context, BibleVersionMeta meta) {
     final tokens = context.tokens;
 
@@ -223,7 +388,6 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
       ),
     );
   }
-
   Widget _buildAvailableItem(BuildContext context, BibleVersionMeta meta) {
     final tokens = context.tokens;
     final isDownloading = _manager.isDownloading(meta.id);

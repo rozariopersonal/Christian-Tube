@@ -7,7 +7,7 @@ import '../../engines/scripture/services/book_name_service.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
 import '../../engines/scripture/screens/bible_manager_screen.dart';
 import 'package:flutter/services.dart';
-import '../widgets/verse_text.dart';
+import '../widgets/verse_item.dart';
 import '../widgets/book_chapter_selector.dart';
 import '../widgets/reading_settings_sheet.dart';
 import '../widgets/verse_action_bar.dart';
@@ -18,8 +18,10 @@ import '../../../core/layout/content_width.dart';
 import '../models/bible_verse.dart';
 import '../models/bible_book.dart';
 import '../models/bible_settings.dart';
+import '../models/cross_reference.dart';
 import '../services/bible_settings_service.dart';
 import '../services/bible_bookmark_service.dart';
+import '../services/cross_reference_service.dart';
 
 class BibleScreen extends StatefulWidget {
   const BibleScreen({
@@ -48,6 +50,7 @@ class _BibleScreenState extends State<BibleScreen> {
   final BibleBookmarkService _bookmarkService = BibleBookmarkService();
   final BibleDownloadManager _downloadManager = BibleDownloadManager();
   final BookNameService _bookNames = BookNameService();
+  final CrossReferenceService _crossRefService = CrossReferenceService();
   final ScrollController _scrollController = ScrollController();
 
   List<BibleVersion> _versions = [];
@@ -71,6 +74,15 @@ class _BibleScreenState extends State<BibleScreen> {
   int? _highlightedVerse;
   Timer? _highlightTimer;
 
+  // Cross-reference state.
+  final Set<int> _expandedCrossRefVerses = {};
+  Map<int, List<CrossReference>> _chapterCrossRefs = {};
+  Map<String, String> _crossRefTexts = {};
+  bool _crossRefsInstalled = false;
+  bool _crossRefsLoading = false;
+  int _crossRefBookNumber = 0;
+  int _crossRefChapter = 0;
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +93,13 @@ class _BibleScreenState extends State<BibleScreen> {
     });
     _loadSettings();
     _fetchData();
+    _checkCrossRefsInstalled();
+  }
+
+  Future<void> _checkCrossRefsInstalled() async {
+    final installed = await _crossRefService.isInstalled();
+    if (!mounted) return;
+    setState(() => _crossRefsInstalled = installed);
   }
 
   int _bookNumber(String book) =>
@@ -232,7 +251,9 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   /// Builds the verse list for a single version's chapter, tagged with the
-  /// version label so each row shows which translation it came from.
+  /// version label so each row shows which translation it came from. Attaches
+  /// each verse's cross-reference count from [_chapterCrossRefs] when the
+  /// cross-reference data has been loaded for this chapter.
   List<BibleVerse> _buildChapterVerses(
     List<Map<String, dynamic>> chapterMap,
     String versionId,
@@ -248,9 +269,86 @@ class _BibleScreenState extends State<BibleScreen> {
         number: n,
         text: text as String,
         versionLabel: versionId,
+        crossReferenceCount: _chapterCrossRefs[n]?.length ?? 0,
       ));
     }
     return verses;
+  }
+
+  /// Loads cross-references for the chapter identified by [bookNumber] and
+  /// [chapter], resolves their verse text in the selected version, and applies
+  /// the results to the current reader state.
+  Future<void> _loadCrossReferencesForChapter(
+    int bookNumber,
+    int chapter,
+  ) async {
+    if (!_crossRefsInstalled || _selectedVersion == null) return;
+    final isNewChapter =
+        bookNumber != _crossRefBookNumber || chapter != _crossRefChapter;
+    if (_crossRefsLoading && isNewChapter) return;
+
+    setState(() => _crossRefsLoading = true);
+    Map<int, List<CrossReference>> chapterRefs;
+    try {
+      chapterRefs =
+          await _crossRefService.getForChapter(bookNumber, chapter);
+    } catch (_) {
+      chapterRefs = {};
+    }
+    if (!mounted) return;
+
+    // Resolve verse text for every distinct reference in this chapter.
+    final passages = <(int, int, int, int?)>[];
+    final seen = <String>{};
+    for (final refs in chapterRefs.values) {
+      for (final ref in refs) {
+        if (seen.add(ref.textKey)) {
+          passages.add((
+            ref.bookNumber,
+            ref.chapter,
+            ref.verse,
+            ref.endVerse,
+          ));
+        }
+      }
+    }
+    Map<String, String> resolved = {};
+    if (passages.isNotEmpty) {
+      try {
+        resolved = await _localBibleService.resolvePassages(
+          versionId: _selectedVersion!.shortname,
+          passages: passages,
+        );
+      } catch (_) {
+        resolved = {};
+      }
+    }
+
+    setState(() {
+      _crossRefBookNumber = bookNumber;
+      _crossRefChapter = chapter;
+      _chapterCrossRefs = chapterRefs;
+      _crossRefTexts = resolved;
+
+      // Rebuild the verse rows so crossReferenceCount reflects the new data.
+      _verses = _verses.map((v) {
+        if (v.isChapterHeader) return v;
+        return BibleVerse(
+          number: v.number,
+          text: v.text,
+          versionLabel: v.versionLabel,
+          isSecondary: v.isSecondary,
+          crossReferenceCount: chapterRefs[v.number]?.length ?? 0,
+        );
+      }).toList();
+
+      // Auto-expand every verse that has references when the user has the
+      // "expand all" preference on.
+      if (_settings.expandCrossReferences) {
+        _expandedCrossRefVerses.addAll(chapterRefs.keys);
+      }
+      _crossRefsLoading = false;
+    });
   }
 
   /// Fetches [book] [chapter] for [version].
@@ -278,7 +376,15 @@ class _BibleScreenState extends State<BibleScreen> {
       _selectedVerses.clear();
       _verseKeys.clear(); // fresh chapter — old keys are no longer valid
       _highlightedVerse = null;
+      _expandedCrossRefVerses.clear();
+      _chapterCrossRefs = {};
+      _crossRefTexts = {};
+      _crossRefBookNumber = 0;
+      _crossRefChapter = 0;
     });
+    // Kick off cross-reference loading for this chapter (non-blocking; the
+    // reader shows verses immediately and adds badges/expansions when ready).
+    _loadCrossReferencesForChapter(_bookNumber(_currentBook), _currentChapter);
     // Scroll to the launched verse (when present) or top when re-fetched.
     final shouldScrollToVerse = widget.initialVerse != null;
     if (shouldScrollToVerse) {
@@ -366,11 +472,64 @@ class _BibleScreenState extends State<BibleScreen> {
     final newVerses =
         _buildChapterVerses(primaryMap, _selectedVersion!.shortname);
 
+    // Load cross-references for the appended chapter (if installed) so the
+    // new verses show badges / expansions too. Merge into the existing map so
+    // previously-loaded chapters keep their data.
+    Map<int, List<CrossReference>> nextRefs = {};
+    Map<String, String> nextTexts = {};
+    if (_crossRefsInstalled) {
+      try {
+        nextRefs = await _crossRefService.getForChapter(
+            _bookNumber(nextBook), nextChapter);
+      } catch (_) {
+        nextRefs = {};
+      }
+      final passages = <(int, int, int, int?)>[];
+      final seen = <String>{};
+      for (final refs in nextRefs.values) {
+        for (final ref in refs) {
+          if (seen.add(ref.textKey)) {
+            passages.add((ref.bookNumber, ref.chapter, ref.verse, ref.endVerse));
+          }
+        }
+      }
+      if (passages.isNotEmpty) {
+        try {
+          nextTexts = await _localBibleService.resolvePassages(
+            versionId: _selectedVersion!.shortname,
+            passages: passages,
+          );
+        } catch (_) {
+          nextTexts = {};
+        }
+      }
+    }
+
     if (mounted) {
+      // Rebuild the appended verses with their cross-reference counts.
+      final appendedVerses = newVerses.map((v) {
+        if (v.isChapterHeader) return v;
+        return BibleVerse(
+          number: v.number,
+          text: v.text,
+          versionLabel: v.versionLabel,
+          isSecondary: v.isSecondary,
+          crossReferenceCount: nextRefs[v.number]?.length ?? 0,
+        );
+      }).toList();
+
       setState(() {
         _currentBook = nextBook;
         _currentChapter = nextChapter;
-        
+
+        if (nextRefs.isNotEmpty) {
+          _chapterCrossRefs.addAll(nextRefs);
+          _crossRefTexts.addAll(nextTexts);
+          if (_settings.expandCrossReferences) {
+            _expandedCrossRefVerses.addAll(nextRefs.keys);
+          }
+        }
+
         if (append) {
           _verses.add(BibleVerse(
             number: 0,
@@ -378,9 +537,9 @@ class _BibleScreenState extends State<BibleScreen> {
             isChapterHeader: true,
             chapterTitle: '${_displayBookName(nextBook)} $nextChapter',
           ));
-          _verses.addAll(newVerses);
+          _verses.addAll(appendedVerses);
         } else {
-          _verses = newVerses;
+          _verses = appendedVerses;
           _selectedVerses.clear();
           if (_scrollController.hasClients) {
             _scrollController.jumpTo(0);
@@ -519,6 +678,18 @@ class _BibleScreenState extends State<BibleScreen> {
           return ReadingSettingsSheet(
             settings: _settings,
             onSettingsChanged: (newSettings) {
+              // Re-apply auto-expansion when the toggle flips: turning it on
+              // expands every verse that has refs; turning it off collapses all.
+              if (newSettings.expandCrossReferences !=
+                  _settings.expandCrossReferences) {
+                setState(() {
+                  if (newSettings.expandCrossReferences) {
+                    _expandedCrossRefVerses.addAll(_chapterCrossRefs.keys);
+                  } else {
+                    _expandedCrossRefVerses.clear();
+                  }
+                });
+              }
               setModalState(() => _settings = newSettings);
               setState(() => _settings = newSettings);
               _settingsService.saveSettings(newSettings);
@@ -571,6 +742,46 @@ class _BibleScreenState extends State<BibleScreen> {
         _selectedVerses.add(verseNumber);
       }
     });
+  }
+
+  void _toggleCrossRefExpansion(int verseNumber) {
+    setState(() {
+      if (_expandedCrossRefVerses.contains(verseNumber)) {
+        _expandedCrossRefVerses.remove(verseNumber);
+      } else {
+        _expandedCrossRefVerses.add(verseNumber);
+      }
+    });
+  }
+
+  /// Handles tapping a cross-reference card: scrolls to the target verse when
+  /// it lives in the same chapter, otherwise jumps to that book/chapter first.
+  Future<void> _onReferenceTap(CrossReference ref) async {
+    final targetBook = ref.bookNumber >= 1 &&
+            ref.bookNumber <= BookNameService.englishBookNames.length
+        ? BookNameService.englishBookNames[ref.bookNumber - 1]
+        : _currentBook;
+    final sameChapter = ref.bookNumber == _bookNumber(_currentBook) &&
+        ref.chapter == _currentChapter;
+
+    if (sameChapter) {
+      // Clear any existing expansion selection, then scroll/highlight.
+      if (mounted) {
+        _scrollToVerse(ref.verse);
+      }
+      return;
+    }
+
+    // Cross-chapter jump: select the book/chapter, reload, then focus the verse.
+    _currentBook = targetBook;
+    _currentChapter = ref.chapter;
+    if (mounted) setState(() {});
+    await _loadChapter();
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToVerse(ref.verse);
+      });
+    }
   }
 
   String _selectedText({String prefix = ''}) {
@@ -654,40 +865,50 @@ class _BibleScreenState extends State<BibleScreen> {
     await BibleDownloadManager().forceRedownloadDefault();
   }
 
+  Widget _buildVerseItem(BibleVerse verse) {
+    // Register a GlobalKey per real verse (not headers) for
+    // Scrollable.ensureVisible in _scrollToVerse.
+    final Key? itemKey = verse.isChapterHeader
+        ? null
+        : (_verseKeys[verse.number] ??= GlobalKey());
+    return VerseItem(
+      key: itemKey,
+      verse: verse,
+      isSelected: _selectedVerses.contains(verse.number),
+      isHighlighted: _highlightedVerse == verse.number,
+      fontSize: _settings.fontSize,
+      onVerseTap: () => _toggleVerseSelection(verse.number),
+      showCrossReferences: _crossRefsInstalled,
+      crossRefsExpanded: _expandedCrossRefVerses.contains(verse.number),
+      crossReferences: _chapterCrossRefs[verse.number] ?? const [],
+      resolvedTexts: _crossRefTexts,
+      onBadgeTap: () => _toggleCrossRefExpansion(verse.number),
+      onReferenceTap: _onReferenceTap,
+    );
+  }
+
   Widget _buildContent() {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     if (_versions.isEmpty) return _buildEmptyState();
     if (_chapterEmpty) return _buildChapterEmptyState();
     return MaxWidthBox(
-      child: ListView.builder(
+      child: ListView(
         // No ValueKey here — using one caused the list to be destroyed and
         // recreated (resetting scroll to 0) whenever _currentBook/_currentChapter
         // changed, including during the infinite-scroll append path.
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        itemCount: _verses.length + (_isFetchingNextChapter ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == _verses.length) {
-            return const Padding(
+        // Each chapter is intentionally a small, eagerly-built list. This
+        // keeps every verse key mounted, so a Words-feed deep link can use
+        // Scrollable.ensureVisible even when its verse starts off-screen.
+        children: [
+          ..._verses.map(_buildVerseItem),
+          if (_isFetchingNextChapter)
+            const Padding(
               padding: EdgeInsets.all(16.0),
               child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          final verse = _verses[index];
-          // Register a GlobalKey per real verse (not headers) for
-          // Scrollable.ensureVisible in _scrollToVerse.
-          final Key? itemKey = verse.isChapterHeader
-              ? null
-              : (_verseKeys[verse.number] ??= GlobalKey());
-          return VerseText(
-            key: itemKey,
-            verse: verse,
-            isSelected: _selectedVerses.contains(verse.number),
-            isHighlighted: _highlightedVerse == verse.number,
-            fontSize: _settings.fontSize,
-            onTap: () => _toggleVerseSelection(verse.number),
-          );
-        },
+            ),
+        ],
       ),
     );
   }

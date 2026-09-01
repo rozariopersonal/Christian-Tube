@@ -65,7 +65,7 @@ class CardActionButton extends StatelessWidget {
                 color: context.tokens.onScrim.withValues(alpha: 0.9),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                shadows: const [
+                shadows: [
                   Shadow(
                     color: context.tokens.scrim.withValues(alpha: 0.87),
                     blurRadius: 4,

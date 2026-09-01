@@ -50,3 +50,7 @@ temp_repo/
 # Node (build tooling)
 **/node_modules/
 
+# Generated cross-reference payload (built by tool/build_cross_references.js
+# and published to the releases repo, not committed here)
+data/cross_references.json
+
