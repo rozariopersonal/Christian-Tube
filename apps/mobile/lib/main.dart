@@ -8,7 +8,6 @@ import 'core/theme/theme_service.dart';
 import 'features/auth/auth_service.dart';
 import 'features/channels/channel_service.dart';
 import 'features/channels/channels_screen.dart';
-import 'features/engines/scripture/screens/bible_manager_screen.dart';
 import 'features/engines/scripture/services/bible_download_manager.dart';
 import 'features/feed/video_feed_screen.dart';
 import 'features/micro_feed/micro_feed_screen.dart';
@@ -21,6 +20,7 @@ import 'features/watch_plans/watch_plans_screen.dart';
 import 'features/bible/screens/bible_screen.dart';
 import 'features/books/screens/books_catalog_screen.dart';
 import 'features/books/screens/book_reader_screen.dart';
+import 'features/downloads/screens/downloads_manager_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'layout/main_layout_screen.dart';
 
@@ -187,8 +187,16 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               builder: (context, state) => const WatchPlansScreen(),
             ),
             GoRoute(
+              path: '/downloads',
+              builder: (context, state) {
+                final tabStr = state.uri.queryParameters['tab'];
+                final tab = int.tryParse(tabStr ?? '0') ?? 0;
+                return DownloadsManagerScreen(initialTab: tab);
+              },
+            ),
+            GoRoute(
               path: '/bible-manager',
-              builder: (context, state) => const BibleManagerScreen(),
+              builder: (context, state) => const DownloadsManagerScreen(initialTab: 1),
             ),
           ],
         ),

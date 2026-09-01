@@ -38,12 +38,14 @@ class DictionaryService {
   /// Cleans and normalizes query word while preserving Indian and international scripts.
   String cleanWord(String raw) {
     return raw
+        .replaceAll('_', '')
         .replaceAll(
           RegExp(
             r'''[^\w\s\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0600-\u06FF\u0400-\u04FF]''',
           ),
           '',
         )
+        .replaceAll('_', '')
         .trim();
   }
 

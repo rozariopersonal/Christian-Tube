@@ -6,6 +6,7 @@ import '../models/user_reading_progress.dart';
 import '../services/book_service.dart';
 import '../widgets/book_card.dart';
 import 'book_reader_screen.dart';
+import '../../downloads/screens/downloads_manager_screen.dart';
 
 /// Screen displaying the Books Library organized by subject groups with search,
 /// individual book on-demand downloading, and recent reading progress.
@@ -640,6 +641,22 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.download_for_offline_rounded,
+              color: tokens.onSurfaceMuted,
+              size: 21,
+            ),
+            tooltip: 'Offline Downloads & Commentaries',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DownloadsManagerScreen(initialTab: 3),
+                ),
+              ).then((_) => _loadCatalog());
+            },
+          ),
           IconButton(
             icon: Icon(
               _viewBySubjects ? Icons.grid_view_rounded : Icons.view_agenda_rounded,

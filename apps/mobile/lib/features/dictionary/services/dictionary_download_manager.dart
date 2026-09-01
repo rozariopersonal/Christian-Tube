@@ -240,6 +240,21 @@ class DictionaryDownloadManager extends ChangeNotifier {
     }
   }
 
+  /// Removes an installed dictionary database from local storage.
+  Future<void> deleteDictionary(String dictionaryId) async {
+    try {
+      final dbDir = await getDatabasesPath();
+      final file = File(p.join(dbDir, 'dict_$dictionaryId.sqlite'));
+      if (await file.exists()) {
+        await file.delete();
+      }
+      _installedIds.remove(dictionaryId);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error deleting dictionary $dictionaryId: $e');
+    }
+  }
+
   /// Creates seed dictionary with essential words in case offline or CDN mirror is unreachable.
   Future<void> _createSeedDictionary(String dbPath, String dictId) async {
     final db = await openDatabase(dbPath, version: 1, onCreate: (db, version) async {

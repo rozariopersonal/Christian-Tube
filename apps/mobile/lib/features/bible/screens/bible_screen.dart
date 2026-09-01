@@ -5,7 +5,7 @@ import '../models/bible_version.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
-import '../../engines/scripture/screens/bible_manager_screen.dart';
+import '../../downloads/screens/downloads_manager_screen.dart';
 import 'package:flutter/services.dart';
 import '../widgets/verse_item.dart';
 import '../widgets/book_chapter_selector.dart';
@@ -206,7 +206,7 @@ class _BibleScreenState extends State<BibleScreen> {
   Future<void> _pushManager() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const BibleManagerScreen()),
+      MaterialPageRoute(builder: (context) => const DownloadsManagerScreen(initialTab: 1)),
     );
     // Refetch versions after returning from the manager screen
     _lastKnownInstalledCount = _downloadManager.installedIds.length;
@@ -1194,11 +1194,14 @@ class _BibleScreenState extends State<BibleScreen> {
             onSelected: (value) {
               switch (value) {
                 case 'books':
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const BooksCatalogScreen(),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const BooksCatalogScreen(),
                     ),
                   );
+                case 'downloads':
+                  _pushManager();
                 case 'bookmarks':
                   _openBookmarks();
                 case 'settings':
@@ -1206,6 +1209,16 @@ class _BibleScreenState extends State<BibleScreen> {
               }
             },
             itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'downloads',
+                child: Row(
+                  children: [
+                    Icon(Icons.download_for_offline_rounded, size: 18),
+                    SizedBox(width: 10),
+                    Text('Offline Library & Downloads'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'books',
                 child: Row(

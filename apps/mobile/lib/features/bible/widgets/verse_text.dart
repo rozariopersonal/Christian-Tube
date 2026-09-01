@@ -55,10 +55,21 @@ class VerseText extends StatelessWidget {
             Expanded(
               child: SelectionArea(
                 contextMenuBuilder: (context, selectableRegionState) {
-                  final val = selectableRegionState.textEditingValue;
-                  final selectedText = (val.selection.isValid && !val.selection.isCollapsed)
-                      ? val.selection.textInside(val.text).trim()
-                      : val.text.trim();
+                  String selectedText = '';
+                  try {
+                    final dynamic dyn = selectableRegionState;
+                    final dynamic content = dyn.getSelectedContent();
+                    if (content != null && content.plainText != null && (content.plainText as String).trim().isNotEmpty) {
+                      selectedText = (content.plainText as String).trim();
+                    }
+                  } catch (_) {}
+
+                  if (selectedText.isEmpty) {
+                    final val = selectableRegionState.textEditingValue;
+                    selectedText = (val.selection.isValid && !val.selection.isCollapsed)
+                        ? val.selection.textInside(val.text).trim()
+                        : val.text.trim();
+                  }
                   return AdaptiveTextSelectionToolbar.buttonItems(
                     anchors: selectableRegionState.contextMenuAnchors,
                     buttonItems: [
@@ -66,9 +77,12 @@ class VerseText extends StatelessWidget {
                         label: 'Define',
                         onPressed: () {
                           selectableRegionState.hideToolbar();
-                          final lookupWord = selectedText.split(RegExp(r'\s+')).length <= 3
-                              ? selectedText
-                              : selectedText.split(RegExp(r'\s+')).first;
+                          final words = selectedText
+                              .split(RegExp(r'\s+'))
+                              .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
+                              .where((w) => w.isNotEmpty)
+                              .toList();
+                          final lookupWord = words.isNotEmpty ? words.first : selectedText;
                           InlineDictionaryPopover.show(context, word: lookupWord);
                         },
                       ),

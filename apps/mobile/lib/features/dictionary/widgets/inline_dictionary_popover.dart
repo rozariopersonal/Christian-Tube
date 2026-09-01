@@ -61,17 +61,22 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
   List<DictionaryEntry> _entries = [];
   bool _isLoading = true;
   bool _hasAnyDictionary = false;
+  late TextEditingController _searchCtrl;
+  bool _showSearchBar = false;
 
   @override
   void initState() {
     super.initState();
+    _searchCtrl = TextEditingController(text: _service.cleanWord(widget.word));
+    _showSearchBar = _searchCtrl.text.trim().isEmpty;
     _downloadManager.addListener(_onManagerUpdate);
-    _lookup();
+    _lookup(_searchCtrl.text);
   }
 
   @override
   void dispose() {
     _downloadManager.removeListener(_onManagerUpdate);
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -79,15 +84,18 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _lookup() async {
+  Future<void> _lookup([String? wordToQuery]) async {
+    final query = (wordToQuery ?? _searchCtrl.text).trim();
     setState(() => _isLoading = true);
     await _downloadManager.initialize();
 
     final hasAny = _downloadManager.installedIds.isNotEmpty;
-    final entries = await _service.lookupWord(
-      widget.word,
-      preferredLangCode: widget.preferredLanguageCode,
-    );
+    final entries = query.isNotEmpty
+        ? await _service.lookupWord(
+            query,
+            preferredLangCode: widget.preferredLanguageCode,
+          )
+        : <DictionaryEntry>[];
 
     if (mounted) {
       setState(() {
@@ -100,7 +108,7 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
 
   String get _targetLang =>
       widget.preferredLanguageCode ??
-      DictionaryService.detectLanguageCode(widget.word) ??
+      DictionaryService.detectLanguageCode(_searchCtrl.text) ??
       'en';
 
   DictionaryMeta get _targetMeta =>
@@ -117,7 +125,7 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final cleanWord = _service.cleanWord(widget.word);
+    final cleanWord = _service.cleanWord(_searchCtrl.text);
     final targetLangNotInstalled =
         !_downloadManager.installedIds.contains(_targetLang);
 
@@ -128,7 +136,7 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.65,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.7,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -148,39 +156,87 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
           ),
 
           // Header
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      cleanWord,
+          if (_showSearchBar || cleanWord.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchCtrl,
+                      autofocus: cleanWord.isEmpty,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (val) => _lookup(val),
                       style: TextStyle(
                         color: tokens.onSurface,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'serif',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
-                    ),
-                    if (_entries.isNotEmpty && _entries.first.phonetic.isNotEmpty)
-                      Text(
-                        _entries.first.phonetic,
-                        style: TextStyle(
-                          color: tokens.accent,
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
+                      decoration: InputDecoration(
+                        hintText: 'Type a word to define…',
+                        hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
+                        prefixIcon: Icon(Icons.search, color: tokens.accent, size: 20),
+                        isDense: true,
+                        filled: true,
+                        fillColor: tokens.surfaceVariant,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: tokens.surfaceBorder),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: tokens.surfaceBorder),
                         ),
                       ),
-                  ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: Icon(Icons.close, color: tokens.onSurfaceMuted, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        cleanWord,
+                        style: TextStyle(
+                          color: tokens.onSurface,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'serif',
+                        ),
+                      ),
+                      if (_entries.isNotEmpty && _entries.first.phonetic.isNotEmpty)
+                        Text(
+                          _entries.first.phonetic,
+                          style: TextStyle(
+                            color: tokens.accent,
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: Icon(Icons.close, color: tokens.onSurfaceMuted, size: 20),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
+                IconButton(
+                  icon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 20),
+                  tooltip: 'Search another word',
+                  onPressed: () => setState(() => _showSearchBar = true),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, color: tokens.onSurfaceMuted, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
           const SizedBox(height: 12),
           Divider(color: tokens.surfaceBorder, height: 1),
           const SizedBox(height: 12),
@@ -195,16 +251,31 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
                     ? _buildDownloadDictionaryCard(tokens)
                     : _entries.isEmpty
                         ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.menu_book_outlined, size: 40, color: tokens.onSurfaceMuted),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'No definition found for "$cleanWord"',
-                                  style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
-                                ),
-                              ],
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.menu_book_outlined, size: 40, color: tokens.onSurfaceMuted),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    cleanWord.isEmpty
+                                        ? 'Enter a word to view definitions'
+                                        : 'No definition found for "$cleanWord"',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  OutlinedButton.icon(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                      Navigator.of(context).pushNamed('/downloads');
+                                    },
+                                    icon: const Icon(Icons.download_for_offline_rounded, size: 16),
+                                    label: const Text('Manage Offline Dictionaries'),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                         : ListView.separated(
