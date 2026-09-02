@@ -3,7 +3,6 @@ import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../books/models/book_scripture_link.dart';
-import '../../books/screens/book_reader_screen.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
 import '../widgets/cross_reference_card.dart';
@@ -314,38 +313,6 @@ class VerseStudyScreen extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                backgroundColor: tokens.accent.withValues(alpha: 0.12),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: Icon(Icons.arrow_forward_rounded, size: 16, color: tokens.accent),
-              label: Text(
-                'Read in Book (p. ${link.pageNumber})',
-                style: TextStyle(
-                  color: tokens.accent,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => BookReaderScreen(
-                      bookId: link.bookId,
-                      initialPage: link.pageNumber,
-                      highlightStartLine: link.startLine,
-                      highlightEndLine: link.endLine,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
         ],
       ),
     );
