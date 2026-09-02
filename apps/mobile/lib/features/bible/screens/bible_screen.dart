@@ -515,19 +515,51 @@ class _BibleScreenState extends State<BibleScreen> {
     final newVerses =
         _buildChapterVerses(primaryMap, _selectedVersion!.shortname);
 
-    // Load cross-references for the appended chapter (locally installed or
-    // fetched on demand online) so the new verses show badges / expansions.
+    if (mounted) {
+      setState(() {
+        _currentBook = nextBook;
+        _currentChapter = nextChapter;
+
+        if (append) {
+          _verses.add(BibleVerse(
+            number: 0,
+            text: '',
+            isChapterHeader: true,
+            chapterTitle: '${_displayBookName(nextBook)} $nextChapter',
+          ));
+          _verses.addAll(newVerses);
+        } else {
+          _verses = newVerses;
+          _selectedVerses.clear();
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(0);
+          }
+        }
+        _isFetchingNextChapter = false;
+      });
+    }
+
+    // Now load cross-references asynchronously in the background.
+    _loadCrossReferencesForAppendedChapter(nextBook, nextChapter, newVerses);
+  }
+
+  Future<void> _loadCrossReferencesForAppendedChapter(String book, int chapter, List<BibleVerse> appendedVerses) async {
+    if (!mounted || _selectedVersion == null) return;
+    
     Map<int, List<CrossReference>> nextRefs = {};
     Map<String, String> nextTexts = {};
     try {
       nextRefs = await _crossRefService.getForChapter(
-        _bookNumber(nextBook),
-        nextChapter,
+        _bookNumber(book),
+        chapter,
         allowOnline: !_crossRefsInstalled,
       );
     } catch (_) {
-      nextRefs = {};
+      return;
     }
+    
+    if (nextRefs.isEmpty) return;
+
     final passages = <(int, int, int, int?)>[];
     final seen = <String>{};
     for (final refs in nextRefs.values) {
@@ -543,57 +575,32 @@ class _BibleScreenState extends State<BibleScreen> {
           versionId: _selectedVersion!.shortname,
           passages: passages,
         );
-      } catch (_) {
-        nextTexts = {};
-      }
+      } catch (_) {}
     }
 
-    if (mounted) {
-      // Rebuild the appended verses with their cross-reference counts.
-      final appendedVerses = newVerses.map((v) {
+    if (!mounted) return;
+
+    setState(() {
+      _chapterCrossRefs.addAll(nextRefs);
+      _crossRefTexts.addAll(nextTexts);
+      if (_settings.expandCrossReferences) {
+        _expandedCrossRefVerses.addAll(
+          nextRefs.keys
+              .where((v) => (nextRefs[v]?.length ?? 0) <= 2),
+        );
+      }
+      
+      _verses = _verses.map((v) {
         if (v.isChapterHeader) return v;
         return BibleVerse(
           number: v.number,
           text: v.text,
           versionLabel: v.versionLabel,
           isSecondary: v.isSecondary,
-          crossReferenceCount: nextRefs[v.number]?.length ?? 0,
+          crossReferenceCount: _chapterCrossRefs[v.number]?.length ?? 0,
         );
       }).toList();
-
-      setState(() {
-        _currentBook = nextBook;
-        _currentChapter = nextChapter;
-
-        if (nextRefs.isNotEmpty) {
-          _chapterCrossRefs.addAll(nextRefs);
-          _crossRefTexts.addAll(nextTexts);
-          if (_settings.expandCrossReferences) {
-            _expandedCrossRefVerses.addAll(
-              nextRefs.keys
-                  .where((v) => (nextRefs[v]?.length ?? 0) <= 2),
-            );
-          }
-        }
-
-        if (append) {
-          _verses.add(BibleVerse(
-            number: 0,
-            text: '',
-            isChapterHeader: true,
-            chapterTitle: '${_displayBookName(nextBook)} $nextChapter',
-          ));
-          _verses.addAll(appendedVerses);
-        } else {
-          _verses = appendedVerses;
-          _selectedVerses.clear();
-          if (_scrollController.hasClients) {
-            _scrollController.jumpTo(0);
-          }
-        }
-        _isFetchingNextChapter = false;
-      });
-    }
+    });
   }
 
   Future<void> _fetchPrevChapter() async {

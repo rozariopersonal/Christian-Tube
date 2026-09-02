@@ -10,6 +10,8 @@ class VerseText extends StatefulWidget {
   final bool isHighlighted;
   final VoidCallback? onTap;
   final double fontSize;
+  final int refCount;
+  final int commentaryCount;
 
   const VerseText({
     super.key,
@@ -18,6 +20,8 @@ class VerseText extends StatefulWidget {
     this.isHighlighted = false,
     this.onTap,
     this.fontSize = 18.0,
+    this.refCount = 0,
+    this.commentaryCount = 0,
   });
 
   @override
@@ -147,6 +151,30 @@ class _VerseTextState extends State<VerseText> {
                               : null,
                         ),
                       ),
+                      if (widget.refCount > 0)
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 4.0, bottom: 6.0),
+                            child: Icon(
+                              Icons.link_rounded,
+                              size: widget.fontSize * 0.6,
+                              color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      if (widget.commentaryCount > 0)
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 4.0, bottom: 6.0),
+                            child: Icon(
+                              Icons.menu_book_rounded,
+                              size: widget.fontSize * 0.6,
+                              color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

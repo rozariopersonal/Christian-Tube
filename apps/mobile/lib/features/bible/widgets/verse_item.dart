@@ -3,13 +3,10 @@ import '../models/bible_verse.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
 import 'verse_text.dart';
-import 'verse_study_badge.dart';
-import 'verse_study_inline.dart';
 
 /// A single row in the bible reader's `ListView`.
 ///
-/// Combines the verse text, the unified study badge (reference and commentary counts),
-/// and inline study expansion (for verses with single reference/commentary).
+/// Combines the verse text and superscript study icons.
 class VerseItem extends StatelessWidget {
   final BibleVerse verse;
   final bool isSelected;
@@ -26,16 +23,16 @@ class VerseItem extends StatelessWidget {
   /// Resolved verse text keyed by [CrossReference.textKey].
   final Map<String, String> resolvedTexts;
 
-  /// Whether the inline expansion is currently open.
+  /// Whether the inline expansion is currently open. (No longer used in new UI)
   final bool isInlineExpanded;
 
-  /// Toggles the inline expansion (used when counts <= 1).
+  /// Toggles the inline expansion. (No longer used in new UI)
   final VoidCallback? onToggleInline;
 
   /// Opens the dedicated tabbed study page (0 = references tab, 1 = commentary tab).
   final void Function(int initialTab)? onOpenStudyPage;
 
-  /// Callback when a referenced scripture is tapped.
+  /// Callback when a referenced scripture is tapped. (No longer used in new UI)
   final void Function(CrossReference)? onReferenceTap;
 
   const VerseItem({
@@ -58,8 +55,6 @@ class VerseItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final refCount = crossReferences.length;
     final commentaryCount = backgroundNotes.length;
-    final hasStudyContent = refCount > 0 || commentaryCount > 0;
-    final canExpandInline = refCount <= 1 && commentaryCount <= 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,39 +66,9 @@ class VerseItem extends StatelessWidget {
           isHighlighted: isHighlighted,
           onTap: onVerseTap,
           fontSize: fontSize,
+          refCount: refCount,
+          commentaryCount: commentaryCount,
         ),
-
-        // Unified badge with reference and commentary counts
-        if (hasStudyContent) ...[
-          VerseStudyBadge(
-            referenceCount: refCount,
-            commentaryCount: commentaryCount,
-            isInlineExpanded: isInlineExpanded,
-            canExpandInline: canExpandInline,
-            onOpenStudyPage: (tab) => onOpenStudyPage?.call(tab),
-            onToggleInline: onToggleInline ?? () {},
-          ),
-
-          // Inline expansion when there is only 1 reference and/or 1 commentary
-          if (canExpandInline)
-            AnimatedSize(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOut,
-              alignment: Alignment.topCenter,
-              child: isInlineExpanded
-                  ? VerseStudyInline(
-                      references: crossReferences,
-                      commentaryNotes: backgroundNotes,
-                      resolvedTexts: resolvedTexts,
-                      baseFontSize: fontSize,
-                      onReferenceTap: onReferenceTap,
-                      onOpenFullPage: onOpenStudyPage != null
-                          ? () => onOpenStudyPage!(0)
-                          : null,
-                    )
-                  : const SizedBox.shrink(),
-            ),
-        ],
       ],
     );
   }
