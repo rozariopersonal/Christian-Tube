@@ -6,6 +6,8 @@ import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../books/models/book_scripture_link.dart';
 import '../../books/screens/book_reader_screen.dart';
+import '../../dictionary/models/dictionary_entry.dart';
+import '../../dictionary/services/dictionary_service.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
@@ -78,6 +80,13 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   bool _isVerseExpanded = true;
   int? _bookCommentariesCount;
   final Set<String> _expandedExcerpts = {};
+  
+  // Dictionary/Glossary state
+  final DictionaryService _dictionaryService = DictionaryService();
+  bool _isDictionaryLoading = true;
+  Map<String, List<DictionaryEntry>> _dictionaryEntries = {};
+  List<String> _keyTerms = [];
+  bool _dictionaryInitialized = false;
 
   void _copyCommentary(BuildContext context, String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
@@ -134,6 +143,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   void initState() {
     super.initState();
     _loadBookCommentariesCount();
+    _loadDictionaryEntries();
     BookNameService().ensureLoaded().then((_) {
       if (mounted) setState(() {});
     });
@@ -147,6 +157,107 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
         });
       }
     }).catchError((_) {});
+  }
+
+  Future<void> _loadDictionaryEntries() async {
+    if (_dictionaryInitialized) return;
+    _dictionaryInitialized = true;
+    
+    // Extract key terms from verse text
+    _keyTerms = _extractKeyTerms(widget.verseText);
+    
+    if (_keyTerms.isEmpty) {
+      if (mounted) {
+        setState(() => _isDictionaryLoading = false);
+      }
+      return;
+    }
+
+    setState(() => _isDictionaryLoading = true);
+    
+    final entriesMap = <String, List<DictionaryEntry>>{};
+    
+    // Detect language from verse text
+    final langCode = DictionaryService.detectLanguageCode(widget.verseText);
+    
+    for (final term in _keyTerms) {
+      try {
+        final entries = await _dictionaryService.lookupWord(
+          term,
+          preferredLangCode: langCode,
+        );
+        if (entries.isNotEmpty) {
+          entriesMap[term] = entries;
+        }
+      } catch (e) {
+        debugPrint('Dictionary lookup error for "$term": $e');
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _dictionaryEntries = entriesMap;
+        _isDictionaryLoading = false;
+      });
+    }
+  }
+
+  List<String> _extractKeyTerms(String verseText) {
+    // Clean the verse text and extract meaningful words
+    final cleaned = verseText
+        .replaceAll(RegExp(r'[০-৯0-9]'), '') // Remove numbers
+        .replaceAll(RegExp(r'''[.,;:!?()"'—\-]'''), ' ') // Replace punctuation with space
+        .replaceAll(RegExp(r'\s+'), ' ') // Normalize whitespace
+        .trim();
+    
+    // Split into words and filter
+    final words = cleaned.split(' ')
+        .map((w) => w.trim())
+        .where((w) => w.length >= 3) // Minimum 3 characters
+        .where((w) => !RegExp(r'^[\d\s]+$').hasMatch(w)) // Not just numbers
+        .where((w) => !_isCommonStopWord(w)) // Filter common stop words
+        .toList();
+    
+    // Take unique words, prioritize Tamil/Sanskrit script words
+    final uniqueWords = <String>[];
+    final seen = <String>{};
+    
+    // First pass: Tamil/Sanskrit script words (for Vedagama Agarathi)
+    for (final word in words) {
+      final lower = word.toLowerCase();
+      if (seen.contains(lower)) continue;
+      if (RegExp(r'[\u0B80-\u0BFF]').hasMatch(word) || // Tamil
+          RegExp(r'[\u0D00-\u0D7F]').hasMatch(word) || // Malayalam
+          RegExp(r'[\u0C00-\u0C7F]').hasMatch(word) || // Telugu
+          RegExp(r'[\u0C80-\u0CFF]').hasMatch(word) || // Kannada
+          RegExp(r'[\u0900-\u097F]').hasMatch(word)) { // Devanagari
+        uniqueWords.add(word);
+        seen.add(lower);
+      }
+    }
+    
+    // Second pass: Other meaningful words
+    for (final word in words) {
+      if (uniqueWords.length >= 15) break; // Limit to 15 terms
+      final lower = word.toLowerCase();
+      if (seen.contains(lower)) continue;
+      if (word.length >= 4) { // Slightly longer minimum for non-script words
+        uniqueWords.add(word);
+        seen.add(lower);
+      }
+    }
+    
+    return uniqueWords.take(15).toList(); // Max 15 terms
+  }
+
+  bool _isCommonStopWord(String word) {
+    final stopWords = {
+      // English
+      'the', 'and', 'for', 'are', 'but', 'not', 'you', 'your', 'with', 'this', 'that', 'have', 'has', 'had', 'was', 'were', 'been', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'from', 'they', 'them', 'their', 'there', 'then', 'than', 'into', 'unto', 'upon', 'over', 'under', 'after', 'before', 'while', 'when', 'where', 'what', 'which', 'who', 'whom', 'whose', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'too', 'very',
+      // Tamil common particles
+      'அவன்', 'அவள்', 'அவர்கள்', 'நான்', 'நீ', 'நாம்', 'நாங்கள்', 'என்', 'உன்', 'அது', 'இது', 'அவை', 'இவை', 'எந்த', 'எது', 'எப்படி', 'எப்போது', 'எங்கே', 'என்', 'ஆக', 'ஆய்', 'என்றால்', 'ஆனால்', 'ஆலே', 'அதே', 'இதே', 'மட்டும்', 'மேலும்', 'மற்றும்', 'அல்லது', 'ஆகும்', 'இருந்து', 'வரை', 'போல்', 'போலே', 'தான்', 'தானே', 'தான்', 'உம்', 'வ­zie', 'என்று', 'என்றும்', 'அன்றோ', 'இன்றோ',
+    };
+    return stopWords.contains(word.toLowerCase());
   }
 
   @override
@@ -847,10 +958,10 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final safeInitialTab = (widget.initialTab >= 0 && widget.initialTab < 2) ? widget.initialTab : 0;
+    final safeInitialTab = (widget.initialTab >= 0 && widget.initialTab < 3) ? widget.initialTab : 0;
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       initialIndex: safeInitialTab,
       child: Scaffold(
         backgroundColor: tokens.background,
@@ -877,6 +988,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
 
   Widget _buildLayout(BuildContext context) {
     final tokens = context.tokens;
+    final dictionaryCount = _dictionaryEntries.length;
 
     return MaxWidthBox(
       child: Column(
@@ -897,6 +1009,10 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                   icon: const Icon(Icons.menu_book_rounded, size: 18),
                   text: 'Commentary ($_totalCommentaryCount)',
                 ),
+                Tab(
+                  icon: const Icon(Icons.menu_book_outlined, size: 18),
+                  text: 'Glossary ($dictionaryCount)',
+                ),
               ],
             ),
           ),
@@ -907,11 +1023,221 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
               children: [
                 _buildReferencesTab(context),
                 _buildCommentaryTab(context),
+                _buildDictionaryTab(context),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDictionaryTab(BuildContext context) {
+    final tokens = context.tokens;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildVerseCard(context),
+        const SizedBox(height: 16),
+        if (_isDictionaryLoading)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: tokens.accent),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Loading dictionary definitions...',
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (_dictionaryEntries.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.menu_book_outlined, size: 48, color: tokens.onSurfaceMuted),
+                const SizedBox(height: 12),
+                Text(
+                  'No glossary terms found for this verse',
+                  style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                if (_keyTerms.isNotEmpty) ...[
+                  Text(
+                    'Terms searched: ${_keyTerms.join(', ')}',
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pushNamed('/downloads');
+                  },
+                  icon: const Icon(Icons.download_for_offline_rounded, size: 16),
+                  label: const Text('Download Tamil Vedagama Agarathi'),
+                ),
+              ],
+            ),
+          )
+        else ...[
+          Text(
+            '${_dictionaryEntries.length} term${_dictionaryEntries.length == 1 ? '' : 's'} found in Vedagama Agarathi',
+            style: TextStyle(
+              color: tokens.onSurfaceMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (final entry in _dictionaryEntries.entries)
+            _buildDictionaryEntryCard(context, entry.key, entry.value),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDictionaryEntryCard(BuildContext context, String term, List<DictionaryEntry> entries) {
+    final tokens = context.tokens;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: tokens.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tokens.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Term header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            decoration: BoxDecoration(
+              color: tokens.surfaceVariant,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(14),
+                topRight: Radius.circular(14),
+              ),
+              border: Border(
+                bottom: BorderSide(color: tokens.surfaceBorder),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    term,
+                    style: (textTheme.titleMedium ?? const TextStyle()).copyWith(
+                      color: tokens.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      fontFamily: 'serif',
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: tokens.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${entries.length} definition${entries.length == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Definitions
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (int i = 0; i < entries.length; i++) ...[
+                  if (i > 0) const Divider(height: 20),
+                  _buildDictionaryDefinitionItem(entries[i], tokens),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDictionaryDefinitionItem(DictionaryEntry entry, AppTokens tokens) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (entry.partOfSpeech.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: tokens.surfaceVariant,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: tokens.surfaceBorder),
+                ),
+                child: Text(
+                  entry.partOfSpeech.toLowerCase(),
+                  style: TextStyle(
+                    color: tokens.accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            Text(
+              entry.source,
+              style: TextStyle(
+                color: tokens.onSurfaceMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          entry.definition,
+          style: TextStyle(
+            color: tokens.onSurface,
+            fontSize: 14.5,
+            height: 1.45,
+          ),
+        ),
+        if (entry.examples.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            '“${entry.examples}”',
+            style: TextStyle(
+              color: tokens.onSurfaceMuted,
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

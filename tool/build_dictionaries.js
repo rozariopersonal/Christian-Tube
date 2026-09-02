@@ -423,7 +423,14 @@ async function main() {
   buildDict('ru', RUSSIAN_ENTRIES);
 
   // Indian Languages
-  buildDict('ta', taEntries);
+  const { execSync } = require('child_process');
+  const pyTamilScript = path.join(__dirname, 'build_tamil_dict.py');
+  if (fs.existsSync(pyTamilScript)) {
+    console.log('Building comprehensive Tamil dictionary via build_tamil_dict.py...');
+    execSync('python "' + pyTamilScript + '"', { stdio: 'inherit' });
+  } else {
+    buildDict('ta', taEntries);
+  }
   buildDict('ml', MALAYALAM_ENTRIES);
   buildDict('te', TELUGU_ENTRIES);
   buildDict('kn', KANNADA_ENTRIES);

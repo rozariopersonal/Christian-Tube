@@ -126,7 +126,7 @@ class DictionaryDownloadManager extends ChangeNotifier {
       name: 'தமிழ் அகராதி',
       language: 'Tamil',
       languageCode: 'ta',
-      sizeDisplay: '23.1 MB',
+      sizeDisplay: '26.1 MB',
       description: 'தமிழ் சத்யவேத அகராதி மற்றும் ஆவிக்குரிய விளக்கங்கள் (Tamil Bible Dictionary).',
     ),
     DictionaryMeta(
@@ -164,7 +164,6 @@ class DictionaryDownloadManager extends ChangeNotifier {
   Future<void> refreshInstalled() async {
     if (kIsWeb) return;
     final dbDir = await getDatabasesPath();
-    int installedVersion = 0;
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
@@ -176,7 +175,6 @@ class DictionaryDownloadManager extends ChangeNotifier {
       final dbFile = File(p.join(dbDir, 'dict_${meta.id}.sqlite'));
       if (await dbFile.exists()) {
         final len = await dbFile.length();
-        installedVersion = prefs?.getInt('dict_ver_${meta.id}') ?? 0;
 
         // Auto-purge ONLY genuinely stale dummy/truncated dictionaries (< 20MB)
         if (meta.id == 'ta' && len < 20 * 1024 * 1024) {

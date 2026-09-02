@@ -1,21 +1,26 @@
 # Transcription + AI-insights service for the Christian-Tube instance.
 #
-# Stack:
-#   db       - PostgreSQL 16 backed by the existing christian-tube_pgdata volume.
-#   llm      - Ollama serving Qwen2.5 7B Instruct on CPU (no GPU needed).
-#   worker   - polls the DB, transcribes pending videos with
-#              faster-whisper large-v3-turbo, and publishes transcripts +
-#              extracted biblical insights to the releases repo via the
-#              GitHub Contents API (no git credentials on this machine).
+# Stack (Windows-native models + Docker harness — see
+# docs/transcriber-windows-native-plan.md):
+#   db     - PostgreSQL 16 backed by the existing christian-tube_pgdata volume.
+#   worker - polls the DB, downloads audio with yt-dlp, sends it to a NATIVE
+#            Windows whisper server (host.docker.internal:12788) for STT, runs
+#            insight extraction against a NATIVE Windows Ollama
+#            (host.docker.internal:11434, qwen2.5:7b), and publishes transcripts
+#            + insights to the releases repo via the GitHub Contents API.
+#
+# The LLM and Whisper models run as native Windows processes (managed by
+# scripts/ctrl.ps1), so no GPU/ML container is needed here and the recurring
+# Docker-on-Windows model friction is avoided.
 #
 # Usage:
-#   .transcriber.env           # copy from .transcriber.env.example, fill secrets
-#   scripts/start-transcriber.ps1   # builds + starts + registers logon task
-#   docker compose -f docker-compose.transcriber.yml up -d --build
+#   scripts/ctrl.ps1 ollama start      # native Ollama LLM on the Windows host
+#   scripts/ctrl.ps1 whisper start     # native whisper server on the Windows host
+#   scripts/ctrl.ps1 stack up          # this compose stack (db + worker)
+#   scripts/ctrl.ps1 status
 #
-# Model caches and worker scratch live in Docker named volumes (Windows bind
-# mounts cannot rename/delete container-created files, so named volumes are
-# required): ollama-models, whisper-models, transcriber-work.
+# Worker scratch lives in the transcriber-work volume. The Docker worker reaches
+# the host-native services via the host-gateway extra_hosts entry.
 
 services:
   db:
@@ -36,26 +41,6 @@ services:
     networks:
       - transcriber
 
-  llm:
-    # Pinned to the digest verified on this host (2026-09-02); the unpinned
-    # `latest` tag regressed to stub runners once and broke model loading.
-    image: ollama/ollama@sha256:020e4134285e2ef4d8fd801234176de3b4faadc992a3eb06c8e66a2f9d4c4ba2
-    container_name: christiantube-llm
-    restart: unless-stopped
-    environment:
-      OLLAMA_MODELS: /root/.ollama/models
-      OLLAMA_HOST: 0.0.0.0:11434
-      OLLAMA_NOPRUNE: "true"
-    volumes:
-      - ollama-models:/root/.ollama
-    healthcheck:
-      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-    networks:
-      - transcriber
-
   worker:
     build:
       context: ./services/transcriber
@@ -64,23 +49,20 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      llm:
-        condition: service_healthy
     env_file:
       - .transcriber.env
     environment:
-      WHISPER_MODEL: large-v3-turbo
-      WHISPER_DEVICE: cpu
-      WHISPER_COMPUTE: int8
-      WHISPER_MODEL_DIR: /opt/models
       WORK_DIR: /work
       POLL_INTERVAL: "300"
       BATCH_LIMIT: "5"
-      LLM_URL: http://llm:11434
+      LLM_URL: http://host.docker.internal:11434
       LLM_MODEL: qwen2.5:7b
       LLM_CONTEXT: "32768"
+      LLM_TIMEOUT: "2100"
+      WHISPER_URL: http://host.docker.internal:12788
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - whisper-models:/opt/models
       - transcriber-work:/work
     networks:
       - transcriber
@@ -88,12 +70,6 @@ services:
 volumes:
   christian-tube_pgdata:
     external: true
-  ollama-models:
-    external: true
-    name: christian-tube_ollama-models
-  whisper-models:
-    external: true
-    name: christian-tube_whisper-models
   transcriber-work:
 
 networks:

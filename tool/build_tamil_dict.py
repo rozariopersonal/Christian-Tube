@@ -32,7 +32,7 @@ entries_map = {} # headword -> {pos, phonetic, definitions: [], examples: []}
 
 def add_entry(hw, pos, pho, defn, ex=''):
     hw = hw.strip()
-    if not hw or len(hw) < 2:
+    if not hw or len(hw) < 1:
         return
     defn = defn.strip()
     if not defn:
@@ -92,6 +92,32 @@ if os.path.exists(PT_DB):
     pt_conn.close()
     print(f'Entries after PTTamil: {len(entries_map)}')
 
+# 2b. Tamil Wiktionary TSV (84k inflected wordforms and definitions)
+TA_TSV = 'data/dictionaries_raw/tamil_english_wiktionary.tsv'
+if os.path.exists(TA_TSV):
+    print('Loading Tamil TSV Wiktionary dataset (inflected forms)...')
+    with open(TA_TSV, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split('\t')
+            if len(parts) >= 2:
+                headwords_part = parts[0]
+                html_def = parts[1]
+                pos_match = re.search(r'<i>([a-zA-Z]+)</i>', html_def)
+                pos = pos_match.group(1) if pos_match else 'சொல்'
+                clean_def = re.sub(r'<br\s*/?>', '\n', html_def)
+                clean_def = re.sub(r'</li>\s*<li>', '\n • ', clean_def)
+                clean_def = re.sub(r'<li>', '• ', clean_def)
+                clean_def = re.sub(r'</?[^>]+(>|$)', '', clean_def).strip()
+                hws = headwords_part.split('|')
+                for hw in hws:
+                    hw_trim = hw.strip()
+                    if hw_trim and not re.match(r'^[a-zA-Z]+$', hw_trim):
+                        add_entry(hw_trim, pos, '', clean_def)
+    print(f'Entries after Wiktionary TSV: {len(entries_map)}')
+
 # 3. Core Bible Terms
 BIBLE_TAMIL_TERMS = [
     ['கர்த்தர்', 'பெயர்ச்சொல்', '', 'ஆண்டவர்; யெகோவா (YHWH); இயேசு கிறிஸ்து; சர்வலோகத்தையும் படைத்துக் காக்கும் ஏக இறைவன்.', ''],
@@ -130,7 +156,21 @@ BIBLE_TAMIL_TERMS = [
     ['மகிமை', 'பெயர்ச்சொல்', '', 'தேவனுடைய பிரசன்னம், வல்லமை, மேன்மை மற்றும் மாட்சிமையின் வெளிப்பாடு (Shekinah Glory).', ''],
     ['இருள்', 'பெயர்ச்சொல்', '', 'அந்தகாரம்; பாவம் மற்றும் சாத்தானின் ஆளுகைக்குட்பட்ட ஆவிக்குரிய குருட்டுத்தன்மை.', ''],
     ['ஜீவன்', 'பெயர்ச்சொல்', '', 'உயிர்; ஆவிக்குரிய மெய்வாழ்வு; கிறிஸ்துவை விசுவாசிப்பதால் கிடைக்கும் அழியாத நித்திய ஜீவன்.', ''],
-    ['சாட்சி', 'பெயர்ச்சொல்', '', 'தேவனுடைய சத்தியத்தைக் கண்கூடாகக் கண்டு உறுதியாய் அறிக்கையிடும் சாட்சியம் அல்லது சாட்சி பகருபவர்.', '']
+    ['சாட்சி', 'பெயர்ச்சொல்', '', 'தேவனுடைய சத்தியத்தைக் கண்கூடாகக் கண்டு உறுதியாய் அறிக்கையிடும் சாட்சியம் அல்லது சாட்சி பகருபவர்.', ''],
+    ['இவ்வளவாய்', 'இடைச்சொல்', '', 'இந்த அளவிற்கு; மிகுந்த விதமாய்; அதிகமாய் (So much / In such a great measure - John 3:16).', ''],
+    ['இவ்வளவு', 'பெயர்ச்சொல்', '', 'இந்த அளவு; இந்த மாத்திரம்.', ''],
+    ['அசைவாடுதல்', 'வினைச்சொல்', '', 'ஆவியானவர் உயிரூட்டும் வண்ணமாய் மென்மையாய் அசைந்து கொண்டிருத்தல் (Hovering, moving over waters - Gen 1:2).', ''],
+    ['அசைவாடு', 'வினைச்சொல்', '', 'அசைதல்; இயங்குதல்.', ''],
+    ['ஒழுங்கின்மை', 'பெயர்ச்சொல்', '', 'முறையற்ற நிலை; பாழான அல்லது வெறுமையான தன்மை (Without form, void - Gen 1:2).', ''],
+    ['சிருஷ்டித்தார்', 'வினைச்சொல்', '', 'படைத்தார்; ஒன்றுமில்லாமையிலிருந்து எல்லாவற்றையும் உண்டாக்கினார் (Created - Gen 1:1).', ''],
+    ['சிருஷ்டி', 'பெயர்ச்சொல்', '', 'படைப்பு; சிருஷ்டிக்கப்பட்ட பொருள்.', ''],
+    ['வெவ்வேறாக', 'வினையெச்சம்', '', 'தனித்தனியாக; வேறாக; பிரித்து.', ''],
+    ['வெவ்வேறு', 'பெயரடை', '', 'வேறுபட்ட; பல்வேறு; தனித்தனி.', ''],
+    ['முதலாம்', 'எண்ணுப்பெயரடை', '', 'முதலாவது; ஆரம்பமான; முதல் வரிசையிலான (First).', ''],
+    ['விடியற்காலம்', 'பெயர்ச்சொல்', '', 'அதிகாலை; விடியும் நேரம்; பிரடியற்காலம்.', ''],
+    ['சாயங்காலம்', 'பெயர்ச்சொல்', '', 'மாலை நேரம்; அந்திப்பொழுது.', ''],
+    ['அன்புகூர்ந்தார்', 'வினைச்சொல்', '', 'அன்பு செலுத்தினார்; பேரன்பு பாராட்டினார் (Loved - John 3:16).', ''],
+    ['அன்புகூரு', 'வினைச்சொல்', '', 'அன்புசெய்; நேசி.', '']
 ]
 for item in BIBLE_TAMIL_TERMS:
     add_entry(item[0], item[1], item[2], item[3], item[4])

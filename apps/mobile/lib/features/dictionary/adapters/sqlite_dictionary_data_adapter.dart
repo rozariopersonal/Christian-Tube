@@ -79,7 +79,7 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
     final candidates = <String>[];
     void add(String s) {
       final t = s.trim();
-      if (t.length >= 2 && !candidates.contains(t)) {
+      if (t.isNotEmpty && !candidates.contains(t)) {
         candidates.add(t);
       }
     }
@@ -177,16 +177,49 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
     if (w.endsWith('னாலே') && w.length > 4) {
       add('${w.substring(0, w.length - 4)}ன்');
     }
-    if (w.endsWith('ரால்') && w.length > 3) {
-      add('${w.substring(0, w.length - 3)}ர்');
+    if (w.endsWith('ரால்') && w.length > 4) {
+      add('${w.substring(0, w.length - 4)}ர்');
     }
-    if (w.endsWith('னால்') && w.length > 3) {
-      add('${w.substring(0, w.length - 3)}ன்');
+    if (w.endsWith('னால்') && w.length > 4) {
+      add('${w.substring(0, w.length - 4)}ன்');
     }
 
     // Coordinating -உம் / -மும்: சாயங்காலமும் -> சாயங்காலம்
-    if (w.endsWith('மும்') && w.length > 3) {
-      add('${w.substring(0, w.length - 3)}ம்');
+    if (w.endsWith('மும்') && w.length > 4) {
+      add('${w.substring(0, w.length - 4)}ம்');
+    }
+
+    // Ordinal numbers & adjectives: முதலாம் -> முதல், இரண்டாம் -> இரண்டு
+    if (w.endsWith('ஆம்') && w.length > 3) {
+      final base = w.substring(0, w.length - 3);
+      if (base == 'முத' || base == 'முதல்') add('முதல்');
+      if (base == 'இரண்ட') add('இரண்டு');
+      if (base == 'மூன்ற') add('மூன்று');
+      if (base == 'நான்க') add('நான்கு');
+      if (base == 'ஐந்த') add('ஐந்து');
+      add(base);
+    }
+    if (w.endsWith('முமாகி') && w.length > 6) {
+      add('${w.substring(0, w.length - 6)}ம்');
+    }
+    if (w.endsWith('மாகி') && w.length > 4) {
+      add('${w.substring(0, w.length - 4)}ம்');
+    }
+    if (w.endsWith('மாய்') && w.length > 4) {
+      add('${w.substring(0, w.length - 4)}ம்');
+      add(w.substring(0, w.length - 4));
+    }
+    if (w.endsWith('மையுமாய்') && w.length > 8) {
+      add('${w.substring(0, w.length - 8)}மை');
+      add(w.substring(0, w.length - 8));
+    }
+    if (w.endsWith('இன்மையும்') && w.length > 9) {
+      add(w.substring(0, w.length - 9));
+      add('${w.substring(0, w.length - 9)}மை');
+    }
+    if (w.endsWith('மையும்') && w.length > 6) {
+      add('${w.substring(0, w.length - 6)}மை');
+      add(w.substring(0, w.length - 6));
     }
 
     // 4. Comprehensive Agglutinative Suffix List
@@ -277,9 +310,33 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
     if (w == 'தேவ' || w.startsWith('தேவனிட') || w.startsWith('தேவனா') || w.startsWith('தேவனு')) {
       add('தேவன்');
     }
-    if (w.startsWith('அன்புகூர்')) {
+    if (w.startsWith('அன்புகூர்') || w.contains('அன்புகூரு')) {
+      add('அன்புகூர்ந்தார்');
+      add('அன்புகூரு');
       add('அன்பு');
       add('கூர்');
+    }
+    if (w.startsWith('அசைவாடி') || w.contains('அசைவாடு')) {
+      add('அசைவாடு');
+      add('அசைவாடுதல்');
+      add('அசை');
+    }
+    if (w.contains('ஒழுங்கின்மை')) {
+      add('ஒழுங்கின்மை');
+      add('ஒழுங்கு');
+    }
+    if (w.contains('இவ்வளவ')) {
+      add('இவ்வளவாய்');
+      add('இவ்வளவு');
+    }
+    if (w.contains('வெவ்வேற')) {
+      add('வெவ்வேறாக');
+      add('வெவ்வேறு');
+    }
+    if (w.contains('சிருஷ்டி')) {
+      add('சிருஷ்டித்தார்');
+      add('சிருஷ்டி');
+      add('சிருஷ்டித்தல்');
     }
     if (w.contains('தந்தருள')) {
       add('அருள்');
