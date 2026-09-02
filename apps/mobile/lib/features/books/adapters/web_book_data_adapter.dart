@@ -329,7 +329,8 @@ class WebBookDataAdapter implements BookDataAdapter {
     int chapter,
     int verse,
   ) async {
-    if (_liveCommentariesCache.isEmpty) {
+    final cacheKey = '${bookNumber}_$chapter';
+    if (!_liveCommentariesCache.containsKey(cacheKey)) {
       try {
         final urls = ReleaseAssets.urlsFor('commentaries/$bookNumber/$chapter.json');
         final dio = Dio();
@@ -341,7 +342,7 @@ class WebBookDataAdapter implements BookDataAdapter {
             );
             if (res.statusCode == 200 && res.data != null) {
               final Map<String, dynamic> data = res.data is String ? jsonDecode(res.data as String) : (res.data as Map<String, dynamic>);
-              _liveCommentariesCache.addAll(data);
+              _liveCommentariesCache[cacheKey] = data;
               break;
             }
           } catch (_) {}
@@ -350,7 +351,8 @@ class WebBookDataAdapter implements BookDataAdapter {
     }
 
     final vStr = verse.toString();
-    final list = _liveCommentariesCache[vStr] as List<dynamic>? ?? [];
+    final chapterData = _liveCommentariesCache[cacheKey] as Map<String, dynamic>? ?? {};
+    final list = chapterData[vStr] as List<dynamic>? ?? [];
     final result = <BookScriptureLink>[];
 
     for (final item in list) {
