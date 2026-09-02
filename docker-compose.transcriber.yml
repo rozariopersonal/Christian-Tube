@@ -77,8 +77,8 @@ services:
       LLM_MODEL: qwen2.5:7b
       LLM_CONTEXT: "32768"
     volumes:
-      - D:\ml-models\whisper:/opt/models
-      - D:\ml-data\transcriber:/work
+      - whisper-models:/opt/models
+      - transcriber-work:/work
     networks:
       - transcriber
 
@@ -86,6 +86,8 @@ volumes:
   christian-tube_pgdata:
     external: true
   ollama-models:
+  whisper-models:
+  transcriber-work:
 
 networks:
   transcriber:
