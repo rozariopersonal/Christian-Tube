@@ -95,9 +95,6 @@ void main() {
       );
       expect(find.text('1 John 4:9-10'), findsOneWidget);
 
-      FlutterError.onError = (FlutterErrorDetails details) {
-        print('FLUTTER_ERROR_DETAILS: ' + details.toString());
-      };
       // Switch to Commentary tab
       await tester.tap(find.text('Commentary (1)'));
       await tester.pumpAndSettle();
