@@ -1,14 +1,12 @@
 # Transcription + AI-insights service for the Christian-Tube instance.
 #
 # Stack:
+#   db       - PostgreSQL 16 backed by the existing christian-tube_pgdata volume.
 #   llm      - Ollama serving Qwen2.5 7B Instruct on CPU (no GPU needed).
-#   worker   - polls the PrivateTube DB, transcibes pending videos with
+#   worker   - polls the DB, transcribes pending videos with
 #              faster-whisper large-v3-turbo, and publishes transcripts +
 #              extracted biblical insights to the releases repo via the
 #              GitHub Contents API (no git credentials on this machine).
-#
-# Database connection: the app DB is PostgreSQL running on the Windows host
-# (inside WSL). Containers reach it through host.docker.internal.
 #
 # Usage:
 #   .transcriber.env           # copy from .transcriber.env.example, fill secrets
@@ -19,6 +17,24 @@
 # D:\ml-data so images stay small and C: is not consumed.
 
 services:
+  db:
+    image: postgres:16
+    container_name: christiantube-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: christiantube
+    volumes:
+      - christian-tube_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d christiantube"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - transcriber
+
   llm:
     image: ollama/ollama:latest
     container_name: christiantube-llm
@@ -26,8 +42,9 @@ services:
     environment:
       OLLAMA_MODELS: /root/.ollama/models
       OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_NOPRUNE: "true"
     volumes:
-      - D:\ml-models\ollama:/root/.ollama
+      - ollama-models:/root/.ollama
     healthcheck:
       test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
       interval: 5s
@@ -42,6 +59,8 @@ services:
     container_name: christiantube-transcriber
     restart: unless-stopped
     depends_on:
+      db:
+        condition: service_healthy
       llm:
         condition: service_healthy
     env_file:
@@ -62,6 +81,11 @@ services:
       - D:\ml-data\transcriber:/work
     networks:
       - transcriber
+
+volumes:
+  christian-tube_pgdata:
+    external: true
+  ollama-models:
 
 networks:
   transcriber:

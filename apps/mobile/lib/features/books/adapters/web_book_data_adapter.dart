@@ -20,6 +20,7 @@ class WebBookDataAdapter implements BookDataAdapter {
 
   final Map<String, List<BookChapter>> _liveTocCache = {};
   final Map<String, List<BookLine>> _liveChapterLinesCache = {};
+  final Map<String, List<BookLine>> _livePageCache = {};
   final Map<String, dynamic> _liveCommentariesCache = {};
   final Map<String, Future<List<BookChapter>>> _inFlightTocFetches = {};
   final Map<String, Future<List<BookLine>>> _inFlightChapterFetches = {};
@@ -34,7 +35,10 @@ class WebBookDataAdapter implements BookDataAdapter {
   Future<bool> isBookInstalled(String bookId) async => true;
 
   @override
-  List<BookLine>? getCachedPageLines(String bookId, int pageNumber) => null;
+  List<BookLine>? getCachedPageLines(String bookId, int pageNumber) {
+    final key = '${bookId}_$pageNumber';
+    return _livePageCache[key];
+  }
 
   @override
   Future<Set<String>> getInstalledBookIds() async {
@@ -92,7 +96,7 @@ class WebBookDataAdapter implements BookDataAdapter {
   @override
   Future<void> saveHighlight(BookHighlight highlight) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = 'highlights_\${highlight.bookId}';
+    final key = 'highlights_${highlight.bookId}';
     final existing = prefs.getStringList(key) ?? [];
     existing.add(jsonEncode(highlight.toMap()));
     await prefs.setStringList(key, existing);
@@ -119,7 +123,7 @@ class WebBookDataAdapter implements BookDataAdapter {
   @override
   Future<List<BookHighlight>> getHighlightsForBook(String bookId) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = 'highlights_\$bookId';
+    final key = 'highlights_$bookId';
     final list = prefs.getStringList(key) ?? [];
     return list.map((str) {
       return BookHighlight.fromMap(jsonDecode(str) as Map<String, dynamic>);
@@ -134,7 +138,7 @@ class WebBookDataAdapter implements BookDataAdapter {
 
   @override
   Future<List<BookChapter>> getChapters(String bookId) async {
-    if (_liveTocCache.containsKey(bookId)) {
+    if (_liveTocCache.containsKey(bookId) && _liveTocCache[bookId]!.isNotEmpty) {
       return _liveTocCache[bookId]!;
     }
     if (_inFlightTocFetches.containsKey(bookId)) {
@@ -146,7 +150,9 @@ class WebBookDataAdapter implements BookDataAdapter {
     
     try {
       final chapters = await future;
-      _liveTocCache[bookId] = chapters;
+      if (chapters.isNotEmpty) {
+        _liveTocCache[bookId] = chapters;
+      }
       return chapters;
     } finally {
       _inFlightTocFetches.remove(bookId);
@@ -155,17 +161,22 @@ class WebBookDataAdapter implements BookDataAdapter {
 
   Future<List<BookChapter>> _fetchTocFromNetwork(String bookId) async {
     try {
-      final urls = ReleaseAssets.urlsFor('books/\$bookId/toc.json');
+      final urls = ReleaseAssets.urlsFor('books/$bookId/toc.json');
       final dio = Dio();
       for (final url in urls) {
         try {
           final res = await dio.get<dynamic>(
             url,
-            options: Options(receiveTimeout: const Duration(seconds: 10), responseType: ResponseType.json),
+            options: Options(
+              receiveTimeout: const Duration(seconds: 15),
+              connectTimeout: const Duration(seconds: 10),
+              responseType: ResponseType.json,
+            ),
           );
           if (res.statusCode == 200 && res.data != null) {
-            final List<dynamic> list = res.data is String ? jsonDecode(res.data as String) : (res.data as List<dynamic>);
-            return list.map((item) {
+            final Map<String, dynamic> data = res.data is String ? jsonDecode(res.data as String) : (res.data as Map<String, dynamic>);
+            final rawChapters = data['chapters'] as List<dynamic>? ?? [];
+            return rawChapters.map((item) {
               final map = item as Map<String, dynamic>;
               map['bookId'] = bookId;
               return BookChapter.fromMap(map);
@@ -179,6 +190,10 @@ class WebBookDataAdapter implements BookDataAdapter {
 
   @override
   Future<List<BookLine>> getPageLines(String bookId, int pageNumber) async {
+    final pageKey = '${bookId}_$pageNumber';
+    if (_livePageCache.containsKey(pageKey) && _livePageCache[pageKey]!.isNotEmpty) {
+      return _livePageCache[pageKey]!;
+    }
     return _scanForPage(bookId, pageNumber);
   }
 
@@ -209,8 +224,8 @@ class WebBookDataAdapter implements BookDataAdapter {
 
   @override
   Future<List<BookLine>> getChapterLines(String bookId, int chapterIndex) async {
-    final cacheKey = '\${bookId}_\$chapterIndex';
-    if (_liveChapterLinesCache.containsKey(cacheKey)) {
+    final cacheKey = '${bookId}_$chapterIndex';
+    if (_liveChapterLinesCache.containsKey(cacheKey) && _liveChapterLinesCache[cacheKey]!.isNotEmpty) {
       return _liveChapterLinesCache[cacheKey]!;
     }
     if (_inFlightChapterFetches.containsKey(cacheKey)) {
@@ -221,7 +236,9 @@ class WebBookDataAdapter implements BookDataAdapter {
     _inFlightChapterFetches[cacheKey] = future;
     try {
       final lines = await future;
-      _liveChapterLinesCache[cacheKey] = lines;
+      if (lines.isNotEmpty) {
+        _liveChapterLinesCache[cacheKey] = lines;
+      }
       return lines;
     } finally {
       _inFlightChapterFetches.remove(cacheKey);
@@ -230,26 +247,39 @@ class WebBookDataAdapter implements BookDataAdapter {
 
   Future<List<BookLine>> _fetchChapterLinesFromNetwork(String bookId, int chapterIndex, String cacheKey) async {
     try {
-      final urls = ReleaseAssets.urlsFor('books/\$bookId/chapters/\$chapterIndex.json');
+      final urls = ReleaseAssets.urlsFor('books/$bookId/chapters/$chapterIndex.json');
       final dio = Dio();
       for (final url in urls) {
         try {
           final res = await dio.get<dynamic>(
             url,
-            options: Options(receiveTimeout: const Duration(seconds: 10), responseType: ResponseType.json),
+            options: Options(
+              receiveTimeout: const Duration(seconds: 20),
+              connectTimeout: const Duration(seconds: 10),
+              responseType: ResponseType.json,
+            ),
           );
           if (res.statusCode == 200 && res.data != null) {
             final List<dynamic> list = res.data is String ? jsonDecode(res.data as String) : (res.data as List<dynamic>);
-            return list.map((item) {
+            final lines = list.map((item) {
               final map = item as Map<String, dynamic>;
-              return BookLine(
-                bookId: bookId,
-                lineNumber: (map['lineNumber'] as num?)?.toInt() ?? 0,
-                pageNumber: (map['pageNumber'] as num?)?.toInt() ?? 1,
-                chapterIndex: chapterIndex,
-                text: map['content']?.toString() ?? '',
-              );
+              map['bookId'] = bookId;
+              map['chapterIndex'] = chapterIndex;
+              return BookLine.fromMap(map);
             }).toList();
+
+            if (lines.isNotEmpty) {
+              // Pre-populate _livePageCache for every page present in this chapter
+              for (final l in lines) {
+                final pageKey = '${bookId}_${l.pageNumber}';
+                (_livePageCache[pageKey] ??= []).add(l);
+              }
+              final pages = lines.map((l) => l.pageNumber).toSet();
+              for (final p in pages) {
+                _livePageCache['${bookId}_$p']?.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
+              }
+              return lines;
+            }
           }
         } catch (_) {}
       }
@@ -258,23 +288,39 @@ class WebBookDataAdapter implements BookDataAdapter {
   }
 
   Future<List<BookLine>> _scanForPage(String bookId, int pageNumber) async {
+    final pageKey = '${bookId}_$pageNumber';
+    if (_livePageCache.containsKey(pageKey) && _livePageCache[pageKey]!.isNotEmpty) {
+      return _livePageCache[pageKey]!;
+    }
+
     final toc = await getChapters(bookId);
     if (toc.isEmpty) return [];
 
-    int? targetChapterIdx;
-    for (int i = 0; i < toc.length; i++) {
-      final current = toc[i];
-      final next = (i + 1 < toc.length) ? toc[i + 1] : null;
-      if (current.startPage <= pageNumber && (next == null || next.startPage > pageNumber)) {
-        targetChapterIdx = current.chapterIndex;
-        break;
+    final targetChapters = toc.where(
+      (c) => c.startPage <= pageNumber && c.endPage >= pageNumber,
+    ).toList();
+
+    final candidates = targetChapters.isNotEmpty
+        ? targetChapters
+        : (toc.isNotEmpty ? [toc.first] : <BookChapter>[]);
+
+    for (final ch in candidates) {
+      await getChapterLines(bookId, ch.chapterIndex);
+    }
+
+    if (_livePageCache.containsKey(pageKey) && _livePageCache[pageKey]!.isNotEmpty) {
+      return _livePageCache[pageKey]!;
+    }
+
+    for (final ch in toc) {
+      if (candidates.any((c) => c.chapterIndex == ch.chapterIndex)) continue;
+      await getChapterLines(bookId, ch.chapterIndex);
+      if (_livePageCache.containsKey(pageKey) && _livePageCache[pageKey]!.isNotEmpty) {
+        return _livePageCache[pageKey]!;
       }
     }
 
-    if (targetChapterIdx == null) return [];
-    
-    final lines = await getChapterLines(bookId, targetChapterIdx);
-    return lines.where((l) => l.pageNumber == pageNumber).toList();
+    return [];
   }
 
   @override
@@ -285,7 +331,7 @@ class WebBookDataAdapter implements BookDataAdapter {
   ) async {
     if (_liveCommentariesCache.isEmpty) {
       try {
-        final urls = ReleaseAssets.urlsFor('commentaries/commentaries.json');
+        final urls = ReleaseAssets.urlsFor('commentaries/$bookNumber/$chapter.json');
         final dio = Dio();
         for (final url in urls) {
           try {
@@ -303,38 +349,36 @@ class WebBookDataAdapter implements BookDataAdapter {
       } catch (_) {}
     }
 
-    final key = '\${bookNumber}_\${chapter}_\$verse';
-    final items = _liveCommentariesCache[key];
-    if (items == null) return [];
-
-    final list = items as List<dynamic>;
+    final vStr = verse.toString();
+    final list = _liveCommentariesCache[vStr] as List<dynamic>? ?? [];
     final result = <BookScriptureLink>[];
 
     for (final item in list) {
+      if (item is! Map) continue;
       final map = item as Map<String, dynamic>;
       final bookId = map['bookId']?.toString() ?? '';
       final chapterIdx = (map['chapterIndex'] as num?)?.toInt() ?? 0;
       final startLine = (map['startLine'] as num?)?.toInt() ?? 0;
+      final endLine = (map['endLine'] as num?)?.toInt() ?? 0;
       
       final lines = await getChapterLines(bookId, chapterIdx);
-      final relevantLines = lines.where((l) => l.lineNumber >= startLine && l.lineNumber <= startLine + 10).toList();
-      if (relevantLines.isNotEmpty) {
-        final content = relevantLines.map((l) => l.text).join(' ');
-        result.add(BookScriptureLink(
-          id: 0,
-          bookNumber: bookNumber,
-          chapter: chapter,
-          verse: verse,
-          endVerse: verse,
-          bookId: bookId,
-          bookTitle: '',
-          author: '',
-          pageNumber: 1,
-          startLine: startLine,
-          endLine: startLine + 10,
-          headline: content.length > 100 ? '\${content.substring(0, 100)}...' : content,
-        ));
-      }
+      final relevantLines = lines.where((l) => l.lineNumber >= startLine && l.lineNumber <= endLine).toList();
+      final content = relevantLines.map((l) => l.text).join(' ');
+      result.add(BookScriptureLink(
+        id: 0,
+        bookNumber: bookNumber,
+        chapter: chapter,
+        verse: verse,
+        endVerse: (map['endVerse'] as num?)?.toInt() ?? verse,
+        bookId: bookId,
+        bookTitle: (map['bookTitle'] as String?) ?? '',
+        author: (map['author'] as String?) ?? 'Zac Poonen',
+        pageNumber: (map['pageNumber'] as num?)?.toInt() ?? 1,
+        startLine: startLine,
+        endLine: endLine,
+        headline: (map['headline'] as String?) ?? '',
+        excerpt: content,
+      ));
     }
     return result;
   }
@@ -342,7 +386,7 @@ class WebBookDataAdapter implements BookDataAdapter {
   @override
   Future<UserReadingProgress?> getProgress(String bookId) async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonStr = prefs.getString('progress_\$bookId');
+    final jsonStr = prefs.getString('progress_$bookId');
     if (jsonStr != null) {
       try {
         final map = jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -367,7 +411,7 @@ class WebBookDataAdapter implements BookDataAdapter {
       completionPercent: percent,
       lastReadAt: DateTime.now().toIso8601String(),
     );
-    await prefs.setString('progress_\$bookId', jsonEncode(progress.toMap()));
+    await prefs.setString('progress_$bookId', jsonEncode(progress.toMap()));
   }
 
   @override
