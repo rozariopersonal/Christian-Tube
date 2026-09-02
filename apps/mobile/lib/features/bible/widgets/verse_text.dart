@@ -156,15 +156,39 @@ class _VerseTextState extends State<VerseText> {
                   : null,
               children: [
                 TextSpan(
-                  text: '${widget.verse.number} ',
+                  text: '${widget.verse.number}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: context.tokens.onSurfaceMuted,
                     fontWeight: FontWeight.bold,
                     fontSize: widget.fontSize * 0.7,
                   ),
                 ),
+                if (widget.refCount > 0)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.top,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 2.0, right: 1.0, top: 2.0),
+                      child: Icon(
+                        Icons.link_rounded,
+                        size: widget.fontSize * 0.45,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                if (widget.commentaryCount > 0)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.top,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 1.0, right: 1.0, top: 2.0),
+                      child: Icon(
+                        Icons.menu_book_rounded,
+                        size: widget.fontSize * 0.45,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
                 TextSpan(
-                  text: widget.verse.text,
+                  text: ' ${widget.verse.text}',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     height: 1.6,
                     fontSize: widget.fontSize,
@@ -173,30 +197,6 @@ class _VerseTextState extends State<VerseText> {
                         : null,
                   ),
                 ),
-                if (widget.refCount > 0)
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 4.0, bottom: 6.0),
-                      child: Icon(
-                        Icons.link_rounded,
-                        size: widget.fontSize * 0.6,
-                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ),
-                if (widget.commentaryCount > 0)
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 4.0, bottom: 6.0),
-                      child: Icon(
-                        Icons.menu_book_rounded,
-                        size: widget.fontSize * 0.6,
-                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
