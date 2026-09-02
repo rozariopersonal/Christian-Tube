@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../dictionary/services/dictionary_service.dart';
 import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../models/book.dart';
 import '../models/book_chapter.dart';
@@ -86,6 +88,28 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   final Map<int, List<BookHighlight>> _highlightCache = {};
   final Map<int, Future<List<BookLine>>> _inFlightPageFetches = {};
   final Set<int> _failedPages = {};
+
+  String _lastLookedUpWord = '';
+
+  Future<void> _performAutoLookup(String word, dynamic selectableRegionState) async {
+    if (word.isEmpty) return;
+    try {
+      final service = DictionaryService();
+      final cleanWord = service.cleanWord(word);
+      if (cleanWord.isEmpty) return;
+      
+      final results = await service.lookupWord(cleanWord);
+      
+      if (mounted && _lastLookedUpWord == word && results.isNotEmpty) {
+        if (selectableRegionState != null) {
+          try {
+            selectableRegionState.hideToolbar();
+          } catch (_) {}
+        }
+        InlineDictionaryPopover.show(context, word: word);
+      }
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -1175,6 +1199,21 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     return Container(
       key: _pageKeys[pageNum] ??= GlobalKey(),
       child: SelectionArea(
+        onSelectionChanged: (SelectedContent? content) {
+          if (content == null) return;
+          final selectedText = content.plainText.trim();
+          final words = selectedText
+              .split(RegExp(r'\s+'))
+              .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
+              .where((w) => w.isNotEmpty)
+              .toList();
+          final lookupWord = words.isNotEmpty ? words.first : selectedText;
+
+          if (lookupWord.isNotEmpty && lookupWord != _lastLookedUpWord) {
+            _lastLookedUpWord = lookupWord;
+            _performAutoLookup(lookupWord, null);
+          }
+        },
         contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state, pageNum),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1339,6 +1378,21 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: SelectionArea(
+              onSelectionChanged: (SelectedContent? content) {
+                if (content == null) return;
+                final selectedText = content.plainText.trim();
+                final words = selectedText
+                    .split(RegExp(r'\s+'))
+                    .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
+                    .where((w) => w.isNotEmpty)
+                    .toList();
+                final lookupWord = words.isNotEmpty ? words.first : selectedText;
+
+                if (lookupWord.isNotEmpty && lookupWord != _lastLookedUpWord) {
+                  _lastLookedUpWord = lookupWord;
+                  _performAutoLookup(lookupWord, null);
+                }
+              },
               contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state, pageNum),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
