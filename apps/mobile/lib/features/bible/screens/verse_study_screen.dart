@@ -12,8 +12,8 @@ import '../widgets/cross_reference_card.dart';
 /// Commentaries for a verse in a cohesive, tabbed presentation.
 ///
 /// Responsive per AGENTS.md:
-/// - Single unified layout: Pinned verse card at top inside MaxWidthBox,
-///   followed by TabBar and scrollable TabBarView.
+/// - TabBar pinned at the top inside MaxWidthBox, followed by scrollable TabBarView.
+/// - The verse appears as the first element in the references tab.
 class VerseStudyScreen extends StatefulWidget {
   final String verseText;
   final String verseLabel;
@@ -45,7 +45,35 @@ class VerseStudyScreen extends StatefulWidget {
 }
 
 class _VerseStudyScreenState extends State<VerseStudyScreen> {
-  bool _isVerseExpanded = false;
+  bool _isVerseExpanded = true;
+  int? _bookCommentariesCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBookCommentariesCount();
+  }
+
+  void _loadBookCommentariesCount() {
+    widget.bookCommentariesFuture.then((list) {
+      if (mounted) {
+        setState(() {
+          _bookCommentariesCount = list.length;
+        });
+      }
+    }).catchError((_) {});
+  }
+
+  @override
+  void didUpdateWidget(covariant VerseStudyScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bookCommentariesFuture != widget.bookCommentariesFuture) {
+      _loadBookCommentariesCount();
+    }
+  }
+
+  int get _totalCommentaryCount =>
+      (_bookCommentariesCount ?? 0) + widget.commentaryNotes.length;
 
   Widget _buildVerseCard(BuildContext context) {
     final tokens = context.tokens;
@@ -108,35 +136,37 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
               height: 1.6,
             ),
           ),
-          const SizedBox(height: 8),
-          Center(
-            child: InkWell(
-              onTap: () => setState(() => _isVerseExpanded = !_isVerseExpanded),
-              borderRadius: BorderRadius.circular(20),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _isVerseExpanded ? 'Show less' : 'Show more',
-                      style: TextStyle(
-                        color: tokens.accent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+          if (widget.verseText.length > 160) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: InkWell(
+                onTap: () => setState(() => _isVerseExpanded = !_isVerseExpanded),
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _isVerseExpanded ? 'Show less' : 'Show more',
+                        style: TextStyle(
+                          color: tokens.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      _isVerseExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                      color: tokens.accent,
-                      size: 16,
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Icon(
+                        _isVerseExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        color: tokens.accent,
+                        size: 16,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -144,44 +174,45 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
 
   Widget _buildReferencesTab(BuildContext context) {
     final tokens = context.tokens;
-    if (widget.references.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.link_off, size: 48, color: tokens.onSurfaceMuted),
-              const SizedBox(height: 12),
-              Text(
-                'No cross-references for this verse',
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          '${widget.references.length} cross-reference${widget.references.length == 1 ? '' : 's'}',
-          style: TextStyle(
-            color: tokens.onSurfaceMuted,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+        _buildVerseCard(context),
+        const SizedBox(height: 16),
+        if (widget.references.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.link_off, size: 48, color: tokens.onSurfaceMuted),
+                const SizedBox(height: 12),
+                Text(
+                  'No cross-references for this verse',
+                  style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
+                ),
+              ],
+            ),
+          )
+        else ...[
+          Text(
+            '${widget.references.length} cross-reference${widget.references.length == 1 ? '' : 's'}',
+            style: TextStyle(
+              color: tokens.onSurfaceMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        for (final ref in widget.references)
-          CrossReferenceCard(
-            reference: ref,
-            text: widget.resolvedTexts[ref.textKey],
-            fontSize: widget.baseFontSize,
-            onTap: () => widget.onTapReference?.call(ref),
-          ),
+          const SizedBox(height: 10),
+          for (final ref in widget.references)
+            CrossReferenceCard(
+              reference: ref,
+              text: widget.resolvedTexts[ref.textKey],
+              fontSize: widget.baseFontSize,
+              onTap: () => widget.onTapReference?.call(ref),
+            ),
+        ],
       ],
     );
   }
@@ -229,7 +260,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                   Icon(Icons.menu_book_outlined, size: 48, color: tokens.onSurfaceMuted),
                   const SizedBox(height: 12),
                   Text(
-                    'No commentary or background notes for this verse',
+                    'No commentary for this verse',
                     style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
                   ),
                 ],
@@ -271,7 +302,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '${widget.commentaryNotes.length} Historical & Cultural Context',
+                      '${widget.commentaryNotes.length} Historical & Cultural Commentary',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -522,12 +553,6 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
     return MaxWidthBox(
       child: Column(
         children: [
-          // Verse preview pinned at top
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: _buildVerseCard(context),
-          ),
-
           // Tab bar
           Container(
             color: tokens.background,
@@ -541,8 +566,8 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                   text: 'References (${widget.references.length})',
                 ),
                 Tab(
-                  icon: const Icon(Icons.history_edu, size: 18),
-                  text: 'Commentary (${widget.commentaryNotes.length})',
+                  icon: const Icon(Icons.menu_book_rounded, size: 18),
+                  text: 'Commentary ($_totalCommentaryCount)',
                 ),
               ],
             ),
