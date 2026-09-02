@@ -16,7 +16,6 @@ import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
-import '../models/bible_verse.dart';
 import '../models/bible_book.dart';
 import '../models/bible_settings.dart';
 import '../models/cross_reference.dart';
@@ -36,6 +35,7 @@ class BibleScreen extends StatefulWidget {
     this.initialBook,
     this.initialChapter,
     this.initialVerse,
+    this.saveProgress = true,
   });
 
   /// When launching the reader from the Words feed, [initialVersionId] activates
@@ -45,6 +45,11 @@ class BibleScreen extends StatefulWidget {
   final String? initialBook;
   final int? initialChapter;
   final int? initialVerse;
+
+  /// Whether reading position should be persisted to settings. Set to false
+  /// for temporary reference/commentary lookups so they do not overwrite the
+  /// user's primary reading place.
+  final bool saveProgress;
 
   @override
   State<BibleScreen> createState() => _BibleScreenState();
@@ -442,7 +447,7 @@ class _BibleScreenState extends State<BibleScreen> {
     } else if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
-    if (verses.isNotEmpty) {
+    if (verses.isNotEmpty && widget.saveProgress) {
       _settingsService.saveReadingProgress(
         _selectedVersion!.shortname,
         _currentBook,
@@ -815,34 +820,39 @@ class _BibleScreenState extends State<BibleScreen> {
     });
   }
 
-  /// Handles tapping a cross-reference card: scrolls to the target verse when
-  /// it lives in the same chapter, otherwise jumps to that book/chapter first.
-  Future<void> _onReferenceTap(CrossReference ref) async {
-    final targetBook = ref.bookNumber >= 1 &&
-            ref.bookNumber <= BookNameService.englishBookNames.length
-        ? BookNameService.englishBookNames[ref.bookNumber - 1]
+  /// Navigates forward to a dedicated reader view for the given passage.
+  /// Pushing a new route preserves the user's study stack so tapping back
+  /// returns to the references/commentaries, and tapping back again returns
+  /// to the original verse.
+  void _navigateToPassage({
+    required int bookNumber,
+    required int chapter,
+    required int verse,
+  }) {
+    final targetBook = bookNumber >= 1 &&
+            bookNumber <= BookNameService.englishBookNames.length
+        ? BookNameService.englishBookNames[bookNumber - 1]
         : _currentBook;
-    final sameChapter = ref.bookNumber == _bookNumber(_currentBook) &&
-        ref.chapter == _currentChapter;
 
-    if (sameChapter) {
-      // Clear any existing expansion selection, then scroll/highlight.
-      if (mounted) {
-        _scrollToVerse(ref.verse);
-      }
-      return;
-    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BibleScreen(
+          initialVersionId: _selectedVersion?.shortname,
+          initialBook: targetBook,
+          initialChapter: chapter,
+          initialVerse: verse,
+          saveProgress: false,
+        ),
+      ),
+    );
+  }
 
-    // Cross-chapter jump: select the book/chapter, reload, then focus the verse.
-    _currentBook = targetBook;
-    _currentChapter = ref.chapter;
-    if (mounted) setState(() {});
-    await _loadChapter();
-    if (mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToVerse(ref.verse);
-      });
-    }
+  void _onReferenceTap(CrossReference ref) {
+    _navigateToPassage(
+      bookNumber: ref.bookNumber,
+      chapter: ref.chapter,
+      verse: ref.verse,
+    );
   }
 
   String _selectedText({String prefix = ''}) {
@@ -998,6 +1008,11 @@ class _BibleScreenState extends State<BibleScreen> {
           baseFontSize: _settings.fontSize,
           initialTab: initialTab,
           onTapReference: _onReferenceTap,
+          onTapPassage: (bookNum, chapter, verseNum) => _navigateToPassage(
+            bookNumber: bookNum,
+            chapter: chapter,
+            verse: verseNum,
+          ),
         ),
       ),
     );

@@ -10,6 +10,7 @@ import '../../engines/scripture/services/book_name_service.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
 import '../widgets/cross_reference_card.dart';
+import 'bible_screen.dart';
 
 /// Dedicated study screen displaying both Cross References and Historical/Cultural
 /// Commentaries for a verse in a cohesive, tabbed presentation.
@@ -29,6 +30,7 @@ class VerseStudyScreen extends StatefulWidget {
   final double baseFontSize;
   final int initialTab;
   final void Function(CrossReference)? onTapReference;
+  final void Function(int bookNumber, int chapter, int verse)? onTapPassage;
 
   const VerseStudyScreen({
     super.key,
@@ -43,6 +45,7 @@ class VerseStudyScreen extends StatefulWidget {
     required this.baseFontSize,
     this.initialTab = 0,
     this.onTapReference,
+    this.onTapPassage,
   });
 
   @override
@@ -50,6 +53,28 @@ class VerseStudyScreen extends StatefulWidget {
 }
 
 class _VerseStudyScreenState extends State<VerseStudyScreen> {
+  void _openPassage(int bookNumber, int chapter, int verse) {
+    if (widget.onTapPassage != null) {
+      widget.onTapPassage!(bookNumber, chapter, verse);
+      return;
+    }
+    final targetBook = bookNumber >= 1 &&
+            bookNumber <= BookNameService.englishBookNames.length
+        ? BookNameService.englishBookNames[bookNumber - 1]
+        : null;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BibleScreen(
+          initialVersionId: widget.versionId,
+          initialBook: targetBook,
+          initialChapter: chapter,
+          initialVerse: verse,
+          saveProgress: false,
+        ),
+      ),
+    );
+  }
+
   bool _isVerseExpanded = true;
   int? _bookCommentariesCount;
   final Set<String> _expandedExcerpts = {};
@@ -271,7 +296,13 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
               text: widget.resolvedTexts[ref.textKey],
               fontSize: widget.baseFontSize,
               versionId: _resolvedVersionId,
-              onTap: () => widget.onTapReference?.call(ref),
+              onTap: () {
+                if (widget.onTapReference != null) {
+                  widget.onTapReference!(ref);
+                } else {
+                  _openPassage(ref.bookNumber, ref.chapter, ref.verse);
+                }
+              },
             ),
         ],
       ],
@@ -571,8 +602,11 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
           // Action bar footer
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
               children: [
                 TextButton.icon(
                   onPressed: () => _copyCommentary(
@@ -591,22 +625,45 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: () => _openBookReader(context, link),
-                  icon: Icon(Icons.menu_book_rounded, size: 14, color: tokens.accent),
-                  label: Text(
-                    'Read in Book',
-                    style: TextStyle(
-                      color: tokens.accent,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _openPassage(link.bookNumber, link.chapter, link.verse),
+                      icon: Icon(Icons.menu_book_outlined, size: 14, color: tokens.accent),
+                      label: Text(
+                        'View in Bible',
+                        style: TextStyle(
+                          color: tokens.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                     ),
-                  ),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                    const SizedBox(width: 4),
+                    TextButton.icon(
+                      onPressed: () => _openBookReader(context, link),
+                      icon: Icon(Icons.auto_stories_rounded, size: 14, color: tokens.accent),
+                      label: Text(
+                        'Read in Book',
+                        style: TextStyle(
+                          color: tokens.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -710,7 +767,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
               ),
             ),
 
-            // Footer: Verified source attribution & Copy button
+            // Footer: Verified source attribution & action buttons
             const SizedBox(height: 14),
             Row(
               children: [
@@ -726,11 +783,42 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                     ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _openPassage(
+                    note.bookNumber,
+                    note.chapter,
+                    note.verse > 0 ? note.verse : 1,
+                  ),
+                  icon: Icon(Icons.menu_book_outlined, size: 13, color: tokens.accent),
+                  label: Text(
+                    "View in Bible",
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 InkWell(
                   onTap: () => _copyCommentary(
                     context,
-                    '${note.topic}:\n${note.text}\n(${note.source})',
-                    'Note',
+                    "${note.topic}:\n${note.text}\n(${note.source})",
+                    "Note",
                   ),
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
@@ -741,7 +829,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                         Icon(Icons.content_copy_outlined, size: 12, color: tokens.onSurfaceMuted),
                         const SizedBox(width: 4),
                         Text(
-                          'Copy',
+                          "Copy",
                           style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11),
                         ),
                       ],

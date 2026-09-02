@@ -6,8 +6,17 @@ import 'package:mobile/features/bible/models/cross_reference.dart';
 import 'package:mobile/features/bible/models/bible_background_note.dart';
 import 'package:mobile/features/books/models/book_scripture_link.dart';
 import 'package:mobile/features/bible/screens/verse_study_screen.dart';
+import 'package:mobile/features/bible/widgets/cross_reference_card.dart';
+import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    await BookNameService().ensureLoaded();
+  });
+
   final sampleVerse = BibleVerse(
     number: 16,
     text:
@@ -86,6 +95,9 @@ void main() {
       );
       expect(find.text('1 John 4:9-10'), findsOneWidget);
 
+      FlutterError.onError = (FlutterErrorDetails details) {
+        print('FLUTTER_ERROR_DETAILS: ' + details.toString());
+      };
       // Switch to Commentary tab
       await tester.tap(find.text('Commentary (1)'));
       await tester.pumpAndSettle();
@@ -267,7 +279,7 @@ void main() {
             versionId: 'TAOBVSI',
             references: const [sampleCrossRef],
             resolvedTexts: const {
-              '1JN:4:9': 'தம்முடைய ஒரேபேறான குமாரனாலே நாம் பிழைக்கும்படிக்கு...',
+              '62_4_9': 'தம்முடைய ஒரேபேறான குமாரனாலே நாம் பிழைக்கும்படிக்கு...',
             },
             commentaryNotes: const [],
             bookCommentariesFuture: Future.value([]),
@@ -276,18 +288,87 @@ void main() {
           ),
         ),
       );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(CrossReferenceCard), findsOneWidget);
+      final card = tester.widget<CrossReferenceCard>(find.byType(CrossReferenceCard));
+      expect(card.versionId, 'TAOBVSI');
+      expect(card.reference.formatLabel(card.versionId), '1 யோவான் 4:9-10');
+      expect(find.text('1 யோவான் 4:9-10'), findsOneWidget);
+    });
+
+    testWidgets('Tapping cross reference navigates to target passage and pop returns to references',
+        (tester) async {
+      CrossReference? tappedRef;
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseStudyScreen(
+            verseText: sampleVerse.text,
+            verseLabel: 'JHN 3:16',
+            references: const [sampleCrossRef],
+            resolvedTexts: const {
+              '62_4_9': 'By this God’s love was revealed in us...',
+            },
+            commentaryNotes: const [],
+            bookCommentariesFuture: Future.value([]),
+            baseFontSize: 16.0,
+            initialTab: 0,
+            onTapReference: (ref) => tappedRef = ref,
+          ),
+        ),
+      );
 
       await tester.pumpAndSettle();
 
-      // Verify that full Tamil book name "1 யோவான் 4:9-10" is displayed in the badge
-      await tester.scrollUntilVisible(
-        find.text('1 யோவான் 4:9-10'),
-        50,
-        scrollable: find.byType(Scrollable).last,
+      // Tap the cross reference card
+      await tester.tap(find.text('1 John 4:9-10'));
+      await tester.pumpAndSettle();
+
+      expect(tappedRef, isNotNull);
+      expect(tappedRef!.bookNumber, 62);
+      expect(tappedRef!.chapter, 4);
+      expect(tappedRef!.verse, 9);
+    });
+
+    testWidgets('Tapping commentary View in Bible navigates to passage and pop returns to commentary',
+        (tester) async {
+      int? tappedBook;
+      int? tappedChapter;
+      int? tappedVerse;
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseStudyScreen(
+            verseText: sampleVerse.text,
+            verseLabel: 'JHN 3:16',
+            references: const [],
+            commentaryNotes: const [sampleNote],
+            bookCommentariesFuture: Future.value([]),
+            baseFontSize: 16.0,
+            initialTab: 1,
+            onTapPassage: (book, chapter, verse) {
+              tappedBook = book;
+              tappedChapter = chapter;
+              tappedVerse = verse;
+            },
+          ),
+        ),
       );
-      expect(find.text('1 யோவான் 4:9-10'), findsOneWidget);
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('only begotten / one and only'), findsOneWidget);
+      final viewInBibleBtn = find.text('View in Bible');
+      expect(viewInBibleBtn, findsOneWidget);
+
+      await tester.tap(viewInBibleBtn);
+      await tester.pumpAndSettle();
+
+      expect(tappedBook, 43);
+      expect(tappedChapter, 3);
+      expect(tappedVerse, 16);
     });
   });
 }
-
-

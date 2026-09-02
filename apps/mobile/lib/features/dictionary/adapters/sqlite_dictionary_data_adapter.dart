@@ -78,58 +78,189 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
   static List<String> stemTamil(String word) {
     final candidates = <String>[];
     void add(String s) {
-      if (s.length >= 2 && !candidates.contains(s)) {
-        candidates.add(s);
+      final t = s.trim();
+      if (t.length >= 2 && !candidates.contains(t)) {
+        candidates.add(t);
       }
     }
 
+    var w = word.trim();
+    // 1. Strip doubling sandhi consonants at the end (க், ச், த், ப்)
+    const sandhiDoubles = ['க்', 'ச்', 'த்', 'ப்'];
+    for (final sd in sandhiDoubles) {
+      if (w.endsWith(sd) && w.length > sd.length) {
+        w = w.substring(0, w.length - sd.length);
+        add(w);
+        break;
+      }
+    }
+
+    // 2. Direct verbal & grammatical transformations:
+    // -க்கடவது, -கடவது (உண்டாகக்கடவது -> உண்டாக்கு, உண்டு, உண்டாக்கம்)
+    if (w.endsWith('க்கடவது') && w.length > 7) {
+      final base = w.substring(0, w.length - 7);
+      add(base);
+      if (base == 'உண்டாக') { add('உண்டு'); add('உண்டாக்கு'); }
+    } else if (w.endsWith('கடவது') && w.length > 5) {
+      final base = w.substring(0, w.length - 5);
+      add(base);
+    }
+
+    // Participles: -க்கிறவன், -கிறவன்
+    const participleSuffixes = [
+      'க்கிறவர்கள்', 'கிறவர்கள்', 'க்கிறவன்', 'கிறவன்',
+      'க்கிறவள்', 'கிறவள்', 'க்கிறவர்', 'கிறவர்', 'க்கிற', 'கிற'
+    ];
+    for (final suff in participleSuffixes) {
+      if (w.endsWith(suff) && w.length > suff.length) {
+        final base = w.substring(0, w.length - suff.length);
+        add(base);
+        if (base.contains('விசுவாசி')) {
+          add('விசுவாசி');
+          add('விசுவாசம்');
+        }
+        break;
+      }
+    }
+
+    // Negative verbs: -போகாமல், -ஆமல்
+    const negSuffixes = ['போகாமல்', 'க்காமல்', 'காமல்', 'ஆமல்', 'யாமல்', 'வாமல்', 'ாமல்'];
+    for (final suff in negSuffixes) {
+      if (w.endsWith(suff) && w.length > suff.length) {
+        final base = w.substring(0, w.length - suff.length);
+        add(base);
+        if (w.contains('கெட்டு')) { add('கெடு'); add('கெடுதல்'); }
+        break;
+      }
+    }
+
+    // 3. Comprehensive Agglutinative Suffix List
     final suffixes = [
-      'த்தையும்', 'யையும்', 'வையும்', 'ையும்', 'உடைய', 'னுடைய', 'க்குரிய', 'வுக்கு',
-      'களுக்கு', 'களின்', 'களில்', 'ஆனது', 'யானது', 'வானது', 'யிலே', 'விலே', 'இலே', 'ிலே',
-      'யில்', 'வில்', 'இல்', 'ஆல்', 'யால்', 'வால்', 'ஓடு', 'யோடு', 'வோடு',
-      'உடன்', 'யுடன்', 'வுடன்', 'த்தை', 'யை', 'வை', 'யும்', 'வும்', 'உம்',
-      'ுக்கு', 'க்கு', 'லின்', 'ரின்', 'வின்', 'யின்', 'ல்', 'ன்', 'ஐ', 'ஏ', 'தானே', 'தான்', 'கள்', 'களை'
+      // Compound / Postpositional suffixes
+      'விடியற்காலமுமாகி', 'அசைவாடிக்கொண்டிருந்தார்', 'அசைவாடிக்கொண்டிருந்தது',
+      'பிரிவுண்டாக்கினார்', 'உண்டுபண்ணினார்', 'உண்டுபண்ணி',
+      'முழுவதும்', 'யாவற்றையும்', 'அனைத்தையும்', 'எல்லாவற்றையும்',
+      'களுக்குள்', 'களுக்குரிய', 'களுக்கு', 'களிலிருந்து',
+      'இன்மேல்', 'யின்மேல்', 'வின்மேல்', 'தன்மேல்', 'என்மேல்', 'மேல்',
+      'இடத்தில்', 'யிடத்தில்', 'விடத்தில்', 'இடத்திற்கு',
+      'த்தையுமாய்', 'வையுமாய்', 'யையுமாய்', 'மையுமாய்', 'மாய்',
+      'த்தையுமே', 'வையுமே', 'யையுமே', 'தையுமே',
+      'த்தையும்', 'பூமியையும்', 'யையும்', 'வையும்', 'ையையும்',
+      'களிலே', 'யிலே', 'விலே', 'இலே', 'திலே', 'ிலே',
+      'களின்', 'களில்', 'களால்', 'களோடு', 'களுடன்',
+      'யானவர்', 'ஆனவர்', 'வானவர்', 'இன்வர்',
+      'னுடைய', 'ருடைய', 'முடைய', 'உடைய', 'க்குரிய', 'வுக்குரிய',
+      'வானது', 'யானது', 'ஆனது',
+      'த்தினால்', 'வினால்', 'யினால்',
+      'த்திற்குப்', 'த்துக்குப்', 'த்திற்கு', 'த்துக்கு', 'வுக்குக்', 'வுக்கு',
+      'க்குக்', 'க்கு', 'க்காய்', 'க்காய', 'க்காக',
+      'த்தோடு', 'யோடு', 'வோடு', 'ஓடு',
+      'த்துடன்', 'யுடன்', 'வுடன்', 'உடன்',
+      'த்தாலே', 'யாலே', 'வாலே', 'ஆலே',
+      'த்திலே', 'யிலே', 'விலே',
+      'த்தில்', 'யில்', 'வில்', 'இல்',
+      'த்தால்', 'யால்', 'வால்', 'ஆல்',
+      'த்தை', 'யை', 'வை', 'ஐ',
+      'யும்', 'வும்', 'உம்',
+      'யே', 'வே', 'ஏ', 'தானே', 'தான்',
+      'யாக', 'வாக', 'ஆக', 'யாய்', 'வாய்', 'ஆய்',
+      'யான', 'வான', 'ஆன',
+      'களுடைய', 'கள்', 'களை', 'லின்', 'ரின்', 'வின்', 'யின்', 'இன்',
+      'ினார்', 'ித்தார்', 'ந்தார்', 'த்தார்', 'ட்டார்', 'யினார்', 'யார்', 'வார்', 'பார்',
+      'ியது', 'ந்தது', 'த்தது', 'ாயிற்று', 'ிற்று', 'பட்டது',
+      'ுகிறான்', 'ுகிறார்', 'ுகின்ற', 'ுகிற', 'க்கிற',
+      'ுகிறேன்', 'ுகிறோம்', 'ுகிறார்', 'ுகின்றார்',
+      'ும்', 'னும்', 'லும்', 'ரும்', 'வும்'
     ];
     suffixes.sort((a, b) => b.length.compareTo(a.length));
 
     for (final s in suffixes) {
-      if (word.endsWith(s) && word.length > s.length) {
-        final base = word.substring(0, word.length - s.length);
+      if (w.endsWith(s) && w.length > s.length) {
+        final base = w.substring(0, w.length - s.length);
         add(base);
 
         // Sandhi / Euphonic transformations:
-        // வான + த்தையும் -> வானம், வெளிச்ச + த்தை -> வெளிச்சம்
-        if (s == 'த்தையும்' || s == 'த்தை') {
-          add(base + 'ம்');
+        // 1. வான + த்தையும் -> வானம், வெளிச்ச + த்தை -> வெளிச்சம்
+        if (s.startsWith('த்த') || base.endsWith('த்த') || base.endsWith('த்து')) {
+          final cleanB = base.replaceAll(RegExp(r'த்த[ு]?$'), '');
+          if (cleanB.isNotEmpty) {
+            add('$cleanBம்');
+            add(cleanB);
+          }
         }
-        if (base.endsWith('த்த')) {
-          add('${base.substring(0, base.length - 2)}ம்');
-        }
-        // தேவனு + க்கு -> தேவன் (னு -> ன்)
+        // 2. தேவனு + க்கு -> தேவன் (னு -> ன்)
         if (base.endsWith('னு')) {
           add('${base.substring(0, base.length - 2)}ன்');
         }
-        // இருளு + க்கு -> இருள் (ளு -> ள்)
+        // 3. இருளு + க்கு -> இருள் (ளு -> ள்)
         if (base.endsWith('ளு')) {
           add('${base.substring(0, base.length - 2)}ள்');
         }
-        // காலு + க்கு -> கால் (லு -> ல்)
+        // 4. காலு + க்கு -> கால் (லு -> ல்)
         if (base.endsWith('லு')) {
           add('${base.substring(0, base.length - 2)}ல்');
         }
-        // மண்ணு + க்கு -> மண் (ணு -> ண்)
+        // 5. மண்ணு + க்கு -> மண் (ணு -> ண்)
         if (base.endsWith('ணு')) {
           add('${base.substring(0, base.length - 2)}ண்');
         }
-        // மரத்து + க்கு -> மரம்
+        // 6. அவரு + க்கு -> அவர் (ரு -> ர்)
+        if (base.endsWith('ரு')) {
+          add('${base.substring(0, base.length - 2)}ர்');
+        }
+        // 7. மரத்து + க்கு -> மரம்
         if (base.endsWith('த்து')) {
           add('${base.substring(0, base.length - 3)}ம்');
         }
+        // 8. Accusative: குமாரனை -> குமாரன், அவரை -> அவர்
+        if (w.endsWith('னை') && w.length > 2) {
+          add('${w.substring(0, w.length - 2)}ன்');
+        }
+        if (w.endsWith('ரை') && w.length > 2) {
+          add('${w.substring(0, w.length - 2)}ர்');
+        }
+        if (w.endsWith('மை') && w.length > 2) {
+          add('${w.substring(0, w.length - 2)}ம்');
+        }
+        // 9. Possessive: தம்முடைய -> தம், அவருடைய -> அவர்
+        if (w.endsWith('முடைய') && w.length > 5) {
+          add('${w.substring(0, w.length - 5)}ம்');
+          add('தாம்');
+        }
+        if (w.endsWith('ருடைய') && w.length > 5) {
+          add('${w.substring(0, w.length - 5)}ர்');
+        }
+        // 10. Coordinating: சாயங்காலமும் -> சாயங்காலம்
+        if (w.endsWith('மும்') && w.length > 3) {
+          add('${w.substring(0, w.length - 3)}ம்');
+        }
         if (base.endsWith('த்') || base.endsWith('ப்') || base.endsWith('க்') || base.endsWith('ச்')) {
-          add(base.substring(0, base.length - 1));
+          add(base.substring(0, base.length - 2));
         }
       }
     }
+
+    // Special Biblical compounds and roots:
+    if (w == 'தேவ') add('தேவன்');
+    if (w.contains('நித்தியஜீவன்')) {
+      add('நித்திய ஜீவன்');
+      add('நித்திய');
+      add('ஜீவன்');
+    }
+    if (w.contains('மனுஷகுமாரன்')) {
+      add('மனுபுத்திரன்');
+      add('மனுஷன்');
+      add('குமாரன்');
+    }
+    if (w.contains('ஆகாயவிரிவு')) {
+      add('ஆகாயம்');
+      add('விரிவு');
+    }
+    if (w.contains('பரிசுத்தஆவி')) {
+      add('பரிசுத்த ஆவி');
+      add('ஆவி');
+    }
+
     return candidates;
   }
 
@@ -193,12 +324,24 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
               if (rows.isNotEmpty) break;
             }
 
+            if (rows.isEmpty) {
+              final runes = cleaned.runes.toList();
+              if (runes.length >= 3) {
+                final prefix = String.fromCharCodes(runes.take(runes.length >= 5 ? 4 : 3));
+                rows = await db.query(
+                  'dictionary_entries',
+                  where: 'headword LIKE ?',
+                  whereArgs: ['$prefix%'],
+                  limit: 3,
+                );
+              }
+            }
+
             if (rows.isEmpty && cleaned.length >= 3) {
-              final prefix = cleaned.substring(0, cleaned.length >= 4 ? 4 : 3);
               rows = await db.query(
                 'dictionary_entries',
-                where: 'headword LIKE ?',
-                whereArgs: ['$prefix%'],
+                where: 'definition LIKE ?',
+                whereArgs: ['%$cleaned%'],
                 limit: 3,
               );
             }

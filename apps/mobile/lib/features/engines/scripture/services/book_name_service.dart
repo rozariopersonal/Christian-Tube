@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -29,7 +31,7 @@ class BookNameService {
   ];
 
   Map<String, Map<String, String>> _namesByVersion = {};
-  bool _isLoading = false;
+  Completer<void>? _loadingCompleter;
 
   bool get isLoaded => _namesByVersion.isNotEmpty;
 
@@ -45,23 +47,30 @@ class BookNameService {
   /// Ensures localized names are available. Idempotent and non-fatal: any
   /// failure leaves English fallbacks in place.
   Future<void> ensureLoaded() async {
-    if (_namesByVersion.isNotEmpty || _isLoading) return;
-    _isLoading = true;
+    if (_namesByVersion.isNotEmpty) return;
+    if (_loadingCompleter != null && !_loadingCompleter!.isCompleted) {
+      return _loadingCompleter!.future;
+    }
+    final completer = Completer<void>();
+    _loadingCompleter = completer;
     try {
-      final cached = await _readCached();
-      if (cached.isNotEmpty) {
-        _namesByVersion = cached;
-        return;
-      }
       final fetched = await _fetch();
       if (fetched.isNotEmpty) {
         _namesByVersion = fetched;
         await _writeCache();
+        return;
+      }
+      final cached = await _readCached();
+      if (cached.isNotEmpty) {
+        _namesByVersion = cached;
       }
     } catch (e) {
       debugPrint('BookNameService failed to load: $e');
     } finally {
-      _isLoading = false;
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+      _loadingCompleter = null;
     }
   }
 
@@ -77,7 +86,24 @@ class BookNameService {
   }
 
   Future<Map<String, Map<String, String>>> _fetch() async {
-    // 1. First try bundled asset (instant, zero network, works offline and on web)
+    // 1. Try local file (for unit/widget tests and local development where file is directly on disk)
+    if (!kIsWeb) {
+      for (final candidate in [
+        'assets/book_names.json',
+        'apps/mobile/assets/book_names.json',
+      ]) {
+        try {
+          final file = File(candidate);
+          if (file.existsSync()) {
+            final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+            final parsed = _parseMap(raw);
+            if (parsed.isNotEmpty) return parsed;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 2. Try bundled asset (works in app bundles on Android, iOS, Web)
     try {
       final assetStr = await rootBundle.loadString('assets/book_names.json');
       final raw = jsonDecode(assetStr) as Map<String, dynamic>;
@@ -111,7 +137,7 @@ class BookNameService {
     raw.forEach((versionId, value) {
       final map = <String, String>{};
       if (value is Map) {
-        (value as Map).forEach((k, v) {
+        value.forEach((k, v) {
           if (k != null && v != null) {
             map['$k'] = '$v';
           }
