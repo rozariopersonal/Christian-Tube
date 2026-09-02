@@ -342,10 +342,10 @@ async function main() {
   const taTsvPath = path.join(__dirname, '..', 'data', 'dictionaries_raw', 'tamil_english_wiktionary.tsv');
   if (fs.existsSync(taTsvPath)) {
     console.log('Loading Tamil TSV Wiktionary dataset...');
-    const tsvData = fs.readFileSync(taTsvPath, 'utf8').split('\\n');
+    const tsvData = fs.readFileSync(taTsvPath, 'utf8').split('\n');
     for (const line of tsvData) {
       if (!line.trim()) continue;
-      const parts = line.split('\\t');
+      const parts = line.split('\t');
       if (parts.length >= 2) {
         const headwordsPart = parts[0];
         const htmlDef = parts[1];
@@ -355,10 +355,10 @@ async function main() {
           if (hwTrim && !hwTrim.match(/^[a-zA-Z]+$/)) {
             // Strip HTML to plain text for Flutter Text widget
             let cleanDef = htmlDef
-              .replace(/<br\\s*\\/?>/gi, '\\n')
-              .replace(/<\\/li>\\s*<li>/gi, '\\n• ')
+              .replace(/<br\s*\/?>/gi, '\n')
+              .replace(/<\/li>\s*<li>/gi, '\n• ')
               .replace(/<li>/gi, '• ')
-              .replace(/<\\/?[^>]+(>|$)/g, '')
+              .replace(/<\/?[^>]+(>|$)/g, '')
               .trim();
             taEntries.push([hwTrim, '', '', cleanDef, '']);
           }
