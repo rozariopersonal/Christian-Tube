@@ -89,40 +89,45 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
       final meta = DictionaryDownloadManager.catalog.where((c) => c.id == dictId).firstOrNull;
       final sourceName = meta?.name ?? 'Dictionary';
 
-      var rows = await db.query(
-        'dictionary_entries',
-        where: 'headword = ? COLLATE NOCASE',
-        whereArgs: [cleaned],
-        limit: 5,
-      );
+      try {
+        var rows = await db.query(
+          'dictionary_entries',
+          where: 'headword = ? COLLATE NOCASE',
+          whereArgs: [cleaned],
+          limit: 5,
+        );
 
-      if (rows.isEmpty && cleaned.length > 4) {
-        if (cleaned.endsWith('s')) {
-          rows = await db.query(
-            'dictionary_entries',
-            where: 'headword = ? COLLATE NOCASE',
-            whereArgs: [cleaned.substring(0, cleaned.length - 1)],
-            limit: 3,
-          );
-        } else if (cleaned.endsWith('ed')) {
-          rows = await db.query(
-            'dictionary_entries',
-            where: 'headword = ? COLLATE NOCASE',
-            whereArgs: [cleaned.substring(0, cleaned.length - 2)],
-            limit: 3,
-          );
-        } else if (cleaned.endsWith('ing')) {
-          rows = await db.query(
-            'dictionary_entries',
-            where: 'headword = ? COLLATE NOCASE',
-            whereArgs: [cleaned.substring(0, cleaned.length - 3)],
-            limit: 3,
-          );
+        if (rows.isEmpty && cleaned.length > 4) {
+          if (cleaned.endsWith('s')) {
+            rows = await db.query(
+              'dictionary_entries',
+              where: 'headword = ? COLLATE NOCASE',
+              whereArgs: [cleaned.substring(0, cleaned.length - 1)],
+              limit: 3,
+            );
+          } else if (cleaned.endsWith('ed')) {
+            rows = await db.query(
+              'dictionary_entries',
+              where: 'headword = ? COLLATE NOCASE',
+              whereArgs: [cleaned.substring(0, cleaned.length - 2)],
+              limit: 3,
+            );
+          } else if (cleaned.endsWith('ing')) {
+            rows = await db.query(
+              'dictionary_entries',
+              where: 'headword = ? COLLATE NOCASE',
+              whereArgs: [cleaned.substring(0, cleaned.length - 3)],
+              limit: 3,
+            );
+          }
         }
-      }
 
-      for (final row in rows) {
-        results.add(DictionaryEntry.fromMap(row, source: sourceName));
+        for (final row in rows) {
+          results.add(DictionaryEntry.fromMap(row, source: sourceName));
+        }
+      } catch (e) {
+        debugPrint('Error querying dictionary $dictId: $e');
+        continue;
       }
 
       if (results.length >= 6) break;

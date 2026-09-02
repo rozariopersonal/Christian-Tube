@@ -90,19 +90,24 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
     await _downloadManager.initialize();
 
     final hasAny = _downloadManager.installedIds.isNotEmpty;
-    final entries = query.isNotEmpty
-        ? await _service.lookupWord(
-            query,
-            preferredLangCode: widget.preferredLanguageCode,
-          )
-        : <DictionaryEntry>[];
-
-    if (mounted) {
-      setState(() {
-        _hasAnyDictionary = hasAny;
-        _entries = entries;
-        _isLoading = false;
-      });
+    var entries = <DictionaryEntry>[];
+    try {
+      entries = query.isNotEmpty
+          ? await _service.lookupWord(
+              query,
+              preferredLangCode: widget.preferredLanguageCode,
+            )
+          : <DictionaryEntry>[];
+    } catch (e) {
+      debugPrint('InlineDictionaryPopover error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _hasAnyDictionary = hasAny;
+          _entries = entries;
+          _isLoading = false;
+        });
+      }
     }
   }
 
