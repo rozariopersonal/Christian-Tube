@@ -80,6 +80,7 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _settingsLoaded = false;
   bool _resumeApplied = false;
   bool _initialJumpPending = true;
+  int? _pendingScrollVerse;
 
   // Per-verse GlobalKeys for pixel-perfect Scrollable.ensureVisible.
   final Map<int, GlobalKey> _verseKeys = {};
@@ -101,6 +102,13 @@ class _BibleScreenState extends State<BibleScreen> {
   @override
   void initState() {
     super.initState();
+    _pendingScrollVerse = widget.initialVerse;
+    if (widget.initialBook != null && bibleBooks.containsKey(widget.initialBook)) {
+      _currentBook = widget.initialBook!;
+    }
+    if (widget.initialChapter != null && widget.initialChapter! >= 1) {
+      _currentChapter = widget.initialChapter!;
+    }
     _scrollController.addListener(_onScroll);
     _downloadManager.addListener(_onDownloadManagerChanged);
     _bookNames.ensureLoaded().then((_) {
@@ -194,6 +202,17 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant BibleScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialVerse != null && widget.initialVerse != oldWidget.initialVerse) {
+      _pendingScrollVerse = widget.initialVerse;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToVerse(widget.initialVerse!);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _highlightTimer?.cancel();
     _downloadManager.removeListener(_onDownloadManagerChanged);
@@ -252,6 +271,12 @@ class _BibleScreenState extends State<BibleScreen> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+        if (_pendingScrollVerse != null) {
+          final target = _pendingScrollVerse!;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _scrollToVerse(target);
+          });
+        }
       }
     }
   }
@@ -434,15 +459,11 @@ class _BibleScreenState extends State<BibleScreen> {
     _loadCrossReferencesForChapter(_bookNumber(_currentBook), _currentChapter);
     _loadBackgroundsForChapter(_bookNumber(_currentBook), _currentChapter);
     // Scroll to the launched verse (when present) or top when re-fetched.
-    final shouldScrollToVerse = widget.initialVerse != null;
-    if (shouldScrollToVerse) {
+    final targetVerse = _pendingScrollVerse ?? widget.initialVerse;
+    if (targetVerse != null) {
       _initialJumpPending = false;
-      final targetVerse = widget.initialVerse!;
-      // Wait two frames: one for setState to finish, one for the list to lay out.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _scrollToVerse(targetVerse);
-        });
+        if (mounted) _scrollToVerse(targetVerse);
       });
     } else if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
@@ -458,7 +479,9 @@ class _BibleScreenState extends State<BibleScreen> {
 
   /// Scrolls the reader so a target verse is near the top of the viewport,
   /// then highlights it for 5 seconds.
-  void _scrollToVerse(int verseNumber) {
+  void _scrollToVerse(int verseNumber, {int retries = 10}) {
+    if (!mounted) return;
+
     // Resolve which key to use: exact match or nearest verse.
     GlobalKey? key = _verseKeys[verseNumber];
     if (key == null) {
@@ -473,14 +496,24 @@ class _BibleScreenState extends State<BibleScreen> {
     }
 
     final BuildContext? ctx = key?.currentContext;
-    if (ctx != null) {
-      Scrollable.ensureVisible(
-        ctx,
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeInOut,
-        alignment: 0.1, // show near top of viewport
-      );
+    if (ctx == null) {
+      if (retries > 0) {
+        // The list is still building or laying out. Retry on the next frame.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollToVerse(verseNumber, retries: retries - 1);
+        });
+      }
+      return;
     }
+
+    _pendingScrollVerse = null;
+
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeInOut,
+      alignment: 0.1, // show near top of viewport
+    );
 
     // Start 5-second highlight.
     _highlightTimer?.cancel();
@@ -1043,6 +1076,8 @@ class _BibleScreenState extends State<BibleScreen> {
         // recreated (resetting scroll to 0) whenever _currentBook/_currentChapter
         // changed, including during the infinite-scroll append path.
         controller: _scrollController,
+        // ignore: deprecated_member_use
+        cacheExtent: 50000,
         padding: const EdgeInsets.symmetric(vertical: 16),
         // Each chapter is intentionally a small, eagerly-built list. This
         // keeps every verse key mounted, so a Words-feed deep link can use
