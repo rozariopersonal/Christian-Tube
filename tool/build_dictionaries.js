@@ -325,11 +325,46 @@ async function main() {
     const taJson = JSON.parse(fs.readFileSync(taRawPath, 'utf8'));
     for (const entry of taJson) {
       if (entry.eng && entry.tamil) {
-        taEntries.push([entry.eng.trim(), '', '', entry.tamil.trim(), '']);
+        const engWord = entry.eng.trim();
+        const tamilDef = entry.tamil.trim();
+        taEntries.push([engWord, '', '', tamilDef, '']);
+        const tamilWords = tamilDef.split(/[\\s,.;:()\\[\\]"'-]+/).filter(w => w.length > 2 && !w.match(/^[a-zA-Z]/));
+        for (const w of tamilWords) {
+          taEntries.push([w, '', '', `[${engWord}] - ${tamilDef}`, '']);
+        }
       }
     }
   } else {
     taEntries = TAMIL_ENTRIES; // fallback
+  }
+
+  // 2b. True Tamil Dictionary (from Wiktionary TSV)
+  const taTsvPath = path.join(__dirname, '..', 'data', 'dictionaries_raw', 'tamil_english_wiktionary.tsv');
+  if (fs.existsSync(taTsvPath)) {
+    console.log('Loading Tamil TSV Wiktionary dataset...');
+    const tsvData = fs.readFileSync(taTsvPath, 'utf8').split('\\n');
+    for (const line of tsvData) {
+      if (!line.trim()) continue;
+      const parts = line.split('\\t');
+      if (parts.length >= 2) {
+        const headwordsPart = parts[0];
+        const htmlDef = parts[1];
+        const hws = headwordsPart.split('|');
+        for (const hw of hws) {
+          const hwTrim = hw.trim();
+          if (hwTrim && !hwTrim.match(/^[a-zA-Z]+$/)) {
+            // Strip HTML to plain text for Flutter Text widget
+            let cleanDef = htmlDef
+              .replace(/<br\\s*\\/?>/gi, '\\n')
+              .replace(/<\\/li>\\s*<li>/gi, '\\n• ')
+              .replace(/<li>/gi, '• ')
+              .replace(/<\\/?[^>]+(>|$)/g, '')
+              .trim();
+            taEntries.push([hwTrim, '', '', cleanDef, '']);
+          }
+        }
+      }
+    }
   }
 
   buildDict('en', engEntries);

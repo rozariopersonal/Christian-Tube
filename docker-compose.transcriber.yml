@@ -13,8 +13,9 @@
 #   scripts/start-transcriber.ps1   # builds + starts + registers logon task
 #   docker compose -f docker-compose.transcriber.yml up -d --build
 #
-# All model caches and scratch space are bind-mounted onto D:\ml-models and
-# D:\ml-data so images stay small and C: is not consumed.
+# Model caches and worker scratch live in Docker named volumes (Windows bind
+# mounts cannot rename/delete container-created files, so named volumes are
+# required): ollama-models, whisper-models, transcriber-work.
 
 services:
   db:
@@ -36,7 +37,9 @@ services:
       - transcriber
 
   llm:
-    image: ollama/ollama:latest
+    # Pinned to the digest verified on this host (2026-09-02); the unpinned
+    # `latest` tag regressed to stub runners once and broke model loading.
+    image: ollama/ollama@sha256:020e4134285e2ef4d8fd801234176de3b4faadc992a3eb06c8e66a2f9d4c4ba2
     container_name: christiantube-llm
     restart: unless-stopped
     environment:
@@ -86,7 +89,11 @@ volumes:
   christian-tube_pgdata:
     external: true
   ollama-models:
+    external: true
+    name: christian-tube_ollama-models
   whisper-models:
+    external: true
+    name: christian-tube_whisper-models
   transcriber-work:
 
 networks:
