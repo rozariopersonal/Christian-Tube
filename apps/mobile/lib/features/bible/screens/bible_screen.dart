@@ -976,7 +976,7 @@ class _BibleScreenState extends State<BibleScreen> {
     }
 
     final bookNum = _bookNumber(_currentBook);
-    final bookCommentaries = await BookService.instance.getCommentariesForVerse(
+    final bookCommentariesFuture = BookService.instance.getCommentariesForVerse(
       bookNum,
       _currentChapter,
       verseNumber,
@@ -993,7 +993,7 @@ class _BibleScreenState extends State<BibleScreen> {
           references: refs,
           resolvedTexts: _crossRefTexts,
           commentaryNotes: notes,
-          bookCommentaries: bookCommentaries,
+          bookCommentariesFuture: bookCommentariesFuture,
           baseFontSize: _settings.fontSize,
           initialTab: initialTab,
           onTapReference: _onReferenceTap,
