@@ -80,6 +80,7 @@ class _VerseTextState extends State<VerseText> {
         onExit: (_) => setState(() => _isHovering = false),
         cursor: SystemMouseCursors.click,
         child: AnimatedContainer(
+          width: double.infinity,
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
           color: widget.isSelected
