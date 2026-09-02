@@ -6,6 +6,7 @@ import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../books/models/book_scripture_link.dart';
 import '../../books/screens/book_reader_screen.dart';
+import '../../engines/scripture/services/book_name_service.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
 import '../widgets/cross_reference_card.dart';
@@ -20,6 +21,7 @@ class VerseStudyScreen extends StatefulWidget {
   final String verseText;
   final String verseLabel;
   final String? versionLabel;
+  final String? versionId;
   final List<CrossReference> references;
   final Map<String, String> resolvedTexts;
   final List<BibleBackgroundNote> commentaryNotes;
@@ -33,6 +35,7 @@ class VerseStudyScreen extends StatefulWidget {
     required this.verseText,
     required this.verseLabel,
     this.versionLabel,
+    this.versionId,
     this.references = const [],
     this.resolvedTexts = const {},
     this.commentaryNotes = const [],
@@ -76,10 +79,39 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
     );
   }
 
+  String? get _resolvedVersionId {
+    if (widget.versionId != null && widget.versionId!.trim().isNotEmpty) {
+      return widget.versionId!.trim();
+    }
+    if (widget.versionLabel != null && widget.versionLabel!.trim().isNotEmpty) {
+      final label = widget.versionLabel!.trim().toLowerCase();
+      if (label.contains('tamil') || label.contains('தமிழ்') || label.contains('taobvsi')) {
+        return 'TAOBVSI';
+      }
+      if (label.contains('malayalam') || label.contains('മലയാളം') || label.contains('mal')) {
+        return 'MAL_IRV';
+      }
+      if (label.contains('telugu') || label.contains('తెలుగు') || label.contains('tel')) {
+        return 'TEL_IRV';
+      }
+      if (label.contains('hindi') || label.contains('हिन्दी') || label.contains('hin')) {
+        return 'HIN_IRV';
+      }
+      if (label.contains('kannada') || label.contains('ಕನ್ನಡ') || label.contains('kan')) {
+        return 'KAN_IRV';
+      }
+      return widget.versionLabel;
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
     _loadBookCommentariesCount();
+    BookNameService().ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _loadBookCommentariesCount() {
@@ -238,6 +270,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
               reference: ref,
               text: widget.resolvedTexts[ref.textKey],
               fontSize: widget.baseFontSize,
+              versionId: _resolvedVersionId,
               onTap: () => widget.onTapReference?.call(ref),
             ),
         ],

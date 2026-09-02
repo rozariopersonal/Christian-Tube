@@ -79,8 +79,12 @@ void main() {
 
       expect(find.text('Study (JHN 3:16)'), findsOneWidget);
       expect(find.text('References (1)'), findsOneWidget);
-      expect(find.text('Commentary (1)'), findsOneWidget);
-      expect(find.text('1JN 4:9-10'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('1 John 4:9-10'),
+        50,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('1 John 4:9-10'), findsOneWidget);
 
       // Switch to Commentary tab
       await tester.tap(find.text('Commentary (1)'));
@@ -251,6 +255,39 @@ void main() {
 
       expect(find.text('Show less'), findsOneWidget);
     });
+
+    testWidgets('Cross references show full book names in the same language as the current bible version',
+        (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseStudyScreen(
+            verseText: 'தேவன், தம்முடைய ஒரேபேறான குமாரனை...',
+            verseLabel: 'யோவான் 3:16',
+            versionLabel: 'Tamil Old Version (பரிசுத்த வேதாகமம்)',
+            versionId: 'TAOBVSI',
+            references: const [sampleCrossRef],
+            resolvedTexts: const {
+              '1JN:4:9': 'தம்முடைய ஒரேபேறான குமாரனாலே நாம் பிழைக்கும்படிக்கு...',
+            },
+            commentaryNotes: const [],
+            bookCommentariesFuture: Future.value([]),
+            baseFontSize: 16.0,
+            initialTab: 0,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Verify that full Tamil book name "1 யோவான் 4:9-10" is displayed in the badge
+      await tester.scrollUntilVisible(
+        find.text('1 யோவான் 4:9-10'),
+        50,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('1 யோவான் 4:9-10'), findsOneWidget);
+    });
   });
 }
+
 

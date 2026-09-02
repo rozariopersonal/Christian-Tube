@@ -47,4 +47,20 @@ class DictionaryService {
   Future<List<DictionaryEntry>> lookupWord(String word, {String? preferredLangCode}) async {
     return _adapter.lookupWord(word, preferredLangCode: preferredLangCode);
   }
+
+  /// Closes database handle for [dictId] if opened.
+  Future<void> closeDatabase(String dictId) async {
+    final adapter = _adapter;
+    if (adapter is SqliteDictionaryDataAdapter) {
+      await adapter.closeDatabase(dictId);
+    }
+  }
+
+  /// Closes all active database connections.
+  Future<void> closeAll() async {
+    final adapter = _adapter;
+    if (adapter is SqliteDictionaryDataAdapter) {
+      await adapter.closeAll();
+    }
+  }
 }

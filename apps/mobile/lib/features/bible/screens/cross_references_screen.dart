@@ -18,6 +18,7 @@ class CrossReferencesScreen extends StatelessWidget {
   final String verseText;
   final String verseLabel;
   final String? versionLabel;
+  final String? versionId;
   final List<CrossReference> references;
   final Map<String, String> resolvedTexts;
   final double baseFontSize;
@@ -28,11 +29,38 @@ class CrossReferencesScreen extends StatelessWidget {
     required this.verseText,
     required this.verseLabel,
     this.versionLabel,
+    this.versionId,
     required this.references,
     required this.resolvedTexts,
     required this.baseFontSize,
     required this.onTapReference,
   });
+
+  String? get _resolvedVersionId {
+    if (versionId != null && versionId!.trim().isNotEmpty) {
+      return versionId!.trim();
+    }
+    if (versionLabel != null && versionLabel!.trim().isNotEmpty) {
+      final label = versionLabel!.trim().toLowerCase();
+      if (label.contains('tamil') || label.contains('தமிழ்') || label.contains('taobvsi')) {
+        return 'TAOBVSI';
+      }
+      if (label.contains('malayalam') || label.contains('മലയാളം') || label.contains('mal')) {
+        return 'MAL_IRV';
+      }
+      if (label.contains('telugu') || label.contains('తెలుగు') || label.contains('tel')) {
+        return 'TEL_IRV';
+      }
+      if (label.contains('hindi') || label.contains('हिन्दी') || label.contains('hin')) {
+        return 'HIN_IRV';
+      }
+      if (label.contains('kannada') || label.contains('ಕನ್ನಡ') || label.contains('kan')) {
+        return 'KAN_IRV';
+      }
+      return versionLabel;
+    }
+    return null;
+  }
 
   Widget _buildVerseCard(BuildContext context) {
     final tokens = context.tokens;
@@ -142,6 +170,7 @@ class CrossReferencesScreen extends StatelessWidget {
             reference: ref,
             text: resolvedTexts[ref.textKey],
             fontSize: baseFontSize,
+            versionId: _resolvedVersionId,
             onTap: () => onTapReference(ref),
           ),
       ],
@@ -184,6 +213,7 @@ class CrossReferencesScreen extends StatelessWidget {
                       reference: ref,
                       text: resolvedTexts[ref.textKey],
                       fontSize: baseFontSize,
+                      versionId: _resolvedVersionId,
                       onTap: () => onTapReference(ref),
                     ),
                 ],

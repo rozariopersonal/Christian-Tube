@@ -13,6 +13,7 @@ class CrossReferenceExpansion extends StatelessWidget {
   final List<CrossReference> references;
   final Map<String, String> resolvedTexts;
   final double baseFontSize;
+  final String? versionId;
   final VoidCallback? onViewAll;
   final void Function(CrossReference) onTapReference;
 
@@ -21,6 +22,7 @@ class CrossReferenceExpansion extends StatelessWidget {
     required this.references,
     required this.resolvedTexts,
     required this.baseFontSize,
+    this.versionId,
     this.onViewAll,
     required this.onTapReference,
   });
@@ -43,6 +45,7 @@ class CrossReferenceExpansion extends StatelessWidget {
                 reference: ref,
                 text: resolvedTexts[ref.textKey],
                 fontSize: baseFontSize,
+                versionId: versionId,
                 onTap: () => onTapReference(ref),
               ),
             if (references.length > 2) ...[

@@ -1,4 +1,5 @@
 import 'book_abbreviation.dart';
+import '../../engines/scripture/services/book_name_service.dart';
 
 /// A single cross-reference targeting another Bible passage.
 ///
@@ -36,8 +37,31 @@ class CrossReference {
   bool get isRange =>
       endVerse != null && endVerse! > verse;
 
-  /// Readable reference label such as "JHN 1:1-3" or "PSA 23:1".
-  String get referenceLabel {
+  /// Returns the full book name in the language of the specified [versionId],
+  /// falling back to the canonical English full book name.
+  String bookName([String? versionId]) {
+    if (versionId != null && versionId.trim().isNotEmpty) {
+      return BookNameService().nameFor(versionId.trim(), bookNumber);
+    }
+    return BookNameService.englishNameFor(bookNumber);
+  }
+
+  /// Readable reference label formatted with the full book name in the
+  /// language of the given [versionId] (e.g. "John 1:1-3", "1 யோவான் 4:9-10").
+  /// If [versionId] is omitted, uses the canonical English full book name.
+  String formatLabel([String? versionId]) {
+    final name = bookName(versionId);
+    if (endVerse != null && endVerse! > verse) {
+      return '$name $chapter:$verse-$endVerse';
+    }
+    return '$name $chapter:$verse';
+  }
+
+  /// Full reference label using the canonical English book name (e.g. "John 1:1-3").
+  String get referenceLabel => formatLabel();
+
+  /// Short reference label using 3-letter book abbreviations (e.g. "JHN 1:1-3").
+  String get abbreviatedLabel {
     if (endVerse != null && endVerse! > verse) {
       return '$bookAbbreviation $chapter:$verse-$endVerse';
     }

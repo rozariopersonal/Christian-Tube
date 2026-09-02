@@ -12,6 +12,7 @@ class CrossReferenceCard extends StatelessWidget {
   final String? text;
   final double fontSize;
   final VoidCallback onTap;
+  final String? versionId;
 
   const CrossReferenceCard({
     super.key,
@@ -19,6 +20,7 @@ class CrossReferenceCard extends StatelessWidget {
     required this.text,
     required this.fontSize,
     required this.onTap,
+    this.versionId,
   });
 
   @override
@@ -46,7 +48,7 @@ class CrossReferenceCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Reference label badge.
+                // Reference label badge with full book name matching current bible version.
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -55,7 +57,7 @@ class CrossReferenceCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    reference.referenceLabel,
+                    reference.formatLabel(versionId),
                     style: TextStyle(
                       color: tokens.onSurface,
                       fontWeight: FontWeight.bold,

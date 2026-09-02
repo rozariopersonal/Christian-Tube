@@ -990,6 +990,7 @@ class _BibleScreenState extends State<BibleScreen> {
           verseText: verse.text,
           verseLabel: verseLabel,
           versionLabel: _selectedVersion?.name,
+          versionId: _selectedVersion?.shortname,
           references: refs,
           resolvedTexts: _crossRefTexts,
           commentaryNotes: notes,

@@ -21,13 +21,36 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
     if (!await file.exists()) return null;
 
     try {
-      final db = await openDatabase(dbPath, readOnly: true);
+      final db = await openDatabase(dbPath);
       _openedDbs[dictId] = db;
       return db;
     } catch (e) {
       debugPrint('SqliteDictionaryDataAdapter: Could not open $dbPath: $e');
       return null;
     }
+  }
+
+  /// Closes the database handle for [dictId].
+  Future<void> closeDatabase(String dictId) async {
+    if (_openedDbs.containsKey(dictId)) {
+      try {
+        final db = _openedDbs[dictId];
+        if (db != null && db.isOpen) {
+          await db.close();
+        }
+      } catch (_) {}
+      _openedDbs.remove(dictId);
+    }
+  }
+
+  /// Closes all active database handles.
+  Future<void> closeAll() async {
+    for (final db in _openedDbs.values) {
+      try {
+        if (db.isOpen) await db.close();
+      } catch (_) {}
+    }
+    _openedDbs.clear();
   }
 
   String _cleanWord(String raw) {

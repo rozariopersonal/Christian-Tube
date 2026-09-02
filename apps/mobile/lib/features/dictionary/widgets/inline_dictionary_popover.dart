@@ -252,7 +252,7 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
                 ? Center(
                     child: CircularProgressIndicator(color: tokens.accent),
                   )
-                : (!_hasAnyDictionary || targetLangNotInstalled && _entries.isEmpty)
+                : (!_hasAnyDictionary || targetLangNotInstalled)
                     ? _buildDownloadDictionaryCard(tokens)
                     : _entries.isEmpty
                         ? Center(
@@ -271,6 +271,15 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
                                     style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
                                   ),
                                   const SizedBox(height: 14),
+                                  if (_targetLang == 'ta') ...[
+                                    FilledButton.icon(
+                                      style: FilledButton.styleFrom(backgroundColor: tokens.accent),
+                                      onPressed: _downloadTargetDict,
+                                      icon: const Icon(Icons.download_rounded, size: 16),
+                                      label: Text('Update / Re-download ${_targetMeta.name} (${_targetMeta.sizeDisplay})'),
+                                    ),
+                                    const SizedBox(height: 8),
+                                  ],
                                   OutlinedButton.icon(
                                     onPressed: () {
                                       Navigator.of(context).pop();

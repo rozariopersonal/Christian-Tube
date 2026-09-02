@@ -4,8 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../../../core/api/release_assets.dart';
+import 'dictionary_service.dart';
 
 class DictionaryMeta {
   final String id;
@@ -162,12 +164,30 @@ class DictionaryDownloadManager extends ChangeNotifier {
   Future<void> refreshInstalled() async {
     if (kIsWeb) return;
     final dbDir = await getDatabasesPath();
+    int installedVersion = 0;
+    SharedPreferences? prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {}
+
     _installedIds.clear();
 
     for (final meta in catalog) {
       final dbFile = File(p.join(dbDir, 'dict_${meta.id}.sqlite'));
-      if (await dbFile.exists() && (await dbFile.length()) > 1000) {
-        _installedIds.add(meta.id);
+      if (await dbFile.exists()) {
+        final len = await dbFile.length();
+        installedVersion = prefs?.getInt('dict_ver_${meta.id}') ?? 0;
+
+        // Auto-purge stale or dummy Tamil dictionary from older builds
+        if (meta.id == 'ta' && (len < 20 * 1024 * 1024 || installedVersion < 3)) {
+          debugPrint('Stale Tamil dictionary detected (${len}B, v$installedVersion). Purging to force fresh download...');
+          await deleteDictionary(meta.id);
+          continue;
+        }
+
+        if (len > 10000) {
+          _installedIds.add(meta.id);
+        }
       }
     }
     notifyListeners();
@@ -186,13 +206,18 @@ class DictionaryDownloadManager extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await DictionaryService().closeDatabase(dictionaryId);
+
       final dbDir = await getDatabasesPath();
       final targetDbPath = p.join(dbDir, 'dict_$dictionaryId.sqlite');
       final tempDir = await getTemporaryDirectory();
       final tempGz = p.join(tempDir.path, 'dict_${dictionaryId}_${DateTime.now().millisecondsSinceEpoch}.gz');
 
       final urls = ReleaseAssets.urlsFor('dictionaries/dict_$dictionaryId.sqlite.gz');
-      final dio = Dio();
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(minutes: 5),
+      ));
       var downloaded = false;
 
       for (final url in urls) {
@@ -200,7 +225,6 @@ class DictionaryDownloadManager extends ChangeNotifier {
           await dio.download(
             url,
             tempGz,
-            options: Options(receiveTimeout: const Duration(minutes: 3)),
             onReceiveProgress: (received, total) {
               if (total > 0) {
                 _downloadProgress[dictionaryId] = received / total;
@@ -208,26 +232,44 @@ class DictionaryDownloadManager extends ChangeNotifier {
               }
             },
           );
-          downloaded = true;
-          break;
-        } catch (_) {
+          if (await File(tempGz).length() > 5000) {
+            downloaded = true;
+            break;
+          }
+        } catch (e) {
+          debugPrint('Failed downloading from $url: $e');
           continue;
         }
       }
 
       if (!downloaded) {
-        // Create local fallback dictionary database with sample common biblical definitions
-        await _createSeedDictionary(targetDbPath, dictionaryId);
-      } else {
-        final compressed = await File(tempGz).readAsBytes();
-        final decompressed = gzip.decode(compressed);
-        final targetFile = File(targetDbPath);
-        await targetFile.parent.create(recursive: true);
-        await targetFile.writeAsBytes(decompressed, flush: true);
-        try {
-          await File(tempGz).delete();
-        } catch (_) {}
+        debugPrint('Dictionary download failed for $dictionaryId from all mirrors.');
+        return false;
       }
+
+      final compressed = await File(tempGz).readAsBytes();
+      final decompressed = gzip.decode(compressed);
+
+      final targetFile = File(targetDbPath);
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
+      final wal = File('$targetDbPath-wal');
+      if (await wal.exists()) await wal.delete();
+      final shm = File('$targetDbPath-shm');
+      if (await shm.exists()) await shm.delete();
+
+      await targetFile.parent.create(recursive: true);
+      await targetFile.writeAsBytes(decompressed, flush: true);
+
+      try {
+        await File(tempGz).delete();
+      } catch (_) {}
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('dict_ver_$dictionaryId', 3);
+      } catch (_) {}
 
       _installedIds.add(dictionaryId);
       return true;
@@ -243,112 +285,26 @@ class DictionaryDownloadManager extends ChangeNotifier {
   /// Removes an installed dictionary database from local storage.
   Future<void> deleteDictionary(String dictionaryId) async {
     try {
+      await DictionaryService().closeDatabase(dictionaryId);
       final dbDir = await getDatabasesPath();
       final file = File(p.join(dbDir, 'dict_$dictionaryId.sqlite'));
       if (await file.exists()) {
         await file.delete();
       }
+      final wal = File(p.join(dbDir, 'dict_$dictionaryId.sqlite-wal'));
+      if (await wal.exists()) await wal.delete();
+      final shm = File(p.join(dbDir, 'dict_$dictionaryId.sqlite-shm'));
+      if (await shm.exists()) await shm.delete();
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('dict_ver_$dictionaryId');
+      } catch (_) {}
+
       _installedIds.remove(dictionaryId);
       notifyListeners();
     } catch (e) {
       debugPrint('Error deleting dictionary $dictionaryId: $e');
     }
-  }
-
-  /// Creates seed dictionary with essential words in case offline or CDN mirror is unreachable.
-  Future<void> _createSeedDictionary(String dbPath, String dictId) async {
-    final db = await openDatabase(dbPath, version: 1, onCreate: (db, version) async {
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS dictionary_entries (
-          headword TEXT NOT NULL COLLATE NOCASE,
-          part_of_speech TEXT,
-          phonetic TEXT,
-          definition TEXT NOT NULL,
-          examples TEXT,
-          PRIMARY KEY (headword, part_of_speech)
-        );
-      ''');
-      await db.execute('''
-        CREATE INDEX IF NOT EXISTS idx_dict_headword ON dictionary_entries (headword);
-      ''');
-    });
-
-    final seeds = <Map<String, String>>[
-      {
-        'headword': 'grace',
-        'part_of_speech': 'noun',
-        'phonetic': '/ɡreɪs/',
-        'definition': 'The unmerited favor, power, and mercy of God bestowed upon believers in Jesus Christ; God’s divine empowerment for holy living.',
-        'examples': 'By grace you have been saved through faith.'
-      },
-      {
-        'headword': 'faith',
-        'part_of_speech': 'noun',
-        'phonetic': '/feɪθ/',
-        'definition': 'Complete trust, confidence, and allegiance to God and His promises; the substance of things hoped for, evidence of things unseen.',
-        'examples': 'Without faith it is impossible to please God.'
-      },
-      {
-        'headword': 'righteousness',
-        'part_of_speech': 'noun',
-        'phonetic': '/ˈraɪtʃəsnəs/',
-        'definition': 'Moral purity, uprightness, and conformity of life and character to God’s holy standard.',
-        'examples': 'He who practices righteousness is righteous, just as He is righteous.'
-      },
-      {
-        'headword': 'disciple',
-        'part_of_speech': 'noun',
-        'phonetic': '/dɪˈsaɪpəl/',
-        'definition': 'One who follows the teachings and life of Jesus Christ with full surrender, taking up their cross daily.',
-        'examples': 'If anyone desires to come after Me, let him deny himself.'
-      },
-      {
-        'headword': 'sanctification',
-        'part_of_speech': 'noun',
-        'phonetic': '/ˌsæŋktɪfɪˈkeɪʃən/',
-        'definition': 'The ongoing process of being made holy, purified from sin, and conformed to the image of Jesus Christ.',
-        'examples': 'For this is the will of God, your sanctification.'
-      },
-      {
-        'headword': 'redemption',
-        'part_of_speech': 'noun',
-        'phonetic': '/rɪˈdɛmpʃən/',
-        'definition': 'Deliverance from the power, guilt, and penalty of sin through the blood and sacrifice of Jesus Christ.',
-        'examples': 'In Him we have redemption through His blood, the forgiveness of sins.'
-      },
-      {
-        'headword': 'atonement',
-        'part_of_speech': 'noun',
-        'phonetic': '/əˈtoʊnmənt/',
-        'definition': 'Reconciliation between God and humanity brought about through Christ’s sacrifice on the Cross.',
-        'examples': 'Christ Jesus, whom God put forward as a propitiation.'
-      },
-      {
-        'headword': 'repentance',
-        'part_of_speech': 'noun',
-        'phonetic': '/rɪˈpɛntəns/',
-        'definition': 'A complete change of mind, heart, and direction, turning away from sin and turning toward God.',
-        'examples': 'Repent, for the kingdom of heaven is at hand.'
-      },
-      {
-        'headword': 'holiness',
-        'part_of_speech': 'noun',
-        'phonetic': '/ˈhoʊlinəs/',
-        'definition': 'Total separation from worldliness and sin unto God, walking in moral purity and divine love.',
-        'examples': 'Pursue peace with all people, and holiness, without which no one will see the Lord.'
-      },
-      {
-        'headword': 'love',
-        'part_of_speech': 'noun',
-        'phonetic': '/lʌv/',
-        'definition': 'Self-sacrificing, benevolent commitment to the good of others (agape), as demonstrated by God at the Cross.',
-        'examples': 'God is love, and whoever abides in love abides in God.'
-      },
-    ];
-
-    for (final s in seeds) {
-      await db.insert('dictionary_entries', s, conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-    await db.close();
   }
 }
