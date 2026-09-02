@@ -72,24 +72,24 @@ class _VerseTextState extends State<VerseText> {
       );
     }
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      cursor: SystemMouseCursors.click,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        color: widget.isSelected
-            ? theme.colorScheme.primary.withValues(alpha: 0.15)
-            : widget.isHighlighted
-                ? theme.colorScheme.primaryContainer
-                : _isHovering
-                    ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
-                    : Colors.transparent,
-        padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: widget.onTap,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: widget.onTap,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        cursor: SystemMouseCursors.click,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          color: widget.isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.15)
+              : widget.isHighlighted
+                  ? theme.colorScheme.primaryContainer
+                  : _isHovering
+                      ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
+                      : Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
           child: SelectionArea(
             onSelectionChanged: (SelectedContent? content) {
               if (content == null) return;
