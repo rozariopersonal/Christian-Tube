@@ -268,17 +268,11 @@ class _BibleScreenState extends State<BibleScreen> {
       }
     } catch (e, stack) {
       debugPrint('BibleScreen _fetchData error: $e\n$stack');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        if (_pendingScrollVerse != null) {
-          final target = _pendingScrollVerse!;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _scrollToVerse(target);
-          });
-        }
-      }
+} finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
+  }
   }
 
   Future<void> _loadVersions() async {
