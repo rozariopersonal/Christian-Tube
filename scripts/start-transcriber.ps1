@@ -41,6 +41,9 @@ if (-not $Docker) {
     Write-Error "docker.exe not found. Install Docker Desktop first."
     exit 1
 }
+# Docker Desktop's credential helper must be on PATH for registries to work.
+$DockerBin = Split-Path -Parent $Docker
+if ($env:PATH -notlike "*$DockerBin*") { $env:PATH = "$DockerBin;$env:PATH" }
 $DockerDesktopExe = "$env:LOCALAPPDATA\Programs\DockerDesktop\Docker Desktop.exe"
 
 # --- Ensure engine is running ------------------------------------------------

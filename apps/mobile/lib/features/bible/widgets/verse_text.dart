@@ -30,6 +30,7 @@ class VerseText extends StatefulWidget {
 
 class _VerseTextState extends State<VerseText> {
   String _lastLookedUpWord = '';
+  bool _isHovering = false;
 
   Future<void> _performAutoLookup(String word, dynamic selectableRegionState) async {
     if (word.isEmpty) return;
@@ -65,21 +66,27 @@ class _VerseTextState extends State<VerseText> {
       );
     }
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeOut,
-        color: widget.isSelected
-            ? theme.colorScheme.primary.withValues(alpha: 0.2)
-            : widget.isHighlighted
-                ? theme.colorScheme.primaryContainer
-                : Colors.transparent,
-        padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          color: widget.isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.15)
+              : widget.isHighlighted
+                  ? theme.colorScheme.primaryContainer
+                  : _isHovering
+                      ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
+                      : Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Expanded(
               child: SelectionArea(
                 contextMenuBuilder: (context, selectableRegionState) {
@@ -183,6 +190,7 @@ class _VerseTextState extends State<VerseText> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

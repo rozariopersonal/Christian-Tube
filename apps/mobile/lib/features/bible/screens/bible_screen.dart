@@ -11,7 +11,7 @@ import 'package:flutter/services.dart';
 import '../widgets/verse_item.dart';
 import '../widgets/book_chapter_selector.dart';
 import '../widgets/reading_settings_sheet.dart';
-import '../widgets/verse_action_bar.dart';
+import '../models/bible_verse.dart';
 import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -815,16 +815,6 @@ class _BibleScreenState extends State<BibleScreen> {
     });
   }
 
-  void _toggleCrossRefExpansion(int verseNumber) {
-    setState(() {
-      if (_expandedCrossRefVerses.contains(verseNumber)) {
-        _expandedCrossRefVerses.remove(verseNumber);
-      } else {
-        _expandedCrossRefVerses.add(verseNumber);
-      }
-    });
-  }
-
   /// Handles tapping a cross-reference card: scrolls to the target verse when
   /// it lives in the same chapter, otherwise jumps to that book/chapter first.
   Future<void> _onReferenceTap(CrossReference ref) async {
@@ -956,11 +946,13 @@ class _BibleScreenState extends State<BibleScreen> {
       crossReferences: verseCrossRefs,
       backgroundNotes: verseBackgrounds,
       resolvedTexts: _crossRefTexts,
-      isInlineExpanded: _expandedCrossRefVerses.contains(verse.number),
-      onToggleInline: () => _toggleCrossRefExpansion(verse.number),
+      selectedCount: _selectedVerses.length,
+      onCopy: _copySelectedVerses,
+      onShare: _shareSelectedVerses,
+      onBookmark: _bookmarkSelectedVerses,
+      onClear: () => setState(() => _selectedVerses.clear()),
       onOpenStudyPage: (initialTab) =>
           _openVerseStudyScreen(verse.number, initialTab: initialTab),
-      onReferenceTap: _onReferenceTap,
     );
   }
 
@@ -1275,21 +1267,6 @@ class _BibleScreenState extends State<BibleScreen> {
           Expanded(
             child: _buildContent(),
           ),
-          if (_selectedVerses.isNotEmpty)
-            VerseActionBar(
-              selectedCount: _selectedVerses.length,
-              onCopy: _copySelectedVerses,
-              onShare: _shareSelectedVerses,
-              onBookmark: _bookmarkSelectedVerses,
-              onClear: () => setState(() => _selectedVerses.clear()),
-              onBackground: () => _openVerseStudyScreen(
-                _selectedVerses.isNotEmpty
-                    ? (_selectedVerses.toList()..sort()).first
-                    : 1,
-                initialTab: 1,
-              ),
-            )
-          else
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(

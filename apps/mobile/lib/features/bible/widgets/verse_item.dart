@@ -3,10 +3,11 @@ import '../models/bible_verse.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
 import 'verse_text.dart';
+import 'verse_action_card.dart';
 
 /// A single row in the bible reader's `ListView`.
 ///
-/// Combines the verse text and superscript study icons.
+/// Combines the verse text, superscript study icons, and an inline Action Card.
 class VerseItem extends StatelessWidget {
   final BibleVerse verse;
   final bool isSelected;
@@ -23,17 +24,15 @@ class VerseItem extends StatelessWidget {
   /// Resolved verse text keyed by [CrossReference.textKey].
   final Map<String, String> resolvedTexts;
 
-  /// Whether the inline expansion is currently open. (No longer used in new UI)
-  final bool isInlineExpanded;
-
-  /// Toggles the inline expansion. (No longer used in new UI)
-  final VoidCallback? onToggleInline;
-
-  /// Opens the dedicated tabbed study page (0 = references tab, 1 = commentary tab).
+  /// Number of verses currently selected.
+  final int selectedCount;
+  
+  /// Actions for the action card.
+  final VoidCallback? onCopy;
+  final VoidCallback? onShare;
+  final VoidCallback? onBookmark;
+  final VoidCallback? onClear;
   final void Function(int initialTab)? onOpenStudyPage;
-
-  /// Callback when a referenced scripture is tapped. (No longer used in new UI)
-  final void Function(CrossReference)? onReferenceTap;
 
   const VerseItem({
     super.key,
@@ -45,10 +44,12 @@ class VerseItem extends StatelessWidget {
     this.crossReferences = const [],
     this.backgroundNotes = const [],
     this.resolvedTexts = const {},
-    this.isInlineExpanded = false,
-    this.onToggleInline,
+    this.selectedCount = 0,
+    this.onCopy,
+    this.onShare,
+    this.onBookmark,
+    this.onClear,
     this.onOpenStudyPage,
-    this.onReferenceTap,
   });
 
   @override
@@ -69,6 +70,17 @@ class VerseItem extends StatelessWidget {
           refCount: refCount,
           commentaryCount: commentaryCount,
         ),
+        if (isSelected)
+          VerseActionCard(
+            selectedCount: selectedCount,
+            referenceCount: refCount,
+            commentaryCount: commentaryCount,
+            onCopy: onCopy ?? () {},
+            onShare: onShare ?? () {},
+            onBookmark: onBookmark ?? () {},
+            onClear: onClear ?? () {},
+            onOpenStudyPage: onOpenStudyPage,
+          ),
       ],
     );
   }
