@@ -21,6 +21,7 @@ dependencies:
   qr_flutter: ^4.1.0
   intl: any
   timeago: ^3.6.1
+  flutter_markdown: ^0.7.3
 
   # Networking & HTTP
   dio: ^5.4.3+1

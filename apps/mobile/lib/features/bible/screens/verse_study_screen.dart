@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -370,13 +371,15 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                   bottomRight: Radius.circular(6),
                 ),
               ),
-              child: Text(
-                '"${link.excerpt}"',
-                style: TextStyle(
-                  color: tokens.onSurface.withValues(alpha: 0.9),
-                  fontSize: 13,
-                  height: 1.45,
-                  fontStyle: FontStyle.italic,
+              child: MarkdownBody(
+                data: link.excerpt,
+                styleSheet: MarkdownStyleSheet(
+                  p: TextStyle(
+                    color: tokens.onSurface.withValues(alpha: 0.9),
+                    fontSize: 13,
+                    height: 1.45,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
             ),
@@ -450,12 +453,14 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
             ),
           ],
           const SizedBox(height: 10),
-          Text(
-            note.text,
-            style: TextStyle(
-              color: tokens.onSurface,
-              fontSize: widget.baseFontSize,
-              height: 1.55,
+          MarkdownBody(
+            data: note.text,
+            styleSheet: MarkdownStyleSheet(
+              p: TextStyle(
+                color: tokens.onSurface,
+                fontSize: widget.baseFontSize,
+                height: 1.55,
+              ),
             ),
           ),
           const SizedBox(height: 10),
