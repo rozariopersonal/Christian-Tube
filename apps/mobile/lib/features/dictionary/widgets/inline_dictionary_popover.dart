@@ -242,7 +242,7 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
           const SizedBox(height: 12),
 
           // Content
-          Expanded(
+          Flexible(
             child: _isLoading
                 ? Center(
                     child: CircularProgressIndicator(color: tokens.accent),

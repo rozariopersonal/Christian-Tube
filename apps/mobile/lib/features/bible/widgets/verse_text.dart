@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../dictionary/services/dictionary_service.dart';
 import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../models/bible_verse.dart';
 
-class VerseText extends StatelessWidget {
+class VerseText extends StatefulWidget {
   final BibleVerse verse;
   final bool isSelected;
   final bool isHighlighted;
@@ -20,14 +21,37 @@ class VerseText extends StatelessWidget {
   });
 
   @override
+  State<VerseText> createState() => _VerseTextState();
+}
+
+class _VerseTextState extends State<VerseText> {
+  String _lastLookedUpWord = '';
+
+  Future<void> _performAutoLookup(String word, dynamic selectableRegionState) async {
+    if (word.isEmpty) return;
+    try {
+      final service = DictionaryService();
+      final cleanWord = service.cleanWord(word);
+      if (cleanWord.isEmpty) return;
+      
+      final results = await service.lookupWord(cleanWord);
+      
+      if (mounted && _lastLookedUpWord == word && results.isNotEmpty) {
+        selectableRegionState.hideToolbar();
+        InlineDictionaryPopover.show(context, word: word);
+      }
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (verse.isChapterHeader) {
+    if (widget.verse.isChapterHeader) {
       return Padding(
         padding: const EdgeInsets.only(top: 32.0, bottom: 16.0, left: 16.0, right: 16.0),
         child: Text(
-          verse.chapterTitle ?? '',
+          widget.verse.chapterTitle ?? '',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.primary,
@@ -38,14 +62,14 @@ class VerseText extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeOut,
-        color: isSelected
+        color: widget.isSelected
             ? theme.colorScheme.primary.withValues(alpha: 0.2)
-            : isHighlighted
+            : widget.isHighlighted
                 ? theme.colorScheme.primaryContainer
                 : Colors.transparent,
         padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
@@ -70,6 +94,19 @@ class VerseText extends StatelessWidget {
                         ? val.selection.textInside(val.text).trim()
                         : val.text.trim();
                   }
+
+                  final words = selectedText
+                      .split(RegExp(r'\s+'))
+                      .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
+                      .where((w) => w.isNotEmpty)
+                      .toList();
+                  final lookupWord = words.isNotEmpty ? words.first : selectedText;
+
+                  if (lookupWord.isNotEmpty && lookupWord != _lastLookedUpWord) {
+                    _lastLookedUpWord = lookupWord;
+                    _performAutoLookup(lookupWord, selectableRegionState);
+                  }
+
                   return AdaptiveTextSelectionToolbar.buttonItems(
                     anchors: selectableRegionState.contextMenuAnchors,
                     buttonItems: [
@@ -77,12 +114,6 @@ class VerseText extends StatelessWidget {
                         label: 'Define',
                         onPressed: () {
                           selectableRegionState.hideToolbar();
-                          final words = selectedText
-                              .split(RegExp(r'\s+'))
-                              .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
-                              .where((w) => w.isNotEmpty)
-                              .toList();
-                          final lookupWord = words.isNotEmpty ? words.first : selectedText;
                           InlineDictionaryPopover.show(context, word: lookupWord);
                         },
                       ),
@@ -99,19 +130,19 @@ class VerseText extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: '${verse.number} ',
+                        text: '${widget.verse.number} ',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: context.tokens.onSurfaceMuted,
                           fontWeight: FontWeight.bold,
-                          fontSize: fontSize * 0.7,
+                          fontSize: widget.fontSize * 0.7,
                         ),
                       ),
                       TextSpan(
-                        text: verse.text,
+                        text: widget.verse.text,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           height: 1.6,
-                          fontSize: fontSize,
-                          color: verse.isSecondary
+                          fontSize: widget.fontSize,
+                          color: widget.verse.isSecondary
                               ? context.tokens.onSurfaceMuted
                               : null,
                         ),
