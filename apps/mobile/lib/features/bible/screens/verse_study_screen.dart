@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../books/models/book_scripture_link.dart';
+import '../../books/screens/book_reader_screen.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
 import '../widgets/cross_reference_card.dart';
@@ -47,6 +49,32 @@ class VerseStudyScreen extends StatefulWidget {
 class _VerseStudyScreenState extends State<VerseStudyScreen> {
   bool _isVerseExpanded = true;
   int? _bookCommentariesCount;
+  final Set<String> _expandedExcerpts = {};
+
+  void _copyCommentary(BuildContext context, String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label copied to clipboard'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _openBookReader(BuildContext context, BookScriptureLink link) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BookReaderScreen(
+          bookId: link.bookId,
+          initialPage: link.pageNumber,
+          highlightStartLine: link.startLine,
+          highlightEndLine: link.endLine,
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -324,194 +352,373 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   }
 
   Widget _buildBookCommentaryItem(BuildContext context, BookScriptureLink link) {
+    final theme = Theme.of(context);
     final tokens = context.tokens;
+    final textTheme = theme.textTheme;
+    final commentaryFontSize = (widget.baseFontSize * 0.92).clamp(14.0, 22.0);
+    final excerptKey = 'book_${link.id}_${link.bookId}_${link.pageNumber}';
+    final isLong = link.excerpt.length > 240;
+    final isExpanded = !isLong || _expandedExcerpts.contains(excerptKey);
+    final displayText = isExpanded
+        ? link.excerpt
+        : '${link.excerpt.substring(0, 240).trim()}...';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: tokens.surfaceVariant,
-        borderRadius: BorderRadius.circular(14),
+        color: tokens.surface,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: tokens.surfaceBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
+          // Header: Book info & Page badge
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        link.bookTitle,
+                        style: (textTheme.titleMedium ?? const TextStyle()).copyWith(
+                          color: tokens.onSurface,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.person_outline_rounded, size: 13, color: tokens.onSurfaceMuted),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              link.author,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: tokens.onSurfaceMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () => _openBookReader(context, link),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: tokens.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_stories_rounded, size: 12, color: tokens.accent),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Page ${link.pageNumber}',
+                          style: TextStyle(
+                            color: tokens.accent,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Headline / Chapter topic if present
+          if (link.headline.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Text(
+                link.headline,
+                style: TextStyle(
+                  color: tokens.accent,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ],
+
+          // Excerpt block
+          if (link.excerpt.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                decoration: BoxDecoration(
+                  color: tokens.surfaceVariant.withValues(alpha: 0.5),
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(10),
+                    bottomRight: Radius.circular(10),
+                  ),
+                  border: Border(
+                    left: BorderSide(color: tokens.accent, width: 3.5),
+                  ),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      link.bookTitle,
-                      style: TextStyle(
-                        color: tokens.onSurface,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14.5,
+                    MarkdownBody(
+                      data: displayText,
+                      styleSheet: MarkdownStyleSheet(
+                        p: (textTheme.bodyMedium ?? const TextStyle()).copyWith(
+                          color: tokens.onSurface,
+                          fontSize: commentaryFontSize,
+                          height: 1.6,
+                          letterSpacing: 0.15,
+                        ),
+                        blockquote: (textTheme.bodyMedium ?? const TextStyle()).copyWith(
+                          color: tokens.onSurfaceMuted,
+                          fontSize: commentaryFontSize,
+                          height: 1.55,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ),
-                    Text(
-                      'by ${link.author}',
-                      style: TextStyle(
-                        color: tokens.onSurfaceMuted,
-                        fontSize: 11.5,
+                    if (isLong) ...[
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (_expandedExcerpts.contains(excerptKey)) {
+                              _expandedExcerpts.remove(excerptKey);
+                            } else {
+                              _expandedExcerpts.add(excerptKey);
+                            }
+                          });
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              isExpanded ? 'Show less' : 'Read more',
+                              style: TextStyle(
+                                color: tokens.accent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            Icon(
+                              isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                              size: 15,
+                              color: tokens.accent,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: tokens.accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'Page ${link.pageNumber}',
-                  style: TextStyle(
-                    color: tokens.accent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+            ),
+          ],
+
+          // Action bar footer
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _copyCommentary(
+                    context,
+                    '${link.bookTitle} (Page ${link.pageNumber}):\n\n${link.excerpt}',
+                    'Commentary excerpt',
+                  ),
+                  icon: Icon(Icons.content_copy_outlined, size: 14, color: tokens.onSurfaceMuted),
+                  label: Text(
+                    'Copy',
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
-              ),
-            ],
+                TextButton.icon(
+                  onPressed: () => _openBookReader(context, link),
+                  icon: Icon(Icons.menu_book_rounded, size: 14, color: tokens.accent),
+                  label: Text(
+                    'Read in Book',
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
           ),
-          if (link.headline.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              link.headline,
-              style: TextStyle(
-                color: tokens.accent,
-                fontWeight: FontWeight.w600,
-                fontSize: 12.5,
-              ),
-            ),
-          ],
-          if (link.excerpt.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-              decoration: BoxDecoration(
-                border: Border(left: BorderSide(color: tokens.accent, width: 2.5)),
-                color: tokens.background.withValues(alpha: 0.4),
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(6),
-                  bottomRight: Radius.circular(6),
-                ),
-              ),
-              child: MarkdownBody(
-                data: link.excerpt,
-                styleSheet: MarkdownStyleSheet(
-                  p: TextStyle(
-                    color: tokens.onSurface.withValues(alpha: 0.9),
-                    fontSize: 13,
-                    height: 1.45,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
   Widget _buildCommentaryItem(BuildContext context, BibleBackgroundNote note) {
+    final theme = Theme.of(context);
     final tokens = context.tokens;
+    final textTheme = theme.textTheme;
+    final commentaryFontSize = (widget.baseFontSize * 0.92).clamp(14.0, 22.0);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: tokens.surfaceVariant,
-        borderRadius: BorderRadius.circular(14),
+        color: tokens.surface,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: tokens.surfaceBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  note.topic,
-                  style: TextStyle(
-                    color: tokens.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Topic header & pill
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    note.topic,
+                    style: (textTheme.titleMedium ?? const TextStyle()).copyWith(
+                      color: tokens.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15.5,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: tokens.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.history_edu_rounded, size: 12, color: tokens.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        note.isChapterOverview ? 'Overview' : 'Context',
+                        style: TextStyle(
+                          color: tokens.accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // Quote container if present
+            if (note.quote != null && note.quote!.isNotEmpty) ...[
+              const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: tokens.accent.withValues(alpha: 0.15),
+                  color: tokens.accent.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: tokens.accent.withValues(alpha: 0.22)),
                 ),
                 child: Text(
-                  note.isChapterOverview ? 'Overview' : 'Context',
+                  '“${note.quote}”',
                   style: TextStyle(
                     color: tokens.accent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    fontSize: (commentaryFontSize * 0.88).clamp(12.0, 16.0),
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ],
-          ),
-          if (note.quote != null && note.quote!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: tokens.background.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'Quote: "${note.quote}"',
-                style: TextStyle(
-                  color: tokens.onSurfaceMuted,
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
+
+            // Note body
+            const SizedBox(height: 12),
+            MarkdownBody(
+              data: note.text,
+              styleSheet: MarkdownStyleSheet(
+                p: (textTheme.bodyMedium ?? const TextStyle()).copyWith(
+                  color: tokens.onSurface,
+                  fontSize: commentaryFontSize,
+                  height: 1.6,
+                  letterSpacing: 0.15,
                 ),
               ),
+            ),
+
+            // Footer: Verified source attribution & Copy button
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Icon(Icons.verified_outlined, size: 13, color: tokens.onSurfaceMuted),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    note.source,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tokens.onSurfaceMuted,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () => _copyCommentary(
+                    context,
+                    '${note.topic}:\n${note.text}\n(${note.source})',
+                    'Note',
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.content_copy_outlined, size: 12, color: tokens.onSurfaceMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Copy',
+                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-          const SizedBox(height: 10),
-          MarkdownBody(
-            data: note.text,
-            styleSheet: MarkdownStyleSheet(
-              p: TextStyle(
-                color: tokens.onSurface,
-                fontSize: widget.baseFontSize,
-                height: 1.55,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.verified_outlined, size: 13, color: tokens.onSurfaceMuted),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  note.source,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: tokens.onSurfaceMuted,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

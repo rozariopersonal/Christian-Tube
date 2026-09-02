@@ -89,6 +89,44 @@ class OnlineDictionaryApi {
       }
     } catch (_) {}
 
+    // 3. Fallback to standard MediaWiki Action API (w/api.php)
+    try {
+      final res = await dio.get<dynamic>(
+        'https://$targetLang.wiktionary.org/w/api.php',
+        queryParameters: {
+          'action': 'query',
+          'prop': 'extracts',
+          'explaintext': 1,
+          'format': 'json',
+          'titles': word,
+        },
+        options: Options(
+          responseType: ResponseType.json,
+          headers: {'User-Agent': 'ChristianTubeApp/1.0'},
+        ),
+      );
+      if (res.statusCode == 200 && res.data is Map) {
+        final query = res.data['query'] as Map<String, dynamic>?;
+        final pages = query?['pages'] as Map<String, dynamic>?;
+        if (pages != null && pages.isNotEmpty) {
+          final firstPage = pages.values.first as Map<String, dynamic>?;
+          final extract = firstPage?['extract'] as String? ?? '';
+          if (extract.isNotEmpty) {
+            return [
+              DictionaryEntry(
+                headword: word,
+                partOfSpeech: '',
+                phonetic: '',
+                definition: extract.length > 500 ? '${extract.substring(0, 500)}...' : extract,
+                examples: '',
+                source: 'Wiktionary Lexicon (Live)',
+              ),
+            ];
+          }
+        }
+      }
+    } catch (_) {}
+
     return [];
   }
 }

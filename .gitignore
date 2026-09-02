@@ -64,7 +64,11 @@ data/books_raw/sample_epub/
 data/books_raw/*.html
 data/books_published/
 data/dictionaries_published/
-data/books.sqlite
-data/books.sqlite.gz
-apps/mobile/assets/books/*.sqlite*
+# Dictionary and database artifacts
+*.sqlite
+*.sqlite.gz
+data/dictionaries_raw/
+data/temp_releases_repo/
+apps/mobile/test/scratch_*.dart
 .codex/
+

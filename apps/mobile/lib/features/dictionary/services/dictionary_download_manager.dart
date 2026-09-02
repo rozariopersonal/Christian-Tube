@@ -124,7 +124,7 @@ class DictionaryDownloadManager extends ChangeNotifier {
       name: 'தமிழ் அகராதி',
       language: 'Tamil',
       languageCode: 'ta',
-      sizeDisplay: '8.2 MB',
+      sizeDisplay: '10.1 MB',
       description: 'தமிழ் சத்யவேத அகராதி மற்றும் ஆவிக்குரிய விளக்கங்கள் (Tamil Bible Dictionary).',
     ),
     DictionaryMeta(

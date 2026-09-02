@@ -52,6 +52,64 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
     return null;
   }
 
+  static List<String> stemTamil(String word) {
+    final candidates = <String>[];
+    void add(String s) {
+      if (s.length >= 2 && !candidates.contains(s)) {
+        candidates.add(s);
+      }
+    }
+
+    final suffixes = [
+      'த்தையும்', 'யையும்', 'வையும்', 'ையும்', 'உடைய', 'னுடைய', 'க்குரிய', 'வுக்கு',
+      'களுக்கு', 'களின்', 'களில்', 'ஆனது', 'யானது', 'வானது', 'யிலே', 'விலே', 'இலே', 'ிலே',
+      'யில்', 'வில்', 'இல்', 'ஆல்', 'யால்', 'வால்', 'ஓடு', 'யோடு', 'வோடு',
+      'உடன்', 'யுடன்', 'வுடன்', 'த்தை', 'யை', 'வை', 'யும்', 'வும்', 'உம்',
+      'ுக்கு', 'க்கு', 'லின்', 'ரின்', 'வின்', 'யின்', 'ல்', 'ன்', 'ஐ', 'ஏ', 'தானே', 'தான்', 'கள்', 'களை'
+    ];
+    suffixes.sort((a, b) => b.length.compareTo(a.length));
+
+    for (final s in suffixes) {
+      if (word.endsWith(s) && word.length > s.length) {
+        final base = word.substring(0, word.length - s.length);
+        add(base);
+
+        // Sandhi / Euphonic transformations:
+        // வான + த்தையும் -> வானம், வெளிச்ச + த்தை -> வெளிச்சம்
+        if (s == 'த்தையும்' || s == 'த்தை') {
+          add(base + 'ம்');
+        }
+        if (base.endsWith('த்த')) {
+          add('${base.substring(0, base.length - 2)}ம்');
+        }
+        // தேவனு + க்கு -> தேவன் (னு -> ன்)
+        if (base.endsWith('னு')) {
+          add('${base.substring(0, base.length - 2)}ன்');
+        }
+        // இருளு + க்கு -> இருள் (ளு -> ள்)
+        if (base.endsWith('ளு')) {
+          add('${base.substring(0, base.length - 2)}ள்');
+        }
+        // காலு + க்கு -> கால் (லு -> ல்)
+        if (base.endsWith('லு')) {
+          add('${base.substring(0, base.length - 2)}ல்');
+        }
+        // மண்ணு + க்கு -> மண் (ணு -> ண்)
+        if (base.endsWith('ணு')) {
+          add('${base.substring(0, base.length - 2)}ண்');
+        }
+        // மரத்து + க்கு -> மரம்
+        if (base.endsWith('த்து')) {
+          add('${base.substring(0, base.length - 3)}ம்');
+        }
+        if (base.endsWith('த்') || base.endsWith('ப்') || base.endsWith('க்') || base.endsWith('ச்')) {
+          add(base.substring(0, base.length - 1));
+        }
+      }
+    }
+    return candidates;
+  }
+
   @override
   Future<List<DictionaryEntry>> lookupWord(String word, {String? preferredLangCode}) async {
     final cleaned = _cleanWord(word);
@@ -82,6 +140,8 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
       if (!orderedIds.contains(id)) orderedIds.add(id);
     }
 
+    final isTamil = targetLang == 'ta' || RegExp(r'[\u0B80-\u0BFF]').hasMatch(cleaned);
+
     for (final dictId in orderedIds) {
       final db = await _getDb(dictId);
       if (db == null) continue;
@@ -97,28 +157,51 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
           limit: 5,
         );
 
-        if (rows.isEmpty && cleaned.length > 4) {
-          if (cleaned.endsWith('s')) {
-            rows = await db.query(
-              'dictionary_entries',
-              where: 'headword = ? COLLATE NOCASE',
-              whereArgs: [cleaned.substring(0, cleaned.length - 1)],
-              limit: 3,
-            );
-          } else if (cleaned.endsWith('ed')) {
-            rows = await db.query(
-              'dictionary_entries',
-              where: 'headword = ? COLLATE NOCASE',
-              whereArgs: [cleaned.substring(0, cleaned.length - 2)],
-              limit: 3,
-            );
-          } else if (cleaned.endsWith('ing')) {
-            rows = await db.query(
-              'dictionary_entries',
-              where: 'headword = ? COLLATE NOCASE',
-              whereArgs: [cleaned.substring(0, cleaned.length - 3)],
-              limit: 3,
-            );
+        if (rows.isEmpty) {
+          if (dictId == 'ta' || isTamil) {
+            final stems = stemTamil(cleaned);
+            for (final stem in stems) {
+              rows = await db.query(
+                'dictionary_entries',
+                where: 'headword = ? COLLATE NOCASE',
+                whereArgs: [stem],
+                limit: 3,
+              );
+              if (rows.isNotEmpty) break;
+            }
+
+            if (rows.isEmpty && cleaned.length >= 3) {
+              final prefix = cleaned.substring(0, cleaned.length >= 4 ? 4 : 3);
+              rows = await db.query(
+                'dictionary_entries',
+                where: 'headword LIKE ?',
+                whereArgs: ['$prefix%'],
+                limit: 3,
+              );
+            }
+          } else if (cleaned.length > 4) {
+            if (cleaned.endsWith('s')) {
+              rows = await db.query(
+                'dictionary_entries',
+                where: 'headword = ? COLLATE NOCASE',
+                whereArgs: [cleaned.substring(0, cleaned.length - 1)],
+                limit: 3,
+              );
+            } else if (cleaned.endsWith('ed')) {
+              rows = await db.query(
+                'dictionary_entries',
+                where: 'headword = ? COLLATE NOCASE',
+                whereArgs: [cleaned.substring(0, cleaned.length - 2)],
+                limit: 3,
+              );
+            } else if (cleaned.endsWith('ing')) {
+              rows = await db.query(
+                'dictionary_entries',
+                where: 'headword = ? COLLATE NOCASE',
+                whereArgs: [cleaned.substring(0, cleaned.length - 3)],
+                limit: 3,
+              );
+            }
           }
         }
 

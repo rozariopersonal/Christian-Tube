@@ -198,6 +198,59 @@ void main() {
       expect(find.text('Commentary (2)'), findsOneWidget);
       expect(find.text('1 Zac Poonen Exposition'), findsOneWidget);
       expect(find.text('1 Historical & Cultural Commentary'), findsOneWidget);
+
+      // Verify book commentary UI elements & actions
+      expect(find.text('All That You Need'), findsOneWidget);
+      expect(find.text('Zac Poonen'), findsOneWidget);
+      expect(find.text('Page 42'), findsOneWidget);
+      expect(find.text('Gods unconditional love'), findsOneWidget);
+      expect(find.text('Read in Book'), findsOneWidget);
+      expect(find.text('Copy'), findsNWidgets(2)); // Book commentary + Cultural note
+    });
+
+    testWidgets('Long book commentary excerpts display expand/collapse toggle',
+        (tester) async {
+      final longExcerpt = 'A' * 300;
+      final longBookLink = BookScriptureLink(
+        id: 2,
+        bookNumber: 43,
+        chapter: 3,
+        verse: 16,
+        endVerse: 16,
+        bookId: 'test_book',
+        bookTitle: 'Testing Book Excerpt',
+        author: 'Author Name',
+        pageNumber: 15,
+        startLine: 1,
+        endLine: 5,
+        headline: 'Long Excerpt Headline',
+        excerpt: longExcerpt,
+      );
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseStudyScreen(
+            verseText: sampleVerse.text,
+            verseLabel: 'JHN 3:16',
+            references: const [],
+            commentaryNotes: const [],
+            bookCommentariesFuture: Future.value([longBookLink]),
+            baseFontSize: 16.0,
+            initialTab: 1,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Read more'), findsOneWidget);
+
+      // Tap to expand
+      await tester.tap(find.text('Read more'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Show less'), findsOneWidget);
     });
   });
 }
+

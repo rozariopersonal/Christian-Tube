@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -91,96 +92,148 @@ class BibleBackgroundScreen extends StatelessWidget {
   }
 
   Widget _buildNoteItem(BuildContext context, BibleBackgroundNote note) {
+    final theme = Theme.of(context);
     final tokens = context.tokens;
+    final textTheme = theme.textTheme;
+    final commentaryFontSize = (baseFontSize * 0.92).clamp(14.0, 22.0);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: tokens.surfaceVariant,
-        borderRadius: BorderRadius.circular(14),
+        color: tokens.surface,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: tokens.surfaceBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  note.topic,
-                  style: TextStyle(
-                    color: tokens.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Topic header & pill
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    note.topic,
+                    style: (textTheme.titleMedium ?? const TextStyle()).copyWith(
+                      color: tokens.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15.5,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: tokens.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.history_edu_rounded, size: 12, color: tokens.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        note.isChapterOverview ? 'Overview' : 'Context',
+                        style: TextStyle(
+                          color: tokens.accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // Quote container if present
+            if (note.quote != null && note.quote!.isNotEmpty) ...[
+              const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: tokens.accent.withValues(alpha: 0.15),
+                  color: tokens.accent.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: tokens.accent.withValues(alpha: 0.22)),
                 ),
                 child: Text(
-                  note.isChapterOverview ? 'Overview' : 'Context',
+                  '“${note.quote}”',
                   style: TextStyle(
                     color: tokens.accent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    fontSize: (commentaryFontSize * 0.88).clamp(12.0, 16.0),
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ],
-          ),
-          if (note.quote != null && note.quote!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: tokens.background.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(4),
+
+            // Note body
+            const SizedBox(height: 12),
+            Text(
+              note.text,
+              style: (textTheme.bodyMedium ?? const TextStyle()).copyWith(
+                color: tokens.onSurface,
+                fontSize: commentaryFontSize,
+                height: 1.6,
+                letterSpacing: 0.15,
               ),
-              child: Text(
-                'Quote: "${note.quote}"',
-                style: TextStyle(
-                  color: tokens.onSurfaceMuted,
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
+            ),
+
+            // Footer: Verified source attribution & Copy button
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Icon(Icons.verified_outlined, size: 13, color: tokens.onSurfaceMuted),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    note.source,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tokens.onSurfaceMuted,
+                      fontSize: 11.5,
+                    ),
+                  ),
                 ),
-              ),
+                InkWell(
+                  onTap: () {
+                    Clipboard.setData(
+                      ClipboardData(
+                        text: '${note.topic}:\n${note.text}\n(${note.source})',
+                      ),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Note copied to clipboard'),
+                        duration: Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.content_copy_outlined, size: 12, color: tokens.onSurfaceMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Copy',
+                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-          const SizedBox(height: 10),
-          Text(
-            note.text,
-            style: TextStyle(
-              color: tokens.onSurface,
-              fontSize: baseFontSize,
-              height: 1.55,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.verified_outlined,
-                  size: 13, color: tokens.onSurfaceMuted),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  note.source,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: tokens.onSurfaceMuted,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
