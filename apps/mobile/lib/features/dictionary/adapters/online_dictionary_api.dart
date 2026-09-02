@@ -4,7 +4,10 @@ import 'package:mobile/features/dictionary/models/dictionary_entry.dart';
 class OnlineDictionaryApi {
   /// Queries free online dictionary APIs (FreeDictionaryAPI for English, Wiktionary for global/Indian languages).
   static Future<List<DictionaryEntry>> lookupOnlineApi(String word, {String? langCode}) async {
-    final dio = Dio();
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 2),
+      receiveTimeout: const Duration(seconds: 3),
+    ));
 
     // 1. English lookup via FreeDictionaryAPI
     if (langCode == null || langCode == 'en') {
@@ -13,7 +16,6 @@ class OnlineDictionaryApi {
           'https://api.dictionaryapi.dev/api/v2/entries/en/${Uri.encodeComponent(word)}',
           options: Options(
             responseType: ResponseType.json,
-            receiveTimeout: const Duration(seconds: 5),
           ),
         );
         if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
@@ -56,7 +58,6 @@ class OnlineDictionaryApi {
         'https://$targetLang.wiktionary.org/api/rest_v1/page/definition/${Uri.encodeComponent(word)}',
         options: Options(
           responseType: ResponseType.json,
-          receiveTimeout: const Duration(seconds: 5),
         ),
       );
       if (res.statusCode == 200 && res.data is Map) {
