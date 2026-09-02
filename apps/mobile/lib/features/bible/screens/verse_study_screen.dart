@@ -11,17 +11,16 @@ import '../widgets/cross_reference_card.dart';
 /// Commentaries for a verse in a cohesive, tabbed presentation.
 ///
 /// Responsive per AGENTS.md:
-/// - `compact`: Pinned verse card at top, followed by TabBar and scrollable TabBarView.
-/// - `medium`/`expanded`: Side-by-side split view inside [MaxWidthBox] (verse on left,
-///   tabs + study content on right).
-class VerseStudyScreen extends StatelessWidget {
+/// - Single unified layout: Pinned verse card at top inside MaxWidthBox,
+///   followed by TabBar and scrollable TabBarView.
+class VerseStudyScreen extends StatefulWidget {
   final String verseText;
   final String verseLabel;
   final String? versionLabel;
   final List<CrossReference> references;
   final Map<String, String> resolvedTexts;
   final List<BibleBackgroundNote> commentaryNotes;
-  final List<BookScriptureLink> bookCommentaries;
+  final Future<List<BookScriptureLink>> bookCommentariesFuture;
   final double baseFontSize;
   final int initialTab;
   final void Function(CrossReference)? onTapReference;
@@ -34,16 +33,23 @@ class VerseStudyScreen extends StatelessWidget {
     this.references = const [],
     this.resolvedTexts = const {},
     this.commentaryNotes = const [],
-    this.bookCommentaries = const [],
+    required this.bookCommentariesFuture,
     required this.baseFontSize,
     this.initialTab = 0,
     this.onTapReference,
   });
 
+  @override
+  State<VerseStudyScreen> createState() => _VerseStudyScreenState();
+}
+
+class _VerseStudyScreenState extends State<VerseStudyScreen> {
+  bool _isVerseExpanded = false;
+
   Widget _buildVerseCard(BuildContext context) {
     final tokens = context.tokens;
     final screen = ScreenClass.of(context);
-    final fontSize = screen.isCompact ? baseFontSize : baseFontSize + 1.0;
+    final fontSize = screen.isCompact ? widget.baseFontSize : widget.baseFontSize + 1.0;
 
     return Container(
       width: double.infinity,
@@ -67,7 +73,7 @@ class VerseStudyScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  verseLabel,
+                  widget.verseLabel,
                   style: TextStyle(
                     color: tokens.onSurface,
                     fontWeight: FontWeight.bold,
@@ -75,11 +81,11 @@ class VerseStudyScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              if (versionLabel != null && versionLabel!.isNotEmpty) ...[
+              if (widget.versionLabel != null && widget.versionLabel!.isNotEmpty) ...[
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    versionLabel!,
+                    widget.versionLabel!,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: tokens.onSurfaceMuted,
@@ -92,11 +98,42 @@ class VerseStudyScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            verseText,
+            widget.verseText,
+            maxLines: _isVerseExpanded ? null : 3,
+            overflow: _isVerseExpanded ? null : TextOverflow.fade,
             style: TextStyle(
               color: tokens.onSurface,
               fontSize: fontSize,
               height: 1.6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: InkWell(
+              onTap: () => setState(() => _isVerseExpanded = !_isVerseExpanded),
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _isVerseExpanded ? 'Show less' : 'Show more',
+                      style: TextStyle(
+                        color: tokens.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      _isVerseExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      color: tokens.accent,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -106,7 +143,7 @@ class VerseStudyScreen extends StatelessWidget {
 
   Widget _buildReferencesTab(BuildContext context) {
     final tokens = context.tokens;
-    if (references.isEmpty) {
+    if (widget.references.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -129,7 +166,7 @@ class VerseStudyScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          '${references.length} cross-reference${references.length == 1 ? '' : 's'}',
+          '${widget.references.length} cross-reference${widget.references.length == 1 ? '' : 's'}',
           style: TextStyle(
             color: tokens.onSurfaceMuted,
             fontSize: 13,
@@ -137,89 +174,120 @@ class VerseStudyScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        for (final ref in references)
+        for (final ref in widget.references)
           CrossReferenceCard(
             reference: ref,
-            text: resolvedTexts[ref.textKey],
-            fontSize: baseFontSize,
-            onTap: () => onTapReference?.call(ref),
+            text: widget.resolvedTexts[ref.textKey],
+            fontSize: widget.baseFontSize,
+            onTap: () => widget.onTapReference?.call(ref),
           ),
       ],
     );
   }
 
   Widget _buildCommentaryTab(BuildContext context) {
-    final tokens = context.tokens;
-    final totalCount = bookCommentaries.length + commentaryNotes.length;
+    return FutureBuilder<List<BookScriptureLink>>(
+      future: widget.bookCommentariesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    if (totalCount == 0) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.menu_book_outlined, size: 48, color: tokens.onSurfaceMuted),
-              const SizedBox(height: 12),
-              Text(
-                'No commentary or background notes for this verse',
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
+        if (snapshot.hasError) {
+          final tokens = context.tokens;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: tokens.onSurfaceMuted),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Error loading commentaries',
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      );
-    }
+            ),
+          );
+        }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (bookCommentaries.isNotEmpty) ...[
-          Row(
-            children: [
-              Icon(Icons.auto_stories_rounded, size: 16, color: tokens.accent),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '${bookCommentaries.length} Zac Poonen ${bookCommentaries.length == 1 ? 'Exposition' : 'Expositions'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: tokens.onSurface,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
+        final bookCommentaries = snapshot.data ?? [];
+        final totalCount = bookCommentaries.length + widget.commentaryNotes.length;
+
+        final tokens = context.tokens;
+
+        if (totalCount == 0) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.menu_book_outlined, size: 48, color: tokens.onSurfaceMuted),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No commentary or background notes for this verse',
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          for (final link in bookCommentaries) _buildBookCommentaryItem(context, link),
-          const SizedBox(height: 16),
-        ],
-        if (commentaryNotes.isNotEmpty) ...[
-          Row(
-            children: [
-              Icon(Icons.history_edu_rounded, size: 16, color: tokens.onSurfaceMuted),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '${commentaryNotes.length} Historical & Cultural Context',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: tokens.onSurfaceMuted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+            ),
+          );
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (bookCommentaries.isNotEmpty) ...[
+              Row(
+                children: [
+                  Icon(Icons.auto_stories_rounded, size: 16, color: tokens.accent),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${bookCommentaries.length} Zac Poonen ${bookCommentaries.length == 1 ? 'Exposition' : 'Expositions'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tokens.onSurface,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
+              const SizedBox(height: 10),
+              for (final link in bookCommentaries) _buildBookCommentaryItem(context, link),
+              const SizedBox(height: 16),
             ],
-          ),
-          const SizedBox(height: 10),
-          for (final note in commentaryNotes) _buildCommentaryItem(context, note),
-        ],
-      ],
+            if (widget.commentaryNotes.isNotEmpty) ...[
+              Row(
+                children: [
+                  Icon(Icons.history_edu_rounded, size: 16, color: tokens.onSurfaceMuted),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${widget.commentaryNotes.length} Historical & Cultural Context',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tokens.onSurfaceMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              for (final note in widget.commentaryNotes) _buildCommentaryItem(context, note),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -386,7 +454,7 @@ class VerseStudyScreen extends StatelessWidget {
             note.text,
             style: TextStyle(
               color: tokens.onSurface,
-              fontSize: baseFontSize,
+              fontSize: widget.baseFontSize,
               height: 1.55,
             ),
           ),
@@ -415,8 +483,7 @@ class VerseStudyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final screen = ScreenClass.of(context);
-    final safeInitialTab = (initialTab >= 0 && initialTab < 2) ? initialTab : 0;
+    final safeInitialTab = (widget.initialTab >= 0 && widget.initialTab < 2) ? widget.initialTab : 0;
 
     return DefaultTabController(
       length: 2,
@@ -427,7 +494,7 @@ class VerseStudyScreen extends StatelessWidget {
           backgroundColor: tokens.background,
           elevation: 0,
           title: Text(
-            'Study ($verseLabel)',
+            'Study (${widget.verseLabel})',
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: tokens.onSurface,
@@ -439,105 +506,53 @@ class VerseStudyScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
           ),
         ),
-        body: screen.isCompact ? _buildCompact(context) : _buildSplit(context),
+        body: _buildLayout(context),
       ),
     );
   }
 
-  Widget _buildCompact(BuildContext context) {
-    final tokens = context.tokens;
-
-    return Column(
-      children: [
-        // Verse preview pinned at top
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: _buildVerseCard(context),
-        ),
-
-        // Tab bar
-        Container(
-          color: tokens.background,
-          child: TabBar(
-            indicatorColor: tokens.accent,
-            labelColor: tokens.accent,
-            unselectedLabelColor: tokens.onSurfaceMuted,
-            tabs: [
-              Tab(
-                icon: const Icon(Icons.link, size: 18),
-                text: 'References (${references.length})',
-              ),
-              Tab(
-                icon: const Icon(Icons.history_edu, size: 18),
-                text: 'Commentary (${commentaryNotes.length})',
-              ),
-            ],
-          ),
-        ),
-
-        // Scrollable content per tab
-        Expanded(
-          child: TabBarView(
-            children: [
-              _buildReferencesTab(context),
-              _buildCommentaryTab(context),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSplit(BuildContext context) {
+  Widget _buildLayout(BuildContext context) {
     final tokens = context.tokens;
 
     return MaxWidthBox(
-      child: SizedBox(
-        height: double.infinity,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Left pane: pinned verse card
-            SizedBox(
-              width: 360,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 8, 24),
-                child: _buildVerseCard(context),
-              ),
-            ),
+      child: Column(
+        children: [
+          // Verse preview pinned at top
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: _buildVerseCard(context),
+          ),
 
-            // Right pane: Tabs + Study details
-            Expanded(
-              child: Column(
-                children: [
-                  TabBar(
-                    indicatorColor: tokens.accent,
-                    labelColor: tokens.accent,
-                    unselectedLabelColor: tokens.onSurfaceMuted,
-                    tabs: [
-                      Tab(
-                        icon: const Icon(Icons.link, size: 18),
-                        text: 'References (${references.length})',
-                      ),
-                      Tab(
-                        icon: const Icon(Icons.history_edu, size: 18),
-                        text: 'Commentary (${commentaryNotes.length})',
-                      ),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildReferencesTab(context),
-                        _buildCommentaryTab(context),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+          // Tab bar
+          Container(
+            color: tokens.background,
+            child: TabBar(
+              indicatorColor: tokens.accent,
+              labelColor: tokens.accent,
+              unselectedLabelColor: tokens.onSurfaceMuted,
+              tabs: [
+                Tab(
+                  icon: const Icon(Icons.link, size: 18),
+                  text: 'References (${widget.references.length})',
+                ),
+                Tab(
+                  icon: const Icon(Icons.history_edu, size: 18),
+                  text: 'Commentary (${widget.commentaryNotes.length})',
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+
+          // Scrollable content per tab
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildReferencesTab(context),
+                _buildCommentaryTab(context),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
