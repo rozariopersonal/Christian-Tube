@@ -48,8 +48,8 @@ class DictionaryDownloadManager extends ChangeNotifier {
       name: 'English Dictionary',
       language: 'English',
       languageCode: 'en',
-      sizeDisplay: '3.4 MB',
-      description: 'Comprehensive English definitions, parts of speech, and pronunciations.',
+      sizeDisplay: '12.5 MB',
+      description: 'Standard English vocabulary and biblical terms.',
     ),
     // Biblical Dictionaries
     DictionaryMeta(
@@ -121,11 +121,11 @@ class DictionaryDownloadManager extends ChangeNotifier {
     ),
     DictionaryMeta(
       id: 'ta',
-      name: 'தமிழ் அகராதி (Tamil Dictionary)',
+      name: 'தமிழ் அகராதி',
       language: 'Tamil',
       languageCode: 'ta',
-      sizeDisplay: '2.6 MB',
-      description: 'தமிழ் வேதாகம சொற்பொருள் மற்றும் விளக்கங்கள் (Tamil Bible & Literature).',
+      sizeDisplay: '4.0 MB',
+      description: 'தமிழ் சத்யவேத அகராதி மற்றும் ஆவிக்குரிய விளக்கங்கள் (Tamil Bible Dictionary).',
     ),
     DictionaryMeta(
       id: 'ml',

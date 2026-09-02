@@ -300,8 +300,39 @@ const KANNADA_ENTRIES = [
 ];
 
 async function main() {
-  console.log('\n--- Building Dictionaries ---');
-  buildDict('en', EASTONS_ENTRIES);
+  console.log('\\n--- Building Dictionaries ---');
+  
+  // 1. English Dictionary (from english.json)
+  const engRawPath = path.join(__dirname, '..', 'data', 'dictionaries_raw', 'english.json');
+  let engEntries = [];
+  if (fs.existsSync(engRawPath)) {
+    console.log('Loading English JSON dataset...');
+    const engJson = JSON.parse(fs.readFileSync(engRawPath, 'utf8'));
+    for (const [word, definition] of Object.entries(engJson)) {
+      if (word && definition) {
+        engEntries.push([word.trim(), '', '', definition.trim(), '']);
+      }
+    }
+  } else {
+    engEntries = EASTONS_ENTRIES; // fallback
+  }
+
+  // 2. Tamil Dictionary (from tamil.json)
+  const taRawPath = path.join(__dirname, '..', 'data', 'dictionaries_raw', 'tamil.json');
+  let taEntries = [];
+  if (fs.existsSync(taRawPath)) {
+    console.log('Loading Tamil JSON dataset...');
+    const taJson = JSON.parse(fs.readFileSync(taRawPath, 'utf8'));
+    for (const entry of taJson) {
+      if (entry.eng && entry.tamil) {
+        taEntries.push([entry.eng.trim(), '', '', entry.tamil.trim(), '']);
+      }
+    }
+  } else {
+    taEntries = TAMIL_ENTRIES; // fallback
+  }
+
+  buildDict('en', engEntries);
   buildDict('eastons', EASTONS_ENTRIES);
   buildDict('strongs', STRONGS_ENTRIES);
   buildDict('es', SPANISH_ENTRIES);
@@ -310,14 +341,14 @@ async function main() {
   buildDict('pt', PORTUGUESE_ENTRIES);
   buildDict('ru', RUSSIAN_ENTRIES);
 
-  // Indian Languages (corresponding to Bible versions: TAOBVSI, MAL_IRV/MAL1910, TEL_IRV, KAN_IRV, HIN_IRV)
-  buildDict('ta', TAMIL_ENTRIES);
+  // Indian Languages
+  buildDict('ta', taEntries);
   buildDict('ml', MALAYALAM_ENTRIES);
   buildDict('te', TELUGU_ENTRIES);
   buildDict('kn', KANNADA_ENTRIES);
   buildDict('hi', HINDI_ENTRIES);
 
-  console.log('\nAll 13 dictionary packages (including 5 Indian languages) built successfully!\n');
+  console.log('\\nAll 13 dictionary packages (including 5 Indian languages) built successfully!\\n');
 }
 
 main();
