@@ -34,24 +34,21 @@ class _VerseTextState extends State<VerseText> {
   String _lastLookedUpWord = '';
   bool _isHovering = false;
 
-  Future<void> _performAutoLookup(String word, dynamic selectableRegionState) async {
+  void _performAutoLookup(String word, dynamic selectableRegionState) {
     if (word.isEmpty) return;
-    try {
-      final service = DictionaryService();
-      final cleanWord = service.cleanWord(word);
-      if (cleanWord.isEmpty) return;
-      
-      final results = await service.lookupWord(cleanWord);
-      
-      if (mounted && _lastLookedUpWord == word && results.isNotEmpty) {
-        if (selectableRegionState != null) {
-          try {
-            selectableRegionState.hideToolbar();
-          } catch (_) {}
-        }
-        InlineDictionaryPopover.show(context, word: word);
-      }
-    } catch (_) {}
+    final service = DictionaryService();
+    final cleanWord = service.cleanWord(word);
+    if (cleanWord.isEmpty) return;
+    
+    if (selectableRegionState != null) {
+      try {
+        selectableRegionState.hideToolbar();
+      } catch (_) {}
+    }
+    
+    // Open the popover immediately so the user sees the loading state
+    // The popover itself will perform the lookup and display results.
+    InlineDictionaryPopover.show(context, word: word);
   }
 
   @override
