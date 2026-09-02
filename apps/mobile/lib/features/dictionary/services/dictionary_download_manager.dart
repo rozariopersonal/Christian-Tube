@@ -178,11 +178,14 @@ class DictionaryDownloadManager extends ChangeNotifier {
         final len = await dbFile.length();
         installedVersion = prefs?.getInt('dict_ver_${meta.id}') ?? 0;
 
-        // Auto-purge stale or dummy Tamil dictionary from older builds (< v4)
-        if (meta.id == 'ta' && (len < 50 * 1024 * 1024 || installedVersion < 4)) {
-          debugPrint('Stale Tamil dictionary detected (${len}B, v$installedVersion). Purging to force fresh download...');
+        // Auto-purge ONLY genuinely stale dummy/truncated dictionaries (< 20MB)
+        if (meta.id == 'ta' && len < 20 * 1024 * 1024) {
+          debugPrint('Stale/incomplete Tamil dictionary detected (${len}B). Purging...');
           await deleteDictionary(meta.id);
           continue;
+        }
+        if (meta.id == 'ta' && len >= 50 * 1024 * 1024) {
+          await prefs?.setInt('dict_ver_${meta.id}', 4);
         }
 
         if (len > 10000) {

@@ -134,7 +134,62 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
       }
     }
 
-    // 3. Comprehensive Agglutinative Suffix List
+    // 3. Direct Case, Number, and Pronoun transformations:
+    // Accusative: குமாரனை -> குமாரன், அவரை -> அவர், கால்களை -> கால்கள்
+    if (w.endsWith('னை') && w.length > 2) {
+      add('${w.substring(0, w.length - 2)}ன்');
+      add(w.substring(0, w.length - 2));
+    }
+    if (w.endsWith('ரை') && w.length > 2) {
+      add('${w.substring(0, w.length - 2)}ர்');
+      add(w.substring(0, w.length - 2));
+    }
+    if (w.endsWith('லை') && w.length > 2) {
+      add('${w.substring(0, w.length - 2)}ல்');
+      add(w.substring(0, w.length - 2));
+    }
+    if (w.endsWith('ளை') && w.length > 2) {
+      add('${w.substring(0, w.length - 2)}ள்');
+      add(w.substring(0, w.length - 2));
+    }
+    if (w.endsWith('மை') && w.length > 2) {
+      add('${w.substring(0, w.length - 2)}ம்');
+      add(w.substring(0, w.length - 2));
+    }
+
+    // Possessive / Genitive: தம்முடைய -> தம் / தாம், அவருடைய -> அவர், அவனுடைய -> அவன்
+    if (w.endsWith('முடைய') && w.length > 5) {
+      add('${w.substring(0, w.length - 5)}ம்');
+      add('தம்');
+      add('தாம்');
+    }
+    if (w.endsWith('ருடைய') && w.length > 5) {
+      add('${w.substring(0, w.length - 5)}ர்');
+    }
+    if (w.endsWith('னுடைய') && w.length > 5) {
+      add('${w.substring(0, w.length - 5)}ன்');
+    }
+
+    // Instrumental / Ablative: அவராலே -> அவர், அவனால் -> அவன்
+    if (w.endsWith('ராலே') && w.length > 4) {
+      add('${w.substring(0, w.length - 4)}ர்');
+    }
+    if (w.endsWith('னாலே') && w.length > 4) {
+      add('${w.substring(0, w.length - 4)}ன்');
+    }
+    if (w.endsWith('ரால்') && w.length > 3) {
+      add('${w.substring(0, w.length - 3)}ர்');
+    }
+    if (w.endsWith('னால்') && w.length > 3) {
+      add('${w.substring(0, w.length - 3)}ன்');
+    }
+
+    // Coordinating -உம் / -மும்: சாயங்காலமும் -> சாயங்காலம்
+    if (w.endsWith('மும்') && w.length > 3) {
+      add('${w.substring(0, w.length - 3)}ம்');
+    }
+
+    // 4. Comprehensive Agglutinative Suffix List
     final suffixes = [
       // Compound / Postpositional suffixes
       'விடியற்காலமுமாகி', 'அசைவாடிக்கொண்டிருந்தார்', 'அசைவாடிக்கொண்டிருந்தது',
@@ -160,7 +215,7 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
       'த்திலே', 'யிலே', 'விலே',
       'த்தில்', 'யில்', 'வில்', 'இல்',
       'த்தால்', 'யால்', 'வால்', 'ஆல்',
-      'த்தை', 'யை', 'வை', 'ஐ',
+      'த்தை', 'யை', 'வை', 'தை', 'னை', 'ரை', 'லை', 'ளை', 'ஐ',
       'யும்', 'வும்', 'உம்',
       'யே', 'வே', 'ஏ', 'தானே', 'தான்',
       'யாக', 'வாக', 'ஆக', 'யாய்', 'வாய்', 'ஆய்',
@@ -212,28 +267,6 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
         if (base.endsWith('த்து')) {
           add('${base.substring(0, base.length - 3)}ம்');
         }
-        // 8. Accusative: குமாரனை -> குமாரன், அவரை -> அவர்
-        if (w.endsWith('னை') && w.length > 2) {
-          add('${w.substring(0, w.length - 2)}ன்');
-        }
-        if (w.endsWith('ரை') && w.length > 2) {
-          add('${w.substring(0, w.length - 2)}ர்');
-        }
-        if (w.endsWith('மை') && w.length > 2) {
-          add('${w.substring(0, w.length - 2)}ம்');
-        }
-        // 9. Possessive: தம்முடைய -> தம், அவருடைய -> அவர்
-        if (w.endsWith('முடைய') && w.length > 5) {
-          add('${w.substring(0, w.length - 5)}ம்');
-          add('தாம்');
-        }
-        if (w.endsWith('ருடைய') && w.length > 5) {
-          add('${w.substring(0, w.length - 5)}ர்');
-        }
-        // 10. Coordinating: சாயங்காலமும் -> சாயங்காலம்
-        if (w.endsWith('மும்') && w.length > 3) {
-          add('${w.substring(0, w.length - 3)}ம்');
-        }
         if (base.endsWith('த்') || base.endsWith('ப்') || base.endsWith('க்') || base.endsWith('ச்')) {
           add(base.substring(0, base.length - 2));
         }
@@ -241,22 +274,32 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
     }
 
     // Special Biblical compounds and roots:
-    if (w == 'தேவ') add('தேவன்');
-    if (w.contains('நித்தியஜீவன்')) {
+    if (w == 'தேவ' || w.startsWith('தேவனிட') || w.startsWith('தேவனா') || w.startsWith('தேவனு')) {
+      add('தேவன்');
+    }
+    if (w.startsWith('அன்புகூர்')) {
+      add('அன்பு');
+      add('கூர்');
+    }
+    if (w.contains('தந்தருள')) {
+      add('அருள்');
+      add('தா');
+    }
+    if (w.contains('நித்திய') && w.contains('ஜீவ')) {
       add('நித்திய ஜீவன்');
       add('நித்திய');
       add('ஜீவன்');
     }
-    if (w.contains('மனுஷகுமாரன்')) {
+    if (w.contains('மனுஷ') && w.contains('குமார')) {
       add('மனுபுத்திரன்');
       add('மனுஷன்');
       add('குமாரன்');
     }
-    if (w.contains('ஆகாயவிரிவு')) {
+    if (w.contains('ஆகாய') && w.contains('விரி')) {
       add('ஆகாயம்');
       add('விரிவு');
     }
-    if (w.contains('பரிசுத்தஆவி')) {
+    if (w.contains('பரிசுத்த') && w.contains('ஆவி')) {
       add('பரிசுத்த ஆவி');
       add('ஆவி');
     }
