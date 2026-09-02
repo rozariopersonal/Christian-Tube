@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../dictionary/services/dictionary_service.dart';
 import '../../dictionary/widgets/inline_dictionary_popover.dart';
@@ -42,7 +44,11 @@ class _VerseTextState extends State<VerseText> {
       final results = await service.lookupWord(cleanWord);
       
       if (mounted && _lastLookedUpWord == word && results.isNotEmpty) {
-        selectableRegionState.hideToolbar();
+        if (selectableRegionState != null) {
+          try {
+            selectableRegionState.hideToolbar();
+          } catch (_) {}
+        }
         InlineDictionaryPopover.show(context, word: word);
       }
     } catch (_) {}
@@ -81,61 +87,10 @@ class _VerseTextState extends State<VerseText> {
                     ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
                     : Colors.transparent,
         padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
-        child: SelectableText.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: '${widget.verse.number} ',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: context.tokens.onSurfaceMuted,
-                  fontWeight: FontWeight.bold,
-                  fontSize: widget.fontSize * 0.7,
-                ),
-              ),
-              TextSpan(
-                text: widget.verse.text,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  height: 1.6,
-                  fontSize: widget.fontSize,
-                  color: widget.verse.isSecondary
-                      ? context.tokens.onSurfaceMuted
-                      : null,
-                ),
-              ),
-              if (widget.refCount > 0)
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 4.0, bottom: 6.0),
-                    child: Icon(
-                      Icons.link_rounded,
-                      size: widget.fontSize * 0.6,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ),
-              if (widget.commentaryCount > 0)
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 4.0, bottom: 6.0),
-                    child: Icon(
-                      Icons.menu_book_rounded,
-                      size: widget.fontSize * 0.6,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          onTap: widget.onTap,
-          contextMenuBuilder: (context, editableTextState) {
-            String selectedText = '';
-            final val = editableTextState.textEditingValue;
-            if (val.selection.isValid && !val.selection.isCollapsed) {
-              selectedText = val.selection.textInside(val.text).trim();
-            }
-
+        child: SelectionArea(
+          onSelectionChanged: (SelectedContent? content) {
+            if (content == null) return;
+            final selectedText = content.plainText.trim();
             final words = selectedText
                 .split(RegExp(r'\s+'))
                 .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
@@ -145,28 +100,106 @@ class _VerseTextState extends State<VerseText> {
 
             if (lookupWord.isNotEmpty && lookupWord != _lastLookedUpWord) {
               _lastLookedUpWord = lookupWord;
-              _performAutoLookup(lookupWord, editableTextState);
+              // Pass null for selectableRegionState since we don't have it here,
+              // but _performAutoLookup shouldn't crash if we handle it
+              _performAutoLookup(lookupWord, null);
+            }
+          },
+          contextMenuBuilder: (context, selectableRegionState) {
+            String selectedText = '';
+            try {
+              final dynamic dyn = selectableRegionState;
+              final dynamic content = dyn.getSelectedContent();
+              if (content != null && content.plainText != null && (content.plainText as String).trim().isNotEmpty) {
+                selectedText = (content.plainText as String).trim();
+              }
+            } catch (_) {}
+
+            if (selectedText.isEmpty) {
+              final val = selectableRegionState.textEditingValue;
+              selectedText = (val.selection.isValid && !val.selection.isCollapsed)
+                  ? val.selection.textInside(val.text).trim()
+                  : val.text.trim();
             }
 
+            final words = selectedText
+                .split(RegExp(r'\s+'))
+                .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
+                .where((w) => w.isNotEmpty)
+                .toList();
+            final lookupWord = words.isNotEmpty ? words.first : selectedText;
+
             return AdaptiveTextSelectionToolbar.buttonItems(
-              anchors: editableTextState.contextMenuAnchors,
+              anchors: selectableRegionState.contextMenuAnchors,
               buttonItems: [
                 ContextMenuButtonItem(
                   label: 'Define',
                   onPressed: () {
-                    editableTextState.hideToolbar();
+                    selectableRegionState.hideToolbar();
                     InlineDictionaryPopover.show(context, word: lookupWord);
                   },
                 ),
                 ContextMenuButtonItem(
                   label: 'Copy',
                   onPressed: () {
-                    editableTextState.copySelection(SelectionChangedCause.toolbar);
+                    selectableRegionState.copySelection(SelectionChangedCause.toolbar);
                   },
                 ),
               ],
             );
           },
+          child: Text.rich(
+            TextSpan(
+              // TapGestureRecognizer on the root TextSpan makes the whole text clickable
+              recognizer: widget.onTap != null
+                  ? (TapGestureRecognizer()..onTap = widget.onTap)
+                  : null,
+              children: [
+                TextSpan(
+                  text: '${widget.verse.number} ',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: context.tokens.onSurfaceMuted,
+                    fontWeight: FontWeight.bold,
+                    fontSize: widget.fontSize * 0.7,
+                  ),
+                ),
+                TextSpan(
+                  text: widget.verse.text,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    height: 1.6,
+                    fontSize: widget.fontSize,
+                    color: widget.verse.isSecondary
+                        ? context.tokens.onSurfaceMuted
+                        : null,
+                  ),
+                ),
+                if (widget.refCount > 0)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4.0, bottom: 6.0),
+                      child: Icon(
+                        Icons.link_rounded,
+                        size: widget.fontSize * 0.6,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                if (widget.commentaryCount > 0)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4.0, bottom: 6.0),
+                      child: Icon(
+                        Icons.menu_book_rounded,
+                        size: widget.fontSize * 0.6,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
