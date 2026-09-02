@@ -141,6 +141,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     // 1. First find the active reading block (around Y = 150px)
     int? activeLine;
     int? activePage;
+    double minDistance = double.infinity;
 
     for (final entry in _blockKeys.entries) {
       final ctx = entry.value.currentContext;
@@ -149,7 +150,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       if (box != null && box.hasSize) {
         final top = box.localToGlobal(Offset.zero).dy;
         final bottom = top + box.size.height;
-        // Exactly one block will cross Y = 150
+        
+        // Exact match: block crosses Y = 150
         if (top <= 150 && bottom >= 150) {
           final parts = entry.key.split(':');
           if (parts.length == 2) {
@@ -157,29 +159,49 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
             activeLine = int.tryParse(parts[1]);
           }
           break;
+        } 
+        // Fallback: block is below 150 but closest to it
+        else if (top > 150 && top < 600) {
+          final distance = top - 150;
+          if (distance < minDistance) {
+            minDistance = distance;
+            final parts = entry.key.split(':');
+            if (parts.length == 2) {
+              activePage = int.tryParse(parts[0]);
+              activeLine = int.tryParse(parts[1]);
+            }
+          }
         }
       }
     }
 
-    // 2. Also track active page
-    final allPages = <int>[];
-    for (int i = _prevPages.length - 1; i >= 0; i--) {
-      allPages.add(_prevPages[i]);
-    }
-    allPages.addAll(_nextPages);
+    // 2. Also track active page (fallback if no blocks found)
+    if (activePage == null) {
+      final allPages = <int>[];
+      for (int i = _prevPages.length - 1; i >= 0; i--) {
+        allPages.add(_prevPages[i]);
+      }
+      allPages.addAll(_nextPages);
 
-    for (final p in allPages) {
-      final key = _pageKeys[p];
-      final ctx = key?.currentContext;
-      if (ctx != null) {
-        final box = ctx.findRenderObject() as RenderBox?;
-        if (box != null && box.hasSize) {
-          final top = box.localToGlobal(Offset.zero).dy;
-          final bottom = top + box.size.height;
-          // Exactly one page will cross Y = 250
-          if (top <= 250 && bottom >= 250) {
-            activePage = p;
-            break;
+      double minPageDist = double.infinity;
+      for (final p in allPages) {
+        final key = _pageKeys[p];
+        final ctx = key?.currentContext;
+        if (ctx != null) {
+          final box = ctx.findRenderObject() as RenderBox?;
+          if (box != null && box.hasSize) {
+            final top = box.localToGlobal(Offset.zero).dy;
+            final bottom = top + box.size.height;
+            if (top <= 250 && bottom >= 250) {
+              activePage = p;
+              break;
+            } else if (top > 250 && top < 800) {
+              final distance = top - 250;
+              if (distance < minPageDist) {
+                minPageDist = distance;
+                activePage = p;
+              }
+            }
           }
         }
       }
@@ -480,9 +502,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
       // Track active line on the spread
       final lines = _pageCache[newLeft];
-      final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
-      final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
-      _markProgressChanged(newLeft, firstLine, percent);
+      if (lines != null && lines.isNotEmpty) {
+        final firstLine = lines.first.lineNumber;
+        final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
+        _markProgressChanged(newLeft, firstLine, percent);
+      } else {
+        final percent = (newLeft / totalPages).clamp(0.0, 1.0);
+        _markProgressChanged(newLeft, _lastReadLine, percent);
+      }
 
       // Preload adjacent pages after current spread loads
       _preloadAdjacentPages(newLeft);
@@ -503,9 +530,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         _currentPage = newLeft;
       });
       final lines = _pageCache[newLeft];
-      final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
-      final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
-      _markProgressChanged(newLeft, firstLine, percent);
+      if (lines != null && lines.isNotEmpty) {
+        final firstLine = lines.first.lineNumber;
+        final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
+        _markProgressChanged(newLeft, firstLine, percent);
+      } else {
+        final percent = (newLeft / _book!.totalPages).clamp(0.0, 1.0);
+        _markProgressChanged(newLeft, _lastReadLine, percent);
+      }
 
       // Preload adjacent pages after current spread loads
       _preloadAdjacentPages(newLeft);
@@ -523,9 +555,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       );
       setState(() => _currentPage = targetPage);
       final lines = _pageCache[targetPage];
-      final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
-      final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
-      _markProgressChanged(targetPage, firstLine, percent);
+      if (lines != null && lines.isNotEmpty) {
+        final firstLine = lines.first.lineNumber;
+        final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
+        _markProgressChanged(targetPage, firstLine, percent);
+      } else {
+        final percent = (targetPage / _book!.totalPages).clamp(0.0, 1.0);
+        _markProgressChanged(targetPage, _lastReadLine, percent);
+      }
       return;
     }
 
@@ -558,9 +595,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       _scrollController.jumpTo(0);
     }
     final lines = _pageCache[targetPage];
-    final firstLine = (lines != null && lines.isNotEmpty) ? lines.first.lineNumber : 1;
-    final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
-    _markProgressChanged(targetPage, firstLine, percent);
+    if (lines != null && lines.isNotEmpty) {
+      final firstLine = lines.first.lineNumber;
+      final percent = (firstLine / (_book!.totalLines > 0 ? _book!.totalLines : 1)).clamp(0.0, 1.0);
+      _markProgressChanged(targetPage, firstLine, percent);
+    } else {
+      final percent = (targetPage / _book!.totalPages).clamp(0.0, 1.0);
+      _markProgressChanged(targetPage, _lastReadLine, percent);
+    }
   }
 
   String _currentChapterTitle() {
