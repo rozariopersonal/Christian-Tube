@@ -6,7 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:dio/dio.dart';
-import 'package:mobile/core/api/release_assets.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'feed_data_adapter.dart';
 
 class SqliteFeedDataAdapter implements FeedDataAdapter {
@@ -58,7 +58,7 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
     final dio = Dio();
     final jsonPath = join((await getTemporaryDirectory()).path, 'scriptures.json');
 
-    final urls = ReleaseAssets.urlsFor('scriptures.json');
+    final urls = GitHubDataService.scripturesFeedUrls();
     Object? lastError;
     for (final url in urls) {
       try {

@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
-import 'package:mobile/core/api/release_assets.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import '../models/book.dart';
 import '../models/book_chapter.dart';
 import '../models/book_highlight.dart';
@@ -57,11 +57,13 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   final Map<String, Future<List<BookChapter>>> _inFlightTocFetches = {};
   final Map<String, Future<List<BookLine>>> _inFlightChapterFetches = {};
 
+  @override
   List<BookLine>? getCachedPageLines(String bookId, int pageNumber) {
     final key = '${bookId}_$pageNumber';
     return _livePageCache[key];
   }
 
+  @override
   bool isBookDownloading(String bookId) => _downloadingBookIds.contains(bookId);
 
   @override
@@ -244,8 +246,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       final tempSqlite = p.join(tempDir.path, '${bookId}_${DateTime.now().millisecondsSinceEpoch}.sqlite');
 
       final urls = [
-        ...ReleaseAssets.urlsFor('books/published/$bookId.sqlite.gz'),
-        ...ReleaseAssets.urlsFor('data/books_published/$bookId.sqlite.gz'),
+        ...GitHubDataService.bookSqliteUrls(bookId),
       ];
       final dio = Dio();
       bool downloaded = false;
@@ -368,8 +369,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       final tempGzPath = p.join(tempDir.path, 'books_download_${DateTime.now().millisecondsSinceEpoch}.gz');
 
       final urls = [
-        ...ReleaseAssets.urlsFor('books/books.sqlite.gz'),
-        ...ReleaseAssets.urlsFor('data/books.sqlite.gz'),
+        ...GitHubDataService.allBooksSqliteUrls(),
       ];
       final dio = Dio();
       var downloaded = false;
@@ -471,12 +471,17 @@ class SqliteBookDataAdapter implements BookDataAdapter {
     return getCatalogFromAsset(query: query, subject: subject, author: author);
   }
 
-  /// Reads books metadata from `assets/books/catalog.json`.
-  Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author}) async {
+  @override
+  Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author, String? language}) async {
     try {
       final jsonStr = await rootBundle.loadString('assets/books/catalog.json');
       final list = jsonDecode(jsonStr) as List<dynamic>;
       var books = list.map((item) => Book.fromMap(item as Map<String, dynamic>)).toList();
+
+      if (language != null && language.trim().isNotEmpty && language.trim().toLowerCase() != 'all') {
+        final l = language.trim().toLowerCase();
+        books = books.where((b) => b.language.toLowerCase() == l).toList();
+      }
 
       if (subject != null && subject.trim().isNotEmpty && subject.trim().toLowerCase() != 'all') {
         final s = subject.trim().toLowerCase();
@@ -619,7 +624,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
 
   Future<List<BookChapter>> _fetchTocFromNetwork(String bookId) async {
     try {
-      final urls = ReleaseAssets.urlsFor('books/$bookId/toc.json');
+      final urls = GitHubDataService.booksTocUrls(bookId);
       final dio = Dio();
       for (final url in urls) {
         try {
@@ -754,7 +759,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
 
   Future<List<BookLine>> _fetchChapterLinesFromNetwork(String bookId, int chapterIndex, String cacheKey) async {
     try {
-      final urls = ReleaseAssets.urlsFor('books/$bookId/chapters/$chapterIndex.json');
+      final urls = GitHubDataService.bookChapterUrls(bookId, chapterIndex);
       final dio = Dio();
       for (final url in urls) {
         try {
@@ -809,24 +814,26 @@ class SqliteBookDataAdapter implements BookDataAdapter {
     int chapter,
     int verse,
   ) async {
-    
-
-    // Fallback to Live CDN chunked fetch
     final key = '${bookNumber}_$chapter';
     Map<String, dynamic>? chapterData = _liveCommentariesCache[key];
 
     if (chapterData == null) {
-      final urls = ReleaseAssets.urlsFor('commentaries/$bookNumber/$chapter.json');
+      final urls = GitHubDataService.commentaryUrls(bookNumber, chapter);
       final dio = Dio();
       for (final url in urls) {
         try {
           final res = await dio.get<dynamic>(
             url,
-            options: Options(responseType: ResponseType.json, receiveTimeout: const Duration(seconds: 10)),
+            options: Options(
+              responseType: ResponseType.json,
+              receiveTimeout: const Duration(seconds: 10),
+            ),
           );
           if (res.statusCode == 200 && res.data != null) {
-            chapterData = res.data is String ? jsonDecode(res.data as String) : (res.data as Map<String, dynamic>);
-            _liveCommentariesCache[key] = chapterData!;
+            chapterData = res.data is String
+                ? (jsonDecode(res.data as String) as Map<String, dynamic>)
+                : (res.data as Map<String, dynamic>);
+            _liveCommentariesCache[key] = chapterData;
             break;
           }
         } catch (_) {
@@ -852,10 +859,9 @@ class SqliteBookDataAdapter implements BookDataAdapter {
           try {
             final chLines = await getChapterLines(bookId, chIdx);
             final matched = chLines.where((l) =>
-              l.pageNumber == pageNum &&
-              l.lineNumber >= startLine &&
-              l.lineNumber <= endLine,
-            );
+                l.pageNumber == pageNum &&
+                l.lineNumber >= startLine &&
+                l.lineNumber <= endLine);
             if (matched.isNotEmpty) {
               excerpt = matched.map((l) => l.text).join(' ').trim();
             }

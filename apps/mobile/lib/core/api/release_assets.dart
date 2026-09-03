@@ -1,16 +1,26 @@
-/// Large data payloads (compiled bibles + topical feed list) are served from
-/// the project's public releases repository so the app does not depend on the
-/// Render-hosted backend for bulk downloads.
+import 'package:mobile/core/config/app_config.dart';
+
+/// Routes all data asset requests through the configured releases repository.
+///
+/// The repo is set via [AppConfig.releasesRepo] (loaded from
+/// `assets/app_config.json`). Changing the repo there automatically updates
+/// every data URL — no code changes required.
+///
+/// Prefer [GitHubDataService] for constructing asset URLs. Use this class
+/// only to build the final candidate URL list from a relative path.
 class ReleaseAssets {
   ReleaseAssets._();
 
-  static const String owner = 'rozariopersonal';
-  static const String repo = 'Christian-Tube-Releases';
-  static const String branch = 'main';
+  static const String _branch = 'main';
 
-  /// Ordered candidate URLs for [relativePath]; CDN first, raw GitHub second.
+  /// Returns the owner/repo string from app config
+  /// (e.g. `'rozariopersonal/Christian-Tube-Releases'`).
+  static String get _repo => AppConfig.releasesRepo;
+
+  /// Ordered candidate URLs for [relativePath]; jsDelivr CDN first (edge-
+  /// cached globally), raw GitHub second as fallback.
   static List<String> urlsFor(String relativePath) => [
-        'https://cdn.jsdelivr.net/gh/$owner/$repo@$branch/$relativePath',
-        'https://raw.githubusercontent.com/$owner/$repo/$branch/$relativePath',
+        'https://cdn.jsdelivr.net/gh/$_repo@$_branch/$relativePath',
+        'https://raw.githubusercontent.com/$_repo/$_branch/$relativePath',
       ];
 }

@@ -78,7 +78,7 @@ void main() {
             commentaryNotes: const [sampleNote],
             bookCommentariesFuture: Future.value([]),
             baseFontSize: 16.0,
-            initialTab: 0,
+            initialTab: 1,
           ),
           size: const Size(320, 600),
         ),
@@ -125,7 +125,7 @@ void main() {
             commentaryNotes: const [sampleNote],
             bookCommentariesFuture: Future.value([]),
             baseFontSize: 16.0,
-            initialTab: 1,
+            initialTab: 2,
           ),
           size: const Size(1000, 800),
         ),
@@ -153,7 +153,7 @@ void main() {
             commentaryNotes: const [sampleNote],
             bookCommentariesFuture: Future.value([]),
             baseFontSize: 16.0,
-            initialTab: 0,
+            initialTab: 1,
           ),
         ),
       );
@@ -200,7 +200,7 @@ void main() {
             commentaryNotes: const [sampleNote],
             bookCommentariesFuture: Future.value([sampleBookLink]),
             baseFontSize: 16.0,
-            initialTab: 1,
+            initialTab: 2,
           ),
         ),
       );
@@ -249,7 +249,7 @@ void main() {
             commentaryNotes: const [],
             bookCommentariesFuture: Future.value([longBookLink]),
             baseFontSize: 16.0,
-            initialTab: 1,
+            initialTab: 2,
           ),
         ),
       );
@@ -281,7 +281,7 @@ void main() {
             commentaryNotes: const [],
             bookCommentariesFuture: Future.value([]),
             baseFontSize: 16.0,
-            initialTab: 0,
+            initialTab: 1,
           ),
         ),
       );
@@ -311,7 +311,7 @@ void main() {
             commentaryNotes: const [],
             bookCommentariesFuture: Future.value([]),
             baseFontSize: 16.0,
-            initialTab: 0,
+            initialTab: 1,
             onTapReference: (ref) => tappedRef = ref,
           ),
         ),
@@ -344,7 +344,7 @@ void main() {
             commentaryNotes: const [sampleNote],
             bookCommentariesFuture: Future.value([]),
             baseFontSize: 16.0,
-            initialTab: 1,
+            initialTab: 2,
             onTapPassage: (book, chapter, verse) {
               tappedBook = book;
               tappedChapter = chapter;

@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:mobile/core/api/release_assets.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/features/books/models/book.dart';
 import 'package:mobile/features/books/models/book_chapter.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
@@ -21,7 +21,7 @@ class WebBookDataAdapter implements BookDataAdapter {
   final Map<String, List<BookChapter>> _liveTocCache = {};
   final Map<String, List<BookLine>> _liveChapterLinesCache = {};
   final Map<String, List<BookLine>> _livePageCache = {};
-  final Map<String, dynamic> _liveCommentariesCache = {};
+  final Map<String, Map<String, dynamic>> _liveCommentariesCache = {};
   final Map<String, Future<List<BookChapter>>> _inFlightTocFetches = {};
   final Map<String, Future<List<BookLine>>> _inFlightChapterFetches = {};
 
@@ -65,11 +65,16 @@ class WebBookDataAdapter implements BookDataAdapter {
   }
 
   @override
-  Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author}) async {
+  Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author, String? language}) async {
     try {
       final jsonStr = await rootBundle.loadString('assets/books/catalog.json');
       final list = jsonDecode(jsonStr) as List<dynamic>;
       var books = list.map((item) => Book.fromMap(item as Map<String, dynamic>)).toList();
+
+      if (language != null && language.trim().isNotEmpty && language.trim().toLowerCase() != 'all') {
+        final l = language.trim().toLowerCase();
+        books = books.where((b) => b.language.toLowerCase() == l).toList();
+      }
 
       if (subject != null && subject.trim().isNotEmpty && subject.trim().toLowerCase() != 'all') {
         books = books.where((b) => b.subject.toLowerCase() == subject.trim().toLowerCase()).toList();
@@ -161,7 +166,7 @@ class WebBookDataAdapter implements BookDataAdapter {
 
   Future<List<BookChapter>> _fetchTocFromNetwork(String bookId) async {
     try {
-      final urls = ReleaseAssets.urlsFor('books/$bookId/toc.json');
+      final urls = GitHubDataService.booksTocUrls(bookId);
       final dio = Dio();
       for (final url in urls) {
         try {
@@ -247,7 +252,7 @@ class WebBookDataAdapter implements BookDataAdapter {
 
   Future<List<BookLine>> _fetchChapterLinesFromNetwork(String bookId, int chapterIndex, String cacheKey) async {
     try {
-      final urls = ReleaseAssets.urlsFor('books/$bookId/chapters/$chapterIndex.json');
+      final urls = GitHubDataService.bookChapterUrls(bookId, chapterIndex);
       final dio = Dio();
       for (final url in urls) {
         try {
@@ -329,60 +334,82 @@ class WebBookDataAdapter implements BookDataAdapter {
     int chapter,
     int verse,
   ) async {
-    final cacheKey = '${bookNumber}_$chapter';
-    if (!_liveCommentariesCache.containsKey(cacheKey)) {
-      try {
-        final urls = ReleaseAssets.urlsFor('commentaries/$bookNumber/$chapter.json');
-        final dio = Dio();
-        for (final url in urls) {
+    final key = '${bookNumber}_$chapter';
+    Map<String, dynamic>? chapterData = _liveCommentariesCache[key];
+
+    if (chapterData == null) {
+      final urls = GitHubDataService.commentaryUrls(bookNumber, chapter);
+      final dio = Dio();
+      for (final url in urls) {
+        try {
+          final res = await dio.get<dynamic>(
+            url,
+            options: Options(
+              responseType: ResponseType.json,
+              receiveTimeout: const Duration(seconds: 10),
+            ),
+          );
+          if (res.statusCode == 200 && res.data != null) {
+            chapterData = res.data is String
+                ? (jsonDecode(res.data as String) as Map<String, dynamic>)
+                : (res.data as Map<String, dynamic>);
+            _liveCommentariesCache[key] = chapterData;
+            break;
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+
+    if (chapterData != null) {
+      final vStr = verse.toString();
+      final list = chapterData[vStr] as List<dynamic>? ?? [];
+      final results = <BookScriptureLink>[];
+      for (final item in list) {
+        if (item is! Map) continue;
+        final bookId = (item['bookId'] as String?) ?? '';
+        final pageNum = (item['pageNumber'] as num?)?.toInt() ?? 1;
+        final startLine = (item['startLine'] as num?)?.toInt() ?? 1;
+        final endLine = (item['endLine'] as num?)?.toInt() ?? 1;
+        final chIdx = (item['chapterIndex'] as num?)?.toInt() ?? 1;
+
+        String excerpt = (item['excerpt'] as String?) ?? '';
+        if (excerpt.isEmpty && bookId.isNotEmpty) {
           try {
-            final res = await dio.get<dynamic>(
-              url,
-              options: Options(receiveTimeout: const Duration(seconds: 10), responseType: ResponseType.json),
-            );
-            if (res.statusCode == 200 && res.data != null) {
-              final Map<String, dynamic> data = res.data is String ? jsonDecode(res.data as String) : (res.data as Map<String, dynamic>);
-              _liveCommentariesCache[cacheKey] = data;
-              break;
+            final chLines = await getChapterLines(bookId, chIdx);
+            final matched = chLines.where((l) =>
+                l.pageNumber == pageNum &&
+                l.lineNumber >= startLine &&
+                l.lineNumber <= endLine);
+            if (matched.isNotEmpty) {
+              excerpt = matched.map((l) => l.text).join(' ').trim();
             }
           } catch (_) {}
         }
-      } catch (_) {}
+
+        results.add(BookScriptureLink(
+          id: 0,
+          bookNumber: bookNumber,
+          chapter: chapter,
+          verse: verse,
+          endVerse: (item['endVerse'] as num?)?.toInt() ?? verse,
+          bookId: bookId,
+          bookTitle: (item['bookTitle'] as String?) ?? '',
+          author: (item['author'] as String?)?.isNotEmpty == true
+              ? (item['author'] as String)
+              : 'Zac Poonen',
+          pageNumber: pageNum,
+          startLine: startLine,
+          endLine: endLine,
+          headline: (item['headline'] as String?) ?? '',
+          excerpt: excerpt,
+        ));
+      }
+      return results;
     }
 
-    final vStr = verse.toString();
-    final chapterData = _liveCommentariesCache[cacheKey] as Map<String, dynamic>? ?? {};
-    final list = chapterData[vStr] as List<dynamic>? ?? [];
-    final result = <BookScriptureLink>[];
-
-    for (final item in list) {
-      if (item is! Map) continue;
-      final map = item as Map<String, dynamic>;
-      final bookId = map['bookId']?.toString() ?? '';
-      final chapterIdx = (map['chapterIndex'] as num?)?.toInt() ?? 0;
-      final startLine = (map['startLine'] as num?)?.toInt() ?? 0;
-      final endLine = (map['endLine'] as num?)?.toInt() ?? 0;
-      
-      final lines = await getChapterLines(bookId, chapterIdx);
-      final relevantLines = lines.where((l) => l.lineNumber >= startLine && l.lineNumber <= endLine).toList();
-      final content = relevantLines.map((l) => l.text).join(' ');
-      result.add(BookScriptureLink(
-        id: 0,
-        bookNumber: bookNumber,
-        chapter: chapter,
-        verse: verse,
-        endVerse: (map['endVerse'] as num?)?.toInt() ?? verse,
-        bookId: bookId,
-        bookTitle: (map['bookTitle'] as String?) ?? '',
-        author: (map['author'] as String?) ?? 'Zac Poonen',
-        pageNumber: (map['pageNumber'] as num?)?.toInt() ?? 1,
-        startLine: startLine,
-        endLine: endLine,
-        headline: (map['headline'] as String?) ?? '',
-        excerpt: content,
-      ));
-    }
-    return result;
+    return [];
   }
 
   @override

@@ -218,6 +218,82 @@ Favor `Theme.of(context).colorScheme.*` (e.g. `primary`, `onSurfaceVariant`,
 
 ---
 
+## Data Access & Repository Hosting Standard
+
+All remote data assets (Bible versions, library books, cross-references, dictionaries,
+study concepts, feeds) are hosted on the public `Christian-Tube-Releases` repository.
+Data access must follow this standard across both mobile and web clients.
+
+### 1. Canonical Repository Structure
+
+The releases repository (`Christian-Tube-Releases`) is integrated as a git submodule
+at the repository root under `releases/`. Assets must conform to this canonical layout:
+
+```
+Christian-Tube-Releases/
+├── bibles/
+│   ├── bible_{version}.json              # Monolith JSON archive (optional bulk download)
+│   ├── {version}/books.json              # Book list & metadata for version
+│   └── {version}/{bookNum}/{ch}.json     # Live per-chapter verses (streaming default)
+├── books/
+│   ├── catalog.json                      # Single common catalog for all languages
+│   ├── covers/                           # Book cover art
+│   └── {bookId}/                         # Chapters & TOC (or {lang}/{bookId}/)
+│       ├── toc.json                      # Table of contents
+│       └── chapters/{n}.json             # Chapter content lines
+├── cross_references/
+│   └── {bookAbbrev}/{chapter}.json       # Pure JSON per chapter e.g. GEN/1.json (streamed, memory-cached)
+├── study/
+│   └── {version}/                        # Organized by Bible version (e.g. taobvsi/)
+│       ├── {version}.sqlite              # Offline SQLite (optional download)
+│       └── chapters/b{bb}_c{ccc}.json    # Live per-chapter concepts & definitions
+├── commentaries/
+│   └── {bookNum}/{chapter}.json          # Zac Poonen book commentaries referencing verses
+├── dictionaries/
+│   └── dict_{id}.sqlite.gz               # Pre-compiled dictionary SQLite packages
+├── words_feed/
+│   ├── manifest.json
+│   ├── daily.json
+│   └── topics/{slug}.json
+├── scriptures.json                       # Micro-feed scripture pool
+├── book_names.json                       # Localized book names across versions
+└── manifest.json                         # Top-level dataset checksums & versions
+```
+
+### 2. Single Source of Truth for URLs
+
+- **Must** use `GitHubDataService` (`lib/core/api/github_data_service.dart`) to construct
+  any data asset URL.
+- **Must not** call `ReleaseAssets.urlsFor(...)` directly from adapters, services, or screens.
+- **Must not** hardcode URLs (e.g. `cdn.jsdelivr.net`, `raw.githubusercontent.com`, `api.github.com`)
+  or repository names (`rozariopersonal/Christian-Tube-Releases`) in feature code.
+- Repository configuration is read dynamically from `AppConfig.releasesRepo` (configured in
+  `assets/app_config.json`), making the entire data layer repository-agnostic.
+- `ReleaseAssets` automatically provides fallback: jsDelivr edge CDN first (globally cached),
+  raw GitHub second.
+
+### 3. Data Access Philosophy: "GitHub-First, Streaming-Default"
+
+- Both web and mobile clients access data live from GitHub CDN by default.
+- Downloading to local SQLite is an optional enhancement for offline/airplane use,
+  never a blocking prerequisite for reading.
+- **Cross-references**: Strictly JSON-only. Served on demand as small (~2–5 KB) per-chapter
+  chunks and cached in memory for the session. Storing a 15 MB SQLite database on device
+  is eliminated.
+- **Commentaries & Backgrounds**: Standalone commentary and background datasets are
+  discontinued and superseded by the unified verse study concept engine (`study/{version}/`).
+- **Books**: The catalog (`books/catalog.json`) is common and language-agnostic. Book content
+  is partitioned cleanly by language code (`books/{lang}/...`).
+
+### 4. Git Submodule Workflow
+
+- The releases repo lives at `releases/`. When updating hosted data assets or binaries:
+  1. Make edits and commit inside `releases/`.
+  2. Push `releases/` to its remote origin.
+  3. Commit the updated submodule pointer in the main repo (`git add releases && git commit`).
+
+---
+
 ## General repository rules
 
 - Run `flutter analyze` and `flutter test` in `apps/mobile` after any UI change;

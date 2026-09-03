@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:mobile/core/api/release_assets.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -91,7 +91,7 @@ class FfmpegDownloader {
 
     // Try each mirror (CDN first, then raw GitHub).
     String? payload;
-    for (final url in ReleaseAssets.urlsFor(assetPath)) {
+    for (final url in GitHubDataService.ffmpegBinaryUrls(assetPath)) {
       try {
         await Dio(
           BaseOptions(

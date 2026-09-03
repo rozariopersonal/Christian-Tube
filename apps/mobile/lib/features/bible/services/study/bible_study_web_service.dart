@@ -1,37 +1,52 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../../../core/config/app_config.dart';
+import 'package:dio/dio.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import '../../models/verse_concept.dart';
 import 'bible_study_repository.dart';
 
+/// Fetches Bible study concepts (word/term definitions) per chapter from
+/// the releases CDN. Results are cached in memory for the session.
+///
+/// Study data is organized by Bible version:
+///   `study/{versionId}/chapters/b{bb}_c{ccc}.json`
 class BibleStudyWebService implements BibleStudyRepository {
+  /// The Bible version whose study data this service fetches.
+  final String versionId;
+
+  BibleStudyWebService({this.versionId = 'taobvsi'});
+
   final Map<String, dynamic> _chapterCache = {};
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 20),
+  ));
 
   @override
-  Future<void> initialize() async {
-    // No initialization needed for Web HTTP fetcher
-  }
+  Future<void> initialize() async {}
 
   @override
-  Future<List<VerseConcept>> getConceptsForVerse(int book, int chapter, int verse) async {
+  Future<List<VerseConcept>> getConceptsForVerse(
+      int book, int chapter, int verse) async {
     final cacheKey = 'b${book}_c$chapter';
-    
+
     if (!_chapterCache.containsKey(cacheKey)) {
       try {
-        final bookStr = book.toString().padLeft(2, '0');
-        final chapterStr = chapter.toString().padLeft(3, '0');
-        // Fetching directly from the raw GitHub user content of the releases/data repo
-        final url = Uri.parse(
-          'https://raw.githubusercontent.com/${AppConfig.releasesRepo}/main/data/study_ta_ovbsi/chapters/b${bookStr}_c${chapterStr}.json'
-        );
-        
-        final response = await http.get(url);
-        if (response.statusCode == 200) {
-          _chapterCache[cacheKey] = jsonDecode(response.body);
-        } else {
-          _chapterCache[cacheKey] = null; // Mark as failed to avoid refetching immediately
+        final urls = GitHubDataService.studyChapterUrls(versionId, book, chapter);
+        dynamic data;
+        for (final url in urls) {
+          try {
+            final res = await _dio.get<dynamic>(url,
+                options: Options(responseType: ResponseType.json));
+            if (res.statusCode == 200 && res.data != null) {
+              data = res.data is String ? jsonDecode(res.data as String) : res.data;
+              break;
+            }
+          } catch (_) {
+            continue;
+          }
         }
-      } catch (e) {
+        _chapterCache[cacheKey] = data; // null marks failure → no refetch
+      } catch (_) {
         _chapterCache[cacheKey] = null;
       }
     }

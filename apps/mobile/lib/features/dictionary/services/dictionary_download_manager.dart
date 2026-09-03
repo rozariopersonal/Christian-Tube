@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
-import '../../../../core/api/release_assets.dart';
+import '../../../../core/api/github_data_service.dart';
 import 'dictionary_service.dart';
 
 class DictionaryMeta {
@@ -214,7 +214,7 @@ class DictionaryDownloadManager extends ChangeNotifier {
       final tempDir = await getTemporaryDirectory();
       final tempGz = p.join(tempDir.path, 'dict_${dictionaryId}_${DateTime.now().millisecondsSinceEpoch}.gz');
 
-      final urls = ReleaseAssets.urlsFor('dictionaries/dict_$dictionaryId.sqlite.gz');
+      final urls = GitHubDataService.dictionarySqliteUrls(dictionaryId);
       final dio = Dio(BaseOptions(
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(minutes: 5),

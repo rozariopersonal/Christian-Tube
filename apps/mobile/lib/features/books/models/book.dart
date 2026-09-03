@@ -12,6 +12,7 @@ class Book {
   final int totalLines;
   final String downloadSizeFormatted;
   final String createdAt;
+  final String language;
 
   const Book({
     required this.id,
@@ -25,6 +26,7 @@ class Book {
     required this.totalLines,
     this.downloadSizeFormatted = '',
     required this.createdAt,
+    this.language = 'en',
   });
 
   factory Book.fromMap(Map<String, dynamic> map) {
@@ -53,6 +55,7 @@ class Book {
       totalLines: ((map['total_lines'] ?? map['totalLines']) as num?)?.toInt() ?? 0,
       downloadSizeFormatted: (map['downloadSizeFormatted'] ?? map['download_size_formatted'] ?? '') as String,
       createdAt: (map['created_at'] ?? map['createdAt'] ?? '') as String,
+      language: (map['language'] ?? map['lang'] ?? 'en') as String,
     );
   }
 
@@ -69,6 +72,8 @@ class Book {
       'total_lines': totalLines,
       'download_size_formatted': downloadSizeFormatted,
       'created_at': createdAt,
+      'language': language,
+      'lang': language,
     };
   }
 }

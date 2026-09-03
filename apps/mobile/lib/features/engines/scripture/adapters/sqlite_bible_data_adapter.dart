@@ -1,7 +1,5 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
-import 'package:mobile/features/bible/models/bible_background_note.dart';
-import 'package:mobile/features/bible/models/cross_reference.dart';
 import 'bible_data_adapter.dart';
 
 class SqliteBibleDataAdapter implements BibleDataAdapter {
@@ -31,37 +29,10 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
           return;
         }
         if (oldVersion < 3) {
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS cross_references (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              book_number INTEGER NOT NULL,
-              chapter INTEGER NOT NULL,
-              verse INTEGER NOT NULL,
-              ref_book_number INTEGER NOT NULL,
-              ref_chapter INTEGER NOT NULL,
-              ref_verse INTEGER NOT NULL,
-              ref_end_verse INTEGER,
-              score INTEGER NOT NULL
-            );
-          ''');
-          await db.execute('CREATE INDEX IF NOT EXISTS idx_xref_lookup ON cross_references (book_number, chapter, verse);');
-          await db.execute('CREATE INDEX IF NOT EXISTS idx_xref_ref ON cross_references (ref_book_number, ref_chapter, ref_verse);');
+          // cross_references table no longer used; skip migration.
         }
         if (oldVersion < 4) {
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS bible_backgrounds (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              book_number INTEGER NOT NULL,
-              chapter INTEGER NOT NULL,
-              verse INTEGER NOT NULL,
-              note_id TEXT,
-              topic TEXT NOT NULL,
-              quote TEXT,
-              content TEXT NOT NULL,
-              source TEXT NOT NULL
-            );
-          ''');
-          await db.execute('CREATE INDEX IF NOT EXISTS idx_bg_lookup ON bible_backgrounds (book_number, chapter, verse);');
+          // bible_backgrounds table no longer used; skip migration.
         }
       },
     );
@@ -91,37 +62,6 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         installed_at TEXT NOT NULL
       );
     ''');
-
-    await db.execute('''
-      CREATE TABLE cross_references (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        book_number INTEGER NOT NULL,
-        chapter INTEGER NOT NULL,
-        verse INTEGER NOT NULL,
-        ref_book_number INTEGER NOT NULL,
-        ref_chapter INTEGER NOT NULL,
-        ref_verse INTEGER NOT NULL,
-        ref_end_verse INTEGER,
-        score INTEGER NOT NULL
-      );
-    ''');
-    await db.execute('CREATE INDEX idx_xref_lookup ON cross_references (book_number, chapter, verse);');
-    await db.execute('CREATE INDEX idx_xref_ref ON cross_references (ref_book_number, ref_chapter, ref_verse);');
-
-    await db.execute('''
-      CREATE TABLE bible_backgrounds (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        book_number INTEGER NOT NULL,
-        chapter INTEGER NOT NULL,
-        verse INTEGER NOT NULL,
-        note_id TEXT,
-        topic TEXT NOT NULL,
-        quote TEXT,
-        content TEXT NOT NULL,
-        source TEXT NOT NULL
-      );
-    ''');
-    await db.execute('CREATE INDEX idx_bg_lookup ON bible_backgrounds (book_number, chapter, verse);');
   }
 
   @override
@@ -302,119 +242,4 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     await _db!.delete('installed_versions', where: 'id = ?', whereArgs: [versionId]);
   }
 
-  @override
-  Future<bool> hasCrossReferences() async {
-    if (_db == null) await initialize();
-    if (_db == null) return false;
-    final count = Sqflite.firstIntValue(
-      await _db!.rawQuery('SELECT COUNT(*) FROM cross_references'),
-    );
-    return (count ?? 0) > 0;
-  }
-
-  @override
-  Future<Map<int, List<CrossReference>>> getCrossReferencesForChapter(int bookNumber, int chapter) async {
-    if (_db == null) await initialize();
-    if (_db == null) return {};
-    final rows = await _db!.query(
-      'cross_references',
-      where: 'book_number = ? AND chapter = ?',
-      whereArgs: [bookNumber, chapter],
-      orderBy: 'verse ASC',
-    );
-    final grouped = <int, List<CrossReference>>{};
-    for (final r in rows) {
-      grouped.putIfAbsent(r['verse'] as int, () => []).add(CrossReference(
-        bookNumber: r['ref_book_number'] as int,
-        chapter: r['ref_chapter'] as int,
-        verse: r['ref_verse'] as int,
-        endVerse: r['ref_end_verse'] as int?,
-        score: r['score'] as int,
-      ));
-    }
-    grouped.forEach((_, list) => list.sort((a, b) => b.score.compareTo(a.score)));
-    return grouped;
-  }
-
-  @override
-  Future<void> insertCrossReferences(List<Map<String, dynamic>> items) async {
-    if (_db == null) return;
-    await _db!.delete('cross_references');
-    if (items.isEmpty) return;
-    final batch = _db!.batch();
-    for (final r in items) {
-      batch.insert('cross_references', {
-        'book_number': r['bookNumber'],
-        'chapter': r['chapter'],
-        'verse': r['verse'],
-        'ref_book_number': r['refBookNumber'],
-        'ref_chapter': r['refChapter'],
-        'ref_verse': r['refVerse'],
-        'ref_end_verse': r['refEndVerse'],
-        'score': r['score'],
-      });
-    }
-    await batch.commit(noResult: true);
-  }
-
-  @override
-  Future<void> deleteCrossReferences() async {
-    if (_db == null) return;
-    await _db!.delete('cross_references');
-  }
-
-  @override
-  Future<bool> hasBackgrounds() async {
-    if (_db == null) await initialize();
-    if (_db == null) return false;
-    final count = Sqflite.firstIntValue(
-      await _db!.rawQuery('SELECT COUNT(*) FROM bible_backgrounds'),
-    );
-    return (count ?? 0) > 0;
-  }
-
-  @override
-  Future<Map<int, List<BibleBackgroundNote>>> getBackgroundsForChapter(int bookNumber, int chapter) async {
-    if (_db == null) await initialize();
-    if (_db == null) return {};
-    final rows = await _db!.query(
-      'bible_backgrounds',
-      where: 'book_number = ? AND chapter = ?',
-      whereArgs: [bookNumber, chapter],
-      orderBy: 'verse ASC, id ASC',
-    );
-    final grouped = <int, List<BibleBackgroundNote>>{};
-    for (final r in rows) {
-      final verse = (r['verse'] as int?) ?? 0;
-      grouped.putIfAbsent(verse, () => []).add(BibleBackgroundNote.fromMap(r));
-    }
-    return grouped;
-  }
-
-  @override
-  Future<void> insertBackgrounds(List<Map<String, dynamic>> items) async {
-    if (_db == null) return;
-    await _db!.delete('bible_backgrounds');
-    if (items.isEmpty) return;
-    final batch = _db!.batch();
-    for (final b in items) {
-      batch.insert('bible_backgrounds', {
-        'book_number': b['bookNumber'],
-        'chapter': b['chapter'],
-        'verse': b['verse'],
-        'note_id': b['id'],
-        'topic': b['topic'],
-        'quote': b['quote'],
-        'content': b['text'] ?? b['content'],
-        'source': b['source'] ?? 'unfoldingWord Cultural Context',
-      });
-    }
-    await batch.commit(noResult: true);
-  }
-
-  @override
-  Future<void> deleteBackgrounds() async {
-    if (_db == null) return;
-    await _db!.delete('bible_backgrounds');
-  }
 }

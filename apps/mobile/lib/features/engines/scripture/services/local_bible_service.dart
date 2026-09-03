@@ -1,6 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:mobile/features/bible/models/bible_background_note.dart';
-import 'package:mobile/features/bible/models/cross_reference.dart';
 import 'package:mobile/features/engines/scripture/adapters/bible_data_adapter.dart';
 import 'package:mobile/features/engines/scripture/adapters/sqlite_bible_data_adapter.dart';
 import 'package:mobile/features/engines/scripture/adapters/web_bible_data_adapter.dart';
@@ -136,51 +134,6 @@ class LocalBibleService {
   Future<void> deleteVersion(String versionId) async {
     final adapter = await _getAdapter();
     return adapter.deleteVersion(versionId);
-  }
-
-  Future<bool> hasCrossReferences() async {
-    final adapter = await _getAdapter();
-    return adapter.hasCrossReferences();
-  }
-
-  Future<void> insertCrossReferences(List<Map<String, dynamic>> items) async {
-    final adapter = await _getAdapter();
-    return adapter.insertCrossReferences(items);
-  }
-
-  Future<void> deleteCrossReferences() async {
-    final adapter = await _getAdapter();
-    return adapter.deleteCrossReferences();
-  }
-
-  Future<Map<int, List<CrossReference>>> getCrossReferencesForChapter(int bookNumber, int chapter) async {
-    final adapter = await _getAdapter();
-    return adapter.getCrossReferencesForChapter(bookNumber, chapter);
-  }
-
-  Future<bool> hasBibleBackgrounds() async {
-    final adapter = await _getAdapter();
-    return adapter.hasBackgrounds();
-  }
-
-  Future<void> insertBibleBackgrounds(List<Map<String, dynamic>> items) async {
-    final adapter = await _getAdapter();
-    return adapter.insertBackgrounds(items);
-  }
-
-  Future<void> deleteBibleBackgrounds() async {
-    final adapter = await _getAdapter();
-    return adapter.deleteBackgrounds();
-  }
-
-  Future<Map<int, List<BibleBackgroundNote>>> getBackgroundsForChapter(int bookNumber, int chapter) async {
-    final adapter = await _getAdapter();
-    return adapter.getBackgroundsForChapter(bookNumber, chapter);
-  }
-
-  Future<List<BibleBackgroundNote>> getBackgroundsForVerse(int bookNumber, int chapter, int verse) async {
-    final chapterMap = await getBackgroundsForChapter(bookNumber, chapter);
-    return chapterMap[verse] ?? [];
   }
 
   Future<List<Map<String, dynamic>>> search(String versionId, String query, {int limit = 100}) async {

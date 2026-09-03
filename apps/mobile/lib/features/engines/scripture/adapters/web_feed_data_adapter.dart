@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:mobile/core/api/release_assets.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'feed_data_adapter.dart';
 import 'dart:math';
 
@@ -16,7 +16,7 @@ class WebFeedDataAdapter implements FeedDataAdapter {
     
     downloadProgress.value = 0.0;
     final dio = Dio();
-    final urls = ReleaseAssets.urlsFor('scriptures.json');
+    final urls = GitHubDataService.scripturesFeedUrls();
     Object? lastError;
     
     for (final url in urls) {

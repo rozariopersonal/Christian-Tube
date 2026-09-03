@@ -77,12 +77,22 @@ class BookService extends ChangeNotifier {
   Future<List<UserReadingProgress>> getRecentProgress({int limit = 5}) => _adapter.getRecentProgress(limit: limit);
 
   // Expose these helpers that were present in BookService
-  Future<List<Book>> getBooks({String? query, String? subject, String? author}) async {
-    return _adapter.getCatalogFromAsset(query: query, subject: subject, author: author);
+  Future<List<Book>> getBooks({String? query, String? subject, String? author, String? language}) async {
+    return _adapter.getCatalogFromAsset(query: query, subject: subject, author: author, language: language);
   }
   
-  Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author}) async {
-    return _adapter.getCatalogFromAsset(query: query, subject: subject, author: author);
+  Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author, String? language}) async {
+    return _adapter.getCatalogFromAsset(query: query, subject: subject, author: author, language: language);
+  }
+
+  Future<List<String>> getLanguages() async {
+    final books = await getCatalogFromAsset();
+    final set = <String>{};
+    for (final b in books) {
+      if (b.language.isNotEmpty) set.add(b.language.toLowerCase());
+    }
+    final sorted = set.toList()..sort();
+    return ['All', ...sorted];
   }
 
   Future<List<String>> getSubjects() async {
@@ -95,8 +105,8 @@ class BookService extends ChangeNotifier {
     return sorted;
   }
 
-  Future<Map<String, List<Book>>> getBooksGroupedBySubject({String? query}) async {
-    final books = await getCatalogFromAsset(query: query);
+  Future<Map<String, List<Book>>> getBooksGroupedBySubject({String? query, String? language}) async {
+    final books = await getCatalogFromAsset(query: query, language: language);
     final map = <String, List<Book>>{};
     for (final b in books) {
       final s = b.subject.isEmpty ? 'Other' : b.subject;

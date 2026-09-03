@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:mobile/core/api/release_assets.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../models/bible_version_meta.dart';
@@ -547,7 +547,7 @@ class BibleDownloadManager extends ChangeNotifier {
     final filePath = p.join(tempDir.path,
         'bible_${meta.id.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.json');
     final urls =
-        ReleaseAssets.urlsFor('bibles/bible_${meta.id.toLowerCase()}.json');
+        GitHubDataService.bibleMonolithUrls(meta.id);
     final dio = Dio();
     var downloaded = false;
     for (final url in urls) {

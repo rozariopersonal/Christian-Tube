@@ -30,11 +30,33 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   List<Book> _recentBooks = [];
   Set<String> _installedBookIds = {};
   List<String> _subjects = ['All'];
+  List<String> _languages = ['All'];
+  int _totalBooksCount = 0;
 
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedSubject = 'All';
+  String _selectedLanguage = 'All';
   bool _viewBySubjects = true;
+
+  static const Map<String, String> _languageNames = {
+    'all': 'All Languages',
+    'en': 'English',
+    'ta': 'Tamil',
+    'hi': 'Hindi',
+    'te': 'Telugu',
+    'kn': 'Kannada',
+    'ml': 'Malayalam',
+    'de': 'German',
+    'ro': 'Romanian',
+    'pt': 'Portuguese',
+    'si': 'Sinhala',
+    'es': 'Spanish',
+    'fr': 'French',
+    'pl': 'Polish',
+    'ru': 'Russian',
+    'mr': 'Marathi',
+  };
 
   @override
   void initState() {
@@ -62,14 +84,26 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     final books = await _bookService.getBooks(
       query: _searchQuery,
       subject: _selectedSubject,
+      language: _selectedLanguage,
     );
     final allBooks = await _bookService.getBooks();
     final recentProgress = await _bookService.getRecentProgress(limit: 5);
     final subjects = await _bookService.getSubjects();
 
-    // Group all books by subject
+    // Derive languages present in catalog
+    final langCodes = <String>{};
+    for (final b in allBooks) {
+      if (b.language.isNotEmpty) langCodes.add(b.language.toLowerCase());
+    }
+    final sortedLangs = langCodes.toList()..sort();
+    final languages = ['All', ...sortedLangs];
+
+    // Group matching books by subject
     final map = <String, List<Book>>{};
     for (final b in allBooks) {
+      if (_selectedLanguage != 'All' && b.language.toLowerCase() != _selectedLanguage.toLowerCase()) {
+        continue;
+      }
       final s = b.subject.isNotEmpty ? b.subject : 'Christian Living';
       map.putIfAbsent(s, () => []).add(b);
     }
@@ -93,6 +127,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
         _progressMap = progressMap;
         _recentBooks = recentBooks;
         _subjects = subjects;
+        _languages = languages;
+        _totalBooksCount = allBooks.length;
         _isLoading = false;
       });
     }
@@ -384,6 +420,55 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     _loadCatalog();
   }
 
+  Widget _buildLanguageFilterChips(AppTokens tokens) {
+    if (_languages.length <= 1) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: _languages.length,
+        itemBuilder: (context, index) {
+          final lang = _languages[index];
+          final isSelected = _selectedLanguage.toLowerCase() == lang.toLowerCase();
+          final label = _languageNames[lang.toLowerCase()] ?? lang.toUpperCase();
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              avatar: lang == 'All'
+                  ? Icon(Icons.language_rounded, size: 15, color: isSelected ? Colors.white : tokens.accent)
+                  : null,
+              label: Text(label),
+              selected: isSelected,
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() {
+                    _selectedLanguage = lang;
+                  });
+                  _loadCatalog();
+                }
+              },
+              backgroundColor: tokens.surfaceVariant,
+              selectedColor: tokens.accent,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : tokens.onSurface,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 12,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              side: BorderSide(
+                color: isSelected ? tokens.accent : tokens.surfaceBorder,
+                width: 0.8,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildSubjectFilterChips(AppTokens tokens) {
     return SizedBox(
       height: 44,
@@ -667,7 +752,9 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
               ),
             ),
             Text(
-              '38 Books • Zac Poonen & Annie Poonen',
+              _totalBooksCount > 0
+                  ? '$_totalBooksCount Books • Zac Poonen'
+                  : 'Books Library • Zac Poonen',
               style: TextStyle(
                 color: tokens.onSurfaceMuted,
                 fontSize: 11.5,
@@ -730,6 +817,12 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                 slivers: [
                   SliverToBoxAdapter(
                     child: _buildSearchBar(tokens),
+                  ),
+                  SliverToBoxAdapter(
+                    child: _buildLanguageFilterChips(tokens),
+                  ),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 6),
                   ),
                   SliverToBoxAdapter(
                     child: _buildSubjectFilterChips(tokens),

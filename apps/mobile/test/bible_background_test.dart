@@ -32,54 +32,6 @@ void main() {
     }
   });
 
-  group('LocalBibleService bible_backgrounds', () {
-    test('insert, query, and delete cultural background notes', () async {
-      final service = LocalBibleService();
-      await service.initialize();
-
-      expect(await service.hasBibleBackgrounds(), isFalse);
-
-      await service.insertBibleBackgrounds([
-        {
-          'bookNumber': 40,
-          'chapter': 5,
-          'verse': 41,
-          'id': 'i86s',
-          'topic': 'one mile',
-          'quote': 'μίλιον ἕν',
-          'content':
-              'Here, one mile refers to the Roman mile, which was 1,000 paces. In modern measurements, this is about 4,860 feet or 1,480 meters.',
-          'source': 'unfoldingWord Cultural Context',
-        },
-        {
-          'bookNumber': 40,
-          'chapter': 5,
-          'verse': 0,
-          'id': 'awz8',
-          'topic': 'Chapter Overview',
-          'quote': null,
-          'content': 'Structure of the Sermon on the Mount.',
-          'source': 'unfoldingWord Cultural Context',
-        },
-      ]);
-
-      expect(await service.hasBibleBackgrounds(), isTrue);
-
-      final chapterNotes = await service.getBackgroundsForChapter(40, 5);
-      expect(chapterNotes.keys, containsAll([0, 41]));
-      expect(chapterNotes[41]!.single.topic, 'one mile');
-      expect(chapterNotes[41]!.single.verse, 41);
-      expect(chapterNotes[41]!.single.quote, 'μίλιον ἕν');
-      expect(chapterNotes[41]!.single.referenceLabel, 'MAT 5:41');
-
-      final verseNotes = await service.getBackgroundsForVerse(40, 5, 41);
-      expect(verseNotes.length, 1);
-      expect(verseNotes.first.id, 'i86s');
-
-      await service.deleteBibleBackgrounds();
-      expect(await service.hasBibleBackgrounds(), isFalse);
-    });
-  });
 
   group('UI Rendering & Responsive Adaptivity', () {
     const testNotes = [

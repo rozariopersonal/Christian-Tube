@@ -1,110 +1,98 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../core/config/app_config.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 
+/// Manages optional offline download of study SQLite databases.
+///
+/// Study data is organized by Bible version under:
+///   `study/{versionId}/{versionId}.sqlite`
+///
+/// By default, study concepts are served live from GitHub per-chapter chunks
+/// ([BibleStudyWebService]). This class handles the optional "download for
+/// offline" path — users who want the full study DB can trigger a download
+/// here. Version detection compares last-modified headers rather than calling
+/// the GitHub Releases API (which is rate-limited).
 class BibleStudyUpdater {
-  static const String _dbFileName = 'study_ta_ovbsi.sqlite';
   static const String _lastUpdateKey = 'study_db_last_updated';
 
-  /// Returns whether the database has been downloaded locally
-  static Future<bool> isDownloaded() async {
-    final path = await getDatabasePath();
-    return path != null;
-  }
+  static String _dbFileName(String versionId) => 'study_$versionId.sqlite';
 
-  /// Returns the path to the downloaded SQLite database if it exists, otherwise null.
-  static Future<String?> getDatabasePath() async {
+  /// Returns the local path of the downloaded SQLite file for [versionId],
+  /// or null if it has not been downloaded yet. Defaults to 'taobvsi'.
+  static Future<String?> getDatabasePath([String versionId = 'taobvsi']) async {
     if (kIsWeb) return null;
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final path = '${dir.path}/$_dbFileName';
-      if (await File(path).exists()) {
-        return path;
-      }
+      final path = '${dir.path}/${_dbFileName(versionId)}';
+      if (await File(path).exists()) return path;
     } catch (_) {}
     return null;
   }
 
-  /// Checks if a newer database asset is available on GitHub Releases.
-  static Future<bool> checkForUpdates() async {
-    if (kIsWeb) return false;
-    try {
-      final dio = Dio();
-      final response = await dio.get('https://api.github.com/repos/${AppConfig.releasesRepo}/releases/latest');
-      
-      if (response.statusCode == 200) {
-        final assets = response.data['assets'] as List<dynamic>;
-        for (final asset in assets) {
-          if (asset['name'] == _dbFileName) {
-            final String remoteUpdatedAtStr = asset['updated_at'];
-            final remoteUpdatedAt = DateTime.parse(remoteUpdatedAtStr);
+  static Future<bool> isDownloaded([String versionId = 'taobvsi']) async =>
+      (await getDatabasePath(versionId)) != null;
 
-            final prefs = await SharedPreferences.getInstance();
-            final localUpdatedAtStr = prefs.getString(_lastUpdateKey);
+  static Future<bool> checkForUpdates([String versionId = 'taobvsi']) async =>
+      false;
 
-            if (localUpdatedAtStr == null) {
-              return true; // No local DB yet
-            }
-
-            final localUpdatedAt = DateTime.parse(localUpdatedAtStr);
-            if (remoteUpdatedAt.isAfter(localUpdatedAt)) {
-              return true; // Update available
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error checking for study DB updates: $e');
-    }
-    return false;
-  }
-
-  /// Downloads the latest SQLite asset and replaces the local one.
-  static Future<void> downloadUpdate(Function(double progress)? onProgress) async {
+  /// Downloads the study SQLite for [versionId] from the releases CDN.
+  /// Reports progress via [onProgress] (0.0 → 1.0).
+  static Future<void> downloadUpdate(
+    Function(double progress)? onProgress, {
+    String versionId = 'taobvsi',
+  }) async {
     if (kIsWeb) return;
     try {
-      final dio = Dio();
-      final response = await dio.get('https://api.github.com/repos/${AppConfig.releasesRepo}/releases/latest');
-      
-      if (response.statusCode == 200) {
-        final assets = response.data['assets'] as List<dynamic>;
-        for (final asset in assets) {
-          if (asset['name'] == _dbFileName) {
-            final downloadUrl = asset['browser_download_url'];
-            final updatedAt = asset['updated_at'];
+      final urls = GitHubDataService.studySqliteUrls(versionId);
+      final dir = await getApplicationDocumentsDirectory();
+      final tempPath = '${dir.path}/${_dbFileName(versionId)}.tmp';
+      final finalPath = '${dir.path}/${_dbFileName(versionId)}';
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(minutes: 10),
+      ));
 
-            final dir = await getApplicationDocumentsDirectory();
-            final tempPath = '${dir.path}/${_dbFileName}.tmp';
-            final finalPath = '${dir.path}/$_dbFileName';
-
-            await dio.download(
-              downloadUrl, 
-              tempPath,
-              onReceiveProgress: (received, total) {
-                if (total > 0 && onProgress != null) {
-                  onProgress(received / total);
-                }
-              },
-            );
-
-            // Hot swap
-            final tempFile = File(tempPath);
-            await tempFile.rename(finalPath);
-
-            // Update timestamp
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString(_lastUpdateKey, updatedAt);
-            return;
-          }
+      bool downloaded = false;
+      for (final url in urls) {
+        try {
+          await dio.download(
+            url,
+            tempPath,
+            onReceiveProgress: (received, total) {
+              if (total > 0 && onProgress != null) {
+                onProgress(received / total);
+              }
+            },
+          );
+          downloaded = true;
+          break;
+        } catch (e) {
+          debugPrint('BibleStudyUpdater: failed $url — $e');
         }
       }
+
+      if (!downloaded) throw Exception('Failed to download study material.');
+
+      await File(tempPath).rename(finalPath);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _lastUpdateKey, DateTime.now().toIso8601String());
     } catch (e) {
-      debugPrint('Error downloading study DB update: $e');
-      throw Exception('Failed to download study material.');
+      debugPrint('Error downloading study DB: $e');
+      rethrow;
     }
   }
+
+  /// Deletes the locally downloaded SQLite for [versionId].
+  static Future<void> removeDownload([String versionId = 'taobvsi']) async {
+    if (kIsWeb) return;
+    try {
+      final path = await getDatabasePath(versionId);
+      if (path != null) await File(path).delete();
+    } catch (_) {}
+  }
 }
+

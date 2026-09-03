@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:mobile/core/api/release_assets.dart';
-import 'package:mobile/features/bible/models/bible_background_note.dart';
-import 'package:mobile/features/bible/models/cross_reference.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/features/engines/scripture/services/bible_download_manager.dart';
 import 'bible_data_adapter.dart';
@@ -10,10 +8,6 @@ import 'bible_data_adapter.dart';
 class WebBibleDataAdapter implements BibleDataAdapter {
   final Map<String, String> _webVerses = {};
   final Set<String> _webInstalledVersions = {};
-  final Map<String, Map<String, dynamic>> _webCrossRefs = {};
-  bool _webCrossRefsInstalled = false;
-  final Map<String, List<Map<String, dynamic>>> _webBackgrounds = {};
-  bool _webBackgroundsInstalled = false;
   final Map<String, List<Map<String, dynamic>>> _liveChapterCache = {};
 
   static const _cdnVersions = {
@@ -490,8 +484,8 @@ class WebBibleDataAdapter implements BibleDataAdapter {
 
     final bookNum = BookNameService.englishBookNames.indexOf(bookName) + 1;
     if (bookNum > 0) {
-      final urls = ReleaseAssets.urlsFor(
-        'bibles/${versionId.toLowerCase()}/$bookNum/$chapter.json',
+      final urls = GitHubDataService.bibleChapterUrls(
+        versionId, bookNum, chapter,
       );
 
       final dio = Dio();
@@ -646,77 +640,5 @@ class WebBibleDataAdapter implements BibleDataAdapter {
   Future<void> deleteVersion(String versionId) async {
     _webInstalledVersions.remove(versionId);
     _webVerses.removeWhere((key, _) => key.startsWith('${versionId}_'));
-  }
-
-  @override
-  Future<bool> hasCrossReferences() async {
-    return _webCrossRefsInstalled;
-  }
-
-  @override
-  Future<Map<int, List<CrossReference>>> getCrossReferencesForChapter(int bookNumber, int chapter) async {
-    final grouped = <int, List<CrossReference>>{};
-    _webCrossRefs.forEach((key, r) {
-      if (r['bookNumber'] == bookNumber && r['chapter'] == chapter) {
-        grouped.putIfAbsent(r['verse'] as int, () => []).add(CrossReference(
-              bookNumber: r['refBookNumber'] as int,
-              chapter: r['refChapter'] as int,
-              verse: r['refVerse'] as int,
-              endVerse: r['refEndVerse'] as int?,
-              score: r['score'] as int,
-            ));
-      }
-    });
-    grouped.forEach((_, list) => list.sort((a, b) => b.score.compareTo(a.score)));
-    return grouped;
-  }
-
-  @override
-  Future<void> insertCrossReferences(List<Map<String, dynamic>> items) async {
-    _webCrossRefs.clear();
-    for (final r in items) {
-      final key = '${r['bookNumber']}_${r['chapter']}_${r['verse']}';
-      _webCrossRefs[key] = r;
-    }
-    _webCrossRefsInstalled = true;
-  }
-
-  @override
-  Future<void> deleteCrossReferences() async {
-    _webCrossRefs.clear();
-    _webCrossRefsInstalled = false;
-  }
-
-  @override
-  Future<bool> hasBackgrounds() async {
-    return _webBackgroundsInstalled;
-  }
-
-  @override
-  Future<Map<int, List<BibleBackgroundNote>>> getBackgroundsForChapter(int bookNumber, int chapter) async {
-    final key = '${bookNumber}_$chapter';
-    final list = _webBackgrounds[key] ?? [];
-    final grouped = <int, List<BibleBackgroundNote>>{};
-    for (final r in list) {
-      final verse = (r['verse'] as int?) ?? 0;
-      grouped.putIfAbsent(verse, () => []).add(BibleBackgroundNote.fromMap(r));
-    }
-    return grouped;
-  }
-
-  @override
-  Future<void> insertBackgrounds(List<Map<String, dynamic>> items) async {
-    _webBackgrounds.clear();
-    for (final b in items) {
-      final key = '${b['bookNumber']}_${b['chapter']}';
-      _webBackgrounds.putIfAbsent(key, () => []).add(b);
-    }
-    _webBackgroundsInstalled = true;
-  }
-
-  @override
-  Future<void> deleteBackgrounds() async {
-    _webBackgrounds.clear();
-    _webBackgroundsInstalled = false;
   }
 }

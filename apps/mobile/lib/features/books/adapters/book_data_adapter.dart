@@ -20,7 +20,7 @@ abstract class BookDataAdapter {
   Future<bool> downloadAndInstall();
   Future<bool> isInstalled();
   Future<Book?> getBook(String id);
-  Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author});
+  Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author, String? language});
   Future<void> saveHighlight(BookHighlight highlight);
   Future<void> deleteHighlight(String id);
   Future<List<BookHighlight>> getHighlightsForBook(String bookId);

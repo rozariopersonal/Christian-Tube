@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:mobile/core/api/release_assets.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Loads localized Bible book names (per version, keyed by canonical book
@@ -113,7 +113,7 @@ class BookNameService {
 
     // 2. Fall back to releases CDN / Raw GitHub
     final dio = Dio();
-    for (final url in ReleaseAssets.urlsFor('book_names.json')) {
+    for (final url in GitHubDataService.bookNamesUrls()) {
       try {
         final response = await dio.get(
           url,
