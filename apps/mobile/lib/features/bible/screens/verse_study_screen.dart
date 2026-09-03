@@ -13,6 +13,10 @@ import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
 import '../widgets/cross_reference_card.dart';
 import 'bible_screen.dart';
+import '../models/verse_concept.dart';
+import '../services/study/bible_study_service.dart';
+import '../services/study/bible_study_updater.dart';
+import '../widgets/verse_concept_card.dart';
 
 /// Dedicated study screen displaying both Cross References and Historical/Cultural
 /// Commentaries for a verse in a cohesive, tabbed presentation.
@@ -25,6 +29,9 @@ class VerseStudyScreen extends StatefulWidget {
   final String verseLabel;
   final String? versionLabel;
   final String? versionId;
+  final int bookNumber;
+  final int chapterNumber;
+  final int verseNumber;
   final List<CrossReference> references;
   final Map<String, String> resolvedTexts;
   final List<BibleBackgroundNote> commentaryNotes;
@@ -40,6 +47,9 @@ class VerseStudyScreen extends StatefulWidget {
     required this.verseLabel,
     this.versionLabel,
     this.versionId,
+    required this.bookNumber,
+    required this.chapterNumber,
+    required this.verseNumber,
     this.references = const [],
     this.resolvedTexts = const {},
     this.commentaryNotes = const [],
@@ -87,6 +97,11 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   Map<String, List<DictionaryEntry>> _dictionaryEntries = {};
   List<String> _keyTerms = [];
   bool _dictionaryInitialized = false;
+
+  // Theological concepts state
+  List<VerseConcept> _verseConcepts = [];
+  bool _isConceptsLoading = true;
+  bool _updateAvailable = false;
 
   void _copyCommentary(BuildContext context, String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
@@ -144,6 +159,8 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
     super.initState();
     _loadBookCommentariesCount();
     _loadDictionaryEntries();
+    _loadVerseConcepts();
+    _checkForStudyUpdates();
     BookNameService().ensureLoaded().then((_) {
       if (mounted) setState(() {});
     });
@@ -157,6 +174,38 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
         });
       }
     }).catchError((_) {});
+  }
+
+  Future<void> _loadVerseConcepts() async {
+    try {
+      final concepts = await BibleStudyService.instance.getConceptsForVerse(
+        widget.bookNumber,
+        widget.chapterNumber,
+        widget.verseNumber,
+      );
+      if (mounted) {
+        setState(() {
+          _verseConcepts = concepts;
+          _isConceptsLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading concepts: $e');
+      if (mounted) {
+        setState(() {
+          _isConceptsLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _checkForStudyUpdates() async {
+    final hasUpdate = await BibleStudyUpdater.checkForUpdates();
+    if (hasUpdate && mounted) {
+      setState(() {
+        _updateAvailable = true;
+      });
+    }
   }
 
   Future<void> _loadDictionaryEntries() async {
@@ -1002,16 +1051,16 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
               unselectedLabelColor: tokens.onSurfaceMuted,
               tabs: [
                 Tab(
+                  icon: const Icon(Icons.menu_book_outlined, size: 18),
+                  text: 'Words & Concepts',
+                ),
+                Tab(
                   icon: const Icon(Icons.link, size: 18),
                   text: 'References (${widget.references.length})',
                 ),
                 Tab(
                   icon: const Icon(Icons.menu_book_rounded, size: 18),
                   text: 'Commentary ($_totalCommentaryCount)',
-                ),
-                Tab(
-                  icon: const Icon(Icons.menu_book_outlined, size: 18),
-                  text: 'Glossary ($dictionaryCount)',
                 ),
               ],
             ),
@@ -1021,9 +1070,9 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
           Expanded(
             child: TabBarView(
               children: [
+                _buildDictionaryTab(context),
                 _buildReferencesTab(context),
                 _buildCommentaryTab(context),
-                _buildDictionaryTab(context),
               ],
             ),
           ),
@@ -1038,8 +1087,84 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (_updateAvailable)
+          InkWell(
+            onTap: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => AlertDialog(
+                  backgroundColor: tokens.surface,
+                  title: Text('Updating Study Data', style: TextStyle(color: tokens.onSurface)),
+                  content: Row(
+                    children: [
+                      CircularProgressIndicator(color: tokens.accent),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'Downloading latest study concepts...',
+                          style: TextStyle(color: tokens.onSurfaceMuted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+              try {
+                await BibleStudyUpdater.downloadUpdate(null);
+                if (mounted) {
+                  Navigator.pop(context);
+                  setState(() => _updateAvailable = false);
+                  _loadVerseConcepts();
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update: $e')),
+                  );
+                }
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: tokens.accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: tokens.accent.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.system_update_alt_rounded, color: tokens.accent, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'New study material available for other books. Tap to update.',
+                      style: TextStyle(
+                        color: tokens.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         _buildVerseCard(context),
         const SizedBox(height: 16),
+        if (_isConceptsLoading)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: CircularProgressIndicator(color: tokens.accent),
+            ),
+          )
+        else ...[
+          for (final concept in _verseConcepts)
+            VerseConceptCard(concept: concept, baseFontSize: widget.baseFontSize),
+        ],
         if (_isDictionaryLoading)
           Center(
             child: Padding(
