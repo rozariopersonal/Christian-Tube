@@ -240,6 +240,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   }
 
   Widget _buildBottomBar(bool isDark, int selectedIndex) {
+    final tokens = Theme.of(context).extension<AppTokens>() ?? (isDark ? AppTokens.dark : AppTokens.light);
     return NavigationBarTheme(
       data: NavigationBarThemeData(
         height: 60,
@@ -249,24 +250,20 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           return TextStyle(
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected
-                ? (isDark ? Colors.white : Colors.black)
-                : (isDark ? Colors.white70 : Colors.black54),
+            color: isSelected ? tokens.onSurface : tokens.onSurfaceMuted,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final isSelected = states.contains(WidgetState.selected);
           return IconThemeData(
             size: 24,
-            color: isSelected
-                ? (isDark ? Colors.white : Colors.black)
-                : (isDark ? Colors.white70 : Colors.black54),
+            color: isSelected ? tokens.onSurface : tokens.onSurfaceMuted,
           );
         }),
       ),
       child: NavigationBar(
         selectedIndex: selectedIndex,
-        backgroundColor: isDark ? Colors.black : Colors.white,
+        backgroundColor: tokens.background,
         elevation: 0,
         onDestinationSelected: _onTabSelected,
         destinations: _destinations(context)
@@ -285,14 +282,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   }
 
   Widget _buildNavigationRail(bool isDark, int selectedIndex) {
-    final tokens = Theme.of(context).extension<AppTokens>();
-    final background = tokens?.background ?? (isDark ? Colors.black : Colors.white);
-    final selectedColor = isDark ? Colors.white : Colors.black;
-    final unselectedColor = isDark ? Colors.white70 : Colors.black54;
-    final indicator = tokens?.surfaceVariant ?? (isDark ? Colors.grey.shade800 : Colors.grey.shade200);
+    final tokens = Theme.of(context).extension<AppTokens>() ?? (isDark ? AppTokens.dark : AppTokens.light);
+    final selectedColor = tokens.onSurface;
+    final unselectedColor = tokens.onSurfaceMuted;
+    final indicator = tokens.surfaceVariant;
 
     return NavigationRail(
-      backgroundColor: background,
+      backgroundColor: tokens.background,
       selectedIndex: selectedIndex,
       onDestinationSelected: _onTabSelected,
       labelType: NavigationRailLabelType.all,

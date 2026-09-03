@@ -86,23 +86,28 @@ class ShortBottomDetails extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.play_circle_fill, size: 16, color: Colors.black),
-                        SizedBox(width: 6),
-                        Text(
-                          'Watch Full Sermon',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                    child: Builder(builder: (ctx) {
+                      final onAccent = context.accent.computeLuminance() > 0.45
+                          ? context.tokens.scrim
+                          : context.tokens.onScrim;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.play_circle_fill, size: 16, color: onAccent),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Watch Full Sermon',
+                            style: TextStyle(
+                              color: onAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        SizedBox(width: 4),
-                        Icon(Icons.arrow_forward_ios, size: 10, color: Colors.black),
-                      ],
-                    ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios, size: 10, color: onAccent),
+                        ],
+                      );
+                    }),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -125,12 +130,12 @@ class ShortBottomDetails extends StatelessWidget {
                           '@${short.channelTitle}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.tokens.onScrim,
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                             shadows: [
-                              Shadow(color: Colors.black, blurRadius: 4),
+                              Shadow(color: context.tokens.scrim, blurRadius: 4),
                             ],
                           ),
                         ),
@@ -138,11 +143,11 @@ class ShortBottomDetails extends StatelessWidget {
                           Text(
                             '✂️ Clipped by ${short.creatorName}',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.85),
+                              color: context.tokens.onScrimMuted,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              shadows: const [
-                                Shadow(color: Colors.black, blurRadius: 4),
+                              shadows: [
+                                Shadow(color: context.tokens.scrim, blurRadius: 4),
                               ],
                             ),
                           ),
@@ -162,11 +167,11 @@ class ShortBottomDetails extends StatelessWidget {
                         short.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: context.tokens.onScrim,
                           fontSize: 13,
                           shadows: [
-                            Shadow(color: Colors.black, blurRadius: 6),
+                            Shadow(color: context.tokens.scrim, blurRadius: 6),
                           ],
                         ),
                       ),
@@ -175,18 +180,18 @@ class ShortBottomDetails extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.white12,
+                        color: context.tokens.onScrim.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             'More',
-                            style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: context.tokens.onScrimMuted, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
-                          SizedBox(width: 2),
-                          Icon(Icons.expand_more_rounded, size: 12, color: Colors.white70),
+                          const SizedBox(width: 2),
+                          Icon(Icons.expand_more_rounded, size: 12, color: context.tokens.onScrimMuted),
                         ],
                       ),
                     ),
@@ -245,24 +250,29 @@ class ShortBottomDetails extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: context.accent,
                                   borderRadius: BorderRadius.circular(12),
-                                  boxShadow: const [
+                                  boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black54,
+                                      color: context.tokens.scrim.withValues(alpha: 0.54),
                                       blurRadius: 4,
-                                      offset: Offset(0, 2),
+                                      offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
-                                child: Text(
-                                  Formatters.formatDuration(
-                                    Duration(seconds: currentPosition.toInt()),
-                                  ),
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                child: Builder(builder: (ctx) {
+                                  final onAccent = context.accent.computeLuminance() > 0.45
+                                      ? context.tokens.scrim
+                                      : context.tokens.onScrim;
+                                  return Text(
+                                    Formatters.formatDuration(
+                                      Duration(seconds: currentPosition.toInt()),
+                                    ),
+                                    style: TextStyle(
+                                      color: onAccent,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  );
+                                }),
                               ),
                             ),
 
@@ -310,7 +320,7 @@ class ShortBottomDetails extends StatelessWidget {
                               height: thumbSize,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.white,
+                                color: context.tokens.onScrim,
                                 border: Border.all(
                                   color: context.accent,
                                   width: isScrubbing ? 3.5 : 2.5,
@@ -323,10 +333,10 @@ class ShortBottomDetails extends StatelessWidget {
                                     blurRadius: isScrubbing ? 10 : 6,
                                     spreadRadius: isScrubbing ? 2 : 0,
                                   ),
-                                  const BoxShadow(
-                                    color: Colors.black54,
+                                  BoxShadow(
+                                    color: context.tokens.scrim.withValues(alpha: 0.54),
                                     blurRadius: 4,
-                                    offset: Offset(0, 1),
+                                    offset: const Offset(0, 1),
                                   ),
                                 ],
                               ),
@@ -348,8 +358,8 @@ class ShortBottomDetails extends StatelessWidget {
                     Formatters.formatDuration(
                       Duration(seconds: currentPosition.toInt()),
                     ),
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: context.tokens.onScrimMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -365,8 +375,8 @@ class ShortBottomDetails extends StatelessWidget {
                             .toInt(),
                       ),
                     ),
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: context.tokens.onScrimMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),

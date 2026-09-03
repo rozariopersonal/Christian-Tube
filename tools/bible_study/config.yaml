@@ -1,0 +1,39 @@
+# Bible Study Knowledge Base Configuration
+
+# Bible Version ID and Language
+version_id: "ta_ovbsi"
+language: "ta"
+
+# Primary Bible source: can be a directory of chapter JSONs OR an SQLite database path
+# 1. Directory source:
+bible_source_dir: "../../data/temp_releases_repo/bibles/taobvsi"
+
+# 2. SQLite source (alternative, set to null or specify file path):
+bible_database: null
+
+# Strong's dictionary source (optional pre-load for validation & joins)
+strongs_source: "../../data/dictionaries_published/dict_strongs.sqlite"
+
+# Output directory for chapter JSON files and compiled SQLite DB
+output_dir: "./output"
+
+# Gemini Free Tier Configuration (15 RPM / 1,500 RPD)
+free_tier:
+  enabled: true
+  max_rpm: 15
+  daily_limit: 1450
+
+# Gemini Model Configuration
+gemini:
+  model: "gemini-3.5-flash-lite"
+  temperature: 0.1
+  max_retries: 5
+  retry_base_delay_ms: 5000
+  timeout_ms: 60000
+
+# Processing Configuration
+processing:
+  chapters_per_request: 1
+  pause_between_requests_ms: 4500 # 4.5s delay enforces ~13 RPM (safely under 15 RPM free tier cap)
+  dry_run: false
+

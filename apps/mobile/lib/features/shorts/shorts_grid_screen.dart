@@ -129,19 +129,19 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
                         short.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: context.tokens.onScrim,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          shadows: [Shadow(blurRadius: 4, color: Colors.black)],
+                          shadows: [Shadow(blurRadius: 4, color: context.tokens.scrim)],
                         ),
                       ),
                       if (short.viewCount > 0) ...[
                         const SizedBox(height: 2),
                         Text(
                           '${Formatters.formatViews(short.viewCount)} views',
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          style: TextStyle(
+                            color: context.tokens.onScrimMuted,
                             fontSize: 9,
                             fontWeight: FontWeight.w500,
                           ),

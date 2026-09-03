@@ -52,12 +52,12 @@ class RecommendationVideoCard extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.black87,
+                            color: tokens.scrim,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             video.duration!,
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: tokens.onScrim, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),

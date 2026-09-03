@@ -177,12 +177,12 @@ class CreationGridCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.black87,
+                      color: context.tokens.scrim,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       Formatters.formatDuration(Duration(seconds: durSec > 0 ? durSec : 60)),
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: context.tokens.onScrim, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -190,11 +190,11 @@ class CreationGridCard extends StatelessWidget {
                     onTap: onDeleteTap,
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
+                      decoration: BoxDecoration(
+                        color: context.tokens.scrim.withValues(alpha: 0.6),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.delete_outline, size: 14, color: Colors.white70),
+                      child: Icon(Icons.delete_outline, size: 14, color: context.tokens.onScrimMuted),
                     ),
                   ),
                 ],
@@ -202,10 +202,10 @@ class CreationGridCard extends StatelessWidget {
             ),
 
             // Play Icon in Center
-            const Center(
+            Center(
               child: Icon(
                 Icons.play_circle_fill,
-                color: Colors.white70,
+                color: context.tokens.onScrimMuted,
                 size: 38,
               ),
             ),
@@ -223,11 +223,11 @@ class CreationGridCard extends StatelessWidget {
                     item.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: context.tokens.onScrim,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                      shadows: [Shadow(color: context.tokens.scrim, blurRadius: 4)],
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -236,7 +236,7 @@ class CreationGridCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: context.tokens.onScrimMuted,
                       fontSize: 10,
                     ),
                   ),
@@ -321,8 +321,8 @@ class CreationGridBadge extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             item.statusLabel,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.tokens.onScrim,
               fontSize: 10,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.2,
@@ -390,15 +390,15 @@ class CreationStatusChip extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             item.statusLabel,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.tokens.onScrim,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
           if (isActionable) ...[
             const SizedBox(width: 6),
-            const Text('•', style: TextStyle(color: Colors.white38, fontSize: 12)),
+            Text('•', style: TextStyle(color: context.tokens.onSurfaceDisabled, fontSize: 12)),
             const SizedBox(width: 6),
             GestureDetector(
               onTap: onRetry,
@@ -498,13 +498,13 @@ class NonPlayableShortCard extends StatelessWidget {
                                 : null,
                             strokeWidth: 3.5,
                             color: color,
-                            backgroundColor: Colors.white12,
+                            backgroundColor: context.tokens.onSurfaceDisabled,
                           ),
                         ),
                         Text(
                           '${(item.progress * 100).toInt()}%',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.tokens.onSurface,
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
@@ -533,8 +533,8 @@ class NonPlayableShortCard extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: context.tokens.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -547,7 +547,7 @@ class NonPlayableShortCard extends StatelessWidget {
                     item.statusDisplay,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: isFailed ? Colors.redAccent : Colors.white70,
+                      color: isFailed ? Theme.of(context).colorScheme.error : context.tokens.onSurfaceMuted,
                       fontSize: 13,
                       height: 1.3,
                     ),
@@ -616,11 +616,11 @@ class NonPlayableShortCard extends StatelessWidget {
                       ],
                     )
                   else
-                    const Text(
+                    Text(
                       '✂️ You can return to the grid or continue watching while this processes.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white38,
+                        color: context.tokens.onSurfaceDisabled,
                         fontSize: 11,
                         fontStyle: FontStyle.italic,
                       ),

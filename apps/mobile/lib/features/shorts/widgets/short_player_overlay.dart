@@ -82,7 +82,7 @@ class ShortPlayerOverlay extends StatelessWidget {
                         child: Icon(
                           playPauseOverlayPlaying ? Icons.play_arrow_rounded : Icons.pause_rounded,
                           size: 64,
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: context.tokens.onScrim.withValues(alpha: 0.8),
                         ),
                       ),
                     ),

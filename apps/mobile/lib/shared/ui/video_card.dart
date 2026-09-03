@@ -52,13 +52,13 @@ class VideoCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.black87,
+                      color: tokens.scrim,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       video.duration!,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: tokens.onScrim,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -72,18 +72,18 @@ class VideoCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade700,
+                      color: Theme.of(context).colorScheme.error,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.sensors, color: Colors.white, size: 12),
-                        SizedBox(width: 4),
+                        Icon(Icons.sensors, color: Theme.of(context).colorScheme.onError, size: 12),
+                        const SizedBox(width: 4),
                         Text(
                           'LIVE',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onError,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -201,13 +201,13 @@ class VideoGridCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
-                      color: Colors.black87,
+                      color: tokens.scrim,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       video.duration!,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: tokens.onScrim,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),

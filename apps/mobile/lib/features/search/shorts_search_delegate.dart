@@ -130,12 +130,12 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.black87,
+                                    color: context.tokens.scrim,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     Formatters.formatDuration(Duration(seconds: durSec)),
-                                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: context.tokens.onScrim, fontSize: 9, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ),

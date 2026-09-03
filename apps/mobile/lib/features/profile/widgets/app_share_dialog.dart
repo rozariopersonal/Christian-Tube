@@ -132,6 +132,7 @@ class _AppShareDialogState extends State<AppShareDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     return Container(
       decoration: BoxDecoration(
@@ -320,14 +321,14 @@ class _AppShareDialogState extends State<AppShareDialog> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.camera_alt_outlined, size: 14, color: Colors.grey.shade700),
+                        Icon(Icons.camera_alt_outlined, size: 14, color: tokens.onSurfaceMuted),
                         const SizedBox(width: 5),
                         Text(
                           'Point phone camera to download APK',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
+                            color: tokens.onSurfaceMuted,
                           ),
                         ),
                       ],
@@ -381,7 +382,7 @@ class _AppShareDialogState extends State<AppShareDialog> {
                           Icon(
                             _isCopied ? Icons.check_rounded : Icons.copy_rounded,
                             size: 16,
-                            color: _isCopied ? Colors.green : theme.colorScheme.primary,
+                            color: _isCopied ? theme.colorScheme.tertiary : theme.colorScheme.primary,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -389,7 +390,7 @@ class _AppShareDialogState extends State<AppShareDialog> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: _isCopied ? Colors.green : theme.colorScheme.primary,
+                              color: _isCopied ? theme.colorScheme.tertiary : theme.colorScheme.primary,
                             ),
                           ),
                         ],

@@ -82,7 +82,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildStatCard('Total Users', '$total', Theme.of(context).colorScheme.primary),
-                        _buildStatCard('Active', '$activeCount', Colors.green),
+                        _buildStatCard('Active', '$activeCount', Theme.of(context).colorScheme.tertiary),
                         _buildStatCard('Blocked', '$blockedCount', Theme.of(context).colorScheme.error),
                       ],
                     ),
@@ -204,12 +204,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                       ),
                                       const SizedBox(width: 8),
 
-                                      // Block / Unblock Toggle Button
+                                       // Block / Unblock Toggle Button
                                       if (role != 'ADMIN')
                                         ElevatedButton(
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: isBlocked ? Colors.green.shade600 : Theme.of(context).colorScheme.error,
-                                            foregroundColor: isBlocked ? Colors.white : Theme.of(context).colorScheme.onError,
+                                            backgroundColor: isBlocked ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.error,
+                                            foregroundColor: isBlocked ? Theme.of(context).colorScheme.onTertiary : Theme.of(context).colorScheme.onError,
                                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                             elevation: 0,
@@ -265,8 +265,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: currentlyBlocked ? Colors.green : Theme.of(context).colorScheme.error,
-              foregroundColor: currentlyBlocked ? Colors.white : Theme.of(context).colorScheme.onError,
+              backgroundColor: currentlyBlocked ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.error,
+              foregroundColor: currentlyBlocked ? Theme.of(context).colorScheme.onTertiary : Theme.of(context).colorScheme.onError,
             ),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -275,7 +275,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(success ? (currentlyBlocked ? 'User unblocked' : 'User blocked') : 'Action failed'),
-                    backgroundColor: currentlyBlocked ? Colors.green : Theme.of(context).colorScheme.error,
+                    backgroundColor: currentlyBlocked ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.error,
                   ),
                 );
               }

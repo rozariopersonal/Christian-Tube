@@ -282,9 +282,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           UpdateService.showUpdatePopup(context, update);
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('You are on the latest version!'),
-                              backgroundColor: Colors.green,
+                            SnackBar(
+                              content: const Text('You are on the latest version!'),
+                              backgroundColor: Theme.of(context).colorScheme.tertiary,
                             ),
                           );
                         }

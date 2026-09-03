@@ -287,14 +287,14 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: context.tokens.onSurfaceMuted),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.arrow_back_ios_new, size: 13, color: Colors.white),
-                  SizedBox(width: 4),
+                  Icon(Icons.arrow_back_ios_new, size: 13, color: context.tokens.onScrim),
+                  const SizedBox(width: 4),
                   Text(
                     'Back to Grid',
-                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: context.tokens.onScrim, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),

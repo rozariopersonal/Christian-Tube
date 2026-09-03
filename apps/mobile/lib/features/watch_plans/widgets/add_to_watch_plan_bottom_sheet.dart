@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/video.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class AddToWatchPlanBottomSheet extends StatelessWidget {
   final Video video;
@@ -20,7 +21,7 @@ class AddToWatchPlanBottomSheet extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           ListTile(
-            leading: const Icon(Icons.wb_sunny_outlined, color: Colors.orange),
+            leading: Icon(Icons.wb_sunny_outlined, color: context.accent),
             title: const Text('Morning Devotion (15 mins)'),
             subtitle: const Text('Streak: 5 days'),
             onTap: () {
@@ -31,7 +32,7 @@ class AddToWatchPlanBottomSheet extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.nights_stay_outlined, color: Colors.indigo),
+            leading: Icon(Icons.nights_stay_outlined, color: context.primary),
             title: const Text('Evening Reflection'),
             subtitle: const Text('Streak: 3 days'),
             onTap: () {

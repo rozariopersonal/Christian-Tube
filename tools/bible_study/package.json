@@ -1,0 +1,31 @@
+{
+  "name": "bible-study-kb",
+  "version": "1.0.0",
+  "description": "AI-Assisted Bible Study Knowledge Base Generator in TypeScript",
+  "main": "src/cli.ts",
+  "type": "module",
+  "scripts": {
+    "inspect": "tsx src/cli.ts inspect",
+    "test:sample": "tsx src/cli.ts test",
+    "run:chapter": "tsx src/cli.ts run",
+    "book": "tsx src/cli.ts book",
+    "books": "tsx src/cli.ts books",
+    "resume": "tsx src/cli.ts resume",
+    "status": "tsx src/cli.ts status",
+    "compile": "tsx src/cli.ts compile",
+    "review": "tsx src/cli.ts review",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@google/genai": "^2.20.0",
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

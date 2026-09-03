@@ -287,7 +287,7 @@ class CommunityGridCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       short.viewCount > 0 ? Formatters.formatViews(short.viewCount) : 'Short',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: context.tokens.onScrim, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -302,21 +302,21 @@ class CommunityGridCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.black87,
+                    color: context.tokens.scrim,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     Formatters.formatDuration(Duration(seconds: durSec)),
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: context.tokens.onScrim, fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
 
             // 5. Play Icon in Center
-            const Center(
+            Center(
               child: Icon(
                 Icons.play_circle_fill,
-                color: Colors.white70,
+                color: context.tokens.onScrimMuted,
                 size: 38,
               ),
             ),
@@ -334,11 +334,11 @@ class CommunityGridCard extends StatelessWidget {
                     short.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: context.tokens.onScrim,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                      shadows: [Shadow(color: context.tokens.scrim, blurRadius: 4)],
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -352,11 +352,11 @@ class CommunityGridCard extends StatelessWidget {
                             width: 16,
                             height: 16,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => const Icon(Icons.person, size: 16, color: Colors.white70),
+                            errorWidget: (_, __, ___) => Icon(Icons.person, size: 16, color: context.tokens.onScrimMuted),
                           ),
                         )
                       else
-                        const Icon(Icons.account_circle, size: 16, color: Colors.white70),
+                        Icon(Icons.account_circle, size: 16, color: context.tokens.onScrimMuted),
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
@@ -364,7 +364,7 @@ class CommunityGridCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: context.tokens.onScrimMuted,
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                           ),

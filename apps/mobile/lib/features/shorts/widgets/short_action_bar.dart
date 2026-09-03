@@ -50,13 +50,13 @@ class ShortActionBar extends StatelessWidget {
                   spreadRadius: 1,
                   offset: const Offset(0, 3),
                 ),
-                const BoxShadow(
-                  color: Colors.black54,
+                BoxShadow(
+                  color: context.tokens.scrim.withValues(alpha: 0.54),
                   blurRadius: 6,
-                  offset: Offset(0, 2),
+                  offset: const Offset(0, 2),
                 ),
               ],
-              border: Border.all(color: Colors.white, width: 1.5),
+              border: Border.all(color: context.tokens.onScrim, width: 1.5),
             ),
             child: Icon(
               Icons.share_rounded,
@@ -65,15 +65,15 @@ class ShortActionBar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          const Text(
+          Text(
             'Share',
             style: TextStyle(
-              color: Colors.white,
+              color: context.tokens.onScrim,
               fontWeight: FontWeight.bold,
               fontSize: 12,
               shadows: [
-                Shadow(color: Colors.black, blurRadius: 6),
-                Shadow(color: Colors.black, blurRadius: 2),
+                Shadow(color: context.tokens.scrim, blurRadius: 6),
+                Shadow(color: context.tokens.scrim, blurRadius: 2),
               ],
             ),
           ),
