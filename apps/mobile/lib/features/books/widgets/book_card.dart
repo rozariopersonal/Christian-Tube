@@ -1,4 +1,6 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/book.dart';
 import '../models/user_reading_progress.dart';
@@ -29,7 +31,7 @@ class BookCard extends StatelessWidget {
     final coverFile = book.coverFile;
 
     if (coverFile.isNotEmpty) {
-      final assetPath = 'assets/books/covers/$coverFile';
+      final imageUrl = 'https://raw.githubusercontent.com/${AppConfig.releasesRepo}/main/books/covers/$coverFile';
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Container(
@@ -47,10 +49,10 @@ class BookCard extends StatelessWidget {
               ),
             ],
           ),
-          child: Image.asset(
-            assetPath,
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => BookCoverFallback(
+            errorWidget: (context, url, error) => BookCoverFallback(
               title: book.title,
               author: book.author,
             ),

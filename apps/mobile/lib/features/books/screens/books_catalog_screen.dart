@@ -1,5 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/book.dart';
@@ -518,10 +520,10 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                           height: 72,
                           color: tokens.surface,
                           child: book.coverFile.isNotEmpty
-                              ? Image.asset(
-                                  'assets/books/covers/${book.coverFile}',
+                              ? CachedNetworkImage(
+                                  imageUrl: 'https://raw.githubusercontent.com/${AppConfig.releasesRepo}/main/books/covers/${book.coverFile}',
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Icon(Icons.menu_book, color: tokens.accent, size: 22),
+                                  errorWidget: (context, url, error) => Icon(Icons.menu_book, color: tokens.accent, size: 22),
                                 )
                               : Icon(Icons.menu_book, color: tokens.accent, size: 22),
                         ),
