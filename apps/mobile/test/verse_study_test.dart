@@ -67,7 +67,7 @@ void main() {
 
       await tester.pumpWidget(
         wrapWithTheme(
-          VerseStudyScreen(
+          VerseStudyScreen(bookNumber: 1, chapterNumber: 1, verseNumber: 1, 
             verseText: sampleVerse.text,
             verseLabel: 'JHN 3:16',
             versionLabel: 'World English Bible',
@@ -114,7 +114,7 @@ void main() {
 
       await tester.pumpWidget(
         wrapWithTheme(
-          VerseStudyScreen(
+          VerseStudyScreen(bookNumber: 1, chapterNumber: 1, verseNumber: 1, 
             verseText: sampleVerse.text,
             verseLabel: 'JHN 3:16',
             versionLabel: 'World English Bible',
@@ -142,7 +142,7 @@ void main() {
         (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          VerseStudyScreen(
+          VerseStudyScreen(bookNumber: 1, chapterNumber: 1, verseNumber: 1, 
             verseText: sampleVerse.text,
             verseLabel: 'JHN 3:16',
             versionLabel: 'World English Bible',
@@ -193,7 +193,7 @@ void main() {
 
       await tester.pumpWidget(
         wrapWithTheme(
-          VerseStudyScreen(
+          VerseStudyScreen(bookNumber: 1, chapterNumber: 1, verseNumber: 1, 
             verseText: sampleVerse.text,
             verseLabel: 'JHN 3:16',
             references: const [],
@@ -242,7 +242,7 @@ void main() {
 
       await tester.pumpWidget(
         wrapWithTheme(
-          VerseStudyScreen(
+          VerseStudyScreen(bookNumber: 1, chapterNumber: 1, verseNumber: 1, 
             verseText: sampleVerse.text,
             verseLabel: 'JHN 3:16',
             references: const [],
@@ -269,7 +269,7 @@ void main() {
         (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          VerseStudyScreen(
+          VerseStudyScreen(bookNumber: 1, chapterNumber: 1, verseNumber: 1, 
             verseText: 'தேவன், தம்முடைய ஒரேபேறான குமாரனை...',
             verseLabel: 'யோவான் 3:16',
             versionLabel: 'Tamil Old Version (பரிசுத்த வேதாகமம்)',
@@ -301,7 +301,7 @@ void main() {
 
       await tester.pumpWidget(
         wrapWithTheme(
-          VerseStudyScreen(
+          VerseStudyScreen(bookNumber: 1, chapterNumber: 1, verseNumber: 1, 
             verseText: sampleVerse.text,
             verseLabel: 'JHN 3:16',
             references: const [sampleCrossRef],
@@ -337,7 +337,7 @@ void main() {
 
       await tester.pumpWidget(
         wrapWithTheme(
-          VerseStudyScreen(
+          VerseStudyScreen(bookNumber: 1, chapterNumber: 1, verseNumber: 1, 
             verseText: sampleVerse.text,
             verseLabel: 'JHN 3:16',
             references: const [],
