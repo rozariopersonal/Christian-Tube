@@ -25,7 +25,7 @@ free_tier:
 
 # Gemini Model Configuration
 gemini:
-  model: "gemini-3.5-flash-lite"
+  model: "gemini-3.6-flash"
   temperature: 0.1
   max_retries: 5
   retry_base_delay_ms: 5000
