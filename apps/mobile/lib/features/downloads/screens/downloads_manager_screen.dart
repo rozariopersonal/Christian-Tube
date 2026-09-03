@@ -3,6 +3,7 @@ import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../bible/services/bible_background_service.dart';
 import '../../bible/services/cross_reference_service.dart';
+import '../../bible/services/study/bible_study_updater.dart';
 import '../../books/models/book.dart';
 import '../../books/services/book_service.dart';
 import '../../dictionary/services/dictionary_download_manager.dart';
@@ -38,6 +39,9 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
   bool _crossRefsInstalled = false;
   bool _bgInstalled = false;
   bool _booksInstalled = false;
+  bool _studyDbInstalled = false;
+  bool _isStudyDbDownloading = false;
+  double _studyDbProgress = 0.0;
   Set<String> _installedBookIds = {};
   List<Book> _catalogBooks = [];
 
@@ -91,6 +95,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
     final crossRefs = await _crossRefService.isInstalled();
     final bg = await _bgService.isInstalled();
     final books = await _bookService.isInstalled();
+    final studyDb = await BibleStudyUpdater.isDownloaded();
     final installedBookIds = await _bookService.getInstalledBookIds();
     final catalog = await _bookService.getCatalogFromAsset();
 
@@ -99,6 +104,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
         _crossRefsInstalled = crossRefs;
         _bgInstalled = bg;
         _booksInstalled = books;
+        _studyDbInstalled = studyDb;
         _installedBookIds = installedBookIds;
         _catalogBooks = catalog;
       });
@@ -599,6 +605,46 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
             isDownloading: _crossRefService.isDownloading,
             progress: _crossRefService.progress,
             onDownload: () => _crossRefService.downloadAndInstall(),
+            tokens: tokens,
+          ),
+          const SizedBox(height: 10),
+          _buildStudyDatasetCard(
+            title: 'Words & Theological Concepts (Tamil OV)',
+            subtitle: 'Study dataset for deep dive into Hebrew/Greek word meanings and concepts.',
+            sizeDisplay: '3.5 MB',
+            isInstalled: _studyDbInstalled,
+            isDownloading: _isStudyDbDownloading,
+            progress: _studyDbProgress,
+            onDownload: () async {
+              setState(() {
+                _isStudyDbDownloading = true;
+                _studyDbProgress = 0.0;
+              });
+              try {
+                await BibleStudyUpdater.downloadUpdate((progress) {
+                  if (mounted) {
+                    setState(() {
+                      _studyDbProgress = progress;
+                    });
+                  }
+                });
+                if (mounted) {
+                  setState(() {
+                    _isStudyDbDownloading = false;
+                    _studyDbInstalled = true;
+                  });
+                }
+              } catch (e) {
+                if (mounted) {
+                  setState(() {
+                    _isStudyDbDownloading = false;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Download failed: $e')),
+                  );
+                }
+              }
+            },
             tokens: tokens,
           ),
           const SizedBox(height: 10),

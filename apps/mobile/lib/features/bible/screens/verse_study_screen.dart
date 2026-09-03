@@ -102,6 +102,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   List<VerseConcept> _verseConcepts = [];
   bool _isConceptsLoading = true;
   bool _updateAvailable = false;
+  bool _isStudyDbDownloaded = true;
 
   void _copyCommentary(BuildContext context, String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
@@ -200,10 +201,12 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   }
 
   Future<void> _checkForStudyUpdates() async {
+    final isDownloaded = await BibleStudyUpdater.isDownloaded();
     final hasUpdate = await BibleStudyUpdater.checkForUpdates();
-    if (hasUpdate && mounted) {
+    if (mounted) {
       setState(() {
-        _updateAvailable = true;
+        _isStudyDbDownloaded = isDownloaded;
+        _updateAvailable = hasUpdate;
       });
     }
   }
@@ -1087,7 +1090,38 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (_updateAvailable)
+        if (!_isStudyDbDownloaded)
+          InkWell(
+            onTap: () {
+              Navigator.of(context).pushNamed('/downloads');
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: tokens.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: tokens.surfaceBorder),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.download_rounded, color: tokens.onSurface, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Study concepts are not downloaded. Tap here to manage downloads.',
+                      style: TextStyle(
+                        color: tokens.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (_updateAvailable)
           InkWell(
             onTap: () async {
               showDialog(
@@ -1114,7 +1148,10 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                 await BibleStudyUpdater.downloadUpdate(null);
                 if (mounted) {
                   Navigator.pop(context);
-                  setState(() => _updateAvailable = false);
+                  setState(() {
+                    _updateAvailable = false;
+                    _isStudyDbDownloaded = true;
+                  });
                   _loadVerseConcepts();
                 }
               } catch (e) {
