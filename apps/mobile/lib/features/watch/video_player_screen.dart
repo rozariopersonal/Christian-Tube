@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -61,6 +63,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   /// App-level fullscreen toggle.
   bool _isFullScreen = false;
+
+  /// Set to true after the user explicitly taps the fullscreen-exit button.
+  /// Prevents physical landscape rotation from immediately re-triggering
+  /// fullscreen until the device returns to portrait orientation.
+  bool _userExitedFullscreen = false;
 
   PlaylistLoopMode _loopMode = PlaylistLoopMode.off;
   bool _isShuffle = false;
@@ -254,13 +261,44 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     // On tablets, web, and desktop, landscape is normal orientation and renders
     // the two-column YouTube layout.
     final isPhoneLandscape = isPhone && orientation == Orientation.landscape;
-    final isFullscreen = _isFullScreen || (!kIsWeb && isPhoneLandscape);
+    // When the device returns to portrait, clear the "user exited" gate so that
+    // the next landscape rotation can auto-enter fullscreen again.
+    if (!isPhoneLandscape && _userExitedFullscreen) {
+      // Schedule outside build to avoid setState-during-build.
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _userExitedFullscreen = false);
+      });
+    }
+    // Auto-enter fullscreen on phone landscape ONLY when the user hasn't
+    // explicitly exited fullscreen during the current landscape session.
+    final isFullscreen =
+        _isFullScreen || (!kIsWeb && isPhoneLandscape && !_userExitedFullscreen);
 
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
       startSeconds: widget.startSeconds,
       isFullScreen: isFullscreen,
-      onToggleFullScreen: () => setState(() => _isFullScreen = !_isFullScreen),
+      onToggleFullScreen: () {
+        if (_isFullScreen || isPhoneLandscape) {
+          // Exiting fullscreen: lock portrait so the sensor-based auto-fullscreen
+          // doesn't immediately re-trigger while the device is still landscape.
+          setState(() {
+            _isFullScreen = false;
+            _userExitedFullscreen = true;
+          });
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.portraitDown,
+          ]);
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+            }
+          });
+        } else {
+          setState(() => _isFullScreen = true);
+        }
+      },
       onPositionChanged: (pos) {
         _currentPositionSeconds = pos.inMilliseconds / 1000.0;
       },
@@ -270,7 +308,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             canPop: !_isFullScreen,
             onPopInvokedWithResult: (didPop, result) {
               if (!didPop && _isFullScreen) {
-                setState(() => _isFullScreen = false);
+                // Exiting fullscreen via back button: also lock portrait.
+                setState(() {
+                  _isFullScreen = false;
+                  _userExitedFullscreen = true;
+                });
+                SystemChrome.setPreferredOrientations([
+                  DeviceOrientation.portraitUp,
+                  DeviceOrientation.portraitDown,
+                ]);
+                Future.delayed(const Duration(milliseconds: 500), () {
+                  if (mounted) {
+                    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+                  }
+                });
               }
             },
             child: Scaffold(

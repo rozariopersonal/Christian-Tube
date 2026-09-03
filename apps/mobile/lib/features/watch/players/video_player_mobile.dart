@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -55,12 +57,15 @@ class _MobileVideoPlayerWrapper extends StatefulWidget {
 
 class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
   InAppWebViewController? _webViewController;
+  // Tracks the pending portrait-restore timer so it can be cancelled on dispose.
+  Timer? _orientationRestoreTimer;
 
   @override
   void initState() {
     super.initState();
-    // Allow sensor auto-rotation while on video player screen
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    // Orientation is managed by the screen-level widget (_VideoPlayerScreenState)
+    // via _applyFullscreenMode. Do NOT call setPreferredOrientations here so we
+    // avoid racing with the screen's own orientation setup.
   }
 
   @override
@@ -87,7 +92,11 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     } else {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      Future.delayed(const Duration(milliseconds: 300), () {
+      // Cancel any previously scheduled restore before scheduling a new one.
+      _orientationRestoreTimer?.cancel();
+      _orientationRestoreTimer = Timer(const Duration(milliseconds: 300), () {
+        // Guard: if dispose() already ran and locked portrait, do not
+        // override it with the all-orientations unlock.
         if (mounted) {
           SystemChrome.setPreferredOrientations(DeviceOrientation.values);
         }
@@ -104,14 +113,17 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
 
   @override
   void dispose() {
+    // Cancel the pending portrait-restore timer so it cannot fire after
+    // _VideoPlayerScreenState.dispose() has already applied the portrait lock.
+    // If we let it fire it would re-open all orientations on the previous route.
+    _orientationRestoreTimer?.cancel();
     if (_activeMainWebViewController == _webViewController) {
       _activeMainWebViewController = null;
     }
+    // Restore edge-to-edge but do NOT touch setPreferredOrientations here.
+    // The owning _VideoPlayerScreenState.dispose() is the single place that
+    // locks back to portrait, preventing the two calls from racing.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
     super.dispose();
   }
 
