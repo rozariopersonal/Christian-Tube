@@ -1,4 +1,4 @@
-import '../models/verse_concept.dart';
+import '../../models/verse_concept.dart';
 
 abstract class BibleStudyRepository {
   /// Initializes the service.

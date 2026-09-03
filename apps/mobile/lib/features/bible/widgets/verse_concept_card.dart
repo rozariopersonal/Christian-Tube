@@ -70,9 +70,7 @@ class _VerseConceptCardState extends State<VerseConceptCard> {
                     children: [
                       Expanded(
                         child: Text(
-                          widget.concept.originalLanguage!.originalWord.isNotEmpty 
-                              ? widget.concept.originalLanguage!.originalWord 
-                              : widget.concept.originalLanguage!.lemma,
+                          widget.concept.originalLanguage!.lemma,
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.w600,

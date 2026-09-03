@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/config/app_config.dart';
+import '../../../../core/config/app_config.dart';
 
 class BibleStudyUpdater {
   static const String _dbFileName = 'study_ta_ovbsi.sqlite';
