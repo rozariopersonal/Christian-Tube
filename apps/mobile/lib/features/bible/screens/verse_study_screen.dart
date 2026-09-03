@@ -1055,7 +1055,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
               tabs: [
                 Tab(
                   icon: const Icon(Icons.menu_book_outlined, size: 18),
-                  text: 'Words & Concepts',
+                  text: 'Concepts',
                 ),
                 Tab(
                   icon: const Icon(Icons.link, size: 18),
