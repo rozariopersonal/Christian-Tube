@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/config/app_config.dart';
@@ -9,14 +10,27 @@ class BibleStudyUpdater {
   static const String _dbFileName = 'study_ta_ovbsi.sqlite';
   static const String _lastUpdateKey = 'study_db_last_updated';
 
-  /// Returns the path to the downloaded SQLite database if it exists, otherwise null.
+  /// Returns the path to the downloaded SQLite database if it exists, otherwise extracts it from assets.
   static Future<String?> getDatabasePath() async {
     if (kIsWeb) return null;
     try {
       final dir = await getApplicationDocumentsDirectory();
       final path = '${dir.path}/$_dbFileName';
-      if (await File(path).exists()) {
+      final file = File(path);
+      
+      // If a downloaded or previously extracted version exists, use it
+      if (await file.exists()) {
         return path;
+      }
+      
+      // Fallback: extract from assets (local testing / bundled version)
+      try {
+        final ByteData data = await rootBundle.load('assets/databases/$_dbFileName');
+        final List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        await file.writeAsBytes(bytes, flush: true);
+        return path;
+      } catch (assetError) {
+        debugPrint('No study DB found in assets or documents: $assetError');
       }
     } catch (_) {}
     return null;
