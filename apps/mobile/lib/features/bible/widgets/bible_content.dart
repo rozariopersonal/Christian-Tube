@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import '../../../core/layout/content_width.dart';
+import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../models/bible_verse.dart';
 import '../widgets/verse_item.dart';
@@ -56,26 +57,60 @@ class BibleContent extends StatelessWidget {
           }
           return false;
         },
-        child: ListView.builder(
-          controller: scrollController,
-          itemCount: s.verses.length,
-          scrollCacheExtent: const ScrollCacheExtent.pixels(300),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          itemBuilder: (context, index) {
-            if (index < 0 || index >= s.verses.length) return const SizedBox.shrink();
-            final verse = s.verses[index];
-            return _VerseRow(
-              verse: verse,
-              controller: controller,
-              verseKeys: verseKeys,
-              onVerseTap: onVerseTap,
-              onCopy: onCopy,
-              onShare: onShare,
-              onBookmark: onBookmark,
-              onClear: onClear,
-              onOpenStudyPage: onOpenStudyPage,
+        child: SelectionArea(
+          contextMenuBuilder: (context, selectableRegionState) {
+            String selectedText = '';
+            try {
+              final dynamic dyn = selectableRegionState;
+              final dynamic content = dyn.getSelectedContent();
+              if (content != null && content.plainText != null && (content.plainText as String).trim().isNotEmpty) {
+                selectedText = (content.plainText as String).trim();
+              }
+            } catch (_) {}
+
+            final words = selectedText
+                .split(RegExp(r'\s+'))
+                .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
+                .where((w) => w.isNotEmpty)
+                .toList();
+            final lookupWord = words.isNotEmpty ? words.first : selectedText;
+
+            return AdaptiveTextSelectionToolbar.buttonItems(
+              anchors: selectableRegionState.contextMenuAnchors,
+              buttonItems: [
+                if (lookupWord.isNotEmpty)
+                  ContextMenuButtonItem(
+                    label: 'Define',
+                    onPressed: () {
+                      selectableRegionState.hideToolbar();
+                      InlineDictionaryPopover.show(context, word: lookupWord);
+                    },
+                  ),
+                ...selectableRegionState.contextMenuButtonItems,
+              ],
             );
           },
+          child: ListView.builder(
+            controller: scrollController,
+            itemCount: s.verses.length,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(300),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            itemBuilder: (context, index) {
+              if (index < 0 || index >= s.verses.length) return const SizedBox.shrink();
+              final verse = s.verses[index];
+              return _VerseRow(
+                verse: verse,
+                controller: controller,
+                verseKeys: verseKeys,
+                onVerseTap: onVerseTap,
+                onCopy: onCopy,
+                onShare: onShare,
+                onBookmark: onBookmark,
+                onClear: onClear,
+                onOpenStudyPage: onOpenStudyPage,
+              );
+            },
+          ),
         ),
       ),
     );
