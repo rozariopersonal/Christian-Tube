@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
@@ -46,10 +47,13 @@ class ReaderNavigationBar extends StatelessWidget {
     final appearance = controller.appearance;
     final muted = appearance.mutedTextColor(tokens);
 
-    return Container(
-      color: bgColor.withValues(alpha: 0.96),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: SafeArea(
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+        child: Container(
+          color: bgColor.withValues(alpha: 0.8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -124,6 +128,8 @@ class ReaderNavigationBar extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
         ),
       ),
     );

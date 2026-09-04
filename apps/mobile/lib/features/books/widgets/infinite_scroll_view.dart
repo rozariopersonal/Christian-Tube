@@ -49,31 +49,34 @@ class InfiniteScrollView extends StatelessWidget {
     return GestureDetector(
       onTap: onToggleChrome,
       behavior: HitTestBehavior.opaque,
-      child: CustomScrollView(
-        controller: scrollController,
-        center: centerKey,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildPageSection(prevPages[index], tokens, textColor),
-                childCount: prevPages.length,
+      child: SelectionArea(
+        contextMenuBuilder: (context, state) => buildSelectionToolbar(context, state, controller.state.currentPage),
+        child: CustomScrollView(
+          controller: scrollController,
+          center: centerKey,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _buildPageSection(prevPages[index], tokens, textColor),
+                  childCount: prevPages.length,
+                ),
               ),
             ),
-          ),
-          SliverPadding(
-            key: centerKey,
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildPageSection(nextPages[index], tokens, textColor),
-                childCount: nextPages.length,
+            SliverPadding(
+              key: centerKey,
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _buildPageSection(nextPages[index], tokens, textColor),
+                  childCount: nextPages.length,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -83,9 +86,11 @@ class InfiniteScrollView extends StatelessWidget {
     final isLoading = controller.isPageLoading(pageNum);
     final hasFailed = controller.hasPageFailed(pageNum);
 
+    Widget content;
+
     if (hasFailed || (lines != null && lines.isEmpty && !isLoading)) {
-      return Container(
-        key: resolvePageKey(pageNum),
+      content = Container(
+        key: const ValueKey('error'),
         padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
         child: Center(
           child: Column(
@@ -112,15 +117,13 @@ class InfiniteScrollView extends StatelessWidget {
           ),
         ),
       );
-    }
-
-    if (lines == null || (lines.isEmpty && isLoading)) {
+    } else if (lines == null || (lines.isEmpty && isLoading)) {
       if (!isLoading && !hasFailed) {
         onTriggerFetch(pageNum);
       }
-      return Container(
-        key: resolvePageKey(pageNum),
-        padding: const EdgeInsets.symmetric(vertical: 32),
+      content = Container(
+        key: const ValueKey('loading'),
+        padding: const EdgeInsets.symmetric(vertical: 64),
         child: Center(
           child: SizedBox(
             width: 24,
@@ -129,14 +132,10 @@ class InfiniteScrollView extends StatelessWidget {
           ),
         ),
       );
-    }
-
-    final blocks = BookParagraphGrouper.groupLines(lines);
-
-    return Container(
-      key: resolvePageKey(pageNum),
-      child: SelectionArea(
-        contextMenuBuilder: (context, state) => buildSelectionToolbar(context, state, pageNum),
+    } else {
+      final blocks = BookParagraphGrouper.groupLines(lines);
+      content = Container(
+        key: const ValueKey('content'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -144,6 +143,16 @@ class InfiniteScrollView extends StatelessWidget {
             ...blocks.map((b) => buildBlock(b, pageNum, textColor, tokens)),
           ],
         ),
+      );
+    }
+
+    return KeyedSubtree(
+      key: resolvePageKey(pageNum),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        child: content,
       ),
     );
   }

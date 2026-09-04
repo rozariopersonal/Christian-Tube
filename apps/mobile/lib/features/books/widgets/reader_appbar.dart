@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
@@ -44,7 +45,13 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
     final chapterTitle = controller.currentChapterTitle();
 
     return AppBar(
-      backgroundColor: bgColor.withValues(alpha: 0.96),
+      backgroundColor: bgColor.withValues(alpha: 0.8),
+      flexibleSpace: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+          child: Container(color: Colors.transparent),
+        ),
+      ),
       elevation: 0,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

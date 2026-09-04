@@ -182,7 +182,7 @@ class BookReaderViewCoordinator {
       final percent = (line / (totalLines > 0 ? totalLines : 1)).clamp(0.0, 1.0);
 
       final changedPercent = (percent * 100).toInt() != (s.lastPercent * 100).toInt();
-      if (shouldUpdate || changedPercent || activeLine != null) {
+      if (shouldUpdate || changedPercent || (activeLine != null && activeLine != s.lastReadLine)) {
         controller.markProgress(page, line, percent);
       }
     }
