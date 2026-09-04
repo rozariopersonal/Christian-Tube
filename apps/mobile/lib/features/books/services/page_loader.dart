@@ -73,6 +73,7 @@ class PageLoader {
     final serviceCached = _bookService.getCachedPageLines(_bookId, page);
     if (serviceCached != null && serviceCached.isNotEmpty) {
       _pageCache[page] = serviceCached;
+      onPageStateChanged?.call();
       return serviceCached;
     }
 

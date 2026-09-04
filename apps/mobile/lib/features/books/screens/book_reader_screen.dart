@@ -92,7 +92,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     );
     _controller.appearance.loadFromPrefs();
     _controller.pageLoader.onPageStateChanged = () {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
     };
     _controller.pageLoader.onPageFetched = _coordinator.onPageFetched;
     _controller.addListener(_onControllerChanged);
@@ -100,7 +103,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   }
 
   void _onControllerChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
     _coordinator.schedulePendingResumeIfReady();
   }
 

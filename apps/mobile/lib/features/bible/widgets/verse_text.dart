@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
-import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../models/bible_verse.dart';
 
 class VerseText extends StatefulWidget {

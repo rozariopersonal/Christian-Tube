@@ -3,6 +3,7 @@ import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
 import 'package:mobile/features/books/services/book_reader_appearance.dart';
+import 'package:mobile/features/books/services/reading_position_tracker.dart';
 
 /// The single-page horizontal swipe feed (used on `compact` screens).
 ///
@@ -42,7 +43,7 @@ class _MobilePageViewState extends State<MobilePageView> {
   @override
   Widget build(BuildContext context) {
     final s = widget.controller.state;
-    final totalPages = s.book?.totalPages ?? 1;
+    final totalPages = ReadingPositionTracker.safeTotalPages(s.book);
     final textColor = widget.appearance.textColor(context.tokens);
 
     return GestureDetector(
@@ -100,7 +101,11 @@ class _MobilePageViewState extends State<MobilePageView> {
       );
     } else if (lines == null || (lines.isEmpty && isLoading)) {
       if (!isLoading && !hasFailed) {
-        widget.onTriggerFetch(pageNum);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            widget.onTriggerFetch(pageNum);
+          }
+        });
       }
       content = Container(
         key: const ValueKey('loading'),

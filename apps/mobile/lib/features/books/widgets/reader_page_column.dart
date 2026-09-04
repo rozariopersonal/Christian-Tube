@@ -74,7 +74,9 @@ class ReaderPageColumn extends StatelessWidget {
 
     if (lines == null || (lines.isEmpty && isLoading)) {
       if (!isLoading && !hasFailed) {
-        onTriggerFetch(pageNum);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          onTriggerFetch(pageNum);
+        });
       }
       return Center(
         child: Column(

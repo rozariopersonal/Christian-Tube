@@ -65,30 +65,37 @@ class VerseActionBar extends StatelessWidget {
             ),
             // Bottom row: Actions
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _ActionItem(
-                    icon: Icons.copy,
-                    label: 'Copy',
-                    onPressed: onCopy,
+                  Expanded(
+                    child: _ActionItem(
+                      icon: Icons.copy,
+                      label: 'Copy',
+                      onPressed: onCopy,
+                    ),
                   ),
-                  _ActionItem(
-                    icon: Icons.ios_share,
-                    label: 'Share',
-                    onPressed: onShare,
+                  Expanded(
+                    child: _ActionItem(
+                      icon: Icons.ios_share,
+                      label: 'Share',
+                      onPressed: onShare,
+                    ),
                   ),
-                  _ActionItem(
-                    icon: Icons.bookmark_add_outlined,
-                    label: 'Bookmark',
-                    onPressed: onBookmark,
+                  Expanded(
+                    child: _ActionItem(
+                      icon: Icons.bookmark_add_outlined,
+                      label: 'Bookmark',
+                      onPressed: onBookmark,
+                    ),
                   ),
                   if (onStudy != null)
-                    _ActionItem(
-                      icon: Icons.auto_stories_outlined,
-                      label: 'Study',
-                      onPressed: onStudy!,
+                    Expanded(
+                      child: _ActionItem(
+                        icon: Icons.auto_stories_outlined,
+                        label: 'Study',
+                        onPressed: onStudy!,
+                      ),
                     ),
                 ],
               ),
@@ -118,17 +125,19 @@ class _ActionItem extends StatelessWidget {
       onTap: onPressed,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: tokens.onSurface, size: 24),
+            Icon(icon, color: tokens.onSurface, size: 22),
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: tokens.onSurface,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
             ),

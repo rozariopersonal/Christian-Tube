@@ -95,10 +95,15 @@ class BookReaderViewCoordinator {
     final resumeLine = controller.lastReadLine;
     
     // Jump the PageController to the correct page if needed
-    if (!_isDualPage() && _pageController.hasClients) {
-      final targetPageIdx = resumePage - 1;
-      if (_pageController.page?.round() != targetPageIdx) {
-        _pageController.jumpToPage(targetPageIdx);
+    if (!_isDualPage()) {
+      if (_pageController.hasClients) {
+        final targetPageIdx = resumePage - 1;
+        if (_pageController.page?.round() != targetPageIdx) {
+          _pageController.jumpToPage(targetPageIdx);
+        }
+      } else {
+        _pendingResumeHandled = false;
+        return;
       }
     }
 
