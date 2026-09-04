@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/api/github_data_service.dart';
+import 'package:mobile/core/config/app_config.dart';
 import 'package:mobile/features/books/models/book.dart';
 import 'package:mobile/features/books/models/book_chapter.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
@@ -167,25 +168,32 @@ class WebBookDataAdapter implements BookDataAdapter {
   Future<List<BookChapter>> _fetchTocFromNetwork(String bookId) async {
     try {
       final urls = GitHubDataService.booksTocUrls(bookId);
-      final dio = Dio();
+      final dio = Dio(
+        BaseOptions(
+          headers: {'User-Agent': 'ChristianApp/${AppConfig.version}'},
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 20),
+        ),
+      );
       for (final url in urls) {
         try {
           final res = await dio.get<dynamic>(
             url,
             options: Options(
-              receiveTimeout: const Duration(seconds: 15),
-              connectTimeout: const Duration(seconds: 10),
               responseType: ResponseType.json,
             ),
           );
           if (res.statusCode == 200 && res.data != null) {
-            final Map<String, dynamic> data = res.data is String ? jsonDecode(res.data as String) : (res.data as Map<String, dynamic>);
-            final rawChapters = data['chapters'] as List<dynamic>? ?? [];
-            return rawChapters.map((item) {
-              final map = item as Map<String, dynamic>;
-              map['bookId'] = bookId;
-              return BookChapter.fromMap(map);
-            }).toList();
+            final dynamic raw = res.data is String ? jsonDecode(res.data as String) : res.data;
+            if (raw is Map) {
+              final data = Map<String, dynamic>.from(raw);
+              final rawChapters = data['chapters'] as List<dynamic>? ?? [];
+              return rawChapters.map((item) {
+                final map = Map<String, dynamic>.from(item as Map);
+                map['bookId'] = bookId;
+                return BookChapter.fromMap(map);
+              }).toList();
+            }
           }
         } catch (_) {}
       }
@@ -253,38 +261,44 @@ class WebBookDataAdapter implements BookDataAdapter {
   Future<List<BookLine>> _fetchChapterLinesFromNetwork(String bookId, int chapterIndex, String cacheKey) async {
     try {
       final urls = GitHubDataService.bookChapterUrls(bookId, chapterIndex);
-      final dio = Dio();
+      final dio = Dio(
+        BaseOptions(
+          headers: {'User-Agent': 'ChristianApp/${AppConfig.version}'},
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 20),
+        ),
+      );
       for (final url in urls) {
         try {
           final res = await dio.get<dynamic>(
             url,
             options: Options(
-              receiveTimeout: const Duration(seconds: 20),
-              connectTimeout: const Duration(seconds: 10),
               responseType: ResponseType.json,
             ),
           );
           if (res.statusCode == 200 && res.data != null) {
-            final List<dynamic> list = res.data is String ? jsonDecode(res.data as String) : (res.data as List<dynamic>);
-            final lines = list.map((item) {
-              final map = item as Map<String, dynamic>;
-              map['bookId'] = bookId;
-              map['chapterIndex'] = chapterIndex;
-              return BookLine.fromMap(map);
-            }).toList();
+            final dynamic raw = res.data is String ? jsonDecode(res.data as String) : res.data;
+            if (raw is List) {
+              final lines = raw.map((item) {
+                final map = Map<String, dynamic>.from(item as Map);
+                map['bookId'] = bookId;
+                map['chapterIndex'] = chapterIndex;
+                return BookLine.fromMap(map);
+              }).toList();
 
-            if (lines.isNotEmpty) {
-              // Pre-populate _livePageCache cleanly without duplicates
-              final pageMap = <int, List<BookLine>>{};
-              for (final l in lines) {
-                (pageMap[l.pageNumber] ??= []).add(l);
+              if (lines.isNotEmpty) {
+                // Pre-populate _livePageCache cleanly without duplicates
+                final pageMap = <int, List<BookLine>>{};
+                for (final l in lines) {
+                  (pageMap[l.pageNumber] ??= []).add(l);
+                }
+                for (final entry in pageMap.entries) {
+                  entry.value.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
+                  final pageKey = '${bookId}_${entry.key}';
+                  _livePageCache[pageKey] = entry.value;
+                }
+                return lines;
               }
-              for (final entry in pageMap.entries) {
-                entry.value.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
-                final pageKey = '${bookId}_${entry.key}';
-                _livePageCache[pageKey] = entry.value;
-              }
-              return lines;
             }
           }
         } catch (_) {}
@@ -300,7 +314,15 @@ class WebBookDataAdapter implements BookDataAdapter {
     }
 
     final toc = await getChapters(bookId);
-    if (toc.isEmpty) return [];
+    if (toc.isEmpty) {
+      if (pageNumber == 1) {
+        await getChapterLines(bookId, 1);
+        if (_livePageCache.containsKey(pageKey) && _livePageCache[pageKey]!.isNotEmpty) {
+          return _livePageCache[pageKey]!;
+        }
+      }
+      return [];
+    }
 
     final targetChapters = toc.where(
       (c) => c.startPage <= pageNumber && c.endPage >= pageNumber,

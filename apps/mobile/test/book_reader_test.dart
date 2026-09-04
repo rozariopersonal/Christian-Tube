@@ -496,5 +496,20 @@ void main() {
       expect(find.text('Mock Book Title'), findsOneWidget);
       expect(find.textContaining('This is the first paragraph', skipOffstage: false), findsOneWidget);
     });
+
+    testWidgets('BookReaderScreen handles missing book safely without crashing', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [AppTokens.dark],
+          ),
+          home: const BookReaderScreen(bookId: 'missing_book'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(tester.takeException(), isNull);
+    });
   });
 }

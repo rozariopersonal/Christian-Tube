@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'package:mobile/core/api/github_data_service.dart';
+import 'package:mobile/core/config/app_config.dart';
 import '../models/book.dart';
 import '../models/book_chapter.dart';
 import '../models/book_highlight.dart';
@@ -703,11 +704,6 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       }
     }
 
-    // If the book is installed locally, do not fall back to network
-    if (await isBookInstalled(bookId)) {
-      return [];
-    }
-
     // Fallback to Live CDN chunked fetch
     if (_liveTocCache.containsKey(bookId) && _liveTocCache[bookId]!.isNotEmpty) {
       return _liveTocCache[bookId]!;
@@ -724,33 +720,43 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   Future<List<BookChapter>> _fetchTocFromNetwork(String bookId) async {
     try {
       final urls = GitHubDataService.booksTocUrls(bookId);
-      final dio = Dio();
+      final dio = Dio(
+        BaseOptions(
+          headers: {'User-Agent': 'ChristianApp/${AppConfig.version}'},
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 20),
+        ),
+      );
       for (final url in urls) {
         try {
           final res = await dio.get<dynamic>(
             url,
             options: Options(
               responseType: ResponseType.json,
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 20),
             ),
           );
           if (res.statusCode == 200 && res.data != null) {
-            final Map<String, dynamic> data = res.data is String ? jsonDecode(res.data as String) : (res.data as Map<String, dynamic>);
-            final rawChapters = data['chapters'] as List<dynamic>? ?? [];
-            final list = rawChapters.map((c) => BookChapter(
-              bookId: bookId,
-              chapterIndex: ((c['chapterIndex'] ?? c['chapter_index']) as num?)?.toInt() ?? 1,
-              chapterTitle: (c['title'] ?? c['chapter_title'] as String?) ?? 'Chapter ${c['chapterIndex'] ?? 1}',
-              startLine: ((c['startLine'] ?? c['start_line']) as num?)?.toInt() ?? 1,
-              endLine: ((c['endLine'] ?? c['end_line']) as num?)?.toInt() ?? 1,
-              startPage: ((c['startPage'] ?? c['start_page']) as num?)?.toInt() ?? 1,
-              endPage: ((c['endPage'] ?? c['end_page']) as num?)?.toInt() ?? 1,
-            )).toList();
+            final dynamic raw = res.data is String ? jsonDecode(res.data as String) : res.data;
+            if (raw is Map) {
+              final data = Map<String, dynamic>.from(raw);
+              final rawChapters = data['chapters'] as List<dynamic>? ?? [];
+              final list = rawChapters.map((item) {
+                final c = Map<String, dynamic>.from(item as Map);
+                return BookChapter(
+                  bookId: bookId,
+                  chapterIndex: ((c['chapterIndex'] ?? c['chapter_index']) as num?)?.toInt() ?? 1,
+                  chapterTitle: (c['title'] ?? c['chapter_title'] as String?) ?? 'Chapter ${c['chapterIndex'] ?? 1}',
+                  startLine: ((c['startLine'] ?? c['start_line']) as num?)?.toInt() ?? 1,
+                  endLine: ((c['endLine'] ?? c['end_line']) as num?)?.toInt() ?? 1,
+                  startPage: ((c['startPage'] ?? c['start_page']) as num?)?.toInt() ?? 1,
+                  endPage: ((c['endPage'] ?? c['end_page']) as num?)?.toInt() ?? 1,
+                );
+              }).toList();
 
-            if (list.isNotEmpty) {
-              _liveTocCache[bookId] = list;
-              return list;
+              if (list.isNotEmpty) {
+                _liveTocCache[bookId] = list;
+                return list;
+              }
             }
           }
         } catch (e) {
@@ -778,11 +784,6 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       if (rows.isNotEmpty) {
         return rows.map((r) => BookLine.fromMap(r)).toList();
       }
-    }
-
-    // If the book is installed locally, do not fall back to network
-    if (await isBookInstalled(bookId)) {
-      return [];
     }
 
     // Fast path: In-memory live page cache
@@ -817,6 +818,12 @@ class SqliteBookDataAdapter implements BookDataAdapter {
         if (_livePageCache.containsKey(pageCacheKey) && _livePageCache[pageCacheKey]!.isNotEmpty) {
           return _livePageCache[pageCacheKey]!;
         }
+      }
+    } else if (pageNumber == 1) {
+      // Fallback: If TOC failed to load, fetch chapter 1 directly
+      await getChapterLines(bookId, 1);
+      if (_livePageCache.containsKey(pageCacheKey) && _livePageCache[pageCacheKey]!.isNotEmpty) {
+        return _livePageCache[pageCacheKey]!;
       }
     }
 
@@ -914,41 +921,50 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   Future<List<BookLine>> _fetchChapterLinesFromNetwork(String bookId, int chapterIndex, String cacheKey) async {
     try {
       final urls = GitHubDataService.bookChapterUrls(bookId, chapterIndex);
-      final dio = Dio();
+      final dio = Dio(
+        BaseOptions(
+          headers: {'User-Agent': 'ChristianApp/${AppConfig.version}'},
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 20),
+        ),
+      );
       for (final url in urls) {
         try {
           final res = await dio.get<dynamic>(
             url,
             options: Options(
               responseType: ResponseType.json,
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 20),
             ),
           );
           if (res.statusCode == 200 && res.data != null) {
-            final List<dynamic> list = res.data is String ? jsonDecode(res.data as String) : (res.data as List<dynamic>);
-            final lines = list.map((l) => BookLine(
-              bookId: bookId,
-              lineNumber: ((l['line'] ?? l['lineNumber'] ?? l['line_number']) as num).toInt(),
-              pageNumber: ((l['page'] ?? l['pageNumber'] ?? l['page_number']) as num?)?.toInt() ?? 1,
-              chapterIndex: chapterIndex,
-              contentType: (l['contentType'] ?? l['content_type'] as String?) ?? (l['isHeading'] == true ? 'h2' : 'p'),
-              text: (l['text'] as String?) ?? '',
-            )).toList();
+            final dynamic raw = res.data is String ? jsonDecode(res.data as String) : res.data;
+            if (raw is List) {
+              final lines = raw.map((item) {
+                final l = Map<String, dynamic>.from(item as Map);
+                return BookLine(
+                  bookId: bookId,
+                  lineNumber: ((l['line'] ?? l['lineNumber'] ?? l['line_number']) as num).toInt(),
+                  pageNumber: ((l['page'] ?? l['pageNumber'] ?? l['page_number']) as num?)?.toInt() ?? 1,
+                  chapterIndex: chapterIndex,
+                  contentType: (l['contentType'] ?? l['content_type'] as String?) ?? (l['isHeading'] == true ? 'h2' : 'p'),
+                  text: (l['text'] as String?) ?? '',
+                );
+              }).toList();
 
-            if (lines.isNotEmpty) {
-              _liveChapterLinesCache[cacheKey] = lines;
-              // Pre-populate _livePageCache cleanly without duplicates
-              final pageMap = <int, List<BookLine>>{};
-              for (final l in lines) {
-                (pageMap[l.pageNumber] ??= []).add(l);
+              if (lines.isNotEmpty) {
+                _liveChapterLinesCache[cacheKey] = lines;
+                // Pre-populate _livePageCache cleanly without duplicates
+                final pageMap = <int, List<BookLine>>{};
+                for (final l in lines) {
+                  (pageMap[l.pageNumber] ??= []).add(l);
+                }
+                for (final entry in pageMap.entries) {
+                  entry.value.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
+                  final pageKey = '${bookId}_${entry.key}';
+                  _livePageCache[pageKey] = entry.value;
+                }
+                return lines;
               }
-              for (final entry in pageMap.entries) {
-                entry.value.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
-                final pageKey = '${bookId}_${entry.key}';
-                _livePageCache[pageKey] = entry.value;
-              }
-              return lines;
             }
           }
         } catch (e) {

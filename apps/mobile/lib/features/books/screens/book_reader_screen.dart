@@ -360,9 +360,12 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
   Future<void> _loadBook() async {
     final book = await _bookService.getBook(widget.bookId);
-    final chapters = await _bookService.getChapters(widget.bookId);
+    if (book == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
 
-    if (book != null) {
+    final chapters = await _bookService.getChapters(widget.bookId);
       // 1. Resolve initial resume position
       int initialPage = widget.initialPage ?? 1;
       int initialLine = widget.highlightStartLine ?? 1;
@@ -417,9 +420,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkPendingResume();
       });
-    } else {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
 
   void _checkPendingResume() {
@@ -483,6 +483,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         _highlightCache[page] = highlights;
         _failedPages.remove(page);
       } else {
+        _pageCache[page] = const [];
         _failedPages.add(page);
       }
       if (mounted) {
@@ -495,8 +496,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       }
       return lines;
     } catch (e) {
+      _pageCache[page] = const [];
       _failedPages.add(page);
       debugPrint('Error loading page $page: $e');
+      if (mounted) setState(() {});
       return [];
     } finally {
       _inFlightPageFetches.remove(page);
@@ -1268,6 +1271,42 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     final isLoading = _inFlightPageFetches.containsKey(pageNum);
     final hasFailed = _failedPages.contains(pageNum);
 
+    if (hasFailed || (lines != null && lines.isEmpty && !isLoading)) {
+      return Container(
+        key: _pageKeys[pageNum] ??= GlobalKey(),
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.menu_book_rounded, size: 36, color: tokens.onSurfaceMuted.withValues(alpha: 0.6)),
+              const SizedBox(height: 12),
+              Text(
+                'Page $pageNum not available',
+                style: TextStyle(color: tokens.onSurface, fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Unable to load page content',
+                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Retry'),
+                onPressed: () {
+                  _pageCache.remove(pageNum);
+                  _failedPages.remove(pageNum);
+                  _fetchPageLines(pageNum);
+                  if (mounted) setState(() {});
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (lines == null || (lines.isEmpty && isLoading)) {
       if (!isLoading && !hasFailed) {
         _fetchPageLines(pageNum);
@@ -1280,34 +1319,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
             width: 24,
             height: 24,
             child: CircularProgressIndicator(color: tokens.accent, strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-
-    if (lines.isEmpty) {
-      return Container(
-        key: _pageKeys[pageNum] ??= GlobalKey(),
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Page $pageNum not available',
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Retry'),
-                onPressed: () {
-                  _pageCache.remove(pageNum);
-                  _failedPages.remove(pageNum);
-                  _fetchPageLines(pageNum);
-                },
-              ),
-            ],
           ),
         ),
       );
@@ -1417,6 +1428,41 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     final isLoading = _inFlightPageFetches.containsKey(pageNum);
     final hasFailed = _failedPages.contains(pageNum);
 
+    if (hasFailed || (lines != null && lines.isEmpty && !isLoading)) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.menu_book_rounded, size: 36, color: tokens.onSurfaceMuted.withValues(alpha: 0.6)),
+              const SizedBox(height: 12),
+              Text(
+                'Page $pageNum not available',
+                style: TextStyle(color: tokens.onSurface, fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Unable to load page content',
+                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Retry'),
+                onPressed: () {
+                  _pageCache.remove(pageNum);
+                  _failedPages.remove(pageNum);
+                  _fetchPageLines(pageNum);
+                  if (mounted) setState(() {});
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (lines == null || (lines.isEmpty && isLoading)) {
       if (!isLoading && !hasFailed) {
         _fetchPageLines(pageNum);
@@ -1436,39 +1482,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
               style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
             ),
           ],
-        ),
-      );
-    }
-
-    if (lines.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.menu_book_rounded, size: 36, color: tokens.onSurfaceMuted.withValues(alpha: 0.5)),
-              const SizedBox(height: 12),
-              Text(
-                'Page $pageNum not available',
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Retry'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: tokens.accent,
-                  side: BorderSide(color: tokens.accent.withValues(alpha: 0.5)),
-                ),
-                onPressed: () {
-                  _pageCache.remove(pageNum);
-                  _failedPages.remove(pageNum);
-                  _fetchPageLines(pageNum);
-                },
-              ),
-            ],
-          ),
         ),
       );
     }
@@ -1810,7 +1823,31 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           ? Center(child: CircularProgressIndicator(color: tokens.accent))
           : _book == null
               ? Center(
-                  child: Text('Book not found', style: TextStyle(color: tokens.onSurfaceMuted)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.menu_book_rounded, size: 48, color: tokens.onSurfaceMuted.withValues(alpha: 0.6)),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Book not found',
+                          style: TextStyle(color: tokens.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'This book could not be located in the catalog.',
+                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.tonalIcon(
+                          icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                          label: const Text('Go Back'),
+                          onPressed: () => Navigator.of(context).maybePop(),
+                        ),
+                      ],
+                    ),
+                  ),
                 )
               : isDualPage
                   ? _buildDualPageSpreadView(tokens)
