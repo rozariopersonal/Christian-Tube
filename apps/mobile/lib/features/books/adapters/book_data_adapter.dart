@@ -15,9 +15,9 @@ abstract class BookDataAdapter {
   Future<bool> isBookInstalled(String bookId);
   List<BookLine>? getCachedPageLines(String bookId, int pageNumber);
   Future<Set<String>> getInstalledBookIds();
-  Future<bool> downloadSingleBook(String bookId);
+  Future<bool> downloadSingleBook(String bookId, {String? language});
   Future<void> removeBookDownload(String bookId);
-  Future<bool> downloadAndInstall();
+  Future<bool> downloadAndInstall({String? language});
   Future<bool> isInstalled();
   Future<Book?> getBook(String id);
   Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author, String? language});

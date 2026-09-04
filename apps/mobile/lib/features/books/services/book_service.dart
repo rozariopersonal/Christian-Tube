@@ -57,9 +57,12 @@ class BookService extends ChangeNotifier {
   Future<bool> isBookInstalled(String bookId) => _adapter.isBookInstalled(bookId);
   List<BookLine>? getCachedPageLines(String bookId, int pageNumber) => _adapter.getCachedPageLines(bookId, pageNumber);
   Future<Set<String>> getInstalledBookIds() => _adapter.getInstalledBookIds();
-  Future<bool> downloadSingleBook(String bookId) => _adapter.downloadSingleBook(bookId);
-  Future<void> removeBookDownload(String bookId) => _adapter.removeBookDownload(bookId);
-  Future<bool> downloadAndInstall() => _adapter.downloadAndInstall();
+  Future<bool> downloadSingleBook(String bookId, {String? language}) =>
+      _adapter.downloadSingleBook(bookId, language: language);
+  Future<void> removeBookDownload(String bookId) =>
+      _adapter.removeBookDownload(bookId);
+  Future<bool> downloadAndInstall({String? language}) =>
+      _adapter.downloadAndInstall(language: language);
   Future<bool> isInstalled() => _adapter.isInstalled();
   Future<Book?> getBook(String id) => _adapter.getBook(id);
   Future<void> saveHighlight(BookHighlight highlight) => _adapter.saveHighlight(highlight);

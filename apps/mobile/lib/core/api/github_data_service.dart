@@ -1,4 +1,4 @@
-﻿import 'package:mobile/features/bible/models/book_abbreviation.dart';
+import 'package:mobile/features/bible/models/book_abbreviation.dart';
 import 'release_assets.dart';
 
 /// Single source of truth for every GitHub-hosted data asset URL.
@@ -62,35 +62,76 @@ class GitHubDataService {
   static List<String> booksCatalogUrls() =>
       ReleaseAssets.urlsFor('books/catalog.json');
 
+  static String _inferBookLanguage(String bookId, [String? langCode]) {
+    if (langCode != null && langCode.trim().isNotEmpty && langCode != 'all') {
+      return langCode.trim().toLowerCase();
+    }
+    for (final prefix in ['ta', 'hi', 'te', 'kn', 'ml', 'de']) {
+      if (bookId.startsWith('${prefix}_')) {
+        return prefix;
+      }
+    }
+    return 'en';
+  }
+
   /// Table of contents for one book (checks language folder first, then flat).
-  static List<String> booksTocUrls(String bookId, {String langCode = 'en'}) => [
-        ...ReleaseAssets.urlsFor('books/$langCode/$bookId/toc.json'),
-        ...ReleaseAssets.urlsFor('books/$bookId/toc.json'),
-      ];
+  static List<String> booksTocUrls(String bookId, {String? langCode}) {
+    final lang = _inferBookLanguage(bookId, langCode);
+    final urls = <String>[];
+    if (lang != 'en') {
+      urls.addAll(ReleaseAssets.urlsFor('books/$lang/$bookId/toc.json'));
+    }
+    urls.addAll(ReleaseAssets.urlsFor('books/$bookId/toc.json'));
+    urls.addAll(ReleaseAssets.urlsFor('books/en/$bookId/toc.json'));
+    return urls;
+  }
 
   /// Chapter content lines for one book (checks language folder first, then flat).
   static List<String> bookChapterUrls(String bookId, int chapterIndex,
-          {String langCode = 'en'}) => [
-        ...ReleaseAssets.urlsFor(
-            'books/$langCode/$bookId/chapters/$chapterIndex.json'),
-        ...ReleaseAssets.urlsFor(
-            'books/$bookId/chapters/$chapterIndex.json'),
-      ];
+          {String? langCode}) {
+    final lang = _inferBookLanguage(bookId, langCode);
+    final urls = <String>[];
+    if (lang != 'en') {
+      urls.addAll(ReleaseAssets.urlsFor(
+          'books/$lang/$bookId/chapters/$chapterIndex.json'));
+    }
+    urls.addAll(ReleaseAssets.urlsFor(
+        'books/$bookId/chapters/$chapterIndex.json'));
+    urls.addAll(ReleaseAssets.urlsFor(
+        'books/en/$bookId/chapters/$chapterIndex.json'));
+    return urls;
+  }
 
   /// Per-book SQLite package (individual offline download).
-  static List<String> bookSqliteUrls(String bookId,
-          {String langCode = 'en'}) => [
-        ...ReleaseAssets.urlsFor(
-            'books/$langCode/published/$bookId.sqlite.gz'),
-        ...ReleaseAssets.urlsFor(
-            'books/published/$bookId.sqlite.gz'),
-      ];
+  static List<String> bookSqliteUrls(String bookId, {String? langCode}) {
+    final lang = _inferBookLanguage(bookId, langCode);
+    final urls = <String>[];
+    if (lang != 'en') {
+      urls.addAll(ReleaseAssets.urlsFor('books/$lang/published/$bookId.sqlite.gz'));
+    }
+    urls.addAll(ReleaseAssets.urlsFor('books/published/$bookId.sqlite.gz'));
+    urls.addAll(ReleaseAssets.urlsFor('books/en/published/$bookId.sqlite.gz'));
+    for (final l in ['ta', 'hi', 'te', 'kn', 'ml', 'de']) {
+      if (l != lang) {
+        urls.addAll(ReleaseAssets.urlsFor('books/$l/published/$bookId.sqlite.gz'));
+      }
+    }
+    return urls;
+  }
 
   /// All-books SQLite for a language (bulk offline download).
-  static List<String> allBooksSqliteUrls({String langCode = 'en'}) => [
-        ...ReleaseAssets.urlsFor('books/$langCode/books.sqlite.gz'),
-        ...ReleaseAssets.urlsFor('books/books.sqlite.gz'),
-      ];
+  static List<String> allBooksSqliteUrls({String? langCode}) {
+    final urls = <String>[];
+    if (langCode != null &&
+        langCode.trim().isNotEmpty &&
+        langCode != 'all' &&
+        langCode != 'en') {
+      urls.addAll(ReleaseAssets.urlsFor('books/$langCode/books.sqlite.gz'));
+    }
+    urls.addAll(ReleaseAssets.urlsFor('books/books.sqlite.gz'));
+    urls.addAll(ReleaseAssets.urlsFor('books/en/books.sqlite.gz'));
+    return urls;
+  }
 
   // ── Cross references ──────────────────────────────────────────────────────
 

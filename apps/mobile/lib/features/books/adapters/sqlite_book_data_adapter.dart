@@ -232,10 +232,9 @@ class SqliteBookDataAdapter implements BookDataAdapter {
 
   /// Downloads a single book's SQLite package and merges it into the unified local database.
   @override
-  Future<bool> downloadSingleBook(String bookId) async {
+  Future<bool> downloadSingleBook(String bookId, {String? language}) async {
     if (_downloadingBookIds.contains(bookId)) return false;
     _downloadingBookIds.add(bookId);
-    
 
     try {
       final db = await database;
@@ -246,7 +245,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       final tempSqlite = p.join(tempDir.path, '${bookId}_${DateTime.now().millisecondsSinceEpoch}.sqlite');
 
       final urls = [
-        ...GitHubDataService.bookSqliteUrls(bookId),
+        ...GitHubDataService.bookSqliteUrls(bookId, langCode: language),
       ];
       final dio = Dio();
       bool downloaded = false;
@@ -256,11 +255,22 @@ class SqliteBookDataAdapter implements BookDataAdapter {
           await dio.download(
             url,
             tempGz,
-            options: Options(receiveTimeout: const Duration(seconds: 45)),
+            options: Options(
+              receiveTimeout: const Duration(seconds: 45),
+              connectTimeout: const Duration(seconds: 15),
+            ),
           );
-          downloaded = true;
-          break;
-        } catch (_) {}
+          final f = File(tempGz);
+          if (await f.exists() && await f.length() > 0) {
+            downloaded = true;
+            break;
+          }
+        } catch (_) {
+          try {
+            final f = File(tempGz);
+            if (await f.exists()) await f.delete();
+          } catch (_) {}
+        }
       }
 
       // Check local repo path for development/test fallbacks
@@ -287,7 +297,10 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       final books = await sourceDb.query('books');
       final chapters = await sourceDb.query('book_chapters');
       final content = await sourceDb.query('book_content');
-      final links = await sourceDb.query('book_scripture_links');
+      List<Map<String, dynamic>> links = [];
+      try {
+        links = await sourceDb.query('book_scripture_links');
+      } catch (_) {}
       await sourceDb.close();
 
       // Batch insert into main database
@@ -318,8 +331,8 @@ class SqliteBookDataAdapter implements BookDataAdapter {
 
       // Clean temp files
       try {
-        await File(tempGz).delete();
-        await File(tempSqlite).delete();
+        if (await File(tempGz).exists()) await File(tempGz).delete();
+        if (await File(tempSqlite).exists()) await File(tempSqlite).delete();
       } catch (_) {}
 
       return true;
@@ -329,7 +342,6 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       return false;
     } finally {
       _downloadingBookIds.remove(bookId);
-      
     }
   }
 
@@ -347,7 +359,6 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       batch.delete('book_scripture_links', where: 'book_id = ?', whereArgs: [bookId]);
       batch.delete('installed_books', where: 'book_id = ?', whereArgs: [bookId]);
       await batch.commit(noResult: true);
-      
     } catch (e) {
       debugPrint('Error removing book $bookId: $e');
     }
@@ -355,12 +366,11 @@ class SqliteBookDataAdapter implements BookDataAdapter {
 
   /// Downloads and installs `books.sqlite.gz` from release CDN mirrors if not bundled.
   @override
-  Future<bool> downloadAndInstall() async {
+  Future<bool> downloadAndInstall({String? language}) async {
     if (_isDownloading) return false;
     _isDownloading = true;
     downloadProgress.value = 0.0;
     lastError.value = null;
-    
 
     try {
       final dbPath = overrideDbPath ??
@@ -369,7 +379,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       final tempGzPath = p.join(tempDir.path, 'books_download_${DateTime.now().millisecondsSinceEpoch}.gz');
 
       final urls = [
-        ...GitHubDataService.allBooksSqliteUrls(),
+        ...GitHubDataService.allBooksSqliteUrls(langCode: language),
       ];
       final dio = Dio();
       var downloaded = false;
@@ -379,17 +389,26 @@ class SqliteBookDataAdapter implements BookDataAdapter {
           await dio.download(
             url,
             tempGzPath,
-            options: Options(receiveTimeout: const Duration(minutes: 5)),
+            options: Options(
+              receiveTimeout: const Duration(minutes: 5),
+              connectTimeout: const Duration(seconds: 20),
+            ),
             onReceiveProgress: (received, total) {
               if (total > 0) {
                 downloadProgress.value = received / total;
-                
               }
             },
           );
-          downloaded = true;
-          break;
+          final f = File(tempGzPath);
+          if (await f.exists() && await f.length() > 0) {
+            downloaded = true;
+            break;
+          }
         } catch (_) {
+          try {
+            final f = File(tempGzPath);
+            if (await f.exists()) await f.delete();
+          } catch (_) {}
           continue;
         }
       }
@@ -398,7 +417,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
         throw Exception('Failed to download books database from any mirror.');
       }
 
-      // 1. Backup user reading progress and highlights before replacing the file
+      // 1. Backup user reading progress and highlights before replacing/updating the file
       List<Map<String, dynamic>> savedProgress = [];
       List<Map<String, dynamic>> savedHighlights = [];
       if (_db != null && _db!.isOpen) {
@@ -408,25 +427,78 @@ class SqliteBookDataAdapter implements BookDataAdapter {
         try {
           savedHighlights = await _db!.query('book_highlights');
         } catch (_) {}
-        await _db!.close();
-        _db = null;
       }
 
       // Decompress
       final compressedBytes = await File(tempGzPath).readAsBytes();
       final decompressed = gzip.decode(compressedBytes);
 
-      final targetFile = File(dbPath);
-      await targetFile.parent.create(recursive: true);
-      await targetFile.writeAsBytes(decompressed, flush: true);
+      final isAllLanguages = language == null ||
+          language.trim().isEmpty ||
+          language.trim().toLowerCase() == 'all';
+
+      if (isAllLanguages || !(await File(dbPath).exists())) {
+        if (_db != null && _db!.isOpen) {
+          await _db!.close();
+          _db = null;
+        }
+        final targetFile = File(dbPath);
+        await targetFile.parent.create(recursive: true);
+        await targetFile.writeAsBytes(decompressed, flush: true);
+
+        // Re-initialize DB
+        await initialize();
+      } else {
+        // Merge downloaded language bundle into existing database
+        final tempSqlite = p.join(tempDir.path, 'temp_lang_${DateTime.now().millisecondsSinceEpoch}.sqlite');
+        await File(tempSqlite).writeAsBytes(decompressed, flush: true);
+        final sourceDb = await openReadOnlyDatabase(tempSqlite);
+        final books = await sourceDb.query('books');
+        final chapters = await sourceDb.query('book_chapters');
+        final content = await sourceDb.query('book_content');
+        List<Map<String, dynamic>> links = [];
+        try {
+          links = await sourceDb.query('book_scripture_links');
+        } catch (_) {}
+        await sourceDb.close();
+        try {
+          await File(tempSqlite).delete();
+        } catch (_) {}
+
+        final db = await database;
+        if (db != null) {
+          final batch = db.batch();
+          for (final row in books) {
+            batch.insert('books', row, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+          for (final row in chapters) {
+            batch.insert('book_chapters', row, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+          for (final row in content) {
+            batch.insert('book_content', row, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+          for (final row in links) {
+            batch.insert('book_scripture_links', row, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+          for (final row in books) {
+            batch.insert(
+              'installed_books',
+              {
+                'book_id': row['id'],
+                'installed_at': DateTime.now().toIso8601String(),
+                'size_bytes': 0,
+              },
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+          await batch.commit(noResult: true);
+        }
+      }
 
       // Clean temp
       try {
         await File(tempGzPath).delete();
       } catch (_) {}
-
-      // Re-initialize DB
-      await initialize();
 
       // 2. Restore user progress & highlights
       if (_db != null && _db!.isOpen && (savedProgress.isNotEmpty || savedHighlights.isNotEmpty)) {
@@ -446,7 +518,6 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       return false;
     } finally {
       _isDownloading = false;
-      
     }
   }
 

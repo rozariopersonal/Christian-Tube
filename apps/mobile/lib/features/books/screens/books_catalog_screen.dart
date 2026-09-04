@@ -239,10 +239,15 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   ),
                   onPressed: () {
                     Navigator.of(ctx).pop(false);
-                    _startDownloadAll();
+                    _startDownloadAll(language: _selectedLanguage);
                   },
                   icon: Icon(Icons.all_inclusive_rounded, color: tokens.onSurfaceMuted, size: 16),
-                  label: Text('Download All 38 Books (3.8 MB)', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5)),
+                  label: Text(
+                    (_selectedLanguage == 'All')
+                        ? 'Download All 181 Books (~13.4 MB)'
+                        : 'Download All ${_languageNames[_selectedLanguage.toLowerCase()] ?? _selectedLanguage} Books',
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5),
+                  ),
                 ),
               ),
             ],
@@ -252,7 +257,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     );
 
     if (confirmed == true && mounted) {
-      final success = await _bookService.downloadSingleBook(book.id);
+      final success = await _bookService.downloadSingleBook(book.id, language: book.language);
       if (success && mounted) {
         setState(() {
           _installedBookIds.add(book.id);
@@ -266,13 +271,14 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     }
   }
 
-  Future<void> _startDownloadAll() async {
-    final success = await _bookService.downloadAndInstall();
+  Future<void> _startDownloadAll({String? language}) async {
+    final success = await _bookService.downloadAndInstall(language: language);
     if (success) {
       await _loadCatalog();
       if (mounted) {
+        final count = _installedBookIds.length;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All 38 books installed offline!')),
+          SnackBar(content: Text('Books library installed offline ($count books)!')),
         );
       }
     } else if (mounted && _bookService.lastError != null) {
@@ -525,7 +531,9 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
         controller: _searchController,
         style: TextStyle(color: tokens.onSurface, fontSize: 13.5),
         decoration: InputDecoration(
-          hintText: 'Search 38 books by title, author, or subject...',
+          hintText: _totalBooksCount > 0
+              ? 'Search $_totalBooksCount books by title, author, or subject...'
+              : 'Search books by title, author, or subject...',
           hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
           prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 19),
           suffixIcon: _searchQuery.isNotEmpty

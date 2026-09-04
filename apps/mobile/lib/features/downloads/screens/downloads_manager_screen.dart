@@ -398,7 +398,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
           _buildNavTile(
             title: 'Books & Zac Poonen Verse Commentaries',
             subtitle:
-                'Download all 34 books for offline pageless & dual-page reading, plus unlock verse-by-verse commentary expositions in Bible study.',
+                'Download all 181 books across 7 languages for offline pageless & dual-page reading, plus unlock verse-by-verse commentary expositions in Bible study.',
             icon: Icons.library_books_rounded,
             badge: _booksInstalled ? 'Complete Library' : '$booksCount books',
             tokens: tokens,
@@ -1305,7 +1305,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Zac Poonen Library (34 Books • ~2.7 MB)',
+                            'Zac Poonen Library (181 Books across 7 Languages • ~13.4 MB)',
                             style: TextStyle(
                               color: tokens.accent,
                               fontSize: 12,
@@ -1319,7 +1319,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Downloading this single compact package unlocks all 34 books for pageless mobile & dual-page tablet reading, AND links thousands of verse-by-verse commentary expositions directly into the Bible Study screen.',
+                  'Downloading this single compact package unlocks all 181 books for pageless mobile & dual-page tablet reading, AND links thousands of verse-by-verse commentary expositions directly into the Bible Study screen.',
                   style: TextStyle(
                     color: tokens.onSurfaceMuted,
                     fontSize: 12.5,
@@ -1334,7 +1334,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Full 34-Book Library & Commentaries Active',
+                          'Full Library & Commentaries Active',
                           style: TextStyle(
                             color: tokens.onSurface,
                             fontWeight: FontWeight.bold,
@@ -1371,7 +1371,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
                       onPressed: () => _bookService.downloadAndInstall(),
                       icon: const Icon(Icons.download_rounded, size: 18),
                       label: const Text(
-                          'Download Complete Books & Commentaries (2.7 MB)'),
+                          'Download Complete Books & Commentaries (~13.4 MB)'),
                       style: FilledButton.styleFrom(
                         backgroundColor: tokens.accent,
                         foregroundColor: tokens.background,
@@ -1540,7 +1540,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
           else
             FilledButton.tonal(
               onPressed: () async {
-                await _bookService.downloadSingleBook(book.id);
+                await _bookService.downloadSingleBook(book.id, language: book.language);
                 _refreshAllStatus();
               },
               child: const Text('Download'),
