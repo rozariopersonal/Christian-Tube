@@ -15,7 +15,7 @@ enum ReaderThemeMode { system, paper, sepia, dark, amoled }
 /// Holds the reader's theme, font family, font size, and line height along with
 /// their color mappings and SharedPreferences persistence. This is pure logic
 /// with **no widget/build dependency**, so it is unit-testable in isolation.
-class BookReaderAppearance extends ChangeNotifier {
+class ReaderAppearance extends ChangeNotifier {
   static const String prefFontSize = 'book_reader_font_size';
   static const String prefSerif = 'book_reader_serif';
   static const String prefThemeMode = 'book_reader_theme_mode';
@@ -170,7 +170,7 @@ class BookReaderAppearance extends ChangeNotifier {
     }
   }
 
-  /// Maps a highlight [colorIndex] (0–3) to its rendered [Color].
+  /// Maps a highlight [colorIndex] (0..3) to its rendered [Color].
   static Color highlightColorByIndex(int colorIndex) {
     switch (colorIndex) {
       case 1:

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
-import 'package:mobile/features/books/services/book_reader_appearance.dart';
 import 'package:mobile/features/books/services/book_service.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -148,7 +148,7 @@ void main() {
 
   test('appearance is exposed with defaults and supports theming', () {
     final controller = BookReaderController(BookService.instance, 'any');
-    expect(controller.appearance, isA<BookReaderAppearance>());
+    expect(controller.appearance, isA<ReaderAppearance>());
     expect(controller.appearance.useSerifFont, isTrue);
     controller.appearance.themeMode = ReaderThemeMode.sepia;
     expect(controller.appearance.themeMode, ReaderThemeMode.sepia);

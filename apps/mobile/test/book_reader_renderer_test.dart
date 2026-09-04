@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
-import 'package:mobile/features/books/services/book_reader_appearance.dart';
 import 'package:mobile/features/books/widgets/formatted_paragraph.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 
 void main() {
-  final appearance = BookReaderAppearance();
+  final appearance = ReaderAppearance();
   const tokens = AppTokens.dark;
   const textColor = Color(0xFFFFFFFF);
 

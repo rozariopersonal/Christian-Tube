@@ -4,7 +4,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../downloads/screens/downloads_manager_screen.dart';
 import 'package:flutter/services.dart';
 import '../widgets/book_chapter_selector.dart';
-import '../widgets/reading_settings_sheet.dart';
+import '../../../shared/ui/reader_appearance_sheet.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../models/bible_verse.dart';
 import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
@@ -178,21 +179,7 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   void _showReadingSettings() {
-    showAdaptiveBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return ReadingSettingsSheet(
-            settings: _controller.state.settings,
-            onSettingsChanged: (newSettings) {
-              setModalState(() {});
-              _controller.updateSettings(newSettings);
-            },
-          );
-        },
-      ),
-    );
+    showReaderAppearanceSheet(context, _controller.appearance);
   }
 
   void _showSearch() {
@@ -279,7 +266,7 @@ class _BibleScreenState extends State<BibleScreen> {
           resolvedTexts: s.crossRefTexts,
           commentaryNotes: notes,
           bookCommentariesFuture: bookCommentariesFuture,
-          baseFontSize: s.settings.fontSize,
+          baseFontSize: _controller.appearance.fontSize,
           initialTab: initialTab,
           onTapReference: (ref) => _navigateToPassage(
             bookNumber: ref.bookNumber,
@@ -342,7 +329,10 @@ class _BibleScreenState extends State<BibleScreen> {
   @override
   Widget build(BuildContext context) {
     final s = _controller.state;
+    final tokens = context.tokens;
+    final appearance = _controller.appearance;
     return Scaffold(
+      backgroundColor: appearance.background(tokens),
       appBar: BibleAppBar(
         controller: _controller,
         onShowSearch: _showSearch,

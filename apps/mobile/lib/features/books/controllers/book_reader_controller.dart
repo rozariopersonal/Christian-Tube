@@ -4,7 +4,7 @@ import '../models/book.dart';
 import '../models/book_chapter.dart';
 import '../models/book_highlight.dart';
 import '../models/book_line.dart';
-import '../services/book_reader_appearance.dart';
+import '../../../shared/services/reader_appearance.dart';
 import '../services/book_service.dart';
 import '../services/page_loader.dart';
 import '../services/reading_position_tracker.dart';
@@ -85,7 +85,7 @@ class BookReaderState {
 /// - chrome (app bar / nav bar) visibility
 ///
 /// It delegates page loading to [PageLoader] and appearance to
-/// [BookReaderAppearance], and persists reading progress to [BookService].
+/// [ReaderAppearance], and persists reading progress to [BookService].
 ///
 /// Geometry (GlobalKeys, ScrollController `ensureVisible`, tap recognizers) is
 /// *not* owned here — that stays in the view layer, which coordinates it with
@@ -99,7 +99,7 @@ class BookReaderController extends ChangeNotifier {
   final PageLoader pageLoader;
 
   /// Reading appearance (theme, fonts), persisted to SharedPreferences.
-  final BookReaderAppearance appearance;
+  final ReaderAppearance appearance;
 
   BookReaderState _state = const BookReaderState(
     isLoading: true,
@@ -130,7 +130,8 @@ class BookReaderController extends ChangeNotifier {
     int? highlightStartLine,
   })  : _requestedStartLine = highlightStartLine,
         pageLoader = PageLoader(_bookService, _bookId),
-        appearance = BookReaderAppearance() {
+        appearance = ReaderAppearance() {
+    appearance.addListener(notifyListeners);
     final startPage = (initialPage ?? 1).clamp(1, 999999999);
     _state = _state.copyWith(
       currentPage: startPage,
@@ -373,6 +374,7 @@ class BookReaderController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    appearance.removeListener(notifyListeners);
     _idleTimer?.cancel();
     super.dispose();
   }

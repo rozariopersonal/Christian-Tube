@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/services/reader_appearance.dart';
 import '../models/bible_verse.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
@@ -12,7 +13,7 @@ class VerseItem extends StatelessWidget {
   final bool isSelected;
   final bool isHighlighted;
   final VoidCallback? onVerseTap;
-  final double fontSize;
+  final ReaderAppearance appearance;
 
   /// The cross-references resolved for this verse.
   final List<CrossReference> crossReferences;
@@ -39,7 +40,7 @@ class VerseItem extends StatelessWidget {
     required this.isSelected,
     required this.isHighlighted,
     required this.onVerseTap,
-    required this.fontSize,
+    required this.appearance,
     this.crossReferences = const [],
     this.backgroundNotes = const [],
     this.resolvedTexts = const {},
@@ -58,7 +59,7 @@ class VerseItem extends StatelessWidget {
       isSelected: isSelected,
       isHighlighted: isHighlighted,
       onTap: onVerseTap,
-      fontSize: fontSize,
+      appearance: appearance,
       refCount: crossReferences.length,
       commentaryCount: backgroundNotes.length,
     );

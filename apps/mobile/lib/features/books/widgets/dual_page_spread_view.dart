@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
-import 'package:mobile/features/books/services/book_reader_appearance.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 import 'reader_page_column.dart';
 
 /// The two-page spread layout for `medium`/`expanded` screens.
@@ -13,7 +13,7 @@ import 'reader_page_column.dart';
 class DualPageSpreadView extends StatelessWidget {
   final AppTokens tokens;
   final BookReaderController controller;
-  final BookReaderAppearance appearance;
+  final ReaderAppearance appearance;
   final void Function(int delta) onTurnSpread;
   final VoidCallback onToggleChrome;
   final void Function(int pageNum) onTriggerFetch;

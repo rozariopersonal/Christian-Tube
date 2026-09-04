@@ -2,8 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/painting.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
-import 'package:mobile/features/books/services/book_reader_appearance.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 
 /// Builds the `InlineSpan` tree for a single paragraph of book text.
 ///
@@ -26,7 +26,7 @@ class FormattedParagraphBuilder {
     String pageText,
     Color textColor,
     AppTokens tokens,
-    BookReaderAppearance appearance,
+    ReaderAppearance appearance,
     List<BookHighlight> highlights, {
     required TapGestureRecognizer Function(ParsedScriptureRef? parsed, String refText) makeRecognizer,
   }) {
@@ -79,7 +79,7 @@ class FormattedParagraphBuilder {
     List<InlineSpan> spans,
     String text,
     Color textColor,
-    BookReaderAppearance appearance,
+    ReaderAppearance appearance,
     List<BookHighlight> highlights,
   ) {
     final baseStyle = TextStyle(
@@ -116,7 +116,7 @@ class FormattedParagraphBuilder {
           text: matchedHighlight.text,
           style: baseStyle.copyWith(
             backgroundColor:
-                BookReaderAppearance.highlightColorByIndex(matchedHighlight.color).withValues(alpha: 0.38),
+                ReaderAppearance.highlightColorByIndex(matchedHighlight.color).withValues(alpha: 0.38),
           ),
         ));
         current = nextMatchStart + matchedHighlight.text.length;

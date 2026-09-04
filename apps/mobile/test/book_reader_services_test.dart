@@ -4,7 +4,7 @@ import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book.dart';
 import 'package:mobile/features/books/models/book_chapter.dart';
 import 'package:mobile/features/books/models/book_line.dart';
-import 'package:mobile/features/books/services/book_reader_appearance.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/features/books/services/book_service.dart';
 import 'package:mobile/features/books/services/page_loader.dart';
 import 'package:mobile/features/books/services/reading_position_tracker.dart';
@@ -231,7 +231,7 @@ void main() {
     });
   });
 
-  group('book_reader_appearance Unit Tests', () {
+  group('reader_appearance Unit Tests', () {
     const tokensDark = AppTokens.dark;
     const tokensLight = AppTokens.light;
 
@@ -240,7 +240,7 @@ void main() {
     });
 
     test('defaults are serif, 17pt, system theme, 1.65 line height', () {
-      final a = BookReaderAppearance();
+      final a = ReaderAppearance();
       expect(a.useSerifFont, isTrue);
       expect(a.fontSize, 17.0);
       expect(a.themeMode, ReaderThemeMode.system);
@@ -248,7 +248,7 @@ void main() {
     });
 
     test('fontSize setter bounds within 14..26', () {
-      final a = BookReaderAppearance();
+      final a = ReaderAppearance();
       a.fontSize = 21.5;
       expect(a.fontSize, 21.5);
       a.fontSize = 5; // ignored
@@ -258,7 +258,7 @@ void main() {
     });
 
     test('lineHeight setter bounds within 1.0..2.5', () {
-      final a = BookReaderAppearance();
+      final a = ReaderAppearance();
       a.lineHeight = 2.0;
       expect(a.lineHeight, 2.0);
       a.lineHeight = 0.1; // ignored
@@ -266,7 +266,7 @@ void main() {
     });
 
     test('theme colors map correctly', () {
-      final a = BookReaderAppearance()..themeMode = ReaderThemeMode.sepia;
+      final a = ReaderAppearance()..themeMode = ReaderThemeMode.sepia;
       expect(a.background(tokensDark), const Color(0xFFFBF0D9));
       expect(a.textColor(tokensDark), const Color(0xFF3B2F2F));
 
@@ -280,11 +280,11 @@ void main() {
     });
 
     test('highlight colors map by index', () {
-      expect(BookReaderAppearance.highlightColorByIndex(0), const Color(0xFFFFD54F));
-      expect(BookReaderAppearance.highlightColorByIndex(1), const Color(0xFF81C784));
-      expect(BookReaderAppearance.highlightColorByIndex(2), const Color(0xFF64B5F6));
-      expect(BookReaderAppearance.highlightColorByIndex(3), const Color(0xFFF48FB1));
-      expect(BookReaderAppearance.highlightColorByIndex(9), const Color(0xFFFFD54F));
+      expect(ReaderAppearance.highlightColorByIndex(0), const Color(0xFFFFD54F));
+      expect(ReaderAppearance.highlightColorByIndex(1), const Color(0xFF81C784));
+      expect(ReaderAppearance.highlightColorByIndex(2), const Color(0xFF64B5F6));
+      expect(ReaderAppearance.highlightColorByIndex(3), const Color(0xFFF48FB1));
+      expect(ReaderAppearance.highlightColorByIndex(9), const Color(0xFFFFD54F));
     });
 
     test('loadFromPrefs reads persisted values', () async {
@@ -294,7 +294,7 @@ void main() {
         'book_reader_theme_mode': 'sepia',
         'book_reader_line_height': 1.9,
       });
-      final a = BookReaderAppearance();
+      final a = ReaderAppearance();
       await a.loadFromPrefs();
       expect(a.fontSize, 20.0);
       expect(a.useSerifFont, isFalse);
@@ -303,7 +303,7 @@ void main() {
     });
 
     test('mutating a setting notifies listeners', () {
-      final a = BookReaderAppearance();
+      final a = ReaderAppearance();
       var fired = 0;
       a.addListener(() => fired++);
       a.fontSize = 18;
@@ -315,3 +315,4 @@ void main() {
     });
   });
 }
+

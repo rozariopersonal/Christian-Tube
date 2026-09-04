@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
-import 'package:mobile/features/books/services/book_reader_appearance.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 
 /// A single page column used in dual-page spread mode.
 ///
@@ -16,7 +16,7 @@ class ReaderPageColumn extends StatelessWidget {
   final Color textColor;
   final bool isRightPage;
   final BookReaderController controller;
-  final BookReaderAppearance appearance;
+  final ReaderAppearance appearance;
   final void Function(int pageNum) onTriggerFetch;
   final void Function(int pageNum) onRetry;
   final Widget Function(BuildContext context, SelectableRegionState state, int pageNum) buildSelectionToolbar;

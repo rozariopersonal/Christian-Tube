@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
-import 'package:mobile/features/books/services/book_reader_appearance.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'formatted_paragraph.dart';
 
@@ -19,7 +19,7 @@ class BookBlockWidget extends StatelessWidget {
   final int pageNum;
   final Color textColor;
   final AppTokens tokens;
-  final BookReaderAppearance appearance;
+  final ReaderAppearance appearance;
   final int? highlightStartLine;
   final int? highlightEndLine;
   final List<BookHighlight> highlightCache;
@@ -190,7 +190,7 @@ class BookBlockWidget extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 14),
           child: Text.rich(
             TextSpan(children: _format(block.text)),
-            textAlign: TextAlign.justify,
+            textAlign: TextAlign.left,
           ),
         );
 
@@ -205,7 +205,7 @@ class BookBlockWidget extends StatelessWidget {
             ),
             child: Text.rich(
               TextSpan(children: _format(block.text)),
-              textAlign: TextAlign.justify,
+              textAlign: TextAlign.left,
             ),
           );
         }

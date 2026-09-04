@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:mobile/core/layout/adaptivity.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
-import 'package:mobile/features/books/services/book_reader_appearance.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 
-/// Shows the reading-appearance sheet (theme, font family, font size) for the
-/// book reader.
+/// Shows the reading-appearance sheet (theme, font family, font size) for readers.
 ///
 /// On `compact` screens this renders as a bottom sheet; on `medium`/`expanded`
 /// as a centered dialog (per the Responsive & Adaptive UI Standard). The
 /// [appearance] ChangeNotifier is mutated directly inside the sheet's own
 /// local state so the preview updates live without rebuilding the whole reader.
-void showBookReaderAppearanceSheet(BuildContext context, BookReaderAppearance appearance) {
+void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance) {
   final tokens = context.tokens;
   final screen = ScreenClass.of(context);
 
@@ -105,7 +104,7 @@ void showBookReaderAppearanceSheet(BuildContext context, BookReaderAppearance ap
                       setModalState(() => appearance.useSerifFont = false);
                     },
                     child: Text(
-                      'Sans-Serif (Modern)',
+                      'Sans-Serif',
                       style: TextStyle(
                         color: !appearance.useSerifFont ? tokens.accent : tokens.onSurface,
                         fontWeight: FontWeight.bold,
@@ -175,7 +174,7 @@ Widget _buildThemeChip(
   Color bg,
   Color text,
   StateSetter setModalState,
-  BookReaderAppearance appearance,
+  ReaderAppearance appearance,
 ) {
   final tokens = context.tokens;
   final isSelected = appearance.themeMode == mode;

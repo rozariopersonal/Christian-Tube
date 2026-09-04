@@ -151,7 +151,7 @@ class _VerseRow extends StatelessWidget {
       verse: verse,
       isSelected: s.selectedVerses.contains(verse.number),
       isHighlighted: s.highlightedVerse == verse.number,
-      fontSize: s.settings.fontSize,
+      appearance: controller.appearance,
       onVerseTap: () => onVerseTap(verse.number),
       crossReferences: s.chapterCrossRefs[verse.number] ?? const [],
       backgroundNotes: s.chapterBackgrounds[verse.number] ?? const [],

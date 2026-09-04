@@ -13,6 +13,7 @@ import '../services/bible_bookmark_service.dart';
 import '../services/bible_background_service.dart';
 import '../services/bible_settings_service.dart';
 import '../services/cross_reference_service.dart';
+import '../../../shared/services/reader_appearance.dart';
 
 /// Immutable snapshot of every field the Bible reader UI needs.
 ///
@@ -168,6 +169,8 @@ class BibleController extends ChangeNotifier {
   final CrossReferenceService _crossRefService = CrossReferenceService();
   final BibleBackgroundService _backgroundService = BibleBackgroundService();
 
+  final ReaderAppearance appearance = ReaderAppearance();
+
   // ── Private mutable state (not exposed directly) ───────────────────────
 
   int _lastKnownInstalledCount = -1;
@@ -221,6 +224,8 @@ class BibleController extends ChangeNotifier {
   Future<void> init() async {
     _downloadManager.addListener(_onDownloadManagerChanged);
     await _bookNames.ensureLoaded();
+    await appearance.loadFromPrefs();
+    appearance.addListener(notifyListeners);
     _loadSettings();
     await _fetchData();
     _checkCrossRefsInstalled();
@@ -230,6 +235,7 @@ class BibleController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _downloadManager.removeListener(_onDownloadManagerChanged);
+    appearance.removeListener(notifyListeners);
     super.dispose();
   }
 

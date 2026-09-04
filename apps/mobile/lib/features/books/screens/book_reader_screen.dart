@@ -8,7 +8,7 @@ import '../models/book_highlight.dart';
 import '../services/book_service.dart';
 import '../services/book_paragraph_grouper.dart';
 import '../services/reading_position_tracker.dart';
-import '../widgets/appearance_sheet.dart';
+import '../../../../shared/ui/reader_appearance_sheet.dart';
 import '../widgets/book_highlights_sheet.dart';
 import '../widgets/book_toc_sheet.dart';
 import '../widgets/block_builder.dart';
@@ -158,7 +158,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   }
 
   void _showAppearanceSheet(BuildContext context) {
-    showBookReaderAppearanceSheet(context, _controller.appearance);
+    showReaderAppearanceSheet(context, _controller.appearance);
   }
 
   Future<void> _createHighlight(String text, int startChar, int pageNum, {int color = 0}) async {

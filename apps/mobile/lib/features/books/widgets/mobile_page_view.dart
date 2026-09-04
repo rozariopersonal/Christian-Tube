@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
-import 'package:mobile/features/books/services/book_reader_appearance.dart';
 import 'package:mobile/features/books/services/reading_position_tracker.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 
 /// The single-page horizontal swipe feed (used on `compact` screens).
 ///
@@ -12,7 +12,7 @@ import 'package:mobile/features/books/services/reading_position_tracker.dart';
 class MobilePageView extends StatefulWidget {
   final AppTokens tokens;
   final BookReaderController controller;
-  final BookReaderAppearance appearance;
+  final ReaderAppearance appearance;
   final PageController pageController;
   final VoidCallback onToggleChrome;
   final void Function(int pageNum) onTriggerFetch;

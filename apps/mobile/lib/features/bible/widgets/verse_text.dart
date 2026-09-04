@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../models/bible_verse.dart';
+import '../../../shared/services/reader_appearance.dart';
 
 class VerseText extends StatefulWidget {
   final BibleVerse verse;
   final bool isSelected;
   final bool isHighlighted;
   final VoidCallback? onTap;
-  final double fontSize;
+  final ReaderAppearance appearance;
   final int refCount;
   final int commentaryCount;
 
@@ -17,7 +18,7 @@ class VerseText extends StatefulWidget {
     this.isSelected = false,
     this.isHighlighted = false,
     this.onTap,
-    this.fontSize = 18.0,
+    required this.appearance,
     this.refCount = 0,
     this.commentaryCount = 0,
   });
@@ -89,15 +90,20 @@ class _VerseTextState extends State<VerseText> {
     );
   }
   Widget _buildContent(BuildContext context, ThemeData theme) {
+    final tokens = context.tokens;
+    final app = widget.appearance;
+    final fontFamily = app.useSerifFont ? 'serif' : null;
+    
     return Text.rich(
       TextSpan(
         children: [
           TextSpan(
             text: '${widget.verse.number}',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: context.tokens.onSurfaceMuted,
+              color: app.mutedTextColor(tokens),
               fontWeight: FontWeight.bold,
-              fontSize: widget.fontSize * 0.7,
+              fontSize: app.fontSize * 0.7,
+              fontFamily: fontFamily,
             ),
           ),
           if (widget.refCount > 0)
@@ -107,7 +113,7 @@ class _VerseTextState extends State<VerseText> {
                 padding: const EdgeInsets.only(left: 2.0, right: 1.0, top: 2.0),
                 child: Icon(
                   Icons.link_rounded,
-                  size: widget.fontSize * 0.45,
+                  size: app.fontSize * 0.45,
                   color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 ),
               ),
@@ -119,7 +125,7 @@ class _VerseTextState extends State<VerseText> {
                 padding: const EdgeInsets.only(left: 1.0, right: 1.0, top: 2.0),
                 child: Icon(
                   Icons.menu_book_rounded,
-                  size: widget.fontSize * 0.45,
+                  size: app.fontSize * 0.45,
                   color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 ),
               ),
@@ -127,11 +133,12 @@ class _VerseTextState extends State<VerseText> {
           TextSpan(
             text: ' ${widget.verse.text}',
             style: theme.textTheme.bodyLarge?.copyWith(
-              height: 1.6,
-              fontSize: widget.fontSize,
+              height: app.lineHeight,
+              fontSize: app.fontSize,
+              fontFamily: fontFamily,
               color: widget.verse.isSecondary
-                  ? context.tokens.onSurfaceMuted
-                  : null,
+                  ? app.mutedTextColor(tokens)
+                  : app.textColor(tokens),
             ),
           ),
         ],
