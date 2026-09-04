@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/layout/adaptivity.dart';
-import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../controllers/book_reader_controller.dart';
 import '../controllers/book_reader_view_coordinator.dart';
@@ -329,31 +328,28 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                     ? _buildDualPageSpreadView(tokens)
                     : _buildMobilePageView(tokens),
         bottomNavigationBar: s.showChrome && s.book != null
-            ? MaxWidthBox(
-                maxWidth: 760,
-                child: ReaderNavigationBar(
-                  controller: _controller,
-                  tokens: tokens,
-                  bgColor: bgColor,
-                  isDualPage: isDualPage,
-                  totalPages: totalPages,
-                  validLeftPage: validLeftPage,
-                  rightPage: rightPage,
-                  onPrevious: () {
-                    if (isDualPage) {
-                      _coordinator.turnSpread(-2);
-                    } else if (s.currentPage > 1) {
-                      _coordinator.jumpToPage(s.currentPage - 1);
-                    }
-                  },
-                  onNext: () {
-                    if (isDualPage) {
-                      _coordinator.turnSpread(2);
-                    } else if (s.currentPage < totalPages) {
-                      _coordinator.jumpToPage(s.currentPage + 1);
-                    }
-                  },
-                ),
+            ? ReaderNavigationBar(
+                controller: _controller,
+                tokens: tokens,
+                bgColor: bgColor,
+                isDualPage: isDualPage,
+                totalPages: totalPages,
+                validLeftPage: validLeftPage,
+                rightPage: rightPage,
+                onPrevious: () {
+                  if (isDualPage) {
+                    _coordinator.turnSpread(-2);
+                  } else if (s.currentPage > 1) {
+                    _coordinator.jumpToPage(s.currentPage - 1);
+                  }
+                },
+                onNext: () {
+                  if (isDualPage) {
+                    _coordinator.turnSpread(2);
+                  } else if (s.currentPage < totalPages) {
+                    _coordinator.jumpToPage(s.currentPage + 1);
+                  }
+                },
               )
             : null,
       ),

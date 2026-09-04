@@ -15,6 +15,7 @@ import 'package:mobile/features/books/widgets/book_toc_sheet.dart';
 import 'package:mobile/features/dictionary/models/dictionary_entry.dart';
 import 'package:mobile/features/dictionary/services/dictionary_service.dart';
 import 'package:mobile/features/books/screens/book_reader_screen.dart';
+import 'package:mobile/features/books/widgets/reader_navigation_bar.dart';
 import 'package:mobile/features/books/services/book_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -532,7 +533,13 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('Mock Book Title'), findsOneWidget);
-      expect(find.textContaining('This is the first paragraph', skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('This is the first paragraph'), findsOneWidget);
+
+      final navBarFinder = find.byType(ReaderNavigationBar);
+      expect(navBarFinder, findsOneWidget);
+      final navBarTop = tester.getTopLeft(navBarFinder).dy;
+      // Viewport height is 640. Navigation bar should sit at the bottom, not top (dy == 0).
+      expect(navBarTop, greaterThan(500.0), reason: 'Navigation bar must be positioned at bottom of screen');
     });
 
     testWidgets('BookReaderScreen handles missing book safely without crashing', (tester) async {
