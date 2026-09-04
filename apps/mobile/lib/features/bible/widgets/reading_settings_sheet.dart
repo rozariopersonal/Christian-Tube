@@ -74,8 +74,8 @@ class ReadingSettingsSheet extends StatelessWidget {
                   style: TextStyle(color: tokens.onSurface, fontSize: 14)),
               Expanded(
                 child: Slider(
-                  value: settings.fontSize,
-                  min: 12.0,
+                  value: settings.fontSize.clamp(13.0, 32.0),
+                  min: 13.0,
                   max: 32.0,
                   divisions: 10,
                   activeColor: tokens.accent,
@@ -136,7 +136,7 @@ class ReadingSettingsSheet extends StatelessWidget {
                   ),
                   Switch(
                     value: settings.expandCrossReferences,
-                    activeColor: tokens.accent,
+                    activeThumbColor: tokens.accent,
                     onChanged: (value) => onSettingsChanged(
                       settings.copyWith(expandCrossReferences: value),
                     ),

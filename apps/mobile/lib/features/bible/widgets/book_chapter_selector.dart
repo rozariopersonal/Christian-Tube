@@ -22,6 +22,7 @@ class BookChapterSelector extends StatefulWidget {
 
 class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late ScrollController _booksScrollController;
   late String _selectedBook;
   late int _selectedChapter;
 
@@ -31,11 +32,15 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
     _tabController = TabController(length: 2, vsync: this);
     _selectedBook = widget.currentBook;
     _selectedChapter = widget.currentChapter;
+    final bookIndex = bibleBooks.keys.toList().indexOf(_selectedBook);
+    final initialOffset = (bookIndex > 3) ? (bookIndex - 2) * 52.0 : 0.0;
+    _booksScrollController = ScrollController(initialScrollOffset: initialOffset);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _booksScrollController.dispose();
     super.dispose();
   }
 
@@ -43,15 +48,15 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: context.tokens.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      child: Column(
+    return Material(
+      color: context.tokens.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Column(
         children: [
           // Drag handle
           Container(
@@ -79,6 +84,7 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
               children: [
                 // Books List
                 ListView.builder(
+                  controller: _booksScrollController,
                   itemCount: bibleBooks.length,
                   itemBuilder: (context, index) {
                     final book = bibleBooks.keys.elementAt(index);
@@ -106,8 +112,8 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
                 // Chapters Grid
                 GridView.builder(
                   padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 5,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 64,
                     childAspectRatio: 1.0,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
@@ -147,6 +153,7 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
             ),
           ),
         ],
+      ),
       ),
     );
   }

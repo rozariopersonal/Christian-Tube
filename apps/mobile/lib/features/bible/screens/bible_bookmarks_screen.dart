@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../core/layout/content_width.dart';
 import '../models/bible_bookmark.dart';
 import '../services/bible_bookmark_service.dart';
 
 class BibleBookmarksScreen extends StatefulWidget {
-  final void Function(String book, int chapter) onJumpTo;
+  final void Function(String book, int chapter, int? verse) onJumpTo;
 
   const BibleBookmarksScreen({super.key, required this.onJumpTo});
 
@@ -115,35 +116,37 @@ class _BibleBookmarksScreenState extends State<BibleBookmarksScreen> {
                     ),
                   ),
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: _bookmarks.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final b = _bookmarks[index];
-                    return ListTile(
-                      title: Text(
-                        b.reference,
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        b.text,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: 'Remove',
-                        onPressed: () => _remove(b),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        widget.onJumpTo(b.book, b.chapter);
-                      },
-                    );
-                  },
+              : MaxWidthBox(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    itemCount: _bookmarks.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final b = _bookmarks[index];
+                      return ListTile(
+                        title: Text(
+                          b.reference,
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          b.text,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: 'Remove',
+                          onPressed: () => _remove(b),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          widget.onJumpTo(b.book, b.chapter, b.verse);
+                        },
+                      );
+                    },
+                  ),
                 ),
     );
   }

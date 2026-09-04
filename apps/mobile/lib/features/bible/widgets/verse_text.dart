@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/rendering.dart';
 import '../../../core/theme/app_tokens.dart';
-import '../../dictionary/services/dictionary_service.dart';
 import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../models/bible_verse.dart';
 
@@ -31,25 +28,8 @@ class VerseText extends StatefulWidget {
 }
 
 class _VerseTextState extends State<VerseText> {
-  String _lastLookedUpWord = '';
+  Offset? _downPosition;
   bool _isHovering = false;
-
-  void _performAutoLookup(String word, dynamic selectableRegionState) {
-    if (word.isEmpty) return;
-    final service = DictionaryService();
-    final cleanWord = service.cleanWord(word);
-    if (cleanWord.isEmpty) return;
-    
-    if (selectableRegionState != null) {
-      try {
-        selectableRegionState.hideToolbar();
-      } catch (_) {}
-    }
-    
-    // Open the popover immediately so the user sees the loading state
-    // The popover itself will perform the lookup and display results.
-    InlineDictionaryPopover.show(context, word: word);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,9 +49,14 @@ class _VerseTextState extends State<VerseText> {
       );
     }
 
-    return GestureDetector(
+    return Listener(
       behavior: HitTestBehavior.translucent,
-      onTap: widget.onTap,
+      onPointerDown: (event) => _downPosition = event.position,
+      onPointerUp: (event) {
+        if (_downPosition != null && (event.position - _downPosition!).distance < 18) {
+          widget.onTap?.call();
+        }
+      },
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovering = true),
         onExit: (_) => setState(() => _isHovering = false),
@@ -89,23 +74,6 @@ class _VerseTextState extends State<VerseText> {
                       : Colors.transparent,
           padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
           child: SelectionArea(
-            onSelectionChanged: (SelectedContent? content) {
-              if (content == null) return;
-              final selectedText = content.plainText.trim();
-              final words = selectedText
-                  .split(RegExp(r'\s+'))
-                  .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
-                  .where((w) => w.isNotEmpty)
-                  .toList();
-              final lookupWord = words.isNotEmpty ? words.first : selectedText;
-
-              if (lookupWord.isNotEmpty && lookupWord != _lastLookedUpWord) {
-                _lastLookedUpWord = lookupWord;
-                // Pass null for selectableRegionState since we don't have it here,
-                // but _performAutoLookup shouldn't crash if we handle it
-                _performAutoLookup(lookupWord, null);
-              }
-            },
             contextMenuBuilder: (context, selectableRegionState) {
               String selectedText = '';
               try {
@@ -115,13 +83,6 @@ class _VerseTextState extends State<VerseText> {
                   selectedText = (content.plainText as String).trim();
                 }
               } catch (_) {}
-
-              if (selectedText.isEmpty) {
-                final val = selectableRegionState.textEditingValue;
-                selectedText = (val.selection.isValid && !val.selection.isCollapsed)
-                    ? val.selection.textInside(val.text).trim()
-                    : val.text.trim();
-              }
 
               final words = selectedText
                   .split(RegExp(r'\s+'))
@@ -133,19 +94,15 @@ class _VerseTextState extends State<VerseText> {
               return AdaptiveTextSelectionToolbar.buttonItems(
                 anchors: selectableRegionState.contextMenuAnchors,
                 buttonItems: [
-                  ContextMenuButtonItem(
-                    label: 'Define',
-                    onPressed: () {
-                      selectableRegionState.hideToolbar();
-                      InlineDictionaryPopover.show(context, word: lookupWord);
-                    },
-                  ),
-                  ContextMenuButtonItem(
-                    label: 'Copy',
-                    onPressed: () {
-                      selectableRegionState.copySelection(SelectionChangedCause.toolbar);
-                    },
-                  ),
+                  if (lookupWord.isNotEmpty)
+                    ContextMenuButtonItem(
+                      label: 'Define',
+                      onPressed: () {
+                        selectableRegionState.hideToolbar();
+                        InlineDictionaryPopover.show(context, word: lookupWord);
+                      },
+                    ),
+                  ...selectableRegionState.contextMenuButtonItems,
                 ],
               );
             },
@@ -154,7 +111,6 @@ class _VerseTextState extends State<VerseText> {
                 children: [
                   TextSpan(
                     text: '${widget.verse.number}',
-                    recognizer: widget.onTap != null ? (TapGestureRecognizer()..onTap = widget.onTap) : null,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: context.tokens.onSurfaceMuted,
                       fontWeight: FontWeight.bold,
@@ -164,36 +120,29 @@ class _VerseTextState extends State<VerseText> {
                   if (widget.refCount > 0)
                     WidgetSpan(
                       alignment: PlaceholderAlignment.top,
-                      child: GestureDetector(
-                        onTap: widget.onTap,
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 2.0, right: 1.0, top: 2.0),
-                          child: Icon(
-                            Icons.link_rounded,
-                            size: widget.fontSize * 0.45,
-                            color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                          ),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 2.0, right: 1.0, top: 2.0),
+                        child: Icon(
+                          Icons.link_rounded,
+                          size: widget.fontSize * 0.45,
+                          color: theme.colorScheme.primary.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
                   if (widget.commentaryCount > 0)
                     WidgetSpan(
                       alignment: PlaceholderAlignment.top,
-                      child: GestureDetector(
-                        onTap: widget.onTap,
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 1.0, right: 1.0, top: 2.0),
-                          child: Icon(
-                            Icons.menu_book_rounded,
-                            size: widget.fontSize * 0.45,
-                            color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                          ),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 1.0, right: 1.0, top: 2.0),
+                        child: Icon(
+                          Icons.menu_book_rounded,
+                          size: widget.fontSize * 0.45,
+                          color: theme.colorScheme.primary.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
                   TextSpan(
                     text: ' ${widget.verse.text}',
-                    recognizer: widget.onTap != null ? (TapGestureRecognizer()..onTap = widget.onTap) : null,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       height: 1.6,
                       fontSize: widget.fontSize,

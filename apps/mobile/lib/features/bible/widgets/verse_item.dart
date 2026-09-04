@@ -3,7 +3,6 @@ import '../models/bible_verse.dart';
 import '../models/cross_reference.dart';
 import '../models/bible_background_note.dart';
 import 'verse_text.dart';
-import 'verse_action_card.dart';
 
 /// A single row in the bible reader's `ListView`.
 ///
@@ -54,34 +53,14 @@ class VerseItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final refCount = crossReferences.length;
-    final commentaryCount = backgroundNotes.length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        VerseText(
-          verse: verse,
-          isSelected: isSelected,
-          isHighlighted: isHighlighted,
-          onTap: onVerseTap,
-          fontSize: fontSize,
-          refCount: refCount,
-          commentaryCount: commentaryCount,
-        ),
-        if (isSelected)
-          VerseActionCard(
-            selectedCount: selectedCount,
-            referenceCount: refCount,
-            commentaryCount: commentaryCount,
-            onCopy: onCopy ?? () {},
-            onShare: onShare ?? () {},
-            onBookmark: onBookmark ?? () {},
-            onClear: onClear ?? () {},
-            onOpenStudyPage: onOpenStudyPage,
-          ),
-      ],
+    return VerseText(
+      verse: verse,
+      isSelected: isSelected,
+      isHighlighted: isHighlighted,
+      onTap: onVerseTap,
+      fontSize: fontSize,
+      refCount: crossReferences.length,
+      commentaryCount: backgroundNotes.length,
     );
   }
 }

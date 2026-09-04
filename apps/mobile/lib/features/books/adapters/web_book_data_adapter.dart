@@ -274,14 +274,15 @@ class WebBookDataAdapter implements BookDataAdapter {
             }).toList();
 
             if (lines.isNotEmpty) {
-              // Pre-populate _livePageCache for every page present in this chapter
+              // Pre-populate _livePageCache cleanly without duplicates
+              final pageMap = <int, List<BookLine>>{};
               for (final l in lines) {
-                final pageKey = '${bookId}_${l.pageNumber}';
-                (_livePageCache[pageKey] ??= []).add(l);
+                (pageMap[l.pageNumber] ??= []).add(l);
               }
-              final pages = lines.map((l) => l.pageNumber).toSet();
-              for (final p in pages) {
-                _livePageCache['${bookId}_$p']?.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
+              for (final entry in pageMap.entries) {
+                entry.value.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
+                final pageKey = '${bookId}_${entry.key}';
+                _livePageCache[pageKey] = entry.value;
               }
               return lines;
             }

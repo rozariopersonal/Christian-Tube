@@ -9,6 +9,7 @@ import '../../engines/scripture/services/local_bible_service.dart';
 import '../../downloads/screens/downloads_manager_screen.dart';
 import 'package:flutter/services.dart';
 import '../widgets/verse_item.dart';
+import '../widgets/verse_action_bar.dart';
 import '../widgets/book_chapter_selector.dart';
 import '../widgets/reading_settings_sheet.dart';
 import '../models/bible_verse.dart';
@@ -71,7 +72,6 @@ class _BibleScreenState extends State<BibleScreen> {
   String _currentBook = 'Genesis';
   int _currentChapter = 1;
   bool _isLoading = true;
-  bool _isFetchingNextChapter = false;
   int _lastKnownInstalledCount = -1;
   bool _chapterEmpty = false;
 
@@ -109,7 +109,6 @@ class _BibleScreenState extends State<BibleScreen> {
     if (widget.initialChapter != null && widget.initialChapter! >= 1) {
       _currentChapter = widget.initialChapter!;
     }
-    _scrollController.addListener(_onScroll);
     _downloadManager.addListener(_onDownloadManagerChanged);
     _bookNames.ensureLoaded().then((_) {
       if (mounted) setState(() {});
@@ -249,12 +248,6 @@ class _BibleScreenState extends State<BibleScreen> {
     // Refetch versions after returning from the manager screen
     _lastKnownInstalledCount = _downloadManager.installedIds.length;
     await _fetchData();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 500 && !_isFetchingNextChapter) {
-      _fetchNextChapter(append: true);
-    }
   }
 
   Future<void> _fetchData() async {
@@ -517,12 +510,8 @@ class _BibleScreenState extends State<BibleScreen> {
     });
   }
 
-  Future<void> _fetchNextChapter({bool append = false}) async {
-    if (_isFetchingNextChapter || _selectedVersion == null) return;
-    
-    setState(() {
-      _isFetchingNextChapter = true;
-    });
+  Future<void> _fetchNextChapter() async {
+    if (_isLoading || _selectedVersion == null) return;
     
     int maxChapters = bibleBooks[_currentBook] ?? 1;
     String nextBook = _currentBook;
@@ -536,107 +525,24 @@ class _BibleScreenState extends State<BibleScreen> {
         nextChapter = 1;
       } else {
         // End of Bible
-        setState(() => _isFetchingNextChapter = false);
         return;
       }
     }
 
-    final primaryMap =
-        await _fetchVersesForChapter(_selectedVersion!, nextBook, nextChapter);
-
-    final newVerses =
-        _buildChapterVerses(primaryMap, _selectedVersion!.shortname);
-
-    if (mounted) {
-      setState(() {
-        _currentBook = nextBook;
-        _currentChapter = nextChapter;
-
-        if (append) {
-          _verses.add(BibleVerse(
-            number: 0,
-            text: '',
-            isChapterHeader: true,
-            chapterTitle: '${_displayBookName(nextBook)} $nextChapter',
-          ));
-          _verses.addAll(newVerses);
-        } else {
-          _verses = newVerses;
-          _selectedVerses.clear();
-          if (_scrollController.hasClients) {
-            _scrollController.jumpTo(0);
-          }
-        }
-        _isFetchingNextChapter = false;
-      });
-    }
-
-    // Now load cross-references asynchronously in the background.
-    _loadCrossReferencesForAppendedChapter(nextBook, nextChapter, newVerses);
-  }
-
-  Future<void> _loadCrossReferencesForAppendedChapter(String book, int chapter, List<BibleVerse> appendedVerses) async {
-    if (!mounted || _selectedVersion == null) return;
-    
-    Map<int, List<CrossReference>> nextRefs = {};
-    Map<String, String> nextTexts = {};
-    try {
-      nextRefs = await _crossRefService.getForChapter(
-        _bookNumber(book),
-        chapter,
-        allowOnline: !_crossRefsInstalled,
-      );
-    } catch (_) {
-      return;
-    }
-    
-    if (nextRefs.isEmpty) return;
-
-    final passages = <(int, int, int, int?)>[];
-    final seen = <String>{};
-    for (final refs in nextRefs.values) {
-      for (final ref in refs) {
-        if (seen.add(ref.textKey)) {
-          passages.add((ref.bookNumber, ref.chapter, ref.verse, ref.endVerse));
-        }
-      }
-    }
-    if (passages.isNotEmpty) {
-      try {
-        nextTexts = await _localBibleService.resolvePassages(
-          versionId: _selectedVersion!.shortname,
-          passages: passages,
-        );
-      } catch (_) {}
-    }
-
-    if (!mounted) return;
-
     setState(() {
-      _chapterCrossRefs.addAll(nextRefs);
-      _crossRefTexts.addAll(nextTexts);
-      if (_settings.expandCrossReferences) {
-        _expandedCrossRefVerses.addAll(
-          nextRefs.keys
-              .where((v) => (nextRefs[v]?.length ?? 0) <= 2),
-        );
-      }
-      
-      _verses = _verses.map((v) {
-        if (v.isChapterHeader) return v;
-        return BibleVerse(
-          number: v.number,
-          text: v.text,
-          versionLabel: v.versionLabel,
-          isSecondary: v.isSecondary,
-          crossReferenceCount: _chapterCrossRefs[v.number]?.length ?? 0,
-        );
-      }).toList();
+      _currentBook = nextBook;
+      _currentChapter = nextChapter;
+      _isLoading = true;
     });
+
+    await _loadChapter();
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _fetchPrevChapter() async {
-    if (_selectedVersion == null) return;
+    if (_isLoading || _selectedVersion == null) return;
 
     String prevBook = _currentBook;
     int prevChapter = _currentChapter - 1;
@@ -659,7 +565,10 @@ class _BibleScreenState extends State<BibleScreen> {
       _isLoading = true;
     });
 
-    await _fetchData();
+    await _loadChapter();
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _showBookChapterSelector() {
@@ -803,11 +712,12 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
-  void _jumpToReference(String book, int chapter) {
+  void _jumpToReference(String book, int chapter, [int? verse]) {
     setState(() {
       _currentBook = book;
       _currentChapter = chapter;
       _selectedVerses.clear();
+      _pendingScrollVerse = verse;
     });
     _fetchData();
   }
@@ -1081,11 +991,6 @@ class _BibleScreenState extends State<BibleScreen> {
         // Scrollable.ensureVisible even when its verse starts off-screen.
         children: [
           ..._verses.map(_buildVerseItem),
-          if (_isFetchingNextChapter)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Center(child: CircularProgressIndicator()),
-            ),
         ],
       ),
     );
@@ -1243,17 +1148,6 @@ class _BibleScreenState extends State<BibleScreen> {
               ),
             ),
           IconButton(
-            tooltip: 'Books Library',
-            icon: const Icon(Icons.auto_stories_rounded),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const BooksCatalogScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
             tooltip: 'Search Bible',
             icon: const Icon(Icons.search),
             onPressed: _showSearch,
@@ -1310,41 +1204,48 @@ class _BibleScreenState extends State<BibleScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _buildContent(),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: context.tokens.background,
-              boxShadow: [
-                BoxShadow(
-                  color: context.tokens.scrim.withValues(alpha: 0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
+      body: _buildContent(),
+      bottomNavigationBar: SafeArea(
+        child: _selectedVerses.isNotEmpty
+            ? VerseActionBar(
+                selectedCount: _selectedVerses.length,
+                onCopy: _copySelectedVerses,
+                onShare: _shareSelectedVerses,
+                onBookmark: _bookmarkSelectedVerses,
+                onClear: () => setState(() => _selectedVerses.clear()),
+                onStudy: _selectedVerses.isNotEmpty
+                    ? () => _openVerseStudyScreen(_selectedVerses.first)
+                    : null,
+              )
+            : Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: context.tokens.background,
+                  boxShadow: [
+                    BoxShadow(
+                      color: context.tokens.scrim.withValues(alpha: 0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton.icon(
-                  onPressed: _fetchPrevChapter,
-                  icon: const Icon(Icons.chevron_left),
-                  label: const Text('Prev'),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _fetchPrevChapter,
+                      icon: const Icon(Icons.chevron_left),
+                      label: const Text('Prev'),
+                    ),
+                    TextButton.icon(
+                      onPressed: _fetchNextChapter,
+                      icon: const Icon(Icons.chevron_right),
+                      label: const Text('Next'),
+                      iconAlignment: IconAlignment.end,
+                    ),
+                  ],
                 ),
-                TextButton.icon(
-                  onPressed: () => _fetchNextChapter(append: false),
-                  icon: const Icon(Icons.chevron_right),
-                  label: const Text('Next'),
-                  iconAlignment: IconAlignment.end,
-                ),
-              ],
-            ),
-          ),
-        ],
+              ),
       ),
     );
   }

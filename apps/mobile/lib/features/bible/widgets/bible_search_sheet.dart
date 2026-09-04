@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
 
 class BibleSearchSheet extends StatefulWidget {
   final String versionId;
-  final void Function(String book, int chapter) onJumpTo;
+  final void Function(String book, int chapter, int? verse) onJumpTo;
 
   const BibleSearchSheet({
     super.key,
@@ -52,6 +53,8 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.only(top: 12),
@@ -60,52 +63,69 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
           initialChildSize: 0.85,
           minChildSize: 0.5,
           maxChildSize: 0.95,
-          builder: (context, scrollController) => Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Text('Search Bible',
-                        style: theme.textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _controller,
-                  autofocus: true,
-                  onChanged: _search,
-                  decoration: InputDecoration(
-                    hintText: 'Search for a word or phrase…',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _controller.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _controller.clear();
-                              _search('');
-                            },
-                          )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+          builder: (context, scrollController) => Container(
+            decoration: BoxDecoration(
+              color: tokens.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: tokens.onSurfaceDisabled,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: _buildBody(scrollController),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    children: [
+                      Text('Search Bible',
+                          style: theme.textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    onChanged: _search,
+                    decoration: InputDecoration(
+                      hintText: 'Search for a word or phrase…',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _controller.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _controller.clear();
+                                _search('');
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _buildBody(scrollController),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -169,7 +189,7 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
           ),
           onTap: () {
             Navigator.pop(context);
-            widget.onJumpTo(book, chapter);
+            widget.onJumpTo(book, chapter, verse);
           },
         );
       },

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -307,7 +308,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
       // English
       'the', 'and', 'for', 'are', 'but', 'not', 'you', 'your', 'with', 'this', 'that', 'have', 'has', 'had', 'was', 'were', 'been', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'from', 'they', 'them', 'their', 'there', 'then', 'than', 'into', 'unto', 'upon', 'over', 'under', 'after', 'before', 'while', 'when', 'where', 'what', 'which', 'who', 'whom', 'whose', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'too', 'very',
       // Tamil common particles
-      'அவன்', 'அவள்', 'அவர்கள்', 'நான்', 'நீ', 'நாம்', 'நாங்கள்', 'என்', 'உன்', 'அது', 'இது', 'அவை', 'இவை', 'எந்த', 'எது', 'எப்படி', 'எப்போது', 'எங்கே', 'என்', 'ஆக', 'ஆய்', 'என்றால்', 'ஆனால்', 'ஆலே', 'அதே', 'இதே', 'மட்டும்', 'மேலும்', 'மற்றும்', 'அல்லது', 'ஆகும்', 'இருந்து', 'வரை', 'போல்', 'போலே', 'தான்', 'தானே', 'தான்', 'உம்', 'வ­zie', 'என்று', 'என்றும்', 'அன்றோ', 'இன்றோ',
+      'அவன்', 'அவள்', 'அவர்கள்', 'நான்', 'நீ', 'நாம்', 'நாங்கள்', 'உன்', 'அது', 'இது', 'அவை', 'இவை', 'எந்த', 'எது', 'எப்படி', 'எப்போது', 'எங்கே', 'என்', 'ஆக', 'ஆய்', 'என்றால்', 'ஆனால்', 'ஆலே', 'அதே', 'இதே', 'மட்டும்', 'மேலும்', 'மற்றும்', 'அல்லது', 'ஆகும்', 'இருந்து', 'வரை', 'போல்', 'போலே', 'தானே', 'தான்', 'உம்', 'என்று', 'என்றும்', 'அன்றோ', 'இன்றோ',
     };
     return stopWords.contains(word.toLowerCase());
   }
@@ -527,6 +528,8 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            _buildVerseCard(context),
+            const SizedBox(height: 16),
             if (bookCommentaries.isNotEmpty) ...[
               Row(
                 children: [
@@ -1040,7 +1043,6 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
 
   Widget _buildLayout(BuildContext context) {
     final tokens = context.tokens;
-    final dictionaryCount = _dictionaryEntries.length;
 
     return MaxWidthBox(
       child: Column(
@@ -1053,8 +1055,8 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
               labelColor: tokens.accent,
               unselectedLabelColor: tokens.onSurfaceMuted,
               tabs: [
-                Tab(
-                  icon: const Icon(Icons.menu_book_outlined, size: 18),
+                const Tab(
+                  icon: Icon(Icons.menu_book_outlined, size: 18),
                   text: 'Concepts',
                 ),
                 Tab(
@@ -1093,7 +1095,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
         if (!_isStudyDbDownloaded)
           InkWell(
             onTap: () {
-              Navigator.of(context).pushNamed('/downloads');
+              context.push('/downloads');
             },
             child: Container(
               margin: const EdgeInsets.only(bottom: 16),
@@ -1242,7 +1244,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                 ],
                 OutlinedButton.icon(
                   onPressed: () {
-                    Navigator.of(context).pushNamed('/downloads');
+                    context.push('/downloads');
                   },
                   icon: const Icon(Icons.download_for_offline_rounded, size: 16),
                   label: const Text('Download Tamil Vedagama Agarathi'),

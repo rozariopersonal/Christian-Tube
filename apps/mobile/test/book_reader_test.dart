@@ -15,13 +15,16 @@ import 'package:mobile/features/books/widgets/book_toc_sheet.dart';
 import 'package:mobile/features/dictionary/models/dictionary_entry.dart';
 import 'package:mobile/features/dictionary/services/dictionary_service.dart';
 import 'package:mobile/features/books/screens/book_reader_screen.dart';
+import 'package:mobile/features/books/services/book_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
-  setUpAll(() {
+  setUpAll(() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    BookService.instance.overrideDbPath = inMemoryDatabasePath;
+    await BookService.instance.initialize();
   });
 
   group('Book Models Unit Tests', () {
@@ -293,7 +296,7 @@ void main() {
     });
 
     testWidgets('BookCard renders with progress indicator', (tester) async {
-      final book = Book(
+      const book = Book(
         id: 'test_book',
         title: 'Test Book Title',
         author: 'Zac Poonen',
@@ -304,7 +307,7 @@ void main() {
         createdAt: '2026-09-01',
       );
 
-      final progress = UserReadingProgress(
+      const progress = UserReadingProgress(
         bookId: 'test_book',
         currentPage: 25,
         currentLine: 1,
@@ -314,7 +317,7 @@ void main() {
 
       await tester.pumpWidget(
         buildFrame(
-          SizedBox(
+          const SizedBox(
             width: 150,
             height: 250,
             child: BookCard(
@@ -404,6 +407,94 @@ void main() {
 
         expect(tester.takeException(), isNull);
       }
+    });
+
+    testWidgets('BookService and BookReaderScreen render real book chapters and lines', (tester) async {
+      await tester.runAsync(() async {
+        final bookService = BookService.instance;
+        final db = (await bookService.database as Database?)!;
+
+        // Insert mock book data
+        await db.insert('books', {
+          'id': 'mock_book',
+          'title': 'Mock Book Title',
+          'author': 'Author Name',
+          'subject': 'Christian Living',
+          'categories': '["Christian Living"]',
+          'description': 'A mock book for testing.',
+          'cover_file': 'mock.jpg',
+          'total_pages': 5,
+          'total_lines': 50,
+          'download_size_formatted': '1 MB',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+
+        await db.insert('book_chapters', {
+          'book_id': 'mock_book',
+          'chapter_index': 1,
+          'chapter_title': 'Chapter 1: The Beginning',
+          'start_page': 1,
+          'start_line': 1,
+          'end_page': 3,
+          'end_line': 30,
+        });
+
+        await db.insert('book_content', {
+          'book_id': 'mock_book',
+          'page_number': 1,
+          'line_number': 1,
+          'chapter_index': 1,
+          'content_type': 'chapter_header',
+          'text': 'Chapter 1: The Beginning',
+        });
+
+        await db.insert('book_content', {
+          'book_id': 'mock_book',
+          'page_number': 1,
+          'line_number': 2,
+          'chapter_index': 1,
+          'content_type': 'p',
+          'text': 'This is the first paragraph of the mock book. Check John 3:16 for salvation.',
+        });
+
+        // Test BookService queries
+        final book = await bookService.getBook('mock_book');
+        expect(book, isNotNull);
+        expect(book!.title, 'Mock Book Title');
+
+        final chapters = await bookService.getChapters('mock_book');
+        final lines = await bookService.getPageLines('mock_book', 1);
+
+        // Verify getChapters and getPageLines read from SQLite
+        expect(chapters, isNotEmpty, reason: 'getChapters should return chapters from SQLite database');
+        expect(chapters.first.chapterTitle, 'Chapter 1: The Beginning');
+        expect(lines, hasLength(2), reason: 'getPageLines should return lines from SQLite database');
+      });
+
+      // Now test rendering BookReaderScreen with real content
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [AppTokens.dark],
+          ),
+          home: const BookReaderScreen(bookId: 'mock_book'),
+        ),
+      );
+
+      for (var i = 0; i < 15; i++) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Mock Book Title'), findsOneWidget);
+      expect(find.textContaining('This is the first paragraph', skipOffstage: false), findsOneWidget);
     });
   });
 }

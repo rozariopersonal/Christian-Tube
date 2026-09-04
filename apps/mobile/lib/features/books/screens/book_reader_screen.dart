@@ -177,12 +177,12 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     final pos = _scrollController.position;
 
     // 1. Infinite scroll DOWN: load next pages when near bottom
-    if (pos.pixels >= pos.maxScrollExtent - 800) {
+    if (pos.maxScrollExtent > 0 && pos.pixels >= pos.maxScrollExtent - 800) {
       _loadMorePagesDown();
     }
 
     // 2. Infinite scroll UP: load previous pages when near top
-    if (pos.pixels <= pos.minScrollExtent + 600) {
+    if (pos.minScrollExtent < 0 && pos.pixels <= pos.minScrollExtent + 600) {
       _loadMorePagesUp();
     }
 
@@ -200,7 +200,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       final ctx = entry.value.currentContext;
       if (ctx == null) continue;
       final box = ctx.findRenderObject() as RenderBox?;
-      if (box != null && box.hasSize) {
+      if (box != null && box.hasSize && box.attached) {
         final top = box.localToGlobal(Offset.zero).dy;
         final bottom = top + box.size.height;
         
@@ -242,7 +242,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         final ctx = key?.currentContext;
         if (ctx != null) {
           final box = ctx.findRenderObject() as RenderBox?;
-          if (box != null && box.hasSize) {
+          if (box != null && box.hasSize && box.attached) {
             final top = box.localToGlobal(Offset.zero).dy;
             final bottom = top + box.size.height;
             if (top <= 250 && bottom >= 250) {
@@ -424,30 +424,35 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
   void _checkPendingResume() {
     if (!mounted || _pendingResumeLine == null || _pendingResumePage == null) return;
-    final blockKey = _blockKeys['$_pendingResumePage:$_pendingResumeLine'];
-    final blockCtx = blockKey?.currentContext;
-    if (blockCtx != null) {
-      Scrollable.ensureVisible(
-        blockCtx,
-        duration: const Duration(milliseconds: 350),
-        alignment: 0.05,
-      );
-      _pendingResumeLine = null;
-      _pendingResumePage = null;
-      return;
-    }
+    try {
+      final blockKey = _blockKeys['$_pendingResumePage:$_pendingResumeLine'];
+      final blockCtx = blockKey?.currentContext;
+      if (blockCtx != null && Scrollable.maybeOf(blockCtx) != null) {
+        Scrollable.ensureVisible(
+          blockCtx,
+          duration: const Duration(milliseconds: 350),
+          alignment: 0.05,
+        );
+        _pendingResumeLine = null;
+        _pendingResumePage = null;
+        return;
+      }
 
-    final pageKey = _pageKeys[_pendingResumePage!];
-    final pageCtx = pageKey?.currentContext;
-    if (pageCtx != null && _pageCache.containsKey(_pendingResumePage) && _pageCache[_pendingResumePage]!.isNotEmpty) {
-      Scrollable.ensureVisible(
-        pageCtx,
-        duration: const Duration(milliseconds: 350),
-        alignment: 0.0,
-      );
-      _pendingResumeLine = null;
-      _pendingResumePage = null;
-    }
+      final pageKey = _pageKeys[_pendingResumePage!];
+      final pageCtx = pageKey?.currentContext;
+      if (pageCtx != null &&
+          Scrollable.maybeOf(pageCtx) != null &&
+          _pageCache.containsKey(_pendingResumePage) &&
+          _pageCache[_pendingResumePage]!.isNotEmpty) {
+        Scrollable.ensureVisible(
+          pageCtx,
+          duration: const Duration(milliseconds: 350),
+          alignment: 0.0,
+        );
+        _pendingResumeLine = null;
+        _pendingResumePage = null;
+      }
+    } catch (_) {}
   }
 
   Future<List<BookLine>> _fetchPageLines(int page) async {

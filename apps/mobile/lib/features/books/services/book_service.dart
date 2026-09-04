@@ -23,8 +23,14 @@ class BookService extends ChangeNotifier {
   double get downloadProgress => _adapter.downloadProgress.value;
   String? get lastError => _lastError ?? _adapter.lastError.value;
   
-  /// Optional override for testing.
-  String? overrideDbPath;
+  String? _overrideDbPath;
+  String? get overrideDbPath => _overrideDbPath;
+  set overrideDbPath(String? path) {
+    _overrideDbPath = path;
+    if (!kIsWeb) {
+      (_adapter as SqliteBookDataAdapter).overrideDbPath = path;
+    }
+  }
 
   BookService._internal() {
     if (kIsWeb) {
@@ -52,6 +58,9 @@ class BookService extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  @visibleForTesting
+  Future<dynamic> get database => !kIsWeb ? (_adapter as SqliteBookDataAdapter).database : Future.value(null);
 
   bool isBookDownloading(String bookId) => _adapter.isBookDownloading(bookId);
   Future<bool> isBookInstalled(String bookId) => _adapter.isBookInstalled(bookId);

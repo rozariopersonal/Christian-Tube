@@ -258,7 +258,9 @@ void main() {
 
       expect(find.text('Read more'), findsOneWidget);
 
-      // Tap to expand
+      // Ensure visible in scroll view and tap to expand
+      await tester.ensureVisible(find.text('Read more'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Read more'));
       await tester.pumpAndSettle();
 

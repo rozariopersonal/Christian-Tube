@@ -38,8 +38,17 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   
   
 
-  /// Optional override for testing.
-  String? overrideDbPath;
+  String? _overrideDbPath;
+  String? get overrideDbPath => _overrideDbPath;
+  set overrideDbPath(String? path) {
+    if (_overrideDbPath != path) {
+      _overrideDbPath = path;
+      if (_db != null) {
+        _db?.close();
+        _db = null;
+      }
+    }
+  }
 
   Future<Database?> get database async {
     if (_db != null && _db!.isOpen) return _db;
@@ -68,15 +77,18 @@ class SqliteBookDataAdapter implements BookDataAdapter {
 
   @override
   Future<void> initialize() async {
-    
-    if (_db != null && _db!.isOpen) return;
+    final dbPath = overrideDbPath ??
+        p.join(await getDatabasesPath(), 'christian_tube_books.db');
+
+    if (_db != null && _db!.isOpen) {
+      if (_db!.path == dbPath) return;
+      await _db!.close();
+      _db = null;
+    }
     if (_isInitializing) return;
     _isInitializing = true;
 
     try {
-      final dbPath = overrideDbPath ??
-          p.join(await getDatabasesPath(), 'christian_tube_books.db');
-
       _db = await openDatabase(
         dbPath,
         version: 3,
@@ -678,7 +690,23 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   /// Gets all chapter entries (TOC) for a book.
   @override
   Future<List<BookChapter>> getChapters(String bookId) async {
-    
+    final db = await database;
+    if (db != null) {
+      final rows = await db.query(
+        'book_chapters',
+        where: 'book_id = ?',
+        whereArgs: [bookId],
+        orderBy: 'chapter_index ASC',
+      );
+      if (rows.isNotEmpty) {
+        return rows.map((r) => BookChapter.fromMap(r)).toList();
+      }
+    }
+
+    // If the book is installed locally, do not fall back to network
+    if (await isBookInstalled(bookId)) {
+      return [];
+    }
 
     // Fallback to Live CDN chunked fetch
     if (_liveTocCache.containsKey(bookId) && _liveTocCache[bookId]!.isNotEmpty) {
@@ -739,7 +767,23 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   /// Gets all lines for a specific page of a book.
   @override
   Future<List<BookLine>> getPageLines(String bookId, int pageNumber) async {
-    
+    final db = await database;
+    if (db != null) {
+      final rows = await db.query(
+        'book_content',
+        where: 'book_id = ? AND page_number = ?',
+        whereArgs: [bookId, pageNumber],
+        orderBy: 'line_number ASC',
+      );
+      if (rows.isNotEmpty) {
+        return rows.map((r) => BookLine.fromMap(r)).toList();
+      }
+    }
+
+    // If the book is installed locally, do not fall back to network
+    if (await isBookInstalled(bookId)) {
+      return [];
+    }
 
     // Fast path: In-memory live page cache
     final pageCacheKey = '${bookId}_$pageNumber';
@@ -782,7 +826,18 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   /// Gets all lines for a range of pages of a book.
   @override
   Future<List<BookLine>> getPageRangeLines(String bookId, int startPage, int endPage) async {
-    
+    final db = await database;
+    if (db != null) {
+      final rows = await db.query(
+        'book_content',
+        where: 'book_id = ? AND page_number >= ? AND page_number <= ?',
+        whereArgs: [bookId, startPage, endPage],
+        orderBy: 'page_number ASC, line_number ASC',
+      );
+      if (rows.isNotEmpty) {
+        return rows.map((r) => BookLine.fromMap(r)).toList();
+      }
+    }
 
     final result = <BookLine>[];
     for (int p = startPage; p <= endPage; p++) {
@@ -795,7 +850,19 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   /// Resolves the page number that contains a specific line number.
   @override
   Future<int?> getPageForLine(String bookId, int lineNumber) async {
-    
+    final db = await database;
+    if (db != null) {
+      final rows = await db.query(
+        'book_content',
+        columns: ['page_number'],
+        where: 'book_id = ? AND line_number = ?',
+        whereArgs: [bookId, lineNumber],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        return (rows.first['page_number'] as num).toInt();
+      }
+    }
 
     final chapters = await getChapters(bookId);
     for (final ch in chapters) {
@@ -812,7 +879,23 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   /// Gets all lines for a chapter of a book.
   @override
   Future<List<BookLine>> getChapterLines(String bookId, int chapterIndex) async {
-    
+    final db = await database;
+    if (db != null) {
+      final rows = await db.query(
+        'book_content',
+        where: 'book_id = ? AND chapter_index = ?',
+        whereArgs: [bookId, chapterIndex],
+        orderBy: 'page_number ASC, line_number ASC',
+      );
+      if (rows.isNotEmpty) {
+        return rows.map((r) => BookLine.fromMap(r)).toList();
+      }
+    }
+
+    // If the book is installed locally, do not fall back to network
+    if (await isBookInstalled(bookId)) {
+      return [];
+    }
 
     // Fallback to Live CDN chunked fetch
     final cacheKey = '${bookId}_$chapterIndex';
@@ -855,14 +938,15 @@ class SqliteBookDataAdapter implements BookDataAdapter {
 
             if (lines.isNotEmpty) {
               _liveChapterLinesCache[cacheKey] = lines;
-              // Pre-populate _livePageCache for every page in this chapter
+              // Pre-populate _livePageCache cleanly without duplicates
+              final pageMap = <int, List<BookLine>>{};
               for (final l in lines) {
-                final pageKey = '${bookId}_${l.pageNumber}';
-                (_livePageCache[pageKey] ??= []).add(l);
+                (pageMap[l.pageNumber] ??= []).add(l);
               }
-              final pagesInChapter = lines.map((l) => l.pageNumber).toSet();
-              for (final p in pagesInChapter) {
-                _livePageCache['${bookId}_$p']?.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
+              for (final entry in pageMap.entries) {
+                entry.value.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
+                final pageKey = '${bookId}_${entry.key}';
+                _livePageCache[pageKey] = entry.value;
               }
               return lines;
             }
@@ -885,6 +969,39 @@ class SqliteBookDataAdapter implements BookDataAdapter {
     int chapter,
     int verse,
   ) async {
+    final db = await database;
+    if (db != null) {
+      try {
+        final rows = await db.rawQuery('''
+          SELECT l.*, b.title, b.author
+          FROM book_scripture_links l
+          JOIN books b ON l.book_id = b.id
+          WHERE l.book_number = ? AND l.chapter = ? AND l.verse = ?
+          ORDER BY b.total_pages DESC, l.page_number ASC
+        ''', [bookNumber, chapter, verse]);
+
+        if (rows.isNotEmpty) {
+          final results = <BookScriptureLink>[];
+          for (final row in rows) {
+            final bookId = row['book_id'] as String;
+            final pageNum = (row['page_number'] as num).toInt();
+            final startLine = (row['start_line'] as num).toInt();
+            final endLine = (row['end_line'] as num).toInt();
+
+            final lineRows = await db.rawQuery('''
+              SELECT text FROM book_content
+              WHERE book_id = ? AND page_number = ? AND line_number >= ? AND line_number <= ?
+              ORDER BY line_number ASC
+            ''', [bookId, pageNum, startLine, endLine]);
+
+            final excerpt = lineRows.map((lr) => lr['text'] as String).join(' ');
+            results.add(BookScriptureLink.fromMap(row, excerpt: excerpt));
+          }
+          return results;
+        }
+      } catch (_) {}
+    }
+
     final key = '${bookNumber}_$chapter';
     Map<String, dynamic>? chapterData = _liveCommentariesCache[key];
 

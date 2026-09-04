@@ -9,10 +9,10 @@ class VerseConceptCard extends StatefulWidget {
   final double baseFontSize;
 
   const VerseConceptCard({
-    Key? key,
+    super.key,
     required this.concept,
     this.baseFontSize = 16.0,
-  }) : super(key: key);
+  });
 
   @override
   State<VerseConceptCard> createState() => _VerseConceptCardState();
@@ -20,6 +20,18 @@ class VerseConceptCard extends StatefulWidget {
 
 class _VerseConceptCardState extends State<VerseConceptCard> {
   bool _isExpanded = false;
+
+  bool get _isRtl {
+    final orig = widget.concept.originalLanguage;
+    if (orig == null) return false;
+    if (orig.strongs.toUpperCase().startsWith('H')) return true;
+    for (final r in orig.lemma.runes) {
+      if ((r >= 0x0590 && r <= 0x05FF) || (r >= 0xFB1D && r <= 0xFB4F)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   void _copyToClipboard() {
     final text = '${widget.concept.conceptName}: ${widget.concept.definition}';
@@ -36,8 +48,6 @@ class _VerseConceptCardState extends State<VerseConceptCard> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -55,7 +65,7 @@ class _VerseConceptCardState extends State<VerseConceptCard> {
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
               decoration: BoxDecoration(
-                color: tokens.surfaceVariant.withOpacity(0.5),
+                color: tokens.surfaceVariant.withValues(alpha: 0.5),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
@@ -78,7 +88,7 @@ class _VerseConceptCardState extends State<VerseConceptCard> {
                             color: tokens.onSurface,
                             height: 1.2,
                           ),
-                          textDirection: TextDirection.rtl, // Hebrew reads RTL
+                          textDirection: _isRtl ? TextDirection.rtl : TextDirection.ltr,
                         ),
                       ),
                       if (widget.concept.originalLanguage!.strongs.isNotEmpty || 
@@ -86,7 +96,7 @@ class _VerseConceptCardState extends State<VerseConceptCard> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: tokens.background.withOpacity(0.5),
+                            color: tokens.background.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -195,51 +205,57 @@ class _VerseConceptCardState extends State<VerseConceptCard> {
                   ),
                 
                 // Footer Buttons
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      _isExpanded = !_isExpanded;
-                    });
-                  },
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              'Deep Dive (Biblical & Historical Context)',
-                              style: TextStyle(
-                                color: tokens.accent,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _isExpanded = !_isExpanded;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'Deep Dive (Biblical & Historical Context)',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: tokens.accent,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                  color: tokens.accent,
+                                  size: 16,
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                              color: tokens.accent,
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          onPressed: _copyToClipboard,
-                          icon: Icon(Icons.content_copy_outlined, size: 18, color: tokens.accent),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          style: IconButton.styleFrom(
-                            backgroundColor: tokens.accent.withOpacity(0.1),
-                            padding: const EdgeInsets.all(8),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: 'Copy concept',
+                        onPressed: _copyToClipboard,
+                        icon: Icon(Icons.content_copy_outlined, size: 18, color: tokens.accent),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        style: IconButton.styleFrom(
+                          backgroundColor: tokens.accent.withValues(alpha: 0.1),
+                          padding: const EdgeInsets.all(8),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

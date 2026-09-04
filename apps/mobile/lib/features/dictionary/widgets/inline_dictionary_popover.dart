@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/dictionary_entry.dart';
@@ -283,7 +284,7 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
                                   OutlinedButton.icon(
                                     onPressed: () {
                                       Navigator.of(context).pop();
-                                      Navigator.of(context).pushNamed('/downloads');
+                                      context.push('/downloads');
                                     },
                                     icon: const Icon(Icons.download_for_offline_rounded, size: 16),
                                     label: const Text('Manage Offline Dictionaries'),

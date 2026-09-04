@@ -7,7 +7,7 @@ class VerseActionBar extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback onBookmark;
   final VoidCallback onClear;
-  final VoidCallback? onBackground;
+  final VoidCallback? onStudy;
 
   const VerseActionBar({
     super.key,
@@ -16,7 +16,7 @@ class VerseActionBar extends StatelessWidget {
     required this.onShare,
     required this.onBookmark,
     required this.onClear,
-    this.onBackground,
+    this.onStudy,
   });
 
   @override
@@ -26,23 +26,25 @@ class VerseActionBar extends StatelessWidget {
     final tokens = context.tokens;
 
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: tokens.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tokens.surfaceBorder),
         boxShadow: [
           BoxShadow(
-            color: tokens.scrim.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            color: tokens.scrim.withValues(alpha: 0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: [
             IconButton(
+              tooltip: 'Deselect all',
               icon: Icon(Icons.close, color: tokens.onSurfaceMuted),
               onPressed: onClear,
             ),
@@ -53,26 +55,28 @@ class VerseActionBar extends StatelessWidget {
                 style: TextStyle(
                   color: tokens.onSurface,
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
                 ),
               ),
             ),
-            if (onBackground != null)
+            if (onStudy != null)
               IconButton(
-                tooltip: 'Historical Context',
-                icon: Icon(Icons.history_edu_outlined, color: tokens.accent),
-                onPressed: onBackground,
+                tooltip: 'Study verse',
+                icon: Icon(Icons.auto_stories_outlined, color: tokens.accent),
+                onPressed: onStudy,
               ),
-            IconButton(
-              tooltip: 'Share',
-              icon: Icon(Icons.share, color: tokens.onSurfaceMuted),
-              onPressed: onShare,
-            ),
             IconButton(
               tooltip: 'Bookmark',
               icon: Icon(Icons.bookmark_add_outlined,
                   color: tokens.onSurfaceMuted),
               onPressed: onBookmark,
             ),
+            IconButton(
+              tooltip: 'Share',
+              icon: Icon(Icons.share_outlined, color: tokens.onSurfaceMuted),
+              onPressed: onShare,
+            ),
+            const SizedBox(width: 4),
             ElevatedButton.icon(
               onPressed: onCopy,
               icon: const Icon(Icons.copy, size: 16),
@@ -80,7 +84,7 @@ class VerseActionBar extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: tokens.accent,
                 foregroundColor: tokens.onSurface,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),

@@ -53,7 +53,7 @@ class VerseActionCard extends StatelessWidget {
                     ),
                     backgroundColor: tokens.surface,
                     side: BorderSide(color: tokens.surfaceBorder),
-                    onPressed: () => onOpenStudyPage?.call(0),
+                    onPressed: () => onOpenStudyPage?.call(1),
                   ),
                 if (commentaryCount > 0)
                   ActionChip(
@@ -64,7 +64,7 @@ class VerseActionCard extends StatelessWidget {
                     ),
                     backgroundColor: tokens.surface,
                     side: BorderSide(color: tokens.surfaceBorder),
-                    onPressed: () => onOpenStudyPage?.call(1),
+                    onPressed: () => onOpenStudyPage?.call(2),
                   ),
               ],
             ),
