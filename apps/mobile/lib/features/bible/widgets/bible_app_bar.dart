@@ -10,7 +10,6 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
   const BibleAppBar({
     super.key,
     required this.controller,
-    required this.onShowBookChapterSelector,
     required this.onShowSearch,
     required this.onShowReadingSettings,
     required this.onOpenBookmarks,
@@ -18,7 +17,6 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   final BibleController controller;
-  final VoidCallback onShowBookChapterSelector;
   final VoidCallback onShowSearch;
   final VoidCallback onShowReadingSettings;
   final VoidCallback onOpenBookmarks;
@@ -31,33 +29,11 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final s = controller.state;
     return AppBar(
-      title: Semantics(
-        label: 'Book and chapter selector: '
-            '${controller.displayBookName(controller.currentBook)} '
-            '${controller.currentChapter}',
-        button: true,
-        child: GestureDetector(
-          onTap: onShowBookChapterSelector,
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  '${controller.displayBookName(controller.currentBook)} '
-                  '${controller.currentChapter}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(left: 2),
-                child: Icon(Icons.arrow_drop_down, size: 20),
-              ),
-            ],
-          ),
-        ),
+      title: Text(
+        controller.selectedVersion?.name ?? 'Bible',
+        style: const TextStyle(fontWeight: FontWeight.bold),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
       ),
       actions: [
         if (s.selectedVersion != null)

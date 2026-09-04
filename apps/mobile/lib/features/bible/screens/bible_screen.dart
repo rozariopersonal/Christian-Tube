@@ -345,7 +345,6 @@ class _BibleScreenState extends State<BibleScreen> {
     return Scaffold(
       appBar: BibleAppBar(
         controller: _controller,
-        onShowBookChapterSelector: _showBookChapterSelector,
         onShowSearch: _showSearch,
         onShowReadingSettings: _showReadingSettings,
         onOpenBookmarks: _openBookmarks,
@@ -366,6 +365,7 @@ class _BibleScreenState extends State<BibleScreen> {
       ),
       bottomNavigationBar: BibleBottomNav(
         controller: _controller,
+        onShowBookChapterSelector: _showBookChapterSelector,
         onCopy: _copySelectedVerses,
         onShare: _shareSelectedVerses,
         onBookmark: _bookmarkSelectedVerses,

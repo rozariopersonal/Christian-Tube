@@ -8,6 +8,7 @@ class BibleBottomNav extends StatelessWidget {
   const BibleBottomNav({
     super.key,
     required this.controller,
+    required this.onShowBookChapterSelector,
     required this.onCopy,
     required this.onShare,
     required this.onBookmark,
@@ -16,6 +17,7 @@ class BibleBottomNav extends StatelessWidget {
   });
 
   final BibleController controller;
+  final VoidCallback onShowBookChapterSelector;
   final VoidCallback onCopy;
   final VoidCallback onShare;
   final VoidCallback onBookmark;
@@ -40,6 +42,10 @@ class BibleBottomNav extends StatelessWidget {
       canFetchNext: s.canFetchNext,
       onPrev: controller.fetchPrevChapter,
       onNext: controller.fetchNextChapter,
+      onShowBookChapterSelector: onShowBookChapterSelector,
+      currentBookLabel:
+          '${controller.displayBookName(controller.currentBook)} '
+          '${controller.currentChapter}',
     );
   }
 }
@@ -50,12 +56,16 @@ class _ChapterNav extends StatelessWidget {
     required this.canFetchNext,
     required this.onPrev,
     required this.onNext,
+    required this.onShowBookChapterSelector,
+    required this.currentBookLabel,
   });
 
   final bool canFetchPrev;
   final bool canFetchNext;
   final VoidCallback onPrev;
   final VoidCallback onNext;
+  final VoidCallback onShowBookChapterSelector;
+  final String currentBookLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -73,9 +83,8 @@ class _ChapterNav extends StatelessWidget {
       ),
       child: MaxWidthBox(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Semantics(
                 label: 'Previous chapter',
@@ -84,6 +93,45 @@ class _ChapterNav extends StatelessWidget {
                   onPressed: canFetchPrev ? onPrev : null,
                   icon: const Icon(Icons.chevron_left),
                   label: const Text('Prev'),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Semantics(
+                    label: 'Book and chapter selector: $currentBookLabel',
+                    button: true,
+                    child: InkWell(
+                      onTap: onShowBookChapterSelector,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                currentBookLabel,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.only(left: 2),
+                              child: Icon(Icons.arrow_drop_down, size: 20),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               Semantics(
