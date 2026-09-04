@@ -899,7 +899,9 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       }
     }
 
-    // If the book is installed locally, do not fall back to network
+    // If the book is installed locally but this chapter has no rows in
+    // SQLite, the data genuinely doesn't exist — avoid a sequential CDN
+    // scan that would fetch every chapter from the network.
     if (await isBookInstalled(bookId)) {
       return [];
     }

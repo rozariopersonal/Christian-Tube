@@ -398,14 +398,9 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   }
 
   void _openReader(Book book, {int? initialPage, int? initialLine}) async {
-    final isInstalled = _installedBookIds.contains(book.id);
-    if (!kIsWeb && !isInstalled) {
-      _promptDownloadSingleBook(book);
-      return;
-    }
-
     final progress = _progressMap[book.id];
     int targetPage = 1;
+    int? targetLine = initialLine;
 
     if (initialPage != null) {
       targetPage = initialPage;
@@ -436,6 +431,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
 
       if (shouldResume == null) return; // User cancelled
       targetPage = shouldResume ? progress.currentPage : 1;
+      targetLine = shouldResume ? progress.currentLine : 1;
     }
 
     await Navigator.of(context).push(
@@ -443,8 +439,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
         builder: (_) => BookReaderScreen(
           bookId: book.id,
           initialPage: targetPage,
-          highlightStartLine: initialLine,
-          highlightEndLine: initialLine,
+          highlightStartLine: targetLine,
+          highlightEndLine: targetLine,
         ),
       ),
     );

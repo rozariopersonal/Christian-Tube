@@ -27,7 +27,7 @@ class BookParagraphGrouper {
   static final _quoteTermRegex = RegExp(r'[\”\"' "'" r'’]$');
   static final _punctRegex = RegExp(r'[.!?,:;\”\"' "'" r'’]$');
   static final _leadWordRegex = RegExp(r'^(and|but|for|or|the|in|to)\s', caseSensitive: false);
-  static final _numberedHeadingRegex = RegExp(r'^(?:\d+\.|\([I|V|X]+\)|[I|V|X]+\.)\s+[A-Z]');
+  static final _numberedHeadingRegex = RegExp(r'^(?:\d+\.|\(I{1,3}|IV|V?I{0,3}\)|[IVX]+\.)\s+[A-Z]');
   static final _chapRegex = RegExp(r'^Chapter\s+\d+', caseSensitive: false);
   static final _chapMatchRegex = RegExp(r'^(Chapter\s+\d+|[A-Z\s]+)\s*(.*)$', caseSensitive: false);
   static final _chapStripRegex = RegExp(r'^Chapter\s+\d+\s*', caseSensitive: false);

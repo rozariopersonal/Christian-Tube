@@ -88,7 +88,6 @@ class _BibleScreenState extends State<BibleScreen> {
   Timer? _highlightTimer;
 
   // Cross-reference state.
-  final Set<int> _expandedCrossRefVerses = {};
   Map<int, List<CrossReference>> _chapterCrossRefs = {};
   Map<String, String> _crossRefTexts = {};
   bool _crossRefsInstalled = false;
@@ -160,13 +159,17 @@ class _BibleScreenState extends State<BibleScreen> {
   /// location was applied (and therefore the chapter should be re-loaded).
   bool _applySavedProgress() {
     if (_resumeApplied) return false;
-    _resumeApplied = true;
     // When launched from the Words feed, honor the requested passage/version
     // instead of the saved reading position.
     if (widget.initialBook != null || widget.initialVersionId != null) {
+      _resumeApplied = true;
       return false;
     }
-    if (!_settingsLoaded || !_settings.hasProgress) return false;
+    if (!_settingsLoaded) return false;
+    if (!_settings.hasProgress) {
+      _resumeApplied = true;
+      return false;
+    }
     final savedBook = _settings.lastBook;
     final savedChapter = _settings.lastChapter;
     final savedVersion = _settings.lastVersion;
@@ -184,6 +187,7 @@ class _BibleScreenState extends State<BibleScreen> {
   /// the installed versions are known.
   void _applyInitialJump() {
     if (!_initialJumpPending || _versions.isEmpty) return;
+    _initialJumpPending = false;
     final targetVersionId = widget.initialVersionId;
     if (targetVersionId != null &&
         _versions.any((v) => v.shortname == targetVersionId)) {
@@ -203,11 +207,27 @@ class _BibleScreenState extends State<BibleScreen> {
   @override
   void didUpdateWidget(covariant BibleScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    bool reloadNeeded = false;
+    if (widget.initialBook != null &&
+        widget.initialBook != oldWidget.initialBook &&
+        bibleBooks.containsKey(widget.initialBook)) {
+      _currentBook = widget.initialBook!;
+      reloadNeeded = true;
+    }
+    if (widget.initialChapter != null &&
+        widget.initialChapter != oldWidget.initialChapter &&
+        widget.initialChapter! >= 1) {
+      _currentChapter = widget.initialChapter!;
+      reloadNeeded = true;
+    }
     if (widget.initialVerse != null && widget.initialVerse != oldWidget.initialVerse) {
       _pendingScrollVerse = widget.initialVerse;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _scrollToVerse(widget.initialVerse!);
       });
+    }
+    if (reloadNeeded && mounted) {
+      _loadChapter();
     }
   }
 
@@ -397,15 +417,6 @@ class _BibleScreenState extends State<BibleScreen> {
         );
       }).toList();
 
-      // Auto-expand verses with references when the user has the "expand all"
-      // preference on. Verses with more than two references are left as a
-      // badge that opens the dedicated references page, so they stay collapsed
-      // here even with the preference enabled.
-      if (_settings.expandCrossReferences) {
-        _expandedCrossRefVerses.addAll(
-          chapterRefs.keys.where((v) => (chapterRefs[v]?.length ?? 0) <= 2),
-        );
-      }
       _crossRefsLoading = false;
     });
   }
@@ -435,7 +446,6 @@ class _BibleScreenState extends State<BibleScreen> {
       _selectedVerses.clear();
       _verseKeys.clear(); // fresh chapter — old keys are no longer valid
       _highlightedVerse = null;
-      _expandedCrossRefVerses.clear();
       _chapterCrossRefs = {};
       _crossRefTexts = {};
       _crossRefBookNumber = 0;
@@ -446,7 +456,8 @@ class _BibleScreenState extends State<BibleScreen> {
     _loadCrossReferencesForChapter(_bookNumber(_currentBook), _currentChapter);
     _loadBackgroundsForChapter(_bookNumber(_currentBook), _currentChapter);
     // Scroll to the launched verse (when present) or top when re-fetched.
-    final targetVerse = _pendingScrollVerse ?? widget.initialVerse;
+    final targetVerse = _pendingScrollVerse;
+    _pendingScrollVerse = null;
     if (targetVerse != null) {
       _initialJumpPending = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -509,9 +520,25 @@ class _BibleScreenState extends State<BibleScreen> {
       if (mounted) setState(() => _highlightedVerse = null);
     });
   }
+  bool get _canFetchPrev {
+    if (_isLoading || _selectedVersion == null) return false;
+    if (_currentChapter > 1) return true;
+    final books = bibleBooks.keys.toList();
+    final currentIndex = books.indexOf(_currentBook);
+    return currentIndex > 0;
+  }
+
+  bool get _canFetchNext {
+    if (_isLoading || _selectedVersion == null) return false;
+    final maxChapters = bibleBooks[_currentBook] ?? 1;
+    if (_currentChapter < maxChapters) return true;
+    final books = bibleBooks.keys.toList();
+    final currentIndex = books.indexOf(_currentBook);
+    return currentIndex < books.length - 1;
+  }
 
   Future<void> _fetchNextChapter() async {
-    if (_isLoading || _selectedVersion == null) return;
+    if (!_canFetchNext) return;
     
     int maxChapters = bibleBooks[_currentBook] ?? 1;
     String nextBook = _currentBook;
@@ -542,7 +569,7 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   Future<void> _fetchPrevChapter() async {
-    if (_isLoading || _selectedVersion == null) return;
+    if (!_canFetchPrev) return;
 
     String prevBook = _currentBook;
     int prevChapter = _currentChapter - 1;
@@ -587,9 +614,12 @@ class _BibleScreenState extends State<BibleScreen> {
           setState(() {
             _currentBook = book;
             _currentChapter = chapter;
+            _isLoading = true;
           });
           Navigator.pop(context);
-          _fetchData();
+          _loadChapter().whenComplete(() {
+            if (mounted) setState(() => _isLoading = false);
+          });
         },
       ),
     );
@@ -685,23 +715,6 @@ class _BibleScreenState extends State<BibleScreen> {
           return ReadingSettingsSheet(
             settings: _settings,
             onSettingsChanged: (newSettings) {
-              // Re-apply auto-expansion when the toggle flips: turning it on
-              // expands every verse that has up to two refs (larger sets stay
-              // as badges that open the dedicated references page); turning it
-              // off collapses all.
-              if (newSettings.expandCrossReferences !=
-                  _settings.expandCrossReferences) {
-                setState(() {
-                  if (newSettings.expandCrossReferences) {
-                    _expandedCrossRefVerses.addAll(
-                      _chapterCrossRefs.keys
-                          .where((v) => (_chapterCrossRefs[v]?.length ?? 0) <= 2),
-                    );
-                  } else {
-                    _expandedCrossRefVerses.clear();
-                  }
-                });
-              }
               setModalState(() => _settings = newSettings);
               setState(() => _settings = newSettings);
               _settingsService.saveSettings(newSettings);
@@ -718,8 +731,11 @@ class _BibleScreenState extends State<BibleScreen> {
       _currentChapter = chapter;
       _selectedVerses.clear();
       _pendingScrollVerse = verse;
+      _isLoading = true;
     });
-    _fetchData();
+    _loadChapter().whenComplete(() {
+      if (mounted) setState(() => _isLoading = false);
+    });
   }
 
   void _showSearch() {
@@ -1218,7 +1234,6 @@ class _BibleScreenState extends State<BibleScreen> {
                     : null,
               )
             : Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: context.tokens.background,
                   boxShadow: [
@@ -1229,21 +1244,26 @@ class _BibleScreenState extends State<BibleScreen> {
                     ),
                   ],
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton.icon(
-                      onPressed: _fetchPrevChapter,
-                      icon: const Icon(Icons.chevron_left),
-                      label: const Text('Prev'),
+                child: MaxWidthBox(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _canFetchPrev ? _fetchPrevChapter : null,
+                          icon: const Icon(Icons.chevron_left),
+                          label: const Text('Prev'),
+                        ),
+                        TextButton.icon(
+                          onPressed: _canFetchNext ? _fetchNextChapter : null,
+                          icon: const Icon(Icons.chevron_right),
+                          label: const Text('Next'),
+                          iconAlignment: IconAlignment.end,
+                        ),
+                      ],
                     ),
-                    TextButton.icon(
-                      onPressed: _fetchNextChapter,
-                      icon: const Icon(Icons.chevron_right),
-                      label: const Text('Next'),
-                      iconAlignment: IconAlignment.end,
-                    ),
-                  ],
+                  ),
                 ),
               ),
       ),

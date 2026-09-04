@@ -253,6 +253,44 @@ void main() {
       expect(blocks[1].type, 'p');
       expect(blocks[1].text, contains('God had a great and glorious purpose'));
     });
+
+    test('BookParagraphGrouper Roman numeral headings do not match pipe character', () {
+      const lines = [
+        BookLine(
+          bookId: 'test_book',
+          pageNumber: 1,
+          lineNumber: 1,
+          chapterIndex: 1,
+          contentType: 'p',
+          text: '(I) The First Principle',
+        ),
+        BookLine(
+          bookId: 'test_book',
+          pageNumber: 1,
+          lineNumber: 2,
+          chapterIndex: 1,
+          contentType: 'p',
+          text: '(IV) The Fourth Principle',
+        ),
+        BookLine(
+          bookId: 'test_book',
+          pageNumber: 1,
+          lineNumber: 3,
+          chapterIndex: 1,
+          contentType: 'p',
+          text: 'This is normal paragraph text that should not be treated as a heading.',
+        ),
+      ];
+
+      final blocks = BookParagraphGrouper.groupLines(lines);
+      // (I) and (IV) should be matched as h3 headings, not false-match pipe chars
+      expect(blocks.length, 3);
+      expect(blocks[0].type, 'h3');
+      expect(blocks[0].text, '(I) The First Principle');
+      expect(blocks[1].type, 'h3');
+      expect(blocks[1].text, '(IV) The Fourth Principle');
+      expect(blocks[2].type, 'p');
+    });
   });
 
   group('Book Widgets Adaptive UI Tests (AGENTS.md)', () {

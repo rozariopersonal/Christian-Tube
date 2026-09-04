@@ -74,6 +74,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
   // Smooth slider dragging
   double? _sliderDragPercent;
+  int? _sliderDragSpreadPage;
+  final List<TapGestureRecognizer> _tapRecognizers = [];
 
   // Dual-page spread state (for large screens: ScreenClass.expanded / width >= 840)
   int _spreadLeftPage = 1;
@@ -157,9 +159,22 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _idleTimer?.cancel();
-    _flushProgressToDb();
+    // Flush any unsaved progress synchronously via microtask to avoid losing
+    // the last reading position on fast navigation away.
+    if (_hasUnsavedProgress && _book != null) {
+      final bookId = _book!.id;
+      final page = _lastReadPage;
+      final line = _lastReadLine;
+      final pct = _lastPercent;
+      _hasUnsavedProgress = false;
+      unawaited(_bookService.saveProgress(bookId, page, line, pct));
+    }
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    for (final r in _tapRecognizers) {
+      r.dispose();
+    }
+    _tapRecognizers.clear();
     super.dispose();
   }
 
@@ -188,6 +203,26 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
     // 3. Track currently visible page & line in viewport
     _updateVisiblePageAndLine();
+
+    // 4. Periodically prune stale GlobalKey entries to bound memory
+    _pruneStaleKeys();
+  }
+
+  /// Removes GlobalKey entries for pages no longer in the active page lists,
+  /// preventing unbounded memory growth during long reading sessions.
+  void _pruneStaleKeys() {
+    final activePages = <int>{
+      _centerPage,
+      ..._prevPages,
+      ..._nextPages,
+    };
+    _pageKeys.removeWhere((page, _) => !activePages.contains(page));
+    _blockKeys.removeWhere((key, _) {
+      final colonIdx = key.indexOf(':');
+      if (colonIdx == -1) return true;
+      final page = int.tryParse(key.substring(0, colonIdx));
+      return page == null || !activePages.contains(page);
+    });
   }
 
   void _updateVisiblePageAndLine() {
@@ -370,13 +405,21 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       int initialPage = widget.initialPage ?? 1;
       int initialLine = widget.highlightStartLine ?? 1;
 
-      if (widget.initialPage == null) {
+      if (widget.initialPage == null || widget.highlightStartLine == null) {
         final saved = await _bookService.getProgress(widget.bookId);
         if (saved != null) {
-          initialPage = saved.currentPage.clamp(1, book.totalPages);
-          initialLine = saved.currentLine;
-          _lastPercent = saved.completionPercent;
+          if (widget.initialPage == null) {
+            initialPage = saved.currentPage.clamp(1, book.totalPages);
+          }
+          if (widget.highlightStartLine == null &&
+              (widget.initialPage == null || widget.initialPage == saved.currentPage)) {
+            initialLine = saved.currentLine;
+            _lastPercent = saved.completionPercent;
+          }
         }
+      }
+      if (_lastPercent == 0.0 && book.totalPages > 0) {
+        _lastPercent = (initialPage / book.totalPages).clamp(0.0, 1.0);
       }
 
       _lastReadPage = initialPage;
@@ -425,7 +468,19 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   void _checkPendingResume() {
     if (!mounted || _pendingResumeLine == null || _pendingResumePage == null) return;
     try {
-      final blockKey = _blockKeys['$_pendingResumePage:$_pendingResumeLine'];
+      GlobalKey? blockKey = _blockKeys['$_pendingResumePage:$_pendingResumeLine'];
+      if (blockKey == null && _pageCache.containsKey(_pendingResumePage)) {
+        final lines = _pageCache[_pendingResumePage!];
+        if (lines != null && lines.isNotEmpty) {
+          final blocks = BookParagraphGrouper.groupLines(lines);
+          for (final b in blocks) {
+            if (b.startLine <= _pendingResumeLine! && b.endLine >= _pendingResumeLine!) {
+              blockKey = _blockKeys['$_pendingResumePage:${b.startLine}'];
+              break;
+            }
+          }
+        }
+      }
       final blockCtx = blockKey?.currentContext;
       if (blockCtx != null && Scrollable.maybeOf(blockCtx) != null) {
         Scrollable.ensureVisible(
@@ -1035,6 +1090,31 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   }
 
   // --- Inline Scripture Link & Text Rendering ---
+  TapGestureRecognizer _createScriptureRecognizer(ParsedScriptureRef? parsed, String refText) {
+    if (_tapRecognizers.length > 200) {
+      final old = _tapRecognizers.sublist(0, 100);
+      _tapRecognizers.removeRange(0, 100);
+      for (final r in old) {
+        r.dispose();
+      }
+    }
+    final recognizer = TapGestureRecognizer()
+      ..onTap = () {
+        if (parsed != null) {
+          ScriptureVersePopup.show(
+            context,
+            bookNumber: parsed.bookNumber,
+            chapter: parsed.chapter,
+            startVerse: parsed.startVerse,
+            endVerse: parsed.endVerse,
+            rawReference: refText,
+          );
+        }
+      };
+    _tapRecognizers.add(recognizer);
+    return recognizer;
+  }
+
   List<InlineSpan> _buildFormattedParagraphs(
     String pageText,
     Color textColor,
@@ -1073,19 +1153,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           height: _lineHeight,
           fontFamily: _useSerifFont ? 'serif' : null,
         ),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () {
-            if (parsed != null) {
-              ScriptureVersePopup.show(
-                context,
-                bookNumber: parsed.bookNumber,
-                chapter: parsed.chapter,
-                startVerse: parsed.startVerse,
-                endVerse: parsed.endVerse,
-                rawReference: refText,
-              );
-            }
-          },
+        recognizer: _createScriptureRecognizer(parsed, refText),
       ));
 
       lastMatchEnd = match.end;
@@ -1492,13 +1560,29 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: SelectionArea(
-              contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state, pageNum),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: blocks.map((b) => _buildBlockWidget(b, pageNum, textColor, tokens)).toList(),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollUpdateNotification) {
+                final metrics = notification.metrics;
+                if (metrics.maxScrollExtent > 0 && lines.isNotEmpty) {
+                  final scrollFraction = (metrics.pixels / metrics.maxScrollExtent).clamp(0.0, 1.0);
+                  final lineIndex = ((lines.length - 1) * scrollFraction).round();
+                  final currentLine = lines[lineIndex].lineNumber;
+                  final totalLines = _book?.totalLines ?? 1;
+                  final percent = (currentLine / (totalLines > 0 ? totalLines : 1)).clamp(0.0, 1.0);
+                  _markProgressChanged(pageNum, currentLine, percent);
+                }
+              }
+              return false;
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: SelectionArea(
+                contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state, pageNum),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: blocks.map((b) => _buildBlockWidget(b, pageNum, textColor, tokens)).toList(),
+                ),
               ),
             ),
           ),
@@ -1875,11 +1959,19 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                             ),
                             Expanded(
                               child: Slider(
-                                value: validLeftPage.toDouble(),
+                                value: (_sliderDragSpreadPage ?? validLeftPage)
+                                    .toDouble()
+                                    .clamp(1.0, totalPages.toDouble()),
                                 min: 1.0,
                                 max: totalPages.toDouble(),
                                 activeColor: tokens.accent,
-                                onChanged: (val) => _jumpToPage(val.toInt()),
+                                onChanged: (val) {
+                                  setState(() => _sliderDragSpreadPage = val.toInt());
+                                },
+                                onChangeEnd: (val) {
+                                  setState(() => _sliderDragSpreadPage = null);
+                                  _jumpToPage(val.toInt());
+                                },
                               ),
                             ),
                             IconButton(
@@ -1893,10 +1985,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                         ),
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            'Pages $validLeftPage–${rightPage ?? validLeftPage} of $totalPages • ${(_lastPercent * 100).toInt()}% complete',
-                            style: TextStyle(color: _readerMutedTextColor(context), fontSize: 11.5),
-                          ),
+                          child: Builder(builder: (context) {
+                            final displayLeft = _sliderDragSpreadPage ?? validLeftPage;
+                            final displayRight = displayLeft + 1 <= totalPages ? displayLeft + 1 : null;
+                            return Text(
+                              'Pages $displayLeft–${displayRight ?? displayLeft} of $totalPages • ${(_lastPercent * 100).toInt()}% complete',
+                              style: TextStyle(color: _readerMutedTextColor(context), fontSize: 11.5),
+                            );
+                          }),
                         ),
                       ] else ...[
                         Row(

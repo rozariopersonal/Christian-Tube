@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/api/github_data_service.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../engines/scripture/services/book_name_service.dart';
@@ -82,6 +86,48 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
     _loadVerse();
   }
 
+  Future<String?> _fetchVerseFromCdn({
+    required String versionId,
+    required int bookNumber,
+    required int chapter,
+    required int startVerse,
+    int? endVerse,
+  }) async {
+    try {
+      final urls = GitHubDataService.bibleChapterUrls(versionId, bookNumber, chapter);
+      final dio = Dio(
+        BaseOptions(
+          headers: {'User-Agent': 'ChristianApp/${AppConfig.version}'},
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 12),
+        ),
+      );
+      for (final url in urls) {
+        try {
+          final res = await dio.get<dynamic>(url, options: Options(responseType: ResponseType.json));
+          if (res.statusCode == 200 && res.data != null) {
+            final dynamic raw = res.data is String ? jsonDecode(res.data as String) : res.data;
+            if (raw is List) {
+              final end = endVerse ?? startVerse;
+              final matching = <String>[];
+              for (final item in raw) {
+                if (item is Map) {
+                  final vNum = (item['verse'] ?? item['verse_number'] ?? item['verseNumber']) as num?;
+                  if (vNum != null && vNum >= startVerse && vNum <= end) {
+                    final t = (item['text'] as String?)?.trim();
+                    if (t != null && t.isNotEmpty) matching.add(t);
+                  }
+                }
+              }
+              if (matching.isNotEmpty) return matching.join(' ');
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> _loadVerse() async {
     await _bibleService.initialize();
     final installed = await _bibleService.getInstalledVersionIds();
@@ -95,9 +141,29 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
       endVerse: widget.endVerse,
     );
 
-    // Fallback to WEB or KJV if translation missing
+    // Fallback to WEB if translation missing in local database
     if (text == null || text.isEmpty) {
       text = await _bibleService.resolvePassage(
+        versionId: 'WEB',
+        bookNumber: widget.bookNumber,
+        chapter: widget.chapter,
+        startVerse: widget.startVerse,
+        endVerse: widget.endVerse,
+      );
+    }
+
+    // Live CDN streaming fallback if not stored in local SQLite
+    if (text == null || text.isEmpty) {
+      text = await _fetchVerseFromCdn(
+        versionId: version,
+        bookNumber: widget.bookNumber,
+        chapter: widget.chapter,
+        startVerse: widget.startVerse,
+        endVerse: widget.endVerse,
+      );
+    }
+    if (text == null || text.isEmpty) {
+      text = await _fetchVerseFromCdn(
         versionId: 'WEB',
         bookNumber: widget.bookNumber,
         chapter: widget.chapter,

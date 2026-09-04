@@ -2,9 +2,11 @@ import 'package:sqflite/sqflite.dart';
 import '../../models/verse_concept.dart';
 import 'bible_study_repository.dart';
 import 'bible_study_updater.dart';
+import 'bible_study_web_service.dart';
 
 class BibleStudyMobileService implements BibleStudyRepository {
   Database? _db;
+  final BibleStudyWebService _webFallback = BibleStudyWebService();
 
   @override
   Future<void> initialize() async {
@@ -20,7 +22,9 @@ class BibleStudyMobileService implements BibleStudyRepository {
       await initialize();
     }
     
-    if (_db == null) return [];
+    if (_db == null) {
+      return _webFallback.getConceptsForVerse(book, chapter, verse);
+    }
 
     final result = await _db!.rawQuery('''
       SELECT 
@@ -44,6 +48,10 @@ class BibleStudyMobileService implements BibleStudyRepository {
       WHERE vo.book = ? AND vo.chapter = ? AND vo.verse = ?
       GROUP BY c.id, l.lemma
     ''', [book, chapter, verse]);
+
+    if (result.isEmpty) {
+      return _webFallback.getConceptsForVerse(book, chapter, verse);
+    }
 
     return result.map((row) {
       // Reconstruct the nested JSON structure expected by VerseConcept.fromJson
