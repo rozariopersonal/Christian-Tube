@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../controllers/book_reader_controller.dart';
 import '../models/book_highlight.dart';
-import '../services/book_service.dart';
 
 /// Modal sheet or dialog displaying all highlights and notes for a book.
+///
+/// All data reads/writes route through [BookReaderController] (AGENTS.md
+/// "explicit layer boundaries") rather than reaching into services directly.
 class BookHighlightsSheet extends StatefulWidget {
+  final BookReaderController controller;
   final String bookId;
   final String bookTitle;
   final void Function(int pageNumber) onSelectPage;
 
   const BookHighlightsSheet({
     super.key,
+    required this.controller,
     required this.bookId,
     required this.bookTitle,
     required this.onSelectPage,
@@ -19,6 +24,7 @@ class BookHighlightsSheet extends StatefulWidget {
 
   static Future<void> show(
     BuildContext context, {
+    required BookReaderController controller,
     required String bookId,
     required String bookTitle,
     required void Function(int pageNumber) onSelectPage,
@@ -30,6 +36,7 @@ class BookHighlightsSheet extends StatefulWidget {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) => BookHighlightsSheet(
+          controller: controller,
           bookId: bookId,
           bookTitle: bookTitle,
           onSelectPage: onSelectPage,
@@ -44,6 +51,7 @@ class BookHighlightsSheet extends StatefulWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 580, maxHeight: 600),
             child: BookHighlightsSheet(
+              controller: controller,
               bookId: bookId,
               bookTitle: bookTitle,
               onSelectPage: onSelectPage,
@@ -59,7 +67,6 @@ class BookHighlightsSheet extends StatefulWidget {
 }
 
 class _BookHighlightsSheetState extends State<BookHighlightsSheet> {
-  final BookService _bookService = BookService.instance;
   List<BookHighlight> _highlights = [];
   bool _isLoading = true;
 
@@ -70,7 +77,7 @@ class _BookHighlightsSheetState extends State<BookHighlightsSheet> {
   }
 
   Future<void> _loadHighlights() async {
-    final list = await _bookService.getHighlightsForBook(widget.bookId);
+    final list = await widget.controller.getHighlightsForBook(widget.bookId);
     if (mounted) {
       setState(() {
         _highlights = list;
@@ -222,7 +229,7 @@ class _BookHighlightsSheetState extends State<BookHighlightsSheet> {
                                     icon: Icon(Icons.delete_outline, size: 18, color: tokens.onSurfaceMuted),
                                     tooltip: 'Delete highlight',
                                     onPressed: () async {
-                                      await _bookService.deleteHighlight(h.id);
+                                      await widget.controller.deleteHighlight(h.id);
                                       _loadHighlights();
                                     },
                                   ),

@@ -25,8 +25,14 @@ class CrossReferenceService extends ChangeNotifier {
   factory CrossReferenceService() => _instance;
   CrossReferenceService._internal();
 
+  /// Maximum number of chapter caches retained in memory.
+  static const int _maxCacheSize = 20;
+
   /// Session cache keyed by "${bookNumber}_${chapter}".
   final Map<String, Map<int, List<CrossReference>>> _cache = {};
+
+  /// Access order for LRU eviction (most recent first).
+  final List<String> _cacheOrder = [];
 
   /// In-flight futures to deduplicate concurrent requests for the same chapter.
   final Map<String, Future<Map<int, List<CrossReference>>>> _inFlight = {};

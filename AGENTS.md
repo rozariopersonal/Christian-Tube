@@ -294,6 +294,92 @@ Christian-Tube-Releases/
 
 ---
 
+## Architecture & Code Organization Standard
+
+These rules apply to every feature, screen, and widget added or modified in the
+Flutter client (`apps/mobile/lib`). They are enforced in review.
+
+### 1. No monoliths
+
+A screen must be a **thin assembler**: it wires together controllers and
+sub-views, and does minimal orchestration. It must not host the full behavior
+of the feature in one file.
+
+- A single `*.dart` screen/widget file under `lib/` should rarely exceed
+  ~500 lines. If it does, extract a widget sub-tree, a controller, or a
+  builder into its own file.
+- A `StatefulWidget` `State` class holding a large number of unrelated fields
+  (e.g. > ~20) is a smell — split the concern into a controller.
+
+### 2. Single responsibility
+
+A Dart file answers **one** question. If you cannot describe a file in a single
+sentence without "and", split it.
+
+### 3. Separate presentational vs. behavioral state
+
+- **Behavioral state** (indices, visibility, progress, selection ranges) lives
+  in a controller exposed as observable state — never in widget local state.
+- **Presentational state** (a widget's local open/drag/tooltip) may stay in a
+  widget's local `setState`.
+- If two widgets need the same value, promote it to the controller.
+
+### 4. Thin, dumb widgets; rich, testable logic
+
+- **Must not** put scroll math, text parsing, grouping, persistence, or
+  preference IO directly in widgets.
+- Move logic to `controllers/` and `services/`; keep widgets to layout +
+  `context`-based lookups (`context.tokens`, `theme`, `ScreenClass`).
+
+### 5. Explicit layer boundaries
+
+```
+View (screens/ + widgets/)
+  └── reads observable state from
+Controller (controllers/, one per lifecycle)
+  └── delegates to
+Services (services/)
+  └── talks to
+Adapters / Models
+```
+
+- A widget **must not** call `BookService`, `SharedPreferences`, or adapters
+  directly — go through the controller.
+- Widgets read colors via `context.tokens` / `colorScheme` only (see Theme
+  Standard).
+
+### 6. Controllers expose narrow, observable state
+
+- Broadcast a single derived immutable value object via `ChangeNotifier` (or
+  equivalent). Consumers read `controller.state.field`, not scattered fields.
+- This keeps tests deterministic and avoids half-updated-state bugs.
+
+### 7. Test at the boundary that matters most
+
+- Pure logic (parsers, groupers, position math, preference code) → widget-free
+  unit tests.
+- Controllers → unit tests asserting `ChangeNotifier` state.
+- Views → widget tests at 320/600/840/1400 with fake controllers.
+- Keep the full suite green after every change (`flutter analyze`,
+  `flutter test`).
+
+### 8. Feature layout under `lib/features/<feature>/`
+
+```
+feature/
+├── adapters/       # data source implementations (platform-specific)
+├── controllers/    # state holders / controllers (one per lifecycle)
+├── models/         # serializable models
+├── screens/        # top-level route screens (thin)
+├── services/       # logic, parsing, caching, persistence facades
+└── widgets/        # sub-views, presentational components
+```
+
+New sub-views, controllers, and services go in their dedicated subfolder — do
+not grow `screens/` files into monoliths.
+
+---
+
 ## General repository rules
 
 - Run `flutter analyze` and `flutter test` in `apps/mobile` after any UI change;

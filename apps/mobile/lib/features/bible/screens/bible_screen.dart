@@ -994,20 +994,17 @@ class _BibleScreenState extends State<BibleScreen> {
     if (_versions.isEmpty) return _buildEmptyState();
     if (_chapterEmpty) return _buildChapterEmptyState();
     return MaxWidthBox(
-      child: ListView(
-        // No ValueKey here — using one caused the list to be destroyed and
-        // recreated (resetting scroll to 0) whenever _currentBook/_currentChapter
-        // changed, including during the infinite-scroll append path.
+      child: ListView.builder(
         controller: _scrollController,
-        // ignore: deprecated_member_use
-        cacheExtent: 50000,
+        itemCount: _verses.length,
+        cacheExtent: 300,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        // Each chapter is intentionally a small, eagerly-built list. This
-        // keeps every verse key mounted, so a Words-feed deep link can use
-        // Scrollable.ensureVisible even when its verse starts off-screen.
-        children: [
-          ..._verses.map(_buildVerseItem),
-        ],
+        itemBuilder: (context, index) {
+          if (index < 0 || index >= _verses.length) {
+            return const SizedBox.shrink();
+          }
+          return _buildVerseItem(_verses[index]);
+        },
       ),
     );
   }
