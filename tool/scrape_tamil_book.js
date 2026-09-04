@@ -452,12 +452,10 @@ async function processBook(b, catalog) {
   // Cover
   const coverFile = `${b.id}.jpg`;
   const coverDest = path.join(BOOKS_DIR, "covers", coverFile);
-  const appCoverDest = path.join(BASE, "apps", "mobile", "assets", "books", "covers", coverFile);
   if (b.coverUrl && !fs.existsSync(coverDest)) {
     try {
       const buf = await get(b.coverUrl, true);
       fs.writeFileSync(coverDest, buf);
-      fs.writeFileSync(appCoverDest, buf);
       console.log(`  Cover: saved (${(buf.length / 1024).toFixed(1)} KB)`);
     } catch (e) {
       console.warn(`  Cover failed: ${e.message}`);
@@ -578,7 +576,6 @@ async function main() {
   const targetId = args.find(a => !a.startsWith("-"));
 
   fs.mkdirSync(path.join(BOOKS_DIR, "covers"), { recursive: true });
-  fs.mkdirSync(path.join(BASE, "apps", "mobile", "assets", "books", "covers"), { recursive: true });
 
   const catalog = JSON.parse(fs.readFileSync(CAT, "utf8"));
 

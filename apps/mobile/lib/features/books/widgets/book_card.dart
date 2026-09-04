@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/config/app_config.dart';
+import '../../../../core/api/github_data_service.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/book.dart';
 import '../models/user_reading_progress.dart';
@@ -31,7 +31,7 @@ class BookCard extends StatelessWidget {
     final coverFile = book.coverFile;
 
     if (coverFile.isNotEmpty) {
-      final imageUrl = 'https://raw.githubusercontent.com/${AppConfig.releasesRepo}/main/books/covers/$coverFile';
+      final imageUrl = GitHubDataService.bookCoverUrl(coverFile);
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Container(

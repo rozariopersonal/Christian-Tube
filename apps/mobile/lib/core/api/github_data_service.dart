@@ -62,6 +62,14 @@ class GitHubDataService {
   static List<String> booksCatalogUrls() =>
       ReleaseAssets.urlsFor('books/catalog.json');
 
+  /// Book cover artwork URLs (CDN first, raw GitHub fallback).
+  static List<String> bookCoverUrls(String coverFile) =>
+      ReleaseAssets.urlsFor('books/covers/$coverFile');
+
+  /// Primary book cover artwork URL for cached network loading.
+  static String bookCoverUrl(String coverFile) =>
+      bookCoverUrls(coverFile).first;
+
   static String _inferBookLanguage(String bookId, [String? langCode]) {
     if (langCode != null && langCode.trim().isNotEmpty && langCode != 'all') {
       return langCode.trim().toLowerCase();

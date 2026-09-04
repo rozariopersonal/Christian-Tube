@@ -23,10 +23,8 @@ const RELEASES_DIR = path.join(BASE_DIR, 'releases');
 const RELEASES_BOOKS_DIR = path.join(RELEASES_DIR, 'books');
 const RELEASES_COVERS_DIR = path.join(RELEASES_BOOKS_DIR, 'covers');
 const APP_CATALOG_PATH = path.join(BASE_DIR, 'apps', 'mobile', 'assets', 'books', 'catalog.json');
-const APP_COVERS_DIR = path.join(BASE_DIR, 'apps', 'mobile', 'assets', 'books', 'covers');
 
 fs.mkdirSync(RELEASES_COVERS_DIR, { recursive: true });
-fs.mkdirSync(APP_COVERS_DIR, { recursive: true });
 
 const TARGET_CHARS_PER_PAGE = 1500;
 
@@ -557,13 +555,11 @@ async function processLanguage(langConfig) {
     // 1. Download Cover
     const coverFilename = `${b.id}.jpg`;
     const coverDest = path.join(RELEASES_COVERS_DIR, coverFilename);
-    const appCoverDest = path.join(APP_COVERS_DIR, coverFilename);
 
     if (b.coverUrl && !fs.existsSync(coverDest)) {
       try {
         const coverBuf = await fetchWithTimeout(b.coverUrl, true, 8000);
         fs.writeFileSync(coverDest, coverBuf);
-        fs.writeFileSync(appCoverDest, coverBuf);
         console.log(`  ✓ Saved cover image (${(coverBuf.length / 1024).toFixed(1)} KB)`);
       } catch (e) {
         console.warn(`  ✗ Cover download failed: ${e.message}`);
