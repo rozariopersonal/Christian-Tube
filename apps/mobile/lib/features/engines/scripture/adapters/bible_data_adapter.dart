@@ -3,6 +3,7 @@ abstract class BibleDataAdapter {
   Future<void> close();
 
   Future<List<String>> getInstalledVersionIds();
+  Future<List<Map<String, dynamic>>> getInstalledVersions();
   Future<bool> hasVerses(String versionId);
   Future<List<Map<String, dynamic>>> getChapter(
       String versionId, String bookName, int chapter);

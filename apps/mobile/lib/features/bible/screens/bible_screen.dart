@@ -1,33 +1,22 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import '../models/bible_version.dart';
-import '../../engines/scripture/services/bible_download_manager.dart';
-import '../../engines/scripture/services/book_name_service.dart';
-import '../../engines/scripture/services/local_bible_service.dart';
 import '../../downloads/screens/downloads_manager_screen.dart';
 import 'package:flutter/services.dart';
-import '../widgets/verse_item.dart';
-import '../widgets/verse_action_bar.dart';
 import '../widgets/book_chapter_selector.dart';
 import '../widgets/reading_settings_sheet.dart';
 import '../models/bible_verse.dart';
 import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
 import '../models/bible_book.dart';
-import '../models/bible_settings.dart';
-import '../models/cross_reference.dart';
-import '../models/bible_background_note.dart';
-import '../services/bible_settings_service.dart';
-import '../services/bible_bookmark_service.dart';
-import '../services/cross_reference_service.dart';
-import '../services/bible_background_service.dart';
 import '../screens/verse_study_screen.dart';
 import '../../books/services/book_service.dart';
-import '../../books/screens/books_catalog_screen.dart';
+import '../controllers/bible_controller.dart';
+import '../../engines/scripture/services/book_name_service.dart';
+import '../widgets/bible_app_bar.dart';
+import '../widgets/bible_content.dart';
+import '../widgets/bible_bottom_nav.dart';
 
 class BibleScreen extends StatefulWidget {
   const BibleScreen({
@@ -37,171 +26,44 @@ class BibleScreen extends StatefulWidget {
     this.initialChapter,
     this.initialVerse,
     this.saveProgress = true,
+    this.controller,
   });
 
-  /// When launching the reader from the Words feed, [initialVersionId] activates
-  /// the feed's version, [initialBook]/[initialChapter] position the reader at
-  /// the passage, and [initialVerse] scrolls to / highlights the verse.
   final String? initialVersionId;
   final String? initialBook;
   final int? initialChapter;
   final int? initialVerse;
-
-  /// Whether reading position should be persisted to settings. Set to false
-  /// for temporary reference/commentary lookups so they do not overwrite the
-  /// user's primary reading place.
   final bool saveProgress;
+
+  /// Optional pre-initialized controller (for testing).
+  final BibleController? controller;
 
   @override
   State<BibleScreen> createState() => _BibleScreenState();
 }
 
 class _BibleScreenState extends State<BibleScreen> {
-  final LocalBibleService _localBibleService = LocalBibleService();
-  final BibleSettingsService _settingsService = BibleSettingsService();
-  final BibleBookmarkService _bookmarkService = BibleBookmarkService();
-  final BibleDownloadManager _downloadManager = BibleDownloadManager();
-  final BookNameService _bookNames = BookNameService();
-  final CrossReferenceService _crossRefService = CrossReferenceService();
-  final BibleBackgroundService _backgroundService = BibleBackgroundService();
+  late final BibleController _controller;
   final ScrollController _scrollController = ScrollController();
-
-  List<BibleVersion> _versions = [];
-  List<BibleVerse> _verses = [];
-  BibleVersion? _selectedVersion;
-  String _currentBook = 'Genesis';
-  int _currentChapter = 1;
-  bool _isLoading = true;
-  int _lastKnownInstalledCount = -1;
-  bool _chapterEmpty = false;
-
-  final Set<int> _selectedVerses = {};
-  BibleSettings _settings = const BibleSettings();
-  bool _settingsLoaded = false;
-  bool _resumeApplied = false;
-  bool _initialJumpPending = true;
-  int? _pendingScrollVerse;
-
-  // Per-verse GlobalKeys for pixel-perfect Scrollable.ensureVisible.
   final Map<int, GlobalKey> _verseKeys = {};
-  int? _highlightedVerse;
   Timer? _highlightTimer;
-
-  // Cross-reference state.
-  Map<int, List<CrossReference>> _chapterCrossRefs = {};
-  Map<String, String> _crossRefTexts = {};
-  bool _crossRefsInstalled = false;
-  bool _crossRefsLoading = false;
-  int _crossRefBookNumber = 0;
-  int _crossRefChapter = 0;
-
-  // Historical & cultural background state.
-  Map<int, List<BibleBackgroundNote>> _chapterBackgrounds = {};
 
   @override
   void initState() {
     super.initState();
-    _pendingScrollVerse = widget.initialVerse;
-    if (widget.initialBook != null && bibleBooks.containsKey(widget.initialBook)) {
-      _currentBook = widget.initialBook!;
+    if (widget.controller != null) {
+      _controller = widget.controller!;
+    } else {
+      _controller = BibleController(
+        initialVersionId: widget.initialVersionId,
+        initialBook: widget.initialBook,
+        initialChapter: widget.initialChapter,
+        initialVerse: widget.initialVerse,
+        saveProgress: widget.saveProgress,
+      );
+      _controller.init();
     }
-    if (widget.initialChapter != null && widget.initialChapter! >= 1) {
-      _currentChapter = widget.initialChapter!;
-    }
-    _downloadManager.addListener(_onDownloadManagerChanged);
-    _bookNames.ensureLoaded().then((_) {
-      if (mounted) setState(() {});
-    });
-    _loadSettings();
-    _fetchData();
-    _checkCrossRefsInstalled();
-  }
-
-  Future<void> _checkCrossRefsInstalled() async {
-    try {
-      final installed = await _crossRefService.isInstalled();
-      if (!mounted) return;
-      setState(() => _crossRefsInstalled = installed);
-    } catch (e) {
-      debugPrint('BibleScreen _checkCrossRefsInstalled error: $e');
-    }
-  }
-
-  int _bookNumber(String book) =>
-      BookNameService.englishBookNames.indexOf(book) + 1;
-
-  String _displayBookName(String book) =>
-      _bookNames.nameFor(_selectedVersion?.shortname ?? 'TAOBVSI', _bookNumber(book));
-
-  Future<void> _loadSettings() async {
-    try {
-      final settings = await _settingsService.loadSettings();
-      if (!mounted) return;
-      setState(() {
-        _settings = settings;
-        _settingsLoaded = true;
-      });
-      final applied = _applySavedProgress();
-      if (applied && _selectedVersion != null) {
-        await _loadChapter();
-      }
-    } catch (e, stack) {
-      debugPrint('BibleScreen _loadSettings error: $e\n$stack');
-      if (mounted) {
-        setState(() {
-          _settingsLoaded = true;
-        });
-      }
-    }
-  }
-
-  /// Restores the user's last reading position. Returns true when a saved
-  /// location was applied (and therefore the chapter should be re-loaded).
-  bool _applySavedProgress() {
-    if (_resumeApplied) return false;
-    // When launched from the Words feed, honor the requested passage/version
-    // instead of the saved reading position.
-    if (widget.initialBook != null || widget.initialVersionId != null) {
-      _resumeApplied = true;
-      return false;
-    }
-    if (!_settingsLoaded) return false;
-    if (!_settings.hasProgress) {
-      _resumeApplied = true;
-      return false;
-    }
-    final savedBook = _settings.lastBook;
-    final savedChapter = _settings.lastChapter;
-    final savedVersion = _settings.lastVersion;
-    if (savedBook == null) return false;
-    if (_versions.any((v) => v.shortname == savedVersion)) {
-      _selectedVersion =
-          _versions.firstWhere((v) => v.shortname == savedVersion);
-    }
-    _currentBook = savedBook;
-    _currentChapter = savedChapter;
-    return true;
-  }
-
-  /// Applies the reader-launch target (version + book + chapter + verse) once
-  /// the installed versions are known.
-  void _applyInitialJump() {
-    if (!_initialJumpPending || _versions.isEmpty) return;
-    _initialJumpPending = false;
-    final targetVersionId = widget.initialVersionId;
-    if (targetVersionId != null &&
-        _versions.any((v) => v.shortname == targetVersionId)) {
-      _selectedVersion =
-          _versions.firstWhere((v) => v.shortname == targetVersionId);
-    }
-    final targetBook = widget.initialBook;
-    if (targetBook != null && bibleBooks.containsKey(targetBook)) {
-      _currentBook = targetBook;
-    }
-    final targetChapter = widget.initialChapter;
-    if (targetChapter != null && targetChapter >= 1) {
-      _currentChapter = targetChapter;
-    }
+    _controller.addListener(_onControllerUpdate);
   }
 
   @override
@@ -211,279 +73,51 @@ class _BibleScreenState extends State<BibleScreen> {
     if (widget.initialBook != null &&
         widget.initialBook != oldWidget.initialBook &&
         bibleBooks.containsKey(widget.initialBook)) {
-      _currentBook = widget.initialBook!;
       reloadNeeded = true;
     }
     if (widget.initialChapter != null &&
         widget.initialChapter != oldWidget.initialChapter &&
         widget.initialChapter! >= 1) {
-      _currentChapter = widget.initialChapter!;
       reloadNeeded = true;
     }
     if (widget.initialVerse != null && widget.initialVerse != oldWidget.initialVerse) {
-      _pendingScrollVerse = widget.initialVerse;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _scrollToVerse(widget.initialVerse!);
       });
     }
     if (reloadNeeded && mounted) {
-      _loadChapter();
+      _controller.goToBookAndChapter(
+        widget.initialBook ?? _controller.currentBook,
+        widget.initialChapter ?? _controller.currentChapter,
+      );
     }
   }
 
   @override
   void dispose() {
     _highlightTimer?.cancel();
-    _downloadManager.removeListener(_onDownloadManagerChanged);
+    _controller.removeListener(_onControllerUpdate);
+    if (widget.controller == null) _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  // Reacts only to install/uninstall transitions (not to per-chunk download
-  // progress notifications) so the page fills in automatically when the
-  // default bible finishes downloading in the background.
-  Future<void> _onDownloadManagerChanged() async {
+  void _onControllerUpdate() {
     if (!mounted) return;
-    final count = _downloadManager.installedIds.length;
-    if (count == _lastKnownInstalledCount) return;
-    _lastKnownInstalledCount = count;
-
-    final hadVersions = _versions.isNotEmpty;
-    await _loadVersions();
-    if (!mounted) return;
-    if (_selectedVersion != null) {
-      if (!hadVersions) setState(() => _isLoading = true);
-      await _loadChapter();
-      if (mounted) setState(() => _isLoading = false);
-    } else if (mounted) {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _pushManager() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const DownloadsManagerScreen(initialTab: 1)),
-    );
-    // Refetch versions after returning from the manager screen
-    _lastKnownInstalledCount = _downloadManager.installedIds.length;
-    await _fetchData();
-  }
-
-  Future<void> _fetchData() async {
-    setState(() => _isLoading = true);
-    try {
-      await _localBibleService.initialize();
-      await _loadVersions();
-      if (!mounted) return;
-      if (_selectedVersion != null) {
-        await _loadChapter();
-      }
-    } catch (e, stack) {
-      debugPrint('BibleScreen _fetchData error: $e\n$stack');
-} finally {
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
-  }
-  }
-
-  Future<void> _loadVersions() async {
-    final versionIds = await _localBibleService.getInstalledVersionIds();
-    if (!mounted) return;
-    _versions = versionIds.map((id) {
-      final meta = BibleDownloadManager.getMeta(id);
-      return BibleVersion(
-        id: id,
-        name: meta.id == id ? meta.name : id,
-        shortname: id,
-        description: meta.description,
-        lang: meta.languageCode,
-      );
-    }).toList();
-    if (_versions.isNotEmpty && _selectedVersion == null) {
-      _selectedVersion = _versions.firstWhere(
-        (v) => v.shortname == BibleDownloadManager.defaultVersionId,
-        orElse: () => _versions.first,
-      );
-    } else if (_selectedVersion != null &&
-        !_versions.any((v) => v.shortname == _selectedVersion!.shortname)) {
-      // Previously selected version was removed; fall back to the default.
-      _selectedVersion =
-          _versions.isNotEmpty ? _versions.first : null;
-    }
-    _applyInitialJump();
-    _applySavedProgress();
-  }
-
-  /// Builds the verse list for a single version's chapter, tagged with the
-  /// version label so each row shows which translation it came from. Attaches
-  /// each verse's cross-reference count from [_chapterCrossRefs] when the
-  /// cross-reference data has been loaded for this chapter.
-  List<BibleVerse> _buildChapterVerses(
-    List<Map<String, dynamic>> chapterMap,
-    String versionId,
-  ) {
-    final numbers = chapterMap.map((m) => (m['verse'] as num).toInt()).toList()
-      ..sort((a, b) => a.compareTo(b));
-    final verses = <BibleVerse>[];
-    for (final n in numbers) {
-      final text = chapterMap
-          .firstWhere((m) => (m['verse'] as num).toInt() == n, orElse: () => const {})['text'];
-      if (text == null) continue;
-      verses.add(BibleVerse(
-        number: n,
-        text: text as String,
-        versionLabel: versionId,
-        crossReferenceCount: _chapterCrossRefs[n]?.length ?? 0,
-      ));
-    }
-    return verses;
-  }
-
-  /// Loads cross-references for the chapter identified by [bookNumber] and
-  /// [chapter], resolves their verse text in the selected version, and applies
-  /// the results to the current reader state.
-  ///
-  /// When the bundled dataset is not installed, [CrossReferenceService] falls
-  /// back to fetching the chapter on demand from the online `open-cross-ref`
-  /// API so references still appear without the large download.
-  Future<void> _loadCrossReferencesForChapter(
-    int bookNumber,
-    int chapter,
-  ) async {
-    if (_selectedVersion == null) return;
-    final isNewChapter =
-        bookNumber != _crossRefBookNumber || chapter != _crossRefChapter;
-    if (_crossRefsLoading && isNewChapter) return;
-
-    setState(() => _crossRefsLoading = true);
-    Map<int, List<CrossReference>> chapterRefs;
-    try {
-      chapterRefs = await _crossRefService.getForChapter(
-        bookNumber,
-        chapter,
-        // When installed, the local copy is authoritative (identical data);
-        // otherwise pull the chapter from the network on demand.
-        allowOnline: !_crossRefsInstalled,
-      );
-    } catch (_) {
-      chapterRefs = {};
-    }
-    if (!mounted) return;
-
-    // Resolve verse text for every distinct reference in this chapter.
-    final passages = <(int, int, int, int?)>[];
-    final seen = <String>{};
-    for (final refs in chapterRefs.values) {
-      for (final ref in refs) {
-        if (seen.add(ref.textKey)) {
-          passages.add((
-            ref.bookNumber,
-            ref.chapter,
-            ref.verse,
-            ref.endVerse,
-          ));
-        }
-      }
-    }
-    Map<String, String> resolved = {};
-    if (passages.isNotEmpty) {
-      try {
-        resolved = await _localBibleService.resolvePassages(
-          versionId: _selectedVersion!.shortname,
-          passages: passages,
-        );
-      } catch (_) {
-        resolved = {};
-      }
-    }
-
-    setState(() {
-      _crossRefBookNumber = bookNumber;
-      _crossRefChapter = chapter;
-      _chapterCrossRefs = chapterRefs;
-      _crossRefTexts = resolved;
-
-      // Rebuild the verse rows so crossReferenceCount reflects the new data.
-      _verses = _verses.map((v) {
-        if (v.isChapterHeader) return v;
-        return BibleVerse(
-          number: v.number,
-          text: v.text,
-          versionLabel: v.versionLabel,
-          isSecondary: v.isSecondary,
-          crossReferenceCount: chapterRefs[v.number]?.length ?? 0,
-        );
-      }).toList();
-
-      _crossRefsLoading = false;
-    });
-  }
-
-  /// Fetches [book] [chapter] for [version].
-  Future<List<Map<String, dynamic>>> _fetchVersesForChapter(
-    BibleVersion version,
-    String book,
-    int chapter,
-  ) async {
-    try {
-      return await _localBibleService.getChapter(version.shortname, book, chapter);
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<void> _loadChapter() async {
-    if (_selectedVersion == null) return;
-    final primaryMap = await _fetchVersesForChapter(
-        _selectedVersion!, _currentBook, _currentChapter);
-    if (!mounted) return;
-    final verses = _buildChapterVerses(primaryMap, _selectedVersion!.shortname);
-    setState(() {
-      _verses = verses;
-      _chapterEmpty = verses.isEmpty;
-      _selectedVerses.clear();
-      _verseKeys.clear(); // fresh chapter — old keys are no longer valid
-      _highlightedVerse = null;
-      _chapterCrossRefs = {};
-      _crossRefTexts = {};
-      _crossRefBookNumber = 0;
-      _crossRefChapter = 0;
-      _chapterBackgrounds = {};
-    });
-    // Kick off cross-reference and cultural background loading for this chapter.
-    _loadCrossReferencesForChapter(_bookNumber(_currentBook), _currentChapter);
-    _loadBackgroundsForChapter(_bookNumber(_currentBook), _currentChapter);
-    // Scroll to the launched verse (when present) or top when re-fetched.
-    final targetVerse = _pendingScrollVerse;
-    _pendingScrollVerse = null;
-    if (targetVerse != null) {
-      _initialJumpPending = false;
+    setState(() {});
+    final pendingVerse = _controller.consumePendingScrollVerse();
+    if (pendingVerse != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToVerse(targetVerse);
+        if (mounted) _scrollToVerse(pendingVerse);
       });
-    } else if (_scrollController.hasClients) {
-      _scrollController.jumpTo(0);
-    }
-    if (verses.isNotEmpty && widget.saveProgress) {
-      _settingsService.saveReadingProgress(
-        _selectedVersion!.shortname,
-        _currentBook,
-        _currentChapter,
-      );
     }
   }
 
-  /// Scrolls the reader so a target verse is near the top of the viewport,
-  /// then highlights it for 5 seconds.
   void _scrollToVerse(int verseNumber, {int retries = 10}) {
     if (!mounted) return;
-
-    // Resolve which key to use: exact match or nearest verse.
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
     GlobalKey? key = _verseKeys[verseNumber];
     if (key == null) {
-      // Find the closest verse number that has a key.
       int best = -1;
       for (final k in _verseKeys.keys) {
         if (best == -1 || (k - verseNumber).abs() < (best - verseNumber).abs()) {
@@ -492,110 +126,37 @@ class _BibleScreenState extends State<BibleScreen> {
       }
       if (best != -1) key = _verseKeys[best];
     }
-
     final BuildContext? ctx = key?.currentContext;
     if (ctx == null) {
       if (retries > 0) {
-        // The list is still building or laying out. Retry on the next frame.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _scrollToVerse(verseNumber, retries: retries - 1);
         });
       }
       return;
     }
-
-    _pendingScrollVerse = null;
-
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     Scrollable.ensureVisible(
       ctx,
-      duration: const Duration(milliseconds: 450),
+      duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 450),
       curve: Curves.easeInOut,
-      alignment: 0.1, // show near top of viewport
+      alignment: 0.1,
     );
-
-    // Start 5-second highlight.
     _highlightTimer?.cancel();
-    setState(() => _highlightedVerse = verseNumber);
+    _controller.setHighlight(verseNumber);
     _highlightTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted) setState(() => _highlightedVerse = null);
+      if (mounted) _controller.setHighlight(null);
     });
   }
-  bool get _canFetchPrev {
-    if (_isLoading || _selectedVersion == null) return false;
-    if (_currentChapter > 1) return true;
-    final books = bibleBooks.keys.toList();
-    final currentIndex = books.indexOf(_currentBook);
-    return currentIndex > 0;
-  }
 
-  bool get _canFetchNext {
-    if (_isLoading || _selectedVersion == null) return false;
-    final maxChapters = bibleBooks[_currentBook] ?? 1;
-    if (_currentChapter < maxChapters) return true;
-    final books = bibleBooks.keys.toList();
-    final currentIndex = books.indexOf(_currentBook);
-    return currentIndex < books.length - 1;
-  }
+  // ── Navigation helpers ────────────────────────────────────────────────
 
-  Future<void> _fetchNextChapter() async {
-    if (!_canFetchNext) return;
-    
-    int maxChapters = bibleBooks[_currentBook] ?? 1;
-    String nextBook = _currentBook;
-    int nextChapter = _currentChapter + 1;
-
-    if (nextChapter > maxChapters) {
-      final books = bibleBooks.keys.toList();
-      final currentIndex = books.indexOf(_currentBook);
-      if (currentIndex < books.length - 1) {
-        nextBook = books[currentIndex + 1];
-        nextChapter = 1;
-      } else {
-        // End of Bible
-        return;
-      }
-    }
-
-    setState(() {
-      _currentBook = nextBook;
-      _currentChapter = nextChapter;
-      _isLoading = true;
-    });
-
-    await _loadChapter();
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _fetchPrevChapter() async {
-    if (!_canFetchPrev) return;
-
-    String prevBook = _currentBook;
-    int prevChapter = _currentChapter - 1;
-
-    if (prevChapter < 1) {
-      final books = bibleBooks.keys.toList();
-      final currentIndex = books.indexOf(_currentBook);
-      if (currentIndex > 0) {
-        prevBook = books[currentIndex - 1];
-        prevChapter = bibleBooks[prevBook] ?? 1;
-      } else {
-        // Beginning of Bible
-        return;
-      }
-    }
-
-    setState(() {
-      _currentBook = prevBook;
-      _currentChapter = prevChapter;
-      _isLoading = true;
-    });
-
-    await _loadChapter();
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
+  Future<void> _pushManager() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const DownloadsManagerScreen(initialTab: 1)),
+    );
+    _controller.fetchData();
   }
 
   void _showBookChapterSelector() {
@@ -603,105 +164,15 @@ class _BibleScreenState extends State<BibleScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => BookChapterSelector(
-        currentBook: _currentBook,
-        currentChapter: _currentChapter,
-        displayNameOf: (canonicalBook, bookNumber) => _bookNames.nameFor(
-          _selectedVersion?.shortname ?? 'TAOBVSI',
-          bookNumber,
-        ),
+      builder: (_) => BookChapterSelector(
+        currentBook: _controller.currentBook,
+        currentChapter: _controller.currentChapter,
+        displayNameOf: (canonicalBook, bookNumber) =>
+            _controller.displayBookName(canonicalBook),
         onSelection: (book, chapter) {
-          setState(() {
-            _currentBook = book;
-            _currentChapter = chapter;
-            _isLoading = true;
-          });
           Navigator.pop(context);
-          _loadChapter().whenComplete(() {
-            if (mounted) setState(() => _isLoading = false);
-          });
+          _controller.goToBookAndChapter(book, chapter);
         },
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    final isDownloading = _downloadManager.isDownloading(
-        BibleDownloadManager.defaultVersionId);
-    final indeterminate = _downloadManager.isIndeterminate(
-        BibleDownloadManager.defaultVersionId);
-    final progress = _downloadManager.getProgress(
-        BibleDownloadManager.defaultVersionId);
-
-    if (isDownloading) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: indeterminate ? null : progress,
-                    minHeight: 4,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Downloading the Tamil Bible (${BibleDownloadManager.defaultVersionId})…',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                indeterminate
-                    ? 'Downloading…'
-                    : '${(progress * 100).toStringAsFixed(0)}%',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'No Bibles installed yet.',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Download one from the Bible Translations page.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _pushManager,
-              icon: const Icon(Icons.download_rounded, size: 18),
-              label: const Text('Manage Bibles'),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -710,14 +181,13 @@ class _BibleScreenState extends State<BibleScreen> {
     showAdaptiveBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
+      builder: (_) => StatefulBuilder(
         builder: (context, setModalState) {
           return ReadingSettingsSheet(
-            settings: _settings,
+            settings: _controller.state.settings,
             onSettingsChanged: (newSettings) {
-              setModalState(() => _settings = newSettings);
-              setState(() => _settings = newSettings);
-              _settingsService.saveSettings(newSettings);
+              setModalState(() {});
+              _controller.updateSettings(newSettings);
             },
           );
         },
@@ -725,28 +195,17 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
-  void _jumpToReference(String book, int chapter, [int? verse]) {
-    setState(() {
-      _currentBook = book;
-      _currentChapter = chapter;
-      _selectedVerses.clear();
-      _pendingScrollVerse = verse;
-      _isLoading = true;
-    });
-    _loadChapter().whenComplete(() {
-      if (mounted) setState(() => _isLoading = false);
-    });
-  }
-
   void _showSearch() {
-    if (_selectedVersion == null) return;
+    if (_controller.selectedVersion == null) return;
     showAdaptiveBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => BibleSearchSheet(
-        versionId: _selectedVersion!.shortname,
-        onJumpTo: _jumpToReference,
+      builder: (_) => BibleSearchSheet(
+        versionId: _controller.selectedVersion!.shortname,
+        onJumpTo: (book, chapter, [verse]) {
+          _controller.goToBookAndChapter(book, chapter, verse: verse);
+        },
       ),
     );
   }
@@ -755,28 +214,15 @@ class _BibleScreenState extends State<BibleScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => BibleBookmarksScreen(
-          onJumpTo: _jumpToReference,
+        builder: (_) => BibleBookmarksScreen(
+          onJumpTo: (book, chapter, [verse]) {
+            _controller.goToBookAndChapter(book, chapter, verse: verse);
+          },
         ),
       ),
     );
   }
 
-  void _toggleVerseSelection(int verseNumber) {
-    if (verseNumber == 0) return; // Ignore headers
-    setState(() {
-      if (_selectedVerses.contains(verseNumber)) {
-        _selectedVerses.remove(verseNumber);
-      } else {
-        _selectedVerses.add(verseNumber);
-      }
-    });
-  }
-
-  /// Navigates forward to a dedicated reader view for the given passage.
-  /// Pushing a new route preserves the user's study stack so tapping back
-  /// returns to the references/commentaries, and tapping back again returns
-  /// to the original verse.
   void _navigateToPassage({
     required int bookNumber,
     required int chapter,
@@ -785,12 +231,11 @@ class _BibleScreenState extends State<BibleScreen> {
     final targetBook = bookNumber >= 1 &&
             bookNumber <= BookNameService.englishBookNames.length
         ? BookNameService.englishBookNames[bookNumber - 1]
-        : _currentBook;
-
+        : _controller.currentBook;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => BibleScreen(
-          initialVersionId: _selectedVersion?.shortname,
+          initialVersionId: _controller.selectedVersion?.shortname,
           initialBook: targetBook,
           initialChapter: chapter,
           initialVerse: verse,
@@ -800,170 +245,47 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
-  void _onReferenceTap(CrossReference ref) {
-    _navigateToPassage(
-      bookNumber: ref.bookNumber,
-      chapter: ref.chapter,
-      verse: ref.verse,
-    );
-  }
-
-  String _selectedText({String prefix = ''}) {
-    if (_selectedVerses.isEmpty) return '';
-    return _verses
-        .where((v) => _selectedVerses.contains(v.number))
-        .map((v) => '$prefix[${v.number}] ${v.text}')
-        .join('\n');
-  }
-
-  void _copySelectedVerses() {
-    if (_selectedVerses.isEmpty) return;
-    final selectedTexts = _selectedText();
-    Clipboard.setData(ClipboardData(text: selectedTexts)).then((_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verses copied to clipboard')),
-        );
-        setState(() => _selectedVerses.clear());
-      }
-    });
-  }
-
-  void _shareSelectedVerses() {
-    if (_selectedVerses.isEmpty) return;
-    final header = _selectedVersion != null
-        ? '$_currentBook $_currentChapter · ${_selectedVersion!.shortname}'
-        : '$_currentBook $_currentChapter';
-    final text = _selectedText();
-    final shareBody = text.isEmpty
-        ? header
-        : '$header\n$text\n\n— Christian Tube Bible';
-    Share.share(shareBody);
-    setState(() => _selectedVerses.clear());
-  }
-
-  Future<void> _bookmarkSelectedVerses() async {
-    if (_selectedVerses.isEmpty || _selectedVersion == null) return;
-    final selected = _verses
-        .where((v) => _selectedVerses.contains(v.number))
-        .toList();
-    if (selected.isEmpty) return;
-
-    var added = 0;
-    var removed = 0;
-    for (final v in selected) {
-      final isNowBookmarked = await _bookmarkService.toggle(
-        versionId: _selectedVersion!.shortname,
-        book: _currentBook,
-        chapter: _currentChapter,
-        verse: v.number,
-        text: v.text,
-      );
-      if (isNowBookmarked) {
-        added++;
-      } else {
-        removed++;
-      }
-    }
-    if (!mounted) return;
-    setState(() => _selectedVerses.clear());
-    final message = added > removed
-        ? '$added verse${added == 1 ? '' : 's'} bookmarked'
-        : removed > added
-            ? '$removed verse${removed == 1 ? '' : 's'} removed from bookmarks'
-            : 'Bookmarks updated';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  Future<void> _redownloadDefault() async {
-    setState(() {
-      _chapterEmpty = false;
-      _isLoading = true;
-    });
-    await BibleDownloadManager().forceRedownloadDefault();
-  }
-
-  Widget _buildVerseItem(BibleVerse verse) {
-    // Register a GlobalKey per real verse (not headers) for
-    // Scrollable.ensureVisible in _scrollToVerse.
-    final Key? itemKey = verse.isChapterHeader
-        ? null
-        : (_verseKeys[verse.number] ??= GlobalKey());
-
-    final verseCrossRefs = _chapterCrossRefs[verse.number] ?? const [];
-    final verseBackgrounds = _chapterBackgrounds[verse.number] ?? const [];
-
-    return VerseItem(
-      key: itemKey,
-      verse: verse,
-      isSelected: _selectedVerses.contains(verse.number),
-      isHighlighted: _highlightedVerse == verse.number,
-      fontSize: _settings.fontSize,
-      onVerseTap: () => _toggleVerseSelection(verse.number),
-      crossReferences: verseCrossRefs,
-      backgroundNotes: verseBackgrounds,
-      resolvedTexts: _crossRefTexts,
-      selectedCount: _selectedVerses.length,
-      onCopy: _copySelectedVerses,
-      onShare: _shareSelectedVerses,
-      onBookmark: _bookmarkSelectedVerses,
-      onClear: () => setState(() => _selectedVerses.clear()),
-      onOpenStudyPage: (initialTab) =>
-          _openVerseStudyScreen(verse.number, initialTab: initialTab),
-    );
-  }
-
-  Future<void> _openVerseStudyScreen(int verseNumber, {int initialTab = 0}) async {
-    final verse = _verses.firstWhere(
+  void _openVerseStudyScreen(int verseNumber, {int initialTab = 0}) {
+    final s = _controller.state;
+    final verse = s.verses.firstWhere(
       (v) => v.number == verseNumber,
-      orElse: () => _verses.isNotEmpty
-          ? _verses.first
-          : BibleVerse(
-              number: verseNumber,
-              text: '',
-            ),
+      orElse: () => s.verses.isNotEmpty
+          ? s.verses.first
+          : BibleVerse(number: verseNumber, text: ''),
     );
     final verseLabel =
-        '${_displayBookName(_currentBook)} $_currentChapter:$verseNumber';
-
-    final refs = _chapterCrossRefs[verseNumber] ?? const [];
-    var notes = _chapterBackgrounds[verseNumber] ?? const [];
-    if (notes.isEmpty && _chapterBackgrounds[0] != null) {
-      notes = _chapterBackgrounds[0]!;
+        '${_controller.displayBookName(_controller.currentBook)} '
+        '${_controller.currentChapter}:$verseNumber';
+    final refs = s.chapterCrossRefs[verseNumber] ?? const [];
+    var notes = s.chapterBackgrounds[verseNumber] ?? const [];
+    if (notes.isEmpty && s.chapterBackgrounds[0] != null) {
+      notes = s.chapterBackgrounds[0]!;
     }
-
-    final bookNum = _bookNumber(_currentBook);
+    final bookNum = _controller.bookNumber(_controller.currentBook);
     final bookCommentariesFuture = BookService.instance.getCommentariesForVerse(
-      bookNum,
-      _currentChapter,
-      verseNumber,
+      bookNum, _controller.currentChapter, verseNumber,
     );
-
-    if (!mounted) return;
-
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => VerseStudyScreen(
           verseText: verse.text,
           verseLabel: verseLabel,
-          versionLabel: _selectedVersion?.name,
-          versionId: _selectedVersion?.shortname,
+          versionLabel: _controller.selectedVersion?.name,
+          versionId: _controller.selectedVersion?.shortname,
           bookNumber: bookNum,
-          chapterNumber: _currentChapter,
+          chapterNumber: _controller.currentChapter,
           verseNumber: verseNumber,
           references: refs,
-          resolvedTexts: _crossRefTexts,
+          resolvedTexts: s.crossRefTexts,
           commentaryNotes: notes,
           bookCommentariesFuture: bookCommentariesFuture,
-          baseFontSize: _settings.fontSize,
+          baseFontSize: s.settings.fontSize,
           initialTab: initialTab,
-          onTapReference: _onReferenceTap,
+          onTapReference: (ref) => _navigateToPassage(
+            bookNumber: ref.bookNumber,
+            chapter: ref.chapter,
+            verse: ref.verse,
+          ),
           onTapPassage: (bookNum, chapter, verseNum) => _navigateToPassage(
             bookNumber: bookNum,
             chapter: chapter,
@@ -974,295 +296,83 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
-  Future<void> _loadBackgroundsForChapter(int bookNumber, int chapter) async {
-    try {
-      var map = await _backgroundService.getBackgroundsForChapter(
-        bookNumber,
-        chapter,
-      );
-      if (map.isEmpty) {
-        map = await _backgroundService.fetchChapterOnline(bookNumber, chapter);
-      }
+  // ── Clipboard / Share / Bookmark ──────────────────────────────────────
+
+  void _copySelectedVerses() {
+    final s = _controller.state;
+    if (s.selectedVerses.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: s.selectedText())).then((_) {
       if (mounted) {
-        setState(() => _chapterBackgrounds = map);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verses copied to clipboard')),
+        );
+        _controller.clearSelection();
       }
-    } catch (_) {}
+    });
   }
 
-  Widget _buildContent() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
-    if (_versions.isEmpty) return _buildEmptyState();
-    if (_chapterEmpty) return _buildChapterEmptyState();
-    return MaxWidthBox(
-      child: ListView.builder(
-        controller: _scrollController,
-        itemCount: _verses.length,
-        cacheExtent: 300,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        itemBuilder: (context, index) {
-          if (index < 0 || index >= _verses.length) {
-            return const SizedBox.shrink();
-          }
-          return _buildVerseItem(_verses[index]);
-        },
-      ),
-    );
+  void _shareSelectedVerses() {
+    final s = _controller.state;
+    if (s.selectedVerses.isEmpty) return;
+    final header = _controller.selectedVersion != null
+        ? '${_controller.currentBook} ${_controller.currentChapter} '
+            '· ${_controller.selectedVersion!.shortname}'
+        : '${_controller.currentBook} ${_controller.currentChapter}';
+    final text = s.selectedText();
+    final shareBody = text.isEmpty ? header : '$header\n$text\n\n— Christian Tube Bible';
+    Share.share(shareBody);
+    _controller.clearSelection();
   }
 
-  Widget _buildChapterEmptyState() {
-    if (_downloadManager
-        .isDownloading(BibleDownloadManager.defaultVersionId)) {
-      return _buildEmptyState();
-    }
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.menu_book_outlined,
-                size: 40,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(height: 12),
-            Text(
-              'No verses found for ${_displayBookName(_currentBook)} $_currentChapter.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'The offline copy of this translation may be incomplete.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _redownloadDefault,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Re-download Tamil Bible'),
-            ),
-          ],
+  Future<void> _bookmarkSelectedVerses() async {
+    await _controller.toggleBookmarkSelected();
+    if (!mounted) return;
+    final message = _controller.consumeBookmarkMessage();
+    if (message != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
         ),
-      ),
-    );
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = _controller.state;
     return Scaffold(
-      appBar: AppBar(
-        title: GestureDetector(
-          onTap: _showBookChapterSelector,
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  '${_displayBookName(_currentBook)} $_currentChapter',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(left: 2),
-                child: Icon(Icons.arrow_drop_down, size: 20),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          if (_selectedVersion != null)
-            PopupMenuButton<String>(
-              tooltip: 'Version',
-              offset: const Offset(0, 40),
-              onSelected: (value) {
-                if (value == '__manage__') {
-                  _pushManager();
-                } else {
-                  final version = _versions.firstWhere(
-                    (v) => v.shortname == value,
-                    orElse: () {
-                      final meta = BibleDownloadManager.getMeta(value);
-                      return BibleVersion(
-                        id: value,
-                        name: meta.name,
-                        shortname: value,
-                        description: meta.description,
-                        lang: meta.languageCode,
-                      );
-                    },
-                  );
-                  setState(() => _selectedVersion = version);
-                  _fetchData();
-                }
-              },
-              itemBuilder: (ctx) => [
-                PopupMenuItem(
-                  enabled: false,
-                  child: Text(
-                    _selectedVersion!.shortname,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                const PopupMenuDivider(height: 1),
-                ..._versions.map((v) => PopupMenuItem(
-                      value: v.shortname,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              v.name,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (v.shortname == _selectedVersion!.shortname)
-                            Icon(Icons.check,
-                                size: 16,
-                                color: Theme.of(context).colorScheme.primary),
-                        ],
-                      ),
-                    )),
-                if (!kIsWeb) ...[
-                  const PopupMenuDivider(height: 1),
-                  const PopupMenuItem(
-                    value: '__manage__',
-                    child: Text('Manage translations…'),
-                  ),
-                ],
-              ],
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _selectedVersion!.shortname,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.only(left: 2),
-                      child: Icon(Icons.arrow_drop_down, size: 18),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          IconButton(
-            tooltip: 'Search Bible',
-            icon: const Icon(Icons.search),
-            onPressed: _showSearch,
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'More',
-            onSelected: (value) {
-              switch (value) {
-                case 'books':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const BooksCatalogScreen(),
-                    ),
-                  );
-                case 'downloads':
-                  _pushManager();
-                case 'bookmarks':
-                  _openBookmarks();
-                case 'settings':
-                  _showReadingSettings();
-              }
-            },
-            itemBuilder: (ctx) => [
-              const PopupMenuItem(
-                value: 'downloads',
-                child: Row(
-                  children: [
-                    Icon(Icons.download_for_offline_rounded, size: 18),
-                    SizedBox(width: 10),
-                    Text('Offline Library & Downloads'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'books',
-                child: Row(
-                  children: [
-                    Icon(Icons.library_books_rounded, size: 18),
-                    SizedBox(width: 10),
-                    Text('Books Library'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'bookmarks',
-                child: Text('Bookmarks'),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Reading settings'),
-              ),
-            ],
-          ),
-        ],
+      appBar: BibleAppBar(
+        controller: _controller,
+        onShowBookChapterSelector: _showBookChapterSelector,
+        onShowSearch: _showSearch,
+        onShowReadingSettings: _showReadingSettings,
+        onOpenBookmarks: _openBookmarks,
+        onPushManager: _pushManager,
       ),
-      body: _buildContent(),
-      bottomNavigationBar: SafeArea(
-        child: _selectedVerses.isNotEmpty
-            ? VerseActionBar(
-                selectedCount: _selectedVerses.length,
-                onCopy: _copySelectedVerses,
-                onShare: _shareSelectedVerses,
-                onBookmark: _bookmarkSelectedVerses,
-                onClear: () => setState(() => _selectedVerses.clear()),
-                onStudy: _selectedVerses.isNotEmpty
-                    ? () => _openVerseStudyScreen(_selectedVerses.first)
-                    : null,
-              )
-            : Container(
-                decoration: BoxDecoration(
-                  color: context.tokens.background,
-                  boxShadow: [
-                    BoxShadow(
-                      color: context.tokens.scrim.withValues(alpha: 0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: MaxWidthBox(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton.icon(
-                          onPressed: _canFetchPrev ? _fetchPrevChapter : null,
-                          icon: const Icon(Icons.chevron_left),
-                          label: const Text('Prev'),
-                        ),
-                        TextButton.icon(
-                          onPressed: _canFetchNext ? _fetchNextChapter : null,
-                          icon: const Icon(Icons.chevron_right),
-                          label: const Text('Next'),
-                          iconAlignment: IconAlignment.end,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+      body: BibleContent(
+        controller: _controller,
+        scrollController: _scrollController,
+        verseKeys: _verseKeys,
+        onVerseTap: _controller.toggleVerseSelection,
+        onCopy: _copySelectedVerses,
+        onShare: _shareSelectedVerses,
+        onBookmark: _bookmarkSelectedVerses,
+        onClear: _controller.clearSelection,
+        onOpenStudyPage: _openVerseStudyScreen,
+        onPushManager: _pushManager,
+        onRedownloadDefault: _controller.redownloadDefault,
+      ),
+      bottomNavigationBar: BibleBottomNav(
+        controller: _controller,
+        onCopy: _copySelectedVerses,
+        onShare: _shareSelectedVerses,
+        onBookmark: _bookmarkSelectedVerses,
+        onClear: _controller.clearSelection,
+        onStudy: s.selectedVerses.isNotEmpty
+            ? () => _openVerseStudyScreen(s.selectedVerses.first)
+            : null,
       ),
     );
   }

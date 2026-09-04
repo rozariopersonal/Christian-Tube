@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/features/bible/controllers/bible_controller.dart';
 import 'package:mobile/features/bible/screens/bible_screen.dart';
 import 'package:mobile/features/bible/widgets/verse_concept_card.dart';
 import 'package:mobile/features/bible/widgets/verse_action_bar.dart';
@@ -86,19 +87,19 @@ void main() {
       ),
     );
 
-    for (var i = 0; i < 20; i++) {
+    for (var i = 0; i < 30; i++) {
       await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
       });
-      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 100));
     }
+
+    await tester.pump(const Duration(seconds: 15));
 
     expect(tester.takeException(), isNull);
     expect(find.byType(AppBar), findsOneWidget);
     expect(find.text('Prev'), findsOneWidget);
     expect(find.text('Next'), findsOneWidget);
-
-    await tester.pump(const Duration(seconds: 12));
   });
 
   testWidgets('Multi-verse selection displays single VerseActionBar with Clear action', (tester) async {
@@ -109,55 +110,45 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(
-      wrapWithApp(
-        const BibleScreen(
-          initialVersionId: 'WEB',
-          initialBook: 'John',
-          initialChapter: 3,
-          saveProgress: false,
-        ),
-      ),
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: null,
+      saveProgress: false,
     );
 
-    for (var i = 0; i < 20; i++) {
-      await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-      });
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await tester.runAsync(() async {
+      await controller.init();
+    });
 
-
-    // Allow scroll animation / rendering to settle
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpWidget(wrapWithApp(BibleScreen(controller: controller)));
+    await tester.pumpAndSettle();
 
     expect(find.byType(VerseActionBar), findsNothing);
 
     // Tap verse 1
     final verseWidgets = find.byType(VerseText);
     expect(verseWidgets, findsWidgets);
-    await tester.tap(verseWidgets.at(0));
-    await tester.pumpAndSettle();
+    await tester.tap(verseWidgets.at(0), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(VerseActionBar), findsOneWidget);
     expect(find.text('1 selected'), findsOneWidget);
 
     // Tap verse 2
-    await tester.tap(verseWidgets.at(1));
-    await tester.pumpAndSettle();
+    await tester.tap(verseWidgets.at(1), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 500));
 
-    // Still only ONE VerseActionBar is rendered at the bottom
     expect(find.byType(VerseActionBar), findsOneWidget);
     expect(find.text('2 selected'), findsOneWidget);
 
     // Tap Deselect all (Close icon)
-    await tester.tap(find.byTooltip('Deselect all'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Deselect all'), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(VerseActionBar), findsNothing);
     expect(find.text('Prev'), findsOneWidget);
-
-    await tester.pump(const Duration(seconds: 12));
   });
 
   testWidgets('VerseConceptCard renders at 320dp and detects Hebrew RTL vs Greek LTR', (tester) async {

@@ -109,6 +109,11 @@ class LocalBibleService {
     return adapter.getInstalledVersionIds();
   }
 
+  Future<List<Map<String, dynamic>>> getInstalledVersions() async {
+    final adapter = await _getAdapter();
+    return adapter.getInstalledVersions();
+  }
+
   Future<void> registerInstalledVersion({
     required String id,
     required String name,

@@ -78,6 +78,12 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getInstalledVersions() async {
+    if (_db == null) return [];
+    return await _db!.query('installed_versions');
+  }
+
+  @override
   Future<bool> hasVerses(String versionId) async {
     if (_db == null) await initialize();
     if (_db == null) return false;

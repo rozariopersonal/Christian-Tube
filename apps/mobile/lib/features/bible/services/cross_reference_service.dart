@@ -68,7 +68,10 @@ class CrossReferenceService extends ChangeNotifier {
   }) async {
     final key = '${bookNumber}_$chapter';
 
-    if (_cache.containsKey(key)) return _cache[key]!;
+    if (_cache.containsKey(key)) {
+      _touchCache(key);
+      return _cache[key]!;
+    }
     if (_inFlight.containsKey(key)) return _inFlight[key]!;
 
     final future = _fetchChapter(bookNumber, chapter, key);
@@ -96,14 +99,16 @@ class CrossReferenceService extends ChangeNotifier {
         if (res.statusCode == 200 && res.data != null) {
           final grouped = _parse(res.data);
           _cache[cacheKey] = grouped;
+          _touchCache(cacheKey);
           return grouped;
         }
       } catch (e) {
         debugPrint('CrossReferenceService: failed $url — $e');
       }
     }
-    // Cache empty result so we don''t hammer the CDN on repeated calls.
+    // Cache empty result so we don't hammer the CDN on repeated calls.
     _cache[cacheKey] = {};
+    _touchCache(cacheKey);
     return {};
   }
 
@@ -146,6 +151,20 @@ class CrossReferenceService extends ChangeNotifier {
     return grouped;
   }
 
+  /// Moves [key] to the front of the access order list, evicting the oldest
+  /// entry when the cache exceeds [_maxCacheSize].
+  void _touchCache(String key) {
+    _cacheOrder.remove(key);
+    _cacheOrder.insert(0, key);
+    while (_cacheOrder.length > _maxCacheSize) {
+      final evict = _cacheOrder.removeLast();
+      _cache.remove(evict);
+    }
+  }
+
   /// Clears the in-memory cache (e.g. on low-memory pressure).
-  void clearCache() => _cache.clear();
+  void clearCache() {
+    _cache.clear();
+    _cacheOrder.clear();
+  }
 }

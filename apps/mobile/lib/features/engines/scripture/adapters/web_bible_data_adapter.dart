@@ -471,6 +471,19 @@ class WebBibleDataAdapter implements BibleDataAdapter {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getInstalledVersions() async {
+    return BibleDownloadManager.catalog
+        .where((v) => _cdnVersions.contains(v.id.toUpperCase()))
+        .map((v) => {
+              'id': v.id,
+              'name': v.name,
+              'language': v.language,
+              'language_code': v.languageCode,
+            })
+        .toList();
+  }
+
+  @override
   Future<bool> hasVerses(String versionId) async {
     return BibleDownloadManager.catalog.any((v) => v.id.toLowerCase() == versionId.toLowerCase());
   }
