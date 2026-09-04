@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
@@ -58,11 +59,14 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     'mr': 'Marathi',
   };
 
+  static const String _prefKeyLanguage = 'books_catalog_language';
+  static const String _prefKeyViewBySubjects = 'books_catalog_view_by_subjects';
+
   @override
   void initState() {
     super.initState();
     _bookService.addListener(_onServiceUpdate);
-    _loadCatalog();
+    _loadSavedPrefs();
   }
 
   @override
@@ -74,6 +78,19 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
 
   void _onServiceUpdate() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadSavedPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedLanguage = prefs.getString(_prefKeyLanguage) ?? 'All';
+    final savedViewBySubjects = prefs.getBool(_prefKeyViewBySubjects) ?? true;
+    if (mounted) {
+      setState(() {
+        _selectedLanguage = savedLanguage;
+        _viewBySubjects = savedViewBySubjects;
+      });
+    }
+    _loadCatalog();
   }
 
   Future<void> _loadCatalog() async {
@@ -88,7 +105,6 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     );
     final allBooks = await _bookService.getBooks();
     final recentProgress = await _bookService.getRecentProgress(limit: 5);
-    final subjects = await _bookService.getSubjects();
 
     // Derive languages present in catalog
     final langCodes = <String>{};
@@ -98,12 +114,23 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     final sortedLangs = langCodes.toList()..sort();
     final languages = ['All', ...sortedLangs];
 
-    // Group matching books by subject
+    // Filter books by selected language for subject grouping and subjects list
+    final langFilteredBooks = _selectedLanguage == 'All'
+        ? allBooks
+        : allBooks
+            .where((b) => b.language.toLowerCase() == _selectedLanguage.toLowerCase())
+            .toList();
+
+    // Subjects derived only from books in the selected language
+    final subjectSet = <String>{};
+    for (final b in langFilteredBooks) {
+      if (b.subject.isNotEmpty) subjectSet.add(b.subject);
+    }
+    final subjects = ['All', ...(subjectSet.toList()..sort())];
+
+    // Group language-filtered books by subject
     final map = <String, List<Book>>{};
-    for (final b in allBooks) {
-      if (_selectedLanguage != 'All' && b.language.toLowerCase() != _selectedLanguage.toLowerCase()) {
-        continue;
-      }
+    for (final b in langFilteredBooks) {
       final s = b.subject.isNotEmpty ? b.subject : 'Christian Living';
       map.putIfAbsent(s, () => []).add(b);
     }
@@ -128,7 +155,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
         _recentBooks = recentBooks;
         _subjects = subjects;
         _languages = languages;
-        _totalBooksCount = allBooks.length;
+        _totalBooksCount = langFilteredBooks.length;
         _isLoading = false;
       });
     }
@@ -452,7 +479,10 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                 if (selected) {
                   setState(() {
                     _selectedLanguage = lang;
+                    _selectedSubject = 'All'; // Reset subject when language changes
                   });
+                  SharedPreferences.getInstance()
+                      .then((p) => p.setString(_prefKeyLanguage, lang));
                   _loadCatalog();
                 }
               },
@@ -795,7 +825,10 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
             ),
             tooltip: _viewBySubjects ? 'Show flat grid' : 'Group by subjects',
             onPressed: () {
-              setState(() => _viewBySubjects = !_viewBySubjects);
+              final newVal = !_viewBySubjects;
+              setState(() => _viewBySubjects = newVal);
+              SharedPreferences.getInstance()
+                  .then((p) => p.setBool(_prefKeyViewBySubjects, newVal));
             },
           ),
           IconButton(
