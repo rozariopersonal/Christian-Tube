@@ -24,94 +24,114 @@ class VerseActionBar extends StatelessWidget {
     if (selectedCount == 0) return const SizedBox.shrink();
 
     final tokens = context.tokens;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isNarrow = screenWidth < 360;
-
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: isNarrow ? 8 : 16, vertical: 8),
       decoration: BoxDecoration(
         color: tokens.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: tokens.surfaceBorder),
         boxShadow: [
           BoxShadow(
-            color: tokens.scrim.withValues(alpha: 0.25),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: tokens.scrim.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: isNarrow ? 4 : 8, vertical: 6),
-        child: Row(
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              tooltip: 'Deselect all',
-              padding: isNarrow ? EdgeInsets.zero : const EdgeInsets.all(8),
-              constraints: isNarrow ? const BoxConstraints.tightFor(width: 32, height: 32) : null,
-              icon: Icon(Icons.close, color: tokens.onSurfaceMuted, size: isNarrow ? 18 : 22),
-              onPressed: onClear,
-            ),
-            Expanded(
-              child: Text(
-                isNarrow ? '$selectedCount' : '$selectedCount selected',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: tokens.onSurface,
-                  fontWeight: FontWeight.bold,
-                  fontSize: isNarrow ? 13 : 14,
-                ),
-              ),
-            ),
-            if (onStudy != null)
-              IconButton(
-                tooltip: 'Study verse',
-                padding: isNarrow ? EdgeInsets.zero : const EdgeInsets.all(8),
-                constraints: isNarrow ? const BoxConstraints.tightFor(width: 32, height: 32) : null,
-                icon: Icon(Icons.auto_stories_outlined, color: tokens.accent, size: isNarrow ? 18 : 22),
-                onPressed: onStudy,
-              ),
-            IconButton(
-              tooltip: 'Bookmark',
-              padding: isNarrow ? EdgeInsets.zero : const EdgeInsets.all(8),
-              constraints: isNarrow ? const BoxConstraints.tightFor(width: 32, height: 32) : null,
-              icon: Icon(Icons.bookmark_add_outlined,
-                  color: tokens.onSurfaceMuted, size: isNarrow ? 18 : 22),
-              onPressed: onBookmark,
-            ),
-            IconButton(
-              tooltip: 'Share',
-              padding: isNarrow ? EdgeInsets.zero : const EdgeInsets.all(8),
-              constraints: isNarrow ? const BoxConstraints.tightFor(width: 32, height: 32) : null,
-              icon: Icon(Icons.share_outlined, color: tokens.onSurfaceMuted, size: isNarrow ? 18 : 22),
-              onPressed: onShare,
-            ),
-            SizedBox(width: isNarrow ? 2 : 4),
-            isNarrow
-                ? IconButton.filled(
-                    tooltip: 'Copy',
-                    style: IconButton.styleFrom(
-                      backgroundColor: tokens.accent,
-                      foregroundColor: tokens.onSurface,
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(32, 32),
-                    ),
-                    onPressed: onCopy,
-                    icon: const Icon(Icons.copy, size: 16),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: onCopy,
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('Copy'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: tokens.accent,
-                      foregroundColor: tokens.onSurface,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+            // Top row: Selection count and Clear
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Deselect all',
+                    icon: Icon(Icons.close, color: tokens.onSurfaceMuted, size: 20),
+                    onPressed: onClear,
+                  ),
+                  Expanded(
+                    child: Text(
+                      '$selectedCount selected',
+                      style: TextStyle(
+                        color: tokens.onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
                   ),
+                ],
+              ),
+            ),
+            // Bottom row: Actions
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _ActionItem(
+                    icon: Icons.copy,
+                    label: 'Copy',
+                    onPressed: onCopy,
+                  ),
+                  _ActionItem(
+                    icon: Icons.ios_share,
+                    label: 'Share',
+                    onPressed: onShare,
+                  ),
+                  _ActionItem(
+                    icon: Icons.bookmark_add_outlined,
+                    label: 'Bookmark',
+                    onPressed: onBookmark,
+                  ),
+                  if (onStudy != null)
+                    _ActionItem(
+                      icon: Icons.auto_stories_outlined,
+                      label: 'Study',
+                      onPressed: onStudy!,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionItem extends StatelessWidget {
+  const _ActionItem({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: tokens.onSurface, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: tokens.onSurface,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),

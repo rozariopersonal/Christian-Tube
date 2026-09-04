@@ -71,6 +71,11 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
           icon: const Icon(Icons.search),
           onPressed: onShowSearch,
         ),
+        IconButton(
+          tooltip: 'Appearance Settings',
+          icon: const Text('Aa', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          onPressed: onShowReadingSettings,
+        ),
         _MoreMenu(
           onDownloads: onPushManager,
           onBooks: () => Navigator.push(
