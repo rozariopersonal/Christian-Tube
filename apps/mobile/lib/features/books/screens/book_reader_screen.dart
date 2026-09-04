@@ -14,15 +14,15 @@ import '../widgets/book_highlights_sheet.dart';
 import '../widgets/book_toc_sheet.dart';
 import '../widgets/block_builder.dart';
 import '../widgets/dual_page_spread_view.dart';
-import '../widgets/infinite_scroll_view.dart';
+import '../widgets/mobile_page_view.dart';
 import '../widgets/reader_appbar.dart';
 import '../widgets/reader_navigation_bar.dart';
 import '../widgets/reader_selection_toolbar.dart';
 import '../widgets/scripture_verse_popup.dart';
 
 /// Adaptive reading screen featuring:
-/// - Continuous two-way vertical infinite scroll for mobile screens without page numbers
-/// - Side-by-side dual-page spread view for large screens (tablets/desktop) with page numbers
+/// - Horizontal swiping page view for mobile screens
+/// - Side-by-side dual-page spread view for large screens (tablets/desktop)
 /// - Cross-device and cross-size exact line resumability
 /// - Persists reading position to SQLite upon app close / backgrounding and after 5 minutes of idleness
 /// - Typography controls (Serif/Sans, font size, line-height) and 4 reading themes
@@ -32,7 +32,7 @@ import '../widgets/scripture_verse_popup.dart';
 ///
 /// This screen is intentionally thin: behavioral state lives in
 /// [BookReaderController], and all view-layer geometry (GlobalKeys,
-/// ScrollController, selection recognizers) lives in
+/// PageController, selection recognizers) lives in
 /// [BookReaderViewCoordinator]. This widget only assembles the two and their
 /// sub-views.
 class BookReaderScreen extends StatefulWidget {
@@ -200,22 +200,18 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     );
   }
 
-  Widget _buildInfiniteScrollView(AppTokens tokens) {
-    final s = _controller.state;
-    return InfiniteScrollView(
+  Widget _buildMobilePageView(AppTokens tokens) {
+    return MobilePageView(
       tokens: tokens,
       controller: _controller,
       appearance: _controller.appearance,
-      prevPages: s.prevPages,
-      nextPages: s.nextPages,
-      scrollController: _coordinator.scrollController,
-      centerKey: _coordinator.centerKey,
-      resolvePageKey: _coordinator.resolvePageKey,
+      pageController: _coordinator.pageController,
       onToggleChrome: _controller.toggleChrome,
       onTriggerFetch: _coordinator.fetchPageLines,
       onRetry: _coordinator.invalidateAndRetry,
       buildSelectionToolbar: _buildSelectionToolbar,
       buildBlock: _buildBlockWidget,
+      onPageChanged: _coordinator.handlePageChanged,
     );
   }
 
@@ -325,14 +321,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                   )
                 : isDualPage
                     ? _buildDualPageSpreadView(tokens)
-                    : SizedBox.expand(
-                        child: MaxWidthBox(
-                          maxWidth: 760,
-                          child: SizedBox.expand(
-                            child: _buildInfiniteScrollView(tokens),
-                          ),
-                        ),
-                      ),
+                    : _buildMobilePageView(tokens),
         bottomNavigationBar: s.showChrome && s.book != null
             ? MaxWidthBox(
                 maxWidth: 760,
@@ -344,12 +333,20 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                   totalPages: totalPages,
                   validLeftPage: validLeftPage,
                   rightPage: rightPage,
-                  sliderDragPercent: _coordinator.sliderDragPercent,
-                  sliderDragSpreadPage: _coordinator.sliderDragSpreadPage,
-                  turnSpread: _coordinator.turnSpread,
-                  jumpToPage: _coordinator.jumpToPage,
-                  setSliderDragPercent: (v) => setState(() => _coordinator.sliderDragPercent = v),
-                  setSliderDragSpreadPage: (v) => setState(() => _coordinator.sliderDragSpreadPage = v),
+                  onPrevious: () {
+                    if (isDualPage) {
+                      _coordinator.turnSpread(-2);
+                    } else if (s.currentPage > 1) {
+                      _coordinator.jumpToPage(s.currentPage - 1);
+                    }
+                  },
+                  onNext: () {
+                    if (isDualPage) {
+                      _coordinator.turnSpread(2);
+                    } else if (s.currentPage < totalPages) {
+                      _coordinator.jumpToPage(s.currentPage + 1);
+                    }
+                  },
                 ),
               )
             : null,

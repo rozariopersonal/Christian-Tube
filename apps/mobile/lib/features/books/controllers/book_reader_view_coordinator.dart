@@ -7,16 +7,10 @@ import '../services/page_loader.dart';
 import '../services/reading_position_tracker.dart';
 import '../services/scripture_ref_parser.dart';
 
-/// Owns the book reader's view-layer geometry and scroll coordination.
+/// Owns the book reader's view-layer coordination.
 ///
-/// This deliberately keeps the *widget* (screen) thin and keeps *business*
-/// state out of the widget tree. It is not a business controller: it holds only
-/// presentation geometry — the [ScrollController], page/block [GlobalKey]s, tap
-/// recognizers, and slider drag state — and translates scroll events and jumps
-/// into calls on the [BookReaderController].
-///
-/// It communicates back to the widget through [onNeedsBuild], [isAttached], and
-/// [onOpenScripture] (the widget owns the [BuildContext]).
+/// Manages tap recognizers, block keys for scroll-to-resume logic, and the
+/// [PageController] for horizontal swiping on mobile devices.
 class BookReaderViewCoordinator {
   BookReaderViewCoordinator({
     required this.controller,
@@ -28,7 +22,7 @@ class BookReaderViewCoordinator {
         _onNeedsBuild = onNeedsBuild,
         _isAttached = isAttached,
         _onOpenScripture = onOpenScripture {
-    _scrollController.addListener(_onScroll);
+    _pageController = PageController(initialPage: (controller.state.currentPage - 1).clamp(0, 999999));
   }
 
   final BookReaderController controller;
@@ -37,24 +31,15 @@ class BookReaderViewCoordinator {
   final bool Function() _isAttached;
   final void Function(ParsedScriptureRef? parsed, String refText) _onOpenScripture;
 
-  final ScrollController _scrollController = ScrollController();
-  Key _centerKey = UniqueKey();
+  late final PageController _pageController;
   final Map<int, GlobalKey> pageKeys = {};
   final Map<String, GlobalKey> blockKeys = {};
   final List<TapGestureRecognizer> tapRecognizers = [];
 
-  bool _isLoadingDown = false;
-  bool _isLoadingUp = false;
   bool _pendingResumeHandled = false;
 
-  double? sliderDragPercent;
-  int? sliderDragSpreadPage;
-
-  ScrollController get scrollController => _scrollController;
-  Key get centerKey => _centerKey;
+  PageController get pageController => _pageController;
   bool get isDualPage => _isDualPage();
-
-  void resetCenterKey() => _centerKey = UniqueKey();
 
   bool get hasPendingResumeHandled => _pendingResumeHandled;
   set pendingResumeHandled(bool value) => _pendingResumeHandled = value;
@@ -87,146 +72,6 @@ class BookReaderViewCoordinator {
     _onNeedsBuild();
   }
 
-  // --- Scroll coordination ---
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final pos = _scrollController.position;
-
-    if (pos.maxScrollExtent > 0 && pos.pixels >= pos.maxScrollExtent - 800) {
-      _loadMorePagesDown();
-    }
-    if (pos.minScrollExtent < 0 && pos.pixels <= pos.minScrollExtent + 600) {
-      _loadMorePagesUp();
-    }
-    _updateVisiblePageAndLine();
-    _pruneStaleKeys();
-  }
-
-  void _pruneStaleKeys() {
-    final s = controller.state;
-    final activePages = <int>{s.centerPage, ...s.prevPages, ...s.nextPages};
-    pageKeys.removeWhere((page, _) => !activePages.contains(page));
-    blockKeys.removeWhere((key, _) {
-      final parsed = ReadingBlockKey.parse(key);
-      return parsed == null || !activePages.contains(parsed.$1);
-    });
-  }
-
-  void _updateVisiblePageAndLine() {
-    final s = controller.state;
-    final book = s.book;
-    int? activeLine;
-    int? activePage;
-    double minDistance = double.infinity;
-
-    for (final entry in blockKeys.entries) {
-      final ctx = entry.value.currentContext;
-      if (ctx == null) continue;
-      final box = ctx.findRenderObject() as RenderBox?;
-      if (box != null && box.hasSize && box.attached) {
-        final top = box.localToGlobal(Offset.zero).dy;
-        final bottom = top + box.size.height;
-        final parsed = ReadingBlockKey.parse(entry.key);
-        if (parsed == null) continue;
-
-        if (top <= 150 && bottom >= 150) {
-          activePage = parsed.$1;
-          activeLine = parsed.$2;
-          break;
-        } else if (top > 150 && top < 600) {
-          final distance = top - 150;
-          if (distance < minDistance) {
-            minDistance = distance;
-            activePage = parsed.$1;
-            activeLine = parsed.$2;
-          }
-        }
-      }
-    }
-
-    if (activePage == null) {
-      final allPages = <int>[...s.prevPages.reversed, ...s.nextPages];
-      double minPageDist = double.infinity;
-      for (final p in allPages) {
-        final ctx = pageKeys[p]?.currentContext;
-        if (ctx != null) {
-          final box = ctx.findRenderObject() as RenderBox?;
-          if (box != null && box.hasSize && box.attached) {
-            final top = box.localToGlobal(Offset.zero).dy;
-            final bottom = top + box.size.height;
-            if (top <= 250 && bottom >= 250) {
-              activePage = p;
-              break;
-            } else if (top > 250 && top < 800) {
-              final distance = top - 250;
-              if (distance < minPageDist) {
-                minPageDist = distance;
-                activePage = p;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    bool shouldUpdate = false;
-    if (activePage != null && activePage != s.currentPage) {
-      shouldUpdate = true;
-    }
-
-    if (activeLine != null || activePage != null) {
-      final page = activePage ?? s.currentPage;
-      final line = activeLine ?? s.lastReadLine;
-      final totalLines = book?.totalLines ?? 1;
-      final percent = (line / (totalLines > 0 ? totalLines : 1)).clamp(0.0, 1.0);
-
-      final changedPercent = (percent * 100).toInt() != (s.lastPercent * 100).toInt();
-      if (shouldUpdate || changedPercent || (activeLine != null && activeLine != s.lastReadLine)) {
-        controller.markProgress(page, line, percent);
-      }
-    }
-  }
-
-  Future<void> _loadMorePagesDown() async {
-    final s = controller.state;
-    if (_isLoadingDown || s.book == null) return;
-    final maxPage = s.book!.totalPages;
-    final currentLast = s.nextPages.isNotEmpty ? s.nextPages.last : s.centerPage;
-    if (currentLast >= maxPage) return;
-
-    _isLoadingDown = true;
-    final p1 = currentLast + 1;
-    final p2 = p1 + 1 <= maxPage ? p1 + 1 : null;
-
-    await controller.fetchPageLines(p1);
-    if (p2 != null) await controller.fetchPageLines(p2);
-
-    if (_isAttached()) {
-      controller.extendPagesDown(p1, p2);
-      _isLoadingDown = false;
-    }
-  }
-
-  Future<void> _loadMorePagesUp() async {
-    final s = controller.state;
-    if (_isLoadingUp || s.book == null) return;
-    final currentFirst = s.prevPages.isNotEmpty ? s.prevPages.last : s.centerPage;
-    if (currentFirst <= 1) return;
-
-    _isLoadingUp = true;
-    final p1 = currentFirst - 1;
-    final p2 = p1 - 1 >= 1 ? p1 - 1 : null;
-
-    await controller.fetchPageLines(p1);
-    if (p2 != null) await controller.fetchPageLines(p2);
-
-    if (_isAttached()) {
-      controller.extendPagesUp(p1, p2);
-      _isLoadingUp = false;
-    }
-  }
-
   void onPageFetched(int page) {
     if (_isAttached()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -248,6 +93,15 @@ class BookReaderViewCoordinator {
     if (!_isAttached() || !controller.hasPendingResume) return;
     final resumePage = controller.state.currentPage;
     final resumeLine = controller.lastReadLine;
+    
+    // Jump the PageController to the correct page if needed
+    if (!_isDualPage() && _pageController.hasClients) {
+      final targetPageIdx = resumePage - 1;
+      if (_pageController.page?.round() != targetPageIdx) {
+        _pageController.jumpToPage(targetPageIdx);
+      }
+    }
+
     try {
       GlobalKey? blockKey = blockKeys[ReadingBlockKey.of(resumePage, resumeLine)];
       if (blockKey == null && controller.pageCache(resumePage) != null) {
@@ -305,6 +159,13 @@ class BookReaderViewCoordinator {
     }
   }
 
+  void handlePageChanged(int page) {
+    if (controller.state.currentPage == page) return;
+    controller.setVisiblePage(page);
+    _markProgressFromPage(page);
+    _preloadAdjacentPages(page, isDualPage: false);
+  }
+
   void turnSpread(int delta) {
     final book = controller.state.book;
     if (book == null) return;
@@ -330,35 +191,13 @@ class BookReaderViewCoordinator {
       return;
     }
 
-    final key = pageKeys[targetPage];
-    final ctx = key?.currentContext;
-    if (ctx != null) {
-      await Scrollable.ensureVisible(
-        ctx,
-        duration: const Duration(milliseconds: 350),
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        targetPage - 1,
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        alignment: 0.0,
       );
-      controller.setVisiblePage(targetPage);
-      _markProgressFromPage(targetPage);
-      return;
     }
-
-    controller.recenterOnPage(targetPage, book.totalPages);
-    _centerKey = UniqueKey();
-
-    await controller.fetchPageLines(targetPage);
-    for (final p in controller.state.prevPages) {
-      controller.fetchPageLines(p);
-    }
-    for (final p in controller.state.nextPages) {
-      controller.fetchPageLines(p);
-    }
-
-    if (_scrollController.hasClients) {
-      _scrollController.jumpTo(0);
-    }
-    _markProgressFromPage(targetPage);
   }
 
   Future<void> _preloadAdjacentPages(int centerPage, {bool isDualPage = false}) async {
@@ -373,11 +212,11 @@ class BookReaderViewCoordinator {
   }
 
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _pageController.dispose();
     for (final r in tapRecognizers) {
       r.dispose();
     }
     tapRecognizers.clear();
   }
 }
+

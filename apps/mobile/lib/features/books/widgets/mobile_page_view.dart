@@ -4,84 +4,68 @@ import 'package:mobile/features/books/controllers/book_reader_controller.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
 import 'package:mobile/features/books/services/book_reader_appearance.dart';
 
-/// The single-page infinite scroll feed (used on `compact` screens).
+/// The single-page horizontal swipe feed (used on `compact` screens).
 ///
-/// Renders previous pages above and next pages below a centered anchor page in
-/// one [CustomScrollView], letting the reader scroll fluidly between chapters.
-/// Pure presentational component: scroll/center/page keys are provided by the
-/// parent, and all data/behavior flows through [controller] and the callbacks.
-class InfiniteScrollView extends StatelessWidget {
+/// Replaces the old infinite scroll view to provide a stable, standard paginated
+/// reading experience using a `PageView`.
+class MobilePageView extends StatefulWidget {
   final AppTokens tokens;
   final BookReaderController controller;
   final BookReaderAppearance appearance;
-  final List<int> prevPages;
-  final List<int> nextPages;
-  final ScrollController scrollController;
-  final Key centerKey;
-  final GlobalKey Function(int pageNum) resolvePageKey;
+  final PageController pageController;
   final VoidCallback onToggleChrome;
   final void Function(int pageNum) onTriggerFetch;
   final void Function(int pageNum) onRetry;
   final Widget Function(BuildContext context, SelectableRegionState state, int pageNum) buildSelectionToolbar;
   final Widget Function(BookRenderBlock block, int pageNum, Color textColor, AppTokens tokens) buildBlock;
+  final void Function(int pageNum) onPageChanged;
 
-  const InfiniteScrollView({
+  const MobilePageView({
     super.key,
     required this.tokens,
     required this.controller,
     required this.appearance,
-    required this.prevPages,
-    required this.nextPages,
-    required this.scrollController,
-    required this.centerKey,
-    required this.resolvePageKey,
+    required this.pageController,
     required this.onToggleChrome,
     required this.onTriggerFetch,
     required this.onRetry,
     required this.buildSelectionToolbar,
     required this.buildBlock,
+    required this.onPageChanged,
   });
 
   @override
+  State<MobilePageView> createState() => _MobilePageViewState();
+}
+
+class _MobilePageViewState extends State<MobilePageView> {
+  @override
   Widget build(BuildContext context) {
-    final textColor = appearance.textColor(context.tokens);
+    final s = widget.controller.state;
+    final totalPages = s.book?.totalPages ?? 1;
+    final textColor = widget.appearance.textColor(context.tokens);
 
     return GestureDetector(
-      onTap: onToggleChrome,
+      onTap: widget.onToggleChrome,
       behavior: HitTestBehavior.opaque,
-      child: CustomScrollView(
-        controller: scrollController,
-        center: centerKey,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildPageSection(prevPages[index], tokens, textColor),
-                childCount: prevPages.length,
-              ),
-            ),
-          ),
-          SliverPadding(
-            key: centerKey,
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildPageSection(nextPages[index], tokens, textColor),
-                childCount: nextPages.length,
-              ),
-            ),
-          ),
-        ],
+      child: PageView.builder(
+        controller: widget.pageController,
+        onPageChanged: (index) {
+          widget.onPageChanged(index + 1);
+        },
+        itemCount: totalPages,
+        itemBuilder: (context, index) {
+          final pageNum = index + 1;
+          return _buildPageSection(pageNum, widget.tokens, textColor);
+        },
       ),
     );
   }
 
   Widget _buildPageSection(int pageNum, AppTokens tokens, Color textColor) {
-    final lines = controller.pageCache(pageNum);
-    final isLoading = controller.isPageLoading(pageNum);
-    final hasFailed = controller.hasPageFailed(pageNum);
+    final lines = widget.controller.pageCache(pageNum);
+    final isLoading = widget.controller.isPageLoading(pageNum);
+    final hasFailed = widget.controller.hasPageFailed(pageNum);
 
     Widget content;
 
@@ -108,7 +92,7 @@ class InfiniteScrollView extends StatelessWidget {
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 label: const Text('Retry'),
-                onPressed: () => onRetry(pageNum),
+                onPressed: () => widget.onRetry(pageNum),
               ),
             ],
           ),
@@ -116,7 +100,7 @@ class InfiniteScrollView extends StatelessWidget {
       );
     } else if (lines == null || (lines.isEmpty && isLoading)) {
       if (!isLoading && !hasFailed) {
-        onTriggerFetch(pageNum);
+        widget.onTriggerFetch(pageNum);
       }
       content = Container(
         key: const ValueKey('loading'),
@@ -136,17 +120,16 @@ class InfiniteScrollView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (pageNum > 1) const SizedBox(height: 16),
-            ...blocks.map((b) => buildBlock(b, pageNum, textColor, tokens)),
+            ...blocks.map((b) => widget.buildBlock(b, pageNum, textColor, tokens)),
           ],
         ),
       );
     }
 
-    return KeyedSubtree(
-      key: resolvePageKey(pageNum),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 60),
       child: SelectionArea(
-        contextMenuBuilder: (context, state) => buildSelectionToolbar(context, state, pageNum),
+        contextMenuBuilder: (context, state) => widget.buildSelectionToolbar(context, state, pageNum),
         child: content,
       ),
     );
