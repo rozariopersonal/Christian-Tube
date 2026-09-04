@@ -27,7 +27,7 @@ const PUB_DIR = path.join(LANG_DIR, "published");
 const PER_PAGE = 1500;
 
 const PREF_RE = /^அதிகாரம்\s+\d+\s*|^chapter\s+\d+\s*|^\d+[\.\)]\s*/iu;
-const SKIP_TA = ["அட்டை", "தலைப்பு", "காப்புரிமை", "பொருளடக்கம்", "முகவுரை"];
+const SKIP_TA = ["அட்டை", "தலைப்பு", "காப்புரிமை", "பொருளடக்கம்", "முகவுரை", "அட்டவணை"];
 const SKIP_EN = ["cover", "copyright", "contents", "title page", "start of content"];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -303,7 +303,7 @@ function paginate(bookId, chapters) {
     }
     chRecs.push({ chapterIndex: ci + 1, title, startPage: sp, startLine: sl, endPage: page, endLine: Math.max(1, line - 1) });
   }
-  return { totalPages: page, totalLines: line - 1, chRecs, content };
+  return { totalPages: page, totalLines: content.length, chRecs, content };
 }
 
 // ── SQLite ─────────────────────────────────────────────────────────────────
@@ -362,6 +362,9 @@ function writeFiles(bookId, meta, chRecs, content) {
   const bookDir = path.join(LANG_DIR, bookId);
   const chapDir = path.join(bookDir, "chapters");
   fs.mkdirSync(chapDir, { recursive: true });
+  for (const f of fs.readdirSync(chapDir)) {
+    if (f.endsWith(".json")) fs.unlinkSync(path.join(chapDir, f));
+  }
   fs.writeFileSync(
     path.join(bookDir, "toc.json"),
     JSON.stringify({ id: bookId, title: meta.title, author: meta.author, subject: meta.subject, totalPages: meta.totalPages, totalLines: meta.totalLines, chapters: chRecs }, null, 2),
