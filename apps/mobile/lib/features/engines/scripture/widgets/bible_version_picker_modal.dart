@@ -7,20 +7,28 @@ class BibleVersionPickerModal extends StatelessWidget {
   final ValueChanged<String> onSelectVersion;
   final VoidCallback onOpenManager;
 
+  /// Optional override for the set of installed ids to display. When null,
+  /// the modal falls back to [BibleDownloadManager.installedIds]. This allows
+  /// callers that already have a vetted list (e.g. the Bible reader's
+  /// controller.versions) to drive the picker without depending on the
+  /// manager having been refreshed yet.
+  final Set<String>? installedIdsOverride;
+
   const BibleVersionPickerModal({
     super.key,
     required this.activeVersionId,
     required this.onSelectVersion,
     required this.onOpenManager,
+    this.installedIdsOverride,
   });
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final downloadManager = BibleDownloadManager();
-    final installedIds = downloadManager.installedIds;
+    final effectiveIds = installedIdsOverride ?? downloadManager.installedIds;
     final installedList = BibleDownloadManager.catalog
-        .where((v) => installedIds.contains(v.id))
+        .where((v) => effectiveIds.contains(v.id))
         .toList();
 
     return Container(

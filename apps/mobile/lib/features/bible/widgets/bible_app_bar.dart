@@ -1,7 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../core/layout/content_width.dart';
 import '../../books/screens/books_catalog_screen.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
+import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
 import '../models/bible_version.dart';
 import '../controllers/bible_controller.dart';
 
@@ -103,80 +104,63 @@ class _VersionPicker extends StatelessWidget {
   final ValueChanged<BibleVersion> onSelect;
   final VoidCallback onManage;
 
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      tooltip: 'Version',
-      offset: const Offset(0, 40),
-      onSelected: (value) {
-        if (value == '__manage__') {
-          onManage();
-        } else {
+  void _openPicker(BuildContext context) {
+    // Ensure the manager's cached ids are in sync with the controller's
+    // installed versions before the modal builds.
+    BibleDownloadManager().refreshInstalledList();
+
+    final overrideIds = versions.map((v) => v.shortname).toSet();
+
+    showAdaptiveBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => BibleVersionPickerModal(
+        activeVersionId: selectedVersion.shortname,
+        installedIdsOverride: overrideIds,
+        onSelectVersion: (newVersionId) {
           final version = versions.firstWhere(
-            (v) => v.shortname == value,
+            (v) => v.shortname == newVersionId,
             orElse: () {
-              final meta = BibleDownloadManager.getMeta(value);
+              final meta = BibleDownloadManager.getMeta(newVersionId);
               return BibleVersion(
-                id: value,
+                id: newVersionId,
                 name: meta.name,
-                shortname: value,
+                shortname: newVersionId,
                 description: meta.description,
                 lang: meta.languageCode,
               );
             },
           );
           onSelect(version);
-        }
-      },
-      itemBuilder: (ctx) => [
-        PopupMenuItem(
-          enabled: false,
-          child: Text(
-            selectedVersion.shortname,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 13,
-            ),
-          ),
-        ),
-        const PopupMenuDivider(height: 1),
-        ...versions.map((v) => PopupMenuItem(
-              value: v.shortname,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(v.name, overflow: TextOverflow.ellipsis),
-                  ),
-                  if (v.shortname == selectedVersion.shortname)
-                    Icon(Icons.check,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary),
-                ],
+        },
+        onOpenManager: onManage,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Version',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _openPicker(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                selectedVersion.shortname,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
-            )),
-        if (!kIsWeb) ...[
-          const PopupMenuDivider(height: 1),
-          const PopupMenuItem(
-            value: '__manage__',
-            child: Text('Manage translations…'),
+              const Padding(
+                padding: EdgeInsets.only(left: 2),
+                child: Icon(Icons.arrow_drop_down, size: 18),
+              ),
+            ],
           ),
-        ],
-      ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              selectedVersion.shortname,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(left: 2),
-              child: Icon(Icons.arrow_drop_down, size: 18),
-            ),
-          ],
         ),
       ),
     );

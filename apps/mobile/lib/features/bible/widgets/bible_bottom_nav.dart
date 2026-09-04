@@ -4,7 +4,7 @@ import '../../../core/layout/content_width.dart';
 import '../widgets/verse_action_bar.dart';
 import '../controllers/bible_controller.dart';
 
-class BibleBottomNav extends StatelessWidget implements PreferredSizeWidget {
+class BibleBottomNav extends StatelessWidget {
   const BibleBottomNav({
     super.key,
     required this.controller,
@@ -23,31 +23,23 @@ class BibleBottomNav extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onStudy;
 
   @override
-  Size get preferredSize => const Size.fromHeight(56);
-
-  @override
   Widget build(BuildContext context) {
     final s = controller.state;
-    return SizedBox(
-      height: preferredSize.height,
-      child: ColoredBox(
-        color: context.tokens.background,
-        child: s.selectedVerses.isNotEmpty
-            ? VerseActionBar(
-                selectedCount: s.selectedVerses.length,
-                onCopy: onCopy,
-                onShare: onShare,
-                onBookmark: onBookmark,
-                onClear: onClear,
-                onStudy: onStudy,
-              )
-            : _ChapterNav(
-                canFetchPrev: s.canFetchPrev,
-                canFetchNext: s.canFetchNext,
-                onPrev: controller.fetchPrevChapter,
-                onNext: controller.fetchNextChapter,
-              ),
-      ),
+    if (s.selectedVerses.isNotEmpty) {
+      return VerseActionBar(
+        selectedCount: s.selectedVerses.length,
+        onCopy: onCopy,
+        onShare: onShare,
+        onBookmark: onBookmark,
+        onClear: onClear,
+        onStudy: onStudy,
+      );
+    }
+    return _ChapterNav(
+      canFetchPrev: s.canFetchPrev,
+      canFetchNext: s.canFetchNext,
+      onPrev: controller.fetchPrevChapter,
+      onNext: controller.fetchNextChapter,
     );
   }
 }
@@ -68,7 +60,9 @@ class _ChapterNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 56,
       decoration: BoxDecoration(
+        color: context.tokens.background,
         boxShadow: [
           BoxShadow(
             color: context.tokens.scrim.withValues(alpha: 0.1),
