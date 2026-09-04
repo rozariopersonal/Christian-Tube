@@ -14,6 +14,8 @@ import 'package:mobile/features/books/widgets/book_cover_fallback.dart';
 import 'package:mobile/features/books/widgets/book_toc_sheet.dart';
 import 'package:mobile/features/dictionary/models/dictionary_entry.dart';
 import 'package:mobile/features/dictionary/services/dictionary_service.dart';
+import 'package:mobile/features/books/screens/book_reader_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -375,6 +377,33 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Introduction'), findsOneWidget);
       expect(find.text('p. 1'), findsOneWidget);
+    });
+
+    testWidgets('BookReaderScreen loads appearance preferences and renders across viewports without overflow', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'book_reader_font_size': 20.0,
+        'book_reader_serif': false,
+        'book_reader_theme_mode': 'sepia',
+      });
+
+      for (final width in [320.0, 600.0, 840.0, 1400.0]) {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(
+              extensions: const [AppTokens.dark],
+            ),
+            home: const BookReaderScreen(bookId: 'test_book_id'),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull);
+      }
     });
   });
 }

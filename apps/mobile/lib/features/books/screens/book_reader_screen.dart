@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
-import '../../dictionary/services/dictionary_service.dart';
 import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../models/book.dart';
 import '../models/book_chapter.dart';
@@ -48,6 +48,10 @@ class BookReaderScreen extends StatefulWidget {
 }
 
 class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBindingObserver {
+  static const String _prefFontSize = 'book_reader_font_size';
+  static const String _prefSerif = 'book_reader_serif';
+  static const String _prefThemeMode = 'book_reader_theme_mode';
+
   final BookService _bookService = BookService.instance;
   late final ScrollController _scrollController;
 
@@ -63,6 +67,13 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   double _lastPercent = 0.0;
   bool _hasUnsavedProgress = false;
   Timer? _idleTimer;
+
+  // Pending position resume
+  int? _pendingResumeLine;
+  int? _pendingResumePage;
+
+  // Smooth slider dragging
+  double? _sliderDragPercent;
 
   // Dual-page spread state (for large screens: ScreenClass.expanded / width >= 840)
   int _spreadLeftPage = 1;
@@ -89,24 +100,41 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   final Map<int, Future<List<BookLine>>> _inFlightPageFetches = {};
   final Set<int> _failedPages = {};
 
-  String _lastLookedUpWord = '';
-
-  Future<void> _performAutoLookup(String word, dynamic selectableRegionState) async {
-    if (word.isEmpty) return;
+  Future<void> _loadAppearancePreferences() async {
     try {
-      final service = DictionaryService();
-      final cleanWord = service.cleanWord(word);
-      if (cleanWord.isEmpty) return;
-      
-      final results = await service.lookupWord(cleanWord);
-      
-      if (mounted && _lastLookedUpWord == word && results.isNotEmpty) {
-        if (selectableRegionState != null) {
-          try {
-            selectableRegionState.hideToolbar();
-          } catch (_) {}
-        }
-        InlineDictionaryPopover.show(context, word: word);
+      final prefs = await SharedPreferences.getInstance();
+      final savedSize = prefs.getDouble(_prefFontSize);
+      final savedSerif = prefs.getBool(_prefSerif);
+      final savedTheme = prefs.getString(_prefThemeMode);
+
+      if (mounted) {
+        setState(() {
+          if (savedSize != null && savedSize >= 14.0 && savedSize <= 26.0) {
+            _fontSize = savedSize;
+          }
+          if (savedSerif != null) {
+            _useSerifFont = savedSerif;
+          }
+          if (savedTheme != null) {
+            _themeMode = ReaderThemeMode.values.firstWhere(
+              (m) => m.name == savedTheme,
+              orElse: () => ReaderThemeMode.system,
+            );
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveAppearancePreference(String key, dynamic value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (value is double) {
+        await prefs.setDouble(key, value);
+      } else if (value is bool) {
+        await prefs.setBool(key, value);
+      } else if (value is String) {
+        await prefs.setString(key, value);
       }
     } catch (_) {}
   }
@@ -121,6 +149,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     _nextPages.add(_centerPage);
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
+    _loadAppearancePreferences();
     _loadBook();
   }
 
@@ -352,6 +381,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       _currentPage = initialPage;
       _centerPage = initialPage;
       _centerKey = UniqueKey();
+      _pendingResumePage = initialPage;
+      _pendingResumeLine = initialLine;
 
       // For dual-page spread (1 & 2, 3 & 4, 5 & 6...):
       _spreadLeftPage = (initialPage % 2 == 0)
@@ -384,16 +415,16 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
       // Scroll to resumed line or initial target
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToResumedPosition(initialLine, initialPage);
+        _checkPendingResume();
       });
     } else {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _scrollToResumedPosition(int targetLine, int targetPage) {
-    if (!mounted) return;
-    final blockKey = _blockKeys['$targetPage:$targetLine'];
+  void _checkPendingResume() {
+    if (!mounted || _pendingResumeLine == null || _pendingResumePage == null) return;
+    final blockKey = _blockKeys['$_pendingResumePage:$_pendingResumeLine'];
     final blockCtx = blockKey?.currentContext;
     if (blockCtx != null) {
       Scrollable.ensureVisible(
@@ -401,17 +432,21 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         duration: const Duration(milliseconds: 350),
         alignment: 0.05,
       );
+      _pendingResumeLine = null;
+      _pendingResumePage = null;
       return;
     }
 
-    final pageKey = _pageKeys[targetPage];
+    final pageKey = _pageKeys[_pendingResumePage!];
     final pageCtx = pageKey?.currentContext;
-    if (pageCtx != null) {
+    if (pageCtx != null && _pageCache.containsKey(_pendingResumePage) && _pageCache[_pendingResumePage]!.isNotEmpty) {
       Scrollable.ensureVisible(
         pageCtx,
         duration: const Duration(milliseconds: 350),
         alignment: 0.0,
       );
+      _pendingResumeLine = null;
+      _pendingResumePage = null;
     }
   }
 
@@ -445,7 +480,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       } else {
         _failedPages.add(page);
       }
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+        if (_pendingResumePage == page && _pendingResumeLine != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _checkPendingResume();
+          });
+        }
+      }
       return lines;
     } catch (e) {
       _failedPages.add(page);
@@ -693,140 +735,216 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     }
   }
 
+  Color _readerSurfaceVariant(BuildContext context) {
+    final tokens = context.tokens;
+    switch (_themeMode) {
+      case ReaderThemeMode.paper:
+        return const Color(0xFFF0EFEA);
+      case ReaderThemeMode.sepia:
+        return const Color(0xFFF0E4C9);
+      case ReaderThemeMode.dark:
+        return const Color(0xFF282B37);
+      case ReaderThemeMode.amoled:
+        return const Color(0xFF141414);
+      case ReaderThemeMode.system:
+        return tokens.surfaceVariant;
+    }
+  }
+
+  Color _readerMutedTextColor(BuildContext context) {
+    final tokens = context.tokens;
+    switch (_themeMode) {
+      case ReaderThemeMode.paper:
+        return const Color(0xFF6B6860);
+      case ReaderThemeMode.sepia:
+        return const Color(0xFF7A685B);
+      case ReaderThemeMode.dark:
+        return const Color(0xFF9EA7B3);
+      case ReaderThemeMode.amoled:
+        return const Color(0xFFA0A0A0);
+      case ReaderThemeMode.system:
+        return tokens.onSurfaceMuted;
+    }
+  }
+
+  Color _highlightColorByIndex(int colorIndex) {
+    switch (colorIndex) {
+      case 1:
+        return const Color(0xFF81C784); // Green
+      case 2:
+        return const Color(0xFF64B5F6); // Blue
+      case 3:
+        return const Color(0xFFF48FB1); // Pink
+      case 0:
+      default:
+        return const Color(0xFFFFD54F); // Amber / Yellow
+    }
+  }
+
   void _showAppearanceSheet(BuildContext context) {
     final tokens = context.tokens;
+    final screen = ScreenClass.of(context);
 
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: tokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: tokens.surfaceBorder,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Reading Appearance',
-                      style: TextStyle(
-                        color: tokens.onSurface,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Theme selector
-                    Text('Theme', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _buildThemeChip(ctx, 'Paper', ReaderThemeMode.paper, const Color(0xFFFAF9F6), const Color(0xFF1A1A1A), setModalState),
-                        const SizedBox(width: 8),
-                        _buildThemeChip(ctx, 'Sepia', ReaderThemeMode.sepia, const Color(0xFFFBF0D9), const Color(0xFF3B2F2F), setModalState),
-                        const SizedBox(width: 8),
-                        _buildThemeChip(ctx, 'Dark', ReaderThemeMode.dark, const Color(0xFF1E212B), const Color(0xFFE6EDF3), setModalState),
-                        const SizedBox(width: 8),
-                        _buildThemeChip(ctx, 'AMOLED', ReaderThemeMode.amoled, const Color(0xFF000000), const Color(0xFFFFFFFF), setModalState),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Font family
-                    Text('Font Family', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: _useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
-                              side: BorderSide(color: _useSerifFont ? tokens.accent : tokens.surfaceBorder),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            onPressed: () {
-                              setModalState(() => _useSerifFont = true);
-                              setState(() => _useSerifFont = true);
-                            },
-                            child: Text(
-                              'Serif (Book)',
-                              style: TextStyle(
-                                fontFamily: 'serif',
-                                color: _useSerifFont ? tokens.accent : tokens.onSurface,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: !_useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
-                              side: BorderSide(color: !_useSerifFont ? tokens.accent : tokens.surfaceBorder),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            onPressed: () {
-                              setModalState(() => _useSerifFont = false);
-                              setState(() => _useSerifFont = false);
-                            },
-                            child: Text(
-                              'Sans-Serif (Modern)',
-                              style: TextStyle(
-                                color: !_useSerifFont ? tokens.accent : tokens.onSurface,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Font size slider
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Font Size', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
-                        Text('${_fontSize.toInt()} pt', style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    Slider(
-                      value: _fontSize,
-                      min: 14.0,
-                      max: 26.0,
-                      divisions: 12,
-                      activeColor: tokens.accent,
-                      onChanged: (val) {
-                        setModalState(() => _fontSize = val);
-                        setState(() => _fontSize = val);
-                      },
-                    ),
-                  ],
+    Widget buildSheetContent(BuildContext ctx, StateSetter setModalState) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: tokens.surfaceBorder,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            );
-          },
-        );
-      },
-    );
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Reading Appearance',
+                    style: TextStyle(
+                      color: tokens.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  if (!screen.isCompact)
+                    IconButton(
+                      icon: Icon(Icons.close, size: 20, color: tokens.onSurfaceMuted),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Theme selector
+              Text('Theme', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildThemeChip(ctx, 'Paper', ReaderThemeMode.paper, const Color(0xFFFAF9F6), const Color(0xFF1A1A1A), setModalState),
+                  const SizedBox(width: 8),
+                  _buildThemeChip(ctx, 'Sepia', ReaderThemeMode.sepia, const Color(0xFFFBF0D9), const Color(0xFF3B2F2F), setModalState),
+                  const SizedBox(width: 8),
+                  _buildThemeChip(ctx, 'Dark', ReaderThemeMode.dark, const Color(0xFF1E212B), const Color(0xFFE6EDF3), setModalState),
+                  const SizedBox(width: 8),
+                  _buildThemeChip(ctx, 'AMOLED', ReaderThemeMode.amoled, const Color(0xFF000000), const Color(0xFFFFFFFF), setModalState),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Font family
+              Text('Font Family', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
+                        side: BorderSide(color: _useSerifFont ? tokens.accent : tokens.surfaceBorder),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () {
+                        setModalState(() => _useSerifFont = true);
+                        setState(() => _useSerifFont = true);
+                        _saveAppearancePreference(_prefSerif, true);
+                      },
+                      child: Text(
+                        'Serif (Book)',
+                        style: TextStyle(
+                          fontFamily: 'serif',
+                          color: _useSerifFont ? tokens.accent : tokens.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: !_useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
+                        side: BorderSide(color: !_useSerifFont ? tokens.accent : tokens.surfaceBorder),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () {
+                        setModalState(() => _useSerifFont = false);
+                        setState(() => _useSerifFont = false);
+                        _saveAppearancePreference(_prefSerif, false);
+                      },
+                      child: Text(
+                        'Sans-Serif (Modern)',
+                        style: TextStyle(
+                          color: !_useSerifFont ? tokens.accent : tokens.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Font size slider
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Font Size', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
+                  Text('${_fontSize.toInt()} pt', style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              Slider(
+                value: _fontSize,
+                min: 14.0,
+                max: 26.0,
+                divisions: 12,
+                activeColor: tokens.accent,
+                onChanged: (val) {
+                  setModalState(() => _fontSize = val);
+                  setState(() => _fontSize = val);
+                  _saveAppearancePreference(_prefFontSize, val);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (screen.isCompact) {
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: tokens.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => MaxWidthBox(
+          maxWidth: 640,
+          child: StatefulBuilder(builder: (context, setModalState) => buildSheetContent(ctx, setModalState)),
+        ),
+      );
+    } else {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: tokens.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: StatefulBuilder(builder: (context, setModalState) => buildSheetContent(ctx, setModalState)),
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildThemeChip(
@@ -845,6 +963,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         onTap: () {
           setModalState(() => _themeMode = mode);
           setState(() => _themeMode = mode);
+          _saveAppearancePreference(_prefThemeMode, mode.name);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -870,7 +989,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     );
   }
 
-
   Future<void> _createHighlight(String text, int startChar, int pageNum, {int color = 0}) async {
     if (_book == null || text.trim().isEmpty) return;
 
@@ -895,7 +1013,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     );
 
     await _bookService.saveHighlight(highlight);
-    _highlightCache[_currentPage]?.add(highlight);
+    (_highlightCache[pageNum] ??= []).add(highlight);
     setState(() {});
 
     if (mounted) {
@@ -1023,7 +1141,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           text: matchedHighlight.text,
           style: TextStyle(
             color: textColor,
-            backgroundColor: Colors.amber.withValues(alpha: 0.35),
+            backgroundColor: _highlightColorByIndex(matchedHighlight.color).withValues(alpha: 0.38),
             fontSize: _fontSize,
             height: _lineHeight,
             fontFamily: _useSerifFont ? 'serif' : null,
@@ -1057,13 +1175,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       }
     } catch (_) {}
 
-    if (selectedText.isEmpty) {
-      final val = selectableRegionState.textEditingValue;
-      selectedText = (val.selection.isValid && !val.selection.isCollapsed)
-          ? val.selection.textInside(val.text).trim()
-          : val.text.trim();
-    }
-
     return AdaptiveTextSelectionToolbar.buttonItems(
       anchors: selectableRegionState.contextMenuAnchors,
       buttonItems: [
@@ -1072,7 +1183,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           onPressed: () {
             selectableRegionState.hideToolbar();
             if (selectedText.isNotEmpty) {
-              _createHighlight(selectedText, 0, pageNum);
+              _createHighlight(selectedText, 0, pageNum, color: 0);
             }
           },
         ),
@@ -1092,7 +1203,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         ContextMenuButtonItem(
           label: 'Copy',
           onPressed: () {
-            selectableRegionState.copySelection(SelectionChangedCause.toolbar);
+            selectableRegionState.hideToolbar();
+            if (selectedText.isNotEmpty) {
+              Clipboard.setData(ClipboardData(text: selectedText));
+            }
           },
         ),
       ],
@@ -1199,21 +1313,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     return Container(
       key: _pageKeys[pageNum] ??= GlobalKey(),
       child: SelectionArea(
-        onSelectionChanged: (SelectedContent? content) {
-          if (content == null) return;
-          final selectedText = content.plainText.trim();
-          final words = selectedText
-              .split(RegExp(r'\s+'))
-              .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
-              .where((w) => w.isNotEmpty)
-              .toList();
-          final lookupWord = words.isNotEmpty ? words.first : selectedText;
-
-          if (lookupWord.isNotEmpty && lookupWord != _lastLookedUpWord) {
-            _lastLookedUpWord = lookupWord;
-            _performAutoLookup(lookupWord, null);
-          }
-        },
         contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state, pageNum),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1378,21 +1477,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: SelectionArea(
-              onSelectionChanged: (SelectedContent? content) {
-                if (content == null) return;
-                final selectedText = content.plainText.trim();
-                final words = selectedText
-                    .split(RegExp(r'\s+'))
-                    .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
-                    .where((w) => w.isNotEmpty)
-                    .toList();
-                final lookupWord = words.isNotEmpty ? words.first : selectedText;
-
-                if (lookupWord.isNotEmpty && lookupWord != _lastLookedUpWord) {
-                  _lastLookedUpWord = lookupWord;
-                  _performAutoLookup(lookupWord, null);
-                }
-              },
               contextMenuBuilder: (context, state) => _buildSelectionToolbar(context, state, pageNum),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1408,7 +1492,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           child: Text(
             'Page $pageNum',
             style: TextStyle(
-              color: tokens.onSurfaceMuted,
+              color: _readerMutedTextColor(context),
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -1538,7 +1622,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
           decoration: BoxDecoration(
             color: isHighlighted
                 ? tokens.accent.withValues(alpha: 0.14)
-                : tokens.surfaceVariant.withValues(alpha: 0.45),
+                : _readerSurfaceVariant(context).withValues(alpha: 0.7),
             borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
             border: Border(
               left: BorderSide(color: tokens.accent, width: 3.5),
@@ -1649,34 +1733,72 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                           : 'Pages $validLeftPage–${rightPage ?? validLeftPage} of $totalPages',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                      style: TextStyle(color: _readerMutedTextColor(context), fontSize: 11.5),
                     )
                   else if (_currentChapterTitle().isNotEmpty)
                     Text(
                       _currentChapterTitle(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                      style: TextStyle(color: _readerMutedTextColor(context), fontSize: 11.5),
                     ),
                 ],
               ),
-              actions: [
-                IconButton(
-                  icon: Icon(Icons.edit_note_rounded, color: tokens.accent, size: 22),
-                  tooltip: 'Highlights & Notes',
-                  onPressed: _openHighlights,
-                ),
-                IconButton(
-                  icon: Icon(Icons.text_fields_rounded, color: tokens.onSurfaceMuted, size: 21),
-                  tooltip: 'Reading settings',
-                  onPressed: () => _showAppearanceSheet(context),
-                ),
-                IconButton(
-                  icon: Icon(Icons.list_alt_rounded, color: tokens.onSurfaceMuted, size: 21),
-                  tooltip: 'Table of contents',
-                  onPressed: () => _openToc(isDualPage),
-                ),
-              ],
+              actions: MediaQuery.sizeOf(context).width < 360
+                  ? [
+                      IconButton(
+                        icon: Icon(Icons.list_alt_rounded, color: tokens.onSurfaceMuted, size: 21),
+                        tooltip: 'Table of contents',
+                        onPressed: () => _openToc(isDualPage),
+                      ),
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_vert_rounded, color: tokens.onSurfaceMuted, size: 21),
+                        tooltip: 'More options',
+                        onSelected: (val) {
+                          if (val == 'highlights') _openHighlights();
+                          if (val == 'appearance') _showAppearanceSheet(context);
+                        },
+                        itemBuilder: (ctx) => [
+                          PopupMenuItem(
+                            value: 'highlights',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_note_rounded, color: tokens.accent, size: 20),
+                                const SizedBox(width: 12),
+                                const Text('Highlights & Notes'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'appearance',
+                            child: Row(
+                              children: [
+                                Icon(Icons.text_fields_rounded, color: tokens.onSurfaceMuted, size: 20),
+                                const SizedBox(width: 12),
+                                const Text('Reading settings'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ]
+                  : [
+                      IconButton(
+                        icon: Icon(Icons.edit_note_rounded, color: tokens.accent, size: 22),
+                        tooltip: 'Highlights & Notes',
+                        onPressed: _openHighlights,
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.text_fields_rounded, color: tokens.onSurfaceMuted, size: 21),
+                        tooltip: 'Reading settings',
+                        onPressed: () => _showAppearanceSheet(context),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.list_alt_rounded, color: tokens.onSurfaceMuted, size: 21),
+                        tooltip: 'Table of contents',
+                        onPressed: () => _openToc(isDualPage),
+                      ),
+                    ],
             )
           : null,
       body: _isLoading
@@ -1692,74 +1814,85 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                       child: _buildInfiniteScrollView(tokens),
                     ),
       bottomNavigationBar: _showChrome && _book != null
-          ? Container(
-              color: bgColor.withValues(alpha: 0.96),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isDualPage) ...[
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.chevron_left_rounded),
-                            color: _spreadLeftPage > 1 ? tokens.onSurface : tokens.onSurfaceDisabled,
-                            onPressed: _spreadLeftPage > 1 ? () => _turnSpread(-2) : null,
-                          ),
-                          Expanded(
-                            child: Slider(
-                              value: validLeftPage.toDouble(),
-                              min: 1.0,
-                              max: totalPages.toDouble(),
-                              activeColor: tokens.accent,
-                              onChanged: (val) => _jumpToPage(val.toInt()),
+          ? MaxWidthBox(
+              maxWidth: 760,
+              child: Container(
+                color: bgColor.withValues(alpha: 0.96),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isDualPage) ...[
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left_rounded),
+                              color: _spreadLeftPage > 1 ? tokens.onSurface : tokens.onSurfaceDisabled,
+                              onPressed: _spreadLeftPage > 1 ? () => _turnSpread(-2) : null,
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.chevron_right_rounded),
-                            color: rightPage != null && rightPage < totalPages
-                                ? tokens.onSurface
-                                : tokens.onSurfaceDisabled,
-                            onPressed: rightPage != null && rightPage < totalPages ? () => _turnSpread(2) : null,
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          'Pages $validLeftPage–${rightPage ?? validLeftPage} of $totalPages • ${(_lastPercent * 100).toInt()}% complete',
-                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
-                        ),
-                      ),
-                    ] else ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Slider(
-                              value: _lastPercent,
-                              min: 0.0,
-                              max: 1.0,
-                              activeColor: tokens.accent,
-                              onChanged: (val) {
-                                final targetPage = ((val * totalPages).round()).clamp(1, totalPages);
-                                _jumpToPage(targetPage);
-                              },
+                            Expanded(
+                              child: Slider(
+                                value: validLeftPage.toDouble(),
+                                min: 1.0,
+                                max: totalPages.toDouble(),
+                                activeColor: tokens.accent,
+                                onChanged: (val) => _jumpToPage(val.toInt()),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          _currentChapterTitle().isNotEmpty
-                              ? '${_currentChapterTitle()} • ${(_lastPercent * 100).toInt()}% complete'
-                              : '${(_lastPercent * 100).toInt()}% complete',
-                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right_rounded),
+                              color: rightPage != null && rightPage < totalPages
+                                  ? tokens.onSurface
+                                  : tokens.onSurfaceDisabled,
+                              onPressed: rightPage != null && rightPage < totalPages ? () => _turnSpread(2) : null,
+                            ),
+                          ],
                         ),
-                      ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            'Pages $validLeftPage–${rightPage ?? validLeftPage} of $totalPages • ${(_lastPercent * 100).toInt()}% complete',
+                            style: TextStyle(color: _readerMutedTextColor(context), fontSize: 11.5),
+                          ),
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Slider(
+                                value: (_sliderDragPercent ?? _lastPercent).clamp(0.0, 1.0),
+                                min: 0.0,
+                                max: 1.0,
+                                activeColor: tokens.accent,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _sliderDragPercent = val;
+                                  });
+                                },
+                                onChangeEnd: (val) {
+                                  final targetPage = ((val * totalPages).round()).clamp(1, totalPages);
+                                  _jumpToPage(targetPage);
+                                  setState(() {
+                                    _sliderDragPercent = null;
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            _currentChapterTitle().isNotEmpty
+                                ? '${_currentChapterTitle()} • ${(((_sliderDragPercent ?? _lastPercent) * 100).toInt())}% complete'
+                                : '${(((_sliderDragPercent ?? _lastPercent) * 100).toInt())}% complete',
+                            style: TextStyle(color: _readerMutedTextColor(context), fontSize: 11.5),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             )
