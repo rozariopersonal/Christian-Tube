@@ -325,9 +325,13 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                   )
                 : isDualPage
                     ? _buildDualPageSpreadView(tokens)
-                    : MaxWidthBox(
-                        maxWidth: 760,
-                        child: _buildInfiniteScrollView(tokens),
+                    : SizedBox.expand(
+                        child: MaxWidthBox(
+                          maxWidth: 760,
+                          child: SizedBox.expand(
+                            child: _buildInfiniteScrollView(tokens),
+                          ),
+                        ),
                       ),
         bottomNavigationBar: s.showChrome && s.book != null
             ? MaxWidthBox(
