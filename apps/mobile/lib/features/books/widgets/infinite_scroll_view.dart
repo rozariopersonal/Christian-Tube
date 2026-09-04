@@ -49,34 +49,31 @@ class InfiniteScrollView extends StatelessWidget {
     return GestureDetector(
       onTap: onToggleChrome,
       behavior: HitTestBehavior.opaque,
-      child: SelectionArea(
-        contextMenuBuilder: (context, state) => buildSelectionToolbar(context, state, controller.state.currentPage),
-        child: CustomScrollView(
-          controller: scrollController,
-          center: centerKey,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildPageSection(prevPages[index], tokens, textColor),
-                  childCount: prevPages.length,
-                ),
+      child: CustomScrollView(
+        controller: scrollController,
+        center: centerKey,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildPageSection(prevPages[index], tokens, textColor),
+                childCount: prevPages.length,
               ),
             ),
-            SliverPadding(
-              key: centerKey,
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildPageSection(nextPages[index], tokens, textColor),
-                  childCount: nextPages.length,
-                ),
+          ),
+          SliverPadding(
+            key: centerKey,
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildPageSection(nextPages[index], tokens, textColor),
+                childCount: nextPages.length,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -148,10 +145,8 @@ class InfiniteScrollView extends StatelessWidget {
 
     return KeyedSubtree(
       key: resolvePageKey(pageNum),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
+      child: SelectionArea(
+        contextMenuBuilder: (context, state) => buildSelectionToolbar(context, state, pageNum),
         child: content,
       ),
     );
