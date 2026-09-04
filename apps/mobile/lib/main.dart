@@ -132,22 +132,6 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               builder: (context, state) => const BooksCatalogScreen(),
             ),
             GoRoute(
-              path: '/books/:id',
-              builder: (context, state) {
-                final bookId = state.pathParameters['id'] ?? '';
-                final qp = state.uri.queryParameters;
-                final page = int.tryParse(qp['page'] ?? '');
-                final startLine = int.tryParse(qp['startLine'] ?? '');
-                final endLine = int.tryParse(qp['endLine'] ?? '');
-                return BookReaderScreen(
-                  bookId: bookId,
-                  initialPage: page,
-                  highlightStartLine: startLine,
-                  highlightEndLine: endLine,
-                );
-              },
-            ),
-            GoRoute(
               path: '/profile',
               builder: (context, state) => ProfileScreen(
                 authService: _authService,
@@ -200,6 +184,22 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               builder: (context, state) => const DownloadsManagerScreen(initialTab: 1),
             ),
           ],
+        ),
+        GoRoute(
+          path: '/books/:id',
+          builder: (context, state) {
+            final bookId = state.pathParameters['id'] ?? '';
+            final qp = state.uri.queryParameters;
+            final page = int.tryParse(qp['page'] ?? '');
+            final startLine = int.tryParse(qp['startLine'] ?? '');
+            final endLine = int.tryParse(qp['endLine'] ?? '');
+            return BookReaderScreen(
+              bookId: bookId,
+              initialPage: page,
+              highlightStartLine: startLine,
+              highlightEndLine: endLine,
+            );
+          },
         ),
       ],
     );
