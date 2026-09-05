@@ -1,6 +1,9 @@
 const fs = require('fs');
 
-const src = fs.readFileSync('apps/mobile/lib/features/engines/scripture/services/local_bible_service.dart', 'utf8');
+const src = fs.readFileSync(
+  'apps/mobile/lib/features/engines/scripture/adapters/web_bible_data_adapter.dart',
+  'utf8',
+);
 
 const seedMatch = src.match(/void _seedAllPolyglotVerses\(\) \{[\s\S]*?\n  \}/);
 if (!seedMatch) {
@@ -12,6 +15,7 @@ const seedMethod = seedMatch[0];
 
 const content = `import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/core/api/release_assets.dart';
 import 'package:mobile/features/bible/models/bible_background_note.dart';
 import 'package:mobile/features/bible/models/cross_reference.dart';
@@ -118,6 +122,37 @@ class WebBibleDataAdapter implements BibleDataAdapter {
     });
     results.sort((a, b) => (a['verse'] as int).compareTo(b['verse'] as int));
     return results;
+  }
+
+  @override
+  Future<List<List<int>>> getChapterVerseCounts(String versionId) async {
+    final urls = GitHubDataService.bibleCountsUrls(versionId);
+
+    final dio = Dio();
+    for (final url in urls) {
+      try {
+        final res = await dio.get<dynamic>(
+          url,
+          options: Options(
+            responseType: ResponseType.json,
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final List<dynamic> list = res.data is String
+              ? jsonDecode(res.data as String)
+              : (res.data as List<dynamic>);
+          return list.map((book) {
+            return (book as List)
+                .map((c) => (c as num).toInt())
+                .toList();
+          }).toList();
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    return [];
   }
 
   @override

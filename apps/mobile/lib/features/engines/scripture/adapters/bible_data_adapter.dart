@@ -7,6 +7,7 @@ abstract class BibleDataAdapter {
   Future<bool> hasVerses(String versionId);
   Future<List<Map<String, dynamic>>> getChapter(
       String versionId, String bookName, int chapter);
+  Future<List<List<int>>> getChapterVerseCounts(String versionId);
   Future<List<Map<String, dynamic>>> search(String versionId, String query,
       {int limit = 100});
   Future<String?> resolvePassage({

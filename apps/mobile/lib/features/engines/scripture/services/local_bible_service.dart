@@ -150,4 +150,9 @@ class LocalBibleService {
     final adapter = await _getAdapter();
     return adapter.getChapter(versionId, bookName, chapter);
   }
+
+  Future<List<List<int>>> getChapterVerseCounts(String versionId) async {
+    final adapter = await _getAdapter();
+    return adapter.getChapterVerseCounts(versionId);
+  }
 }

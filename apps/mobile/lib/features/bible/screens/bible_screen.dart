@@ -48,7 +48,10 @@ class BibleScreen extends StatefulWidget {
 class _BibleScreenState extends State<BibleScreen> {
   late final BibleController _controller;
   final ItemScrollController _itemScrollController = ItemScrollController();
+  final ItemPositionsListener _itemPositionsListener =
+      ItemPositionsListener.create();
   Timer? _highlightTimer;
+  bool _initialPositioned = false;
 
   @override
   void initState() {
@@ -65,6 +68,7 @@ class _BibleScreenState extends State<BibleScreen> {
       );
       _controller.init();
     }
+    _itemPositionsListener.itemPositions.addListener(_onItemPositionsChanged);
     _controller.addListener(_onControllerUpdate);
   }
 
@@ -88,6 +92,7 @@ class _BibleScreenState extends State<BibleScreen> {
       });
     }
     if (reloadNeeded && mounted) {
+      _initialPositioned = false;
       _controller.goToBookAndChapter(
         widget.initialBook ?? _controller.currentBook,
         widget.initialChapter ?? _controller.currentChapter,
@@ -98,43 +103,78 @@ class _BibleScreenState extends State<BibleScreen> {
   @override
   void dispose() {
     _highlightTimer?.cancel();
+    _itemPositionsListener.itemPositions.removeListener(_onItemPositionsChanged);
     _controller.removeListener(_onControllerUpdate);
     if (widget.controller == null) _controller.dispose();
     BiblePassageNavigator.instance.detach(context, _moveToReference);
     super.dispose();
   }
 
+  void _onItemPositionsChanged() {
+    final s = _controller.state;
+    if (s.index == null || s.isLoading) return;
+    final positions = _itemPositionsListener.itemPositions.value;
+    ItemPosition? first;
+    for (final p in positions) {
+      if (first == null || p.index < first.index) first = p;
+    }
+    if (first == null) return;
+    final ref = s.index!.rowToReference(first.index);
+    _controller.updateVisibleChapter(ref.bookNumber, ref.chapter);
+  }
+
   void _onControllerUpdate() {
     if (!mounted) return;
     setState(() {});
     final s = _controller.state;
-    if (!s.isLoading) {
-      final pendingVerse = _controller.consumeScrollTargetIfReady(
-        book: s.currentBook,
-        chapter: s.currentChapter,
-      );
-      if (pendingVerse != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _scrollToVerse(pendingVerse);
-        });
+    if (s.isLoading) return;
+
+    final target = _controller.consumeScrollTargetIfReady();
+    if (target != null) {
+      final idx = s.index;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (idx != null && idx.totalVerses > 0) {
+          final bn = _controller.bookNumber(target.book);
+          final row = idx
+              .globalRowFor(
+                bookNumber: bn,
+                chapter: target.chapter,
+                verse: target.verse,
+              )
+              .clamp(0, idx.totalVerses - 1);
+          _scrollToGlobalIndex(row, target.verse);
+        } else {
+          _scrollToVerse(target.verse);
+        }
+      });
+    } else if (!_initialPositioned) {
+      _initialPositioned = true;
+      final idx = s.index;
+      if (idx != null && idx.totalVerses > 0) {
+        final bn = _controller.bookNumber(_controller.currentBook);
+        final row = idx.chapterStartRow(
+          bookNumber: bn,
+          chapter: _controller.currentChapter,
+        );
+        if (row > 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _itemScrollController.jumpTo(index: row, alignment: 0);
+          });
+        }
       }
     }
   }
 
-  void _scrollToVerse(int verseNumber, {int retries = 10}) {
+  void _scrollToGlobalIndex(int index, int verseNumber) {
     if (!mounted) return;
     SystemChannels.textInput.invokeMethod('TextInput.hide');
     if (!_itemScrollController.isAttached) {
-      if (retries > 0) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _scrollToVerse(verseNumber, retries: retries - 1);
-        });
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToGlobalIndex(index, verseNumber);
+      });
       return;
     }
-    final s = _controller.state;
-    final index = s.verses.indexWhere((v) => v.number == verseNumber);
-    if (index < 0) return;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     if (reduceMotion) {
       _itemScrollController.jumpTo(index: index, alignment: 0.1);
@@ -151,6 +191,27 @@ class _BibleScreenState extends State<BibleScreen> {
     _highlightTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) _controller.setHighlight(null);
     });
+  }
+
+  void _scrollToVerse(int verseNumber) {
+    if (!mounted) return;
+    final s = _controller.state;
+    final idx = s.index;
+    if (idx != null && idx.totalVerses > 0) {
+      final bn = _controller.bookNumber(_controller.currentBook);
+      final row = idx
+          .globalRowFor(
+            bookNumber: bn,
+            chapter: _controller.currentChapter,
+            verse: verseNumber,
+          )
+          .clamp(0, idx.totalVerses - 1);
+      _scrollToGlobalIndex(row, verseNumber);
+      return;
+    }
+    final index = s.verses.indexWhere((v) => v.number == verseNumber);
+    if (index < 0) return;
+    _scrollToGlobalIndex(index, verseNumber);
   }
 
   // ── Navigation helpers ────────────────────────────────────────────────
@@ -367,6 +428,7 @@ class _BibleScreenState extends State<BibleScreen> {
       body: BibleContent(
         controller: _controller,
         itemScrollController: _itemScrollController,
+        itemPositionsListener: _itemPositionsListener,
         onVerseTap: _controller.toggleVerseSelection,
         onCopy: _copySelectedVerses,
         onShare: _shareSelectedVerses,

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../core/layout/content_width.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../models/bible_verse.dart';
+import '../services/bible_chapter_stream.dart';
 import '../widgets/verse_item.dart';
 import '../controllers/bible_controller.dart';
 
@@ -13,6 +15,7 @@ class BibleContent extends StatelessWidget {
     super.key,
     required this.controller,
     required this.itemScrollController,
+    required this.itemPositionsListener,
     required this.onVerseTap,
     required this.onCopy,
     required this.onShare,
@@ -25,6 +28,7 @@ class BibleContent extends StatelessWidget {
 
   final BibleController controller;
   final ItemScrollController itemScrollController;
+  final ItemPositionsListener itemPositionsListener;
   final ValueChanged<int> onVerseTap;
   final VoidCallback onCopy;
   final VoidCallback onShare;
@@ -45,6 +49,9 @@ class BibleContent extends StatelessWidget {
         onRedownloadDefault: onRedownloadDefault,
       );
     }
+    final verseIndex = s.index;
+    final itemCount = s.totalRows;
+    final isWholeBible = verseIndex != null;
     return MaxWidthBox(
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
@@ -90,14 +97,35 @@ class BibleContent extends StatelessWidget {
           },
           child: ScrollablePositionedList.builder(
             itemScrollController: itemScrollController,
-            itemCount: s.verses.length,
+            itemPositionsListener: itemPositionsListener,
+            itemCount: itemCount,
             minCacheExtent: 300,
             padding: const EdgeInsets.symmetric(vertical: 16),
             itemBuilder: (context, index) {
-              if (index < 0 || index >= s.verses.length) return const SizedBox.shrink();
-              final verse = s.verses[index];
+              if (index < 0 || index >= itemCount) return const SizedBox.shrink();
+              if (!isWholeBible) {
+                if (index >= s.verses.length) return const SizedBox.shrink();
+                return _VerseRow(
+                  verse: s.verses[index],
+                  controller: controller,
+                  onVerseTap: onVerseTap,
+                  onCopy: onCopy,
+                  onShare: onShare,
+                  onBookmark: onBookmark,
+                  onClear: onClear,
+                  onOpenStudyPage: onOpenStudyPage,
+                );
+              }
+              final ref = verseIndex.rowToReference(index);
+              final rows =
+                  s.loadedChapters[bibleChapterId(ref.bookNumber, ref.chapter)];
+              if (rows == null || ref.verse > rows.length) {
+                return _PlaceholderRow(
+                  key: ValueKey('ph-${ref.bookNumber}-${ref.chapter}-${ref.verse}'),
+                );
+              }
               return _VerseRow(
-                verse: verse,
+                verse: rows[ref.verse - 1],
                 controller: controller,
                 onVerseTap: onVerseTap,
                 onCopy: onCopy,
@@ -154,6 +182,53 @@ class _VerseRow extends StatelessWidget {
       onClear: onClear,
       onOpenStudyPage: (initialTab) =>
           onOpenStudyPage(verse.number, initialTab: initialTab),
+    );
+  }
+}
+
+class _PlaceholderRow extends StatelessWidget {
+  const _PlaceholderRow({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = context.tokens.surfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 14,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: fill,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FractionallySizedBox(
+            widthFactor: 0.7,
+            child: Container(
+              height: 14,
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FractionallySizedBox(
+            widthFactor: 0.45,
+            child: Container(
+              height: 14,
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

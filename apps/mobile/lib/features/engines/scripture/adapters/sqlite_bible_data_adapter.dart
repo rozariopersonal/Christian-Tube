@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import '../../../bible/models/bible_book.dart';
 import 'bible_data_adapter.dart';
 
 class SqliteBibleDataAdapter implements BibleDataAdapter {
@@ -103,6 +104,37 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
       whereArgs: [versionId, bookName, chapter],
       orderBy: 'verse ASC',
     );
+  }
+
+  @override
+  Future<List<List<int>>> getChapterVerseCounts(String versionId) async {
+    if (_db == null) await initialize();
+    if (_db == null || !_db!.isOpen) return [];
+    final results = await _db!.rawQuery(
+      'SELECT book_number, chapter, COUNT(*) AS row_count FROM verses '
+      'WHERE version_id = ? GROUP BY book_number, chapter '
+      'ORDER BY book_number, chapter',
+      [versionId],
+    );
+    if (results.isEmpty) return const [];
+    final books = bibleBooks.keys.toList();
+    final counts = <List<int>>[];
+    for (var bookNumber = 1; bookNumber <= books.length; bookNumber++) {
+      final chapters = <int>[];
+      for (final r in results.where((r) => r['book_number'] == bookNumber)) {
+        final chapter = r['chapter'] as int;
+        while (chapters.length < chapter - 1) {
+          chapters.add(0);
+        }
+        chapters.add((r['row_count'] as int?) ?? 0);
+      }
+      final maxChapters = bibleBooks[books[bookNumber - 1]] ?? 1;
+      while (chapters.length < maxChapters) {
+        chapters.add(0);
+      }
+      counts.add(List.unmodifiable(chapters));
+    }
+    return counts;
   }
 
   @override

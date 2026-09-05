@@ -563,6 +563,36 @@ class WebBibleDataAdapter implements BibleDataAdapter {
   }
 
   @override
+  Future<List<List<int>>> getChapterVerseCounts(String versionId) async {
+    final urls = GitHubDataService.bibleCountsUrls(versionId);
+
+    final dio = Dio();
+    for (final url in urls) {
+      try {
+        final res = await dio.get<dynamic>(
+          url,
+          options: Options(
+            responseType: ResponseType.json,
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final List<dynamic> list = res.data is String
+              ? jsonDecode(res.data as String)
+              : (res.data as List<dynamic>);
+          return list
+              .map((book) =>
+                  (book as List).map((c) => (c as num).toInt()).toList())
+              .toList();
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    return [];
+  }
+
+  @override
   String? resolvePassageSync({
     required String versionId,
     required int bookNumber,

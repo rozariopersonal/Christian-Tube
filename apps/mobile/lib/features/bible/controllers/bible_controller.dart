@@ -6,12 +6,16 @@ import '../../engines/scripture/services/local_bible_service.dart';
 import '../models/bible_book.dart';
 import '../models/bible_settings.dart';
 import '../models/bible_verse.dart';
+import '../models/bible_verse_counts.dart';
 import '../models/bible_version.dart';
 import '../models/bible_background_note.dart';
 import '../models/cross_reference.dart';
 import '../services/bible_bookmark_service.dart';
 import '../services/bible_background_service.dart';
+import '../services/bible_chapter_stream.dart';
 import '../services/bible_settings_service.dart';
+import '../services/bible_verse_counts_service.dart';
+import '../services/bible_verse_index.dart';
 import '../services/cross_reference_service.dart';
 import '../../../shared/services/reader_appearance.dart';
 
@@ -24,7 +28,6 @@ import '../../../shared/services/reader_appearance.dart';
 class BibleControllerState {
   const BibleControllerState({
     this.versions = const [],
-    this.verses = const [],
     this.selectedVersion,
     this.currentBook = 'Genesis',
     this.currentChapter = 1,
@@ -39,10 +42,12 @@ class BibleControllerState {
     this.crossRefsInstalled = false,
     this.crossRefsLoading = false,
     this.chapterBackgrounds = const {},
+    this.counts = const BibleVerseCounts([]),
+    this.loadedChapters = const {},
+    this.index,
   });
 
   final List<BibleVersion> versions;
-  final List<BibleVerse> verses;
   final BibleVersion? selectedVersion;
   final String currentBook;
   final int currentChapter;
@@ -58,7 +63,29 @@ class BibleControllerState {
   final bool crossRefsLoading;
   final Map<int, List<BibleBackgroundNote>> chapterBackgrounds;
 
+  /// Per-chapter verse-row counts for the active version. Empty counts mean the
+  /// reader degrades to a single-chapter list ([totalRows] from [verses]).
+  final BibleVerseCounts counts;
+
+  /// Chapters streamed into memory so far, keyed by [bibleChapterId].
+  final Map<int, List<BibleVerse>> loadedChapters;
+
+  /// Whole-Bible row index derived from [counts]; null when counts are absent.
+  final BibleVerseIndex? index;
+
   // ── Derived helpers ────────────────────────────────────────────────────
+
+  int bookNumber(String book) =>
+      BookNameService.englishBookNames.indexOf(book) + 1;
+
+  /// Rows of the currently visible chapter (reads from the stream buffer).
+  List<BibleVerse> get verses =>
+      loadedChapters[bibleChapterId(bookNumber(currentBook), currentChapter)] ??
+      const [];
+
+  /// Number of items the reader list should build: the whole canon when counts
+  /// are available, otherwise just the current chapter's rows.
+  int get totalRows => index?.totalVerses ?? verses.length;
 
   bool get canFetchPrev {
     if (isLoading || selectedVersion == null) return false;
@@ -91,7 +118,6 @@ class BibleControllerState {
 extension _StateCopy on BibleControllerState {
   BibleControllerState copyWith({
     List<BibleVersion>? versions,
-    List<BibleVerse>? verses,
     BibleVersion? selectedVersion,
     String? currentBook,
     int? currentChapter,
@@ -107,10 +133,12 @@ extension _StateCopy on BibleControllerState {
     bool? crossRefsInstalled,
     bool? crossRefsLoading,
     Map<int, List<BibleBackgroundNote>>? chapterBackgrounds,
+    BibleVerseCounts? counts,
+    Map<int, List<BibleVerse>>? loadedChapters,
+    BibleVerseIndex? index,
   }) =>
       BibleControllerState(
         versions: versions ?? this.versions,
-        verses: verses ?? this.verses,
         selectedVersion: selectedVersion ?? this.selectedVersion,
         currentBook: currentBook ?? this.currentBook,
         currentChapter: currentChapter ?? this.currentChapter,
@@ -125,6 +153,9 @@ extension _StateCopy on BibleControllerState {
         crossRefsInstalled: crossRefsInstalled ?? this.crossRefsInstalled,
         crossRefsLoading: crossRefsLoading ?? this.crossRefsLoading,
         chapterBackgrounds: chapterBackgrounds ?? this.chapterBackgrounds,
+        counts: counts ?? this.counts,
+        loadedChapters: loadedChapters ?? this.loadedChapters,
+        index: index ?? this.index,
       );
 }
 
@@ -193,6 +224,7 @@ class BibleController extends ChangeNotifier {
   final BookNameService _bookNames = BookNameService();
   final CrossReferenceService _crossRefService = CrossReferenceService();
   final BibleBackgroundService _backgroundService = BibleBackgroundService();
+  final BibleVerseCountsService _countsService = BibleVerseCountsService();
 
   final ReaderAppearance appearance = ReaderAppearance();
 
@@ -210,6 +242,8 @@ class BibleController extends ChangeNotifier {
 
   String _currentBook;
   int _currentChapter;
+
+  BibleChapterStream? _stream;
 
   // ── Public state ───────────────────────────────────────────────────────
 
@@ -231,21 +265,23 @@ class BibleController extends ChangeNotifier {
   /// Current verse — either the last highlighted verse or the first verse.
   int get currentVerse => _state.highlightedVerse ?? 1;
 
-  /// Returns and clears the pending scroll verse when [book]/[chapter] are the
-  /// currently loaded chapter (i.e. the reader is ready to scroll). Returns
-  /// null while the target chapter is still loading or if the user navigated
-  /// elsewhere, in which case the pending target is dropped.
+  /// Returns and clears the pending scroll target once its target chapter is
+  /// buffered by the stream. Returns null while the chapter is still loading;
+  /// callers should re-check after the next notify.
   ///
   /// Called by the screen when `state.isLoading == false`.
-  int? consumeScrollTargetIfReady({required String book, required int chapter}) {
+  BibleScrollTarget? consumeScrollTargetIfReady() {
     final target = _scrollTarget;
     if (target == null) return null;
-    if (target.book != book || target.chapter != chapter) {
-      _scrollTarget = null;
+    final bn = bookNumber(target.book);
+    final stream = _stream;
+    if (!BookNameService.englishBookNames.contains(target.book) ||
+        stream == null ||
+        !stream.contains(bn, target.chapter)) {
       return null;
     }
     _scrollTarget = null;
-    return target.verse;
+    return target;
   }
 
   // ── Book name helpers ──────────────────────────────────────────────────
@@ -424,27 +460,6 @@ class BibleController extends ChangeNotifier {
     _applySavedProgress();
   }
 
-  List<BibleVerse> _buildChapterVerses(
-    List<Map<String, dynamic>> chapterMap,
-    String versionId,
-  ) {
-    final numbers = chapterMap.map((m) => (m['verse'] as num).toInt()).toList()
-      ..sort((a, b) => a.compareTo(b));
-    final verses = <BibleVerse>[];
-    for (final n in numbers) {
-      final text = chapterMap
-          .firstWhere((m) => (m['verse'] as num).toInt() == n, orElse: () => const {})['text'];
-      if (text == null) continue;
-      verses.add(BibleVerse(
-        number: n,
-        text: text as String,
-        versionLabel: versionId,
-        crossReferenceCount: _state.chapterCrossRefs[n]?.length ?? 0,
-      ));
-    }
-    return verses;
-  }
-
   Future<void> _loadCrossReferencesForChapter(int bookNumber, int chapter) async {
     if (_state.selectedVersion == null) return;
     final isNewChapter =
@@ -490,16 +505,6 @@ class BibleController extends ChangeNotifier {
     _crossRefBookNumber = bookNumber;
     _crossRefChapter = chapter;
     _update((s) => s.copyWith(
-          verses: s.verses.map((v) {
-            if (v.isChapterHeader) return v;
-            return BibleVerse(
-              number: v.number,
-              text: v.text,
-              versionLabel: s.selectedVersion?.shortname ?? v.versionLabel,
-              isSecondary: v.isSecondary,
-              crossReferenceCount: chapterRefs[v.number]?.length ?? 0,
-            );
-          }).toList(),
           chapterCrossRefs: chapterRefs,
           crossRefTexts: resolved,
           crossRefsLoading: false,
@@ -518,27 +523,106 @@ class BibleController extends ChangeNotifier {
     }
   }
 
+  /// (Re)builds the chapter stream and whole-Bible index for the active
+  /// version, then buffers the chapter currently selected. Called on startup,
+  /// version switch, and after installer changes.
   Future<void> _loadChapter() async {
     if (_state.selectedVersion == null) return;
     final epoch = ++_loadEpoch;
-    final book = _currentBook;
-    final chapter = _currentChapter;
     final version = _state.selectedVersion!;
-    final primaryMap = await _fetchVersesForChapter(version, book, chapter);
-    if (epoch != _loadEpoch) return; // stale — a newer load superseded this one
-    final verses = _buildChapterVerses(primaryMap, version.shortname);
+    _stream = BibleChapterStream(version.shortname);
+    final counts = await _countsService.loadForVersion(version.shortname);
+    if (epoch != _loadEpoch || _disposed) return;
+    final index = counts.isLoaded ? BibleVerseIndex(counts) : null;
     _update((s) => s.copyWith(
-          verses: verses,
-          chapterEmpty: verses.isEmpty,
+          counts: counts,
+          index: index,
+          loadedChapters: const {},
+          chapterEmpty: false,
+        ));
+    if (epoch != _loadEpoch || _disposed) return;
+    await _ensureChapterLoaded(_currentBook, _currentChapter, epoch: epoch);
+  }
+
+  /// Buffers [book]/[chapter] into the stream and applies the resulting state.
+  /// Marks the reader not-loading and detects empty chapters.
+  Future<void> _ensureChapterLoaded(
+    String book,
+    int chapter, {
+    required int epoch,
+  }) async {
+    final stream = _stream;
+    final version = _state.selectedVersion;
+    if (version == null || stream == null) return;
+    if (!bibleBooks.containsKey(book)) return;
+    final bn = bookNumber(book);
+    final rows = await stream.ensureChapter(bn, chapter);
+    if (epoch != _loadEpoch || _disposed) return;
+    _fillChapterRows(rows, bn, chapter);
+    _update((s) => s.copyWith(
+          isLoading: false,
+          chapterEmpty: s.index == null
+              ? rows.isEmpty
+              : s.index!.chapterRowCount(
+                  bookNumber: bn,
+                  chapter: chapter,
+                ) == 0,
           clearHighlighted: true,
         ));
-
-    _loadCrossReferencesForChapter(bookNumber(book), chapter);
-    _loadBackgroundsForChapter(bookNumber(book), chapter);
-
-    if (verses.isNotEmpty && saveProgress) {
+    stream.preloadAround(bn, chapter);
+    _loadCrossReferencesForChapter(bn, chapter);
+    _loadBackgroundsForChapter(bn, chapter);
+    if (rows.isNotEmpty && saveProgress) {
       _settingsService.saveReadingProgress(version.shortname, book, chapter);
     }
+  }
+
+  /// Adds [rows] for `(bookNumber, chapter)` to the buffer without touching
+  /// loading/empty state — used for background stream fills while scrolling.
+  void _fillChapterRows(List<BibleVerse> rows, int bookNumber, int chapter) {
+    final id = bibleChapterId(bookNumber, chapter);
+    _update((s) {
+      final loaded = Map<int, List<BibleVerse>>.from(s.loadedChapters);
+      loaded[id] = rows;
+      return s.copyWith(loadedChapters: loaded);
+    });
+  }
+
+  /// Live tracking of the chapter the user is currently scrolled into. Updates
+  /// the current book/chapter (title, nav bounds, saved progress), fills the
+  /// visible chapter if needed, and warms the surrounding chapters.
+  ///
+  /// Called by the screen from the scroll item-positions listener.
+  void updateVisibleChapter(int bookNumber, int chapter) {
+    final stream = _stream;
+    final version = _state.selectedVersion;
+    if (version == null || stream == null) return;
+    if (bookNumber < 1 ||
+        bookNumber > BookNameService.englishBookNames.length) {
+      return;
+    }
+    final book = BookNameService.englishBookNames[bookNumber - 1];
+    if (book == _currentBook && chapter == _currentChapter) return;
+    _currentBook = book;
+    _currentChapter = chapter;
+    _update((s) => s.copyWith(currentBook: book, currentChapter: chapter));
+    final epoch = ++_loadEpoch;
+    _fillChapterInBackground(bookNumber, chapter, epoch: epoch);
+    stream.preloadAround(bookNumber, chapter);
+    _loadCrossReferencesForChapter(bookNumber, chapter);
+    _loadBackgroundsForChapter(bookNumber, chapter);
+    if (saveProgress) {
+      _settingsService.saveReadingProgress(version.shortname, book, chapter);
+    }
+  }
+
+  Future<void> _fillChapterInBackground(int bookNumber, int chapter,
+      {required int epoch}) async {
+    final stream = _stream;
+    if (stream == null) return;
+    final rows = await stream.ensureChapter(bookNumber, chapter);
+    if (epoch != _loadEpoch || _disposed) return;
+    _fillChapterRows(rows, bookNumber, chapter);
   }
 
   Future<void> _loadBackgroundsForChapter(int bookNumber, int chapter) async {
@@ -560,6 +644,11 @@ class BibleController extends ChangeNotifier {
   Future<void> fetchData() => _fetchData();
 
   Future<void> selectVersion(BibleVersion version) async {
+    if (_state.selectedVersion?.shortname == version.shortname &&
+        _stream != null) {
+      _update((s) => s.copyWith(selectedVersion: version));
+      return;
+    }
     _update((s) => s.copyWith(selectedVersion: version));
     await _loadChapter();
   }
@@ -582,11 +671,7 @@ class BibleController extends ChangeNotifier {
       }
     }
 
-    _currentBook = nextBook;
-    _currentChapter = nextChapter;
-    _update((s) => s.copyWith(isLoading: true, currentBook: _currentBook, currentChapter: _currentChapter));
-    await _loadChapter();
-    _update((s) => s.copyWith(isLoading: false));
+    await _navigateTo(nextBook, nextChapter, verse: 1);
   }
 
   Future<void> fetchPrevChapter() async {
@@ -606,32 +691,35 @@ class BibleController extends ChangeNotifier {
       }
     }
 
-    _currentBook = prevBook;
-    _currentChapter = prevChapter;
-    _update((s) => s.copyWith(isLoading: true, currentBook: _currentBook, currentChapter: _currentChapter));
-    await _loadChapter();
-    _update((s) => s.copyWith(isLoading: false));
+    await _navigateTo(prevBook, prevChapter, verse: 1);
   }
 
-  Future<void> goToBookAndChapter(String book, int chapter, {int? verse}) async {
-    if (verse != null) {
-      _scrollTarget = BibleScrollTarget(book: book, chapter: chapter, verse: verse);
-    } else {
-      _scrollTarget = null;
-    }
-    if (book == _currentBook &&
-        chapter == _currentChapter &&
-        !_state.isLoading &&
-        _state.verses.isNotEmpty) {
-      // Already showing the target chapter — no reload needed; just let the
-      // screen pick up the scroll target on this notify.
+  Future<void> goToBookAndChapter(String book, int chapter, {int? verse}) =>
+      _navigateTo(book, chapter, verse: verse);
+
+  /// Moves the reader to a chapter. A scroll target is armed so the screen
+  /// lands on [verse] (falling back to verse 1 when navigating to a different
+  /// chapter without an explicit verse). Navigating within an already-buffered
+  /// chapter only refreshes the current selection.
+  Future<void> _navigateTo(String book, int chapter, {int? verse}) async {
+    if (!bibleBooks.containsKey(book)) return;
+    final sameChapter = book == _currentBook && chapter == _currentChapter;
+    final armVerse = verse ?? (sameChapter ? null : 1);
+    _scrollTarget = armVerse == null
+        ? null
+        : BibleScrollTarget(book: book, chapter: chapter, verse: armVerse);
+
+    if (sameChapter && !_state.isLoading && _stream != null && _stream!.contains(bookNumber(book), chapter)) {
       _update((s) => s.copyWith(currentBook: book, currentChapter: chapter));
       return;
     }
+
     _currentBook = book;
     _currentChapter = chapter;
     _update((s) => s.copyWith(isLoading: true, currentBook: book, currentChapter: chapter));
-    await _loadChapter();
+    final epoch = ++_loadEpoch;
+    await _ensureChapterLoaded(book, chapter, epoch: epoch);
+    if (epoch != _loadEpoch || _disposed) return;
     _update((s) => s.copyWith(isLoading: false));
   }
 
@@ -642,7 +730,7 @@ class BibleController extends ChangeNotifier {
     final version = _state.selectedVersion;
     if (version == null) return const [];
     final chapterMap = await _fetchVersesForChapter(version, book, chapter);
-    return _buildChapterVerses(chapterMap, version.shortname);
+    return chapterVersesFromRows(chapterMap, version.shortname);
   }
 
   void toggleVerseSelection(int verseNumber) {
