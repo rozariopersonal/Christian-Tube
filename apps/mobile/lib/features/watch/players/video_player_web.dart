@@ -22,6 +22,20 @@ void pausePlatformMainVideo() {
   } catch (_) {}
 }
 
+void resumePlatformMainVideo() {
+  try {
+    final iframes = html.document.querySelectorAll('iframe');
+    for (final elem in iframes) {
+      if (elem is html.IFrameElement) {
+        elem.contentWindow?.postMessage(
+          '{"event":"command","func":"playVideo","args":""}',
+          '*',
+        );
+      }
+    }
+  } catch (_) {}
+}
+
 Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,
@@ -65,6 +79,7 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
   late String _viewId;
   StreamSubscription? _msgSub;
   StreamSubscription? _fullScreenSub;
+  final List<Timer> _resumeTimers = [];
 
   @override
   void initState() {
@@ -80,12 +95,30 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
     if (oldWidget.videoId != widget.videoId) {
       _initView();
     }
+    if (oldWidget.isFullScreen != widget.isFullScreen) {
+      _scheduleResume();
+    }
+  }
+
+  void _scheduleResume() {
+    resumePlatformMainVideo();
+    for (final delayMs in [150, 350, 600]) {
+      _resumeTimers.add(Timer(Duration(milliseconds: delayMs), () {
+        if (mounted) {
+          resumePlatformMainVideo();
+        }
+      }));
+    }
   }
 
   @override
   void dispose() {
     _msgSub?.cancel();
     _fullScreenSub?.cancel();
+    for (final timer in _resumeTimers) {
+      timer.cancel();
+    }
+    _resumeTimers.clear();
     super.dispose();
   }
 
@@ -193,7 +226,10 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
         color: Colors.transparent,
         child: InkWell(
           key: const ValueKey('video_fullscreen_toggle'),
-          onTap: () => widget.onToggleFullScreen?.call(),
+          onTap: () {
+            widget.onToggleFullScreen?.call();
+            _scheduleResume();
+          },
           customBorder: const CircleBorder(),
           child: Container(
             width: 38,

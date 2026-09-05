@@ -125,5 +125,33 @@ void main() {
       await tester.pump();
       expect(find.text('Show less'), findsOneWidget);
     });
+
+    testWidgets('landscape fullscreen transition triggers video resume safely',
+        (tester) async {
+      setSurfaceSize(tester, 390, 844); // Portrait phone
+      await tester.pumpWidget(createSubject());
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(AppBar), findsOneWidget);
+
+      // Rotate to phone landscape (enters fullscreen)
+      setSurfaceSize(tester, 844, 390);
+      await tester.pumpWidget(createSubject());
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(AppBar), findsNothing);
+
+      // Advance timers for resume retries
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(tester.takeException(), isNull);
+
+      // Rotate back to portrait
+      setSurfaceSize(tester, 390, 844);
+      await tester.pumpWidget(createSubject());
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(AppBar), findsOneWidget);
+
+      // Advance timers for portrait transition resume retries
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(tester.takeException(), isNull);
+    });
   });
 }

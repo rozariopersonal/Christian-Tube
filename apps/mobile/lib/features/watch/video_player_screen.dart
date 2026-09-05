@@ -69,6 +69,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// fullscreen until the device returns to portrait orientation.
   bool _userExitedFullscreen = false;
 
+  final List<Timer> _resumeTimers = [];
+  bool? _lastBuiltFullscreen;
+
+  void _resumeVideoAfterFullscreenToggle() {
+    resumePlatformMainVideo();
+    for (final delayMs in [150, 350, 600, 1000]) {
+      _resumeTimers.add(Timer(Duration(milliseconds: delayMs), () {
+        if (mounted) {
+          resumePlatformMainVideo();
+        }
+      }));
+    }
+  }
+
   PlaylistLoopMode _loopMode = PlaylistLoopMode.off;
   bool _isShuffle = false;
   bool _isAutoplay = true;
@@ -244,6 +258,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    for (final timer in _resumeTimers) {
+      timer.cancel();
+    }
+    _resumeTimers.clear();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -274,6 +292,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final isFullscreen =
         _isFullScreen || (!kIsWeb && isPhoneLandscape && !_userExitedFullscreen);
 
+    if (_lastBuiltFullscreen != null && _lastBuiltFullscreen != isFullscreen) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _resumeVideoAfterFullscreenToggle();
+        }
+      });
+    }
+    _lastBuiltFullscreen = isFullscreen;
+
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
       startSeconds: widget.startSeconds,
@@ -298,6 +325,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         } else {
           setState(() => _isFullScreen = true);
         }
+        _resumeVideoAfterFullscreenToggle();
       },
       onPositionChanged: (pos) {
         _currentPositionSeconds = pos.inMilliseconds / 1000.0;
@@ -322,6 +350,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
                   }
                 });
+                _resumeVideoAfterFullscreenToggle();
               }
             },
             child: Scaffold(

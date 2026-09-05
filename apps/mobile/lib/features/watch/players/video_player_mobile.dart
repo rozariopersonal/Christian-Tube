@@ -15,6 +15,14 @@ void pausePlatformMainVideo() {
   } catch (_) {}
 }
 
+void resumePlatformMainVideo() {
+  try {
+    _activeMainWebViewController?.evaluateJavascript(
+      source: "try { if (typeof playVideo === 'function') { playVideo(); } else if (typeof player !== 'undefined' && player && typeof player.playVideo === 'function') { player.playVideo(); } } catch(e) {}",
+    );
+  } catch (_) {}
+}
+
 Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,
@@ -59,6 +67,7 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
   InAppWebViewController? _webViewController;
   // Tracks the pending portrait-restore timer so it can be cancelled on dispose.
   Timer? _orientationRestoreTimer;
+  final List<Timer> _resumeTimers = [];
 
   @override
   void initState() {
@@ -76,6 +85,26 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
     }
     if (oldWidget.isFullScreen != widget.isFullScreen) {
       _applyFullscreenMode(widget.isFullScreen);
+      _scheduleResume();
+    }
+  }
+
+  void _resumeVideo() {
+    try {
+      _webViewController?.evaluateJavascript(
+        source: "try { if (typeof playVideo === 'function') { playVideo(); } else if (typeof player !== 'undefined' && player && typeof player.playVideo === 'function') { player.playVideo(); } } catch(e) {}",
+      );
+    } catch (_) {}
+  }
+
+  void _scheduleResume() {
+    _resumeVideo();
+    for (final delayMs in [150, 350, 600, 1000]) {
+      _resumeTimers.add(Timer(Duration(milliseconds: delayMs), () {
+        if (mounted) {
+          _resumeVideo();
+        }
+      }));
     }
   }
 
@@ -117,6 +146,10 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
     // _VideoPlayerScreenState.dispose() has already applied the portrait lock.
     // If we let it fire it would re-open all orientations on the previous route.
     _orientationRestoreTimer?.cancel();
+    for (final timer in _resumeTimers) {
+      timer.cancel();
+    }
+    _resumeTimers.clear();
     if (_activeMainWebViewController == _webViewController) {
       _activeMainWebViewController = null;
     }
@@ -222,6 +255,13 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
                 }
             } catch(err){}
         }
+        function playVideo() {
+            try {
+                if (player && typeof player.playVideo === 'function') {
+                    player.playVideo();
+                }
+            } catch(err){}
+        }
     </script>
 </body>
 </html>
@@ -311,7 +351,10 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
         color: Colors.transparent,
         child: InkWell(
           key: const ValueKey('video_fullscreen_toggle'),
-          onTap: () => widget.onToggleFullScreen?.call(),
+          onTap: () {
+            widget.onToggleFullScreen?.call();
+            _scheduleResume();
+          },
           customBorder: const CircleBorder(),
           child: Container(
             width: 38,
