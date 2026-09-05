@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/layout/adaptivity.dart';
+import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../controllers/book_reader_controller.dart';
 import '../controllers/book_reader_view_coordinator.dart';
@@ -11,6 +12,7 @@ import '../services/reading_position_tracker.dart';
 import '../../../../shared/ui/reader_appearance_sheet.dart';
 import '../widgets/book_highlights_sheet.dart';
 import '../widgets/book_toc_sheet.dart';
+import '../widgets/book_virtual_scroll_content.dart';
 import '../widgets/block_builder.dart';
 import '../widgets/dual_page_spread_view.dart';
 import '../widgets/mobile_page_view.dart';
@@ -22,6 +24,7 @@ import '../widgets/scripture_verse_popup.dart';
 /// Adaptive reading screen featuring:
 /// - Horizontal swiping page view for mobile screens
 /// - Side-by-side dual-page spread view for large screens (tablets/desktop)
+/// - Continuous whole-book scroll (virtualized, on-demand chapters)
 /// - Cross-device and cross-size exact line resumability
 /// - Persists reading position to SQLite upon app close / backgrounding and after 5 minutes of idleness
 /// - Typography controls (Serif/Sans, font size, line-height) and 4 reading themes
@@ -31,8 +34,8 @@ import '../widgets/scripture_verse_popup.dart';
 ///
 /// This screen is intentionally thin: behavioral state lives in
 /// [BookReaderController], and all view-layer geometry (GlobalKeys,
-/// PageController, selection recognizers) lives in
-/// [BookReaderViewCoordinator]. This widget only assembles the two and their
+/// PageController, selection recognizers, continuous scroll controllers) lives
+/// in [BookReaderViewCoordinator]. This widget only assembles the two and their
 /// sub-views.
 class BookReaderScreen extends StatefulWidget {
   final String bookId;
@@ -40,12 +43,18 @@ class BookReaderScreen extends StatefulWidget {
   final int? highlightStartLine;
   final int? highlightEndLine;
 
+  /// When true the reader renders the continuous whole-book scroll instead of
+  /// the paged views. Now the default; pass `false` to force the legacy paged
+  /// reader for a specific route.
+  final bool useContinuous;
+
   const BookReaderScreen({
     super.key,
     required this.bookId,
     this.initialPage,
     this.highlightStartLine,
     this.highlightEndLine,
+    this.useContinuous = true,
   });
 
   @override
@@ -68,6 +77,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       widget.bookId,
       initialPage: widget.initialPage,
       highlightStartLine: widget.highlightStartLine,
+      useContinuous: widget.useContinuous,
     );
     _coordinator = BookReaderViewCoordinator(
       controller: _controller,
@@ -234,6 +244,36 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     );
   }
 
+  Widget _buildContinuousContent(AppTokens tokens) {
+    final s = _controller.state;
+    final appearance = _controller.appearance;
+    final index = _controller.lineIndex;
+    if (s.book == null || index == null) {
+      return Center(child: CircularProgressIndicator(color: tokens.accent));
+    }
+    return MaxWidthBox(
+      maxWidth: kContentMaxWidth,
+      child: BookVirtualScrollContent(
+        totalLines: s.book!.totalLines,
+        totalChapters: s.chapters.length,
+        index: index,
+        isChapterLoaded: _controller.continuousStream.contains,
+        chapterLines: _controller.continuousStream.bufferedLines,
+        highlightCache: (page) =>
+            _controller.pageLoader.highlightCache(page) ?? const [],
+        appearance: appearance,
+        tokens: tokens,
+        textColor: appearance.textColor(tokens),
+        itemScrollController: _coordinator.itemScrollController,
+        itemPositionsListener: _coordinator.itemPositionsListener,
+        makeRecognizer: _coordinator.createScriptureRecognizer,
+        onTriggerFetch: _controller.fetchChapter,
+        buildSelectionToolbar: (context, state) =>
+            _buildSelectionToolbar(context, state, s.currentPage),
+      ),
+    );
+  }
+
   Widget _buildBlockWidget(
     BookRenderBlock block,
     int pageNum,
@@ -263,7 +303,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     final s = _controller.state;
     final bgColor = appearance.background(tokens);
     final totalPages = ReadingPositionTracker.safeTotalPages(s.book);
-    final isDualPage = _isDualPage;
+    final continuous = _controller.useContinuous;
+    final isDualPage = _isDualPage && !continuous;
 
     final validLeftPage = s.spreadLeftPage.clamp(1, totalPages);
     final rightPage = validLeftPage + 1 <= totalPages ? validLeftPage + 1 : null;
@@ -324,9 +365,11 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                       ),
                     ),
                   )
-                : isDualPage
-                    ? _buildDualPageSpreadView(tokens)
-                    : _buildMobilePageView(tokens),
+: continuous
+                      ? _buildContinuousContent(tokens)
+                      : isDualPage
+                          ? _buildDualPageSpreadView(tokens)
+                          : _buildMobilePageView(tokens),
         bottomNavigationBar: s.showChrome && s.book != null
             ? ReaderNavigationBar(
                 controller: _controller,

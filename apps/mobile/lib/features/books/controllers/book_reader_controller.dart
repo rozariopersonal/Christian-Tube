@@ -5,6 +5,8 @@ import '../models/book_chapter.dart';
 import '../models/book_highlight.dart';
 import '../models/book_line.dart';
 import '../../../shared/services/reader_appearance.dart';
+import '../services/book_chapter_stream.dart';
+import '../services/book_line_index.dart';
 import '../services/book_service.dart';
 import '../services/page_loader.dart';
 import '../services/reading_position_tracker.dart';
@@ -25,10 +27,17 @@ class BookReaderState {
   final int lastReadLine;
   final double lastPercent;
 
-  // Infinite scroll buffer orientation relative to the center page.
+  // Page-mode (non-continuous) buffer orientation relative to the center page.
+  // Unused by the continuous reader, which derives position purely from rows.
   final int centerPage;
   final List<int> prevPages;
   final List<int> nextPages;
+
+  /// Continuous whole-book scroll mode (see [BookLineIndex]).
+  final bool useContinuous;
+
+  /// Global row to restore after load in continuous mode.
+  final int resumeRow;
 
   const BookReaderState({
     required this.isLoading,
@@ -43,6 +52,8 @@ class BookReaderState {
     required this.centerPage,
     required this.prevPages,
     required this.nextPages,
+    this.useContinuous = false,
+    this.resumeRow = 0,
   });
 
   BookReaderState copyWith({
@@ -58,6 +69,8 @@ class BookReaderState {
     int? centerPage,
     List<int>? prevPages,
     List<int>? nextPages,
+    bool? useContinuous,
+    int? resumeRow,
   }) {
     return BookReaderState(
       isLoading: isLoading ?? this.isLoading,
@@ -72,6 +85,8 @@ class BookReaderState {
       centerPage: centerPage ?? this.centerPage,
       prevPages: prevPages ?? this.prevPages,
       nextPages: nextPages ?? this.nextPages,
+      useContinuous: useContinuous ?? this.useContinuous,
+      resumeRow: resumeRow ?? this.resumeRow,
     );
   }
 }
@@ -101,6 +116,15 @@ class BookReaderController extends ChangeNotifier {
   /// Reading appearance (theme, fonts), persisted to SharedPreferences.
   final ReaderAppearance appearance;
 
+  /// Continuous whole-book scroll stream (see [BookChapterStream]); created
+  /// regardless of mode so the wiring never swaps instance identity.
+  final BookChapterStream continuousStream;
+
+  /// Whether this controller drives the continuous scroll reader.
+  final bool useContinuous;
+
+  BookLineIndex? _lineIndex;
+
   BookReaderState _state = const BookReaderState(
     isLoading: true,
     book: null,
@@ -118,26 +142,40 @@ class BookReaderController extends ChangeNotifier {
 
   BookReaderState get state => _state;
 
+  /// Global-row index for continuous mode; null while not loaded.
+  BookLineIndex? get lineIndex => _lineIndex;
+
   bool _hasUnsavedProgress = false;
   Timer? _idleTimer;
   int? _pendingResumeLine;
+  Timer? _backfillTimer;
+  bool _backfillRunning = false;
   bool _disposed = false;
+
+  /// Idle delay before the continuous reader back-fills every remaining
+  /// chapter into memory. While the reader sits still this fills sequential
+  /// gaps so a later jump or fast fling never stalls on a cold chapter.
+  static const Duration _backfillIdleDelay = Duration(seconds: 10);
 
   BookReaderController(
     this._bookService,
     this._bookId, {
     int? initialPage,
     int? highlightStartLine,
+    this.useContinuous = false,
   })  : _requestedStartLine = highlightStartLine,
         pageLoader = PageLoader(_bookService, _bookId),
-        appearance = ReaderAppearance() {
+        appearance = ReaderAppearance(),
+        continuousStream = BookChapterStream(_bookService, _bookId) {
     appearance.addListener(notifyListeners);
+    continuousStream.onChapterResolved = _onContinuousChapterResolved;
     final startPage = (initialPage ?? 1).clamp(1, 999999999);
     _state = _state.copyWith(
       currentPage: startPage,
       centerPage: startPage,
       spreadLeftPage: startPage,
       nextPages: <int>[startPage],
+      useContinuous: useContinuous,
     );
     if (highlightStartLine != null) {
       _state = _state.copyWith(lastReadLine: highlightStartLine);
@@ -181,6 +219,28 @@ class BookReaderController extends ChangeNotifier {
 
     if (lastPercent == 0.0 && book.totalPages > 0) {
       lastPercent = (initialPage / book.totalPages).clamp(0.0, 1.0);
+    }
+
+    if (useContinuous) {
+      _lineIndex = BookLineIndex(totalLines: book.totalLines);
+      continuousStream.totalChapters =
+          chapters.isEmpty ? null : chapters.length;
+      final resumeRow = await _resolveRow(chapters, initialPage, initialLine);
+      if (_disposed) return;
+      _pendingResumeLine = initialLine;
+      _set(_state.copyWith(
+        book: book,
+        chapters: chapters,
+        isLoading: false,
+        currentPage: initialPage,
+        spreadLeftPage: initialPage,
+        lastReadPage: initialPage,
+        lastReadLine: initialLine,
+        lastPercent: lastPercent,
+        resumeRow: resumeRow,
+      ));
+      _scheduleBackfill();
+      return;
     }
 
     final spreadLeft = PageLoader.spreadLeftForPage(initialPage, book.totalPages);
@@ -229,8 +289,68 @@ class BookReaderController extends ChangeNotifier {
       lastReadLine: line,
       lastPercent: pct,
     ));
-    _hasUnsavedProgress = true;
+    _armProgressIdleSave();
+  }
 
+  /// Records continuous-mode progress from the leading visible global [row].
+  /// Derives page/line from the buffered source line so existing page-based
+  /// consumers (catalog "continue", reader chrome) keep working.
+  void markProgressFromRow(int row) {
+    final idx = _lineIndex;
+    if (idx == null) return;
+    final chapter = idx.chapterForRow(row);
+    final lines =
+        chapter == null ? null : continuousStream.bufferedLines(chapter);
+    if (lines == null || lines.isEmpty) return;
+    final start = idx.startRow(chapter!);
+    final ordinal = row - start;
+    if (ordinal < 0 || ordinal >= lines.length) return;
+    final line = lines[ordinal];
+    if (_state.lastReadPage == line.pageNumber &&
+        _state.lastReadLine == line.lineNumber) {
+      return;
+    }
+    final pct = idx.totalLines > 0
+        ? (row / idx.totalLines).clamp(0.0, 1.0)
+        : 0.0;
+    _set(_state.copyWith(
+      currentPage: line.pageNumber,
+      lastReadPage: line.pageNumber,
+      lastReadLine: line.lineNumber,
+      lastPercent: pct,
+    ));
+    _armProgressIdleSave();
+    _scheduleBackfill();
+  }
+
+  /// Debounced sequential warm-up: once the reader has been idle for
+  /// [_backfillIdleDelay], every remaining chapter is buffered so later jumps
+  /// and fast flings never hit a cold chapter. Each progress change resets the
+  /// countdown, so it never competes with active scrolling.
+  void _scheduleBackfill() {
+    if (_disposed || !useContinuous || _lineIndex?.isComplete == true) return;
+    _backfillTimer?.cancel();
+    _backfillTimer = Timer(_backfillIdleDelay, () {
+      unawaited(_runBackfill());
+    });
+  }
+
+  Future<void> _runBackfill() async {
+    if (_disposed || !useContinuous || _backfillRunning) return;
+    if (_lineIndex?.isComplete == true) return;
+    _backfillRunning = true;
+    try {
+      await probeAllChapters();
+    } finally {
+      _backfillRunning = false;
+      if (!_disposed) {
+        _scheduleBackfill();
+      }
+    }
+  }
+
+  void _armProgressIdleSave() {
+    _hasUnsavedProgress = true;
     _idleTimer?.cancel();
     _idleTimer = Timer(const Duration(minutes: 5), () {
       _flushProgressToDb();
@@ -310,10 +430,34 @@ class BookReaderController extends ChangeNotifier {
   }
 
   String currentChapterTitle() {
+    if (useContinuous) {
+      final row = _rowForLastRead();
+      final idx = _lineIndex;
+      final chapter = row == null || idx == null ? null : idx.chapterForRow(row);
+      if (chapter != null) {
+        for (final ch in _state.chapters) {
+          if (ch.chapterIndex == chapter) return ch.chapterTitle;
+        }
+      }
+    }
     return ReadingPositionTracker.chapterTitleForPage(
       _state.chapters,
       _state.currentPage,
     );
+  }
+
+  int? _rowForLastRead() {
+    final idx = _lineIndex;
+    if (idx == null) return null;
+    final chapter =
+        ReadingPositionTracker.chapterForPage(_state.chapters, _state.currentPage);
+    if (chapter == null) return null;
+    final lines = continuousStream.bufferedLines(chapter.chapterIndex);
+    if (lines == null || lines.isEmpty) return null;
+    final ordinal =
+        lines.indexWhere((l) => l.pageNumber == _state.currentPage);
+    if (ordinal < 0) return null;
+    return idx.startRow(chapter.chapterIndex) + ordinal;
   }
 
   // --- Data access (routes through PageLoader / BookService) ---
@@ -351,6 +495,96 @@ class BookReaderController extends ChangeNotifier {
   Future<void> loadHighlightsForPage(int page) => pageLoader.loadHighlightsForPage(page);
   Future<void> saveHighlight(BookHighlight highlight) => pageLoader.saveHighlight(highlight);
 
+  // --- Continuous scroll helpers ---
+
+  /// Fires (and deduplicates via the stream) a chapter fetch; used by the
+  /// virtual scroll content when placeholder rows scroll into view.
+  void fetchChapter(int chapterIndex) {
+    continuousStream.ensureChapter(chapterIndex);
+  }
+
+  /// Probes every chapter so the line index gains exact, contiguous offsets.
+  /// Jumps to far chapters require this; scrolling does not.
+  Future<void> probeAllChapters() async {
+    final chapters = _state.chapters;
+    if (chapters.isEmpty) return;
+    await Future.wait([
+      for (final ch in chapters)
+        continuousStream.ensureChapter(ch.chapterIndex),
+    ]);
+  }
+
+  /// Ensures the index allows a page jump without mis-landing: when the
+  /// prefix up to the target is not yet contiguous, probess the whole book.
+  Future<void> prepareForJump() async {
+    final idx = _lineIndex;
+    if (idx == null || idx.isComplete) return;
+    await probeAllChapters();
+  }
+
+  /// Buffers chapters sequentially until the index knows the row at
+  /// [targetRow], so the virtual list can scroll there exactly. No-op when the
+  /// prefix is already contiguous or the book is empty.
+  Future<void> ensureRowsUpTo(int targetRow) async {
+    if (_disposed || !useContinuous) return;
+    final idx = _lineIndex;
+    if (idx == null || targetRow < 0) return;
+    if (idx.knownRowCount > targetRow || idx.isComplete) return;
+    final total = _state.chapters.length;
+    for (var ch = 1; ch <= total; ch++) {
+      if (_disposed) return;
+      if (idx.knownRowCount > targetRow || idx.isComplete) return;
+      await continuousStream.ensureChapter(ch);
+    }
+  }
+
+  /// Converts [page] into its first global row (0-based), loading the
+  /// containing chapter if needed. Returns null in degenerate cases.
+  Future<int?> rowForPage(int page) async {
+    final idx = _lineIndex;
+    if (idx == null) return null;
+    final chapter =
+        ReadingPositionTracker.chapterForPage(_state.chapters, page);
+    if (chapter == null) return null;
+    final lines =
+        await continuousStream.ensureChapter(chapter.chapterIndex);
+    final start = idx.startRow(chapter.chapterIndex);
+    if (lines.isEmpty) return start;
+    final first = lines.indexWhere((l) => l.pageNumber == page);
+    return first < 0 ? start : start + first;
+  }
+
+  /// Maps a (`page`, `line`) resume point to a global row, loading the
+/// containing chapter if needed.
+  Future<int> _resolveRow(List<BookChapter> chapters, int page, int line) async {
+    final idx = _lineIndex;
+    if (idx == null) return 0;
+    final chapter =
+        ReadingPositionTracker.chapterForPage(chapters, page);
+    if (chapter == null) return 0;
+    // Buffer earlier chapters first so the chapter start offset is exact even
+    // when a deep target chapter resolves before the prefix (the index only
+    // records contiguous extends).
+    for (var ch = 1; ch < chapter.chapterIndex; ch++) {
+      await continuousStream.ensureChapter(ch);
+    }
+    final start = idx.startRow(chapter.chapterIndex);
+    final lines =
+        await continuousStream.ensureChapter(chapter.chapterIndex);
+    if (lines.isEmpty) return start;
+    var ordinal =
+        lines.indexWhere((l) => l.pageNumber == page && l.lineNumber >= line);
+    if (ordinal < 0) {
+      ordinal = lines.indexWhere((l) => l.pageNumber == page);
+    }
+    return ordinal < 0 ? start : start + ordinal;
+  }
+  void _onContinuousChapterResolved(int chapterIndex, int lineCount) {
+    if (_disposed || !useContinuous) return;
+    _lineIndex?.extend(chapterIndex, lineCount);
+    notifyListeners();
+  }
+
   /// Loads all highlights for [bookId] from the data layer.
   Future<List<BookHighlight>> getHighlightsForBook(String bookId) =>
       _bookService.getHighlightsForBook(bookId);
@@ -385,6 +619,7 @@ class BookReaderController extends ChangeNotifier {
     _disposed = true;
     appearance.removeListener(notifyListeners);
     _idleTimer?.cancel();
+    _backfillTimer?.cancel();
     super.dispose();
   }
 }

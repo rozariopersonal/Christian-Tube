@@ -32,7 +32,78 @@ class BookParagraphGrouper {
   static final _chapMatchRegex = RegExp(r'^(Chapter\s+\d+|[A-Z\s]+)\s*(.*)$', caseSensitive: false);
   static final _chapStripRegex = RegExp(r'^Chapter\s+\d+\s*', caseSensitive: false);
 
-  static List<BookRenderBlock> groupLines(List<BookLine> lines) {
+  /// Classifies a single [line] into the block type its own content type group
+/// opens in continuous-scroll mode, where every source line is rendered
+/// independently. Only explicit markers are honored: structure-preserving
+/// heuristics like the numbered/short-title detection in [groupLines] are
+/// context-sensitive and would mis-classify plain paragraph lines as headings
+/// when applied per line.
+static BookRenderBlock blockFromLine(BookLine line) {
+  final text = line.text.trim();
+
+  final isChapHeader = line.contentType == 'chapter_header' ||
+      (line.contentType == 'p' && _chapRegex.hasMatch(text) && text.length < 80);
+  if (isChapHeader) {
+    final match = _chapMatchRegex.firstMatch(text);
+    final badge = match?.group(1)?.trim();
+    final rawTitle = match?.group(2)?.trim();
+    final title = (rawTitle != null && rawTitle.isNotEmpty) ? rawTitle : text;
+    return BookRenderBlock(
+      type: 'chapter_header',
+      text: text,
+      badge: badge,
+      title: title,
+      startLine: line.lineNumber,
+      endLine: line.lineNumber,
+    );
+  }
+
+  final type = line.contentType;
+  if (type == 'h2' || type == 'h3' || type == 'blockquote') {
+    return BookRenderBlock(
+      type: type,
+      text: text,
+      startLine: line.lineNumber,
+      endLine: line.lineNumber,
+    );
+  }
+
+  return BookRenderBlock(
+    type: 'p',
+    text: text,
+    startLine: line.lineNumber,
+    endLine: line.lineNumber,
+  );
+}
+
+/// Whether a visual paragraph break should separate consecutive source lines
+/// [prev] and [next] in a continuous scroll. Applies the same terminal/short
+/// and next-is-special heuristics used to close paragraphs in [groupLines].
+static bool isParagraphBreakBetween(BookLine? prev, BookLine? next) {
+  if (prev == null) return false;
+  if (prev.contentType != 'p' || (next != null && next.contentType != 'p')) {
+    return true;
+  }
+  if (next == null) return true;
+  final text = prev.text.trim();
+  if (text.isEmpty) return true;
+  if (!_termRegex.hasMatch(text)) return false;
+
+  final isShortLine = text.length < 60;
+  if (isShortLine) return true;
+  if (_quoteTermRegex.hasMatch(text)) return true;
+
+  final nextText = next.text.trim();
+  return nextText.isEmpty ||
+      next.contentType != 'p' ||
+      _chapRegex.hasMatch(nextText) ||
+      _numberedHeadingRegex.hasMatch(nextText) ||
+      (nextText.length <= 45 &&
+          !_punctRegex.hasMatch(nextText) &&
+          !nextText.contains(','));
+}
+
+static List<BookRenderBlock> groupLines(List<BookLine> lines) {
     final blocks = <BookRenderBlock>[];
     final currentParagraph = <String>[];
     int startLine = 1;
