@@ -6,9 +6,11 @@ import '../../../../core/api/github_data_service.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/book.dart';
+import '../models/book_language_meta.dart';
 import '../models/user_reading_progress.dart';
 import '../services/book_service.dart';
 import '../widgets/book_card.dart';
+import '../widgets/books_language_dropdown.dart';
 import 'book_reader_screen.dart';
 import '../../downloads/screens/downloads_manager_screen.dart';
 
@@ -32,6 +34,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   Set<String> _installedBookIds = {};
   List<String> _subjects = ['All'];
   List<String> _languages = ['All'];
+  Map<String, int> _languageBookCounts = {};
   int _totalBooksCount = 0;
 
   bool _isLoading = true;
@@ -39,25 +42,6 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   String _selectedSubject = 'All';
   String _selectedLanguage = 'All';
   bool _viewBySubjects = true;
-
-  static const Map<String, String> _languageNames = {
-    'all': 'All Languages',
-    'en': 'English',
-    'ta': 'Tamil',
-    'hi': 'Hindi',
-    'te': 'Telugu',
-    'kn': 'Kannada',
-    'ml': 'Malayalam',
-    'de': 'German',
-    'ro': 'Romanian',
-    'pt': 'Portuguese',
-    'si': 'Sinhala',
-    'es': 'Spanish',
-    'fr': 'French',
-    'pl': 'Polish',
-    'ru': 'Russian',
-    'mr': 'Marathi',
-  };
 
   static const String _prefKeyLanguage = 'books_catalog_language';
   static const String _prefKeyViewBySubjects = 'books_catalog_view_by_subjects';
@@ -106,13 +90,19 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     final allBooks = await _bookService.getBooks();
     final recentProgress = await _bookService.getRecentProgress(limit: 5);
 
-    // Derive languages present in catalog
+    // Derive languages present in catalog and count books per language
     final langCodes = <String>{};
+    final langBookCounts = <String, int>{};
     for (final b in allBooks) {
-      if (b.language.isNotEmpty) langCodes.add(b.language.toLowerCase());
+      if (b.language.isNotEmpty) {
+        final code = b.language.toLowerCase();
+        langCodes.add(code);
+        langBookCounts[code] = (langBookCounts[code] ?? 0) + 1;
+      }
     }
     final sortedLangs = langCodes.toList()..sort();
     final languages = ['All', ...sortedLangs];
+    langBookCounts['All'] = allBooks.length;
 
     // Filter books by selected language for subject grouping and subjects list
     final langFilteredBooks = _selectedLanguage == 'All'
@@ -155,6 +145,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
         _recentBooks = recentBooks;
         _subjects = subjects;
         _languages = languages;
+        _languageBookCounts = langBookCounts;
         _totalBooksCount = langFilteredBooks.length;
         _isLoading = false;
       });
@@ -285,7 +276,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   label: Text(
                     (_selectedLanguage == 'All')
                         ? 'Download All 181 Books (~13.4 MB)'
-                        : 'Download All ${_languageNames[_selectedLanguage.toLowerCase()] ?? _selectedLanguage} Books',
+                        : 'Download All ${BookLanguageMeta.fromCode(_selectedLanguage).englishName} Books',
                     style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5),
                   ),
                 ),
@@ -462,54 +453,25 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     _loadCatalog();
   }
 
-  Widget _buildLanguageFilterChips(AppTokens tokens) {
+  Widget _buildLanguageDropdown(AppTokens tokens) {
     if (_languages.length <= 1) return const SizedBox.shrink();
 
-    return SizedBox(
-      height: 40,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: _languages.length,
-        itemBuilder: (context, index) {
-          final lang = _languages[index];
-          final isSelected = _selectedLanguage.toLowerCase() == lang.toLowerCase();
-          final label = _languageNames[lang.toLowerCase()] ?? lang.toUpperCase();
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              avatar: lang == 'All'
-                  ? Icon(Icons.language_rounded, size: 15, color: isSelected ? Colors.white : tokens.accent)
-                  : null,
-              label: Text(label),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() {
-                    _selectedLanguage = lang;
-                    _selectedSubject = 'All'; // Reset subject when language changes
-                  });
-                  SharedPreferences.getInstance()
-                      .then((p) => p.setString(_prefKeyLanguage, lang));
-                  _loadCatalog();
-                }
-              },
-              backgroundColor: tokens.surfaceVariant,
-              selectedColor: tokens.accent,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : tokens.onSurface,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 12,
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              side: BorderSide(
-                color: isSelected ? tokens.accent : tokens.surfaceBorder,
-                width: 0.8,
-              ),
-            ),
-          );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: BooksLanguageDropdown(
+        selectedLanguage: _selectedLanguage,
+        availableLanguages: _languages,
+        bookCounts: _languageBookCounts,
+        onLanguageSelected: (lang) {
+          setState(() {
+            _selectedLanguage = lang;
+            _selectedSubject = 'All'; // Reset subject when language changes
+          });
+          SharedPreferences.getInstance()
+              .then((p) => p.setString(_prefKeyLanguage, lang));
+          _loadCatalog();
         },
+        onDownloadAll: () => _startDownloadAll(language: _selectedLanguage),
       ),
     );
   }
@@ -870,10 +832,10 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                     child: _buildSearchBar(tokens),
                   ),
                   SliverToBoxAdapter(
-                    child: _buildLanguageFilterChips(tokens),
+                    child: _buildLanguageDropdown(tokens),
                   ),
                   const SliverToBoxAdapter(
-                    child: SizedBox(height: 6),
+                    child: SizedBox(height: 8),
                   ),
                   SliverToBoxAdapter(
                     child: _buildSubjectFilterChips(tokens),
