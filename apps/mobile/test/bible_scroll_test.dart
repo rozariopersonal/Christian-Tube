@@ -331,4 +331,45 @@ void main() {
     // Verify Tamil verses rendered and not stuck on loader
     expect(find.textContaining('தமிழ் வசனம்'), findsWidgets);
   });
+
+  testWidgets(
+      'Surrounding chapters are preloaded into loadedChapters so scrolling into next chapter renders without stuck loader',
+      (tester) async {
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: 29,
+      saveProgress: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: const [AppTokens.dark]),
+        home: BibleScreen(controller: controller),
+      ),
+    );
+    controller.init();
+
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+
+    // Verify John 4 was preloaded directly into controller.state.loadedChapters
+    const john4Id = 43 * 1000 + 4;
+    expect(controller.state.loadedChapters.containsKey(john4Id), isTrue,
+        reason: 'preloadAround must populate loadedChapters');
+    expect(controller.state.loadedChapters[john4Id], isNotEmpty);
+
+    // Scroll down past the end of John 3 into John 4
+    await tester.drag(find.byType(ScrollablePositionedList), const Offset(0, -600));
+    await tester.pumpAndSettle();
+
+    // Verify John 4 verses are visible and rendered without placeholder skeleton
+    expect(find.textContaining('Verse text for John 4:'), findsWidgets);
+  });
 }

@@ -139,6 +139,11 @@ class BibleContent extends StatelessWidget {
               final rows =
                   s.loadedChapters[bibleChapterId(ref.bookNumber, ref.chapter)];
               if (rows == null || ref.verse > rows.length) {
+                if (rows != null) {
+                  // Chapter was loaded; row index exceeds available verses
+                  return const SizedBox.shrink();
+                }
+                controller.ensureChapterVisible(ref.bookNumber, ref.chapter);
                 if (ref.verse == 1) {
                   final bookName = BookNameService.englishNameFor(ref.bookNumber);
                   return Column(

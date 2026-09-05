@@ -16,6 +16,7 @@ import '../models/bible_reference.dart';
 import '../screens/verse_study_screen.dart';
 import '../../books/services/book_service.dart';
 import '../controllers/bible_controller.dart';
+import '../services/bible_chapter_stream.dart';
 import '../services/bible_passage_navigator.dart';
 import '../widgets/bible_app_bar.dart';
 import '../widgets/bible_content.dart';
@@ -50,10 +51,10 @@ class _BibleScreenState extends State<BibleScreen> {
   final ItemScrollController _itemScrollController = ItemScrollController();
   final ItemPositionsListener _itemPositionsListener =
       ItemPositionsListener.create();
-  Timer? _highlightTimer;
-  Timer? _programmaticScrollTimer;
   bool _initialPositioned = false;
   bool _isProgrammaticScrolling = false;
+  Timer? _highlightTimer;
+  Timer? _programmaticScrollTimer;
 
   @override
   void initState() {
@@ -119,6 +120,19 @@ class _BibleScreenState extends State<BibleScreen> {
     final s = _controller.state;
     if (s.index == null || s.isLoading) return;
     final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+
+    final chaptersSeen = <int>{};
+    for (final p in positions) {
+      if (p.index >= 0 && p.index < s.index!.totalVerses) {
+        final r = s.index!.rowToReference(p.index);
+        final cid = bibleChapterId(r.bookNumber, r.chapter);
+        if (chaptersSeen.add(cid)) {
+          _controller.ensureChapterVisible(r.bookNumber, r.chapter);
+        }
+      }
+    }
+
     ItemPosition? first;
     for (final p in positions) {
       if (first == null || p.index < first.index) first = p;

@@ -572,7 +572,13 @@ class BibleController extends ChangeNotifier {
     if (_state.selectedVersion == null) return;
     final epoch = ++_loadEpoch;
     final version = _state.selectedVersion!;
-    _stream = BibleChapterStream(version.shortname);
+    _stream = BibleChapterStream(
+      version.shortname,
+      onChapterLoaded: (bookNumber, chapter, rows) {
+        if (_disposed || _loadEpoch != epoch) return;
+        _fillChapterRows(rows, bookNumber, chapter);
+      },
+    );
     final counts = await _countsService.loadForVersion(version.shortname);
     if (epoch != _loadEpoch || _disposed) return;
     final index = counts.isLoaded ? BibleVerseIndex(counts) : null;
@@ -611,7 +617,7 @@ class BibleController extends ChangeNotifier {
                 ) == 0,
           clearHighlighted: true,
         ));
-    stream.preloadAround(bn, chapter);
+    stream.preloadAround(bn, chapter, radius: 2);
     _loadCrossReferencesForChapter(bn, chapter);
     _loadBackgroundsForChapter(bn, chapter);
     if (rows.isNotEmpty && saveProgress) {
@@ -623,11 +629,22 @@ class BibleController extends ChangeNotifier {
   /// loading/empty state — used for background stream fills while scrolling.
   void _fillChapterRows(List<BibleVerse> rows, int bookNumber, int chapter) {
     final id = bibleChapterId(bookNumber, chapter);
+    if (_state.loadedChapters[id] == rows) return;
     _update((s) {
       final loaded = Map<int, List<BibleVerse>>.from(s.loadedChapters);
       loaded[id] = rows;
       return s.copyWith(loadedChapters: loaded);
     });
+  }
+
+  /// Guarantees that [bookNumber]/[chapter] is being buffered or loaded in
+  /// background as soon as any of its verses enter the viewport or builder.
+  void ensureChapterVisible(int bookNumber, int chapter) {
+    final stream = _stream;
+    if (stream == null || _disposed) return;
+    final id = bibleChapterId(bookNumber, chapter);
+    if (_state.loadedChapters.containsKey(id)) return;
+    _fillChapterInBackground(bookNumber, chapter);
   }
 
   /// Live tracking of the chapter the user is currently scrolled into. Updates
@@ -648,9 +665,8 @@ class BibleController extends ChangeNotifier {
     _currentBook = book;
     _currentChapter = chapter;
     _update((s) => s.copyWith(currentBook: book, currentChapter: chapter));
-    final epoch = ++_loadEpoch;
-    _fillChapterInBackground(bookNumber, chapter, epoch: epoch);
-    stream.preloadAround(bookNumber, chapter);
+    _fillChapterInBackground(bookNumber, chapter);
+    stream.preloadAround(bookNumber, chapter, radius: 2);
     _loadCrossReferencesForChapter(bookNumber, chapter);
     _loadBackgroundsForChapter(bookNumber, chapter);
     if (saveProgress) {
@@ -658,12 +674,13 @@ class BibleController extends ChangeNotifier {
     }
   }
 
-  Future<void> _fillChapterInBackground(int bookNumber, int chapter,
-      {required int epoch}) async {
+  Future<void> _fillChapterInBackground(int bookNumber, int chapter) async {
     final stream = _stream;
-    if (stream == null) return;
+    if (stream == null || _disposed) return;
+    final id = bibleChapterId(bookNumber, chapter);
+    if (_state.loadedChapters.containsKey(id)) return;
     final rows = await stream.ensureChapter(bookNumber, chapter);
-    if (epoch != _loadEpoch || _disposed) return;
+    if (_disposed) return;
     _fillChapterRows(rows, bookNumber, chapter);
   }
 

@@ -43,9 +43,11 @@ List<BibleVerse> chapterVersesFromRows(
 /// switch). Failed chapters resolve to an empty list and are remembered so
 /// retries are not hammered during a single session.
 class BibleChapterStream {
-  BibleChapterStream(this.versionId);
+  BibleChapterStream(this.versionId, {this.onChapterLoaded});
 
   final String versionId;
+  final void Function(int bookNumber, int chapter, List<BibleVerse> verses)?
+      onChapterLoaded;
   final LocalBibleService _service = LocalBibleService();
   final Map<int, List<BibleVerse>> _chapters = {};
   final Map<int, Future<List<BibleVerse>>> _inFlight = {};
@@ -64,7 +66,10 @@ class BibleChapterStream {
   Future<List<BibleVerse>> ensureChapter(int bookNumber, int chapter) {
     final id = bibleChapterId(bookNumber, chapter);
     final cached = _chapters[id];
-    if (cached != null) return Future.value(cached);
+    if (cached != null) {
+      onChapterLoaded?.call(bookNumber, chapter, cached);
+      return Future.value(cached);
+    }
     final pending = _inFlight[id];
     if (pending != null) return pending;
     final future = _loadChapter(bookNumber, chapter);
@@ -78,7 +83,7 @@ class BibleChapterStream {
     var book = bookNumber;
     var ch = chapter;
     for (var i = 0; i < radius; i++) {
-      final next = _nextChapter(book, ch);
+      final next = nextChapter(book, ch);
       if (next == null) break;
       book = next.$1;
       ch = next.$2;
@@ -87,7 +92,7 @@ class BibleChapterStream {
     book = bookNumber;
     ch = chapter;
     for (var i = 0; i < radius; i++) {
-      final prev = _prevChapter(book, ch);
+      final prev = prevChapter(book, ch);
       if (prev == null) break;
       book = prev.$1;
       ch = prev.$2;
@@ -102,17 +107,19 @@ class BibleChapterStream {
       final rows = await _service.getChapter(versionId, bookName, chapter);
       final verses = chapterVersesFromRows(rows, versionId);
       _chapters[id] = verses;
+      onChapterLoaded?.call(bookNumber, chapter, verses);
       return verses;
     } catch (_) {
       _failed.add(id);
       _chapters[id] = const [];
+      onChapterLoaded?.call(bookNumber, chapter, const []);
       return const [];
     } finally {
       _inFlight.remove(id);
     }
   }
 
-  (int, int)? _nextChapter(int bookNumber, int chapter) {
+  (int, int)? nextChapter(int bookNumber, int chapter) {
     final books = bibleBooks.keys.toList();
     var maxChapters = bibleBooks[books[bookNumber - 1]] ?? 1;
     var nextBook = bookNumber;
@@ -125,7 +132,7 @@ class BibleChapterStream {
     return (nextBook, nextChapter);
   }
 
-  (int, int)? _prevChapter(int bookNumber, int chapter) {
+  (int, int)? prevChapter(int bookNumber, int chapter) {
     final books = bibleBooks.keys.toList();
     var prevBook = bookNumber;
     var prevChapter = chapter - 1;
