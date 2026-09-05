@@ -11,10 +11,11 @@ import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
 import '../../../core/layout/content_width.dart';
 import '../models/bible_book.dart';
+import '../models/bible_reference.dart';
 import '../screens/verse_study_screen.dart';
 import '../../books/services/book_service.dart';
 import '../controllers/bible_controller.dart';
-import '../../engines/scripture/services/book_name_service.dart';
+import '../services/bible_passage_navigator.dart';
 import '../widgets/bible_app_bar.dart';
 import '../widgets/bible_content.dart';
 import '../widgets/bible_bottom_nav.dart';
@@ -100,17 +101,24 @@ class _BibleScreenState extends State<BibleScreen> {
     _controller.removeListener(_onControllerUpdate);
     if (widget.controller == null) _controller.dispose();
     _scrollController.dispose();
+    BiblePassageNavigator.instance.detach(context, _moveToReference);
     super.dispose();
   }
 
   void _onControllerUpdate() {
     if (!mounted) return;
     setState(() {});
-    final pendingVerse = _controller.consumePendingScrollVerse();
-    if (pendingVerse != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToVerse(pendingVerse);
-      });
+    final s = _controller.state;
+    if (!s.isLoading) {
+      final pendingVerse = _controller.consumeScrollTargetIfReady(
+        book: s.currentBook,
+        chapter: s.currentChapter,
+      );
+      if (pendingVerse != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollToVerse(pendingVerse);
+        });
+      }
     }
   }
 
@@ -217,20 +225,33 @@ class _BibleScreenState extends State<BibleScreen> {
     required int chapter,
     required int verse,
   }) {
-    final targetBook = bookNumber >= 1 &&
-            bookNumber <= BookNameService.englishBookNames.length
-        ? BookNameService.englishBookNames[bookNumber - 1]
-        : _controller.currentBook;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BibleScreen(
-          initialVersionId: _controller.selectedVersion?.shortname,
-          initialBook: targetBook,
-          initialChapter: chapter,
-          initialVerse: verse,
-          saveProgress: false,
-        ),
+    BiblePassageNavigator.instance.navigateTo(
+      BibleReference(
+        bookNumber: bookNumber,
+        chapter: chapter,
+        verse: verse,
       ),
+      context: context,
+    );
+  }
+
+  /// In-place receiver registered with [BiblePassageNavigator]: moves this
+  /// reader to [reference] (switching version first if requested) so the
+  /// target verse is loaded, scrolled to, and highlighted.
+  void _moveToReference(BibleReference reference) {
+    if (!mounted) return;
+    final s = _controller.state;
+    if (reference.versionId != null &&
+        s.selectedVersion?.shortname != reference.versionId) {
+      final match = s.versions.where((v) => v.shortname == reference.versionId);
+      if (match.isNotEmpty) {
+        _controller.selectVersion(match.first);
+      }
+    }
+    _controller.goToBookAndChapter(
+      reference.bookName,
+      reference.chapter,
+      verse: reference.verse,
     );
   }
 
@@ -330,6 +351,12 @@ class _BibleScreenState extends State<BibleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+    if (isCurrent) {
+      BiblePassageNavigator.instance.attach(context, _moveToReference);
+    } else {
+      BiblePassageNavigator.instance.detach(context, _moveToReference);
+    }
     final s = _controller.state;
     final tokens = context.tokens;
     final appearance = _controller.appearance;

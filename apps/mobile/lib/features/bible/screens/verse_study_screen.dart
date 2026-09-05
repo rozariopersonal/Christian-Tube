@@ -11,9 +11,10 @@ import '../../dictionary/models/dictionary_entry.dart';
 import '../../dictionary/services/dictionary_service.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../models/cross_reference.dart';
+import '../models/bible_reference.dart';
 import '../models/bible_background_note.dart';
+import '../services/bible_passage_navigator.dart';
 import '../widgets/cross_reference_card.dart';
-import 'bible_screen.dart';
 import '../models/verse_concept.dart';
 import '../services/study/bible_study_service.dart';
 import '../services/study/bible_study_updater.dart';
@@ -71,19 +72,12 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
       widget.onTapPassage!(bookNumber, chapter, verse);
       return;
     }
-    final targetBook = bookNumber >= 1 &&
-            bookNumber <= BookNameService.englishBookNames.length
-        ? BookNameService.englishBookNames[bookNumber - 1]
-        : null;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BibleScreen(
-          initialVersionId: widget.versionId,
-          initialBook: targetBook,
-          initialChapter: chapter,
-          initialVerse: verse,
-          saveProgress: false,
-        ),
+    BiblePassageNavigator.instance.navigateTo(
+      BibleReference(
+        bookNumber: bookNumber,
+        chapter: chapter,
+        verse: verse,
+        versionId: widget.versionId,
       ),
     );
   }

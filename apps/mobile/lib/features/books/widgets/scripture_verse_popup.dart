@@ -7,7 +7,8 @@ import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
-import '../../bible/screens/bible_screen.dart';
+import '../../bible/models/bible_reference.dart';
+import '../../bible/services/bible_passage_navigator.dart';
 
 /// Modal popover or dialog displaying verse text when an inline scripture
 /// reference is tapped inside a book.
@@ -183,15 +184,11 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
 
   void _openInBible() {
     Navigator.of(context).pop();
-    final bookName = BookNameService.englishNameFor(widget.bookNumber);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BibleScreen(
-          initialBook: bookName,
-          initialChapter: widget.chapter,
-          initialVerse: widget.startVerse,
-          saveProgress: false,
-        ),
+    BiblePassageNavigator.instance.navigateTo(
+      BibleReference(
+        bookNumber: widget.bookNumber,
+        chapter: widget.chapter,
+        verse: widget.startVerse,
       ),
     );
   }

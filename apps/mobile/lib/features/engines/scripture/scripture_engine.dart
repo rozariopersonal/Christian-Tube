@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:mobile/core/engines/base_feed_engine.dart';
+import 'package:mobile/features/bible/models/bible_reference.dart';
+import 'package:mobile/features/bible/services/bible_passage_navigator.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
 import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
@@ -10,7 +11,6 @@ import 'models/scripture_card.dart';
 import 'models/scripture_filter_state.dart';
 import 'models/scripture_theme_state.dart';
 import 'services/bible_download_manager.dart';
-import 'services/book_name_service.dart';
 import 'services/saved_scripture_service.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
@@ -533,10 +533,15 @@ class ScriptureEngine
       verse = mapping['startVerse'] ?? verse;
     }
 
-    final bookName = BookNameService.englishNameFor(bookNumber);
-    final encoded = Uri.encodeQueryComponent(bookName);
-    context.push(
-        '/bible?version=$versionId&book=$encoded&chapter=$chapter&verse=$verse');
+    BiblePassageNavigator.instance.navigateTo(
+      BibleReference(
+        bookNumber: bookNumber,
+        chapter: chapter,
+        verse: verse,
+        versionId: versionId,
+      ),
+      context: context,
+    );
   }
 
   @override

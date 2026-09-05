@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/features/bible/controllers/bible_controller.dart';
 import 'package:mobile/features/bible/screens/bible_screen.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
@@ -96,6 +97,86 @@ void main() {
     expect(scrollable.position.pixels, greaterThan(200));
 
     // Fast forward past highlight timer (5s) and sqflite lock timer (10s)
+    await tester.pump(const Duration(seconds: 12));
+  });
+
+  testWidgets(
+      'Selecting a verse in the book/chapter/verse selector scrolls to and highlights it',
+      (tester) async {
+    tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: 1,
+      saveProgress: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: const [AppTokens.dark]),
+        home: BibleScreen(controller: controller),
+      ),
+    );
+    controller.init();
+
+    // Let the chapter finish loading.
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final scrollable =
+        tester.state<ScrollableState>(find.byType(Scrollable).first);
+    expect(scrollable.position.pixels, 0);
+
+    // Open the book/chapter/verse selector from the bottom chapter nav.
+    await tester.tap(find.bySemanticsLabel(RegExp('Book and chapter selector')));
+    await tester.pumpAndSettle();
+
+    // BOOKS tab → pick current book John → advances to CHAPTERS.
+    await tester.tap(find.text('John'));
+    await tester.pumpAndSettle();
+
+    // CHAPTERS tab → pick chapter 3 → loads verses, advances to VERSES.
+    await tester.tap(find.text('3'));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    // Let the on-demand verse preview load from sqlite.
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+
+    // VERSES tab → pick verse 20 (mid-chapter) forces the list to scroll.
+    await tester.ensureVisible(find.text('20'));
+    await tester.tap(find.text('20'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
+
+    // The reader scrolled from verse 1 down to verse 20.
+    final after =
+        tester.state<ScrollableState>(find.byType(Scrollable).first);
+    expect(after.position.pixels, greaterThan(200));
+
+    // ...and the verse was highlighted.
+    expect(controller.state.currentBook, 'John');
+    expect(controller.state.currentChapter, 3);
+    expect(controller.state.highlightedVerse, 20);
+
+    // Fast forward past the highlight timer.
     await tester.pump(const Duration(seconds: 12));
   });
 }

@@ -128,6 +128,23 @@ extension _StateCopy on BibleControllerState {
       );
 }
 
+/// The verse a caller wants the reader to land on once its chapter is loaded.
+///
+/// Holding book+chapter (not just a verse number) lets the screen wait until
+/// the matching chapter has actually been loaded before scrolling, instead of
+/// racing the async chapter fetch with a fixed retry count.
+class BibleScrollTarget {
+  final String book;
+  final int chapter;
+  final int verse;
+
+  const BibleScrollTarget({
+    required this.book,
+    required this.chapter,
+    required this.verse,
+  });
+}
+
 /// Encapsulates every business-logic operation for the Bible reader.
 ///
 /// The screen is responsible for:
@@ -144,7 +161,15 @@ class BibleController extends ChangeNotifier {
     required this.initialChapter,
     required this.initialVerse,
     required this.saveProgress,
-  })  : _pendingScrollVerse = initialVerse,
+  })  : _scrollTarget = (initialVerse != null && initialBook != null)
+            ? BibleScrollTarget(
+                book: initialBook,
+                chapter: (initialChapter != null && initialChapter >= 1)
+                    ? initialChapter
+                    : 1,
+                verse: initialVerse,
+              )
+            : null,
         _currentBook = (initialBook != null && bibleBooks.containsKey(initialBook))
             ? initialBook
             : 'Genesis',
@@ -176,7 +201,7 @@ class BibleController extends ChangeNotifier {
   int _lastKnownInstalledCount = -1;
   bool _resumeApplied = false;
   bool _initialJumpPending = true;
-  int? _pendingScrollVerse;
+  BibleScrollTarget? _scrollTarget;
   int _crossRefBookNumber = 0;
   int _crossRefChapter = 0;
   int _loadEpoch = 0;
@@ -206,12 +231,21 @@ class BibleController extends ChangeNotifier {
   /// Current verse — either the last highlighted verse or the first verse.
   int get currentVerse => _state.highlightedVerse ?? 1;
 
-  /// The verse number the scroll controller should target, or null.
-  /// Consumed and cleared by the screen's scroll-to-verse logic.
-  int? consumePendingScrollVerse() {
-    final v = _pendingScrollVerse;
-    _pendingScrollVerse = null;
-    return v;
+  /// Returns and clears the pending scroll verse when [book]/[chapter] are the
+  /// currently loaded chapter (i.e. the reader is ready to scroll). Returns
+  /// null while the target chapter is still loading or if the user navigated
+  /// elsewhere, in which case the pending target is dropped.
+  ///
+  /// Called by the screen when `state.isLoading == false`.
+  int? consumeScrollTargetIfReady({required String book, required int chapter}) {
+    final target = _scrollTarget;
+    if (target == null) return null;
+    if (target.book != book || target.chapter != chapter) {
+      _scrollTarget = null;
+      return null;
+    }
+    _scrollTarget = null;
+    return target.verse;
   }
 
   // ── Book name helpers ──────────────────────────────────────────────────
@@ -580,9 +614,22 @@ class BibleController extends ChangeNotifier {
   }
 
   Future<void> goToBookAndChapter(String book, int chapter, {int? verse}) async {
+    if (verse != null) {
+      _scrollTarget = BibleScrollTarget(book: book, chapter: chapter, verse: verse);
+    } else {
+      _scrollTarget = null;
+    }
+    if (book == _currentBook &&
+        chapter == _currentChapter &&
+        !_state.isLoading &&
+        _state.verses.isNotEmpty) {
+      // Already showing the target chapter — no reload needed; just let the
+      // screen pick up the scroll target on this notify.
+      _update((s) => s.copyWith(currentBook: book, currentChapter: chapter));
+      return;
+    }
     _currentBook = book;
     _currentChapter = chapter;
-    if (verse != null) _pendingScrollVerse = verse;
     _update((s) => s.copyWith(isLoading: true, currentBook: book, currentChapter: chapter));
     await _loadChapter();
     _update((s) => s.copyWith(isLoading: false));

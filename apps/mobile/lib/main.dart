@@ -18,6 +18,7 @@ import 'features/shorts/shorts_feed_screen.dart';
 import 'features/watch/video_player_screen.dart';
 import 'features/watch_plans/watch_plans_screen.dart';
 import 'features/bible/screens/bible_screen.dart';
+import 'features/bible/services/bible_passage_navigator.dart';
 import 'features/books/screens/books_catalog_screen.dart';
 import 'features/books/screens/book_reader_screen.dart';
 import 'features/downloads/screens/downloads_manager_screen.dart';
@@ -203,6 +204,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
         ),
       ],
     );
+    BiblePassageNavigator.instance.init(_router);
   }
 
   @override
