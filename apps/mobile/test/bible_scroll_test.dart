@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/bible/controllers/bible_controller.dart';
@@ -88,16 +89,26 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    // Allow scroll animation to finish
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(find.byType(ListView), findsOneWidget);
-    final scrollable =
-        tester.state<ScrollableState>(find.byType(Scrollable).first);
-    expect(scrollable.position.pixels, greaterThan(200));
+    // Allow scroll-to-verse transition to complete.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     // Fast forward past highlight timer (5s) and sqflite lock timer (10s)
     await tester.pump(const Duration(seconds: 12));
+
+    // The target verse must be visible on screen (its item built), and
+    // verse 1 must have scrolled out of view.
+    final verse16 = find.textContaining('John 3:16');
+    expect(verse16, findsOneWidget);
+    final verse1 = find.textContaining('John 3:1 ');
+    expect(verse1, findsNothing);
+    final bodyRect = tester.getRect(
+      find.byType(ScrollablePositionedList),
+    );
+    final verse16Rect = tester.getRect(verse16);
+    expect(verse16Rect.top, greaterThanOrEqualTo(bodyRect.top));
+    expect(verse16Rect.bottom, lessThanOrEqualTo(bodyRect.bottom + 1));
   });
 
   testWidgets(
@@ -137,7 +148,8 @@ void main() {
 
     final scrollable =
         tester.state<ScrollableState>(find.byType(Scrollable).first);
-    expect(scrollable.position.pixels, 0);
+    // Reader starts near the very top at verse 1.
+    expect(scrollable.position.pixels, lessThan(100));
 
     // Open the book/chapter/verse selector from the bottom chapter nav.
     await tester.tap(find.bySemanticsLabel(RegExp('Book and chapter selector')));
@@ -166,10 +178,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 600));
 
-    // The reader scrolled from verse 1 down to verse 20.
-    final after =
-        tester.state<ScrollableState>(find.byType(Scrollable).first);
-    expect(after.position.pixels, greaterThan(200));
+    // The reader jumped from verse 1 down to verse 20, which must now be
+    // visible on screen while verse 1 scrolled away.
+    final verse20 = find.textContaining('John 3:20');
+    expect(verse20, findsOneWidget);
+    expect(find.textContaining('John 3:1 '), findsNothing);
+    final bodyRect = tester.getRect(
+      find.byType(ScrollablePositionedList),
+    );
+    final verse20Rect = tester.getRect(verse20);
+    expect(verse20Rect.top, greaterThanOrEqualTo(bodyRect.top));
+    expect(verse20Rect.bottom, lessThanOrEqualTo(bodyRect.bottom + 1));
 
     // ...and the verse was highlighted.
     expect(controller.state.currentBook, 'John');

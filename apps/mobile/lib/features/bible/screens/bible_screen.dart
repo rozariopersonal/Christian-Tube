@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../downloads/screens/downloads_manager_screen.dart';
 import 'package:flutter/services.dart';
@@ -46,8 +47,7 @@ class BibleScreen extends StatefulWidget {
 
 class _BibleScreenState extends State<BibleScreen> {
   late final BibleController _controller;
-  final ScrollController _scrollController = ScrollController();
-  final Map<int, GlobalKey> _verseKeys = {};
+  final ItemScrollController _itemScrollController = ItemScrollController();
   Timer? _highlightTimer;
 
   @override
@@ -100,7 +100,6 @@ class _BibleScreenState extends State<BibleScreen> {
     _highlightTimer?.cancel();
     _controller.removeListener(_onControllerUpdate);
     if (widget.controller == null) _controller.dispose();
-    _scrollController.dispose();
     BiblePassageNavigator.instance.detach(context, _moveToReference);
     super.dispose();
   }
@@ -125,18 +124,7 @@ class _BibleScreenState extends State<BibleScreen> {
   void _scrollToVerse(int verseNumber, {int retries = 10}) {
     if (!mounted) return;
     SystemChannels.textInput.invokeMethod('TextInput.hide');
-    GlobalKey? key = _verseKeys[verseNumber];
-    if (key == null) {
-      int best = -1;
-      for (final k in _verseKeys.keys) {
-        if (best == -1 || (k - verseNumber).abs() < (best - verseNumber).abs()) {
-          best = k;
-        }
-      }
-      if (best != -1) key = _verseKeys[best];
-    }
-    final BuildContext? ctx = key?.currentContext;
-    if (ctx == null) {
+    if (!_itemScrollController.isAttached) {
       if (retries > 0) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _scrollToVerse(verseNumber, retries: retries - 1);
@@ -144,13 +132,20 @@ class _BibleScreenState extends State<BibleScreen> {
       }
       return;
     }
+    final s = _controller.state;
+    final index = s.verses.indexWhere((v) => v.number == verseNumber);
+    if (index < 0) return;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    Scrollable.ensureVisible(
-      ctx,
-      duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 450),
-      curve: Curves.easeInOut,
-      alignment: 0.1,
-    );
+    if (reduceMotion) {
+      _itemScrollController.jumpTo(index: index, alignment: 0.1);
+    } else {
+      _itemScrollController.scrollTo(
+        index: index,
+        alignment: 0.1,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOut,
+      );
+    }
     _highlightTimer?.cancel();
     _controller.setHighlight(verseNumber);
     _highlightTimer = Timer(const Duration(seconds: 5), () {
@@ -371,8 +366,7 @@ class _BibleScreenState extends State<BibleScreen> {
       ),
       body: BibleContent(
         controller: _controller,
-        scrollController: _scrollController,
-        verseKeys: _verseKeys,
+        itemScrollController: _itemScrollController,
         onVerseTap: _controller.toggleVerseSelection,
         onCopy: _copySelectedVerses,
         onShare: _shareSelectedVerses,

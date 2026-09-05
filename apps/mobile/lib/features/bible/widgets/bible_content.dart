@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../core/layout/content_width.dart';
 import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
@@ -12,8 +12,7 @@ class BibleContent extends StatelessWidget {
   const BibleContent({
     super.key,
     required this.controller,
-    required this.scrollController,
-    required this.verseKeys,
+    required this.itemScrollController,
     required this.onVerseTap,
     required this.onCopy,
     required this.onShare,
@@ -25,8 +24,7 @@ class BibleContent extends StatelessWidget {
   });
 
   final BibleController controller;
-  final ScrollController scrollController;
-  final Map<int, GlobalKey> verseKeys;
+  final ItemScrollController itemScrollController;
   final ValueChanged<int> onVerseTap;
   final VoidCallback onCopy;
   final VoidCallback onShare;
@@ -90,10 +88,10 @@ class BibleContent extends StatelessWidget {
               ],
             );
           },
-          child: ListView.builder(
-            controller: scrollController,
+          child: ScrollablePositionedList.builder(
+            itemScrollController: itemScrollController,
             itemCount: s.verses.length,
-            scrollCacheExtent: const ScrollCacheExtent.pixels(300),
+            minCacheExtent: 300,
             padding: const EdgeInsets.symmetric(vertical: 16),
             itemBuilder: (context, index) {
               if (index < 0 || index >= s.verses.length) return const SizedBox.shrink();
@@ -101,7 +99,6 @@ class BibleContent extends StatelessWidget {
               return _VerseRow(
                 verse: verse,
                 controller: controller,
-                verseKeys: verseKeys,
                 onVerseTap: onVerseTap,
                 onCopy: onCopy,
                 onShare: onShare,
@@ -121,7 +118,6 @@ class _VerseRow extends StatelessWidget {
   const _VerseRow({
     required this.verse,
     required this.controller,
-    required this.verseKeys,
     required this.onVerseTap,
     required this.onCopy,
     required this.onShare,
@@ -132,7 +128,6 @@ class _VerseRow extends StatelessWidget {
 
   final BibleVerse verse;
   final BibleController controller;
-  final Map<int, GlobalKey> verseKeys;
   final ValueChanged<int> onVerseTap;
   final VoidCallback onCopy;
   final VoidCallback onShare;
@@ -143,11 +138,7 @@ class _VerseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = controller.state;
-    final Key? itemKey = verse.isChapterHeader
-        ? null
-        : (verseKeys[verse.number] ??= GlobalKey());
     return VerseItem(
-      key: itemKey,
       verse: verse,
       isSelected: s.selectedVerses.contains(verse.number),
       isHighlighted: s.highlightedVerse == verse.number,
