@@ -40,9 +40,10 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedSubject = 'All';
-  String _selectedLanguage = 'All';
+  Set<String> _selectedLanguages = {'All'};
   bool _viewBySubjects = true;
 
+  static const String _prefKeyLanguages = 'books_catalog_languages';
   static const String _prefKeyLanguage = 'books_catalog_language';
   static const String _prefKeyViewBySubjects = 'books_catalog_view_by_subjects';
 
@@ -66,11 +67,22 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
 
   Future<void> _loadSavedPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedLanguage = prefs.getString(_prefKeyLanguage) ?? 'All';
+    final savedLanguagesList = prefs.getStringList(_prefKeyLanguages);
+    final savedLanguage = prefs.getString(_prefKeyLanguage);
     final savedViewBySubjects = prefs.getBool(_prefKeyViewBySubjects) ?? true;
+
+    Set<String> selectedLangs;
+    if (savedLanguagesList != null && savedLanguagesList.isNotEmpty) {
+      selectedLangs = savedLanguagesList.toSet();
+    } else if (savedLanguage != null && savedLanguage.isNotEmpty) {
+      selectedLangs = {savedLanguage};
+    } else {
+      selectedLangs = {'All'};
+    }
+
     if (mounted) {
       setState(() {
-        _selectedLanguage = savedLanguage;
+        _selectedLanguages = selectedLangs;
         _viewBySubjects = savedViewBySubjects;
       });
     }
@@ -82,11 +94,6 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     await _bookService.initialize();
 
     final installedIds = await _bookService.getInstalledBookIds();
-    final books = await _bookService.getBooks(
-      query: _searchQuery,
-      subject: _selectedSubject,
-      language: _selectedLanguage,
-    );
     final allBooks = await _bookService.getBooks();
     final recentProgress = await _bookService.getRecentProgress(limit: 5);
 
@@ -104,19 +111,46 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     final languages = ['All', ...sortedLangs];
     langBookCounts['All'] = allBooks.length;
 
-    // Filter books by selected language for subject grouping and subjects list
-    final langFilteredBooks = _selectedLanguage == 'All'
+    final isAllLanguages = _selectedLanguages.isEmpty ||
+        _selectedLanguages.any((l) => l.toLowerCase() == 'all');
+
+    final selectedLower =
+        _selectedLanguages.map((l) => l.toLowerCase()).toSet();
+
+    // Filter books by selected language(s) for subject grouping and subjects list
+    final langFilteredBooks = isAllLanguages
         ? allBooks
         : allBooks
-            .where((b) => b.language.toLowerCase() == _selectedLanguage.toLowerCase())
+            .where((b) => selectedLower.contains(b.language.toLowerCase()))
             .toList();
 
-    // Subjects derived only from books in the selected language
+    // Subjects derived only from books in the selected languages
     final subjectSet = <String>{};
     for (final b in langFilteredBooks) {
       if (b.subject.isNotEmpty) subjectSet.add(b.subject);
     }
     final subjects = ['All', ...(subjectSet.toList()..sort())];
+
+    if (!subjects.contains(_selectedSubject)) {
+      _selectedSubject = 'All';
+    }
+
+    // Filter books for display matching subject and search query
+    final books = langFilteredBooks.where((b) {
+      if (_selectedSubject != 'All' &&
+          b.subject.toLowerCase() != _selectedSubject.toLowerCase()) {
+        return false;
+      }
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        final matches = b.title.toLowerCase().contains(q) ||
+            b.author.toLowerCase().contains(q) ||
+            b.subject.toLowerCase().contains(q) ||
+            b.categories.any((c) => c.toLowerCase().contains(q));
+        if (!matches) return false;
+      }
+      return true;
+    }).toList();
 
     // Group language-filtered books by subject
     final map = <String, List<Book>>{};
@@ -270,13 +304,21 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   ),
                   onPressed: () {
                     Navigator.of(ctx).pop(false);
-                    _startDownloadAll(language: _selectedLanguage);
+                    final isAll = _selectedLanguages.isEmpty ||
+                        _selectedLanguages.any((l) => l.toLowerCase() == 'all');
+                    _startDownloadAll(
+                      language: isAll || _selectedLanguages.length > 1
+                          ? null
+                          : _selectedLanguages.first,
+                    );
                   },
                   icon: Icon(Icons.all_inclusive_rounded, color: tokens.onSurfaceMuted, size: 16),
                   label: Text(
-                    (_selectedLanguage == 'All')
+                    (_selectedLanguages.isEmpty ||
+                            _selectedLanguages.any((l) => l.toLowerCase() == 'all') ||
+                            _selectedLanguages.length > 1)
                         ? 'Download All 181 Books (~13.4 MB)'
-                        : 'Download All ${BookLanguageMeta.fromCode(_selectedLanguage).englishName} Books',
+                        : 'Download All ${BookLanguageMeta.fromCode(_selectedLanguages.first).englishName} Books',
                     style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5),
                   ),
                 ),
@@ -459,21 +501,37 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: BooksLanguageDropdown(
-        selectedLanguage: _selectedLanguage,
+        selectedLanguages: _selectedLanguages,
         availableLanguages: _languages,
         bookCounts: _languageBookCounts,
-        onLanguageSelected: (lang) {
-          setState(() {
-            _selectedLanguage = lang;
-            _selectedSubject = 'All'; // Reset subject when language changes
-          });
-          SharedPreferences.getInstance()
-              .then((p) => p.setString(_prefKeyLanguage, lang));
-          _loadCatalog();
+        onLanguagesSelected: _onLanguagesSelected,
+        onDownloadAll: () {
+          final isAll = _selectedLanguages.isEmpty ||
+              _selectedLanguages.any((l) => l.toLowerCase() == 'all');
+          _startDownloadAll(
+            language: isAll || _selectedLanguages.length > 1
+                ? null
+                : _selectedLanguages.first,
+          );
         },
-        onDownloadAll: () => _startDownloadAll(language: _selectedLanguage),
       ),
     );
+  }
+
+  void _onLanguagesSelected(Set<String> newSelection) {
+    final validSelection = newSelection.isEmpty ? {'All'} : newSelection;
+    setState(() {
+      _selectedLanguages = validSelection;
+      _selectedSubject = 'All'; // Reset subject when languages change
+    });
+    SharedPreferences.getInstance().then((p) {
+      p.setStringList(_prefKeyLanguages, validSelection.toList());
+      p.setString(
+        _prefKeyLanguage,
+        validSelection.length == 1 ? validSelection.first : 'All',
+      );
+    });
+    _loadCatalog();
   }
 
   Widget _buildSubjectFilterChips(AppTokens tokens) {

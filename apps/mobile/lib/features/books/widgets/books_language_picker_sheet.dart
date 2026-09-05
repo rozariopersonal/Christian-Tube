@@ -2,23 +2,24 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/book_language_meta.dart';
 
-/// An adaptive modal sheet for selecting a language in the Books Library.
+/// An adaptive modal sheet for selecting one or multiple languages in the Books Library.
 ///
-/// Features native script subtitles, book count badges per language,
-/// optional quick-search filtering, and a batch download action.
+/// Features multi-selection checkboxes, native script subtitles,
+/// book count badges per language, quick-search filtering, "Select All",
+/// and an "Apply Selection" confirmation action.
 class BooksLanguagePickerSheet extends StatefulWidget {
-  final String selectedLanguage;
+  final Set<String> selectedLanguages;
   final List<String> availableLanguages;
   final Map<String, int> bookCounts;
-  final ValueChanged<String> onLanguageSelected;
+  final ValueChanged<Set<String>> onLanguagesSelected;
   final VoidCallback? onDownloadAll;
 
   const BooksLanguagePickerSheet({
     super.key,
-    required this.selectedLanguage,
+    required this.selectedLanguages,
     required this.availableLanguages,
     required this.bookCounts,
-    required this.onLanguageSelected,
+    required this.onLanguagesSelected,
     this.onDownloadAll,
   });
 
@@ -28,7 +29,16 @@ class BooksLanguagePickerSheet extends StatefulWidget {
 
 class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
   final TextEditingController _searchController = TextEditingController();
+  late Set<String> _currentSelection;
   String _filterQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _currentSelection = widget.selectedLanguages.isNotEmpty
+        ? Set<String>.from(widget.selectedLanguages)
+        : {'All'};
+  }
 
   @override
   void dispose() {
@@ -36,10 +46,73 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
     super.dispose();
   }
 
+  bool _isAllSelected() {
+    return _currentSelection.isEmpty ||
+        _currentSelection.any((l) => l.toLowerCase() == 'all');
+  }
+
+  void _toggleLanguage(String code) {
+    setState(() {
+      if (code.toLowerCase() == 'all') {
+        _currentSelection = {'All'};
+        return;
+      }
+
+      // If 'All' was selected, clear it and add this specific language
+      if (_isAllSelected()) {
+        _currentSelection = {code};
+        return;
+      }
+
+      final normalizedCode = code;
+      if (_currentSelection.any((l) => l.toLowerCase() == code.toLowerCase())) {
+        _currentSelection.removeWhere((l) => l.toLowerCase() == code.toLowerCase());
+        // If everything was deselected, default back to 'All'
+        if (_currentSelection.isEmpty) {
+          _currentSelection = {'All'};
+        }
+      } else {
+        _currentSelection.add(normalizedCode);
+      }
+    });
+  }
+
+  void _selectAll() {
+    setState(() {
+      _currentSelection = {'All'};
+    });
+  }
+
+  int _calculateSelectedBooksCount() {
+    if (_isAllSelected()) {
+      return widget.bookCounts['All'] ?? 0;
+    }
+    int total = 0;
+    for (final code in _currentSelection) {
+      total += widget.bookCounts[code] ?? 0;
+    }
+    return total;
+  }
+
+  String _selectionSubtitle() {
+    if (_isAllSelected()) {
+      final total = widget.bookCounts['All'] ?? 0;
+      return 'All Languages ($total books)';
+    }
+    final count = _currentSelection.length;
+    final books = _calculateSelectedBooksCount();
+    return '$count ${count == 1 ? 'Language' : 'Languages'} selected • $books books';
+  }
+
+  void _applyAndClose() {
+    widget.onLanguagesSelected(_currentSelection);
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final selectedLower = widget.selectedLanguage.toLowerCase();
+    final isAll = _isAllSelected();
 
     // Filter available languages based on search query
     final filteredLanguages = widget.availableLanguages.where((code) {
@@ -50,9 +123,6 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
           meta.nativeName.toLowerCase().contains(q) ||
           code.toLowerCase().contains(q);
     }).toList();
-
-    final activeMeta = BookLanguageMeta.fromCode(widget.selectedLanguage);
-    final activeCount = widget.bookCounts[widget.selectedLanguage] ?? 0;
 
     return Container(
       constraints: BoxConstraints(
@@ -102,7 +172,7 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Library Language',
+                          'Library Languages',
                           style: TextStyle(
                             color: tokens.onSurface,
                             fontWeight: FontWeight.bold,
@@ -110,7 +180,7 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
                           ),
                         ),
                         Text(
-                          'Active: ${activeMeta.displayName} ($activeCount books)',
+                          _selectionSubtitle(),
                           style: TextStyle(
                             color: tokens.onSurfaceMuted,
                             fontSize: 12,
@@ -121,6 +191,23 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
                       ],
                     ),
                   ),
+                  if (!isAll)
+                    TextButton(
+                      onPressed: _selectAll,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Select All',
+                        style: TextStyle(
+                          color: tokens.accent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   IconButton(
                     icon: Icon(Icons.close, color: tokens.onSurfaceMuted, size: 20),
                     tooltip: 'Close',
@@ -195,7 +282,11 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
                       itemBuilder: (context, index) {
                         final code = filteredLanguages[index];
                         final meta = BookLanguageMeta.fromCode(code);
-                        final isSelected = code.toLowerCase() == selectedLower;
+                        final isSelected = code.toLowerCase() == 'all'
+                            ? isAll
+                            : (!isAll &&
+                                _currentSelection.any(
+                                    (l) => l.toLowerCase() == code.toLowerCase()));
                         final count = widget.bookCounts[code] ?? 0;
 
                         return Material(
@@ -205,10 +296,7 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
                           borderRadius: BorderRadius.circular(12),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              widget.onLanguageSelected(code);
-                              Navigator.of(context).pop();
-                            },
+                            onTap: () => _toggleLanguage(code),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -257,8 +345,7 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
                                   // Language Names
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           meta.englishName,
@@ -276,8 +363,7 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
                                             meta.nativeName.isNotEmpty &&
                                             meta.nativeName != meta.englishName)
                                           Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 2),
+                                            padding: const EdgeInsets.only(top: 2),
                                             child: Text(
                                               meta.nativeName,
                                               style: TextStyle(
@@ -320,17 +406,17 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 10),
 
-                                  // Selection checkmark
+                                  // Multi-select Checkbox Icon
                                   Icon(
                                     isSelected
-                                        ? Icons.check_circle_rounded
-                                        : Icons.circle_outlined,
+                                        ? Icons.check_box_rounded
+                                        : Icons.check_box_outline_blank_rounded,
                                     color: isSelected
                                         ? tokens.accent
-                                        : tokens.onSurfaceDisabled.withValues(alpha: 0.5),
-                                    size: 20,
+                                        : tokens.onSurfaceDisabled.withValues(alpha: 0.6),
+                                    size: 22,
                                   ),
                                 ],
                               ),
@@ -341,34 +427,37 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
                     ),
             ),
 
-            // Optional Download All action footer
-            if (widget.onDownloadAll != null) ...[
-              Divider(color: tokens.surfaceBorder, height: 1),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: tokens.accent,
-                    side: BorderSide(color: tokens.accent.withValues(alpha: 0.5)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+            // Footer Action: Apply Selection Button
+            Divider(color: tokens.surfaceBorder, height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: tokens.accent,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: _applyAndClose,
+                      icon: const Icon(Icons.done_all_rounded, size: 18),
+                      label: Text(
+                        isAll
+                            ? 'Apply (All Languages)'
+                            : 'Apply (${_currentSelection.length} Languages • ${_calculateSelectedBooksCount()} Books)',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    widget.onDownloadAll!();
-                  },
-                  icon: const Icon(Icons.download_for_offline_outlined, size: 18),
-                  label: Text(
-                    widget.selectedLanguage == 'All'
-                        ? 'Download All $activeCount Books Offline'
-                        : 'Download All ${activeMeta.englishName} Books Offline',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),
