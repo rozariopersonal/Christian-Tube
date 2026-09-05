@@ -5,6 +5,7 @@ import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
+import '../../engines/scripture/services/book_name_service.dart';
 import '../models/bible_verse.dart';
 import '../services/bible_chapter_stream.dart';
 import '../widgets/verse_item.dart';
@@ -105,8 +106,9 @@ class BibleContent extends StatelessWidget {
               if (index < 0 || index >= itemCount) return const SizedBox.shrink();
               if (!isWholeBible) {
                 if (index >= s.verses.length) return const SizedBox.shrink();
-                return _VerseRow(
-                  verse: s.verses[index],
+                final verse = s.verses[index];
+                final verseWidget = _VerseRow(
+                  verse: verse,
                   controller: controller,
                   onVerseTap: onVerseTap,
                   onCopy: onCopy,
@@ -115,16 +117,50 @@ class BibleContent extends StatelessWidget {
                   onClear: onClear,
                   onOpenStudyPage: onOpenStudyPage,
                 );
+                if (index == 0 || verse.number == 1) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SelectionContainer.disabled(
+                        child: _ChapterHeader(
+                          chapter: controller.currentChapter,
+                          bookName: controller.displayBookName(controller.currentBook),
+                          isBookStart: controller.currentChapter == 1,
+                        ),
+                      ),
+                      verseWidget,
+                    ],
+                  );
+                }
+                return verseWidget;
               }
               final ref = verseIndex.rowToReference(index);
               final rows =
                   s.loadedChapters[bibleChapterId(ref.bookNumber, ref.chapter)];
               if (rows == null || ref.verse > rows.length) {
+                if (ref.verse == 1) {
+                  final bookName = BookNameService.englishNameFor(ref.bookNumber);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SelectionContainer.disabled(
+                        child: _ChapterHeader(
+                          chapter: ref.chapter,
+                          bookName: controller.displayBookName(bookName),
+                          isBookStart: ref.chapter == 1,
+                        ),
+                      ),
+                      _PlaceholderRow(
+                        key: ValueKey('ph-${ref.bookNumber}-${ref.chapter}-${ref.verse}'),
+                      ),
+                    ],
+                  );
+                }
                 return _PlaceholderRow(
                   key: ValueKey('ph-${ref.bookNumber}-${ref.chapter}-${ref.verse}'),
                 );
               }
-              return _VerseRow(
+              final verseWidget = _VerseRow(
                 verse: rows[ref.verse - 1],
                 controller: controller,
                 onVerseTap: onVerseTap,
@@ -134,6 +170,23 @@ class BibleContent extends StatelessWidget {
                 onClear: onClear,
                 onOpenStudyPage: onOpenStudyPage,
               );
+              if (ref.verse == 1) {
+                final bookName = BookNameService.englishNameFor(ref.bookNumber);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SelectionContainer.disabled(
+                      child: _ChapterHeader(
+                        chapter: ref.chapter,
+                        bookName: controller.displayBookName(bookName),
+                        isBookStart: ref.chapter == 1,
+                      ),
+                    ),
+                    verseWidget,
+                  ],
+                );
+              }
+              return verseWidget;
             },
           ),
         ),
@@ -363,3 +416,68 @@ class _ChapterEmptyState extends StatelessWidget {
     );
   }
 }
+
+class _ChapterHeader extends StatelessWidget {
+  const _ChapterHeader({
+    required this.chapter,
+    this.bookName,
+    this.isBookStart = false,
+  });
+
+  final int chapter;
+  final String? bookName;
+  final bool isBookStart;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = context.tokens;
+    final hasBookName = bookName != null && bookName!.isNotEmpty;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: isBookStart ? 20.0 : 32.0,
+        bottom: 16.0,
+        left: 16.0,
+        right: 16.0,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isBookStart && hasBookName) ...[
+            Text(
+              bookName!,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+                letterSpacing: 0.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+          ],
+          Text(
+            'Chapter $chapter',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isBookStart
+                  ? tokens.onSurfaceMuted
+                  : theme.colorScheme.primary,
+              letterSpacing: 0.3,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            indent: 48,
+            endIndent: 48,
+            color: tokens.surfaceBorder.withValues(alpha: 0.5),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

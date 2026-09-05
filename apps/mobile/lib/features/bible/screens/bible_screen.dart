@@ -51,7 +51,9 @@ class _BibleScreenState extends State<BibleScreen> {
   final ItemPositionsListener _itemPositionsListener =
       ItemPositionsListener.create();
   Timer? _highlightTimer;
+  Timer? _programmaticScrollTimer;
   bool _initialPositioned = false;
+  bool _isProgrammaticScrolling = false;
 
   @override
   void initState() {
@@ -88,7 +90,7 @@ class _BibleScreenState extends State<BibleScreen> {
     }
     if (widget.initialVerse != null && widget.initialVerse != oldWidget.initialVerse) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToVerse(widget.initialVerse!);
+        if (mounted) _scrollToVerse(widget.initialVerse!, highlight: true);
       });
     }
     if (reloadNeeded && mounted) {
@@ -96,6 +98,7 @@ class _BibleScreenState extends State<BibleScreen> {
       _controller.goToBookAndChapter(
         widget.initialBook ?? _controller.currentBook,
         widget.initialChapter ?? _controller.currentChapter,
+        verse: widget.initialVerse,
       );
     }
   }
@@ -103,6 +106,7 @@ class _BibleScreenState extends State<BibleScreen> {
   @override
   void dispose() {
     _highlightTimer?.cancel();
+    _programmaticScrollTimer?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onItemPositionsChanged);
     _controller.removeListener(_onControllerUpdate);
     if (widget.controller == null) _controller.dispose();
@@ -111,6 +115,7 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   void _onItemPositionsChanged() {
+    if (_isProgrammaticScrolling) return;
     final s = _controller.state;
     if (s.index == null || s.isLoading) return;
     final positions = _itemPositionsListener.itemPositions.value;
@@ -131,6 +136,7 @@ class _BibleScreenState extends State<BibleScreen> {
 
     final target = _controller.consumeScrollTargetIfReady();
     if (target != null) {
+      _initialPositioned = true;
       final idx = s.index;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -143,9 +149,9 @@ class _BibleScreenState extends State<BibleScreen> {
                 verse: target.verse,
               )
               .clamp(0, idx.totalVerses - 1);
-          _scrollToGlobalIndex(row, target.verse);
+          _scrollToGlobalIndex(row, target.verse, highlight: target.highlight);
         } else {
-          _scrollToVerse(target.verse);
+          _scrollToVerse(target.verse, highlight: target.highlight);
         }
       });
     } else if (!_initialPositioned) {
@@ -158,42 +164,67 @@ class _BibleScreenState extends State<BibleScreen> {
           chapter: _controller.currentChapter,
         );
         if (row > 0) {
+          _isProgrammaticScrolling = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _itemScrollController.jumpTo(index: row, alignment: 0);
+            if (mounted) {
+              _itemScrollController.jumpTo(index: row, alignment: 0);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _isProgrammaticScrolling = false;
+              });
+            }
           });
         }
       }
     }
   }
 
-  void _scrollToGlobalIndex(int index, int verseNumber) {
+  void _scrollToGlobalIndex(int index, int verseNumber, {bool highlight = true}) {
     if (!mounted) return;
     SystemChannels.textInput.invokeMethod('TextInput.hide');
     if (!_itemScrollController.isAttached) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToGlobalIndex(index, verseNumber);
+        if (mounted) _scrollToGlobalIndex(index, verseNumber, highlight: highlight);
       });
       return;
     }
+
+    _isProgrammaticScrolling = true;
+    _programmaticScrollTimer?.cancel();
+    _programmaticScrollTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) _isProgrammaticScrolling = false;
+    });
+
+    final alignment = verseNumber <= 1 ? 0.0 : 0.1;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    if (reduceMotion) {
-      _itemScrollController.jumpTo(index: index, alignment: 0.1);
+
+    if (reduceMotion || !highlight || verseNumber <= 1) {
+      _itemScrollController.jumpTo(index: index, alignment: alignment);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _isProgrammaticScrolling = false;
+      });
     } else {
       _itemScrollController.scrollTo(
         index: index,
-        alignment: 0.1,
+        alignment: alignment,
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeInOut,
-      );
+      ).then((_) {
+        if (mounted) _isProgrammaticScrolling = false;
+      }).catchError((_) {
+        if (mounted) _isProgrammaticScrolling = false;
+      });
     }
-    _highlightTimer?.cancel();
-    _controller.setHighlight(verseNumber);
-    _highlightTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted) _controller.setHighlight(null);
-    });
+
+    if (highlight) {
+      _highlightTimer?.cancel();
+      _controller.setHighlight(verseNumber);
+      _highlightTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) _controller.setHighlight(null);
+      });
+    }
   }
 
-  void _scrollToVerse(int verseNumber) {
+  void _scrollToVerse(int verseNumber, {bool highlight = true}) {
     if (!mounted) return;
     final s = _controller.state;
     final idx = s.index;
@@ -206,12 +237,12 @@ class _BibleScreenState extends State<BibleScreen> {
             verse: verseNumber,
           )
           .clamp(0, idx.totalVerses - 1);
-      _scrollToGlobalIndex(row, verseNumber);
+      _scrollToGlobalIndex(row, verseNumber, highlight: highlight);
       return;
     }
     final index = s.verses.indexWhere((v) => v.number == verseNumber);
     if (index < 0) return;
-    _scrollToGlobalIndex(index, verseNumber);
+    _scrollToGlobalIndex(index, verseNumber, highlight: highlight);
   }
 
   // ── Navigation helpers ────────────────────────────────────────────────

@@ -168,11 +168,13 @@ class BibleScrollTarget {
   final String book;
   final int chapter;
   final int verse;
+  final bool highlight;
 
   const BibleScrollTarget({
     required this.book,
     required this.chapter,
     required this.verse,
+    this.highlight = true,
   });
 }
 
@@ -199,6 +201,7 @@ class BibleController extends ChangeNotifier {
                     ? initialChapter
                     : 1,
                 verse: initialVerse,
+                highlight: true,
               )
             : null,
         _currentBook = (initialBook != null && bibleBooks.containsKey(initialBook))
@@ -671,7 +674,7 @@ class BibleController extends ChangeNotifier {
       }
     }
 
-    await _navigateTo(nextBook, nextChapter, verse: 1);
+    await _navigateTo(nextBook, nextChapter, verse: null);
   }
 
   Future<void> fetchPrevChapter() async {
@@ -691,7 +694,7 @@ class BibleController extends ChangeNotifier {
       }
     }
 
-    await _navigateTo(prevBook, prevChapter, verse: 1);
+    await _navigateTo(prevBook, prevChapter, verse: null);
   }
 
   Future<void> goToBookAndChapter(String book, int chapter, {int? verse}) =>
@@ -705,9 +708,15 @@ class BibleController extends ChangeNotifier {
     if (!bibleBooks.containsKey(book)) return;
     final sameChapter = book == _currentBook && chapter == _currentChapter;
     final armVerse = verse ?? (sameChapter ? null : 1);
+    final shouldHighlight = verse != null;
     _scrollTarget = armVerse == null
         ? null
-        : BibleScrollTarget(book: book, chapter: chapter, verse: armVerse);
+        : BibleScrollTarget(
+            book: book,
+            chapter: chapter,
+            verse: armVerse,
+            highlight: shouldHighlight,
+          );
 
     if (sameChapter && !_state.isLoading && _stream != null && _stream!.contains(bookNumber(book), chapter)) {
       _update((s) => s.copyWith(currentBook: book, currentChapter: chapter));

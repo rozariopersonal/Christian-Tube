@@ -45,6 +45,15 @@ void main() {
           'text':
               'Verse text for John 3:$v with multiple words to ensure it takes up significant vertical height in the list view so scrolling is measurable.',
         },
+      for (var v = 1; v <= 30; v++)
+        {
+          'bookNumber': 43,
+          'bookName': 'John',
+          'chapter': 4,
+          'verse': v,
+          'text':
+              'Verse text for John 4:$v with multiple words to ensure it takes up significant vertical height in the list view so scrolling is measurable.',
+        },
     ]);
   });
 
@@ -197,5 +206,62 @@ void main() {
 
     // Fast forward past the highlight timer.
     await tester.pump(const Duration(seconds: 12));
+  });
+
+  testWidgets(
+      'Bible reader renders Chapter header and Next button moves to next chapter',
+      (tester) async {
+    tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: 1,
+      saveProgress: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: const [AppTokens.dark]),
+        home: BibleScreen(controller: controller),
+      ),
+    );
+    controller.init();
+
+    // Let the chapter finish loading.
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+
+    // Verify Chapter 3 header is rendered above verse 1.
+    expect(find.text('Chapter 3'), findsOneWidget);
+
+    // Tap Next chapter button.
+    final nextBtn = find.bySemanticsLabel('Next chapter');
+    expect(nextBtn, findsOneWidget);
+    await tester.tap(nextBtn);
+    await tester.pump();
+
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+
+    // Verify reader moved to Chapter 4.
+    expect(controller.state.currentChapter, 4);
+    expect(find.text('Chapter 4'), findsOneWidget);
   });
 }
