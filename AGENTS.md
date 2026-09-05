@@ -234,6 +234,7 @@ Christian-Tube-Releases/
 ├── bibles/
 │   ├── bible_{version}.json              # Monolith JSON archive (optional bulk download)
 │   ├── {version}/books.json              # Book list & metadata for version
+│   ├── {version}/counts.json             # Per-chapter verse-row counts (scroll index)
 │   └── {version}/{bookNum}/{ch}.json     # Live per-chapter verses (streaming default)
 ├── books/
 │   ├── catalog.json                      # Single common catalog for all languages

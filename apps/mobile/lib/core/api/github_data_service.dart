@@ -13,6 +13,8 @@ import 'release_assets.dart';
 /// Christian-Tube-Releases/
 /// ├── bibles/
 /// │   ├── bible_{version}.json              # monolith (offline download)
+/// │   ├── {version}/books.json              # book list & chapter counts
+/// │   ├── {version}/counts.json             # per-chapter verse-row counts
 /// │   └── {version_id}/{bookNum}/{ch}.json  # per-chapter (live)
 /// ├── books/
 /// │   ├── catalog.json                      # common catalog (all languages)
@@ -50,10 +52,16 @@ class GitHubDataService {
       ReleaseAssets.urlsFor(
           'bibles/${versionId.toLowerCase()}/$bookNumber/$chapter.json');
 
-  /// Book list (name + chapter count) for a given version.
+/// Book list (name + chapter count) for a given version.
   static List<String> bibleBooksListUrls(String versionId) =>
       ReleaseAssets.urlsFor(
           'bibles/${versionId.toLowerCase()}/books.json');
+
+  /// Per-chapter verse-row counts for a given version (the global-row index
+  /// backing whole-Bible infinite scroll).
+  static List<String> bibleCountsUrls(String versionId) =>
+      ReleaseAssets.urlsFor(
+          'bibles/${versionId.toLowerCase()}/counts.json');
 
   // ── Books library ─────────────────────────────────────────────────────────
 

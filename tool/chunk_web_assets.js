@@ -69,6 +69,15 @@ function chunkBibles() {
 
       const metaPath = path.join(REPO_DIR, 'bibles', versionId, 'books.json');
       writeJson(metaPath, booksMeta);
+
+      // Per-chapter verse-row counts drive the whole-Bible infinite-scroll
+      // index (see BibleVerseIndex). Each chapter contributes its JSON-array
+      // length, i.e. the number of rendered verse rows.
+      const counts = books.map((book) =>
+        (book.ch || []).map((chapter) => (chapter || []).length),
+      );
+      const countsPath = path.join(REPO_DIR, 'bibles', versionId, 'counts.json');
+      writeJson(countsPath, counts);
       console.log(`  ✓ Version [${versionId}]: ${books.length} books chunked.`);
     } catch (e) {
       console.error(`  ✗ Error chunking [${versionId}]:`, e.message);
