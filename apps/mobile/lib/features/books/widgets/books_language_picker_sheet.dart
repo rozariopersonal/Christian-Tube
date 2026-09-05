@@ -223,30 +223,46 @@ class _BooksLanguagePickerSheetState extends State<BooksLanguagePickerSheet> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
-                  height: 38,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: tokens.surfaceVariant,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: tokens.surfaceBorder),
                   ),
+                  alignment: Alignment.center,
                   child: TextField(
                     controller: _searchController,
-                    style: TextStyle(color: tokens.onSurface, fontSize: 13),
+                    textAlignVertical: TextAlignVertical.center,
+                    style: TextStyle(color: tokens.onSurface, fontSize: 13.5),
                     decoration: InputDecoration(
+                      isDense: true,
                       hintText: 'Search language or script...',
-                      hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5),
-                      prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 17),
+                      hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+                      prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 18),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
                       suffixIcon: _filterQuery.isNotEmpty
                           ? IconButton(
-                              icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 15),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 36,
+                                minHeight: 36,
+                              ),
+                              icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 16),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() => _filterQuery = '');
                               },
                             )
                           : null,
+                      suffixIconConstraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     onChanged: (val) => setState(() => _filterQuery = val.trim()),
                   ),
