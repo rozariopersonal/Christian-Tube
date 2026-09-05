@@ -203,6 +203,9 @@ class BibleController extends ChangeNotifier {
   /// Current chapter (needed for display in the screen's title).
   int get currentChapter => _currentChapter;
 
+  /// Current verse — either the last highlighted verse or the first verse.
+  int get currentVerse => _state.highlightedVerse ?? 1;
+
   /// The verse number the scroll controller should target, or null.
   /// Consumed and cleared by the screen's scroll-to-verse logic.
   int? consumePendingScrollVerse() {
@@ -583,6 +586,16 @@ class BibleController extends ChangeNotifier {
     _update((s) => s.copyWith(isLoading: true, currentBook: book, currentChapter: chapter));
     await _loadChapter();
     _update((s) => s.copyWith(isLoading: false));
+  }
+
+  /// Fetches the verse list for a chapter without changing the current reader
+  /// selection. Used by the book/chapter/verse selector to display verse
+  /// numbers while the sheet is still open.
+  Future<List<BibleVerse>> previewChapterVerses(String book, int chapter) async {
+    final version = _state.selectedVersion;
+    if (version == null) return const [];
+    final chapterMap = await _fetchVersesForChapter(version, book, chapter);
+    return _buildChapterVerses(chapterMap, version.shortname);
   }
 
   void toggleVerseSelection(int verseNumber) {

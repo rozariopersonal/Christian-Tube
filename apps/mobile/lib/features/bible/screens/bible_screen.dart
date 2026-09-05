@@ -168,11 +168,13 @@ class _BibleScreenState extends State<BibleScreen> {
       builder: (_) => BookChapterSelector(
         currentBook: _controller.currentBook,
         currentChapter: _controller.currentChapter,
+        currentVerse: _controller.currentVerse,
         displayNameOf: (canonicalBook, bookNumber) =>
             _controller.displayBookName(canonicalBook),
-        onSelection: (book, chapter) {
+        loadVerses: _controller.previewChapterVerses,
+        onSelection: (book, chapter, verse) {
           Navigator.pop(context);
-          _controller.goToBookAndChapter(book, chapter);
+          _controller.goToBookAndChapter(book, chapter, verse: verse);
         },
       ),
     );

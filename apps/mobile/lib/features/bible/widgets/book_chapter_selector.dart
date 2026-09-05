@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../models/bible_book.dart';
+import '../models/bible_verse.dart';
 
 class BookChapterSelector extends StatefulWidget {
   final String currentBook;
   final int currentChapter;
-  final Function(String book, int chapter) onSelection;
+  final int currentVerse;
+  final Function(String book, int chapter, int verse) onSelection;
   final String Function(String canonicalBook, int bookNumber)? displayNameOf;
+
+  /// Loads the verse list for a book+chapter on demand so the verses tab can
+  /// be populated while the sheet is still open. If null, the verses tab is
+  /// disabled.
+  final Future<List<BibleVerse>> Function(String book, int chapter)? loadVerses;
 
   const BookChapterSelector({
     super.key,
     required this.currentBook,
     required this.currentChapter,
+    this.currentVerse = 1,
     required this.onSelection,
     this.displayNameOf,
+    this.loadVerses,
   });
 
   @override
@@ -25,16 +34,21 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
   late ScrollController _booksScrollController;
   late String _selectedBook;
   late int _selectedChapter;
+  late int _selectedVerse;
+  List<BibleVerse>? _chapterVerses;
+  bool _loadingVerses = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _selectedBook = widget.currentBook;
     _selectedChapter = widget.currentChapter;
+    _selectedVerse = widget.currentVerse;
     final bookIndex = bibleBooks.keys.toList().indexOf(_selectedBook);
     final initialOffset = (bookIndex > 3) ? (bookIndex - 2) * 52.0 : 0.0;
     _booksScrollController = ScrollController(initialScrollOffset: initialOffset);
+    if (widget.loadVerses != null) _loadVersesForSelection();
   }
 
   @override
@@ -76,6 +90,7 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
             tabs: const [
               Tab(text: 'BOOKS'),
               Tab(text: 'CHAPTERS'),
+              Tab(text: 'VERSES'),
             ],
           ),
           Expanded(
@@ -124,7 +139,7 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
                     final isSelected = chapter == _selectedChapter && _selectedBook == widget.currentBook;
                     return InkWell(
                       onTap: () {
-                        widget.onSelection(_selectedBook, chapter);
+                        _selectChapter(chapter);
                       },
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
@@ -149,12 +164,117 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
                     );
                   },
                 ),
+                // Verses Grid
+                _buildVersesView(theme),
               ],
             ),
           ),
         ],
       ),
       ),
+    );
+  }
+
+  void _selectChapter(int chapter) {
+    setState(() {
+      _selectedChapter = chapter;
+      _chapterVerses = null;
+      _loadingVerses = widget.loadVerses != null;
+    });
+    _tabController.animateTo(2);
+    if (widget.loadVerses != null) _loadVersesForSelection();
+  }
+
+  Future<void> _loadVersesForSelection() async {
+    final loader = widget.loadVerses;
+    if (loader == null) return;
+    final book = _selectedBook;
+    final chapter = _selectedChapter;
+    setState(() => _loadingVerses = true);
+    try {
+      final verses = await loader(book, chapter);
+      if (!mounted || book != _selectedBook || chapter != _selectedChapter) return;
+      setState(() {
+        _chapterVerses = verses.isEmpty ? null : verses;
+        _loadingVerses = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _chapterVerses = null;
+        _loadingVerses = false;
+      });
+    }
+  }
+
+  Widget _buildVersesView(ThemeData theme) {
+    final versions = _chapterVerses;
+    if (_loadingVerses) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    if (versions == null || versions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            widget.loadVerses == null
+                ? 'Open the chapter grid, pick a chapter, then choose a verse.'
+                : 'No verses found for this chapter.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: context.tokens.onSurfaceMuted,
+                ),
+          ),
+        ),
+      );
+    }
+    final maxVerse = versions.map((v) => v.number).fold<int>(0, (a, b) => a > b ? a : b);
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 64,
+        childAspectRatio: 1.0,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      itemCount: maxVerse,
+      itemBuilder: (context, index) {
+        final verse = index + 1;
+        final isSelected = verse == _selectedVerse &&
+            _selectedBook == widget.currentBook &&
+            _selectedChapter == widget.currentChapter;
+        return InkWell(
+          onTap: () {
+            setState(() => _selectedVerse = verse);
+            widget.onSelection(_selectedBook, _selectedChapter, verse);
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : context.tokens.surfaceVariant,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              verse.toString(),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected
+                    ? theme.colorScheme.onPrimary
+                    : context.tokens.onSurface,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

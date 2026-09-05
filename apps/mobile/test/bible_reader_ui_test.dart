@@ -12,6 +12,7 @@ import 'package:mobile/features/bible/widgets/verse_action_bar.dart';
 import 'package:mobile/features/bible/widgets/verse_text.dart';
 import 'package:mobile/features/bible/widgets/book_chapter_selector.dart';
 import 'package:mobile/features/bible/models/verse_concept.dart';
+import 'package:mobile/features/bible/models/bible_verse.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
 
@@ -236,7 +237,7 @@ void main() {
         BookChapterSelector(
           currentBook: 'John',
           currentChapter: 3,
-          onSelection: (book, chapter) {},
+          onSelection: (book, chapter, verse) {},
         ),
       ),
     );
@@ -244,6 +245,58 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('BOOKS'), findsOneWidget);
     expect(find.text('CHAPTERS'), findsOneWidget);
+    expect(find.text('VERSES'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('BookChapterSelector picks book, chapter, then verse', (tester) async {
+    tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    String? selectedBook;
+    int? selectedChapter;
+    int? selectedVerse;
+    await tester.pumpWidget(
+      wrapWithApp(
+        BookChapterSelector(
+          currentBook: 'John',
+          currentChapter: 3,
+          currentVerse: 16,
+          loadVerses: (book, chapter) async => [
+            for (var v = 1; v <= 50; v++)
+              BibleVerse(number: v, text: 'Verse $v of $book $chapter'),
+          ],
+          onSelection: (book, chapter, verse) {
+            selectedBook = book;
+            selectedChapter = chapter;
+            selectedVerse = verse;
+          },
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Books tab: pick John, which advances to the chapters tab.
+    await tester.tap(find.text('John'));
+    await tester.pumpAndSettle();
+
+    // Chapters tab: pick chapter 3, which loads verses and advances.
+    await tester.tap(find.text('3'));
+    await tester.pumpAndSettle();
+
+    // Verses tab: the grid filled with verse numbers; tap verse 16.
+    expect(find.text('VERSES'), findsOneWidget);
+    await tester.tap(find.text('16'));
+    await tester.pumpAndSettle();
+
+    expect(selectedBook, 'John');
+    expect(selectedChapter, 3);
+    expect(selectedVerse, 16);
     expect(tester.takeException(), isNull);
   });
 }
