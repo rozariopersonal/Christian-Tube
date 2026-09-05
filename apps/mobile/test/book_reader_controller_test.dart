@@ -154,4 +154,16 @@ void main() {
     expect(controller.appearance.themeMode, ReaderThemeMode.sepia);
     controller.dispose();
   });
+
+  test('completionForPage computes percentage based on total pages', () async {
+    final id = await seedBook(pages: 20, lines: 100);
+    final controller = BookReaderController(BookService.instance, id);
+    await controller.load();
+
+    expect(controller.completionForPage(1), closeTo(1 / 20, 0.001));
+    expect(controller.completionForPage(5), closeTo(0.25, 0.001));
+    expect(controller.completionForPage(10), closeTo(0.50, 0.001));
+    expect(controller.completionForPage(20), closeTo(1.0, 0.001));
+    controller.dispose();
+  });
 }

@@ -111,7 +111,7 @@ class ReaderPageColumn extends StatelessWidget {
                   final scrollFraction = (metrics.pixels / metrics.maxScrollExtent).clamp(0.0, 1.0);
                   final lineIndex = ((lines.length - 1) * scrollFraction).round();
                   final currentLine = lines[lineIndex].lineNumber;
-                  final percent = controller.completionForLine(currentLine);
+                  final percent = controller.completionForPage(pageNum);
                   controller.markProgress(pageNum, currentLine, percent);
                 }
               }

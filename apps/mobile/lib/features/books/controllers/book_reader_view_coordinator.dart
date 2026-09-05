@@ -150,18 +150,12 @@ class BookReaderViewCoordinator {
   }
 
   void _markProgressFromPage(int page, {int fallbackLine = 1}) {
-    final book = controller.state.book;
     final lines = controller.pageCache(page);
-    if (lines != null && lines.isNotEmpty) {
-      final firstLine = lines.first.lineNumber;
-      controller.markProgress(page, firstLine, controller.completionForLine(firstLine));
-    } else if (book != null) {
-      final percent = ReadingPositionTracker.completionForPage(
-        pageNumber: page.toDouble(),
-        totalPages: book.totalPages,
-      );
-      controller.markProgress(page, fallbackLine, percent);
-    }
+    final currentLine = (lines != null && lines.isNotEmpty)
+        ? lines.first.lineNumber
+        : fallbackLine;
+    final percent = controller.completionForPage(page);
+    controller.markProgress(page, currentLine, percent);
   }
 
   void handlePageChanged(int page) {

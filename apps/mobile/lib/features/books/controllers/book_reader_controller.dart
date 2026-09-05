@@ -291,6 +291,15 @@ class BookReaderController extends ChangeNotifier {
     _set(_state.copyWith(prevPages: prev));
   }
 
+  double completionForPage(int page) {
+    final book = _state.book;
+    if (book == null) return 0.0;
+    return ReadingPositionTracker.completionForPage(
+      pageNumber: page.toDouble(),
+      totalPages: book.totalPages,
+    );
+  }
+
   double completionForLine(int startLine) {
     final book = _state.book;
     if (book == null) return 0.0;
