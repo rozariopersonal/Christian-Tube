@@ -522,9 +522,9 @@ class BibleController extends ChangeNotifier {
 
   Future<void> fetchData() => _fetchData();
 
-  void selectVersion(BibleVersion version) {
+  Future<void> selectVersion(BibleVersion version) async {
     _update((s) => s.copyWith(selectedVersion: version));
-    _fetchData();
+    await _loadChapter();
   }
 
   Future<void> fetchNextChapter() async {

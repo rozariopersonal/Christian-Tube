@@ -29,20 +29,20 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final s = controller.state;
     return AppBar(
-      title: Text(
-        controller.selectedVersion?.name ?? 'Bible',
-        style: const TextStyle(fontWeight: FontWeight.bold),
-        overflow: TextOverflow.ellipsis,
-        maxLines: 1,
-      ),
+      title: s.selectedVersion != null
+          ? _VersionPicker(
+              selectedVersion: s.selectedVersion!,
+              versions: s.versions,
+              onSelect: controller.selectVersion,
+              onManage: onPushManager,
+            )
+          : const Text(
+              'Bible',
+              style: TextStyle(fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
       actions: [
-        if (s.selectedVersion != null)
-          _VersionPicker(
-            selectedVersion: s.selectedVersion!,
-            versions: s.versions,
-            onSelect: controller.selectVersion,
-            onManage: onPushManager,
-          ),
         IconButton(
           tooltip: 'Search Bible',
           icon: const Icon(Icons.search),
@@ -120,21 +120,25 @@ class _VersionPicker extends StatelessWidget {
     return Tooltip(
       message: 'Version',
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         onTap: () => _openPicker(context),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                selectedVersion.shortname,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              Flexible(
+                child: Text(
+                  selectedVersion.shortname,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(left: 2),
-                child: Icon(Icons.arrow_drop_down, size: 18),
-              ),
+              const Icon(Icons.arrow_drop_down, size: 20),
             ],
           ),
         ),
