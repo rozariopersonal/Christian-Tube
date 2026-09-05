@@ -183,6 +183,9 @@ class BookReaderViewCoordinator {
       });
       return;
     }
+    // Sync chrome to the resume page immediately (page number, chapter title,
+    // progress) rather than waiting for the scroll to settle.
+    controller.markProgressFromRow(resumeRow);
     _jumpToRow(resumeRow);
     controller.clearPendingResume();
   }
@@ -224,6 +227,10 @@ class BookReaderViewCoordinator {
       await controller.prepareForJump();
       final row = await controller.rowForPage(targetPage);
       if (row == null || !_isAttached()) return;
+      // Apply the target page immediately so chrome (nav "Page X of Y",
+      // chapter title) reflects the destination without waiting for the
+      // scroll animation's positions callback.
+      controller.markProgressFromRow(row);
       controller.clearPendingResume();
       _jumpToRow(row);
       return;

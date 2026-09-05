@@ -556,5 +556,98 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('continuous reader shows correct page number after resume and prev/next', (tester) async {
+      late String id;
+      await tester.runAsync(() async {
+        final db = (await BookService.instance.database as Database?)!;
+        id = 'nav_test_${DateTime.now().microsecondsSinceEpoch}';
+        await db.insert('books', {
+          'id': id,
+          'title': 'Nav Book',
+          'author': 'Author',
+          'subject': 'Christian Living',
+          'categories': '["Christian Living"]',
+          'description': 'Desc',
+          'cover_file': '',
+          'total_pages': 20,
+          'total_lines': 100,
+          'download_size_formatted': '1 MB',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        await db.insert('book_chapters', {
+          'book_id': id,
+          'chapter_index': 1,
+          'chapter_title': 'Chapter 1: Start',
+          'start_page': 1,
+          'start_line': 1,
+          'end_page': 10,
+          'end_line': 50,
+        });
+        await db.insert('book_chapters', {
+          'book_id': id,
+          'chapter_index': 2,
+          'chapter_title': 'Chapter 2: Middle',
+          'start_page': 11,
+          'start_line': 51,
+          'end_page': 20,
+          'end_line': 100,
+        });
+        for (var p = 1; p <= 20; p++) {
+          for (var l = 1; l <= 5; l++) {
+            final lineNum = (p - 1) * 5 + l;
+            await db.insert('book_content', {
+              'book_id': id,
+              'page_number': p,
+              'line_number': lineNum,
+              'chapter_index': p <= 10 ? 1 : 2,
+              'content_type': 'p',
+              'text': 'Page $p content on line $lineNum',
+            });
+          }
+        }
+        await BookService.instance.saveProgress(id, 15, 72, 0.75);
+      });
+
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(extensions: const [AppTokens.light]),
+          // No initialPage: resumes from saved progress at page 15.
+          home: BookReaderScreen(bookId: id),
+        ),
+      );
+      // Pump past load + resume scroll.
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 40));
+        });
+        await tester.pump(const Duration(milliseconds: 40));
+      }
+
+      expect(tester.takeException(), isNull);
+      // The navigation bar should eventually report the resumed page.
+      expect(
+        find.textContaining('Page 15 of 20'),
+        findsOneWidget,
+        reason: 'Nav bar should show the resumed page after landing',
+      );
+
+      // Tap Next; the page number should advance to 16 almost immediately (within a
+      // frame or two), not after the 350ms scroll animation completes.
+      final nextFinder = find.widgetWithIcon(IconButton, Icons.chevron_right_rounded);
+      await tester.tap(nextFinder);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.takeException(), isNull);
+      expect(
+        find.textContaining('Page 16 of 20'),
+        findsOneWidget,
+        reason: 'Nav bar should advance to Page 16 right after tapping Next, without waiting for scroll settle',
+      );
+    });
   });
 }
