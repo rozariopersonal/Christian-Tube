@@ -89,10 +89,13 @@ class _ChapterNav extends StatelessWidget {
               Semantics(
                 label: 'Previous chapter',
                 button: true,
-                child: TextButton.icon(
+                child: IconButton(
                   onPressed: canFetchPrev ? onPrev : null,
-                  icon: const Icon(Icons.chevron_left),
-                  label: const Text('Prev'),
+                  tooltip: 'Previous chapter',
+                  icon: const Icon(Icons.chevron_left_rounded, size: 30),
+                  color: canFetchPrev
+                      ? context.tokens.onSurface
+                      : context.tokens.onSurfaceDisabled,
                 ),
               ),
               Expanded(
@@ -137,11 +140,13 @@ class _ChapterNav extends StatelessWidget {
               Semantics(
                 label: 'Next chapter',
                 button: true,
-                child: TextButton.icon(
+                child: IconButton(
                   onPressed: canFetchNext ? onNext : null,
-                  icon: const Icon(Icons.chevron_right),
-                  label: const Text('Next'),
-                  iconAlignment: IconAlignment.end,
+                  tooltip: 'Next chapter',
+                  icon: const Icon(Icons.chevron_right_rounded, size: 30),
+                  color: canFetchNext
+                      ? context.tokens.onSurface
+                      : context.tokens.onSurfaceDisabled,
                 ),
               ),
             ],

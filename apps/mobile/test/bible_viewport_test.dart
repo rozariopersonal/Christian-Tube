@@ -98,8 +98,8 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(AppBar), findsOneWidget);
       expect(find.text('John 3'), findsOneWidget);
-      expect(find.text('Prev'), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
+      expect(find.byTooltip('Previous chapter'), findsOneWidget);
+      expect(find.byTooltip('Next chapter'), findsOneWidget);
     });
 
     testWidgets('renders without overflow at 600dp (medium)', (tester) async {
@@ -115,8 +115,8 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(AppBar), findsOneWidget);
       expect(find.text('John 3'), findsOneWidget);
-      expect(find.text('Prev'), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
+      expect(find.byTooltip('Previous chapter'), findsOneWidget);
+      expect(find.byTooltip('Next chapter'), findsOneWidget);
     });
 
     testWidgets('renders without overflow at 840dp (expanded)', (tester) async {
@@ -132,8 +132,8 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(AppBar), findsOneWidget);
       expect(find.text('John 3'), findsOneWidget);
-      expect(find.text('Prev'), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
+      expect(find.byTooltip('Previous chapter'), findsOneWidget);
+      expect(find.byTooltip('Next chapter'), findsOneWidget);
     });
 
     testWidgets('renders without overflow at 1400dp (large desktop)', (tester) async {
@@ -149,8 +149,8 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(AppBar), findsOneWidget);
       expect(find.text('John 3'), findsOneWidget);
-      expect(find.text('Prev'), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
+      expect(find.byTooltip('Previous chapter'), findsOneWidget);
+      expect(find.byTooltip('Next chapter'), findsOneWidget);
     });
   });
 
@@ -181,8 +181,8 @@ void main() {
       await _pumpAndWaitForLoad(tester);
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Prev'), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
+      expect(find.byTooltip('Previous chapter'), findsOneWidget);
+      expect(find.byTooltip('Next chapter'), findsOneWidget);
     });
   });
 }
