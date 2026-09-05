@@ -125,6 +125,7 @@ class BibleContent extends StatelessWidget {
                         child: _ChapterHeader(
                           chapter: controller.currentChapter,
                           bookName: controller.displayBookName(controller.currentBook),
+                          chapterTitle: controller.displayChapterTitle(controller.currentChapter),
                           isBookStart: controller.currentChapter == 1,
                         ),
                       ),
@@ -147,6 +148,7 @@ class BibleContent extends StatelessWidget {
                         child: _ChapterHeader(
                           chapter: ref.chapter,
                           bookName: controller.displayBookName(bookName),
+                          chapterTitle: controller.displayChapterTitle(ref.chapter),
                           isBookStart: ref.chapter == 1,
                         ),
                       ),
@@ -179,6 +181,7 @@ class BibleContent extends StatelessWidget {
                       child: _ChapterHeader(
                         chapter: ref.chapter,
                         bookName: controller.displayBookName(bookName),
+                        chapterTitle: controller.displayChapterTitle(ref.chapter),
                         isBookStart: ref.chapter == 1,
                       ),
                     ),
@@ -383,7 +386,7 @@ class _ChapterEmptyState extends StatelessWidget {
     final bookLabel = controller.displayBookName(controller.currentBook);
     final chapterLabel = bookLabel.isNotEmpty
         ? '$bookLabel ${controller.currentChapter}'
-        : 'Chapter ${controller.currentChapter}';
+        : controller.displayChapterTitle(controller.currentChapter);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -421,11 +424,13 @@ class _ChapterHeader extends StatelessWidget {
   const _ChapterHeader({
     required this.chapter,
     this.bookName,
+    this.chapterTitle,
     this.isBookStart = false,
   });
 
   final int chapter;
   final String? bookName;
+  final String? chapterTitle;
   final bool isBookStart;
 
   @override
@@ -457,7 +462,7 @@ class _ChapterHeader extends StatelessWidget {
             const SizedBox(height: 6),
           ],
           Text(
-            'Chapter $chapter',
+            chapterTitle ?? 'Chapter $chapter',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: isBookStart

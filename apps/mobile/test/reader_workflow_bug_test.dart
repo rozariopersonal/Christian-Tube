@@ -194,13 +194,13 @@ void main() {
         await tester.pump(const Duration(milliseconds: 30));
       }
 
-      final prevFinder = find.widgetWithText(TextButton, 'Prev');
-      final nextFinder = find.widgetWithText(TextButton, 'Next');
+      final prevFinder = find.widgetWithIcon(IconButton, Icons.chevron_left_rounded);
+      final nextFinder = find.widgetWithIcon(IconButton, Icons.chevron_right_rounded);
 
       expect(prevFinder, findsOneWidget);
       expect(nextFinder, findsOneWidget);
 
-      final prevButton = tester.widget<TextButton>(prevFinder);
+      final prevButton = tester.widget<IconButton>(prevFinder);
       expect(prevButton.onPressed, isNull, reason: 'Prev should be disabled on Genesis 1');
 
       // Revelation 22
@@ -224,9 +224,9 @@ void main() {
         await tester.pump(const Duration(milliseconds: 30));
       }
 
-      final revNextFinder = find.widgetWithText(TextButton, 'Next');
+      final revNextFinder = find.widgetWithIcon(IconButton, Icons.chevron_right_rounded);
       expect(revNextFinder, findsOneWidget);
-      final revNextButton = tester.widget<TextButton>(revNextFinder);
+      final revNextButton = tester.widget<IconButton>(revNextFinder);
       expect(revNextButton.onPressed, isNull, reason: 'Next should be disabled on Revelation 22');
     });
   });

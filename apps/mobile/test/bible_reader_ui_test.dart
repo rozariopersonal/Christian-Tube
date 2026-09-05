@@ -99,8 +99,8 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(AppBar), findsOneWidget);
-    expect(find.text('Prev'), findsOneWidget);
-    expect(find.text('Next'), findsOneWidget);
+    expect(find.byTooltip('Previous chapter'), findsOneWidget);
+    expect(find.byTooltip('Next chapter'), findsOneWidget);
   });
 
   testWidgets('Multi-verse selection displays single VerseActionBar with Clear action', (tester) async {
@@ -149,7 +149,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(VerseActionBar), findsNothing);
-    expect(find.text('Prev'), findsOneWidget);
+    expect(find.byTooltip('Previous chapter'), findsOneWidget);
   });
 
   testWidgets('VerseConceptCard renders at 320dp and detects Hebrew RTL vs Greek LTR', (tester) async {

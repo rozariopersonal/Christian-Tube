@@ -1,11 +1,17 @@
+import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import '../../../../core/api/github_data_service.dart';
 import '../../../bible/models/bible_book.dart';
+import '../services/book_name_service.dart';
 import 'bible_data_adapter.dart';
 
 class SqliteBibleDataAdapter implements BibleDataAdapter {
   Database? _db;
   final String? overrideDbPath;
+  final Map<String, List<Map<String, dynamic>>> _liveChapterCache = {};
+  final Map<String, List<List<int>>> _liveCountsCache = {};
 
   SqliteBibleDataAdapter({this.overrideDbPath});
 
@@ -67,6 +73,8 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
 
   @override
   Future<void> close() async {
+    _liveChapterCache.clear();
+    _liveCountsCache.clear();
     await _db?.close();
     _db = null;
   }
@@ -89,52 +97,183 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     if (_db == null) await initialize();
     if (_db == null) return false;
     final count = Sqflite.firstIntValue(
-      await _db!.rawQuery('SELECT COUNT(*) FROM verses WHERE version_id = ?', [versionId]),
+      await _db!.rawQuery('SELECT COUNT(*) FROM verses WHERE LOWER(version_id) = ?', [versionId.toLowerCase()]),
     );
     return (count ?? 0) > 0;
   }
 
   @override
   Future<List<Map<String, dynamic>>> getChapter(String versionId, String bookName, int chapter) async {
+    final bookNum = BookNameService.englishBookNames.indexOf(bookName) + 1;
+    final cacheKey = '${versionId.toLowerCase()}_${bookNum}_$chapter';
+    if (_liveChapterCache.containsKey(cacheKey)) {
+      return _liveChapterCache[cacheKey]!;
+    }
+
     if (_db == null) await initialize();
-    if (_db == null || !_db!.isOpen) return [];
-    return await _db!.query(
-      'verses',
-      where: 'version_id = ? AND book_name = ? AND chapter = ?',
-      whereArgs: [versionId, bookName, chapter],
-      orderBy: 'verse ASC',
-    );
+    if (_db != null && _db!.isOpen) {
+      final localRows = await _db!.query(
+        'verses',
+        where: 'LOWER(version_id) = ? AND (book_number = ? OR book_name = ?) AND chapter = ?',
+        whereArgs: [versionId.toLowerCase(), bookNum, bookName, chapter],
+        orderBy: 'verse ASC',
+      );
+      if (localRows.isNotEmpty) {
+        return localRows;
+      }
+      if (await hasVerses(versionId)) {
+        return const [];
+      }
+    }
+
+    // Fallback: Stream live from GitHub CDN (skip in unit tests with overrideDbPath)
+    if (overrideDbPath != null) {
+      return const [];
+    }
+    if (bookNum > 0) {
+      final urls = GitHubDataService.bibleChapterUrls(
+        versionId, bookNum, chapter,
+      );
+
+      final dio = Dio();
+      for (final url in urls) {
+        try {
+          final res = await dio.get<dynamic>(
+            url,
+            options: Options(
+              responseType: ResponseType.json,
+              receiveTimeout: const Duration(seconds: 10),
+            ),
+          );
+          if (res.statusCode == 200 && res.data != null) {
+            final dynamic rawData = res.data;
+            final List<dynamic> list = rawData is String
+                ? (jsonDecode(rawData) as List<dynamic>)
+                : (rawData as List<dynamic>);
+            final List<Map<String, dynamic>> results = [];
+            for (final item in list) {
+              if (item is Map) {
+                final verseNum = (item['verse'] as num?)?.toInt() ?? 1;
+                final text = (item['text'] as String?)?.trim() ?? '';
+                results.add({
+                  'version_id': versionId,
+                  'book_name': bookName,
+                  'book_number': bookNum,
+                  'chapter': chapter,
+                  'verse': verseNum,
+                  'text': text,
+                });
+              }
+            }
+            if (results.isNotEmpty) {
+              _liveChapterCache[cacheKey] = results;
+              _persistChapterVerses(versionId, results);
+              return results;
+            }
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+
+    return [];
+  }
+
+  Future<void> _persistChapterVerses(String versionId, List<Map<String, dynamic>> verses) async {
+    if (_db == null || !_db!.isOpen) return;
+    try {
+      final batch = _db!.batch();
+      for (final v in verses) {
+        batch.insert('verses', {
+          'version_id': versionId,
+          'book_number': v['book_number'] ?? 0,
+          'book_name': v['book_name'] ?? '',
+          'chapter': v['chapter'] ?? 0,
+          'verse': v['verse'] ?? 0,
+          'text': v['text'] ?? '',
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
+    } catch (_) {}
   }
 
   @override
   Future<List<List<int>>> getChapterVerseCounts(String versionId) async {
-    if (_db == null) await initialize();
-    if (_db == null || !_db!.isOpen) return [];
-    final results = await _db!.rawQuery(
-      'SELECT book_number, chapter, COUNT(*) AS row_count FROM verses '
-      'WHERE version_id = ? GROUP BY book_number, chapter '
-      'ORDER BY book_number, chapter',
-      [versionId],
-    );
-    if (results.isEmpty) return const [];
-    final books = bibleBooks.keys.toList();
-    final counts = <List<int>>[];
-    for (var bookNumber = 1; bookNumber <= books.length; bookNumber++) {
-      final chapters = <int>[];
-      for (final r in results.where((r) => r['book_number'] == bookNumber)) {
-        final chapter = r['chapter'] as int;
-        while (chapters.length < chapter - 1) {
-          chapters.add(0);
-        }
-        chapters.add((r['row_count'] as int?) ?? 0);
-      }
-      final maxChapters = bibleBooks[books[bookNumber - 1]] ?? 1;
-      while (chapters.length < maxChapters) {
-        chapters.add(0);
-      }
-      counts.add(List.unmodifiable(chapters));
+    final cacheKey = versionId.toLowerCase();
+    if (_liveCountsCache.containsKey(cacheKey)) {
+      return _liveCountsCache[cacheKey]!;
     }
-    return counts;
+
+    if (_db == null) await initialize();
+    if (_db != null && _db!.isOpen) {
+      final results = await _db!.rawQuery(
+        'SELECT book_number, chapter, COUNT(*) AS row_count FROM verses '
+        'WHERE LOWER(version_id) = ? GROUP BY book_number, chapter '
+        'ORDER BY book_number, chapter',
+        [versionId.toLowerCase()],
+      );
+      if (results.isNotEmpty) {
+        final books = bibleBooks.keys.toList();
+        final counts = <List<int>>[];
+        for (var bookNumber = 1; bookNumber <= books.length; bookNumber++) {
+          final chapters = <int>[];
+          for (final r in results.where((r) => r['book_number'] == bookNumber)) {
+            final chapter = r['chapter'] as int;
+            while (chapters.length < chapter - 1) {
+              chapters.add(0);
+            }
+            chapters.add((r['row_count'] as int?) ?? 0);
+          }
+          final maxChapters = bibleBooks[books[bookNumber - 1]] ?? 1;
+          while (chapters.length < maxChapters) {
+            chapters.add(0);
+          }
+          counts.add(List.unmodifiable(chapters));
+        }
+        _liveCountsCache[cacheKey] = counts;
+        return counts;
+      }
+      if (await hasVerses(versionId)) {
+        return const [];
+      }
+    }
+
+    // Fallback: Stream live counts from GitHub CDN (skip in unit tests with overrideDbPath)
+    if (overrideDbPath != null) {
+      return const [];
+    }
+    final urls = GitHubDataService.bibleCountsUrls(versionId);
+    final dio = Dio();
+    for (final url in urls) {
+      try {
+        final res = await dio.get<dynamic>(
+          url,
+          options: Options(
+            responseType: ResponseType.json,
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final dynamic rawData = res.data;
+          final List<dynamic> list = rawData is String
+              ? (jsonDecode(rawData) as List<dynamic>)
+              : (rawData as List<dynamic>);
+          final counts = list
+              .map((book) =>
+                  (book as List).map((c) => (c as num).toInt()).toList())
+              .toList();
+          if (counts.isNotEmpty) {
+            _liveCountsCache[cacheKey] = counts;
+            return counts;
+          }
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return const [];
   }
 
   @override
@@ -162,8 +301,8 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     final results = await _db!.query(
       'verses',
       columns: ['text'],
-      where: 'version_id = ? AND book_number = ? AND chapter = ? AND verse >= ? AND verse <= ?',
-      whereArgs: [versionId, bookNumber, chapter, startVerse, end],
+      where: 'LOWER(version_id) = ? AND book_number = ? AND chapter = ? AND verse >= ? AND verse <= ?',
+      whereArgs: [versionId.toLowerCase(), bookNumber, chapter, startVerse, end],
       orderBy: 'verse ASC',
     );
     if (results.isNotEmpty) {
@@ -196,8 +335,8 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
       final rows = await _db!.query(
         'verses',
         columns: ['book_number', 'chapter', 'verse', 'text'],
-        where: 'version_id = ? AND book_number = ? AND chapter = ? AND verse >= ? AND verse <= ?',
-        whereArgs: [versionId, book, chapter, minVerse, maxEnd],
+        where: 'LOWER(version_id) = ? AND book_number = ? AND chapter = ? AND verse >= ? AND verse <= ?',
+        whereArgs: [versionId.toLowerCase(), book, chapter, minVerse, maxEnd],
         orderBy: 'verse ASC',
       );
       final textsByVerse = <int, String>{};
@@ -228,8 +367,8 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     return _db!.query(
       'verses',
       columns: ['book_name', 'chapter', 'verse', 'text'],
-      where: 'version_id = ? AND text LIKE ?',
-      whereArgs: [versionId, like],
+      where: 'LOWER(version_id) = ? AND text LIKE ?',
+      whereArgs: [versionId.toLowerCase(), like],
       orderBy: 'book_number ASC, chapter ASC, verse ASC',
       limit: limit,
     );
@@ -238,7 +377,7 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
   @override
   Future<void> insertVerses(String versionId, List<Map<String, dynamic>> verses) async {
     if (_db == null) return;
-    await _db!.delete('verses', where: 'version_id = ?', whereArgs: [versionId]);
+    await _db!.delete('verses', where: 'LOWER(version_id) = ?', whereArgs: [versionId.toLowerCase()]);
     final batch = _db!.batch();
     for (final v in verses) {
       batch.insert('verses', {
@@ -276,8 +415,7 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
   Future<void> deleteVersion(String versionId) async {
     if (_db == null) await initialize();
     if (_db == null) return;
-    await _db!.delete('verses', where: 'version_id = ?', whereArgs: [versionId]);
-    await _db!.delete('installed_versions', where: 'id = ?', whereArgs: [versionId]);
+    await _db!.delete('verses', where: 'LOWER(version_id) = ?', whereArgs: [versionId.toLowerCase()]);
+    await _db!.delete('installed_versions', where: 'LOWER(id) = ?', whereArgs: [versionId.toLowerCase()]);
   }
-
 }

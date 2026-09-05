@@ -55,6 +55,23 @@ void main() {
               'Verse text for John 4:$v with multiple words to ensure it takes up significant vertical height in the list view so scrolling is measurable.',
         },
     ]);
+    await service.registerInstalledVersion(
+      id: 'TAOBVSI',
+      name: 'Tamil Old Version',
+      language: 'Tamil',
+      languageCode: 'ta',
+      sizeDisplay: '1.5 MB',
+    );
+    await service.insertVerses('TAOBVSI', [
+      for (var v = 1; v <= 30; v++)
+        {
+          'bookNumber': 43,
+          'bookName': 'John',
+          'chapter': 3,
+          'verse': v,
+          'text': 'யோவான் 3:$v தமிழ் வசனம் சோதனைக்காக எழுதப்பட்டது.',
+        },
+    ]);
   });
 
   tearDown(() async {
@@ -263,5 +280,55 @@ void main() {
     // Verify reader moved to Chapter 4.
     expect(controller.state.currentChapter, 4);
     expect(find.text('Chapter 4'), findsOneWidget);
+  });
+
+  testWidgets('Switching version changes chapter title to version language and loads verses', (tester) async {
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: 1,
+      saveProgress: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: const [AppTokens.dark]),
+        home: BibleScreen(controller: controller),
+      ),
+    );
+    controller.init();
+
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+
+    // In English (WEB), header displays 'Chapter 3'
+    expect(find.text('Chapter 3'), findsOneWidget);
+
+    // Switch version to Tamil (TAOBVSI)
+    final tamilVersion = controller.versions.firstWhere((v) => v.shortname == 'TAOBVSI');
+    await tester.runAsync(() async {
+      await controller.selectVersion(tamilVersion);
+    });
+
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+
+    // Verify chapter title updated to Tamil ('அதிகாரம் 3')
+    expect(controller.displayChapterTitle(3), 'அதிகாரம் 3');
+    expect(find.text('அதிகாரம் 3'), findsOneWidget);
+
+    // Verify Tamil verses rendered and not stuck on loader
+    expect(find.textContaining('தமிழ் வசனம்'), findsWidgets);
   });
 }

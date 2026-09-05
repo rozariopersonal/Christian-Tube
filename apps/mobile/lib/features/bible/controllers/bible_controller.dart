@@ -295,6 +295,45 @@ class BibleController extends ChangeNotifier {
   String displayBookName(String book) =>
       _bookNames.nameFor(_state.selectedVersion?.shortname ?? 'TAOBVSI', bookNumber(book));
 
+  String displayChapterTitle(int chapter) {
+    final v = _state.selectedVersion;
+    final lang = (v?.lang ?? '').toLowerCase();
+    final short = (v?.shortname ?? '').toLowerCase();
+
+    if (lang == 'ta' || lang == 'tam' || short.contains('taobvsi') || short.contains('tamil')) {
+      return 'அதிகாரம் $chapter';
+    } else if (lang == 'hi' || lang == 'hin' || short.contains('hin')) {
+      return 'अध्याय $chapter';
+    } else if (lang == 'te' || lang == 'tel' || short.contains('tel')) {
+      return 'అధ్యాయము $chapter';
+    } else if (lang == 'ml' || lang == 'mal' || short.contains('mal')) {
+      return 'അധ്യായം $chapter';
+    } else if (lang == 'kn' || lang == 'kan' || short.contains('kan')) {
+      return 'ಅಧ್ಯಾಯ $chapter';
+    } else if (lang == 'es' || lang == 'spa' || short.contains('sse') || short.contains('valera')) {
+      return 'Capítulo $chapter';
+    } else if (lang == 'pt' || lang == 'por') {
+      return 'Capítulo $chapter';
+    } else if (lang == 'fr' || lang == 'fra' || short.contains('martin')) {
+      return 'Chapitre $chapter';
+    } else if (lang == 'de' || lang == 'deu' || short.contains('elberfelder') || short.contains('luther')) {
+      return 'Kapitel $chapter';
+    } else if (lang == 'it' || lang == 'ita' || short.contains('diodati') || short.contains('riveduta')) {
+      return 'Capitolo $chapter';
+    } else if (lang == 'nl' || lang == 'nld' || short.contains('statenvertaling')) {
+      return 'Hoofdstuk $chapter';
+    } else if (lang == 'tl' || lang == 'tgl' || short.contains('tagalog')) {
+      return 'Kabanata $chapter';
+    } else if (lang == 'eo' || lang == 'epo' || short.contains('esperanto')) {
+      return 'Ĉapitro $chapter';
+    } else if (lang == 'pl' || lang == 'pol' || short.contains('polgdanska')) {
+      return 'Rozdział $chapter';
+    } else if (lang == 'ru' || lang == 'rus') {
+      return 'Глава $chapter';
+    }
+    return 'Chapter $chapter';
+  }
+
   // ── Lifecycle ──────────────────────────────────────────────────────────
 
   Future<void> init() async {
@@ -652,7 +691,16 @@ class BibleController extends ChangeNotifier {
       _update((s) => s.copyWith(selectedVersion: version));
       return;
     }
-    _update((s) => s.copyWith(selectedVersion: version));
+    _scrollTarget = BibleScrollTarget(
+      book: _currentBook,
+      chapter: _currentChapter,
+      verse: _state.highlightedVerse ?? 1,
+      highlight: false,
+    );
+    _update((s) => s.copyWith(
+          selectedVersion: version,
+          isLoading: true,
+        ));
     await _loadChapter();
   }
 
