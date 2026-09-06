@@ -31,6 +31,9 @@ dependencies:
   # Media & YouTube Streaming
   video_player: ^2.8.6
   youtube_explode_dart: ^2.2.1
+  just_audio: ^0.10.6
+  audio_session: ^0.2.4
+
   # Authentication & Storage
   google_sign_in: ^6.2.1
   sqflite: ^2.3.3+1
@@ -53,7 +56,6 @@ dependencies:
   flutter_inappwebview: ^6.0.0
   open_filex: ^4.7.0
   scrollable_positioned_list: ^0.3.8
-  just_audio: ^0.10.6
 
 dev_dependencies:
   flutter_test:

@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/audio_track.dart';
 
 /// Wraps the underlying [AudioPlayer] engine and handles streaming,
-/// fallback URLs, and audio session events.
+/// disk caching via [LockCachingAudioSource], fallback URLs, and audio session events.
 class AudioPlaybackService {
   final AudioPlayer _player;
+  bool _isSessionConfigured = false;
 
   AudioPlaybackService({AudioPlayer? player}) : _player = player ?? AudioPlayer();
 
@@ -20,30 +23,76 @@ class AudioPlaybackService {
   Duration get bufferedPosition => _player.bufferedPosition;
   bool get isPlaying => _player.playing;
 
-  /// Loads and prepares an [AudioTrack] for playback.
+  /// Ensures native audio session is properly configured for speech/music background playback.
+  Future<void> _ensureAudioSession() async {
+    if (_isSessionConfigured || kIsWeb) return;
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.speech());
+      _isSessionConfigured = true;
+    } catch (_) {
+      // Ignored if unsupported on current test environment
+    }
+  }
+
+  /// Loads and prepares an [AudioTrack] for streaming with local chunk caching.
   /// If the primary [audioUrl] fails, automatically attempts [fallbackUrl].
   Future<Duration?> loadTrack(AudioTrack track, {int initialPositionSec = 0}) async {
-    try {
-      final initialPosition = initialPositionSec > 0
-          ? Duration(seconds: initialPositionSec)
-          : Duration.zero;
+    await _ensureAudioSession();
 
-      final duration = await _player.setUrl(
-        track.audioUrl,
+    final initialPosition = initialPositionSec > 0
+        ? Duration(seconds: initialPositionSec)
+        : Duration.zero;
+
+    // Headers to guarantee Cloudflare CDN byte-range and cache support
+    final headers = {'User-Agent': 'ChristianTube/1.32'};
+
+    try {
+      // On non-web platforms, LockCachingAudioSource writes chunks to disk as they stream.
+      // On web or environments where file cache is unavailable, standard AudioSource is used.
+      AudioSource source;
+      if (!kIsWeb) {
+        source = LockCachingAudioSource(
+          Uri.parse(track.audioUrl),
+          headers: headers,
+        );
+      } else {
+        source = AudioSource.uri(
+          Uri.parse(track.audioUrl),
+          headers: headers,
+        );
+      }
+
+      final duration = await _player.setAudioSource(
+        source,
         initialPosition: initialPosition,
       );
       return duration;
     } catch (e) {
+      // Fallback URL retry
       if (track.fallbackUrl != null && track.fallbackUrl!.isNotEmpty) {
-        final initialPosition = initialPositionSec > 0
-            ? Duration(seconds: initialPositionSec)
-            : Duration.zero;
+        try {
+          AudioSource fallbackSource;
+          if (!kIsWeb) {
+            fallbackSource = LockCachingAudioSource(
+              Uri.parse(track.fallbackUrl!),
+              headers: headers,
+            );
+          } else {
+            fallbackSource = AudioSource.uri(
+              Uri.parse(track.fallbackUrl!),
+              headers: headers,
+            );
+          }
 
-        final duration = await _player.setUrl(
-          track.fallbackUrl!,
-          initialPosition: initialPosition,
-        );
-        return duration;
+          final duration = await _player.setAudioSource(
+            fallbackSource,
+            initialPosition: initialPosition,
+          );
+          return duration;
+        } catch (_) {
+          rethrow;
+        }
       }
       rethrow;
     }

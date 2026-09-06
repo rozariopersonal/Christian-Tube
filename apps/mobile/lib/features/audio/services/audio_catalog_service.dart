@@ -105,9 +105,8 @@ class AudioCatalogService {
       speaker: 'Zac Poonen',
       durationSeconds: 3130,
       audioUrl:
-          'https://www.cfcindia.org/resources/en/sermon-series/through-the-bible/01_Genesis_01.mp3',
-      fallbackUrl:
-          'https://github.com/rozariopersonal/Christian-Tube-Releases/releases/download/audio-ttb-v1/01_Genesis_01.mp3',
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/01-genesis-1.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
       scriptureBook: 'GEN',
       scriptureChapter: 1,
     ),
@@ -119,53 +118,49 @@ class AudioCatalogService {
       speaker: 'Zac Poonen',
       durationSeconds: 3205,
       audioUrl:
-          'https://www.cfcindia.org/resources/en/sermon-series/through-the-bible/02_Genesis_02.mp3',
-      fallbackUrl:
-          'https://github.com/rozariopersonal/Christian-Tube-Releases/releases/download/audio-ttb-v1/02_Genesis_02.mp3',
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/02-genesis-2.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
       scriptureBook: 'GEN',
       scriptureChapter: 12,
     ),
     const AudioTrack(
-      id: 'ttb_03_exodus',
-      title: 'Exodus: Deliverance & The Tabernacle',
+      id: 'ttb_03_genesis_03',
+      title: 'Genesis - Part 3: Isaac, Jacob & Joseph',
+      seriesId: 'through_the_bible',
+      seriesTitle: 'Through The Bible',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3180,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/03-genesis-3.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
+      scriptureBook: 'GEN',
+      scriptureChapter: 37,
+    ),
+    const AudioTrack(
+      id: 'ttb_04_exodus_01',
+      title: 'Exodus - Part 1: Deliverance from Egypt',
       seriesId: 'through_the_bible',
       seriesTitle: 'Through The Bible',
       speaker: 'Zac Poonen',
       durationSeconds: 3150,
       audioUrl:
-          'https://www.cfcindia.org/resources/en/sermon-series/through-the-bible/03_Exodus.mp3',
-      fallbackUrl:
-          'https://github.com/rozariopersonal/Christian-Tube-Releases/releases/download/audio-ttb-v1/03_Exodus.mp3',
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/04-exodus-1.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
       scriptureBook: 'EXO',
       scriptureChapter: 1,
     ),
     const AudioTrack(
-      id: 'ttb_40_matthew',
-      title: 'Matthew: The King & His Kingdom',
+      id: 'ttb_05_exodus_02',
+      title: 'Exodus - Part 2: The Law & The Tabernacle',
       seriesId: 'through_the_bible',
       seriesTitle: 'Through The Bible',
       speaker: 'Zac Poonen',
-      durationSeconds: 3340,
+      durationSeconds: 3220,
       audioUrl:
-          'https://www.cfcindia.org/resources/en/sermon-series/through-the-bible/40_Matthew.mp3',
-      fallbackUrl:
-          'https://github.com/rozariopersonal/Christian-Tube-Releases/releases/download/audio-ttb-v1/40_Matthew.mp3',
-      scriptureBook: 'MAT',
-      scriptureChapter: 5,
-    ),
-    const AudioTrack(
-      id: 'ttb_45_romans',
-      title: 'Romans: The Righteousness of God',
-      seriesId: 'through_the_bible',
-      seriesTitle: 'Through The Bible',
-      speaker: 'Zac Poonen',
-      durationSeconds: 3290,
-      audioUrl:
-          'https://www.cfcindia.org/resources/en/sermon-series/through-the-bible/45_Romans.mp3',
-      fallbackUrl:
-          'https://github.com/rozariopersonal/Christian-Tube-Releases/releases/download/audio-ttb-v1/45_Romans.mp3',
-      scriptureBook: 'ROM',
-      scriptureChapter: 8,
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/05-exodus-2.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
+      scriptureBook: 'EXO',
+      scriptureChapter: 25,
     ),
   ];
 
