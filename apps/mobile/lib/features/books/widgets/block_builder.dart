@@ -1,5 +1,7 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
@@ -8,15 +10,18 @@ import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'formatted_paragraph.dart';
 
 /// Renders a single structural [BookRenderBlock] (paragraph, heading,
-/// blockquote, chapter header) into its widget tree.
+/// blockquote, chapter header, scanned-page image) into its widget tree.
 ///
 /// Pure presentational component: it takes everything it needs as constructor
 /// parameters and owns no state. Callers provide a key resolver (for the block's
 /// GlobalKey used in position tracking), an optional highlight line range, and a
-/// recognizer factory for inline scripture references.
+/// recognizer factory for inline scripture references. Scanned-image pages
+/// ([BookLine] with `contentType == 'img'`) resolve their URL via
+/// [GitHubDataService.bookPageImageUrl] using the caller-supplied [bookId].
 class BookBlockWidget extends StatelessWidget {
   final BookRenderBlock block;
   final int pageNum;
+  final String bookId;
   final Color textColor;
   final AppTokens tokens;
   final ReaderAppearance appearance;
@@ -30,6 +35,7 @@ class BookBlockWidget extends StatelessWidget {
     super.key,
     required this.block,
     required this.pageNum,
+    required this.bookId,
     required this.textColor,
     required this.tokens,
     required this.appearance,
@@ -48,6 +54,50 @@ class BookBlockWidget extends StatelessWidget {
       appearance,
       highlightCache,
       makeRecognizer: makeRecognizer,
+    );
+  }
+
+  Widget _buildPageImage(String fileName) {
+    final url = GitHubDataService.bookPageImageUrl(bookId, fileName);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
+            fadeInDuration: const Duration(milliseconds: 120),
+            placeholder: (context, _) => SizedBox(
+              height: 160,
+              child: Center(
+                child: SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(
+                    color: tokens.accent,
+                    strokeWidth: 2.5,
+                  ),
+                ),
+              ),
+            ),
+            errorWidget: (context, _, __) => Container(
+              height: 120,
+              decoration: BoxDecoration(
+                color: tokens.surfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  'Page image unavailable',
+                  style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -182,6 +232,10 @@ class BookBlockWidget extends StatelessWidget {
             ),
           ),
         );
+        break;
+
+      case 'img':
+        content = _buildPageImage(block.text);
         break;
 
       case 'p':

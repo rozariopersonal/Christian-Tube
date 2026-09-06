@@ -285,6 +285,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     return BookBlockWidget(
       block: block,
       pageNum: pageNum,
+      bookId: _controller.state.book?.id ?? '',
       textColor: textColor,
       tokens: tokens,
       appearance: appearance,

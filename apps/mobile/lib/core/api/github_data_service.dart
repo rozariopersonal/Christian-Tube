@@ -102,7 +102,7 @@ class GitHubDataService {
     return urls;
   }
 
-  /// Chapter content lines for one book (checks language folder first, then flat).
+/// Chapter content lines for one book (checks language folder first, then flat).
   static List<String> bookChapterUrls(String bookId, int chapterIndex,
           {String? langCode}) {
     final lang = _inferBookLanguage(bookId, langCode);
@@ -117,6 +117,25 @@ class GitHubDataService {
         'books/en/$bookId/chapters/$chapterIndex.json'));
     return urls;
   }
+
+  /// Scanned page image for an image-based book (checks language folder first,
+  /// then flat). Page files live under `books/{lang}/{bookId}/pages/`.
+  static List<String> bookPageImageUrls(String bookId, String fileName,
+      {String? langCode}) {
+    final lang = _inferBookLanguage(bookId, langCode);
+    final urls = <String>[];
+    if (lang != 'en') {
+      urls.addAll(
+          ReleaseAssets.urlsFor('books/$lang/$bookId/pages/$fileName'));
+    }
+    urls.addAll(ReleaseAssets.urlsFor('books/$bookId/pages/$fileName'));
+    urls.addAll(ReleaseAssets.urlsFor('books/en/$bookId/pages/$fileName'));
+    return urls;
+  }
+
+  /// Primary scanned page image URL for cached network loading.
+  static String bookPageImageUrl(String bookId, String fileName) =>
+      bookPageImageUrls(bookId, fileName).first;
 
   /// Per-book SQLite package (individual offline download).
   static List<String> bookSqliteUrls(String bookId, {String? langCode}) {

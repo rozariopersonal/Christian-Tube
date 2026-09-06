@@ -1,5 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
 import 'package:mobile/features/books/models/book_line.dart';
@@ -169,6 +171,47 @@ class BookLineItem extends StatelessWidget {
               fontSize: appearance.fontSize,
               height: appearance.lineHeight,
               fontFamily: appearance.useSerifFont ? 'serif' : null,
+            ),
+          ),
+        );
+
+      case 'img':
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: CachedNetworkImage(
+              imageUrl: GitHubDataService.bookPageImageUrl(
+                  line.bookId, line.text.trim()),
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+              fadeInDuration: const Duration(milliseconds: 120),
+              placeholder: (context, _) => Container(
+                height: 160,
+                color: tokens.surfaceVariant.withValues(alpha: 0.3),
+                child: Center(
+                  child: SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      color: tokens.accent,
+                      strokeWidth: 2.5,
+                    ),
+                  ),
+                ),
+              ),
+              errorWidget: (context, _, __) => Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: tokens.surfaceVariant.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    'Page image unavailable',
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                  ),
+                ),
+              ),
             ),
           ),
         );

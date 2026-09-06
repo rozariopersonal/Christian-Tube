@@ -33,16 +33,25 @@ class BookParagraphGrouper {
   static final _chapStripRegex = RegExp(r'^Chapter\s+\d+\s*', caseSensitive: false);
 
   /// Classifies a single [line] into the block type its own content type group
-/// opens in continuous-scroll mode, where every source line is rendered
-/// independently. Only explicit markers are honored: structure-preserving
-/// heuristics like the numbered/short-title detection in [groupLines] are
-/// context-sensitive and would mis-classify plain paragraph lines as headings
-/// when applied per line.
-static BookRenderBlock blockFromLine(BookLine line) {
-  final text = line.text.trim();
+  /// opens in continuous-scroll mode, where every source line is rendered
+  /// independently. Only explicit markers are honored: structure-preserving
+  /// heuristics like the numbered/short-title detection in [groupLines] are
+  /// context-sensitive and would mis-classify plain paragraph lines as headings
+  /// when applied per line.
+  static BookRenderBlock blockFromLine(BookLine line) {
+    final text = line.text.trim();
 
-  final isChapHeader = line.contentType == 'chapter_header' ||
-      (line.contentType == 'p' && _chapRegex.hasMatch(text) && text.length < 80);
+    if (line.contentType == 'img') {
+      return BookRenderBlock(
+        type: 'img',
+        text: text,
+        startLine: line.lineNumber,
+        endLine: line.lineNumber,
+      );
+    }
+
+    final isChapHeader = line.contentType == 'chapter_header' ||
+        (line.contentType == 'p' && _chapRegex.hasMatch(text) && text.length < 80);
   if (isChapHeader) {
     final match = _chapMatchRegex.firstMatch(text);
     final badge = match?.group(1)?.trim();
@@ -125,6 +134,19 @@ static List<BookRenderBlock> groupLines(List<BookLine> lines) {
       final line = lines[i];
       final text = line.text.trim();
       if (text.isEmpty) continue;
+
+      // 0. Image page (scanned book) — standalone full-page image, never
+      // accumulated into a text paragraph.
+      if (line.contentType == 'img') {
+        flushParagraph();
+        blocks.add(BookRenderBlock(
+          type: 'img',
+          text: text,
+          startLine: line.lineNumber,
+          endLine: line.lineNumber,
+        ));
+        continue;
+      }
 
       // 1. Chapter Header
       final isChapHeader = line.contentType == 'chapter_header' ||

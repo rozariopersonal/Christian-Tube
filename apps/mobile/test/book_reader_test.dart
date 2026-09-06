@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
@@ -10,6 +11,7 @@ import 'package:mobile/features/books/models/user_reading_progress.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/books/widgets/book_card.dart';
+import 'package:mobile/features/books/widgets/block_builder.dart';
 import 'package:mobile/features/books/widgets/book_cover_fallback.dart';
 import 'package:mobile/features/books/widgets/book_toc_sheet.dart';
 import 'package:mobile/features/dictionary/models/dictionary_entry.dart';
@@ -17,6 +19,7 @@ import 'package:mobile/features/dictionary/services/dictionary_service.dart';
 import 'package:mobile/features/books/screens/book_reader_screen.dart';
 import 'package:mobile/features/books/widgets/reader_navigation_bar.dart';
 import 'package:mobile/features/books/services/book_service.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -292,6 +295,107 @@ void main() {
       expect(blocks[1].text, '(IV) The Fourth Principle');
       expect(blocks[2].type, 'p');
     });
+
+    test('BookParagraphGrouper keeps scanned-page images as standalone img blocks', () {
+      const lines = [
+        BookLine(
+          bookId: 'ta_pilgrims_progress',
+          pageNumber: 1,
+          lineNumber: 1,
+          chapterIndex: 1,
+          contentType: 'img',
+          text: 'p1.jpg',
+        ),
+        BookLine(
+          bookId: 'ta_pilgrims_progress',
+          pageNumber: 2,
+          lineNumber: 2,
+          chapterIndex: 1,
+          contentType: 'img',
+          text: 'p2.png',
+        ),
+        BookLine(
+          bookId: 'ta_pilgrims_progress',
+          pageNumber: 3,
+          lineNumber: 3,
+          chapterIndex: 1,
+          contentType: 'img',
+          text: 'p3.jpg',
+        ),
+      ];
+
+      final blocks = BookParagraphGrouper.groupLines(lines);
+      expect(blocks.length, 3);
+      for (final b in blocks) {
+        expect(b.type, 'img');
+      }
+      expect(blocks[0].text, 'p1.jpg');
+      expect(blocks[0].startLine, 1);
+      expect(blocks[0].endLine, 1);
+      expect(blocks[2].text, 'p3.jpg');
+    });
+
+    test('BookParagraphGrouper separates img block from adjacent text paragraphs', () {
+      const lines = [
+        BookLine(
+          bookId: 'mixed_book',
+          pageNumber: 1,
+          lineNumber: 1,
+          chapterIndex: 1,
+          contentType: 'p',
+          text: 'Intro paragraph before the image.',
+        ),
+        BookLine(
+          bookId: 'mixed_book',
+          pageNumber: 1,
+          lineNumber: 2,
+          chapterIndex: 1,
+          contentType: 'img',
+          text: 'p1.jpg',
+        ),
+        BookLine(
+          bookId: 'mixed_book',
+          pageNumber: 1,
+          lineNumber: 3,
+          chapterIndex: 1,
+          contentType: 'p',
+          text: 'Follow-up paragraph after the image.',
+        ),
+      ];
+
+      final blocks = BookParagraphGrouper.groupLines(lines);
+      expect(blocks.length, 3);
+      expect(blocks[0].type, 'p');
+      expect(blocks[1].type, 'img');
+      expect(blocks[1].text, 'p1.jpg');
+      expect(blocks[2].type, 'p');
+      expect(blocks[2].text, 'Follow-up paragraph after the image.');
+    });
+
+    test('BookParagraphGrouper.blockFromLine classifies img lines', () {
+      const line = BookLine(
+        bookId: 'ta_daily_devotion',
+        pageNumber: 40,
+        lineNumber: 40,
+        chapterIndex: 2,
+        contentType: 'img',
+        text: 'p40.jpg',
+      );
+      final block = BookParagraphGrouper.blockFromLine(line);
+      expect(block.type, 'img');
+      expect(block.text, 'p40.jpg');
+      expect(block.startLine, 40);
+      expect(block.endLine, 40);
+
+      expect(BookParagraphGrouper.isParagraphBreakBetween(const BookLine(
+        bookId: 'x',
+        pageNumber: 1,
+        lineNumber: 1,
+        chapterIndex: 1,
+        contentType: 'p',
+        text: 'Some prose.',
+      ), line), isTrue);
+    });
   });
 
   group('Book Widgets Adaptive UI Tests (AGENTS.md)', () {
@@ -330,6 +434,48 @@ void main() {
 
         expect(find.text('Beauty For Ashes'), findsOneWidget);
         expect(find.text('Zac Poonen'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    });
+
+    testWidgets('BookBlockWidget renders scanned-page img blocks without overflow at all breakpoints', (tester) async {
+      const block = BookRenderBlock(
+        type: 'img',
+        text: 'p1.jpg',
+        startLine: 1,
+        endLine: 1,
+      );
+      TapGestureRecognizer stubRecognizer(dynamic _, String __) =>
+          TapGestureRecognizer();
+
+      for (final width in [320.0, 600.0, 840.0, 1400.0]) {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          buildFrame(
+            BookBlockWidget(
+              block: block,
+              pageNum: 1,
+              bookId: 'ta_pilgrims_progress',
+              textColor: Colors.white,
+              tokens: AppTokens.dark,
+              appearance: ReaderAppearance(),
+              highlightStartLine: null,
+              highlightEndLine: null,
+              highlightCache: const [],
+              resolveBlockKey: (page, line) => ValueKey('b-$page-$line'),
+              makeRecognizer: stubRecognizer,
+            ),
+            size: Size(width, 800),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 150));
+        await tester.pump(const Duration(milliseconds: 150));
+        await tester.pump(const Duration(milliseconds: 150));
+
+        expect(find.byType(BookBlockWidget), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
     });
