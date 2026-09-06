@@ -26,13 +26,31 @@ class MainLayoutScreen extends StatefulWidget {
   State<MainLayoutScreen> createState() => _MainLayoutScreenState();
 }
 
-class _MainLayoutScreenState extends State<MainLayoutScreen> {
+class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBindingObserver {
   int _lastSelectedTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkAutoUpdate();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      AudioPlayerController.instance.flushPlayback();
+    } else if (state == AppLifecycleState.resumed) {
+      AudioPlayerController.instance.syncWithCloud();
+    }
   }
 
   Future<void> _checkAutoUpdate() async {

@@ -12,6 +12,20 @@ export class UsersController {
     return this.usersService.syncUser(body);
   }
 
+  @Post('playback')
+  async savePlayback(@Body() body: any) {
+    return this.usersService.savePlayback(body);
+  }
+
+  @Get('playback')
+  async getPlayback(
+    @Query('email') email?: string,
+    @Query('userId') userId?: string,
+    @Query('mediaType') mediaType?: string,
+  ) {
+    return this.usersService.getPlayback({ email, userId, mediaType });
+  }
+
   @Get()
   async getUsers(@Query('search') search?: string) {
     return this.usersService.findAll({ search });

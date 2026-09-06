@@ -33,12 +33,18 @@ if (Test-Path $IconSrc) {
 
     # Mipmap icons
     $ResDir = Join-Path $RootDir "apps\mobile\android\app\src\main\res"
-    @('mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi') | ForEach-Object {
-        $TargetDir = Join-Path $ResDir $_
-        New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
-        Copy-Item -Path $IconSrc -Destination (Join-Path $TargetDir "ic_launcher.png") -Force
+    try {
+        $PythonCode = "import os, sys; from PIL import Image; src = sys.argv[1]; res = sys.argv[2]; img = Image.open(src).convert('RGBA'); sizes = {'mipmap-mdpi': 48, 'mipmap-hdpi': 72, 'mipmap-xhdpi': 96, 'mipmap-xxhdpi': 144, 'mipmap-xxxhdpi': 192}; [os.makedirs(os.path.join(res, f), exist_ok=True) or (lambda s: (lambda c, r, x, y: (c.paste(r, (x, y), r), c.save(os.path.join(res, f, 'ic_launcher.png'), 'PNG')))(Image.new('RGBA', (s, s), (0,0,0,0)), img.resize((max(1, int(img.width * min(s*0.84/img.width, s*0.84/img.height))), max(1, int(img.height * min(s*0.84/img.width, s*0.84/img.height)))), Image.Resampling.LANCZOS), (s - max(1, int(img.width * min(s*0.84/img.width, s*0.84/img.height))))//2, (s - max(1, int(img.height * min(s*0.84/img.width, s*0.84/img.height))))//2))(sz) for f, sz in sizes.items()]"
+        python -c "$PythonCode" "$IconSrc" "$ResDir"
+        Write-Host "✅ Generated resized Android launcher icons (48x48 to 192x192)"
+    } catch {
+        @('mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi') | ForEach-Object {
+            $TargetDir = Join-Path $ResDir $_
+            New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
+            Copy-Item -Path $IconSrc -Destination (Join-Path $TargetDir "ic_launcher.png") -Force
+        }
+        Write-Host "✅ Synced Android launcher icons across all mipmap densities"
     }
-    Write-Host "✅ Synced Android launcher icons across all mipmap densities"
 }
 
 # 3. Update build.gradle applicationId

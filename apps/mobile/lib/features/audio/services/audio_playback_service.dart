@@ -22,6 +22,8 @@ class AudioPlaybackService {
   Duration get duration => _player.duration ?? Duration.zero;
   Duration get bufferedPosition => _player.bufferedPosition;
   bool get isPlaying => _player.playing;
+  PlayerState get playerState => _player.playerState;
+  ProcessingState get processingState => _player.processingState;
 
   /// Ensures native audio session is properly configured for speech/music background playback.
   Future<void> _ensureAudioSession() async {

@@ -60,6 +60,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isDisliked = false;
 
   double _currentPositionSeconds = 0.0;
+  double? _restoredStartSeconds;
+  Timer? _positionSaveTimer;
 
   /// App-level fullscreen toggle.
   bool _isFullScreen = false;
@@ -97,6 +99,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     if (_video != null) {
       UserService().addToHistory(_video!);
+    }
+
+    if (widget.startSeconds == null) {
+      UserService().getVideoPosition(_activeVideoId).then((saved) {
+        if (mounted && saved > 5) {
+          setState(() {
+            _restoredStartSeconds = saved;
+          });
+        }
+      });
     }
 
     _channelService.loadSubscriptions();
@@ -258,6 +270,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _positionSaveTimer?.cancel();
+    if (_currentPositionSeconds > 0) {
+      UserService().saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+    }
     for (final timer in _resumeTimers) {
       timer.cancel();
     }
@@ -303,7 +319,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
-      startSeconds: widget.startSeconds,
+      startSeconds: widget.startSeconds ?? _restoredStartSeconds,
       isFullScreen: isFullscreen,
       onToggleFullScreen: () {
         if (_isFullScreen || isPhoneLandscape) {
@@ -329,6 +345,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       },
       onPositionChanged: (pos) {
         _currentPositionSeconds = pos.inMilliseconds / 1000.0;
+        _positionSaveTimer?.cancel();
+        _positionSaveTimer = Timer(const Duration(seconds: 4), () {
+          if (_currentPositionSeconds > 0) {
+            UserService().saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+          }
+        });
       },
       builder: (context, player) {
         if (isFullscreen) {

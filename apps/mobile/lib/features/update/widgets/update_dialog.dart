@@ -208,6 +208,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                                 'assets/logo.png',
                                 width: 44,
                                 height: 44,
+                                fit: BoxFit.contain,
                                 errorBuilder: (ctx, _, __) => Icon(
                                   Icons.rocket_launch_rounded,
                                   color: Theme.of(context).colorScheme.onPrimary,

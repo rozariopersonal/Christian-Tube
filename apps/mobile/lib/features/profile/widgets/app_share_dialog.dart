@@ -244,17 +244,14 @@ class _AppShareDialogState extends State<AppShareDialog> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.asset(
-                            'assets/logo.png',
-                            height: 28,
-                            width: 28,
-                            errorBuilder: (_, __, ___) => Icon(
-                              Icons.play_circle_fill,
-                              color: theme.colorScheme.primary,
-                              size: 28,
-                            ),
+                        Image.asset(
+                          'assets/logo.png',
+                          height: 30,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Icon(
+                            Icons.menu_book_rounded,
+                            color: theme.colorScheme.primary,
+                            size: 28,
                           ),
                         ),
                         const SizedBox(width: 8),

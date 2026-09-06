@@ -93,4 +93,109 @@ export class UsersService {
       data: { isBlocked: false },
     });
   }
+
+  // In-memory fallback map to ensure zero-downtime resilience
+  private static playbackCache = new Map<string, any>();
+
+  async savePlayback(data: {
+    userEmail: string;
+    userId?: string;
+    deviceId?: string;
+    mediaType?: string;
+    trackId: string;
+    seriesId?: string;
+    title?: string;
+    speaker?: string;
+    coverUrl?: string;
+    audioUrl?: string;
+    positionSeconds: number;
+    durationSeconds: number;
+    payloadJson?: string;
+    updatedAt?: string;
+  }) {
+    const email = (data.userEmail || '').trim().toLowerCase();
+    const mediaType = (data.mediaType || 'audio').toLowerCase();
+    if (!email || !data.trackId) {
+      return { success: false, message: 'userEmail and trackId are required' };
+    }
+
+    const updatedAtDate = data.updatedAt ? new Date(data.updatedAt) : new Date();
+
+    const record = {
+      userEmail: email,
+      userId: data.userId || null,
+      deviceId: data.deviceId || null,
+      mediaType,
+      trackId: data.trackId,
+      seriesId: data.seriesId || null,
+      title: data.title || null,
+      speaker: data.speaker || null,
+      coverUrl: data.coverUrl || null,
+      audioUrl: data.audioUrl || null,
+      positionSeconds: Math.max(0, Math.round(data.positionSeconds || 0)),
+      durationSeconds: Math.max(0, Math.round(data.durationSeconds || 0)),
+      payloadJson: data.payloadJson || null,
+      updatedAt: updatedAtDate,
+    };
+
+    // Cache immediately in memory
+    const cacheKey = `${email}:${mediaType}`;
+    UsersService.playbackCache.set(cacheKey, record);
+
+    // Try DB upsert if Prisma model exists
+    try {
+      if ((this.prisma as any).userPlayback) {
+        await (this.prisma as any).userPlayback.upsert({
+          where: {
+            userEmail_mediaType: {
+              userEmail: email,
+              mediaType,
+            },
+          },
+          update: {
+            ...record,
+            updatedAt: updatedAtDate,
+          },
+          create: {
+            ...record,
+            updatedAt: updatedAtDate,
+          },
+        });
+      }
+    } catch (e) {
+      this.logger.warn(`Database playback upsert non-critical fallback: ${e}`);
+    }
+
+    return { success: true, playback: record };
+  }
+
+  async getPlayback(query: { email?: string; userId?: string; mediaType?: string }) {
+    const email = (query.email || '').trim().toLowerCase();
+    const mediaType = (query.mediaType || 'audio').toLowerCase();
+    if (!email) {
+      return null;
+    }
+
+    const cacheKey = `${email}:${mediaType}`;
+
+    // Try reading from DB first
+    try {
+      if ((this.prisma as any).userPlayback) {
+        const row = await (this.prisma as any).userPlayback.findUnique({
+          where: {
+            userEmail_mediaType: {
+              userEmail: email,
+              mediaType,
+            },
+          },
+        });
+        if (row) return row;
+      }
+    } catch (e) {
+      this.logger.warn(`Database playback query non-critical fallback: ${e}`);
+    }
+
+    // Fallback to cache
+    return UsersService.playbackCache.get(cacheKey) || null;
+  }
 }

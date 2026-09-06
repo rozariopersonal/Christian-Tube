@@ -97,7 +97,7 @@ class FullAudioPlayerSheet extends StatelessWidget {
                               color: tokens.surfaceVariant,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: tokens.scrim.withValues(alpha: 0.3),
                                   blurRadius: 18,
                                   offset: const Offset(0, 8),
                                 ),
@@ -342,16 +342,17 @@ class FullAudioPlayerSheet extends StatelessWidget {
       child: Icon(
         Icons.headphones,
         size: 80,
-        color: theme.colorScheme.primary.withOpacity(0.5),
+        color: theme.colorScheme.primary.withValues(alpha: 0.5),
       ),
     );
   }
 
   void _showSleepTimerDialog(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>();
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: tokens?.background ?? Colors.black,
+      backgroundColor: tokens?.background ?? theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

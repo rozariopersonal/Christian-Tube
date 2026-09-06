@@ -56,6 +56,28 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
   void initState() {
     super.initState();
     _loadData();
+    AudioPlayerController.instance.addListener(_onPlayerStateChanged);
+  }
+
+  @override
+  void dispose() {
+    AudioPlayerController.instance.removeListener(_onPlayerStateChanged);
+    super.dispose();
+  }
+
+  void _onPlayerStateChanged() {
+    final state = AudioPlayerController.instance.state;
+    if (state.currentTrack != null) {
+      if (_lastPlayedTrack?.id != state.currentTrack!.id ||
+          (_lastPlayedSeconds - state.position.inSeconds).abs() > 2) {
+        if (mounted) {
+          setState(() {
+            _lastPlayedTrack = state.currentTrack;
+            _lastPlayedSeconds = state.position.inSeconds;
+          });
+        }
+      }
+    }
   }
 
   bool get _isAllLanguagesSelected =>
@@ -63,6 +85,9 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       _selectedLanguages.any((l) => l.toLowerCase() == 'all');
 
   Future<void> _loadData({bool forceRefresh = false}) async {
+    // Check cloud for playback updates across devices in background
+    AudioPlayerController.instance.syncWithCloud();
+
     final catalog = await _catalogService.getCatalog(forceRefresh: forceRefresh);
     final lastTrack = await _storageService.getLastTrack();
     int lastSec = 0;
@@ -379,8 +404,12 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
     ThemeData theme,
   ) {
     final track = _lastPlayedTrack!;
+    final state = AudioPlayerController.instance.state;
+    final isCurrent = state.currentTrack?.id == track.id;
+    final isPlaying = isCurrent && state.isPlaying;
+    final currentSeconds = isCurrent ? state.position.inSeconds : _lastPlayedSeconds;
     final progress = track.durationSeconds > 0
-        ? (_lastPlayedSeconds / track.durationSeconds).clamp(0.0, 1.0)
+        ? (currentSeconds / track.durationSeconds).clamp(0.0, 1.0)
         : 0.0;
     final percent = (progress * 100).round();
 
@@ -456,12 +485,26 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
             const SizedBox(width: 12),
             FilledButton.tonal(
               onPressed: () {
-                AudioPlayerController.instance.playTrack(
-                  track,
-                  resumePositionSec: _lastPlayedSeconds,
-                );
+                if (isCurrent) {
+                  AudioPlayerController.instance.togglePlayPause();
+                } else {
+                  AudioPlayerController.instance.playTrack(
+                    track,
+                    resumePositionSec: _lastPlayedSeconds,
+                  );
+                }
               },
-              child: Text(percent > 0 ? '$percent%' : 'Resume'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPlaying ? Icons.pause : Icons.play_arrow,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(isPlaying ? 'Pause' : (percent > 0 ? '$percent%' : 'Resume')),
+                ],
+              ),
             ),
           ],
         ),

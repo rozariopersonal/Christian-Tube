@@ -189,4 +189,43 @@ class UserService extends ChangeNotifier {
     } catch (_) {}
     return false;
   }
+
+  static const String _videoPositionPrefix = 'video_playhead_';
+
+  /// Saves the last known playback position in seconds for [videoId].
+  Future<void> saveVideoPosition(String videoId, double seconds) async {
+    if (videoId.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('$_videoPositionPrefix$videoId', seconds);
+
+      // Best-effort sync with backend if online
+      final userJson = prefs.getString('current_user');
+      String? email;
+      if (userJson != null && userJson.isNotEmpty) {
+        try {
+          email = jsonDecode(userJson)['email'] as String?;
+        } catch (_) {}
+      }
+
+      await _apiClient.dio.post('/user/playback', data: {
+        'userEmail': email,
+        'trackId': videoId,
+        'mediaType': 'video',
+        'positionSeconds': seconds.round(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (_) {}
+  }
+
+  /// Gets the last known playback position in seconds for [videoId], defaulting to 0.0.
+  Future<double> getVideoPosition(String videoId) async {
+    if (videoId.isEmpty) return 0.0;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getDouble('$_videoPositionPrefix$videoId') ?? 0.0;
+    } catch (_) {
+      return 0.0;
+    }
+  }
 }

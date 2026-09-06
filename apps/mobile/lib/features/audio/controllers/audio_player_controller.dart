@@ -5,6 +5,7 @@ import '../models/audio_track.dart';
 import '../models/playback_state.dart';
 import '../services/audio_playback_service.dart';
 import '../services/audio_storage_service.dart';
+import '../services/audio_sync_service.dart';
 
 /// Top-level audio player controller adhering to the project's Architecture Standard:
 /// - Single derived immutable state broadcast via [ChangeNotifier].
@@ -14,6 +15,7 @@ class AudioPlayerController extends ChangeNotifier {
 
   final AudioPlaybackService _playbackService;
   final AudioStorageService _storageService;
+  final AudioSyncService _syncService;
 
   AudioPlayerState _state = const AudioPlayerState();
   AudioPlayerState get state => _state;
@@ -30,14 +32,23 @@ class AudioPlayerController extends ChangeNotifier {
   AudioPlayerController({
     AudioPlaybackService? playbackService,
     AudioStorageService? storageService,
+    AudioSyncService? syncService,
   })  : _playbackService = playbackService ?? AudioPlaybackService(),
-        _storageService = storageService ?? AudioStorageService() {
+        _storageService = storageService ?? AudioStorageService(),
+        _syncService = syncService ?? AudioSyncService.instance {
     _initStreams();
     _restoreLastPlayedTrack();
   }
 
   void _initStreams() {
     _posSub = _playbackService.positionStream.listen((pos) {
+      if (_playbackService.processingState == ProcessingState.idle &&
+          _state.currentTrack != null &&
+          _state.position > Duration.zero &&
+          pos == Duration.zero) {
+        // Guard: Do not let an uninitialized/idle player position stream wipe out restored playhead
+        return;
+      }
       _state = _state.copyWith(position: pos);
       notifyListeners();
       _schedulePositionSave();
@@ -81,18 +92,61 @@ class AudioPlayerController extends ChangeNotifier {
     });
   }
 
+  /// Restores session state from local storage immediately, then asynchronously checks
+  /// if cloud has a newer timestamp from another device.
   Future<void> _restoreLastPlayedTrack() async {
-    final lastTrack = await _storageService.getLastTrack();
-    if (lastTrack != null && _state.currentTrack == null) {
-      final savedPos = await _storageService.getPosition(lastTrack.id);
+    final stored = await _storageService.getLastPlaybackState();
+    if (stored != null && _state.currentTrack == null) {
       _state = _state.copyWith(
-        currentTrack: lastTrack,
-        position: Duration(seconds: savedPos),
-        duration: Duration(seconds: lastTrack.durationSeconds),
-        isMiniPlayerVisible: false, // Don't pop up mini player until user starts
+        currentTrack: stored.track,
+        position: Duration(seconds: stored.positionSeconds),
+        duration: Duration(seconds: stored.track.durationSeconds),
+        queue: stored.queue,
+        queueIndex: stored.queueIndex,
+        isMiniPlayerVisible: true, // Visible & docked on startup for 1-tap resume
       );
       notifyListeners();
     }
+
+    // Check cloud synchronization in background across devices
+    _pullRemotePlayback(localUpdatedAt: stored?.updatedAt);
+  }
+
+  /// Checks the backend for newer playback progress from another device.
+  Future<void> _pullRemotePlayback({DateTime? localUpdatedAt}) async {
+    try {
+      final remote = await _syncService.pullPlayback();
+      if (remote == null) return;
+
+      // Only update if remote state is newer than our local state,
+      // and we are not currently playing a different track.
+      final shouldUpdate = localUpdatedAt == null ||
+          remote.updatedAt.isAfter(localUpdatedAt);
+
+      if (shouldUpdate && !_state.isPlaying) {
+        await _storageService.savePlaybackState(
+          track: remote.track,
+          positionSeconds: remote.positionSeconds,
+          updatedAt: remote.updatedAt,
+        );
+
+        _state = _state.copyWith(
+          currentTrack: remote.track,
+          position: Duration(seconds: remote.positionSeconds),
+          duration: Duration(seconds: remote.durationSeconds),
+          isMiniPlayerVisible: true,
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('AudioPlayerController pullRemotePlayback non-blocking error: $e');
+    }
+  }
+
+  /// Manually triggers a pull from the cloud (e.g. when opening the Audio Library screen or signing in).
+  Future<void> syncWithCloud() async {
+    final localUpdatedAt = await _storageService.getLastTrackUpdatedAt();
+    await _pullRemotePlayback(localUpdatedAt: localUpdatedAt);
   }
 
   /// Plays the given [track], optionally with a surrounding [queue].
@@ -133,7 +187,22 @@ class AudioPlayerController extends ChangeNotifier {
         _state = _state.copyWith(duration: dur);
       }
       await _playbackService.play();
-      await _storageService.saveLastTrack(track);
+
+      final now = DateTime.now().toUtc();
+      await _storageService.savePlaybackState(
+        track: track,
+        positionSeconds: startPos,
+        queue: effectiveQueue,
+        queueIndex: queueIdx >= 0 ? queueIdx : 0,
+        updatedAt: now,
+      );
+      _syncService.pushPlayback(
+        track: track,
+        positionSeconds: startPos,
+        durationSeconds: track.durationSeconds,
+        force: true,
+        updatedAt: now,
+      );
     } catch (e) {
       _state = _state.copyWith(
         status: AudioPlaybackStatus.error,
@@ -144,15 +213,26 @@ class AudioPlayerController extends ChangeNotifier {
   }
 
   /// Toggles between play and pause.
+  /// Correctly handles restored session tracks where just_audio has not loaded the source yet.
   Future<void> togglePlayPause() async {
     if (_state.isPlaying) {
       await _playbackService.pause();
+      await flushPlayback();
     } else {
       if (_state.currentTrack != null) {
         if (_state.status == AudioPlaybackStatus.completed) {
           await seek(Duration.zero);
+          await _playbackService.play();
+        } else if (_playbackService.playerState.processingState == ProcessingState.idle) {
+          // Fresh session launch: the audio source is not yet loaded into just_audio!
+          await playTrack(
+            _state.currentTrack!,
+            queue: _state.queue.isNotEmpty ? _state.queue : [_state.currentTrack!],
+            resumePositionSec: _state.position.inSeconds,
+          );
+        } else {
+          await _playbackService.play();
         }
-        await _playbackService.play();
       }
     }
   }
@@ -162,6 +242,33 @@ class AudioPlayerController extends ChangeNotifier {
     _state = _state.copyWith(position: position);
     notifyListeners();
     await _playbackService.seek(position);
+    await flushPlayback();
+  }
+
+  /// Immediately flushes the current playhead position to local disk and cloud.
+  /// Call this when pausing, seeking, or when the app lifecycle changes (background/exit).
+  Future<void> flushPlayback() async {
+    final track = _state.currentTrack;
+    if (track == null) return;
+
+    final pos = _state.position.inSeconds;
+    final now = DateTime.now().toUtc();
+
+    await _storageService.savePlaybackState(
+      track: track,
+      positionSeconds: pos,
+      queue: _state.queue,
+      queueIndex: _state.queueIndex,
+      updatedAt: now,
+    );
+
+    _syncService.pushPlayback(
+      track: track,
+      positionSeconds: pos,
+      durationSeconds: track.durationSeconds,
+      force: true,
+      updatedAt: now,
+    );
   }
 
   /// Jumps forward or backward by [secondsDelta] (e.g. -10 or +30).
@@ -272,7 +379,13 @@ class AudioPlayerController extends ChangeNotifier {
     _positionSaveDebounce = Timer(const Duration(seconds: 3), () {
       final track = _state.currentTrack;
       if (track != null) {
-        _storageService.savePosition(track.id, _state.position.inSeconds);
+        final pos = _state.position.inSeconds;
+        _storageService.savePosition(track.id, pos);
+        _syncService.pushPlayback(
+          track: track,
+          positionSeconds: pos,
+          durationSeconds: track.durationSeconds,
+        );
       }
     });
   }

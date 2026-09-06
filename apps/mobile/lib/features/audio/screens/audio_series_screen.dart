@@ -5,6 +5,7 @@ import '../controllers/audio_player_controller.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
+import '../services/audio_storage_service.dart';
 
 /// Displays the tracks of an audio series.
 class AudioSeriesScreen extends StatefulWidget {
@@ -23,22 +24,35 @@ class AudioSeriesScreen extends StatefulWidget {
 
 class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
   late final AudioCatalogService _catalogService;
+  late final AudioStorageService _storageService;
   AudioSeries? _series;
+  Map<String, int> _savedPositions = {};
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _catalogService = AudioCatalogService();
+    _storageService = AudioStorageService();
     _series = widget.initialSeries;
     _loadSeries();
   }
 
   Future<void> _loadSeries() async {
     final series = await _catalogService.getSeries(widget.seriesId);
+    final positions = <String, int>{};
+    if (series != null) {
+      for (final track in series.tracks) {
+        final pos = await _storageService.getPosition(track.id);
+        if (pos > 0) {
+          positions[track.id] = pos;
+        }
+      }
+    }
     if (mounted) {
       setState(() {
         if (series != null) _series = series;
+        _savedPositions = positions;
         _isLoading = false;
       });
     }
@@ -177,6 +191,17 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
       builder: (context, _) {
         final state = AudioPlayerController.instance.state;
         final isCurrentTrack = state.currentTrack?.id == track.id;
+        final savedPos = _savedPositions[track.id] ?? 0;
+
+        String subtitleText = track.formattedDuration;
+        if (!isCurrentTrack && savedPos > 5) {
+          final m = savedPos ~/ 60;
+          final s = (savedPos % 60).toString().padLeft(2, '0');
+          subtitleText += ' • Resumes at $m:$s';
+        }
+        if (track.hasScripture) {
+          subtitleText += ' • ${track.scriptureRefText}';
+        }
 
         return ListTile(
           leading: Container(
@@ -185,7 +210,7 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: isCurrentTrack
-                  ? theme.colorScheme.primary.withOpacity(0.15)
+                  ? theme.colorScheme.primary.withValues(alpha: 0.15)
                   : tokens.surfaceVariant,
               shape: BoxShape.circle,
             ),
@@ -198,7 +223,7 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
                 : Text(
                     '${index + 1}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                       fontWeight: FontWeight.bold,
                       color: isCurrentTrack
                           ? theme.colorScheme.primary
                           : tokens.onSurfaceMuted,
@@ -217,7 +242,7 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
             ),
           ),
           subtitle: Text(
-            '${track.formattedDuration}${track.hasScripture ? " • ${track.scriptureRefText}" : ""}',
+            subtitleText,
             style: theme.textTheme.bodySmall?.copyWith(
               color: tokens.onSurfaceMuted,
             ),
@@ -238,15 +263,21 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
                 AudioPlayerController.instance.playTrack(
                   track,
                   queue: allTracks,
+                  resumePositionSec: savedPos > 5 ? savedPos : null,
                 );
               }
             },
           ),
           onTap: () {
-            AudioPlayerController.instance.playTrack(
-              track,
-              queue: allTracks,
-            );
+            if (isCurrentTrack) {
+              AudioPlayerController.instance.togglePlayPause();
+            } else {
+              AudioPlayerController.instance.playTrack(
+                track,
+                queue: allTracks,
+                resumePositionSec: savedPos > 5 ? savedPos : null,
+              );
+            }
           },
         );
       },

@@ -35,8 +35,9 @@ if (fs.existsSync(iconSrc)) {
   // 3. Generate Android mipmaps with exact densities using python if available, else copy
   const resDir = path.join(rootDir, 'apps', 'mobile', 'android', 'app', 'src', 'main', 'res');
   try {
-    const pythonCode = `import os, sys; from PIL import Image; src = sys.argv[1]; res = sys.argv[2]; img = Image.open(src).convert('RGBA'); sizes = {'mipmap-mdpi':(48,48),'mipmap-hdpi':(72,72),'mipmap-xhdpi':(96,96),'mipmap-xxhdpi':(144,144),'mipmap-xxxhdpi':(192,192)}; [os.makedirs(os.path.join(res, f), exist_ok=True) or img.resize(s, Image.Resampling.LANCZOS).save(os.path.join(res, f, 'ic_launcher.png'), 'PNG') for f, s in sizes.items()]`;
-    execSync(`python3 -c "${pythonCode}" "${iconSrc}" "${resDir}"`, { stdio: 'inherit' });
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const pythonCode = `import os, sys; from PIL import Image; src = sys.argv[1]; res = sys.argv[2]; img = Image.open(src).convert('RGBA'); sizes = {'mipmap-mdpi': 48, 'mipmap-hdpi': 72, 'mipmap-xhdpi': 96, 'mipmap-xxhdpi': 144, 'mipmap-xxxhdpi': 192}; [os.makedirs(os.path.join(res, f), exist_ok=True) or (lambda s: (lambda c, r, x, y: (c.paste(r, (x, y), r), c.save(os.path.join(res, f, 'ic_launcher.png'), 'PNG')))(Image.new('RGBA', (s, s), (0,0,0,0)), img.resize((max(1, int(img.width * min(s*0.84/img.width, s*0.84/img.height))), max(1, int(img.height * min(s*0.84/img.width, s*0.84/img.height)))), Image.Resampling.LANCZOS), (s - max(1, int(img.width * min(s*0.84/img.width, s*0.84/img.height))))//2, (s - max(1, int(img.height * min(s*0.84/img.width, s*0.84/img.height))))//2))(sz) for f, sz in sizes.items()]`;
+    execSync(`${pythonCmd} -c "${pythonCode}" "${iconSrc}" "${resDir}"`, { stdio: 'inherit' });
     console.log(`✅ Generated resized Android launcher icons (48x48 to 192x192)`);
   } catch (err) {
     console.log(`⚠️ Python icon resize fallback: ${err.message}`);

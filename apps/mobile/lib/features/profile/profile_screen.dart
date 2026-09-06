@@ -126,9 +126,9 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 Image.asset(
                   'assets/logo.png',
-                  height: 24,
-                  width: 24,
-                  errorBuilder: (ctx, __, ___) => Icon(Icons.play_circle_fill, color: Theme.of(ctx).colorScheme.error),
+                  height: 26,
+                  fit: BoxFit.contain,
+                  errorBuilder: (ctx, __, ___) => Icon(Icons.menu_book_rounded, color: Theme.of(ctx).colorScheme.primary),
                 ),
                 const SizedBox(width: 8),
                 const Text('You', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
