@@ -137,7 +137,16 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             ),
             GoRoute(
               path: '/audio',
-              builder: (context, state) => const AudioLibraryScreen(),
+              builder: (context, state) {
+                if (AppConfig.instanceId == 'centum_academy') {
+                  return const Scaffold(
+                    body: Center(
+                      child: Text('Audio not available for this instance'),
+                    ),
+                  );
+                }
+                return const AudioLibraryScreen();
+              },
             ),
             GoRoute(
               path: '/audio/series/:id',

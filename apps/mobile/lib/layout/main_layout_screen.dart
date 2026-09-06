@@ -54,6 +54,10 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     return AppConfig.instanceId != 'centum_academy';
   }
 
+  bool get _isAudioTabEnabled {
+    return AppConfig.instanceId != 'centum_academy';
+  }
+
   int _getSelectedIndex(String currentPath) {
     // Build the destination paths in the same order they appear in the bar.
     final destinations = _destinationPaths();
@@ -75,7 +79,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       if (_isBibleTabEnabled) '/bible',
       if (_isBooksTabEnabled) '/books',
       if (kMicroFeedEnabled) '/words',
-      '/audio',
+      if (_isAudioTabEnabled) '/audio' else '/profile',
     ];
   }
 
@@ -131,11 +135,18 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           icon: Icons.auto_awesome_outlined,
           selectedIcon: Icons.auto_awesome,
         ),
-      const _NavSpec(
-        label: 'Audio',
-        icon: Icons.headphones_outlined,
-        selectedIcon: Icons.headphones,
-      ),
+      if (_isAudioTabEnabled)
+        const _NavSpec(
+          label: 'Audio',
+          icon: Icons.headphones_outlined,
+          selectedIcon: Icons.headphones,
+        )
+      else
+        const _NavSpec(
+          label: 'You',
+          icon: Icons.account_circle_outlined,
+          selectedIcon: Icons.account_circle,
+        ),
     ];
   }
 
@@ -184,16 +195,17 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                     child: Column(
                       children: [
                         Expanded(child: widget.child),
-                        ListenableBuilder(
-                          listenable: AudioPlayerController.instance,
-                          builder: (context, _) {
-                            final state = AudioPlayerController.instance.state;
-                            if (state.isMiniPlayerVisible && state.hasTrack) {
-                              return MiniAudioPlayer(state: state);
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
+                        if (_isAudioTabEnabled)
+                          ListenableBuilder(
+                            listenable: AudioPlayerController.instance,
+                            builder: (context, _) {
+                              final state = AudioPlayerController.instance.state;
+                              if (state.isMiniPlayerVisible && state.hasTrack) {
+                                return MiniAudioPlayer(state: state);
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
                       ],
                     ),
                   ),
@@ -216,7 +228,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (state.isMiniPlayerVisible && state.hasTrack)
+            if (_isAudioTabEnabled && state.isMiniPlayerVisible && state.hasTrack)
               MiniAudioPlayer(state: state),
             NavigationBarTheme(
               data: NavigationBarThemeData(

@@ -5,7 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import '../models/audio_track.dart';
 
 /// Wraps the underlying [AudioPlayer] engine and handles streaming,
-/// disk caching via [LockCachingAudioSource], fallback URLs, and audio session events.
+/// local chunk caching, fallback URLs, and audio session events.
 class AudioPlaybackService {
   final AudioPlayer _player;
   bool _isSessionConfigured = false;
@@ -52,6 +52,7 @@ class AudioPlaybackService {
       // On web or environments where file cache is unavailable, standard AudioSource is used.
       AudioSource source;
       if (!kIsWeb) {
+        // ignore: experimental_member_use
         source = LockCachingAudioSource(
           Uri.parse(track.audioUrl),
           headers: headers,
@@ -74,6 +75,7 @@ class AudioPlaybackService {
         try {
           AudioSource fallbackSource;
           if (!kIsWeb) {
+            // ignore: experimental_member_use
             fallbackSource = LockCachingAudioSource(
               Uri.parse(track.fallbackUrl!),
               headers: headers,
