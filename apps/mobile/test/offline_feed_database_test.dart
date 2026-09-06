@@ -1,19 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:mobile/features/engines/scripture/services/offline_feed_database.dart';
 
 void main() {
-  late OfflineFeedDatabase dbService;
-
   setUpAll(() {
     // Initialize FFI for desktop/unit test environments
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
-  });
-
-  setUp(() async {
-    dbService = OfflineFeedDatabase();
   });
 
   test('OfflineFeedDatabase correctly calculates count and handles random queries', () async {

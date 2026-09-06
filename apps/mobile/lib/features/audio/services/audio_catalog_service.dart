@@ -7,11 +7,17 @@ import '../models/audio_track.dart';
 /// Fetches audio series and tracklists from GitHub/CDN with embedded fallback.
 class AudioCatalogService {
   final http.Client _client;
+  static List<AudioSeries>? _cachedCatalog;
+  static final Map<String, AudioSeries> _cachedSeries = {};
 
   AudioCatalogService({http.Client? client}) : _client = client ?? http.Client();
 
   /// Loads the top-level audio catalog.
-  Future<List<AudioSeries>> getCatalog() async {
+  Future<List<AudioSeries>> getCatalog({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedCatalog != null && _cachedCatalog!.isNotEmpty) {
+      return _cachedCatalog!;
+    }
+
     final urls = GitHubDataService.audioCatalogUrls();
     for (final url in urls) {
       try {
@@ -20,9 +26,11 @@ class AudioCatalogService {
             );
         if (res.statusCode == 200) {
           final list = jsonDecode(res.body) as List<dynamic>;
-          return list
+          final parsed = list
               .map((e) => AudioSeries.fromJson(e as Map<String, dynamic>))
               .toList();
+          _cachedCatalog = parsed;
+          return parsed;
         }
       } catch (_) {
         // Try next fallback URL
@@ -30,11 +38,16 @@ class AudioCatalogService {
     }
 
     // Fallback seed catalog
+    _cachedCatalog = _seedCatalog;
     return _seedCatalog;
   }
 
   /// Loads the full series with tracks.
-  Future<AudioSeries?> getSeries(String seriesId) async {
+  Future<AudioSeries?> getSeries(String seriesId, {bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedSeries.containsKey(seriesId)) {
+      return _cachedSeries[seriesId];
+    }
+
     final urls = GitHubDataService.audioSeriesUrls(seriesId);
     for (final url in urls) {
       try {
@@ -43,7 +56,9 @@ class AudioCatalogService {
             );
         if (res.statusCode == 200) {
           final map = jsonDecode(res.body) as Map<String, dynamic>;
-          return AudioSeries.fromJson(map);
+          final series = AudioSeries.fromJson(map);
+          _cachedSeries[seriesId] = series;
+          return series;
         }
       } catch (_) {
         // Try next fallback URL
@@ -51,7 +66,11 @@ class AudioCatalogService {
     }
 
     // Return seed series if available
-    return _seedSeriesMap[seriesId];
+    final fallback = _seedSeriesMap[seriesId];
+    if (fallback != null) {
+      _cachedSeries[seriesId] = fallback;
+    }
+    return fallback;
   }
 
   // ── Seed / Fallback Data ───────────────────────────────────────────────────

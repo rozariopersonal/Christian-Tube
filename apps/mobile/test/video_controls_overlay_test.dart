@@ -7,10 +7,8 @@ void main() {
 
   testWidgets('FlutterVideoControlsOverlay renders center controls, time and speed',
       (WidgetTester tester) async {
-    bool playTriggered = false;
     bool pauseTriggered = false;
     Duration? seekTarget;
-    double? _selectedSpeed;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -24,10 +22,10 @@ void main() {
               position: const Duration(minutes: 2, seconds: 15),
               duration: const Duration(minutes: 10, seconds: 30),
               playbackRate: 1.0,
-              onPlay: () => playTriggered = true,
+              onPlay: () {},
               onPause: () => pauseTriggered = true,
               onSeek: (pos) => seekTarget = pos,
-              onSetSpeed: (speed) => _selectedSpeed = speed,
+              onSetSpeed: (_) {},
             ),
           ),
         ),

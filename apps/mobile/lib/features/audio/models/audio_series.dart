@@ -9,6 +9,7 @@ class AudioSeries {
   final String? coverUrl;
   final int trackCount;
   final String category;
+  final String language;
   final List<AudioTrack> tracks;
 
   const AudioSeries({
@@ -19,6 +20,7 @@ class AudioSeries {
     this.coverUrl,
     required this.trackCount,
     required this.category,
+    this.language = 'English',
     this.tracks = const [],
   });
 
@@ -36,6 +38,7 @@ class AudioSeries {
       coverUrl: json['coverUrl'] as String?,
       trackCount: json['trackCount'] as int? ?? tracks.length,
       category: json['category'] as String? ?? 'Sermons',
+      language: json['language'] as String? ?? 'English',
       tracks: tracks,
     );
   }
@@ -48,6 +51,7 @@ class AudioSeries {
         if (coverUrl != null) 'coverUrl': coverUrl,
         'trackCount': trackCount,
         'category': category,
+        'language': language,
         if (tracks.isNotEmpty)
           'tracks': tracks.map((t) => t.toJson()).toList(),
       };
@@ -60,6 +64,7 @@ class AudioSeries {
     String? coverUrl,
     int? trackCount,
     String? category,
+    String? language,
     List<AudioTrack>? tracks,
   }) {
     return AudioSeries(
@@ -70,6 +75,7 @@ class AudioSeries {
       coverUrl: coverUrl ?? this.coverUrl,
       trackCount: trackCount ?? this.trackCount,
       category: category ?? this.category,
+      language: language ?? this.language,
       tracks: tracks ?? this.tracks,
     );
   }

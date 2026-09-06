@@ -1,14 +1,17 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/layout/adaptivity.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../controllers/audio_player_controller.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
 import '../services/audio_storage_service.dart';
+import '../widgets/audio_search_delegate.dart';
 
-/// Main Audio tab screen — browse sermon series, continue listening, and explore topics.
+/// Main Audio tab screen — browse sermon series, continue listening, explore topics,
+/// and filter by category and language.
 class AudioLibraryScreen extends StatefulWidget {
   const AudioLibraryScreen({super.key});
 
@@ -25,14 +28,42 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
   int _lastPlayedSeconds = 0;
   bool _isLoading = true;
 
+  String _selectedCategory = 'All';
+  String _selectedLanguage = 'All';
+
+  static const _categories = [
+    'All',
+    'Bible Survey',
+    'Foundations',
+    'Discipleship',
+    'Christian Living',
+    'Daily Devotions',
+    'Verse By Verse',
+    'Family & Home',
+    'The Church',
+    'Conferences',
+    'General Sermons',
+    'Multilingual',
+  ];
+
+  static const _languages = [
+    'All',
+    'English',
+    'Tamil',
+    'Telugu',
+    'Hindi',
+    'Malayalam',
+    'Kannada',
+  ];
+
   @override
   void initState() {
     super.initState();
     _loadData();
   }
 
-  Future<void> _loadData() async {
-    final catalog = await _catalogService.getCatalog();
+  Future<void> _loadData({bool forceRefresh = false}) async {
+    final catalog = await _catalogService.getCatalog(forceRefresh: forceRefresh);
     final lastTrack = await _storageService.getLastTrack();
     int lastSec = 0;
     if (lastTrack != null) {
@@ -47,6 +78,76 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  List<AudioSeries> get _filteredSeries {
+    return _seriesList.where((s) {
+      final matchesCategory =
+          _selectedCategory == 'All' || s.category == _selectedCategory;
+      final matchesLanguage = _selectedLanguage == 'All' ||
+          s.language.toLowerCase() == _selectedLanguage.toLowerCase();
+      return matchesCategory && matchesLanguage;
+    }).toList();
+  }
+
+  void _showLanguageSelector(BuildContext context, AppTokens tokens, ThemeData theme) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: tokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Text(
+                    'Select Language',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: tokens.onSurface,
+                    ),
+                  ),
+                ),
+                const Divider(),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _languages.length,
+                    itemBuilder: (_, index) {
+                      final lang = _languages[index];
+                      final isSelected = _selectedLanguage == lang;
+                      return ListTile(
+                        title: Text(
+                          lang == 'All' ? 'All Languages' : lang,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: isSelected ? theme.colorScheme.primary : tokens.onSurface,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? Icon(Icons.check, color: theme.colorScheme.primary)
+                            : null,
+                        onTap: () {
+                          setState(() => _selectedLanguage = lang);
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -73,19 +174,28 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
           IconButton(
             icon: const Icon(Icons.search),
             color: tokens.onSurface,
-            onPressed: () {},
+            tooltip: 'Search Audio',
+            onPressed: () {
+              showSearch(
+                context: context,
+                delegate: AudioSearchDelegate(_seriesList),
+              );
+            },
           ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: Chip(
+            child: ActionChip(
+              avatar: Icon(Icons.language, size: 16, color: tokens.onSurface),
               label: Text(
-                'English',
+                _selectedLanguage == 'All' ? 'Lang' : _selectedLanguage,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: tokens.onSurface,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               backgroundColor: tokens.surfaceVariant,
               side: BorderSide.none,
+              onPressed: () => _showLanguageSelector(context, tokens, theme),
             ),
           ),
         ],
@@ -93,25 +203,37 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadData,
+              onRefresh: () => _loadData(forceRefresh: true),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Featured Series Carousel
-                    _buildSeriesCarousel(context, tokens, theme),
-                    const SizedBox(height: 24),
+                    // Categories Bar
+                    _buildCategoryChips(tokens, theme),
+                    const SizedBox(height: 16),
+
+                    // Featured Series Carousel (when on All)
+                    if (_selectedCategory == 'All' && _selectedLanguage == 'All') ...[
+                      _buildSeriesCarousel(context, tokens, theme),
+                      const SizedBox(height: 24),
+                    ],
 
                     // Continue Listening Card
-                    if (_lastPlayedTrack != null)
+                    if (_lastPlayedTrack != null) ...[
                       _buildContinueListening(context, tokens, theme),
+                      const SizedBox(height: 24),
+                    ],
 
-                    const SizedBox(height: 24),
+                    // Topics Grid (only when on All)
+                    if (_selectedCategory == 'All' && _selectedLanguage == 'All') ...[
+                      _buildTopicsSection(context, tokens, theme),
+                      const SizedBox(height: 24),
+                    ],
 
-                    // Topics Grid
-                    _buildTopicsSection(context, tokens, theme),
+                    // All Series Grid for selected category/filter
+                    _buildSeriesGrid(context, tokens, theme),
 
                     // Space for persistent MiniPlayer
                     const SizedBox(height: 100),
@@ -122,11 +244,51 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
     );
   }
 
+  Widget _buildCategoryChips(AppTokens tokens, ThemeData theme) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemCount: _categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final cat = _categories[index];
+          final isSelected = _selectedCategory == cat;
+          return FilterChip(
+            label: Text(cat),
+            selected: isSelected,
+            labelStyle: theme.textTheme.bodySmall?.copyWith(
+              color: isSelected ? theme.colorScheme.onPrimary : tokens.onSurface,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+            selectedColor: theme.colorScheme.primary,
+            backgroundColor: tokens.surfaceElevated,
+            checkmarkColor: theme.colorScheme.onPrimary,
+            side: BorderSide(
+              color: isSelected ? theme.colorScheme.primary : tokens.surfaceBorder,
+              width: 0.8,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            onSelected: (_) {
+              setState(() => _selectedCategory = cat);
+            },
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildSeriesCarousel(
     BuildContext context,
     AppTokens tokens,
     ThemeData theme,
   ) {
+    final featured = _seriesList.take(8).toList();
+    if (featured.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -146,10 +308,10 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             scrollDirection: Axis.horizontal,
-            itemCount: _seriesList.length,
+            itemCount: featured.length,
             separatorBuilder: (_, __) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
-              final series = _seriesList[index];
+              final series = featured[index];
               return _buildSeriesCard(context, series, tokens, theme);
             },
           ),
@@ -177,7 +339,6 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: Container(
@@ -204,7 +365,9 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
               ),
             ),
             Text(
-              '${series.trackCount} Episodes',
+              '${series.trackCount} Tracks • ${series.category}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: tokens.onSurfaceMuted,
               ),
@@ -247,7 +410,6 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
         ),
         child: Row(
           children: [
-            // Thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Container(
@@ -270,8 +432,6 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
               ),
             ),
             const SizedBox(width: 14),
-
-            // Track details & Progress
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,8 +469,6 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
               ),
             ),
             const SizedBox(width: 12),
-
-            // Resume Button
             FilledButton.tonal(
               onPressed: () {
                 AudioPlayerController.instance.playTrack(
@@ -332,10 +490,10 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
     ThemeData theme,
   ) {
     final topics = [
-      {'title': 'Overcoming Sin', 'icon': Icons.shield_outlined},
-      {'title': 'Holy Spirit', 'icon': Icons.local_fire_department_outlined},
-      {'title': 'Family & Home', 'icon': Icons.home_outlined},
-      {'title': 'Faith & Victory', 'icon': Icons.emoji_events_outlined},
+      {'title': 'Overcoming Sin', 'category': 'Christian Living', 'icon': Icons.shield_outlined},
+      {'title': 'Holy Spirit', 'category': 'Christian Living', 'icon': Icons.local_fire_department_outlined},
+      {'title': 'Family & Home', 'category': 'Family & Home', 'icon': Icons.home_outlined},
+      {'title': 'Faith & Victory', 'category': 'Foundations', 'icon': Icons.emoji_events_outlined},
     ];
 
     return Padding(
@@ -368,7 +526,11 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
                 borderRadius: BorderRadius.circular(14),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(14),
-                  onTap: () {},
+                  onTap: () {
+                    setState(() {
+                      _selectedCategory = topic['category'] as String;
+                    });
+                  },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
@@ -395,6 +557,87 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
               );
             },
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSeriesGrid(
+    BuildContext context,
+    AppTokens tokens,
+    ThemeData theme,
+  ) {
+    final filtered = _filteredSeries;
+
+    final headerTitle = _selectedCategory == 'All'
+        ? 'All Series (${filtered.length})'
+        : '$_selectedCategory (${filtered.length})';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                headerTitle,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: tokens.onSurface,
+                ),
+              ),
+              if (_selectedCategory != 'All' || _selectedLanguage != 'All')
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedCategory = 'All';
+                      _selectedLanguage = 'All';
+                    });
+                  },
+                  child: const Text('Reset'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (filtered.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Text(
+                  'No series found for the selected filter.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: tokens.onSurfaceMuted,
+                  ),
+                ),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final screenClass = ScreenClass.of(context);
+                final crossAxisCount = screenClass.isCompact
+                    ? 2
+                    : (screenClass == ScreenClass.medium ? 3 : 4);
+
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.72,
+                  ),
+                  itemBuilder: (context, index) {
+                    final series = filtered[index];
+                    return _buildSeriesCard(context, series, tokens, theme);
+                  },
+                );
+              },
+            ),
         ],
       ),
     );
