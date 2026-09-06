@@ -593,7 +593,27 @@ async function main() {
   // Update catalog JSONs
   safeWriteFile(CATALOG_PATH, JSON.stringify(catalog, null, 2));
   if (fs.existsSync(APP_CATALOG)) {
-    safeWriteFile(APP_CATALOG, JSON.stringify(catalog, null, 2));
+    try {
+      const fullCatalog = JSON.parse(fs.readFileSync(APP_CATALOG, 'utf8'));
+      const enMap = new Map(catalog.map(b => [b.id, b]));
+      const updated = fullCatalog.map(item => {
+        if (enMap.has(item.id)) {
+          const fresh = enMap.get(item.id);
+          return {
+            ...item,
+            title: fresh.title,
+            author: fresh.author,
+            subject: fresh.subject,
+            totalPages: fresh.totalPages,
+            totalLines: fresh.totalLines,
+          };
+        }
+        return item;
+      });
+      safeWriteFile(APP_CATALOG, JSON.stringify(updated, null, 2));
+    } catch (e) {
+      console.warn('Could not merge into app catalog:', e);
+    }
   }
 
   // Compress sqlite to .gz
