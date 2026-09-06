@@ -1,0 +1,25 @@
+{
+  "id": "understanding_the_truth_accurately",
+  "title": "Understanding The Truth Accurately",
+  "description": "Understanding The Truth Accurately — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "Foundations",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+  "tracks": [
+    {
+      "id": "understanding_the_truth_accurately_dead_works_and_the_new_covenan_19eb39d3",
+      "title": "Dead Works And The New Covenant",
+      "seriesId": "understanding_the_truth_accurately",
+      "seriesTitle": "Understanding The Truth Accurately",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/understanding-the-truth-accurately/4.dead-works-and-the-new-covenant.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

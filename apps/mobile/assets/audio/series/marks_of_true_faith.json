@@ -1,0 +1,51 @@
+{
+  "id": "marks_of_true_faith",
+  "title": "Marks Of True Faith",
+  "description": "Marks Of True Faith — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "Christian Living",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+  "tracks": [
+    {
+      "id": "marks_of_true_faith_marks_of_true_faith_1_of_3_8d6f7719",
+      "title": "Marks Of True Faith - (1 of 3)",
+      "seriesId": "marks_of_true_faith",
+      "seriesTitle": "Marks Of True Faith",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/marks-of-true-faith/1-marks-of-true-faith-(1-of-3).mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": "MRK",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "marks_of_true_faith_marks_of_true_faith_2_of_3_bb00ed5f",
+      "title": "Marks Of True Faith - (2 of 3)",
+      "seriesId": "marks_of_true_faith",
+      "seriesTitle": "Marks Of True Faith",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/marks-of-true-faith/2-marks-of-true-faith-(2-of-3).mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": "MRK",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "marks_of_true_faith_marks_of_true_faith_3_of_3_2f2a745c",
+      "title": "Marks Of True Faith - (3 of 3)",
+      "seriesId": "marks_of_true_faith",
+      "seriesTitle": "Marks Of True Faith",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/marks-of-true-faith/3-marks-of-true-faith-(3-of-3).mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": "MRK",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

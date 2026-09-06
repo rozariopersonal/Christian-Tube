@@ -1,0 +1,64 @@
+{
+  "id": "gods_eternal_purpose",
+  "title": "God’s Eternal Purpose",
+  "description": "God’s Eternal Purpose — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 4,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "gods_eternal_purpose_a_testimony_to_satan_f1828e81",
+      "title": "A Testimony to Satan",
+      "seriesId": "gods_eternal_purpose",
+      "seriesTitle": "God’s Eternal Purpose",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/gods-eternal-purpose/1-a-testimony-to-satan.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "gods_eternal_purpose_jesus_our_forerunner_gods_eter_c74acc1b",
+      "title": "Jesus Our Forerunner - God’s Eternal Purpose",
+      "seriesId": "gods_eternal_purpose",
+      "seriesTitle": "God’s Eternal Purpose",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/gods-eternal-purpose/4-jesus-our-forerunner.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "gods_eternal_purpose_living_in_gods_presence_13282a3b",
+      "title": "Living in God's Presence",
+      "seriesId": "gods_eternal_purpose",
+      "seriesTitle": "God’s Eternal Purpose",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/gods-eternal-purpose/3-living-in-gods-presence.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "gods_eternal_purpose_through_the_power_of_the_spiri_fb5e647f",
+      "title": "Through the Power of the Spirit",
+      "seriesId": "gods_eternal_purpose",
+      "seriesTitle": "God’s Eternal Purpose",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/gods-eternal-purpose/2-through-the-power-of-the-spirit.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

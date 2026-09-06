@@ -1,0 +1,64 @@
+{
+  "id": "some_truths_i_have_learnt_in_50_years",
+  "title": "Some Truths I Have Learnt In 50 Years",
+  "description": "Some Truths I Have Learnt In 50 Years — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 4,
+  "category": "Foundations",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+  "tracks": [
+    {
+      "id": "some_truths_i_have_learnt_in_50_years_some_truths_i_have_learnt_in_5_60d99845",
+      "title": "Some Truths I Have Learnt In 50 Years Part 1",
+      "seriesId": "some_truths_i_have_learnt_in_50_years",
+      "seriesTitle": "Some Truths I Have Learnt In 50 Years",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/some-truths-i-have-learnt-in-50-years/some-truths-i-have-learnt-in-50-years-part-1.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": "RUT",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "some_truths_i_have_learnt_in_50_years_some_truths_i_have_learnt_in_5_6d18e85e",
+      "title": "Some Truths I Have Learnt In 50 Years Part 4",
+      "seriesId": "some_truths_i_have_learnt_in_50_years",
+      "seriesTitle": "Some Truths I Have Learnt In 50 Years",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/some-truths-i-have-learnt-in-50-years/some-truths-i-have-learnt-in-50-years-part-4.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": "RUT",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "some_truths_i_have_learnt_in_50_years_some_truths_i_have_learnt_in_5_d49a5d69",
+      "title": "Some Truths I Have Learnt In 50 Years Part 2",
+      "seriesId": "some_truths_i_have_learnt_in_50_years",
+      "seriesTitle": "Some Truths I Have Learnt In 50 Years",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/some-truths-i-have-learnt-in-50-years/some-truths-i-have-learnt-in-50-years-part-2.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": "RUT",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "some_truths_i_have_learnt_in_50_years_some_truths_i_have_learnt_in_5_fd267f75",
+      "title": "Some Truths I Have Learnt In 50 Years Part 3",
+      "seriesId": "some_truths_i_have_learnt_in_50_years",
+      "seriesTitle": "Some Truths I Have Learnt In 50 Years",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/some-truths-i-have-learnt-in-50-years/some-truths-i-have-learnt-in-50-years-part-3.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": "RUT",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

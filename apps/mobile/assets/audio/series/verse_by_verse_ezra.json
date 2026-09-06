@@ -1,0 +1,64 @@
+{
+  "id": "verse_by_verse_ezra",
+  "title": "Verse By Verse: Ezra",
+  "description": "Verse By Verse: Ezra — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 4,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_ezra_01_98ff18f5",
+      "title": "01.Ezra Chapter 1:1 to Chapter 2:70",
+      "seriesId": "verse_by_verse_ezra",
+      "seriesTitle": "Verse By Verse: Ezra",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot04-ezra-chapter-1-1-to-chapter-2-70.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "EZR",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_ezra_02_dd13dfa4",
+      "title": "02.Ezra Chapter 3:1 to Chapter 4:24",
+      "seriesId": "verse_by_verse_ezra",
+      "seriesTitle": "Verse By Verse: Ezra",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot04-ezra-chapter-3-1-to-chapter-4-24.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "EZR",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_ezra_03_e1ba3d21",
+      "title": "03.Ezra Chapter 5:1 to Chapter 6:22",
+      "seriesId": "verse_by_verse_ezra",
+      "seriesTitle": "Verse By Verse: Ezra",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot04-ezra-chapter-5-1-to-chapter-6-22.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "EZR",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_ezra_04_5088d3a0",
+      "title": "04.Ezra Chapter 7:1 to Chapter 10:44",
+      "seriesId": "verse_by_verse_ezra",
+      "seriesTitle": "Verse By Verse: Ezra",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot04-ezra-chapter-7-to-chapter-10.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "EZR",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

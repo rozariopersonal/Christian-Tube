@@ -1,0 +1,25 @@
+{
+  "id": "verse_by_verse_haggai",
+  "title": "Verse By Verse: Haggai",
+  "description": "Verse By Verse: Haggai — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_haggai_01_e2a5a62d",
+      "title": "01.Haggai Chapter1:1 to Chapter 2:23",
+      "seriesId": "verse_by_verse_haggai",
+      "seriesTitle": "Verse By Verse: Haggai",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot06-haggai-chapter-1-1-to-chapter-2-23.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "HAG",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

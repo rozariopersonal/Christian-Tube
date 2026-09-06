@@ -1,0 +1,90 @@
+{
+  "id": "the_truth_will_set_you_free",
+  "title": "The Truth Will Set You Free",
+  "description": "The Truth Will Set You Free — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 6,
+  "category": "Foundations",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+  "tracks": [
+    {
+      "id": "the_truth_will_set_you_free_an_axe_that_sets_us_free_b4c60edc",
+      "title": "An Axe That Sets Us Free",
+      "seriesId": "the_truth_will_set_you_free",
+      "seriesTitle": "The Truth Will Set You Free",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-truth-will-set-you-free/2-an-axe-that-sets-us-free.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_truth_will_set_you_free_freedom_from_more_bad_habits_53466f5c",
+      "title": "Freedom From More Bad Habits",
+      "seriesId": "the_truth_will_set_you_free",
+      "seriesTitle": "The Truth Will Set You Free",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-truth-will-set-you-free/5-freedom-from-more-bad-habits.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_truth_will_set_you_free_freedom_from_some_bad_habits_c9f6f6bc",
+      "title": "Freedom From Some Bad Habits",
+      "seriesId": "the_truth_will_set_you_free",
+      "seriesTitle": "The Truth Will Set You Free",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-truth-will-set-you-free/4-freedom-from-some-bad-habits.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_truth_will_set_you_free_freedom_from_the_curse_6f31f368",
+      "title": "Freedom From The Curse",
+      "seriesId": "the_truth_will_set_you_free",
+      "seriesTitle": "The Truth Will Set You Free",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-truth-will-set-you-free/3-freedom-from-the-curse.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_truth_will_set_you_free_god_chooses_and_uses_nobodies_43a739ba",
+      "title": "God Chooses And Uses Nobodies",
+      "seriesId": "the_truth_will_set_you_free",
+      "seriesTitle": "The Truth Will Set You Free",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-truth-will-set-you-free/6-god-chooses-and-uses-nobodies.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_truth_will_set_you_free_gods_will_for_us_is_total_free_80e0ae89",
+      "title": "God's Will For Us Is Total Freedom",
+      "seriesId": "the_truth_will_set_you_free",
+      "seriesTitle": "The Truth Will Set You Free",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-truth-will-set-you-free/1-gods-will-for-us-is-total-freedom.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

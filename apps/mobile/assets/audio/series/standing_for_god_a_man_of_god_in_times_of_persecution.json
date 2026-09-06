@@ -1,0 +1,51 @@
+{
+  "id": "standing_for_god_a_man_of_god_in_times_of_persecution",
+  "title": "Standing For God (A Man Of God In Times Of Persecution)",
+  "description": "Standing For God (A Man Of God In Times Of Persecution) — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "standing_for_god_a_man_of_god_in_times_of_persecution_1a_man_of_discipline_f78c13d2",
+      "title": "1.A Man of Discipline",
+      "seriesId": "standing_for_god_a_man_of_god_in_times_of_persecution",
+      "seriesTitle": "Standing For God (A Man Of God In Times Of Persecution)",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/standing-for-god/1.a-man-of-discipline.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "standing_for_god_a_man_of_god_in_times_of_persecution_2a_man_of_vision_b850fa21",
+      "title": "2.A Man of Vision",
+      "seriesId": "standing_for_god_a_man_of_god_in_times_of_persecution",
+      "seriesTitle": "Standing For God (A Man Of God In Times Of Persecution)",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/standing-for-god/2.a-man-of-vision.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "standing_for_god_a_man_of_god_in_times_of_persecution_3a_man_of_courage_1b948a5b",
+      "title": "3.A Man of Courage",
+      "seriesId": "standing_for_god_a_man_of_god_in_times_of_persecution",
+      "seriesTitle": "Standing For God (A Man Of God In Times Of Persecution)",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/standing-for-god/3.a-man-of-courage.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

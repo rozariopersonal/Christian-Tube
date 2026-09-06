@@ -1,0 +1,38 @@
+{
+  "id": "responsibility_and_maturity",
+  "title": "Responsibility And Maturity",
+  "description": "Responsibility And Maturity — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 2,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "responsibility_and_maturity_god_loves_teenagers_3343a3b5",
+      "title": "God Loves Teenagers",
+      "seriesId": "responsibility_and_maturity",
+      "seriesTitle": "Responsibility And Maturity",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/responsibility-and-maturity/9-god-loves-teenagers.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "responsibility_and_maturity_soldiers_athletes_and_farmers_c7bd366f",
+      "title": "Soldiers, Athletes And Farmers",
+      "seriesId": "responsibility_and_maturity",
+      "seriesTitle": "Responsibility And Maturity",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/responsibility-and-maturity/6-soldiers-athletes-and-farmers.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

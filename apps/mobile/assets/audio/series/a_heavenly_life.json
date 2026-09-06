@@ -1,0 +1,64 @@
+{
+  "id": "a_heavenly_life",
+  "title": "A Heavenly Life",
+  "description": "A Heavenly Life — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 4,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "a_heavenly_life_a_heavenly_life_home_and_churc_f37e10d3",
+      "title": "A Heavenly Life, Home and Church",
+      "seriesId": "a_heavenly_life",
+      "seriesTitle": "A Heavenly Life",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-heavenly-life/3-a-heavenly-life-home-and-church.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "a_heavenly_life_brokenness_the_key_to_a_heaven_eb32391c",
+      "title": "Brokenness the key to a heavenly life",
+      "seriesId": "a_heavenly_life",
+      "seriesTitle": "A Heavenly Life",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-heavenly-life/4-brokenness-the-key-to-a-heavenly-life.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "a_heavenly_life_heavenly_attitudes_to_earthly__3f41acd1",
+      "title": "Heavenly attitudes to earthly issues",
+      "seriesId": "a_heavenly_life",
+      "seriesTitle": "A Heavenly Life",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-heavenly-life/2-heavenly-attitudes-to-earthly-issues.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "a_heavenly_life_seated_in_the_heavens_9cf0fb13",
+      "title": "Seated in the Heavens",
+      "seriesId": "a_heavenly_life",
+      "seriesTitle": "A Heavenly Life",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-heavenly-life/1-seated-in-the-heavens.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

@@ -26,9 +26,14 @@ const RELEASES_AUDIO_DIR = path.join(__dirname, '..', 'releases', 'audio');
 const RELEASES_SERIES_DIR = path.join(RELEASES_AUDIO_DIR, 'series');
 const CATALOG_PATH = path.join(RELEASES_AUDIO_DIR, 'catalog.json');
 
+const ASSETS_AUDIO_DIR = path.join(__dirname, '..', 'apps', 'mobile', 'assets', 'audio');
+const ASSETS_SERIES_DIR = path.join(ASSETS_AUDIO_DIR, 'series');
+const ASSETS_CATALOG_PATH = path.join(ASSETS_AUDIO_DIR, 'catalog.json');
+
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(RELEASES_SERIES_DIR)) fs.mkdirSync(RELEASES_SERIES_DIR, { recursive: true });
+if (!fs.existsSync(ASSETS_SERIES_DIR)) fs.mkdirSync(ASSETS_SERIES_DIR, { recursive: true });
 
 // Initialize SQLite State Store
 const db = new DatabaseSync(DB_PATH);
@@ -575,8 +580,11 @@ async function buildManifests() {
     };
 
     // Write individual series file
+    const seriesJson = JSON.stringify(seriesObj, null, 2);
     const seriesFile = path.join(RELEASES_SERIES_DIR, `${seriesId}.json`);
-    fs.writeFileSync(seriesFile, JSON.stringify(seriesObj, null, 2), 'utf8');
+    const assetSeriesFile = path.join(ASSETS_SERIES_DIR, `${seriesId}.json`);
+    fs.writeFileSync(seriesFile, seriesJson, 'utf8');
+    fs.writeFileSync(assetSeriesFile, seriesJson, 'utf8');
 
     // Add to catalog summary (without heavy tracks array)
     catalog.push({
@@ -613,10 +621,12 @@ async function buildManifests() {
     return b.trackCount - a.trackCount;
   });
 
-  // Write master catalog.json
-  fs.writeFileSync(CATALOG_PATH, JSON.stringify(catalog, null, 2), 'utf8');
-  console.log(`Wrote master catalog with ${catalog.length} series to ${CATALOG_PATH}`);
-  console.log(`Generated ${seriesRows.length} series tracklist files in ${RELEASES_SERIES_DIR}`);
+  // Write master catalog.json to both releases and app source assets
+  const catalogJson = JSON.stringify(catalog, null, 2);
+  fs.writeFileSync(CATALOG_PATH, catalogJson, 'utf8');
+  fs.writeFileSync(ASSETS_CATALOG_PATH, catalogJson, 'utf8');
+  console.log(`Wrote master catalog with ${catalog.length} series to ${CATALOG_PATH} and ${ASSETS_CATALOG_PATH}`);
+  console.log(`Generated ${seriesRows.length} series tracklist files in ${RELEASES_SERIES_DIR} and ${ASSETS_SERIES_DIR}`);
 
   // Summary by category
   const categories = {};

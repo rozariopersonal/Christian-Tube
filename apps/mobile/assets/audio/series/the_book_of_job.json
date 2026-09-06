@@ -1,0 +1,51 @@
+{
+  "id": "the_book_of_job",
+  "title": "The Book Of Job",
+  "description": "The Book Of Job — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "the_book_of_job_the_book_of_job_part_1_21854762",
+      "title": "The Book Of Job Part 1",
+      "seriesId": "the_book_of_job",
+      "seriesTitle": "The Book Of Job",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-book-of-job/1-the-book-of-job-part-1.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": "JOB",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_book_of_job_the_book_of_job_part_2_3fe542f4",
+      "title": "The Book Of Job Part 2",
+      "seriesId": "the_book_of_job",
+      "seriesTitle": "The Book Of Job",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-book-of-job/2-the-book-of-job-part-2.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": "JOB",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_book_of_job_the_book_of_job_part_3_1985b9a7",
+      "title": "The Book Of Job Part 3",
+      "seriesId": "the_book_of_job",
+      "seriesTitle": "The Book Of Job",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-book-of-job/3-the-book-of-job-part-3.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": "JOB",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

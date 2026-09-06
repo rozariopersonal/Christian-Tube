@@ -1,0 +1,51 @@
+{
+  "id": "preparing_our_heart_to_build_the_church",
+  "title": "Preparing Our Heart to Build the Church",
+  "description": "Preparing Our Heart to Build the Church — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Santosh Poonen",
+  "trackCount": 3,
+  "category": "The Church",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/icon/cfc-logo-maroon.png",
+  "tracks": [
+    {
+      "id": "preparing_our_heart_to_build_the_church_an_impossible_working_god_7766be80",
+      "title": "An Impossible-Working God",
+      "seriesId": "preparing_our_heart_to_build_the_church",
+      "seriesTitle": "Preparing Our Heart to Build the Church",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/preparing-our-heart-to-build-the-church/3-an-impossible-working-god.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/icon/cfc-logo-maroon.png",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "preparing_our_heart_to_build_the_church_following_jesus_example_in_fai_2fe0c9cb",
+      "title": "Following Jesus' Example in Faith and Worship",
+      "seriesId": "preparing_our_heart_to_build_the_church",
+      "seriesTitle": "Preparing Our Heart to Build the Church",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/preparing-our-heart-to-build-the-church/2-following-jesus-example-in-faith-and-worship.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/icon/cfc-logo-maroon.png",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "preparing_our_heart_to_build_the_church_following_jesus_example_in_son_02e794a4",
+      "title": "Following Jesus' example in Sonship",
+      "seriesId": "preparing_our_heart_to_build_the_church",
+      "seriesTitle": "Preparing Our Heart to Build the Church",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/preparing-our-heart-to-build-the-church/1-following-jesus-example-in-sonship.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/icon/cfc-logo-maroon.png",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

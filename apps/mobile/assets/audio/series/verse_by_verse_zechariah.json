@@ -1,0 +1,90 @@
+{
+  "id": "verse_by_verse_zechariah",
+  "title": "Verse By Verse: Zechariah",
+  "description": "Verse By Verse: Zechariah — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 6,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_zechariah_01_d311bbd5",
+      "title": "01.Zechariah Chapter 1:1 to Chapter 2:13",
+      "seriesId": "verse_by_verse_zechariah",
+      "seriesTitle": "Verse By Verse: Zechariah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot07-zechariah-chapter-1-1-to-chapter-2-13.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "ZEC",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_zechariah_02_c186fc7d",
+      "title": "02.Zechariah Chapter 3:1 to Chapter 5:4",
+      "seriesId": "verse_by_verse_zechariah",
+      "seriesTitle": "Verse By Verse: Zechariah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot07-zechariah-chapter-3-to-chapter-5.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "ZEC",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_zechariah_03_a5c66588",
+      "title": "03.Zechariah Chapter 5:5 to Chapter 8:13",
+      "seriesId": "verse_by_verse_zechariah",
+      "seriesTitle": "Verse By Verse: Zechariah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot07-zechariah-chapter-5-5-to-chapter-8-13.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "ZEC",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_zechariah_04_fbab2bf5",
+      "title": "04.Zechariah Chapter 8:14 to Chapter 10:12",
+      "seriesId": "verse_by_verse_zechariah",
+      "seriesTitle": "Verse By Verse: Zechariah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot07-zechariah-chapter-8-14-to-chapter-10-12.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "ZEC",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_zechariah_05_16ca9d6d",
+      "title": "05.Zechariah Chapter 11:1 to Chapter 12:14",
+      "seriesId": "verse_by_verse_zechariah",
+      "seriesTitle": "Verse By Verse: Zechariah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot07-zechariah-chapter-11-1-to-chapter-12-14.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "ZEC",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_zechariah_06_dc97e95d",
+      "title": "06.Zechariah Chapter 13:1 to Chapter 14:21",
+      "seriesId": "verse_by_verse_zechariah",
+      "seriesTitle": "Verse By Verse: Zechariah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot07-zechariah-chapter-13-1-to-chapter-14-21.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "ZEC",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

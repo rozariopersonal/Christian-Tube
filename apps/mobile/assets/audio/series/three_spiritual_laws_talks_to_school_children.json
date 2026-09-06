@@ -1,0 +1,51 @@
+{
+  "id": "three_spiritual_laws_talks_to_school_children",
+  "title": "THREE SPIRITUAL LAWS (Talks to school-children)",
+  "description": "THREE SPIRITUAL LAWS (Talks to school-children) — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "Family & Home",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+  "tracks": [
+    {
+      "id": "three_spiritual_laws_talks_to_school_children_1the_law_of_humility_c6710467",
+      "title": "1.The Law Of Humility",
+      "seriesId": "three_spiritual_laws_talks_to_school_children",
+      "seriesTitle": "THREE SPIRITUAL LAWS (Talks to school-children)",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/three-spiritual-laws-talks-to-school-children/1-the-law-of-humility.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "three_spiritual_laws_talks_to_school_children_2the_law_of_faith_c09504e7",
+      "title": "2.The Law Of Faith",
+      "seriesId": "three_spiritual_laws_talks_to_school_children",
+      "seriesTitle": "THREE SPIRITUAL LAWS (Talks to school-children)",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/three-spiritual-laws-talks-to-school-children/2-the-law-of-faith.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "three_spiritual_laws_talks_to_school_children_3the_law_of_love_08625b9c",
+      "title": "3.The Law Of Love",
+      "seriesId": "three_spiritual_laws_talks_to_school_children",
+      "seriesTitle": "THREE SPIRITUAL LAWS (Talks to school-children)",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/three-spiritual-laws-talks-to-school-children/3-the-law-of-love.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "id": "five_choices_to_make",
+  "title": "Five Choices To Make",
+  "description": "Five Choices To Make — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Santosh Poonen",
+  "trackCount": 5,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "five_choices_to_make_choice_1choose_christ_773656bf",
+      "title": "CHOICE: 1.Choose Christ",
+      "seriesId": "five_choices_to_make",
+      "seriesTitle": "Five Choices To Make",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/five-choices-to-make/choice-1-choose-christ.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "five_choices_to_make_choice_2choose_humility_f29f258d",
+      "title": "CHOICE: 2.Choose Humility",
+      "seriesId": "five_choices_to_make",
+      "seriesTitle": "Five Choices To Make",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/five-choices-to-make/choice-2-choose-humility.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "five_choices_to_make_choice_3choose_obedience_800fc977",
+      "title": "CHOICE: 3.Choose Obedience",
+      "seriesId": "five_choices_to_make",
+      "seriesTitle": "Five Choices To Make",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/five-choices-to-make/choice-3-choose-obedience.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "five_choices_to_make_choice_4choose_integrity_abba4615",
+      "title": "CHOICE: 4.Choose Integrity",
+      "seriesId": "five_choices_to_make",
+      "seriesTitle": "Five Choices To Make",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/five-choices-to-make/choice-4-choose-integrity.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "five_choices_to_make_choice_5choose_to_be_a_christ__9f39da3a",
+      "title": "CHOICE: 5.Choose to be a Christ-like Example",
+      "seriesId": "five_choices_to_make",
+      "seriesTitle": "Five Choices To Make",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/five-choices-to-make/choice-5-choose-to-be-a-christ-like-example.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

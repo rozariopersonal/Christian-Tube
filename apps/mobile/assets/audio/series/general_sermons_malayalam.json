@@ -1,0 +1,25 @@
+{
+  "id": "general_sermons_malayalam",
+  "title": "Malayalam Messages",
+  "description": "Malayalam Messages — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "Multilingual",
+  "language": "Malayalam",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "general_sermons_malayalam_gods_purpose_in_severe_afflict_4b21e470",
+      "title": "God's Purpose in Severe Afflictions (with Malayalam translation)",
+      "seriesId": "general_sermons_malayalam",
+      "seriesTitle": "Malayalam Messages",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/ml/sermon-series/single-sermons/gods-purpose-in-severe-afflictions.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

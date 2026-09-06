@@ -1,0 +1,90 @@
+{
+  "id": "satans_deceptions",
+  "title": "Satan's Deceptions",
+  "description": "Satan's Deceptions — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 6,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "satans_deceptions_following_the_real_jesus_52f58d1f",
+      "title": "Following The Real Jesus",
+      "seriesId": "satans_deceptions",
+      "seriesTitle": "Satan's Deceptions",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/satans-deceptions/3-following-the-real-jesus.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "satans_deceptions_how_satan_deceives_5a067170",
+      "title": "How Satan Deceives",
+      "seriesId": "satans_deceptions",
+      "seriesTitle": "Satan's Deceptions",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/satans-deceptions/1-how-satan-deceives.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "satans_deceptions_overcoming_all_deception_9f6ea3c6",
+      "title": "Overcoming All Deception",
+      "seriesId": "satans_deceptions",
+      "seriesTitle": "Satan's Deceptions",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/satans-deceptions/4-overcoming-all-deception.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "satans_deceptions_q_a_session_1_atlanta_conferen_461ad4fd",
+      "title": "Q &A Session 1 - Atlanta Conference 2014",
+      "seriesId": "satans_deceptions",
+      "seriesTitle": "Satan's Deceptions",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/satans-deceptions/1-q-and-a-session.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "satans_deceptions_q_a_session_2_atlanta_conferen_02da1b6a",
+      "title": "Q &A Session 2 - Atlanta Conference 2014",
+      "seriesId": "satans_deceptions",
+      "seriesTitle": "Satan's Deceptions",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/satans-deceptions/2-q-and-a-session.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "satans_deceptions_the_real_jesus_249587ea",
+      "title": "The Real Jesus",
+      "seriesId": "satans_deceptions",
+      "seriesTitle": "Satan's Deceptions",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/satans-deceptions/2-the-real-jesus.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

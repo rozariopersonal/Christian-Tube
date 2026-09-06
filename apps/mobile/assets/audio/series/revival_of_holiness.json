@@ -1,0 +1,51 @@
+{
+  "id": "revival_of_holiness",
+  "title": "Revival Of Holiness",
+  "description": "Revival Of Holiness — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "Multilingual",
+  "language": "Kannada",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "revival_of_holiness_first_make_the_inside_clean_f0647c18",
+      "title": "First Make The Inside Clean",
+      "seriesId": "revival_of_holiness",
+      "seriesTitle": "Revival Of Holiness",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.com/resources/kn/sermon-series/revival-of-holiness/01-first-make-the-inside-clean.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "revival_of_holiness_temptations_that_women_face_24cced0f",
+      "title": "Temptations That Women Face",
+      "seriesId": "revival_of_holiness",
+      "seriesTitle": "Revival Of Holiness",
+      "speaker": "Dr.Annie Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/kn/sermon-series/revival-of-holiness/07-temptaions-that-women-face.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "revival_of_holiness_the_danger_of_hidden_sins_284e2d0e",
+      "title": "The Danger Of Hidden Sins",
+      "seriesId": "revival_of_holiness",
+      "seriesTitle": "Revival Of Holiness",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.com/resources/kn/sermon-series/revival-of-holiness/04-the-danger-of-hidden-sins.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

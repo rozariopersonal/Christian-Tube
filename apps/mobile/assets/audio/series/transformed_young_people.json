@@ -1,0 +1,64 @@
+{
+  "id": "transformed_young_people",
+  "title": "Transformed Young People",
+  "description": "Transformed Young People — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 4,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "transformed_young_people_the_law_and_faith_c3d98883",
+      "title": "The Law And Faith",
+      "seriesId": "transformed_young_people",
+      "seriesTitle": "Transformed Young People",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/transformed-young-people/6-the-law-and-faith.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "transformed_young_people_three_virtues_to_pursue_84e76688",
+      "title": "Three Virtues To Pursue",
+      "seriesId": "transformed_young_people",
+      "seriesTitle": "Transformed Young People",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/transformed-young-people/7-three-virtues-to-pursue.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "transformed_young_people_true_christians_in_the_workpla_1910fb46",
+      "title": "True Christians In The Workplace-1",
+      "seriesId": "transformed_young_people",
+      "seriesTitle": "Transformed Young People",
+      "speaker": "Sanjay Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/transformed-young-people/4-true-christians-in-the-workplace-1.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "transformed_young_people_true_christians_in_the_workpla_2649ee62",
+      "title": "True Christians In The Workplace-2",
+      "seriesId": "transformed_young_people",
+      "seriesTitle": "Transformed Young People",
+      "speaker": "Sanjay Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/transformed-young-people/5-true-christians-in-the-workplace-2.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

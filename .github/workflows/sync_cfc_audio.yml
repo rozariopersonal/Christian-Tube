@@ -32,8 +32,23 @@ jobs:
       - name: Run Audio Synchronizer
         run: node tool/sync_cfc_audio.js
 
-      - name: Commit and Push Releases Updates
+      - name: Commit and Push Catalog Updates
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 1. Commit and push updates directly into main repository source assets
+          if [ -n "$(git status --porcelain apps/mobile/assets/audio/)" ]; then
+            echo "Changes detected in apps/mobile/assets/audio/. Committing to source repo..."
+            git add apps/mobile/assets/audio/
+            git commit -m "chore(audio): sync CFC India audio catalog in source assets [skip ci]"
+            git push origin main
+            echo "Source audio catalog in apps/mobile/assets/audio/ successfully committed and pushed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No audio source asset changes detected in apps/mobile/assets/audio/."
+          fi
+
+          # 2. Check and commit updates in releases submodule if needed
           cd releases
           if [ -n "$(git status --porcelain audio/)" ]; then
             echo "Changes detected in releases/audio/. Committing..."
@@ -47,8 +62,8 @@ jobs:
             git add releases
             git commit -m "chore(releases): update audio catalog submodule pointer [skip ci]"
             git push origin main
-            echo "Audio catalog successfully synced and pushed!" >> $GITHUB_STEP_SUMMARY
+            echo "Audio catalog in releases/ successfully synced and pushed!" >> $GITHUB_STEP_SUMMARY
           else
-            echo "No audio catalog changes detected. Everything is up to date."
-            echo "Audio catalog is up to date. Zero changes." >> $GITHUB_STEP_SUMMARY
+            cd ..
+            echo "No audio catalog changes detected in releases/."
           fi

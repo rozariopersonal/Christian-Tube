@@ -1,0 +1,38 @@
+{
+  "id": "destruction_or_destiny",
+  "title": "Destruction or Destiny",
+  "description": "Destruction or Destiny — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Santosh Poonen",
+  "trackCount": 2,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "destruction_or_destiny_destruction_or_destiny_1_234ef747",
+      "title": "Destruction Or Destiny - 1",
+      "seriesId": "destruction_or_destiny",
+      "seriesTitle": "Destruction or Destiny",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/destruction-or-destiny/destruction-or-destiny-1.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "destruction_or_destiny_destruction_or_destiny_2_0098dca6",
+      "title": "Destruction Or Destiny - 2",
+      "seriesId": "destruction_or_destiny",
+      "seriesTitle": "Destruction or Destiny",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/destruction-or-destiny/destruction-or-destiny-2.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

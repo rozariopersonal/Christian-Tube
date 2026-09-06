@@ -1,0 +1,51 @@
+{
+  "id": "eternal_life_is_to_know_god",
+  "title": "Eternal Life is to know God",
+  "description": "Eternal Life is to know God — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Santosh Poonen",
+  "trackCount": 3,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "eternal_life_is_to_know_god_fellowship_with_jesus_732090a5",
+      "title": "Fellowship with Jesus",
+      "seriesId": "eternal_life_is_to_know_god",
+      "seriesTitle": "Eternal Life is to know God",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/eternal-life-is-to-know-god/2-fellowship-with-jesus.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "eternal_life_is_to_know_god_filled_with_the_holy_spirit_6deb9ba5",
+      "title": "Filled with the Holy Spirit",
+      "seriesId": "eternal_life_is_to_know_god",
+      "seriesTitle": "Eternal Life is to know God",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/eternal-life-is-to-know-god/3-filled-with-the-holy-spirit.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "eternal_life_is_to_know_god_foundation_in_the_fathers_love_ef07afc7",
+      "title": "Foundation in the Father's love",
+      "seriesId": "eternal_life_is_to_know_god",
+      "seriesTitle": "Eternal Life is to know God",
+      "speaker": "Santosh Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/eternal-life-is-to-know-god/1-foundation-in-the-fathers-love.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

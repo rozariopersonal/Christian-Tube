@@ -1,0 +1,103 @@
+{
+  "id": "new_covenant_servants",
+  "title": "New Covenant Servants",
+  "description": "New Covenant Servants — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 7,
+  "category": "Christian Living",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+  "tracks": [
+    {
+      "id": "new_covenant_servants_destination_christlikeness_0605db6e",
+      "title": "Destination - Christlikeness",
+      "seriesId": "new_covenant_servants",
+      "seriesTitle": "New Covenant Servants",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/new-covenant-servants/2-destination-christlikeness.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "new_covenant_servants_doing_christs_works_and_greate_9a1350f5",
+      "title": "Doing Christ's Works and Greater Works",
+      "seriesId": "new_covenant_servants",
+      "seriesTitle": "New Covenant Servants",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/new-covenant-servants/3-doing-christs-works-and-greater-works.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "new_covenant_servants_examining_our_work_2f65cd05",
+      "title": "Examining Our Work",
+      "seriesId": "new_covenant_servants",
+      "seriesTitle": "New Covenant Servants",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/new-covenant-servants/4-examining-our-work.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "new_covenant_servants_getting_light_on_ourselves_5de55b55",
+      "title": "Getting Light On Ourselves",
+      "seriesId": "new_covenant_servants",
+      "seriesTitle": "New Covenant Servants",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/new-covenant-servants/2-getting-light-on-ourselves.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "new_covenant_servants_motivated_by_love_5ad1c72c",
+      "title": "Motivated by Love",
+      "seriesId": "new_covenant_servants",
+      "seriesTitle": "New Covenant Servants",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/new-covenant-servants/1-motivated-by-love.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "new_covenant_servants_the_anointing_and_dangers_e24c96fd",
+      "title": "The Anointing And Dangers",
+      "seriesId": "new_covenant_servants",
+      "seriesTitle": "New Covenant Servants",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/new-covenant-servants/3-the-anointing-and-dangers.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "new_covenant_servants_worshipping_god_and_listening_765b13a5",
+      "title": "Worshipping God And Listening",
+      "seriesId": "new_covenant_servants",
+      "seriesTitle": "New Covenant Servants",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/new-covenant-servants/1-worshipping-god-and-listening.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/glory-of-new-covenant-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

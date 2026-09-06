@@ -1,0 +1,25 @@
+{
+  "id": "verse_by_verse_jude",
+  "title": "Verse By Verse: Jude",
+  "description": "Verse By Verse: Jude — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_jude_01_343482e6",
+      "title": "01.Jude Chapter 1:1 to Chapter 1:25",
+      "seriesId": "verse_by_verse_jude",
+      "seriesTitle": "Verse By Verse: Jude",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt26-jude-chapter-1-1-to-chapter-1-25.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "JUD",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

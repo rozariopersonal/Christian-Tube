@@ -1,0 +1,25 @@
+{
+  "id": "general_sermons_deutsch",
+  "title": "Deutsch Messages",
+  "description": "Deutsch Messages — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "Multilingual",
+  "language": "Deutsch",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "general_sermons_deutsch_having_the_lords_presence_with_20b29f19",
+      "title": "Having The Lord's Presence With Us Always",
+      "seriesId": "general_sermons_deutsch",
+      "seriesTitle": "Deutsch Messages",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/single-sermons/having-the-lords-presence-with-us-always.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

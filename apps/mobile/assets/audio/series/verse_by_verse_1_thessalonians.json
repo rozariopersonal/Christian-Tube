@@ -1,0 +1,38 @@
+{
+  "id": "verse_by_verse_1_thessalonians",
+  "title": "Verse By Verse: 1 Thessalonians",
+  "description": "Verse By Verse: 1 Thessalonians — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 2,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_1_thessalonians_01_e2dc6b1e",
+      "title": "01.1Thessalonians Chapter 1:1 to Chapter 3:13",
+      "seriesId": "verse_by_verse_1_thessalonians",
+      "seriesTitle": "Verse By Verse: 1 Thessalonians",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt13-1thessalonians-chapter-1-1-to-chapter-3-13.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_1_thessalonians_02_ba3091ef",
+      "title": "02.1Thessalonians Chapter 3:12 to Chapter 5:28",
+      "seriesId": "verse_by_verse_1_thessalonians",
+      "seriesTitle": "Verse By Verse: 1 Thessalonians",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt13-1thessalonians-chapter-3-12-to-chapter-5-28.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

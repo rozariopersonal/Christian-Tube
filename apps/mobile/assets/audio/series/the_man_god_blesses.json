@@ -1,0 +1,64 @@
+{
+  "id": "the_man_god_blesses",
+  "title": "The Man God Blesses",
+  "description": "The Man God Blesses — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 4,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "the_man_god_blesses_psalm_1_77fbe26a",
+      "title": "Psalm 1",
+      "seriesId": "the_man_god_blesses",
+      "seriesTitle": "The Man God Blesses",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-man-god-blesses/1-psalm-1.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": "PSA",
+      "scriptureChapter": 1,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_man_god_blesses_psalm_23_93caa516",
+      "title": "Psalm 23",
+      "seriesId": "the_man_god_blesses",
+      "seriesTitle": "The Man God Blesses",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-man-god-blesses/2-psalm-23.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": "PSA",
+      "scriptureChapter": 23,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_man_god_blesses_psalm_73_6508e46b",
+      "title": "Psalm 73",
+      "seriesId": "the_man_god_blesses",
+      "seriesTitle": "The Man God Blesses",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-man-god-blesses/3-psalm-73.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": "PSA",
+      "scriptureChapter": 73,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_man_god_blesses_psalm_91_e150d45f",
+      "title": "Psalm 91",
+      "seriesId": "the_man_god_blesses",
+      "seriesTitle": "The Man God Blesses",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-man-god-blesses/4-psalm-91.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": "PSA",
+      "scriptureChapter": 91,
+      "scriptureVerse": null
+    }
+  ]
+}

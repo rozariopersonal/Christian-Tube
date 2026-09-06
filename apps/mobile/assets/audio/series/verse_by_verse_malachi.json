@@ -1,0 +1,51 @@
+{
+  "id": "verse_by_verse_malachi",
+  "title": "Verse By Verse: Malachi",
+  "description": "Verse By Verse: Malachi — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_malachi_01_42ff3992",
+      "title": "01.Malachi Chapter 1:1 to Chapter 1:11",
+      "seriesId": "verse_by_verse_malachi",
+      "seriesTitle": "Verse By Verse: Malachi",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot08-malachi-chapter-1-1-to-chapter-1-11.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "MAL",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_malachi_02_f2038f42",
+      "title": "02.Malachi Chapter 1:11 to Chapter 2:16",
+      "seriesId": "verse_by_verse_malachi",
+      "seriesTitle": "Verse By Verse: Malachi",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot08-malachi-chapter-1-11-to-chapter-2-16.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "MAL",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_malachi_03_80e7e364",
+      "title": "03.Malachi Chapter 2:14 to Chapter 4:6",
+      "seriesId": "verse_by_verse_malachi",
+      "seriesTitle": "Verse By Verse: Malachi",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot08-malachi-chapter-2-14-to-chapter-4-6.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "MAL",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

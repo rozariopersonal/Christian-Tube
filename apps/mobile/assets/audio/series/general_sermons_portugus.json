@@ -1,0 +1,25 @@
+{
+  "id": "general_sermons_portugus",
+  "title": "Português Messages",
+  "description": "Português Messages — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "Multilingual",
+  "language": "Português",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "general_sermons_portugus_god_has_made_the_very_best_pla_a3d6e15d",
+      "title": "God Has Made The Very Best Plans For Your Life",
+      "seriesId": "general_sermons_portugus",
+      "seriesTitle": "Português Messages",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "http://www.cfcindia.org/resources/pt/sermon-series/single-sermons/god-has-made-the-very-best-plans-for-your-life.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

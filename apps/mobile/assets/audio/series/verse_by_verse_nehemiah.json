@@ -1,0 +1,90 @@
+{
+  "id": "verse_by_verse_nehemiah",
+  "title": "Verse By Verse: Nehemiah",
+  "description": "Verse By Verse: Nehemiah — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 6,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_nehemiah_01_49d618b7",
+      "title": "01.Nehemiah Chapter 1:1 to Chapter 2:20",
+      "seriesId": "verse_by_verse_nehemiah",
+      "seriesTitle": "Verse By Verse: Nehemiah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot05-nehemiah-chapter-1-1-to-chapter-2-20.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "NEH",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_nehemiah_02_e97bfeb5",
+      "title": "02.Nehemiah Chapter 3:1 to Chapter 4:23",
+      "seriesId": "verse_by_verse_nehemiah",
+      "seriesTitle": "Verse By Verse: Nehemiah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot05-nehemiah-chapter-3-1-to-chapter-4-23.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "NEH",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_nehemiah_03_2221fb96",
+      "title": "03.Nehemiah Chapter 5:1 to Chapter 6:19",
+      "seriesId": "verse_by_verse_nehemiah",
+      "seriesTitle": "Verse By Verse: Nehemiah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot05-nehemiah-chapter-5-1-to-chapter-6-19.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "NEH",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_nehemiah_04_fe8e44b1",
+      "title": "04.Nehemiah Chapter 7:1 to Chapter 8:18",
+      "seriesId": "verse_by_verse_nehemiah",
+      "seriesTitle": "Verse By Verse: Nehemiah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot05-nehemiah-chapter-7-1-to-chapter-8-18.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "NEH",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_nehemiah_05_e44476b3",
+      "title": "05.Nehemiah Chapter 9:1 to Chapter 10:39",
+      "seriesId": "verse_by_verse_nehemiah",
+      "seriesTitle": "Verse By Verse: Nehemiah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot05-nehemiah-chapter-9-1-to-chapter-10-39.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "NEH",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_nehemiah_06_2accb37c",
+      "title": "06.Nehemiah Chapter 11:1 to Chapter 13:30",
+      "seriesId": "verse_by_verse_nehemiah",
+      "seriesTitle": "Verse By Verse: Nehemiah",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/ot05-nehemiah-chapter-11-to-chapter-13.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "NEH",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

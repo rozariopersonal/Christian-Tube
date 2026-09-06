@@ -1,0 +1,38 @@
+{
+  "id": "gods_purpose_in_marriage",
+  "title": "God’s Purpose In Marriage",
+  "description": "God’s Purpose In Marriage — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 2,
+  "category": "Family & Home",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+  "tracks": [
+    {
+      "id": "gods_purpose_in_marriage_and_at_present_a7b5b349",
+      "title": "And At Present",
+      "seriesId": "gods_purpose_in_marriage",
+      "seriesTitle": "God’s Purpose In Marriage",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/gods-purpose-in-marriage/at-preset.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "gods_purpose_in_marriage_from_the_beginning_e060ad9c",
+      "title": "From The Beginning",
+      "seriesId": "gods_purpose_in_marriage",
+      "seriesTitle": "God’s Purpose In Marriage",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/gods-purpose-in-marriage/from-the-begining.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

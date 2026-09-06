@@ -1,0 +1,51 @@
+{
+  "id": "parables_on_legalism",
+  "title": "Parables On Legalism",
+  "description": "Parables On Legalism — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "parables_on_legalism_parables_on_legalism_part_1_28c8495b",
+      "title": "Parables On Legalism Part 1",
+      "seriesId": "parables_on_legalism",
+      "seriesTitle": "Parables On Legalism",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/parables-on-legalism/1-parables-on-legalism.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "parables_on_legalism_parables_on_legalism_part_2_e0eb1cd6",
+      "title": "Parables On Legalism Part 2",
+      "seriesId": "parables_on_legalism",
+      "seriesTitle": "Parables On Legalism",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/parables-on-legalism/2-parables-on-legalism.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "parables_on_legalism_parables_on_legalism_part_3_606da7b8",
+      "title": "Parables On Legalism Part 3",
+      "seriesId": "parables_on_legalism",
+      "seriesTitle": "Parables On Legalism",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/parables-on-legalism/3-parables-on-legalism.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

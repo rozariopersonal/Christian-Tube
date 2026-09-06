@@ -1,0 +1,90 @@
+{
+  "id": "a_six_fold_freedom",
+  "title": "A Six-Fold Freedom",
+  "description": "A Six-Fold Freedom — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 6,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "a_six_fold_freedom_freedom_from_denominationalism_0c44b8db",
+      "title": "Freedom From Denominationalism",
+      "seriesId": "a_six_fold_freedom",
+      "seriesTitle": "A Six-Fold Freedom",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-six-fold-freedom/6-freedom-from-denominationalism.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "a_six_fold_freedom_freedom_from_fear_6e89298e",
+      "title": "Freedom From Fear",
+      "seriesId": "a_six_fold_freedom",
+      "seriesTitle": "A Six-Fold Freedom",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-six-fold-freedom/4-freedom-from-fear.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "a_six_fold_freedom_freedom_from_legalism_cc54dd7a",
+      "title": "Freedom From Legalism",
+      "seriesId": "a_six_fold_freedom",
+      "seriesTitle": "A Six-Fold Freedom",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-six-fold-freedom/2-freedom-from-legalism.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "a_six_fold_freedom_freedom_from_sin_a_six_fold_fr_9bb1d6c4",
+      "title": "Freedom From Sin - A Six-Fold Freedom",
+      "seriesId": "a_six_fold_freedom",
+      "seriesTitle": "A Six-Fold Freedom",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-six-fold-freedom/1-freedom-from-sin.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "a_six_fold_freedom_freedom_from_soulishness_9a2b8671",
+      "title": "Freedom From Soulishness",
+      "seriesId": "a_six_fold_freedom",
+      "seriesTitle": "A Six-Fold Freedom",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-six-fold-freedom/5-freedom-from-soulishness.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "a_six_fold_freedom_freedom_from_this_world_system_a685b2f3",
+      "title": "Freedom From This World System",
+      "seriesId": "a_six_fold_freedom",
+      "seriesTitle": "A Six-Fold Freedom",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/a-six-fold-freedom/3-freedom-from-this-world-system.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

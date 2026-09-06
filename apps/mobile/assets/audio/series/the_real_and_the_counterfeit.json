@@ -1,0 +1,51 @@
+{
+  "id": "the_real_and_the_counterfeit",
+  "title": "The Real And The Counterfeit",
+  "description": "The Real And The Counterfeit — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "the_real_and_the_counterfeit_another_gospel_72ea4657",
+      "title": "Another Gospel",
+      "seriesId": "the_real_and_the_counterfeit",
+      "seriesTitle": "The Real And The Counterfeit",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-real-and-the-counterfeit/03-another-gospel.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_real_and_the_counterfeit_another_jesus_bbc33184",
+      "title": "Another Jesus",
+      "seriesId": "the_real_and_the_counterfeit",
+      "seriesTitle": "The Real And The Counterfeit",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-real-and-the-counterfeit/01-another-jesus.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_real_and_the_counterfeit_another_spirit_aba2b39c",
+      "title": "Another Spirit",
+      "seriesId": "the_real_and_the_counterfeit",
+      "seriesTitle": "The Real And The Counterfeit",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-real-and-the-counterfeit/02-another-spirit.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

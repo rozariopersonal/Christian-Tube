@@ -1,0 +1,25 @@
+{
+  "id": "living_a_life_that_pleases_god",
+  "title": "Living A Life That Pleases God",
+  "description": "Living A Life That Pleases God — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "living_a_life_that_pleases_god_an_ambition_to_please_god_alon_f07644c5",
+      "title": "An Ambition to Please God Alone",
+      "seriesId": "living_a_life_that_pleases_god",
+      "seriesTitle": "Living A Life That Pleases God",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/living-a-life-that-pleases-god/an-ambition-to-please-god-alone.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

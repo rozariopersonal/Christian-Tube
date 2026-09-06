@@ -1,0 +1,25 @@
+{
+  "id": "verse_by_verse_2_john",
+  "title": "Verse By Verse: 2 John",
+  "description": "Verse By Verse: 2 John — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_2_john_01_0e2f0e4f",
+      "title": "01.2John Chapter1:1 to Chapter1:13",
+      "seriesId": "verse_by_verse_2_john",
+      "seriesTitle": "Verse By Verse: 2 John",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt24-2john-chapter-1-1-to-chapter-1-13.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

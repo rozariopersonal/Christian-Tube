@@ -1,0 +1,51 @@
+{
+  "id": "the_truth_about_prophecy",
+  "title": "The Truth About Prophecy",
+  "description": "The Truth About Prophecy — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "Foundations",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+  "tracks": [
+    {
+      "id": "the_truth_about_prophecy_introduction_to_prophecy_the_t_51c176c5",
+      "title": "Introduction To Prophecy - The Truth About Prophecy",
+      "seriesId": "the_truth_about_prophecy",
+      "seriesTitle": "The Truth About Prophecy",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-truth-about-prophecy/1-introduction-to-prophecy.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": "RUT",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_truth_about_prophecy_prophecy_in_the_new_testament__ea532d51",
+      "title": "Prophecy In The New Testament - The Truth About Prophecy",
+      "seriesId": "the_truth_about_prophecy",
+      "seriesTitle": "The Truth About Prophecy",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-truth-about-prophecy/3-prophecy-in-the-new-testament.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": "RUT",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_truth_about_prophecy_prophecy_in_the_old_testament__039f6a27",
+      "title": "Prophecy In The Old Testament - The Truth About Prophecy",
+      "seriesId": "the_truth_about_prophecy",
+      "seriesTitle": "The Truth About Prophecy",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-truth-about-prophecy/2-prophecy-in-the-old-testament.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/basic-christian-teachings.jpg",
+      "scriptureBook": "RUT",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "daily_devotion",
+  "title": "Daily Devotion",
+  "description": "Daily Devotion — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "Daily Devotions",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/daily_devotion.jpg",
+  "tracks": [
+    {
+      "id": "daily_devotion_december_31_daily_devotion_kno_5a2e4778",
+      "title": "December 31 | Daily Devotion | Knowing God As Your Father Frees You From Anxiety",
+      "seriesId": "daily_devotion",
+      "seriesTitle": "Daily Devotion",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/daily-devotion/knowing-god-as-your-father-frees-you-from-anxiety.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/daily_devotion.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

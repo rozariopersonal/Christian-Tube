@@ -1,0 +1,64 @@
+{
+  "id": "verse_by_verse_james",
+  "title": "Verse By Verse: James",
+  "description": "Verse By Verse: James — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 4,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_james_01_6c434f65",
+      "title": "01.James Chapter 1:1 to Chapter 1:25",
+      "seriesId": "verse_by_verse_james",
+      "seriesTitle": "Verse By Verse: James",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt20-james-chapter-1-1-to-chapter-1-25.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "JAS",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_james_02_01f511e8",
+      "title": "02.James Chapter 1:26 to Chapter 2:26",
+      "seriesId": "verse_by_verse_james",
+      "seriesTitle": "Verse By Verse: James",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt20-james-chapter-1-26-to-chapter-2-26.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "JAS",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_james_03_6a12f938",
+      "title": "03.James Chapter 3:1 to Chapter 4:5",
+      "seriesId": "verse_by_verse_james",
+      "seriesTitle": "Verse By Verse: James",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt20-james-chapter-3-1-to-chapter-4-6.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "JAS",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_james_04_ebdb1572",
+      "title": "04.James Chapter 4:6 to Chapter 5:20",
+      "seriesId": "verse_by_verse_james",
+      "seriesTitle": "Verse By Verse: James",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt20-james-chapter-4-6-to-chapter-5-20.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "JAS",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

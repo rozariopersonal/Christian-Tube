@@ -1,0 +1,25 @@
+{
+  "id": "general_sermons_",
+  "title": "मराठी Messages",
+  "description": "मराठी Messages — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "Multilingual",
+  "language": "मराठी",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "general_sermons__seven_new_year_prayers_491bf595",
+      "title": "Seven New Year Prayers",
+      "seriesId": "general_sermons_",
+      "seriesTitle": "मराठी Messages",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/mr/sermon-series/single-sermons/seven-new-year-prayers.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

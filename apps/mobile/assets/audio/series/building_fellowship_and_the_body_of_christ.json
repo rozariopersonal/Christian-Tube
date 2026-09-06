@@ -1,0 +1,25 @@
+{
+  "id": "building_fellowship_and_the_body_of_christ",
+  "title": "Building Fellowship and the Body of Christ",
+  "description": "Building Fellowship and the Body of Christ — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 1,
+  "category": "The Church",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/icon/cfc-logo-maroon.png",
+  "tracks": [
+    {
+      "id": "building_fellowship_and_the_body_of_christ_the_maximum_christian_and_the__e5363ec9",
+      "title": "The Maximum Christian and the Way of the Cross",
+      "seriesId": "building_fellowship_and_the_body_of_christ",
+      "seriesTitle": "Building Fellowship and the Body of Christ",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/single-sermons/the-maximum-christian-and-the-way-of-the-cross.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/icon/cfc-logo-maroon.png",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

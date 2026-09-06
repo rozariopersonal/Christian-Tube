@@ -1,0 +1,51 @@
+{
+  "id": "things_unshakable",
+  "title": "Things Unshakable",
+  "description": "Things Unshakable — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "things_unshakable_an_unshakable_church_61ea80e7",
+      "title": "An Unshakable Church",
+      "seriesId": "things_unshakable",
+      "seriesTitle": "Things Unshakable",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/things-unshakable/3-an-unshakable-church.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "things_unshakable_an_unshakable_home_d6dfc3e3",
+      "title": "An Unshakable Home",
+      "seriesId": "things_unshakable",
+      "seriesTitle": "Things Unshakable",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/things-unshakable/2-an-unshakable-home.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "things_unshakable_an_unshakable_life_fb9b61c9",
+      "title": "An Unshakable Life",
+      "seriesId": "things_unshakable",
+      "seriesTitle": "Things Unshakable",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/things-unshakable/1-an-unshakable-life.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

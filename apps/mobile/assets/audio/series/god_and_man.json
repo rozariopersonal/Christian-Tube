@@ -1,0 +1,103 @@
+{
+  "id": "god_and_man",
+  "title": "God And Man",
+  "description": "God And Man — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 7,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "god_and_man_being_delivered_from_the_world_3ed60e43",
+      "title": "Being Delivered From The World",
+      "seriesId": "god_and_man",
+      "seriesTitle": "God And Man",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/god-and-man/3-being-delivered-from-the-world.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "god_and_man_building_fellowship_in_christs_c045b6ac",
+      "title": "Building Fellowship In Christ's Body",
+      "seriesId": "god_and_man",
+      "seriesTitle": "God And Man",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/god-and-man/2-building-fellowship-in-christs-body.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "god_and_man_entering_gods_sabbath_rest_a53252cf",
+      "title": "Entering God's Sabbath Rest",
+      "seriesId": "god_and_man",
+      "seriesTitle": "God And Man",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/god-and-man/1-entering-gods-sabbath-rest.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "god_and_man_hastening_the_lords_coming_a0798ee7",
+      "title": "Hastening The Lord's Coming",
+      "seriesId": "god_and_man",
+      "seriesTitle": "God And Man",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/god-and-man/5-hastening-the-lords-coming.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "god_and_man_three_tenses_of_salvation_92e6bc0c",
+      "title": "Three Tenses Of Salvation",
+      "seriesId": "god_and_man",
+      "seriesTitle": "God And Man",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/god-and-man/7-three-tenses-of-salvation.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "god_and_man_three_things_god_requires_efe67bbb",
+      "title": "Three Things God Requires",
+      "seriesId": "god_and_man",
+      "seriesTitle": "God And Man",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/god-and-man/4-three-things-god-requires.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "god_and_man_zeal_for_gods_house_0f2d85dc",
+      "title": "Zeal For God's House",
+      "seriesId": "god_and_man",
+      "seriesTitle": "God And Man",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/god-and-man/6-zeal-for-gods-house.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

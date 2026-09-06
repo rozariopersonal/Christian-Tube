@@ -1,0 +1,103 @@
+{
+  "id": "our_vision_as_a_church",
+  "title": "Our Vision as a Church",
+  "description": "Our Vision as a Church — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 7,
+  "category": "Multilingual",
+  "language": "Malayalam",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "our_vision_as_a_church_being_bold_witnesses_7252e260",
+      "title": "Being Bold Witnesses",
+      "seriesId": "our_vision_as_a_church",
+      "seriesTitle": "Our Vision as a Church",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/our-vision-as-a-church/3-being-bold-witnesses.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "our_vision_as_a_church_god_looks_for_the_wholehearted_05ab0657",
+      "title": "God looks for the Wholehearted",
+      "seriesId": "our_vision_as_a_church",
+      "seriesTitle": "Our Vision as a Church",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/our-vision-as-a-church/2-god-looks-for-the-wholehearted.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "our_vision_as_a_church_god_waits_till_we_come_to_a_ze_582f2526",
+      "title": "God waits till we come to a Zero Point",
+      "seriesId": "our_vision_as_a_church",
+      "seriesTitle": "Our Vision as a Church",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/our-vision-as-a-church/7-god-waits-till-we-come-to-a-zero-point.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "our_vision_as_a_church_manifesting_gods_nature_65c030fb",
+      "title": "Manifesting God's Nature",
+      "seriesId": "our_vision_as_a_church",
+      "seriesTitle": "Our Vision as a Church",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/our-vision-as-a-church/4-manifesting-gods-nature.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "our_vision_as_a_church_none_of_self_and_all_of_christ_2aa2ab7c",
+      "title": "None of Self and All of Christ",
+      "seriesId": "our_vision_as_a_church",
+      "seriesTitle": "Our Vision as a Church",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/our-vision-as-a-church/5-none-of-self-and-all-of-christ.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "our_vision_as_a_church_proclaiming_gods_full_purpose_e1389e90",
+      "title": "Proclaiming God's Full Purpose",
+      "seriesId": "our_vision_as_a_church",
+      "seriesTitle": "Our Vision as a Church",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/our-vision-as-a-church/1-proclaiming-gods-full-purpose.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "our_vision_as_a_church_question_answers_b82738c7",
+      "title": "Question & Answers",
+      "seriesId": "our_vision_as_a_church",
+      "seriesTitle": "Our Vision as a Church",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/our-vision-as-a-church/6-question-and-answers.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

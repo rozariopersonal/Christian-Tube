@@ -1,0 +1,77 @@
+{
+  "id": "verse_by_verse_1_john",
+  "title": "Verse By Verse: 1 John",
+  "description": "Verse By Verse: 1 John — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 5,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_1_john_01_684e6cc4",
+      "title": "01.1John Chapter 1:1 to Chapter 2:6",
+      "seriesId": "verse_by_verse_1_john",
+      "seriesTitle": "Verse By Verse: 1 John",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt23-1john-chapter-1-1-to-chapter-2-6.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_1_john_02_aaf41e3b",
+      "title": "02.1John Chapter 2:4 to Chapter 2:27",
+      "seriesId": "verse_by_verse_1_john",
+      "seriesTitle": "Verse By Verse: 1 John",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt23-1john-chapter-2-4-to-chapter-2-27.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_1_john_03_09964b62",
+      "title": "03.1John Chapter 2:26 to Chapter 3:24",
+      "seriesId": "verse_by_verse_1_john",
+      "seriesTitle": "Verse By Verse: 1 John",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt23-1john-chapter-2-26-to-chapter-3-24.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_1_john_04_5c553aa4",
+      "title": "04.1John Chapter 4:1 to Chapter 4:21",
+      "seriesId": "verse_by_verse_1_john",
+      "seriesTitle": "Verse By Verse: 1 John",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt23-1john-chapter-4-1-to-chapter-4-21.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_1_john_05_c405e391",
+      "title": "05.1John Chapter 5:1 to Chapter 5:21",
+      "seriesId": "verse_by_verse_1_john",
+      "seriesTitle": "Verse By Verse: 1 John",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt23-1john-chapter-5-1-to-chapter-5-21.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

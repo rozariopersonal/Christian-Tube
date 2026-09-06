@@ -1,0 +1,38 @@
+{
+  "id": "discipleship_and_faith",
+  "title": "Discipleship and Faith",
+  "description": "Discipleship and Faith — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 2,
+  "category": "Discipleship",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/all-that-jesus-taught.jpg",
+  "tracks": [
+    {
+      "id": "discipleship_and_faith_discipleship_and_faith_1_0b675081",
+      "title": "Discipleship and Faith-1",
+      "seriesId": "discipleship_and_faith",
+      "seriesTitle": "Discipleship and Faith",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/discipleship-and-faith/discipleship-and-faith-1.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/all-that-jesus-taught.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "discipleship_and_faith_questions_and_answers_ab9b23fe",
+      "title": "Questions And Answers",
+      "seriesId": "discipleship_and_faith",
+      "seriesTitle": "Discipleship and Faith",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/discipleship-and-faith/questions-and-answers.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/all-that-jesus-taught.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "godly_marriages",
+  "title": "Godly Marriages",
+  "description": "Godly Marriages — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 2,
+  "category": "Family & Home",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+  "tracks": [
+    {
+      "id": "godly_marriages_following_godly_principles_in__f966c1bc",
+      "title": "Following godly principles in marriage",
+      "seriesId": "godly_marriages",
+      "seriesTitle": "Godly Marriages",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/godly-marriages/2-following-godly-principles-in-marriage.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "godly_marriages_godly_husbands_wives_and_paren_a8c948df",
+      "title": "Godly husbands wives and parents",
+      "seriesId": "godly_marriages",
+      "seriesTitle": "Godly Marriages",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/godly-marriages/1-godly-husbands-wives-and-parents.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/godly-family-life-cd.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

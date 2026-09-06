@@ -1,0 +1,51 @@
+{
+  "id": "the_light_of_god",
+  "title": "The Light Of God",
+  "description": "The Light Of God — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 3,
+  "category": "General Sermons",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+  "tracks": [
+    {
+      "id": "the_light_of_god_a_light_to_others_5a0e23a7",
+      "title": "A Light To Others",
+      "seriesId": "the_light_of_god",
+      "seriesTitle": "The Light Of God",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-light-of-god/3-a-light-to-others.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_light_of_god_darkness_and_accusation_04de6794",
+      "title": "Darkness And Accusation",
+      "seriesId": "the_light_of_god",
+      "seriesTitle": "The Light Of God",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-light-of-god/2-darkness-and-accusation.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": null,
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "the_light_of_god_light_and_truth_3e43b848",
+      "title": "Light And Truth",
+      "seriesId": "the_light_of_god",
+      "seriesTitle": "The Light Of God",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/sermon-series/the-light-of-god/1-light-and-truth.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/images/bank/weekly_podcast.jpg",
+      "scriptureBook": "RUT",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}

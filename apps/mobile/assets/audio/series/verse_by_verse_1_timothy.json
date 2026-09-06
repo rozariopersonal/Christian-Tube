@@ -1,0 +1,64 @@
+{
+  "id": "verse_by_verse_1_timothy",
+  "title": "Verse By Verse: 1 Timothy",
+  "description": "Verse By Verse: 1 Timothy — Audio collection by Zac Poonen and CFC elders.",
+  "speaker": "Zac Poonen",
+  "trackCount": 4,
+  "category": "Verse By Verse",
+  "language": "English",
+  "coverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+  "tracks": [
+    {
+      "id": "verse_by_verse_1_timothy_01_cb1ec066",
+      "title": "01.1 Timothy Chapter 1:1 to Chapter 2:9",
+      "seriesId": "verse_by_verse_1_timothy",
+      "seriesTitle": "Verse By Verse: 1 Timothy",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt15-1timothy-chapter-1-1-to-chapter-2-9.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "1TI",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_1_timothy_02_4795a793",
+      "title": "02.1 Timothy Chapter 2:8 to Chapter 4:2",
+      "seriesId": "verse_by_verse_1_timothy",
+      "seriesTitle": "Verse By Verse: 1 Timothy",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt15-1timothy-chapter-2-8-to-chapter-4-2.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "1TI",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_1_timothy_03_4aba0d87",
+      "title": "03.1 Timothy Chapter 4:1 to Chapter 5:13",
+      "seriesId": "verse_by_verse_1_timothy",
+      "seriesTitle": "Verse By Verse: 1 Timothy",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt15-1timothy-chapter-4-3-to-chapter-5-13.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "1TI",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    },
+    {
+      "id": "verse_by_verse_1_timothy_04_1c251737",
+      "title": "04.1 Timothy Chapter 5:11 to Chapter 6:21",
+      "seriesId": "verse_by_verse_1_timothy",
+      "seriesTitle": "Verse By Verse: 1 Timothy",
+      "speaker": "Zac Poonen",
+      "durationSeconds": 0,
+      "audioUrl": "https://www.cfcindia.org/resources/en/study-series/verse-by-verse/nt15-1timothy-chapter-5-11-to-chapter-6-21.mp3",
+      "ifCoverUrl": "https://www.cfcindia.org/resources/en/images/verse-by-verse.jpg",
+      "scriptureBook": "1TI",
+      "scriptureChapter": null,
+      "scriptureVerse": null
+    }
+  ]
+}
