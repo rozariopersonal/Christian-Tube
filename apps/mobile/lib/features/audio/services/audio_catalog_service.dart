@@ -4,7 +4,8 @@ import '../../../core/api/github_data_service.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 
-/// Fetches audio series and tracklists from GitHub/CDN with embedded fallback.
+/// Fetches CFC India audio series metadata with streaming URLs pointing
+/// directly to cfcindia.org servers, with embedded fallback.
 class AudioCatalogService {
   final http.Client _client;
   static List<AudioSeries>? _cachedCatalog;

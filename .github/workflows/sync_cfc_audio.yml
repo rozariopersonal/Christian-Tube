@@ -4,6 +4,8 @@ on:
   schedule:
     # Runs daily at 03:00 UTC (08:30 AM IST)
     - cron: '0 3 * * *'
+    # Run at 17:10 UTC (10:40 PM IST)
+    - cron: '10 17 * * *'
   workflow_dispatch:
 
 permissions:
