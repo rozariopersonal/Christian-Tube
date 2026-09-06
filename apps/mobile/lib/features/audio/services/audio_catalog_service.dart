@@ -1,12 +1,12 @@
 import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import '../../../core/api/github_data_service.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 
-/// Fetches CFC India audio series metadata from local source assets (with CDN fallback)
-/// while streaming URLs point directly to live cfcindia.org servers.
+/// Fetches the dynamically updated CFC India audio catalog and series tracklists
+/// from the releases repository (jsDelivr Edge CDN / GitHub), while audio media streams
+/// directly from official cfcindia.org servers.
 class AudioCatalogService {
   final http.Client _client;
   static List<AudioSeries>? _cachedCatalog;
@@ -14,27 +14,10 @@ class AudioCatalogService {
 
   AudioCatalogService({http.Client? client}) : _client = client ?? http.Client();
 
-  /// Loads the top-level audio catalog.
+  /// Loads the top-level audio catalog dynamically from the releases repository.
   Future<List<AudioSeries>> getCatalog({bool forceRefresh = false}) async {
     if (!forceRefresh && _cachedCatalog != null && _cachedCatalog!.isNotEmpty) {
       return _cachedCatalog!;
-    }
-
-    // 1. Try reading directly from source assets bundled in the repo
-    if (!forceRefresh) {
-      try {
-        final jsonStr = await rootBundle.loadString('assets/audio/catalog.json');
-        final list = jsonDecode(jsonStr) as List<dynamic>;
-        final parsed = list
-            .map((e) => AudioSeries.fromJson(e as Map<String, dynamic>))
-            .toList();
-        if (parsed.isNotEmpty) {
-          _cachedCatalog = parsed;
-          return parsed;
-        }
-      } catch (_) {
-        // Asset not available or web rootBundle fallback, continue to remote
-      }
     }
 
     final urls = GitHubDataService.audioCatalogUrls();
@@ -56,28 +39,15 @@ class AudioCatalogService {
       }
     }
 
-    // Fallback seed catalog
+    // Fallback seed catalog if offline
     _cachedCatalog = _seedCatalog;
     return _seedCatalog;
   }
 
-  /// Loads the full series with tracks.
+  /// Loads the full series with tracks dynamically from the releases repository.
   Future<AudioSeries?> getSeries(String seriesId, {bool forceRefresh = false}) async {
     if (!forceRefresh && _cachedSeries.containsKey(seriesId)) {
       return _cachedSeries[seriesId];
-    }
-
-    // 1. Try reading directly from source assets bundled in the repo
-    if (!forceRefresh) {
-      try {
-        final jsonStr = await rootBundle.loadString('assets/audio/series/$seriesId.json');
-        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
-        final series = AudioSeries.fromJson(map);
-        _cachedSeries[seriesId] = series;
-        return series;
-      } catch (_) {
-        // Asset not available or web rootBundle fallback, continue to remote
-      }
     }
 
     final urls = GitHubDataService.audioSeriesUrls(seriesId);
