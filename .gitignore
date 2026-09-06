@@ -50,6 +50,9 @@ migrate_working_dir/
 key.properties
 temp_repo/
 
+# Flutter SDK (downloaded by build-web.sh)
+.flutter-sdk/
+
 # Node (build tooling)
 **/node_modules/
 

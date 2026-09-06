@@ -116,4 +116,36 @@ BaseFeedEngine? createActiveFeedEngine() => null;
 fs.writeFileSync(engineBridgePath, bridgeContent, 'utf8');
 console.log(`✅ Generated active_engine.g.dart for [${microFeed.enabled ? engineType : 'DISABLED'}]`);
 
+// 7. Update web/index.html with instance branding
+const webIndexPath = path.join(rootDir, 'apps', 'mobile', 'web', 'index.html');
+if (fs.existsSync(webIndexPath)) {
+  let webIndex = fs.readFileSync(webIndexPath, 'utf8');
+  webIndex = webIndex.replace(/<title>[^<]*<\/title>/, `<title>${config.appName}</title>`);
+  webIndex = webIndex.replace(
+    /<meta name="description" content="[^"]*">/,
+    `<meta name="description" content="${config.appName} - High quality Christian videos, shorts, devotions, and words">`
+  );
+  webIndex = webIndex.replace(
+    /<meta name="apple-mobile-web-app-title" content="[^"]*">/,
+    `<meta name="apple-mobile-web-app-title" content="${config.appName}">`
+  );
+  fs.writeFileSync(webIndexPath, webIndex, 'utf8');
+  console.log(`✅ Updated web/index.html title to: ${config.appName}`);
+}
+
+// 8. Update web/manifest.json with instance branding
+const webManifestPath = path.join(rootDir, 'apps', 'mobile', 'web', 'manifest.json');
+if (fs.existsSync(webManifestPath)) {
+  const manifest = JSON.parse(fs.readFileSync(webManifestPath, 'utf8'));
+  manifest.name = config.appName;
+  manifest.short_name = config.appName;
+  manifest.description = `${config.appName} - High quality Christian videos, shorts, devotions, and words`;
+  if (config.theme) {
+    manifest.background_color = config.theme.lightBackground || '#FFFFFF';
+    manifest.theme_color = config.theme.primaryColor || '#0175C2';
+  }
+  fs.writeFileSync(webManifestPath, JSON.stringify(manifest, null, 4), 'utf8');
+  console.log(`✅ Updated web/manifest.json for: ${config.appName}`);
+}
+
 console.log(`🎉 Instance preparation complete for ${config.appName}!`);

@@ -1,11 +1,11 @@
 {
-    "name": "mobile",
-    "short_name": "mobile",
+    "name": "ChristianApp",
+    "short_name": "ChristianApp",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#2563EB",
+    "description": "ChristianApp - High quality Christian videos, shorts, devotions, and words",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

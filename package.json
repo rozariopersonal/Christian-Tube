@@ -7,6 +7,8 @@
     "prepare:christian": "node scripts/prepare-instance.js christian_tube",
     "prepare:centum": "node scripts/prepare-instance.js centum_academy",
     "build:mobile": "flutter build apk --release",
+    "build:web:christian": "INSTANCE_ID=christian_tube bash scripts/build-web.sh",
+    "build:web:centum": "INSTANCE_ID=centum_academy bash scripts/build-web.sh",
     "start:backend": "pnpm --filter @privatetube/backend start:dev",
     "build:backend": "pnpm --filter @privatetube/backend build",
     "books": "node tool/manage_books.js",
