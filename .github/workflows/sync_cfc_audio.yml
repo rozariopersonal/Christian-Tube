@@ -47,6 +47,10 @@ jobs:
             git add releases
             git commit -m "chore(releases): update audio catalog submodule pointer [skip ci]"
             git push origin main
+
+            # Purge jsDelivr edge CDN cache so mobile apps receive updates instantly
+            echo "Purging jsDelivr edge cache for audio catalog..."
+            curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/audio/catalog.json" || true
             echo "Audio catalog in releases/ successfully synced and pushed!" >> $GITHUB_STEP_SUMMARY
           else
             cd ..
