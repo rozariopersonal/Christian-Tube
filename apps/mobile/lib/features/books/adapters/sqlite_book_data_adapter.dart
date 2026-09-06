@@ -137,9 +137,13 @@ class SqliteBookDataAdapter implements BookDataAdapter {
         start_line INTEGER NOT NULL,
         end_page INTEGER NOT NULL,
         end_line INTEGER NOT NULL,
+        subtitles TEXT NOT NULL DEFAULT '[]',
         PRIMARY KEY (book_id, chapter_index)
       );
     ''');
+    try {
+      await db.execute("ALTER TABLE book_chapters ADD COLUMN subtitles TEXT NOT NULL DEFAULT '[]'");
+    } catch (_) {}
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS book_content (

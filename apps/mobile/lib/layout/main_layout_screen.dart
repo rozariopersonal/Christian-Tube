@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +10,8 @@ import '../core/config/app_config.dart';
 import '../features/auth/auth_service.dart';
 import '../features/shorts/players/shorts_player.dart';
 import '../features/update/update_service.dart';
+import '../features/audio/controllers/audio_player_controller.dart';
+import '../features/audio/widgets/mini_audio_player.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   final Widget child;
@@ -74,7 +75,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       if (_isBibleTabEnabled) '/bible',
       if (_isBooksTabEnabled) '/books',
       if (kMicroFeedEnabled) '/words',
-      '/profile',
+      '/audio',
     ];
   }
 
@@ -130,61 +131,12 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           icon: Icons.auto_awesome_outlined,
           selectedIcon: Icons.auto_awesome,
         ),
-      _NavSpec(
-        label: 'You',
-        iconBuilder: () => _buildProfileAvatar(context, 64 * 0.66),
-        selectedIconBuilder: () => _buildProfileAvatar(context, 64 * 0.66),
+      const _NavSpec(
+        label: 'Audio',
+        icon: Icons.headphones_outlined,
+        selectedIcon: Icons.headphones,
       ),
     ];
-  }
-
-  Widget _buildProfileAvatar(BuildContext context, double size) {
-    final user = widget.authService.currentUser;
-    final tokens = Theme.of(context).extension<AppTokens>();
-    final fallbackColor = tokens?.onSurface ?? Theme.of(context).colorScheme.onSurface;
-
-    if (user != null && user.photoUrl != null && user.photoUrl!.isNotEmpty) {
-      return ClipOval(
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: CachedNetworkImage(
-            imageUrl: user.photoUrl!,
-            fit: BoxFit.cover,
-            errorWidget: (_, __, ___) => Icon(
-              Icons.account_circle,
-              size: size,
-              color: fallbackColor,
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Fallback: initial of the display name, or a generic account icon.
-    final initial = (user?.displayName.isNotEmpty ?? false)
-        ? user!.displayName[0].toUpperCase()
-        : null;
-    if (initial != null) {
-      return CircleAvatar(
-        radius: size / 2,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        child: Text(
-          initial,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onPrimary,
-            fontSize: size * 0.45,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      );
-    }
-
-    return Icon(
-      Icons.account_circle_outlined,
-      size: size,
-      color: fallbackColor,
-    );
   }
 
   @override
@@ -228,7 +180,23 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                     thickness: 1,
                     color: tokens?.surfaceBorder ?? theme.dividerColor,
                   ),
-                  Expanded(child: widget.child),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Expanded(child: widget.child),
+                        ListenableBuilder(
+                          listenable: AudioPlayerController.instance,
+                          builder: (context, _) {
+                            final state = AudioPlayerController.instance.state;
+                            if (state.isMiniPlayerVisible && state.hasTrack) {
+                              return MiniAudioPlayer(state: state);
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             );
@@ -241,43 +209,54 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
 
   Widget _buildBottomBar(bool isDark, int selectedIndex) {
     final tokens = Theme.of(context).extension<AppTokens>() ?? (isDark ? AppTokens.dark : AppTokens.light);
-    return NavigationBarTheme(
-      data: NavigationBarThemeData(
-        height: 60,
-        indicatorColor: Colors.transparent,
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final isSelected = states.contains(WidgetState.selected);
-          return TextStyle(
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? tokens.onSurface : tokens.onSurfaceMuted,
-          );
-        }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          final isSelected = states.contains(WidgetState.selected);
-          return IconThemeData(
-            size: 24,
-            color: isSelected ? tokens.onSurface : tokens.onSurfaceMuted,
-          );
-        }),
-      ),
-      child: NavigationBar(
-        selectedIndex: selectedIndex,
-        backgroundColor: tokens.background,
-        elevation: 0,
-        onDestinationSelected: _onTabSelected,
-        destinations: _destinations(context)
-            .map(
-              (d) => NavigationDestination(
-                icon: d.iconBuilder != null ? d.iconBuilder!() : Icon(d.icon),
-                selectedIcon: d.selectedIconBuilder != null
-                    ? d.selectedIconBuilder!()
-                    : Icon(d.selectedIcon),
-                label: d.label,
+    return ListenableBuilder(
+      listenable: AudioPlayerController.instance,
+      builder: (context, _) {
+        final state = AudioPlayerController.instance.state;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (state.isMiniPlayerVisible && state.hasTrack)
+              MiniAudioPlayer(state: state),
+            NavigationBarTheme(
+              data: NavigationBarThemeData(
+                height: 60,
+                indicatorColor: Colors.transparent,
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  final isSelected = states.contains(WidgetState.selected);
+                  return TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? tokens.onSurface : tokens.onSurfaceMuted,
+                  );
+                }),
+                iconTheme: WidgetStateProperty.resolveWith((states) {
+                  final isSelected = states.contains(WidgetState.selected);
+                  return IconThemeData(
+                    size: 24,
+                    color: isSelected ? tokens.onSurface : tokens.onSurfaceMuted,
+                  );
+                }),
               ),
-            )
-            .toList(),
-      ),
+              child: NavigationBar(
+                selectedIndex: selectedIndex,
+                backgroundColor: tokens.background,
+                elevation: 0,
+                onDestinationSelected: _onTabSelected,
+                destinations: _destinations(context)
+                    .map(
+                      (d) => NavigationDestination(
+                        icon: Icon(d.icon),
+                        selectedIcon: Icon(d.selectedIcon),
+                        label: d.label,
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -308,10 +287,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       destinations: _destinations(context)
           .map(
             (d) => NavigationRailDestination(
-              icon: d.iconBuilder != null ? d.iconBuilder!() : Icon(d.icon),
-              selectedIcon: d.selectedIconBuilder != null
-                  ? d.selectedIconBuilder!()
-                  : Icon(d.selectedIcon),
+              icon: Icon(d.icon),
+              selectedIcon: Icon(d.selectedIcon),
               label: Text(d.label),
             ),
           )
@@ -322,16 +299,12 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
 
 class _NavSpec {
   final String label;
-  final IconData? icon;
-  final IconData? selectedIcon;
-  final Widget Function()? iconBuilder;
-  final Widget Function()? selectedIconBuilder;
+  final IconData icon;
+  final IconData selectedIcon;
 
   const _NavSpec({
     required this.label,
-    this.icon,
-    this.selectedIcon,
-    this.iconBuilder,
-    this.selectedIconBuilder,
+    required this.icon,
+    required this.selectedIcon,
   });
 }

@@ -22,6 +22,9 @@ import 'features/bible/services/bible_passage_navigator.dart';
 import 'features/books/screens/books_catalog_screen.dart';
 import 'features/books/screens/book_reader_screen.dart';
 import 'features/downloads/screens/downloads_manager_screen.dart';
+import 'features/audio/screens/audio_library_screen.dart';
+import 'features/audio/screens/audio_series_screen.dart';
+import 'features/audio/models/audio_series.dart';
 import 'l10n/app_localizations.dart';
 import 'layout/main_layout_screen.dart';
 
@@ -131,6 +134,21 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             GoRoute(
               path: '/books',
               builder: (context, state) => const BooksCatalogScreen(),
+            ),
+            GoRoute(
+              path: '/audio',
+              builder: (context, state) => const AudioLibraryScreen(),
+            ),
+            GoRoute(
+              path: '/audio/series/:id',
+              builder: (context, state) {
+                final seriesId = state.pathParameters['id'] ?? '';
+                final series = state.extra as AudioSeries?;
+                return AudioSeriesScreen(
+                  seriesId: seriesId,
+                  initialSeries: series,
+                );
+              },
             ),
             GoRoute(
               path: '/profile',

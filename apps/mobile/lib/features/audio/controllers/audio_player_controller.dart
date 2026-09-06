@@ -1,0 +1,292 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:just_audio/just_audio.dart';
+import '../models/audio_track.dart';
+import '../models/playback_state.dart';
+import '../services/audio_playback_service.dart';
+import '../services/audio_storage_service.dart';
+
+/// Top-level audio player controller adhering to the project's Architecture Standard:
+/// - Single derived immutable state broadcast via [ChangeNotifier].
+/// - Consumers read [controller.state.field], never scattered internals.
+class AudioPlayerController extends ChangeNotifier {
+  static final AudioPlayerController instance = AudioPlayerController();
+
+  final AudioPlaybackService _playbackService;
+  final AudioStorageService _storageService;
+
+  AudioPlayerState _state = const AudioPlayerState();
+  AudioPlayerState get state => _state;
+
+  StreamSubscription<Duration>? _posSub;
+  StreamSubscription<Duration?>? _durSub;
+  StreamSubscription<Duration>? _bufSub;
+  StreamSubscription<PlayerState>? _stateSub;
+  StreamSubscription<double>? _speedSub;
+
+  Timer? _positionSaveDebounce;
+  Timer? _sleepTimer;
+
+  AudioPlayerController({
+    AudioPlaybackService? playbackService,
+    AudioStorageService? storageService,
+  })  : _playbackService = playbackService ?? AudioPlaybackService(),
+        _storageService = storageService ?? AudioStorageService() {
+    _initStreams();
+    _restoreLastPlayedTrack();
+  }
+
+  void _initStreams() {
+    _posSub = _playbackService.positionStream.listen((pos) {
+      _state = _state.copyWith(position: pos);
+      notifyListeners();
+      _schedulePositionSave();
+    });
+
+    _durSub = _playbackService.durationStream.listen((dur) {
+      if (dur != null) {
+        _state = _state.copyWith(duration: dur);
+        notifyListeners();
+      }
+    });
+
+    _bufSub = _playbackService.bufferedPositionStream.listen((buf) {
+      _state = _state.copyWith(bufferedPosition: buf);
+      notifyListeners();
+    });
+
+    _speedSub = _playbackService.speedStream.listen((spd) {
+      _state = _state.copyWith(speed: spd);
+      notifyListeners();
+    });
+
+    _stateSub = _playbackService.playerStateStream.listen((ps) {
+      AudioPlaybackStatus newStatus = _state.status;
+      if (ps.processingState == ProcessingState.loading ||
+          ps.processingState == ProcessingState.buffering) {
+        newStatus = AudioPlaybackStatus.loading;
+      } else if (ps.processingState == ProcessingState.completed) {
+        newStatus = AudioPlaybackStatus.completed;
+        _onTrackCompleted();
+      } else if (ps.playing) {
+        newStatus = AudioPlaybackStatus.playing;
+      } else {
+        newStatus = AudioPlaybackStatus.paused;
+      }
+
+      if (newStatus != _state.status) {
+        _state = _state.copyWith(status: newStatus);
+        notifyListeners();
+      }
+    });
+  }
+
+  Future<void> _restoreLastPlayedTrack() async {
+    final lastTrack = await _storageService.getLastTrack();
+    if (lastTrack != null && _state.currentTrack == null) {
+      final savedPos = await _storageService.getPosition(lastTrack.id);
+      _state = _state.copyWith(
+        currentTrack: lastTrack,
+        position: Duration(seconds: savedPos),
+        duration: Duration(seconds: lastTrack.durationSeconds),
+        isMiniPlayerVisible: false, // Don't pop up mini player until user starts
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Plays the given [track], optionally with a surrounding [queue].
+  Future<void> playTrack(
+    AudioTrack track, {
+    List<AudioTrack>? queue,
+    int? resumePositionSec,
+  }) async {
+    final effectiveQueue = queue ?? [track];
+    final queueIdx = effectiveQueue.indexWhere((t) => t.id == track.id);
+
+    // Check if we have a saved resume position
+    int startPos = resumePositionSec ?? 0;
+    if (startPos == 0) {
+      startPos = await _storageService.getPosition(track.id);
+      // If position is near the end, start from beginning
+      if (startPos >= track.durationSeconds - 5) startPos = 0;
+    }
+
+    _state = _state.copyWith(
+      status: AudioPlaybackStatus.loading,
+      currentTrack: track,
+      queue: effectiveQueue,
+      queueIndex: queueIdx >= 0 ? queueIdx : 0,
+      position: Duration(seconds: startPos),
+      duration: Duration(seconds: track.durationSeconds),
+      isMiniPlayerVisible: true,
+      clearError: true,
+    );
+    notifyListeners();
+
+    try {
+      final dur = await _playbackService.loadTrack(
+        track,
+        initialPositionSec: startPos,
+      );
+      if (dur != null) {
+        _state = _state.copyWith(duration: dur);
+      }
+      await _playbackService.play();
+      await _storageService.saveLastTrack(track);
+    } catch (e) {
+      _state = _state.copyWith(
+        status: AudioPlaybackStatus.error,
+        errorMessage: 'Unable to stream audio. Please check your connection.',
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Toggles between play and pause.
+  Future<void> togglePlayPause() async {
+    if (_state.isPlaying) {
+      await _playbackService.pause();
+    } else {
+      if (_state.currentTrack != null) {
+        if (_state.status == AudioPlaybackStatus.completed) {
+          await seek(Duration.zero);
+        }
+        await _playbackService.play();
+      }
+    }
+  }
+
+  /// Jumps to a specific duration.
+  Future<void> seek(Duration position) async {
+    _state = _state.copyWith(position: position);
+    notifyListeners();
+    await _playbackService.seek(position);
+  }
+
+  /// Jumps forward or backward by [secondsDelta] (e.g. -10 or +30).
+  Future<void> seekRelative(int secondsDelta) async {
+    final targetMs =
+        (_state.position.inMilliseconds + (secondsDelta * 1000)).clamp(
+      0,
+      _state.duration.inMilliseconds,
+    );
+    await seek(Duration(milliseconds: targetMs));
+  }
+
+  /// Cycles between common playback speeds: 1.0 -> 1.2 -> 1.5 -> 2.0 -> 0.8 -> 1.0
+  Future<void> cyclePlaybackSpeed() async {
+    final current = _state.speed;
+    double nextSpeed;
+    if (current == 1.0) {
+      nextSpeed = 1.2;
+    } else if (current == 1.2) {
+      nextSpeed = 1.5;
+    } else if (current == 1.5) {
+      nextSpeed = 2.0;
+    } else if (current == 2.0) {
+      nextSpeed = 0.8;
+    } else {
+      nextSpeed = 1.0;
+    }
+    await setPlaybackSpeed(nextSpeed);
+  }
+
+  Future<void> setPlaybackSpeed(double speed) async {
+    _state = _state.copyWith(speed: speed);
+    notifyListeners();
+    await _playbackService.setSpeed(speed);
+  }
+
+  /// Sets a sleep timer in minutes (e.g. 15, 30, 45, 60, or null to cancel).
+  void setSleepTimer(int? minutes) {
+    _sleepTimer?.cancel();
+    if (minutes == null || minutes <= 0) {
+      _state = _state.copyWith(clearSleepTimer: true);
+      notifyListeners();
+      return;
+    }
+
+    int remainingSeconds = minutes * 60;
+    _state = _state.copyWith(sleepTimerRemainingSeconds: remainingSeconds);
+    notifyListeners();
+
+    _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      remainingSeconds--;
+      if (remainingSeconds <= 0) {
+        timer.cancel();
+        _state = _state.copyWith(clearSleepTimer: true);
+        notifyListeners();
+        _playbackService.pause();
+      } else {
+        _state = _state.copyWith(sleepTimerRemainingSeconds: remainingSeconds);
+        notifyListeners();
+      }
+    });
+  }
+
+  /// Advances to next track in queue.
+  Future<void> skipNext() async {
+    if (_state.queue.isEmpty) return;
+    final nextIdx = _state.queueIndex + 1;
+    if (nextIdx < _state.queue.length) {
+      await playTrack(
+        _state.queue[nextIdx],
+        queue: _state.queue,
+      );
+    }
+  }
+
+  /// Goes to previous track in queue or restarts current track.
+  Future<void> skipPrevious() async {
+    if (_state.position.inSeconds > 5) {
+      await seek(Duration.zero);
+      return;
+    }
+    final prevIdx = _state.queueIndex - 1;
+    if (prevIdx >= 0 && prevIdx < _state.queue.length) {
+      await playTrack(
+        _state.queue[prevIdx],
+        queue: _state.queue,
+      );
+    }
+  }
+
+  void dismissMiniPlayer() {
+    _state = _state.copyWith(isMiniPlayerVisible: false);
+    notifyListeners();
+  }
+
+  void _onTrackCompleted() {
+    // If there's an active sleep timer set to 'End of Track', pause
+    if (_state.sleepTimerRemainingSeconds != null &&
+        _state.sleepTimerRemainingSeconds == 0) {
+      return;
+    }
+    // Auto-advance to next track in queue
+    skipNext();
+  }
+
+  void _schedulePositionSave() {
+    _positionSaveDebounce?.cancel();
+    _positionSaveDebounce = Timer(const Duration(seconds: 3), () {
+      final track = _state.currentTrack;
+      if (track != null) {
+        _storageService.savePosition(track.id, _state.position.inSeconds);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _posSub?.cancel();
+    _durSub?.cancel();
+    _bufSub?.cancel();
+    _stateSub?.cancel();
+    _speedSub?.cancel();
+    _positionSaveDebounce?.cancel();
+    _sleepTimer?.cancel();
+    _playbackService.dispose();
+    super.dispose();
+  }
+}

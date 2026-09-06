@@ -421,6 +421,59 @@ void main() {
       expect(find.text('p. 1'), findsOneWidget);
     });
 
+    testWidgets('BookTocSheet displays and navigates subtitles', (tester) async {
+      int? selectedPage;
+      const chapters = [
+        BookChapter(
+          bookId: 'test_book',
+          chapterIndex: 1,
+          chapterTitle: 'Christian Marriage',
+          startPage: 4,
+          startLine: 1,
+          endPage: 26,
+          endLine: 2,
+          subtitles: [
+            BookSubtitle(
+              title: 'Cultivating the Marriage',
+              pageNumber: 5,
+              lineNumber: 2,
+            ),
+            BookSubtitle(
+              title: 'The Spirit of Submission',
+              pageNumber: 10,
+              lineNumber: 2,
+            ),
+          ],
+        ),
+      ];
+
+      await tester.pumpWidget(
+        buildFrame(
+          BookTocSheet(
+            bookTitle: 'Test Book',
+            chapters: chapters,
+            currentPage: 4,
+            showPageNumbers: true,
+            onSelectPage: (p) => selectedPage = p,
+          ),
+          size: const Size(600, 800),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Christian Marriage'), findsOneWidget);
+      expect(find.text('2 sections'), findsOneWidget);
+      // Because currentPage (4) matches chapter 1, it auto-expands
+      expect(find.text('Cultivating the Marriage'), findsOneWidget);
+      expect(find.text('The Spirit of Submission'), findsOneWidget);
+      expect(find.text('p. 5'), findsOneWidget);
+
+      // Tap on subtitle
+      await tester.tap(find.text('Cultivating the Marriage'));
+      await tester.pumpAndSettle();
+      expect(selectedPage, 5);
+    });
+
     testWidgets('BookReaderScreen loads appearance preferences and renders across viewports without overflow', (tester) async {
       SharedPreferences.setMockInitialValues({
         'book_reader_font_size': 20.0,

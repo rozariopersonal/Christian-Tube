@@ -83,6 +83,7 @@ async function main() {
         start_line INTEGER NOT NULL,
         end_page INTEGER NOT NULL,
         end_line INTEGER NOT NULL,
+        subtitles TEXT NOT NULL DEFAULT '[]',
         PRIMARY KEY (book_id, chapter_index)
       );
 
@@ -135,7 +136,7 @@ async function main() {
     // 2. Copy chapters
     const chapters = masterDb.prepare('SELECT * FROM book_chapters WHERE book_id = ?').all(bookId);
     const insertChapter = singleDb.prepare(`
-      INSERT INTO book_chapters VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO book_chapters VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     singleDb.exec('BEGIN TRANSACTION;');
     for (const ch of chapters) {
@@ -146,7 +147,8 @@ async function main() {
         ch.start_page,
         ch.start_line,
         ch.end_page,
-        ch.end_line
+        ch.end_line,
+        ch.subtitles || '[]'
       );
     }
     singleDb.exec('COMMIT;');

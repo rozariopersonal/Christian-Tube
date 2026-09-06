@@ -229,6 +229,16 @@ class GitHubDataService {
   static List<String> ffmpegBinaryUrls(String assetPath) =>
       ReleaseAssets.urlsFor(assetPath);
 
+  // ── Audio Sermons & Series ───────────────────────────────────────────────
+
+  /// Audio catalog manifest listing all available audio series and topics.
+  static List<String> audioCatalogUrls() =>
+      ReleaseAssets.urlsFor('audio/catalog.json');
+
+  /// Audio series tracklist manifest for a given series ID.
+  static List<String> audioSeriesUrls(String seriesId) =>
+      ReleaseAssets.urlsFor('audio/series/$seriesId.json');
+
   // ── Repo manifest ─────────────────────────────────────────────────────────
 
   /// Top-level dataset manifest (versions, hashes, sizes).

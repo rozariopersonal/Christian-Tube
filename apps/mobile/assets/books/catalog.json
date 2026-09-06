@@ -1,146 +1,767 @@
 [
   {
+    "id": "mother_in_law_and_daughter_in_law_bond",
+    "title": "Mother-in-law And Daughter-in-Law Bond",
+    "author": "Dr.Annie Poonen",
+    "description": "Love alone has the power to transform strained relationships.",
+    "pageUrl": "https://www.cfcindia.com/books/motherinlaw-and-daughterinlaw-bond",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/mil-dil-bond.jpg",
+    "epubUrl": "",
+    "localCoverFile": "mother_in_law_and_daughter_in_law_bond.jpg",
+    "localHtmlFile": "mother_in_law_and_daughter_in_law_bond.html",
+    "totalPages": 47,
+    "totalLines": 257,
+    "downloadFile": "mother_in_law_and_daughter_in_law_bond.sqlite.gz",
+    "downloadSizeBytes": 37557,
+    "downloadSizeFormatted": "36.7 KB",
+    "subject": "Women & Mothers",
+    "categories": [
+      "Woman",
+      "Foundational Truth",
+      "Disciples"
+    ]
+  },
+  {
     "id": "a_godly_family_life",
     "title": "A Godly Family Life",
     "author": "Zac Poonen",
+    "description": "Building a Sanctuary for God!",
+    "pageUrl": "https://www.cfcindia.com/books/a-godly-family-life",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/a-godly-family.jpg",
+    "epubUrl": "",
+    "localCoverFile": "a_godly_family_life.jpg",
+    "localHtmlFile": "a_godly_family_life.html",
+    "totalPages": 209,
+    "totalLines": 391,
+    "downloadFile": "a_godly_family_life.sqlite.gz",
+    "downloadSizeBytes": 104888,
+    "downloadSizeFormatted": "102.4 KB",
     "subject": "The Home & Family",
     "categories": [
       "The home",
       "Spirit Filled life",
       "Devotion to Christ"
-    ],
-    "description": "Building a Sanctuary for God!",
-    "coverFile": "a_godly_family_life.jpg",
-    "totalPages": 210,
-    "totalLines": 402,
-    "lang": "en"
+    ]
   },
   {
-    "id": "a_good_foundation",
-    "title": "A Good Foundation",
+    "id": "fundamental_biblical_truths",
+    "title": "Fundamental Biblical Truths",
     "author": "Zac Poonen",
+    "description": "When God puts His Holy Spirit within man, that innermost part of us gets revived and it becomes alive. It&#039;s like a resurrection and that&#039;s why Christians are commanded to be baptized because in baptism we&#039;re testifying that a resurrection has taken place within our spirit.",
+    "pageUrl": "https://www.cfcindia.com/books/fundamental-biblical-truths",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/FBT.jpg",
+    "epubUrl": "",
+    "localCoverFile": "fundamental_biblical_truths.jpg",
+    "localHtmlFile": "fundamental_biblical_truths.html",
+    "totalPages": 453,
+    "totalLines": 525,
+    "downloadFile": "fundamental_biblical_truths.sqlite.gz",
+    "downloadSizeBytes": 202265,
+    "downloadSizeFormatted": "197.5 KB",
     "subject": "Foundational Truths",
     "categories": [
       "Foundational Truth",
       "Seeker"
-    ],
-    "description": "A Guide to lay a good and strong foundation before you start your life journey, foundation which will not be shaken in storms and rain.",
-    "coverFile": "a_good_foundation.jpg",
-    "totalPages": 68,
-    "totalLines": 456,
-    "lang": "en"
-  },
-  {
-    "id": "a_heavenly_home",
-    "title": "A Heavenly Home",
-    "author": "Zac Poonen",
-    "subject": "The Home & Family",
-    "categories": [
-      "The home",
-      "Spirit Filled life"
-    ],
-    "description": "Guide to the young married couples",
-    "coverFile": "a_heavenly_home.jpg",
-    "totalPages": 49,
-    "totalLines": 244,
-    "lang": "en"
-  },
-  {
-    "id": "a_spiritual_leader",
-    "title": "A Spiritual Leader",
-    "author": "Zac Poonen",
-    "subject": "The Church & Leadership",
-    "categories": [
-      "The Church",
-      "Leader"
-    ],
-    "description": "Be challenged to become a spiritual leader who is an exemplary servant of Christ, and a role-model to the younger generation, one who says, “ Follow me as I follow Christ”?",
-    "coverFile": "a_spiritual_leader.jpg",
-    "totalPages": 120,
-    "totalLines": 521,
-    "lang": "en"
-  },
-  {
-    "id": "all_that_jesus_taught",
-    "title": "All That Jesus Taught",
-    "author": "Zac Poonen",
-    "subject": "The Church & Leadership",
-    "categories": [
-      "The Church",
-      "Knowing God",
-      "Disciples"
-    ],
-    "description": "The Great Commission that Jesus gave His apostles consisted of TWO parts:\r\n (1) To preach the gospel to everyone (Mark 16:15, 16).\r\n (2) To make disciples, baptize them, and then teach them all that Jesus taught (Matt. 28:29, 20).",
-    "coverFile": "all_that_jesus_taught.jpg",
-    "totalPages": 1449,
-    "totalLines": 2866,
-    "lang": "en"
-  },
-  {
-    "id": "amazing_facts",
-    "title": "Amazing Facts",
-    "author": "Zac Poonen",
-    "subject": "Foundational Truths",
-    "categories": [
-      "Youth",
-      "Foundational Truth",
-      "Seeker"
-    ],
-    "description": "An elementary book about God and man",
-    "coverFile": "amazing_facts.jpg",
-    "totalPages": 36,
-    "totalLines": 140,
-    "lang": "en"
+    ]
   },
   {
     "id": "basic_christian_teachings",
     "title": "Basic Christian Teachings",
     "author": "Zac Poonen",
+    "description": "",
+    "pageUrl": "https://www.cfcindia.com/books/basic-christian-teachings",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/BCT.jpg",
+    "epubUrl": "",
+    "totalPages": 638,
+    "totalLines": 1096,
+    "downloadFile": "basic_christian_teachings.sqlite.gz",
+    "downloadSizeBytes": 285943,
+    "downloadSizeFormatted": "279.2 KB",
     "subject": "Foundational Truths",
     "categories": [
       "Foundational Truth",
       "Seeker"
-    ],
-    "description": "",
-    "coverFile": "basic_christian_teachings.jpg",
-    "totalPages": 638,
-    "totalLines": 1168,
-    "lang": "en"
+    ]
   },
   {
-    "id": "beauty_for_ashes",
-    "title": "Beauty For Ashes",
+    "id": "all_that_jesus_taught",
+    "title": "All That Jesus Taught",
     "author": "Zac Poonen",
-    "subject": "Spirit-Filled Life & Devotion",
+    "description": "The Great Commission that Jesus gave His apostles consisted of TWO parts:\r\n (1) To preach the gospel to everyone (Mark 16:15, 16).\r\n (2) To make disciples, baptize them, and then teach them all that Jesus taught (Matt. 28:29, 20).",
+    "pageUrl": "https://www.cfcindia.com/books/all-that-jesus-taught",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/atjtnew.jpg",
+    "epubUrl": "",
+    "totalPages": 1445,
+    "totalLines": 2778,
+    "downloadFile": "all_that_jesus_taught.sqlite.gz",
+    "downloadSizeBytes": 688556,
+    "downloadSizeFormatted": "672.4 KB",
+    "subject": "The Church & Leadership",
     "categories": [
-      "Spirit Filled life",
-      "Devotion to Christ"
-    ],
-    "description": "Christ offers us the beauty of His own life to replace the ashes of our self-centered life. Read about how you can enjoy that privilege!",
-    "coverFile": "beauty_for_ashes.jpg",
-    "totalPages": 119,
-    "totalLines": 410,
-    "lang": "en"
+      "The Church",
+      "Knowing God",
+      "Disciples"
+    ]
+  },
+  {
+    "id": "the_way_of_wisdom",
+    "title": "The Way Of Wisdom",
+    "author": "Zac Poonen",
+    "description": "A Verse-by-Verse exposition of the book of Proverbs!",
+    "pageUrl": "https://www.cfcindia.com/books/the-way-of-wisdom",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/TWOW.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/the-way-of-wisdom/index.html",
+    "localEpubFile": "the_way_of_wisdom.epub",
+    "totalPages": 979,
+    "totalLines": 3956,
+    "downloadFile": "the_way_of_wisdom.sqlite.gz",
+    "downloadSizeBytes": 530047,
+    "downloadSizeFormatted": "517.6 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Youth",
+      "Foundational Truth",
+      "Spiritual Treasure",
+      "Seeker"
+    ]
+  },
+  {
+    "id": "the_congregation_the_club_and_the_church",
+    "title": "The Congregation The Club And The Church",
+    "author": "Santosh Poonen",
+    "description": "To understand the difference between a congreation and a club and a church, read this book.",
+    "pageUrl": "https://www.cfcindia.com/books/the-congregation-the-club-and-the-church",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/CCC.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/CCC.epub",
+    "localCoverFile": "the_congregation_the_club_and_the_church.jpg",
+    "localHtmlFile": "the_congregation_the_club_and_the_church.html",
+    "totalPages": 49,
+    "totalLines": 180,
+    "downloadFile": "the_congregation_the_club_and_the_church.sqlite.gz",
+    "downloadSizeBytes": 32308,
+    "downloadSizeFormatted": "31.6 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Religious or Spiritual"
+    ]
+  },
+  {
+    "id": "hear_o_my_sons",
+    "title": "Hear! O My Sons",
+    "author": "Zac Poonen",
+    "description": "Fathers are told to bring up children “in the instruction of the Lord”. What I wrote in this book was instruction to my children from the Word of God to lead them to be devoted to the Lord Jesus.",
+    "pageUrl": "https://www.cfcindia.com/books/hear-o-my-sons",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/HOMS.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/HOMS.epub",
+    "localCoverFile": "hear_o_my_sons.jpg",
+    "localEpubFile": "hear_o_my_sons.epub",
+    "localHtmlFile": "hear_o_my_sons.html",
+    "totalPages": 541,
+    "totalLines": 2148,
+    "downloadFile": "hear_o_my_sons.sqlite.gz",
+    "downloadSizeBytes": 355082,
+    "downloadSizeFormatted": "346.8 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Youth",
+      "Man"
+    ]
   },
   {
     "id": "encouragement_for_mothers",
     "title": "Encouragement For Mothers",
     "author": "Dr.Annie Poonen",
+    "description": "God is our heavenly Father who is interested in helping us to be a better parent and a better wife. Read and be encouraged by the truths that helped Annie Poonen in building a Godly home.",
+    "pageUrl": "https://www.cfcindia.com/books/encouragement-for-mothers",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/encouragement-for-mothers.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/EFM.epub",
+    "localCoverFile": "encouragement_for_mothers.jpg",
+    "localHtmlFile": "encouragement_for_mothers.html",
+    "totalPages": 31,
+    "totalLines": 134,
+    "downloadFile": "encouragement_for_mothers.sqlite.gz",
+    "downloadSizeBytes": 22406,
+    "downloadSizeFormatted": "21.9 KB",
     "subject": "Women & Mothers",
     "categories": [
       "Woman",
       "The home"
-    ],
-    "description": "God is our heavenly Father who is interested in helping us to be a better parent and a better wife. Read and be encouraged by the truths that helped Annie Poonen in building a Godly home.",
-    "coverFile": "encouragement_for_mothers.jpg",
-    "totalPages": 31,
-    "totalLines": 139,
-    "lang": "en"
+    ]
+  },
+  {
+    "id": "a_good_foundation",
+    "title": "A Good Foundation",
+    "author": "Zac Poonen",
+    "description": "A Guide to lay a good and strong foundation before you start your life journey, foundation which will not be shaken in storms and rain.",
+    "pageUrl": "https://www.cfcindia.com/books/a-good-foundation",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/a-good-foundation.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/AGF.epub",
+    "localCoverFile": "a_good_foundation.jpg",
+    "localHtmlFile": "a_good_foundation.html",
+    "totalPages": 68,
+    "totalLines": 445,
+    "downloadFile": "a_good_foundation.sqlite.gz",
+    "downloadSizeBytes": 57482,
+    "downloadSizeFormatted": "56.1 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Foundational Truth",
+      "Seeker"
+    ]
+  },
+  {
+    "id": "a_heavenly_home",
+    "title": "A Heavenly Home",
+    "author": "Zac Poonen",
+    "description": "Guide to the young married couples",
+    "pageUrl": "https://www.cfcindia.com/books/a-heavenly-home",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/a-heavenly-home.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/AHH.epub",
+    "localCoverFile": "a_heavenly_home.jpg",
+    "localHtmlFile": "a_heavenly_home.html",
+    "totalPages": 49,
+    "totalLines": 239,
+    "downloadFile": "a_heavenly_home.sqlite.gz",
+    "downloadSizeBytes": 33117,
+    "downloadSizeFormatted": "32.3 KB",
+    "subject": "The Home & Family",
+    "categories": [
+      "The home",
+      "Spirit Filled life"
+    ]
+  },
+  {
+    "id": "a_spiritual_leader",
+    "title": "A Spiritual Leader",
+    "author": "Zac Poonen",
+    "description": "Be challenged to become a spiritual leader who is an exemplary servant of Christ, and a role-model to the younger generation, one who says, “ Follow me as I follow Christ”?",
+    "pageUrl": "https://www.cfcindia.com/books/a-spiritual-leader",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/a-spiritual-leader.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/ASL.epub",
+    "localCoverFile": "a_spiritual_leader.jpg",
+    "localEpubFile": "a_spiritual_leader.epub",
+    "localHtmlFile": "a_spiritual_leader.html",
+    "totalPages": 119,
+    "totalLines": 505,
+    "downloadFile": "a_spiritual_leader.sqlite.gz",
+    "downloadSizeBytes": 77677,
+    "downloadSizeFormatted": "75.9 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Leader"
+    ]
+  },
+  {
+    "id": "beauty_for_ashes",
+    "title": "Beauty For Ashes",
+    "author": "Zac Poonen",
+    "description": "Christ offers us the beauty of His own life to replace the ashes of our self-centered life. Read about how you can enjoy that privilege!",
+    "pageUrl": "https://www.cfcindia.com/books/beauty-for-ashes",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/beauty-for-ashes.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/BFA.epub",
+    "localCoverFile": "beauty_for_ashes.jpg",
+    "totalPages": 118,
+    "totalLines": 405,
+    "downloadFile": "beauty_for_ashes.sqlite.gz",
+    "downloadSizeBytes": 77815,
+    "downloadSizeFormatted": "76.0 KB",
+    "subject": "Spirit-Filled Life & Devotion",
+    "categories": [
+      "Spirit Filled life",
+      "Devotion to Christ"
+    ]
+  },
+  {
+    "id": "fifty_marks_of_pharisees",
+    "title": "Fifty Marks Of Pharisees",
+    "author": "Zac Poonen",
+    "description": "God gives us his word to see more clearly the Pharaseeism within ourselves, not in others, be cleansed from it and become a useful vessel for His work.",
+    "pageUrl": "https://www.cfcindia.com/books/fifty-marks-of-pharisees",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/fifty-marks-of-pharisees.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/FMP.epub",
+    "localCoverFile": "fifty_marks_of_pharisees.jpg",
+    "localEpubFile": "fifty_marks_of_pharisees.epub",
+    "localHtmlFile": "fifty_marks_of_pharisees.html",
+    "totalPages": 95,
+    "totalLines": 315,
+    "downloadFile": "fifty_marks_of_pharisees.sqlite.gz",
+    "downloadSizeBytes": 57287,
+    "downloadSizeFormatted": "55.9 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Religious or Spiritual"
+    ]
+  },
+  {
+    "id": "god_centred_praying",
+    "title": "God Centred Praying",
+    "author": "Zac Poonen",
+    "description": "How we should pray",
+    "pageUrl": "https://www.cfcindia.com/books/god-centred-praying",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/god-centred-praying.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/GCP.epub",
+    "localCoverFile": "god_centred_praying.jpg",
+    "localEpubFile": "god_centred_praying.epub",
+    "localHtmlFile": "god_centred_praying.html",
+    "totalPages": 100,
+    "totalLines": 566,
+    "downloadFile": "god_centred_praying.sqlite.gz",
+    "downloadSizeBytes": 77425,
+    "downloadSizeFormatted": "75.6 KB",
+    "subject": "Spirit-Filled Life & Devotion",
+    "categories": [
+      "Disciples",
+      "Devotion to Christ"
+    ]
+  },
+  {
+    "id": "god_made_mothers",
+    "title": "God Made Mothers",
+    "author": "Dr.Annie Poonen",
+    "description": "A book for mothers...",
+    "pageUrl": "https://www.cfcindia.com/books/god-made-mothers",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/god-made-mothers.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/GMM.epub",
+    "localCoverFile": "god_made_mothers.jpg",
+    "localHtmlFile": "god_made_mothers.html",
+    "totalPages": 87,
+    "totalLines": 446,
+    "downloadFile": "god_made_mothers.sqlite.gz",
+    "downloadSizeBytes": 58533,
+    "downloadSizeFormatted": "57.2 KB",
+    "subject": "Women & Mothers",
+    "categories": [
+      "Woman",
+      "The home"
+    ]
+  },
+  {
+    "id": "know_your_enemy",
+    "title": "Know Your Enemy",
+    "author": "Zac Poonen",
+    "description": "Young people, do you know you are the target of Satan&#039;s attacks? He seeks to pollute you with impurity, selfish ambition, pride, hypocrisy. But remember Satan was defeated on Calvary by our Lord Jesus. Our calling now is to register that tremendous victory over the forces of darkness everywhere we go.",
+    "pageUrl": "https://www.cfcindia.com/books/know-your-enemy",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/know-your-enemy.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/KYE.epub",
+    "localCoverFile": "know_your_enemy.jpg",
+    "localHtmlFile": "know_your_enemy.html",
+    "totalPages": 48,
+    "totalLines": 220,
+    "downloadFile": "know_your_enemy.sqlite.gz",
+    "downloadSizeBytes": 33533,
+    "downloadSizeFormatted": "32.7 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Youth",
+      "Struggling",
+      "Foundational Truth",
+      "Disciples",
+      "Man"
+    ]
+  },
+  {
+    "id": "living_as_jesus_lived",
+    "title": "Living As Jesus Lived",
+    "author": "Zac Poonen",
+    "description": "Jesus is not only our Saviour but also our Forerunner (Heb. 6:20). He is our example of how to live at all times and in all situations, in the Spirit, in perfect obedience to God. He never acted on His own initiative, through His own abilities or for His own glory. He did only that which originated in God, by God&#039;s power and for God&#039;s glory.",
+    "pageUrl": "https://www.cfcindia.com/books/living-as-jesus-lived",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/living-as-jesus-lived.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/LJL.epub",
+    "localCoverFile": "living_as_jesus_lived.jpg",
+    "localEpubFile": "living_as_jesus_lived.epub",
+    "totalPages": 86,
+    "totalLines": 449,
+    "downloadFile": "living_as_jesus_lived.sqlite.gz",
+    "downloadSizeBytes": 65505,
+    "downloadSizeFormatted": "64.0 KB",
+    "subject": "Spirit-Filled Life & Devotion",
+    "categories": [
+      "Disciples",
+      "Spirit Filled life",
+      "Devotion to Christ"
+    ]
+  },
+  {
+    "id": "needed_men_of_god",
+    "title": "Needed-Men Of God",
+    "author": "Zac Poonen",
+    "description": "How to become a man of God",
+    "pageUrl": "https://www.cfcindia.com/books/neededmen-of-god",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/needed-men-of-god.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/NMG.epub",
+    "localCoverFile": "needed_men_of_god.jpg",
+    "localHtmlFile": "needed_men_of_god.html",
+    "totalPages": 62,
+    "totalLines": 247,
+    "downloadFile": "needed_men_of_god.sqlite.gz",
+    "downloadSizeBytes": 41160,
+    "downloadSizeFormatted": "40.2 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Disciples",
+      "Man"
+    ]
+  },
+  {
+    "id": "new_wine_in_new_wineskins",
+    "title": "New Wine In New Wineskins",
+    "author": "Zac Poonen",
+    "description": "The traditions of men that have accumulated in Christendom through twenty centuries. If we are to fulfil God&#039;s purpose in our day and age, we must be willing to do violence to every tradition of man that is contrary to God&#039;s Word (Matt. 11:12). If you have the courage to do that, read this book. It will change your life and your ministry.",
+    "pageUrl": "https://www.cfcindia.com/books/new-wine-in-new-wineskins",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/new-wine-in-new-wineskins.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/NWWS.epub",
+    "localCoverFile": "new_wine_in_new_wineskins.jpg",
+    "localEpubFile": "new_wine_in_new_wineskins.epub",
+    "localHtmlFile": "new_wine_in_new_wineskins.html",
+    "totalPages": 293,
+    "totalLines": 942,
+    "downloadFile": "new_wine_in_new_wineskins.sqlite.gz",
+    "downloadSizeBytes": 185194,
+    "downloadSizeFormatted": "180.9 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Disciples",
+      "Spirit Filled life"
+    ]
+  },
+  {
+    "id": "one_body_in_christ",
+    "title": "One Body In Christ",
+    "author": "Zac Poonen",
+    "description": "The Church is called to manifest the beauty of Christ’s Love to the world which is a fundamental necessity for the spread of the gospel. Many churches are instead hot-beds of internal politics and rivalry. What can we do to rectify the dismal state of interpersonal relationships in the Christian community today? The Word of God has an answer if we care to listen…",
+    "pageUrl": "https://www.cfcindia.com/books/one-body-in-christ",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/OBIC.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/OBC.epub",
+    "localEpubFile": "one_body_in_christ.epub",
+    "localHtmlFile": "one_body_in_christ.html",
+    "totalPages": 80,
+    "totalLines": 370,
+    "downloadFile": "one_body_in_christ.sqlite.gz",
+    "downloadSizeBytes": 56336,
+    "downloadSizeFormatted": "55.0 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Disciples"
+    ]
+  },
+  {
+    "id": "practical_discipleship",
+    "title": "Practical Discipleship",
+    "author": "Zac Poonen",
+    "description": "When Jesus preached discipleship to the multitudes, they dwindled down to a handful of disciples. But it was through these faithful few that Jesus accomplished His purposes in the world. Now, He calls you to the same ministry",
+    "pageUrl": "https://www.cfcindia.com/books/practical-discipleship",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/PD.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/PDS.epub",
+    "localHtmlFile": "practical_discipleship.html",
+    "totalPages": 94,
+    "totalLines": 375,
+    "downloadFile": "practical_discipleship.sqlite.gz",
+    "downloadSizeBytes": 63634,
+    "downloadSizeFormatted": "62.1 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Disciples"
+    ]
+  },
+  {
+    "id": "principles_of_serving_god",
+    "title": "Principles Of Serving God",
+    "author": "Zac Poonen",
+    "description": "God needs uncompromising men today who will stand before His face and hear His voice daily, men whose only desire is God Himself.",
+    "pageUrl": "https://www.cfcindia.com/books/principles-of-serving-god",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/POSG.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/PSG.epub",
+    "localCoverFile": "principles_of_serving_god.jpg",
+    "localEpubFile": "principles_of_serving_god.epub",
+    "totalPages": 28,
+    "totalLines": 118,
+    "downloadFile": "principles_of_serving_god.sqlite.gz",
+    "downloadSizeBytes": 19355,
+    "downloadSizeFormatted": "18.9 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church",
+      "Leader",
+      "Man"
+    ]
+  },
+  {
+    "id": "secrets_of_victory",
+    "title": "Secrets Of Victory",
+    "author": "Zac Poonen",
+    "description": "Do you believe that God loves you as much as He loves Jesus if you are a disciple of Jesus? Find your security in this love. Believe with all your heart that God wants to help you to live in victory at all times.",
+    "pageUrl": "https://www.cfcindia.com/books/secrets-of-victory",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/secrets-of-victory.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/SOV.epub",
+    "localCoverFile": "secrets_of_victory.jpg",
+    "localEpubFile": "secrets_of_victory.epub",
+    "localHtmlFile": "secrets_of_victory.html",
+    "totalPages": 63,
+    "totalLines": 357,
+    "downloadFile": "secrets_of_victory.sqlite.gz",
+    "downloadSizeBytes": 45363,
+    "downloadSizeFormatted": "44.3 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Disciples",
+      "Seeker"
+    ]
+  },
+  {
+    "id": "sex_love_marriage",
+    "title": "Sex, Love & Marriage",
+    "author": "Zac Poonen",
+    "description": "Is it alright to date someone? What about falling in love? How should I choose my life partner? Find, in this book, some clear advice to help you through your teen and youth years.",
+    "pageUrl": "https://www.cfcindia.com/books/sex-love-marriage",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/sex-love-marriage.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/SLM.epub",
+    "localCoverFile": "sex_love_marriage.jpg",
+    "localHtmlFile": "sex_love_marriage.html",
+    "totalPages": 153,
+    "totalLines": 532,
+    "downloadFile": "sex_love_marriage.sqlite.gz",
+    "downloadSizeBytes": 98289,
+    "downloadSizeFormatted": "96.0 KB",
+    "subject": "The Home & Family",
+    "categories": [
+      "Youth",
+      "Seeker"
+    ]
+  },
+  {
+    "id": "the_day_of_small_beginnings",
+    "title": "The Day Of Small Beginnings",
+    "author": "Zac Poonen",
+    "description": "This book , a much needed spiritual challenge for any man or woman who longs to be used by God. Read some of the important lessons that Zac Poonen and his co workers learned as they sought to serve the Lord, building His church. Just as large doors swing on small hinges they learned that small decisions determined the quality of their work for the Lord.",
+    "pageUrl": "https://www.cfcindia.com/books/the-day-of-small-beginnings",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-day-of-small-beginnings.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/DSB.epub",
+    "localCoverFile": "the_day_of_small_beginnings.jpg",
+    "localEpubFile": "the_day_of_small_beginnings.epub",
+    "localHtmlFile": "the_day_of_small_beginnings.html",
+    "totalPages": 227,
+    "totalLines": 619,
+    "downloadFile": "the_day_of_small_beginnings.sqlite.gz",
+    "downloadSizeBytes": 128215,
+    "downloadSizeFormatted": "125.2 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Foundational Truth",
+      "Disciples",
+      "Seeker"
+    ]
+  },
+  {
+    "id": "the_final_triumph",
+    "title": "The Final Triumph",
+    "author": "Zac Poonen",
+    "description": "Verse by verse through Revelation.",
+    "pageUrl": "https://www.cfcindia.com/books/the-final-triumph",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-final-triumph.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TFT.epub",
+    "localCoverFile": "the_final_triumph.jpg",
+    "localEpubFile": "the_final_triumph.epub",
+    "localHtmlFile": "the_final_triumph.html",
+    "totalPages": 398,
+    "totalLines": 1771,
+    "downloadFile": "the_final_triumph.sqlite.gz",
+    "downloadSizeBytes": 254489,
+    "downloadSizeFormatted": "248.5 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Knowing God",
+      "Seeker"
+    ]
+  },
+  {
+    "id": "the_full_gospel",
+    "title": "The Full Gospel",
+    "author": "Zac Poonen",
+    "description": "Jesus said if we knew the truth, the truth would set us free ( John 8:32) The proof that we have really heard the truth is that we are freed from sin’s power in our lives. Paul proclaimed “ the full purpose of God”( Acts 20:27) All believers desperately need to hear the Full Gospel if they are to become truly spiritual and not just religious.",
+    "pageUrl": "https://www.cfcindia.com/books/the-full-gospel",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-full-gospel.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TFG.epub",
+    "localCoverFile": "the_full_gospel.jpg",
+    "localHtmlFile": "the_full_gospel.html",
+    "totalPages": 295,
+    "totalLines": 1440,
+    "downloadFile": "the_full_gospel.sqlite.gz",
+    "downloadSizeBytes": 207101,
+    "downloadSizeFormatted": "202.2 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Seeker"
+    ]
+  },
+  {
+    "id": "the_lord_and_his_church",
+    "title": "The Lord And His Church",
+    "author": "Zac Poonen",
+    "description": "The seven churches in Revelations.",
+    "pageUrl": "https://www.cfcindia.com/books/the-lord-and-his-church",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-lord-and-his-church.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TLC.epub",
+    "localCoverFile": "the_lord_and_his_church.jpg",
+    "localEpubFile": "the_lord_and_his_church.epub",
+    "localHtmlFile": "the_lord_and_his_church.html",
+    "totalPages": 115,
+    "totalLines": 583,
+    "downloadFile": "the_lord_and_his_church.sqlite.gz",
+    "downloadSizeBytes": 81296,
+    "downloadSizeFormatted": "79.4 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "The Church"
+    ]
+  },
+  {
+    "id": "the_new_covenant_servant",
+    "title": "The New Covenant Servant",
+    "author": "Zac Poonen",
+    "description": "Where are the prophets who can preach with the fire of the Holy Spirit who can preserve the purity of the Church. ..those who have overcome conscious sin, hate money and seek no man’s honour? God needs such men. If you want to be such a man , read this book….",
+    "pageUrl": "https://www.cfcindia.com/books/the-new-covenant-servant",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-new-covenant-servant.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TNS.epub",
+    "localCoverFile": "the_new_covenant_servant.jpg",
+    "totalPages": 125,
+    "totalLines": 685,
+    "downloadFile": "the_new_covenant_servant.sqlite.gz",
+    "downloadSizeBytes": 90716,
+    "downloadSizeFormatted": "88.6 KB",
+    "subject": "The Church & Leadership",
+    "categories": [
+      "Leader",
+      "Disciples",
+      "Man"
+    ]
+  },
+  {
+    "id": "the_purpose_of_failure",
+    "title": "The Purpose Of Failure",
+    "author": "Zac Poonen",
+    "description": "Do you see yourself as a “ hopeless failure”? Even if you have made a thousand new beginnings in the past and have failed , you can make a 1001st new beginning today. God can still fulfil His perfect plan for your life.",
+    "pageUrl": "https://www.cfcindia.com/books/the-purpose-of-failure",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/TPOF.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TPF.epub",
+    "localHtmlFile": "the_purpose_of_failure.html",
+    "totalPages": 53,
+    "totalLines": 248,
+    "downloadFile": "the_purpose_of_failure.sqlite.gz",
+    "downloadSizeBytes": 36900,
+    "downloadSizeFormatted": "36.0 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Struggling",
+      "Foundational Truth",
+      "Seeker"
+    ]
+  },
+  {
+    "id": "the_supreme_priorities",
+    "title": "The Supreme Priorities",
+    "author": "Zac Poonen",
+    "description": "Like a two year old who prefers a cheap toy to a valuable cheque do you pursue after earthly rather than eternal things. What are your supreme priorities?",
+    "pageUrl": "https://www.cfcindia.com/books/the-supreme-priorities",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-supreme-priorities.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TSP.epub",
+    "localEpubFile": "the_supreme_priorities.epub",
+    "localHtmlFile": "the_supreme_priorities.html",
+    "totalPages": 151,
+    "totalLines": 275,
+    "downloadFile": "the_supreme_priorities.sqlite.gz",
+    "downloadSizeBytes": 82314,
+    "downloadSizeFormatted": "80.4 KB",
+    "subject": "Foundational Truths",
+    "categories": [
+      "Knowing God",
+      "Disciples",
+      "Seeker"
+    ]
+  },
+  {
+    "id": "what_the_lord_has_done_for_me",
+    "title": "What The Lord Has Done For Me",
+    "author": "Dr.Annie Poonen",
+    "description": "A Testimony.",
+    "pageUrl": "https://www.cfcindia.com/books/what-the-lord-has-done-for-me",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/what-the-lord-has-done-for-me.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/WLDFM.epub",
+    "localCoverFile": "what_the_lord_has_done_for_me.jpg",
+    "localHtmlFile": "what_the_lord_has_done_for_me.html",
+    "totalPages": 59,
+    "totalLines": 239,
+    "downloadFile": "what_the_lord_has_done_for_me.sqlite.gz",
+    "downloadSizeBytes": 36789,
+    "downloadSizeFormatted": "35.9 KB",
+    "subject": "Women & Mothers",
+    "categories": [
+      "Woman",
+      "The home"
+    ]
+  },
+  {
+    "id": "woman_why_are_you_weeping",
+    "title": "Woman, Why are you Weeping?",
+    "author": "Dr.Annie Poonen",
+    "description": "Comfort for suffering women.",
+    "pageUrl": "https://www.cfcindia.com/books/woman-why-are-you-weeping",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/woman-why-are-you-weeping.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/WWW.epub",
+    "localCoverFile": "woman_why_are_you_weeping.jpg",
+    "localEpubFile": "woman_why_are_you_weeping.epub",
+    "localHtmlFile": "woman_why_are_you_weeping.html",
+    "totalPages": 83,
+    "totalLines": 308,
+    "downloadFile": "woman_why_are_you_weeping.sqlite.gz",
+    "downloadSizeBytes": 56698,
+    "downloadSizeFormatted": "55.4 KB",
+    "subject": "Women & Mothers",
+    "categories": [
+      "Woman",
+      "Disciples"
+    ]
+  },
+  {
+    "id": "fifty_marks_of_phariseesbooklet",
+    "title": "Fifty Marks Of Pharisees(Booklet)",
+    "author": "Zac Poonen",
+    "description": "A person can keep the commandments, be in pursuit of holiness or even be a missionary and still be in the danger of becoming a Pharisee. The very reason that the spirit of the Pharisee is...",
+    "pageUrl": "https://www.cfcindia.com/books/fifty-marks-of-phariseesbooklet",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/FMPT.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/FMOP.epub",
+    "localCoverFile": "fifty_marks_of_phariseesbooklet.jpg",
+    "localEpubFile": "fifty_marks_of_phariseesbooklet.epub",
+    "localHtmlFile": "fifty_marks_of_phariseesbooklet.html",
+    "totalPages": 51,
+    "totalLines": 103,
+    "downloadFile": "fifty_marks_of_phariseesbooklet.sqlite.gz",
+    "downloadSizeBytes": 13890,
+    "downloadSizeFormatted": "13.6 KB",
+    "subject": "Discipleship & Christian Living",
+    "categories": [
+      "Religious or Spiritual"
+    ]
   },
   {
     "id": "fifty_marks_of_godly_men_booklet",
     "title": "Fifty Marks Of Godly Men (Booklet)",
     "author": "Zac Poonen",
+    "description": "For believers – explaining what true godliness is.",
+    "pageUrl": "https://www.cfcindia.com/books/fifty-marks-of-godly-men-booklet",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/FMGM.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/FMOGM.epub",
+    "localCoverFile": "fifty_marks_of_godly_men_booklet.jpg",
+    "localEpubFile": "fifty_marks_of_godly_men_booklet.epub",
+    "localHtmlFile": "fifty_marks_of_godly_men_booklet.html",
+    "totalPages": 51,
+    "totalLines": 105,
+    "downloadFile": "fifty_marks_of_godly_men_booklet.sqlite.gz",
+    "downloadSizeBytes": 12606,
+    "downloadSizeFormatted": "12.3 KB",
     "subject": "Spirit-Filled Life & Devotion",
     "categories": [
       "Knowing God",
@@ -148,2744 +769,52 @@
       "Religious or Spiritual",
       "Spirit Filled life",
       "Devotion to Christ"
-    ],
-    "description": "For believers – explaining what true godliness is.",
-    "coverFile": "fifty_marks_of_godly_men_booklet.jpg",
-    "totalPages": 6,
-    "totalLines": 62,
-    "lang": "en"
+    ]
   },
   {
-    "id": "fifty_marks_of_pharisees",
-    "title": "Fifty Marks Of Pharisees",
+    "id": "amazing_facts",
+    "title": "Amazing Facts",
     "author": "Zac Poonen",
-    "subject": "Discipleship & Christian Living",
-    "categories": [
-      "Religious or Spiritual"
-    ],
-    "description": "God gives us his word to see more clearly the Pharaseeism within ourselves, not in others, be cleansed from it and become a useful vessel for His work.",
-    "coverFile": "fifty_marks_of_pharisees.jpg",
-    "totalPages": 96,
-    "totalLines": 366,
-    "lang": "en"
-  },
-  {
-    "id": "fifty_marks_of_phariseesbooklet",
-    "title": "Fifty Marks Of Pharisees(Booklet)",
-    "author": "Zac Poonen",
-    "subject": "Discipleship & Christian Living",
-    "categories": [
-      "Religious or Spiritual"
-    ],
-    "description": "A person can keep the commandments, be in pursuit of holiness or even be a missionary and still be in the danger of becoming a Pharisee. The very reason that the spirit of the Pharisee is...",
-    "coverFile": "fifty_marks_of_phariseesbooklet.jpg",
-    "totalPages": 7,
-    "totalLines": 59,
-    "lang": "en"
-  },
-  {
-    "id": "fundamental_biblical_truths",
-    "title": "Fundamental Biblical Truths",
-    "author": "Zac Poonen",
-    "subject": "Foundational Truths",
-    "categories": [
-      "Foundational Truth",
-      "Seeker"
-    ],
-    "description": "When God puts His Holy Spirit within man, that innermost part of us gets revived and it becomes alive. It&#039;s like a resurrection and that&#039;s why Christians are commanded to be baptized because in baptism we&#039;re testifying that a resurrection has taken place within our spirit.",
-    "coverFile": "fundamental_biblical_truths.jpg",
-    "totalPages": 455,
-    "totalLines": 553,
-    "lang": "en"
-  },
-  {
-    "id": "god_centred_praying",
-    "title": "God Centred Praying",
-    "author": "Zac Poonen",
-    "subject": "Spirit-Filled Life & Devotion",
-    "categories": [
-      "Disciples",
-      "Devotion to Christ"
-    ],
-    "description": "How we should pray",
-    "coverFile": "god_centred_praying.jpg",
-    "totalPages": 101,
-    "totalLines": 576,
-    "lang": "en"
-  },
-  {
-    "id": "god_made_mothers",
-    "title": "God Made Mothers",
-    "author": "Dr.Annie Poonen",
-    "subject": "Women & Mothers",
-    "categories": [
-      "Woman",
-      "The home"
-    ],
-    "description": "A book for mothers...",
-    "coverFile": "god_made_mothers.jpg",
-    "totalPages": 87,
-    "totalLines": 468,
-    "lang": "en"
-  },
-  {
-    "id": "hear_o_my_sons",
-    "title": "Hear! O My Sons",
-    "author": "Zac Poonen",
-    "subject": "Discipleship & Christian Living",
-    "categories": [
-      "Youth",
-      "Man"
-    ],
-    "description": "Fathers are told to bring up children “in the instruction of the Lord”. What I wrote in this book was instruction to my children from the Word of God to lead them to be devoted to the Lord Jesus.",
-    "coverFile": "hear_o_my_sons.jpg",
-    "totalPages": 543,
-    "totalLines": 2273,
-    "lang": "en"
-  },
-  {
-    "id": "know_your_enemy",
-    "title": "Know Your Enemy",
-    "author": "Zac Poonen",
+    "description": "An elementary book about God and man",
+    "pageUrl": "https://www.cfcindia.com/books/amazing-facts",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/amazing-facts.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/AMF.epub",
+    "localCoverFile": "amazing_facts.jpg",
+    "localEpubFile": "amazing_facts.epub",
+    "localHtmlFile": "amazing_facts.html",
+    "totalPages": 36,
+    "totalLines": 131,
+    "downloadFile": "amazing_facts.sqlite.gz",
+    "downloadSizeBytes": 21039,
+    "downloadSizeFormatted": "20.5 KB",
     "subject": "Foundational Truths",
     "categories": [
       "Youth",
-      "Struggling",
-      "Foundational Truth",
-      "Disciples",
-      "Man"
-    ],
-    "description": "Young people, do you know you are the target of Satan&#039;s attacks? He seeks to pollute you with impurity, selfish ambition, pride, hypocrisy. But remember Satan was defeated on Calvary by our Lord Jesus. Our calling now is to register that tremendous victory over the forces of darkness everywhere we go.",
-    "coverFile": "know_your_enemy.jpg",
-    "totalPages": 48,
-    "totalLines": 227,
-    "lang": "en"
-  },
-  {
-    "id": "living_as_jesus_lived",
-    "title": "Living As Jesus Lived",
-    "author": "Zac Poonen",
-    "subject": "Spirit-Filled Life & Devotion",
-    "categories": [
-      "Disciples",
-      "Spirit Filled life",
-      "Devotion to Christ"
-    ],
-    "description": "Jesus is not only our Saviour but also our Forerunner (Heb. 6:20). He is our example of how to live at all times and in all situations, in the Spirit, in perfect obedience to God. He never acted on His own initiative, through His own abilities or for His own glory. He did only that which originated in God, by God&#039;s power and for God&#039;s glory.",
-    "coverFile": "living_as_jesus_lived.jpg",
-    "totalPages": 86,
-    "totalLines": 459,
-    "lang": "en"
-  },
-  {
-    "id": "mother_in_law_and_daughter_in_law_bond",
-    "title": "Mother-in-law And Daughter-in-Law Bond",
-    "author": "Dr.Annie Poonen",
-    "subject": "Women & Mothers",
-    "categories": [
-      "Woman",
-      "Foundational Truth",
-      "Disciples"
-    ],
-    "description": "Love alone has the power to transform strained relationships.",
-    "coverFile": "mother_in_law_and_daughter_in_law_bond.jpg",
-    "totalPages": 47,
-    "totalLines": 267,
-    "lang": "en"
-  },
-  {
-    "id": "needed_men_of_god",
-    "title": "Needed-Men Of God",
-    "author": "Zac Poonen",
-    "subject": "Discipleship & Christian Living",
-    "categories": [
-      "Disciples",
-      "Man"
-    ],
-    "description": "How to become a man of God",
-    "coverFile": "needed_men_of_god.jpg",
-    "totalPages": 62,
-    "totalLines": 254,
-    "lang": "en"
-  },
-  {
-    "id": "new_wine_in_new_wineskins",
-    "title": "New Wine In New Wineskins",
-    "author": "Zac Poonen",
-    "subject": "The Church & Leadership",
-    "categories": [
-      "The Church",
-      "Disciples",
-      "Spirit Filled life"
-    ],
-    "description": "The traditions of men that have accumulated in Christendom through twenty centuries. If we are to fulfil God&#039;s purpose in our day and age, we must be willing to do violence to every tradition of man that is contrary to God&#039;s Word (Matt. 11:12). If you have the courage to do that, read this book. It will change your life and your ministry.",
-    "coverFile": "new_wine_in_new_wineskins.jpg",
-    "totalPages": 295,
-    "totalLines": 968,
-    "lang": "en"
-  },
-  {
-    "id": "one_body_in_christ",
-    "title": "One Body In Christ",
-    "author": "Zac Poonen",
-    "subject": "The Church & Leadership",
-    "categories": [
-      "The Church",
-      "Disciples"
-    ],
-    "description": "The Church is called to manifest the beauty of Christ’s Love to the world which is a fundamental necessity for the spread of the gospel. Many churches are instead hot-beds of internal politics and rivalry. What can we do to rectify the dismal state of interpersonal relationships in the Christian community today? The Word of God has an answer if we care to listen…",
-    "coverFile": "one_body_in_christ.jpg",
-    "totalPages": 80,
-    "totalLines": 377,
-    "lang": "en"
-  },
-  {
-    "id": "practical_discipleship",
-    "title": "Practical Discipleship",
-    "author": "Zac Poonen",
-    "subject": "Discipleship & Christian Living",
-    "categories": [
-      "Disciples"
-    ],
-    "description": "When Jesus preached discipleship to the multitudes, they dwindled down to a handful of disciples. But it was through these faithful few that Jesus accomplished His purposes in the world. Now, He calls you to the same ministry",
-    "coverFile": "practical_discipleship.jpg",
-    "totalPages": 94,
-    "totalLines": 380,
-    "lang": "en"
-  },
-  {
-    "id": "principles_of_serving_god",
-    "title": "Principles Of Serving God",
-    "author": "Zac Poonen",
-    "subject": "The Church & Leadership",
-    "categories": [
-      "The Church",
-      "Leader",
-      "Man"
-    ],
-    "description": "God needs uncompromising men today who will stand before His face and hear His voice daily, men whose only desire is God Himself.",
-    "coverFile": "principles_of_serving_god.jpg",
-    "totalPages": 28,
-    "totalLines": 121,
-    "lang": "en"
-  },
-  {
-    "id": "secrets_of_victory",
-    "title": "Secrets Of Victory",
-    "author": "Zac Poonen",
-    "subject": "Foundational Truths",
-    "categories": [
-      "Disciples",
-      "Seeker"
-    ],
-    "description": "Do you believe that God loves you as much as He loves Jesus if you are a disciple of Jesus? Find your security in this love. Believe with all your heart that God wants to help you to live in victory at all times.",
-    "coverFile": "secrets_of_victory.jpg",
-    "totalPages": 64,
-    "totalLines": 373,
-    "lang": "en"
-  },
-  {
-    "id": "sex_love_marriage",
-    "title": "Sex, Love & Marriage",
-    "author": "Zac Poonen",
-    "subject": "The Home & Family",
-    "categories": [
-      "Youth",
-      "Seeker"
-    ],
-    "description": "Is it alright to date someone? What about falling in love? How should I choose my life partner? Find, in this book, some clear advice to help you through your teen and youth years.",
-    "coverFile": "sex_love_marriage.jpg",
-    "totalPages": 154,
-    "totalLines": 542,
-    "lang": "en"
-  },
-  {
-    "id": "the_congregation_the_club_and_the_church",
-    "title": "The Congregation The Club And The Church",
-    "author": "Santosh Poonen",
-    "subject": "The Church & Leadership",
-    "categories": [
-      "The Church",
-      "Religious or Spiritual"
-    ],
-    "description": "To understand the difference between a congreation and a club and a church, read this book.",
-    "coverFile": "the_congregation_the_club_and_the_church.jpg",
-    "totalPages": 49,
-    "totalLines": 189,
-    "lang": "en"
-  },
-  {
-    "id": "the_day_of_small_beginnings",
-    "title": "The Day Of Small Beginnings",
-    "author": "Zac Poonen",
-    "subject": "Foundational Truths",
-    "categories": [
-      "Foundational Truth",
-      "Disciples",
-      "Seeker"
-    ],
-    "description": "This book , a much needed spiritual challenge for any man or woman who longs to be used by God. Read some of the important lessons that Zac Poonen and his co workers learned as they sought to serve the Lord, building His church. Just as large doors swing on small hinges they learned that small decisions determined the quality of their work for the Lord.",
-    "coverFile": "the_day_of_small_beginnings.jpg",
-    "totalPages": 228,
-    "totalLines": 668,
-    "lang": "en"
-  },
-  {
-    "id": "the_final_triumph",
-    "title": "The Final Triumph",
-    "author": "Zac Poonen",
-    "subject": "Foundational Truths",
-    "categories": [
-      "Knowing God",
-      "Seeker"
-    ],
-    "description": "Verse by verse through Revelation.",
-    "coverFile": "the_final_triumph.jpg",
-    "totalPages": 399,
-    "totalLines": 1795,
-    "lang": "en"
-  },
-  {
-    "id": "the_full_gospel",
-    "title": "The Full Gospel",
-    "author": "Zac Poonen",
-    "subject": "Foundational Truths",
-    "categories": [
-      "Seeker"
-    ],
-    "description": "Jesus said if we knew the truth, the truth would set us free ( John 8:32) The proof that we have really heard the truth is that we are freed from sin’s power in our lives. Paul proclaimed “ the full purpose of God”( Acts 20:27) All believers desperately need to hear the Full Gospel if they are to become truly spiritual and not just religious.",
-    "coverFile": "the_full_gospel.jpg",
-    "totalPages": 297,
-    "totalLines": 1467,
-    "lang": "en"
-  },
-  {
-    "id": "the_lord_and_his_church",
-    "title": "The Lord And His Church",
-    "author": "Zac Poonen",
-    "subject": "The Church & Leadership",
-    "categories": [
-      "The Church"
-    ],
-    "description": "The seven churches in Revelations.",
-    "coverFile": "the_lord_and_his_church.jpg",
-    "totalPages": 115,
-    "totalLines": 595,
-    "lang": "en"
-  },
-  {
-    "id": "the_new_covenant_servant",
-    "title": "The New Covenant Servant",
-    "author": "Zac Poonen",
-    "subject": "The Church & Leadership",
-    "categories": [
-      "Leader",
-      "Disciples",
-      "Man"
-    ],
-    "description": "Where are the prophets who can preach with the fire of the Holy Spirit who can preserve the purity of the Church. ..those who have overcome conscious sin, hate money and seek no man’s honour? God needs such men. If you want to be such a man , read this book….",
-    "coverFile": "the_new_covenant_servant.jpg",
-    "totalPages": 125,
-    "totalLines": 694,
-    "lang": "en"
-  },
-  {
-    "id": "the_purpose_of_failure",
-    "title": "The Purpose Of Failure",
-    "author": "Zac Poonen",
-    "subject": "Foundational Truths",
-    "categories": [
-      "Struggling",
       "Foundational Truth",
       "Seeker"
-    ],
-    "description": "Do you see yourself as a “ hopeless failure”? Even if you have made a thousand new beginnings in the past and have failed , you can make a 1001st new beginning today. God can still fulfil His perfect plan for your life.",
-    "coverFile": "the_purpose_of_failure.jpg",
-    "totalPages": 53,
-    "totalLines": 251,
-    "lang": "en"
+    ]
   },
   {
     "id": "the_real_truth",
     "title": "The Real Truth",
     "author": "Zac Poonen",
-    "subject": "Foundational Truths",
-    "categories": [
-      "Youth",
-      "Foundational Truth",
-      "Seeker"
-    ],
     "description": "For those who know nothing about the Christian faith – explaining the message of salvation in detail – simply and clearly.",
-    "coverFile": "the_real_truth.jpg",
-    "totalPages": 43,
-    "totalLines": 305,
-    "lang": "en"
-  },
-  {
-    "id": "the_supreme_priorities",
-    "title": "The Supreme Priorities",
-    "author": "Zac Poonen",
-    "subject": "Foundational Truths",
-    "categories": [
-      "Knowing God",
-      "Disciples",
-      "Seeker"
-    ],
-    "description": "Like a two year old who prefers a cheap toy to a valuable cheque do you pursue after earthly rather than eternal things. What are your supreme priorities?",
-    "coverFile": "the_supreme_priorities.jpg",
-    "totalPages": 151,
-    "totalLines": 282,
-    "lang": "en"
-  },
-  {
-    "id": "the_way_of_wisdom",
-    "title": "The Way Of Wisdom",
-    "author": "Zac Poonen",
+    "pageUrl": "https://www.cfcindia.com/books/the-real-truth",
+    "coverUrl": "https://www.cfcindia.org/resources/en/books/cover/the-real-truth.jpg",
+    "epubUrl": "https://www.cfcindia.org/resources/en/books/epub/TRT.epub",
+    "localCoverFile": "the_real_truth.jpg",
+    "localEpubFile": "the_real_truth.epub",
+    "localHtmlFile": "the_real_truth.html",
+    "totalPages": 42,
+    "totalLines": 296,
+    "downloadFile": "the_real_truth.sqlite.gz",
+    "downloadSizeBytes": 31571,
+    "downloadSizeFormatted": "30.8 KB",
     "subject": "Foundational Truths",
     "categories": [
       "Youth",
       "Foundational Truth",
-      "Spiritual Treasure",
       "Seeker"
-    ],
-    "description": "A Verse-by-Verse exposition of the book of Proverbs!",
-    "coverFile": "the_way_of_wisdom.jpg",
-    "totalPages": 981,
-    "totalLines": 3992,
-    "lang": "en"
-  },
-  {
-    "id": "what_the_lord_has_done_for_me",
-    "title": "What The Lord Has Done For Me",
-    "author": "Dr.Annie Poonen",
-    "subject": "Women & Mothers",
-    "categories": [
-      "Woman",
-      "The home"
-    ],
-    "description": "A Testimony.",
-    "coverFile": "what_the_lord_has_done_for_me.jpg",
-    "totalPages": 59,
-    "totalLines": 261,
-    "lang": "en"
-  },
-  {
-    "id": "woman_why_are_you_weeping",
-    "title": "Woman, Why are you Weeping?",
-    "author": "Dr.Annie Poonen",
-    "subject": "Women & Mothers",
-    "categories": [
-      "Woman",
-      "Disciples"
-    ],
-    "description": "Comfort for suffering women.",
-    "coverFile": "woman_why_are_you_weeping.jpg",
-    "totalPages": 83,
-    "totalLines": 318,
-    "lang": "en"
-  },
-  {
-    "id": "hi_woman_why_are_you_weeping",
-    "title": "हे नारी, तू क्यों रोती है?",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_woman_why_are_you_weeping.jpg",
-    "totalPages": 92,
-    "totalLines": 6,
-    "downloadSizeFormatted": "71.5 KB",
-    "createdAt": "2026-09-03T23:35:42.550Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_the_new_covenant_servant",
-    "title": "नई वाचा का सेवक",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_the_new_covenant_servant.jpg",
-    "totalPages": 138,
-    "totalLines": 10,
-    "downloadSizeFormatted": "103.7 KB",
-    "createdAt": "2026-09-03T23:35:43.635Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_secrets_of_victory",
-    "title": "जय के रहस्य",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_secrets_of_victory.jpg",
-    "totalPages": 71,
-    "totalLines": 11,
-    "downloadSizeFormatted": "53.7 KB",
-    "createdAt": "2026-09-03T23:35:45.817Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_one_body_in_christ",
-    "title": "मसीह में एक देह",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_one_body_in_christ.jpg",
-    "totalPages": 91,
-    "totalLines": 3,
-    "downloadSizeFormatted": "64.9 KB",
-    "createdAt": "2026-09-03T23:35:47.893Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_living_as_jesus_lived",
-    "title": "यीशु की तरह जीना",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_living_as_jesus_lived.jpg",
-    "totalPages": 98,
-    "totalLines": 4,
-    "downloadSizeFormatted": "72.3 KB",
-    "createdAt": "2026-09-03T23:35:50.015Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_knowing_gods_ways",
-    "title": "परमेश्वर के मार्गों को जानिए",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_knowing_gods_ways.jpg",
-    "totalPages": 294,
-    "totalLines": 5,
-    "downloadSizeFormatted": "205.5 KB",
-    "createdAt": "2026-09-03T23:35:52.907Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_gods_work_done_in_gods_way",
-    "title": "परमेश्वर का काम परमेश्वर के तरीक़े से",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_gods_work_done_in_gods_way.jpg",
-    "totalPages": 278,
-    "totalLines": 9,
-    "downloadSizeFormatted": "201.2 KB",
-    "createdAt": "2026-09-03T23:35:55.732Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_neededmen_of_god",
-    "title": "ज़रूरत है’ परमेश्वर के जनों की",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_neededmen_of_god.jpg",
-    "totalPages": 67,
-    "totalLines": 8,
-    "downloadSizeFormatted": "46.2 KB",
-    "createdAt": "2026-09-03T23:35:57.449Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_god_centred_praying",
-    "title": "परमेश्वर केन्द्रित प्रार्थना -(प्रार्थना..",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_god_centred_praying.jpg",
-    "totalPages": 125,
-    "totalLines": 7,
-    "downloadSizeFormatted": "87.0 KB",
-    "createdAt": "2026-09-03T23:35:59.640Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_finding_gods_will",
-    "title": "पाइए परमेश्वर की इच्छा",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_finding_gods_will.jpg",
-    "totalPages": 95,
-    "totalLines": 4,
-    "downloadSizeFormatted": "60.5 KB",
-    "createdAt": "2026-09-03T23:36:01.768Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_fifty_marks_of_pharisees",
-    "title": "फरीसियों के पचास चिन्ह्",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_fifty_marks_of_pharisees.jpg",
-    "totalPages": 103,
-    "totalLines": 9,
-    "downloadSizeFormatted": "63.6 KB",
-    "createdAt": "2026-09-03T23:36:04.319Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_encouragement_for_mothers",
-    "title": "माताओं के लिए प्रोत्साहन",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_encouragement_for_mothers.jpg",
-    "totalPages": 34,
-    "totalLines": 6,
-    "downloadSizeFormatted": "25.6 KB",
-    "createdAt": "2026-09-03T23:36:05.911Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_a_heavenly_home",
-    "title": "एक स्वर्ग समान घर",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_a_heavenly_home.jpg",
-    "totalPages": 49,
-    "totalLines": 5,
-    "downloadSizeFormatted": "35.1 KB",
-    "createdAt": "2026-09-03T23:36:07.508Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_the_supreme_priorities",
-    "title": "सर्वश्रेष्ठ आवश्यकताएं",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "एक दो साल की उम्र की तरह, जो एक मौलिक जांच करने के लिए एक सस्ता खिलौना पसंद करते हैं, आप अनंत काल के बजाय सांसारिक के बाद आगे बढ़ते हैं। आपकी सर्वोच्च प्राथमिकताओं क्या हैं?",
-    "coverFile": "hi_the_supreme_priorities.jpg",
-    "totalPages": 144,
-    "totalLines": 5,
-    "downloadSizeFormatted": "88.9 KB",
-    "createdAt": "2026-09-03T23:36:09.625Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_the_purpose_of_failure",
-    "title": "असफलता का उद्देश्य",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "क्या आप खुद को \"निराशाजनक विफलता\" के रूप में देखते हैं? यहां तक कि अगर आपने अतीत में हजार नई शुरुआत की है और विफल हो गए हैं, तो आप आज की शुरुआत 1001 वीं नई शुरुआत कर सकते हैं। भगवान अभी भी अपने जीवन के लिए अपनी परिपूर्ण योजना को पूरा कर सकते हैं",
-    "coverFile": "hi_the_purpose_of_failure.jpg",
-    "totalPages": 56,
-    "totalLines": 3,
-    "downloadSizeFormatted": "40.7 KB",
-    "createdAt": "2026-09-03T23:36:11.564Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_the_lord_and_his_church",
-    "title": "प्रभु और उसकी कलीसिया",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "खुलासे में सात चर्च",
-    "coverFile": "hi_the_lord_and_his_church.jpg",
-    "totalPages": 116,
-    "totalLines": 14,
-    "downloadSizeFormatted": "87.1 KB",
-    "createdAt": "2026-09-03T23:36:13.681Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_beauty_for_ashes",
-    "title": "मिट्टी से सोना",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "मसीह अपने स्वयं के जीवन की राख को बदलने के लिए अपने जीवन की सुंदरता प्रदान करता है। इस बारे में पढ़ें कि आप उस विशेषाधिकार का आनंद कैसे उठा सकते हैं!",
-    "coverFile": "hi_beauty_for_ashes.jpg",
-    "totalPages": 124,
-    "totalLines": 5,
-    "downloadSizeFormatted": "85.2 KB",
-    "createdAt": "2026-09-03T23:36:15.759Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_a_girls_viewpoint",
-    "title": "एक लड़की का दृष्टिकोण",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "यह एक युवा लड़की के अनुभव की कहानी है ...",
-    "coverFile": "hi_a_girls_viewpoint.jpg",
-    "totalPages": 88,
-    "totalLines": 8,
-    "downloadSizeFormatted": "62.6 KB",
-    "createdAt": "2026-09-03T23:36:17.758Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_a_good_foundation",
-    "title": "एक अच्छी नींव",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "अपनी जीवन यात्रा शुरू करने से पहले एक अच्छी और मजबूत नींव रखने के लिए एक गाइड/मार्गदर्शन। एक ऐसी नींव जो तूफान और बारिश में न हिलाई जाएं।",
-    "coverFile": "hi_a_good_foundation.jpg",
-    "totalPages": 72,
-    "totalLines": 4,
-    "downloadSizeFormatted": "54.1 KB",
-    "createdAt": "2026-09-03T23:36:19.704Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_a_spiritual_leader",
-    "title": "आत्मिक अगुवा",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "एक आध्यात्मिक नेता बनने के लिए चुनौती दीजिए जो मसीह का एक अनुकरणीय सेवक है, और युवा पीढ़ी के लिए एक रोल-मॉडल है, जो कहते हैं, \"जैसा कि मैं मसीह का अनुसरण करता हूं, मेरे पीछे आओ\"?",
-    "coverFile": "hi_a_spiritual_leader.jpg",
-    "totalPages": 133,
-    "totalLines": 6,
-    "downloadSizeFormatted": "91.5 KB",
-    "createdAt": "2026-09-03T23:36:21.887Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_gaining_gods_approval",
-    "title": "परमेश्वर की स्वीकृति प्राप्त करना",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "एक दिन यह स्पष्ट हो जाएगा कि सम्मान और भौतिक लाभ केवल एक ज़रिया था जिसके द्वारा परमेश्वर ने हमारे हृदयों का यह देखने के लिए परीक्षण किया कि क्या हम परमेश्वर से सब से अधिक प्रेम करते हैं, और हम देखेंगे कि पृथ्वी पर सबसे बुद्धिमान लोग वे हैं जिन्होंने अपने पूर्ण हृदय के साथ यीशु के जैसे चलने की खोज की। किसी के लिए सबसे बड़ा सम्मान हो सकता है कि वह मसीह की दुल्हन में अपना स्थान प्राप्त करें, जिसे स्वयं परमेश्वर द्वारा परीक्षण और अनुमोदित किया गया हो।",
-    "coverFile": "hi_gaining_gods_approval.jpg",
-    "totalPages": 83,
-    "totalLines": 9,
-    "downloadSizeFormatted": "69.1 KB",
-    "createdAt": "2026-09-03T23:36:23.895Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_god_made_mothers",
-    "title": "परमेश्वर ने माँ की रचना की",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "माताओं के लिए पुस्तक",
-    "coverFile": "hi_god_made_mothers.jpg",
-    "totalPages": 100,
-    "totalLines": 5,
-    "downloadSizeFormatted": "72.1 KB",
-    "createdAt": "2026-09-03T23:36:25.895Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_know_your_enemy",
-    "title": "अपने शत्रु को जानें",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "नौजवानों, क्या आप जानते हैं कि आप शैतान के हमलों के निशाने पर हैं? वह आपको अशुद्धता, स्वार्थी महत्वाकांक्षा, अभिमान, पाखंड से प्रदूषित करना चाहता है। लेकिन याद रखें कि कलवरी क्रूस पर हमारे प्रभु यीशु द्वारा शैतान को पराजित किया गया था। अब हमारी बुलाहट यह है कि हम जहां भी जाएं अंधकार की ताकतों पर उस महान विजय को दर्ज करें।",
-    "coverFile": "hi_know_your_enemy.jpg",
-    "totalPages": 53,
-    "totalLines": 8,
-    "downloadSizeFormatted": "38.2 KB",
-    "createdAt": "2026-09-03T23:36:27.540Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_new_wine_in_new_wineskins",
-    "title": "नयी दाखमधु नयी दाखमधु की मशकों में",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "बीस सदियों से मसीही जगत में कार्यरत मनुष्यों की परंपराएं। अगर हम हमारे दिन और युग में परमेश्‍वर के उद्देश्य को पूरा करना चाहते हैं, तो हमें परमेश्‍वर के वचन (मत्ती 11:12) के विपरीत मनुष्य की हर परंपरा का विरोध करने के लिए तैयार रहना चाहिए। यदि आप ऐसा करने की हिम्मत रखते हैं, तो इस पुस्तक को पढ़ें। यह आपके जीवन और आपकी सेवकाइ को बदल देगा।",
-    "coverFile": "hi_new_wine_in_new_wineskins.jpg",
-    "totalPages": 223,
-    "totalLines": 5,
-    "downloadSizeFormatted": "159.3 KB",
-    "createdAt": "2026-09-03T23:36:30.286Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_practical_discipleship",
-    "title": "प्रायोगिक शिष्यता",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "जब यीशु ने भिड़ को शिष्यत्व का उपदेश दिया, तो वे एक मुट्ठी भर शिष्यों की संख्या में घट गए। लेकिन इन विश्वासयोग्य लोगों के माध्यम से ही यीशु ने संसार भर में अपने उद्देश्यों को पूरा किया। अब, परमेश्वर आपको उसी सेवकाइ में बुलाता है",
-    "coverFile": "hi_practical_discipleship.jpg",
-    "totalPages": 87,
-    "totalLines": 5,
-    "downloadSizeFormatted": "63.3 KB",
-    "createdAt": "2026-09-03T23:36:32.251Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_principles_of_serving_god",
-    "title": "परमेवर की सेवा के सिध्दान्त",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "परमेश्वर को आज ऐसे पुरुषों की आवश्यकता है जो उसके सम्मुख खड़े हों और रोज उसकी आवाज सुनें, जिन पुरुषों की एकमात्र इच्छा स्वयं परमेश्वर हो।",
-    "coverFile": "hi_principles_of_serving_god.jpg",
-    "totalPages": 43,
-    "totalLines": 8,
-    "downloadSizeFormatted": "33.7 KB",
-    "createdAt": "2026-09-03T23:36:33.880Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_sex_love_marriage",
-    "title": "प्रेम यौन और विवाह",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "क्या किसी को डेट करना ठीक है? प्रेम में पड़ने का क्या मतलब है? मुझे अपना जीवन साथी कैसे चुनना चाहिए? इस पुस्तक में, अपने किशोर और युवा वर्षों में आपकी सहायता करने के लिए कुछ स्पष्ट सलाह को पढ़े।",
-    "coverFile": "hi_sex_love_marriage.jpg",
-    "totalPages": 116,
-    "totalLines": 36,
-    "downloadSizeFormatted": "80.9 KB",
-    "createdAt": "2026-09-03T23:36:36.031Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_the_real_truth",
-    "title": "वास्तविक सत्य",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "उन लोगों के लिए जो मसीही विश्वास के बारे में कुछ नहीं जानते हैं - उद्धार के संदेश को विस्तार से समझाते हुए - सटीक और स्पष्ट रूप से।",
-    "coverFile": "hi_the_real_truth.jpg",
-    "totalPages": 43,
-    "totalLines": 8,
-    "downloadSizeFormatted": "33.1 KB",
-    "createdAt": "2026-09-03T23:36:37.582Z",
-    "lang": "hi"
-  },
-  {
-    "id": "hi_amazing_facts",
-    "title": "अद्भुत वास्तविकताएं",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "hi_amazing_facts.jpg",
-    "totalPages": 23,
-    "totalLines": 7,
-    "downloadSizeFormatted": "15.5 KB",
-    "createdAt": "2026-09-03T23:36:39.490Z",
-    "lang": "hi"
-  },
-  {
-    "id": "te_secrets_of_victory",
-    "title": "విజయం యొక్క రహస్యాలు",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_secrets_of_victory.jpg",
-    "totalPages": 67,
-    "totalLines": 14,
-    "downloadSizeFormatted": "50.4 KB",
-    "createdAt": "2026-09-03T23:36:45.073Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_living_as_jesus_lived",
-    "title": "యేసు జీవించినట్లు జీవించుట",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_living_as_jesus_lived.jpg",
-    "totalPages": 96,
-    "totalLines": 4,
-    "downloadSizeFormatted": "72.4 KB",
-    "createdAt": "2026-09-03T23:36:46.036Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_encouragement_for_mothers",
-    "title": "తల్లులకు ప్రోత్సాహము",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_encouragement_for_mothers.jpg",
-    "totalPages": 33,
-    "totalLines": 4,
-    "downloadSizeFormatted": "21.8 KB",
-    "createdAt": "2026-09-03T23:36:47.508Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_the_supreme_priorities",
-    "title": "సర్వోన్నత ప్రాధాన్యతలు",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_the_supreme_priorities.jpg",
-    "totalPages": 152,
-    "totalLines": 3,
-    "downloadSizeFormatted": "95.7 KB",
-    "createdAt": "2026-09-03T23:36:49.751Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_one_body_in_christ",
-    "title": "క్రీస్తులో ఒకే శరీరము",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_one_body_in_christ.jpg",
-    "totalPages": 93,
-    "totalLines": 7,
-    "downloadSizeFormatted": "67.5 KB",
-    "createdAt": "2026-09-03T23:36:51.661Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_the_lord_and_his_church",
-    "title": "ప్రభువు మరియు ఆయన సంఘము",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_the_lord_and_his_church.jpg",
-    "totalPages": 116,
-    "totalLines": 12,
-    "downloadSizeFormatted": "85.2 KB",
-    "createdAt": "2026-09-03T23:36:53.677Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_hear_o_my_sons",
-    "title": "ఓ నా కుమారులారా! వినుడి",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_hear_o_my_sons.jpg",
-    "totalPages": 506,
-    "totalLines": 30,
-    "downloadSizeFormatted": "351.4 KB",
-    "createdAt": "2026-09-03T23:36:57.736Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_the_congregation_the_club_and_the_church",
-    "title": "ఒక సమాజము, ఒక క్లబ్ మరియు ఒక సంఘము",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_the_congregation_the_club_and_the_church.jpg",
-    "totalPages": 40,
-    "totalLines": 8,
-    "downloadSizeFormatted": "29.8 KB",
-    "createdAt": "2026-09-03T23:36:59.379Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_new_wine_in_new_wineskins",
-    "title": "క్రొత్త ద్రాక్షారస తిత్తులలో క్రొత్త..",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_new_wine_in_new_wineskins.jpg",
-    "totalPages": 302,
-    "totalLines": 8,
-    "downloadSizeFormatted": "205.0 KB",
-    "createdAt": "2026-09-03T23:37:02.408Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_what_the_lord_has_done_for_me",
-    "title": "ప్రభువు నా కొరకు చేసిన కార్యములు",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_what_the_lord_has_done_for_me.jpg",
-    "totalPages": 40,
-    "totalLines": 5,
-    "downloadSizeFormatted": "28.2 KB",
-    "createdAt": "2026-09-03T23:37:03.888Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_gods_work_done_in_gods_way",
-    "title": "దేవుని పరిచర్యను దేవుని మార్గములో చేయవలెను",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_gods_work_done_in_gods_way.jpg",
-    "totalPages": 247,
-    "totalLines": 7,
-    "downloadSizeFormatted": "182.2 KB",
-    "createdAt": "2026-09-03T23:37:06.675Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_fifty_marks_of_pharisees",
-    "title": "పరిసయ్యుల యొక్క 50 లక్షణములు",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_fifty_marks_of_pharisees.jpg",
-    "totalPages": 103,
-    "totalLines": 8,
-    "downloadSizeFormatted": "64.9 KB",
-    "createdAt": "2026-09-03T23:37:07.317Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_a_spiritual_leader",
-    "title": "ఒక ఆత్మీయ నాయకుడు",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_a_spiritual_leader.jpg",
-    "totalPages": 121,
-    "totalLines": 4,
-    "downloadSizeFormatted": "87.8 KB",
-    "createdAt": "2026-09-03T23:37:09.360Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_knowing_gods_ways",
-    "title": "దేవుని మార్గములను తెలుసుకొనుట",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "దేవుని మార్గములను తెలుసుకొనుట",
-    "coverFile": "te_knowing_gods_ways.jpg",
-    "totalPages": 307,
-    "totalLines": 5,
-    "downloadSizeFormatted": "192.0 KB",
-    "createdAt": "2026-09-03T23:37:12.612Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_a_heavenly_home",
-    "title": "ఒక పరలోకము వంటి గృహము",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Guide to the young married couples",
-    "coverFile": "te_a_heavenly_home.jpg",
-    "totalPages": 47,
-    "totalLines": 5,
-    "downloadSizeFormatted": "35.5 KB",
-    "createdAt": "2026-09-03T23:37:14.443Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_beauty_for_ashes",
-    "title": "బూడిదకు ప్రతిగా పూదండ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_beauty_for_ashes.jpg",
-    "totalPages": 99,
-    "totalLines": 3,
-    "downloadSizeFormatted": "68.9 KB",
-    "createdAt": "2026-09-03T23:37:16.331Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_god_centred_praying",
-    "title": "దేవుడు కేంద్రముగా నుండు ప్రార్థన",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "మనము ఎలా ప్రార్ధించాలి.",
-    "coverFile": "te_god_centred_praying.jpg",
-    "totalPages": 109,
-    "totalLines": 7,
-    "downloadSizeFormatted": "81.8 KB",
-    "createdAt": "2026-09-03T23:37:18.353Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_god_made_mothers",
-    "title": "దేవుడు చేసిన తల్లులు",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "తల్లుల కొరకు అభ్యాసాత్మకమైన సలహాలు",
-    "coverFile": "te_god_made_mothers.jpg",
-    "totalPages": 93,
-    "totalLines": 5,
-    "downloadSizeFormatted": "67.8 KB",
-    "createdAt": "2026-09-03T23:37:20.445Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_know_your_enemy",
-    "title": "నీ శత్రువు గూర్చి తెలుసుకో",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "యవనస్తులారా, మీరు సాతాను దాడులకు గురౌతున్నారని మీకు తెలుసా? మిమ్మును అపవిత్రత చేత, స్వార్ధపూరితమైన ఆశయాలచేత, గర్వము మరియు వేషధారణచేత కలిషితపరచాలని అతడు చూస్తున్నాడు. కాని సాతాను కలువరిలో మన ప్రభువైన యేసుచేత ఓడించబడినాడని గుర్తుంచుకొనుడి. మనము వెళ్లే ప్రతి స్థలములో చీకటి శక్తులపై ఆ జయమును నెలకొల్పుటయే ఇప్పుడు మన పిలుపైయున్నది.",
-    "coverFile": "te_know_your_enemy.jpg",
-    "totalPages": 52,
-    "totalLines": 6,
-    "downloadSizeFormatted": "39.5 KB",
-    "createdAt": "2026-09-03T23:37:22.277Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_principles_of_serving_god",
-    "title": "దేవుని సేవలో నియమములు",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ఆయన సన్నిధిలో నిలబడి అనుదినము ఆయన స్వరము విని, ఆయనను తప్ప ఇంకా దేనిని ఆశించని వారిని, ఏ విషయములలో రాజీ పడనివారు దేవునికి అవసరము.",
-    "coverFile": "te_principles_of_serving_god.jpg",
-    "totalPages": 41,
-    "totalLines": 4,
-    "downloadSizeFormatted": "29.2 KB",
-    "createdAt": "2026-09-03T23:37:24.083Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_the_real_truth",
-    "title": "యదార్థ సత్యము",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "te_the_real_truth.jpg",
-    "totalPages": 45,
-    "totalLines": 4,
-    "downloadSizeFormatted": "34.9 KB",
-    "createdAt": "2026-09-03T23:37:25.819Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_amazing_facts",
-    "title": "అద్భుత వాస్తవాలు",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "దేవుడు మరియు నరుడు గూర్చిన ఒక ప్రాధమికమైన పుస్తకము.",
-    "coverFile": "te_amazing_facts.jpg",
-    "totalPages": 22,
-    "totalLines": 3,
-    "downloadSizeFormatted": "16.3 KB",
-    "createdAt": "2026-09-03T23:37:27.301Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_a_girls_viewpoint",
-    "title": "ఒక అమ్మాయి ఆలోచనలనుండి",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ఇది ఒక యువతి యొక్క అనుభవములను గూర్చిన కథ.",
-    "coverFile": "te_a_girls_viewpoint.jpg",
-    "totalPages": 85,
-    "totalLines": 3,
-    "downloadSizeFormatted": "62.0 KB",
-    "createdAt": "2026-09-03T23:37:29.232Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_a_good_foundation",
-    "title": "ఒక మంచి పునాది",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "నీ జీవిత ప్రయాణమును నీవు ప్రారంభించేముందు ఒక మంచి మరియు బలమైన పునాదిని, తుఫానులలో మరియు వర్షములో కదిలించబడని పునాదిని వేయుటకు ఒక మార్గనిర్దేశం.",
-    "coverFile": "te_a_good_foundation.jpg",
-    "totalPages": 76,
-    "totalLines": 3,
-    "downloadSizeFormatted": "57.1 KB",
-    "createdAt": "2026-09-03T23:37:31.122Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_finding_gods_will",
-    "title": "దైవ చిత్తాన్వేషణ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "పలు విషయాలలో దేవుని చిత్తాన్ని ఎలా కనుగొనాలి.",
-    "coverFile": "te_finding_gods_will.jpg",
-    "totalPages": 79,
-    "totalLines": 1,
-    "downloadSizeFormatted": "55.6 KB",
-    "createdAt": "2026-09-03T23:37:32.934Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_gaining_gods_approval",
-    "title": "దేవుని ఆమోదముద్ర పొందిన దైవజనులు",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "మనము అన్నిటికన్నా మిన్నగా ఆయననే ప్రేమించామా అని మన హృదయాలను పరీక్షించడానికి దేవుడు భూసంపదలను ఘనతను వాడుకున్నాడని ఒక దినమున స్పష్టమౌతుంది. యేసు నడచినట్లు నడవాలని తమ హృదయాలంతటితో వెదకినవారే భూమిమీద అత్యంత జ్ఞానవంతులని ఆరోజున చూస్తాము. దేవుడే స్వయంగా పరీక్షించి ఆమోదించిన తరువాత క్రీస్తు వధువు సంఘములో ఒకరిగా ఉండుట ఎవరైనా పొందగలిగే అతిగొప్ప ఘనతయైయున్నది.",
-    "coverFile": "te_gaining_gods_approval.jpg",
-    "totalPages": 82,
-    "totalLines": 9,
-    "downloadSizeFormatted": "71.7 KB",
-    "createdAt": "2026-09-03T23:37:34.878Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_neededmen_of_god",
-    "title": "దైవజనులు కావలెను",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ఎలా దైవజనుడివి కావచ్చు.",
-    "coverFile": "te_neededmen_of_god.jpg",
-    "totalPages": 55,
-    "totalLines": 6,
-    "downloadSizeFormatted": "41.2 KB",
-    "createdAt": "2026-09-03T23:37:36.620Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_practical_discipleship",
-    "title": "అభ్యాసత్వక శిష్యత్వము",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "యేసు జన సమూహములకు శిష్యత్వాన్ని ప్రకటించినప్పుడు వారి కొద్దిమంది శిష్యులుగా తగ్గిపోయిరి. కాని నమ్మకస్తులైన ఈ కొద్దిమంది ద్వారా యేసు లోకములో తన ఉద్దేశాలను నెరవేర్చెను. ఈ రోజున ఆయన నిన్ను అటువంటి పరిచర్యకు పిలచుచున్నాడు.",
-    "coverFile": "te_practical_discipleship.jpg",
-    "totalPages": 87,
-    "totalLines": 3,
-    "downloadSizeFormatted": "63.2 KB",
-    "createdAt": "2026-09-03T23:37:38.653Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_sex_love_marriage",
-    "title": "సెక్స్, ప్రేమ మరియు పెళ్లి",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "నా జీవిత భాగస్వామిని నేనెలా ఎంచుకోవాలి? అను విషయాలగురించి ఈ పుస్తకములో స్పష్టమైన సలహాలను ఈ పుస్తకము ద్వారా పొందవచ్చు. ఇవి నీ యవ్వన కాలములో నీకు సహయపడును.",
-    "coverFile": "te_sex_love_marriage.jpg",
-    "totalPages": 144,
-    "totalLines": 8,
-    "downloadSizeFormatted": "97.5 KB",
-    "createdAt": "2026-09-03T23:37:40.882Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_the_full_gospel",
-    "title": "సంపూర్ణ సువార్త",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "మనము సత్యమును తెలుసుకుంటే ఆ సత్యము మనలను స్వతంత్రులుగా చేయునని యేసు చెప్పెను (యోహాను 8:32). మనము నిజముగా సత్యమును వినియున్నామనుటకు రుజువు మన జీవితాలలో మనము పాపముయొక్క శక్తినుండి విడుదల పొందుటయే. పౌలు దేవుని సంకల్పమంతటిని ప్రకటించెను (అపో. కా. 20:27). విశ్వాసులందరు కేవలము మతానుసారులుగా కాక నిజమైన ఆత్మానుసారులుగా మారాలంటే వారు సంపూర్ణ సువార్తను వినుట ఎంతో అవసరము.",
-    "coverFile": "te_the_full_gospel.jpg",
-    "totalPages": 291,
-    "totalLines": 5,
-    "downloadSizeFormatted": "202.1 KB",
-    "createdAt": "2026-09-03T23:37:43.750Z",
-    "lang": "te"
-  },
-  {
-    "id": "te_the_purpose_of_failure",
-    "title": "నీ ఓటమిలో దేవుని యొక్క ఉద్దేశ్యము",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "నిరీక్షణలేని ఓడిపోయిన వానిగా నిన్ను నీవు చూచుకొనుచున్నావా? గతంలో నీవు 1000 క్రొత్త ఆరంభాలను చేసి ఓడిపోయినప్పటికీ, ఈ రోజున నీవు 1001 క్రొత్త ఆరంభాన్ని చేయవచ్చు. దేవుడు నీ జీవితము పట్ల ఆయన పరిపూర్ణమైన ప్రణాళికను ఇంకా నెరవేర్చగలడు.",
-    "coverFile": "te_the_purpose_of_failure.jpg",
-    "totalPages": 53,
-    "totalLines": 5,
-    "downloadSizeFormatted": "40.8 KB",
-    "createdAt": "2026-09-03T23:37:45.395Z",
-    "lang": "te"
-  },
-  {
-    "id": "kn_a_girls_view_point",
-    "title": "ಒಂದು ಹುಡುಗಿಯ ದೃಷ್ಟಿಕೋನ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "kn_a_girls_view_point.jpg",
-    "totalPages": 91,
-    "totalLines": 5,
-    "downloadSizeFormatted": "57.7 KB",
-    "createdAt": "2026-09-03T23:37:53.267Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_encouragement_for_mothers",
-    "title": "ತಾಯಂದಿರಿಗೆ ಪ್ರೋತ್ಸಾಹ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ದೇವರು ನಮ್ಮ ಪರಲೋಕದ ತಂದೆಯಾಗಿದ್ದು, ನಾವು ಉತ್ತಮ ಪೋಷಕರಾಗಲು ಮತ್ತು ಹೆಂಡತಿಯಾಗಲು ಸಹಾಯಿಸುವಲ್ಲಿ ದೇವರು ಆಸಕ್ತಿ ಹೊಂದಿದ್ದಾರೆ. ದೈವಿಕ ಕುಟುಂಬವನ್ನು ಕಟ್ಟುವಲ್ಲಿ ಸಹೋದರಿ ಆನಿ ಪೂನನ್ ರವರಿಗೆ ಸಹಾಯ ಮಾಡಿದ ಸತ್ಯಗಳನ್ನು ಓದಿರಿ, ಅದರಿಂದ ಪ್ರೋತ್ಸಾಹಗೊಳ್ಳಿರಿ.",
-    "coverFile": "kn_encouragement_for_mothers.jpg",
-    "totalPages": 37,
-    "totalLines": 7,
-    "downloadSizeFormatted": "25.4 KB",
-    "createdAt": "2026-09-03T23:37:54.677Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_sex_love_marriage",
-    "title": "ಲೈಂಗಿಕತೆ, ಪ್ರೀತಿ ಮತ್ತು ಮದುವೆ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ಮತ್ತೊಬ್ಬರನ್ನು ಸಂಧಿಸುವಂತದ್ದು ಸರಿನಾ? ಪ್ರೀತಿಯಲ್ಲಿ ಬೀಳುವಂತದರ ಬಗ್ಗೆ ಏನು ಹಾಗಾದರೆ? ನಾನು ನನ್ನ ಬಾಳ ಸಂಗಾತಿಯನ್ನು ಆರಿಸಿಕೊಳ್ಳುವುದು ಹೇಗೆ? ಈ ಪುಸ್ತಕದಲ್ಲಿ ಅದನ್ನು ಹುಡುಕಿರಿ, ಯೌವನಸ್ಥರಿಗೆ ಮತ್ತು ಹದಿಹರೆಯದವರಿಗೆ ಸಹಾಯಿಸಲು ಸ್ಪಷ್ಟವಾದ ಸಲಹೆಗಳನ್ನು ಕೊಡಲ್ಪಟ್ಟಿದೆ.",
-    "coverFile": "kn_sex_love_marriage.jpg",
-    "totalPages": 182,
-    "totalLines": 7,
-    "downloadSizeFormatted": "121.3 KB",
-    "createdAt": "2026-09-03T23:37:57.194Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_finding_gods_will",
-    "title": "ದೇವರ ಚಿತ್ತವನ್ನು ಹುಡುಕುವುದು",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ವಿಧವಿಧವಾದ ವಿಷಯಗಳಲ್ಲಿ ದೇವರ ಚಿತ್ತವನ್ನು ಹುಡುಕುವುದು ಹೇಗೆ",
-    "coverFile": "kn_finding_gods_will.jpg",
-    "totalPages": 72,
-    "totalLines": 5,
-    "downloadSizeFormatted": "47.5 KB",
-    "createdAt": "2026-09-03T23:37:59.000Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_the_lord_and_his_church",
-    "title": "ಕರ್ತನು ಮತ್ತು ಆತನ ಸಭೆಯು",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ಪ್ರಕಟನೆಯ ಪುಸ್ತಕದಲ್ಲಿ ಏಳು ಸಭೆಗಳು",
-    "coverFile": "kn_the_lord_and_his_church.jpg",
-    "totalPages": 118,
-    "totalLines": 6,
-    "downloadSizeFormatted": "88.9 KB",
-    "createdAt": "2026-09-03T23:38:00.900Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_god_centred_praying",
-    "title": "ದೇವರಲ್ಲಿ ಕೇಂದ್ರೀಕರಿಸಿದ ಪ್ರಾರ್ಥನೆ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ನಾವು ಹೇಗೆ ಪ್ರಾರ್ಥನೆ ಮಾಡಬೇಕು",
-    "coverFile": "kn_god_centred_praying.jpg",
-    "totalPages": 106,
-    "totalLines": 10,
-    "downloadSizeFormatted": "80.9 KB",
-    "createdAt": "2026-09-03T23:38:02.884Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_the_congregation_the_club_and_the_church",
-    "title": "ಸಮೂಹ, ಸಂಘ ಮತ್ತು ಸಭೆ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ಸಮೂಹ, ಸಂಘ ಮತ್ತು ನಿಜವಾದ ಸಭೆಯ ವ್ಯತ್ಯಾಸವನ್ನು ತಿಳಿಯಲು ಈ ಪುಸ್ತಕವನ್ನು ಓದಿ",
-    "coverFile": "kn_the_congregation_the_club_and_the_church.jpg",
-    "totalPages": 54,
-    "totalLines": 5,
-    "downloadSizeFormatted": "37.2 KB",
-    "createdAt": "2026-09-03T23:38:04.409Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_needed_men_of_god",
-    "title": "ದೈವಿಕ ಮನುಷ್ಯರು ಬೇಕಾಗಿದ್ದಾರೆ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ದೈವಿಕ ಮನುಷ್ಯನಾಗುವುದು ಹೇಗೆ",
-    "coverFile": "kn_needed_men_of_god.jpg",
-    "totalPages": 64,
-    "totalLines": 7,
-    "downloadSizeFormatted": "48.2 KB",
-    "createdAt": "2026-09-03T23:38:06.167Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_a_good_foundation",
-    "title": "ಒಳ್ಳೆಯ ಅಸ್ತಿವಾರ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ನಿಮ್ಮ ಜೀವಿತದ ಪ್ರಯಾಣವನ್ನು ಆರಂಭಿಸುವ ಮೊದಲು ಒಳ್ಳೆಯ ಮತ್ತು ಬಲವಾದ ಹಾಗೂ ಮಳೆಯಲ್ಲಾಗಲಿ ಮತ್ತು ಬಿರುಗಾಳಿಯಲ್ಲಾಗಲಿ ಕದಲಲಾರದ ಅಸ್ತಿವಾರವನ್ನು ಹಾಕುವುದಕ್ಕೆ ಈ ಪುಸ್ತಕವು ಮಾರ್ಗದರ್ಶಕವಾಗಿದೆ. .",
-    "coverFile": "kn_a_good_foundation.jpg",
-    "totalPages": 71,
-    "totalLines": 5,
-    "downloadSizeFormatted": "56.7 KB",
-    "createdAt": "2026-09-03T23:38:07.935Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_a_heavenly_home",
-    "title": "ಸ್ವರ್ಗದಂತಹ ಮನೆ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ನವಜೋಡಿಗಳಿಗೆ ಮಾರ್ಗದರ್ಶನ",
-    "coverFile": "kn_a_heavenly_home.jpg",
-    "totalPages": 52,
-    "totalLines": 5,
-    "downloadSizeFormatted": "37.7 KB",
-    "createdAt": "2026-09-03T23:38:09.746Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_amazing_facts",
-    "title": "ವಿಸ್ಮಯಕರವಾದ ಸತ್ಯಾಂಶಗಳು",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ದೇವರ ಮತ್ತು ಮನುಷ್ಯನ ಬಗೆಗಿನ ಪ್ರಾಥಮಿಕ ಪುಸ್ತಕ",
-    "coverFile": "kn_amazing_facts.jpg",
-    "totalPages": 19,
-    "totalLines": 5,
-    "downloadSizeFormatted": "14.6 KB",
-    "createdAt": "2026-09-03T23:38:11.239Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_gaining_gods_approval",
-    "title": "ದೇವರ ಮೆಚ್ಚುಗೆಯನ್ನು ಸಂಪಾದಿಸಿಕೊಳ್ಳುವುದು",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "\"ಸನ್ಮಾನ ಮತ್ತು ಭೌತಿಕ ಸಂಪಾದನೆಗಳು ಕೇವಲ ಸಾಧನವಾಗಿದ್ದು, ಇದರಿಂದ ನಾವು ಆತನನ್ನು ಎಲ್ಲದಕ್ಕಿಂತ ಹೆಚ್ಚಾಗಿ ಪ್ರೀತಿಸುತ್ತೇವಾ ಎಂದು ದೇವರು ನಮ್ಮ ಹೃದಯಗಳನ್ನು ಪರೀಕ್ಷಿಸಿ ನೋಡಿದನು ಎಂಬುದಾಗಿ ಒಂದು ದಿನ ರುಜುವಾತಾಗುತ್ತದೆ ಮತ್ತು ಯಾರು ಪೂರ್ಣ ಹೃದಯದಿಂದ ಯೇಸುವಿನ ಹಾಗೇ ನಡೆಯುವ ರೀತಿಯಲ್ಲಿ ಪ್ರಯತ್ನಿಸಿದರೋ, ಅವರೇ ಭೂಲೋಕದ ಜ್ಞಾನವುಳ್ಳ ಜನರು ಎಂಬುದಾಗಿ ನೋಡುತ್ತೇವೆ. ಕ್ರಿಸ್ತನ ಮದುವಣಗಿತ್ತಿಯಲ್ಲಿ ಬಹುದೊಡ್ಡ ಸನ್ಮಾನವನ್ನು ಯಾರಾದರು ಹೊಂದಬೇಕಿದ್ದರೆ, ಅವರು ಪರೀಕ್ಷೆಗೆ ಒಳಪಟ್ಟಿರಬೇಕು ಮತ್ತು ದೇವರಿಂದಲೇ ಮೆಚ್ಚಿಸಿಕೊಂಡವರಾಗಿರಬೇಕು. .",
-    "coverFile": "kn_gaining_gods_approval.jpg",
-    "totalPages": 81,
-    "totalLines": 7,
-    "downloadSizeFormatted": "68.3 KB",
-    "createdAt": "2026-09-03T23:38:13.246Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_god_made_mothers",
-    "title": "ದೇವರು ಮಾಡಿದ ತಾಯಂದಿರು",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ತಾಯಂದಿರಿಗೋಸ್ಕರ ಒಂದು ಪುಸ್ತಕ",
-    "coverFile": "kn_god_made_mothers.jpg",
-    "totalPages": 84,
-    "totalLines": 3,
-    "downloadSizeFormatted": "59.9 KB",
-    "createdAt": "2026-09-03T23:38:15.308Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_know_your_enemy",
-    "title": "ನಿನ್ನ ವೈರಿಯನ್ನು ತಿಳಿದುಕೋ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ಯೌವನಸ್ಥರೆ, ಸೈತಾನನ ಅಕ್ರಮಣಕರವಾದ ಗುರಿಯು ನಿವೇ ಆಗಿದ್ದೀರಿ ಎಂಬುದಾಗಿ ನಿಮಗೆ ಗೊತ್ತಾ? ಆತನು ನಿಮ್ಮನ್ನು ಅಶುದ್ಧತ್ವದಿಂದ, ಸ್ವಾರ್ಥ ಮಹತ್ವಾಕಾಂಕ್ಷೆಯಿಂದ, ಗರ್ವದಿಂದ, ಕಪಟಿತನದಿಂದ ಕಲುಷಿತಗೊಳಿಸಲು ಎದುರು ನೋಡುತ್ತಿದ್ದಾನೆ. ಆದರೆ ನೆನಪಿಟ್ಟುಕೊಳ್ಳಿ, ಸೈತಾನನು ಕರ್ತನಾದ ಯೇಸುವಿನಿಂದ ಶಿಲುಬಿಯ ಮೇಲೆ ಸೋಲಿಸಲ್ಪಟ್ಟಿದ್ದಾನೆ. ನಾವು ಹೋಗುವ ಎಲ್ಲಾ ಕಡೆಯಲ್ಲಿಯಲ್ಲಿರುವಂತ ಕತ್ತಲೆಯ ರಭಸದ ಮೇಲೆ ಪ್ರಚಂಡ ಜಯವನ್ನು ದಾಖಲಿಸಬೇಕು. ಈಗ ಇದೇ ನಮ್ಮ ಕರೆಯಾಗಿದೆ",
-    "coverFile": "kn_know_your_enemy.jpg",
-    "totalPages": 54,
-    "totalLines": 7,
-    "downloadSizeFormatted": "38.8 KB",
-    "createdAt": "2026-09-03T23:38:17.009Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_secrets_of_victory",
-    "title": "ಜಯದ ರಹಸ್ಯಗಳು",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ನೀವು ನಿಜವಾಗಿಯೂ ಕ್ರಿಸ್ತನ ಶಿಷ್ಯಂದಿರಾಗಿದ್ದರೆ, ದೇವರು ಯೇಸುವನ್ನು ಪ್ರೀತಿಸಿದಷ್ಟೆ, ನಿಮ್ಮನ್ನೂ ಸಹ ಪ್ರೀತಿಸುತ್ತಾನೆ ಎಂಬುದಾಗಿ ನೀವು ನಂಬುತ್ತೀರಾ? ನಿಮ್ಮ ಭದ್ರತೆಯನ್ನು ಈ ಪ್ರೀತಿಯಲ್ಲಿ ಕಂಡುಕೊಳ್ಳಿ. ಎಲ್ಲಾ ಸಮಯದಲ್ಲಿಯೂ ಜಯದಲ್ಲಿ ಜೀವಿಸಲು ದೇವರು ನಿಮಗೆ ಸಹಾಯ ಮಾಡುತ್ತಾನೆ ಎಂದು ನಿಮ್ಮ ಪೂರ್ಣ ಹೃದಯದಿಂದ ನಂಬಿರಿ.",
-    "coverFile": "kn_secrets_of_victory.jpg",
-    "totalPages": 68,
-    "totalLines": 3,
-    "downloadSizeFormatted": "48.8 KB",
-    "createdAt": "2026-09-03T23:38:18.742Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_the_purpose_of_failure",
-    "title": "ಸೋಲಿನ ಉದ್ದೇಶ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ನೀವು ನಿಮ್ಮನ್ನು ”ನಿರೀಕ್ಷೆಯಿಲ್ಲದ ಸೋತವರು” ಎಂಬುದಾಗಿ ಕಾಣುತ್ತೀರೋ?ಒಂದು ವೇಳೆ ನೀವು ಸಾವಿರ ಹೊಸ ಪ್ರಾರಂಭಗಳನ್ನು ಗತಕಾಲದಲ್ಲಿ ಮಾಡಿ ಮಾಡಿ ಸೋತಿದ್ದರೂ ನೀವು 1001ನೇ ಹೊಸ ಪ್ರಾರಂಭವನ್ನು ಇಂದು ಮಾಡಲು ಸಾಧ್ಯ. ದೇವರು ತನ್ನ ಪರಿಪೂರ್ಣ ಯೋಜನೆಯನ್ನು ನಿಮ್ಮ ಜೀವಿತದಲ್ಲಿ ನೇರವೇರಿಸಲು ಶಕ್ತನಾಗಿದ್ದಾನೆ.",
-    "coverFile": "kn_the_purpose_of_failure.jpg",
-    "totalPages": 53,
-    "totalLines": 8,
-    "downloadSizeFormatted": "38.3 KB",
-    "createdAt": "2026-09-03T23:38:20.488Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_the_real_truth",
-    "title": "ನಿಜ ಸತ್ಯ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ಯಾರಿಗೆ ಕ್ರ್ಯೆಸ್ತ ನಂಬಿಕೆಯ ಬಗ್ಗೆ ಏನೂ ಗೊತ್ತಿಲ್ಲವೋ, ಅವರಿಗಾಗಿ ರಕ್ಷಣೆಯ ಸಂದೇಶವನ್ನು ವಿವರವಾಗಿ, ಸುಲಭವಾಗಿ ಮತ್ತು ಸ್ಪಷ್ಟವಾಗಿ ತಿಳಿಸಲಾಗಿದೆ",
-    "coverFile": "kn_the_real_truth.jpg",
-    "totalPages": 45,
-    "totalLines": 6,
-    "downloadSizeFormatted": "32.4 KB",
-    "createdAt": "2026-09-03T23:38:22.091Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_woman_why_are_you_weeping",
-    "title": "ಸ್ತ್ರೀಯೇ, ನೀನೇಕೆ ಅಳುತ್ತಿರುವೆ?",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ದು:ಖಪಡುತ್ತಿರುವ ಸ್ತ್ರೀಯರಿಗೆ ಸಮಾಧಾನ",
-    "coverFile": "kn_woman_why_are_you_weeping.jpg",
-    "totalPages": 82,
-    "totalLines": 5,
-    "downloadSizeFormatted": "61.6 KB",
-    "createdAt": "2026-09-03T23:38:23.813Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_fifty_marks_of_godly_men",
-    "title": "ದೈವೀಕ ಪುರುಷರ ಐವತ್ತು ಗುರುತುಗಳು",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ವಿಶ್ವಾಸಿಗಳಿಗಾಗಿ - ನಿಜವಾದ ದೈವಿಕತೆ ಎಂದರೆ ಏನು ಎಂದು ವಿವರಿಸಲಾಗಿದೆ.",
-    "coverFile": "kn_fifty_marks_of_godly_men.jpg",
-    "totalPages": 6,
-    "totalLines": 4,
-    "downloadSizeFormatted": "6.3 KB",
-    "createdAt": "2026-09-03T23:38:24.918Z",
-    "lang": "kn"
-  },
-  {
-    "id": "kn_fifty_marks_of_pharisees",
-    "title": "ಪರಿಸಾಯರ ಐವತ್ತು ಗುರುತುಗಳು",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ಒಬ್ಬ ವ್ಯಕ್ತಿ ಆಜ್ಞೆಗಳನ್ನು ಕೈಗೊಂಡಿರಬಹುದು, ಪವಿತ್ರತೆಯನ್ನು ಹಿಂದಟ್ಟಿ ಹೋಗುತ್ತಿರಬಹುದು ಅಥವಾ ಸುವಾರ್ತಿಕನಾದರೂ ಆಗಿರಬಹುದು, ಹಾಗಿದ್ದರೂ ಫರಿಸಾಯನಾಗುವಂತಹ ಅಪಾಯಲ್ಲಿರುತ್ತಾನೆ. ಫರಿಸಾಯರ ಆತ್ಮವನ್ನು ಹೊಂದಿರುವುದಕ್ಕೆ ಕಾರಣ ......",
-    "coverFile": "kn_fifty_marks_of_pharisees.jpg",
-    "totalPages": 8,
-    "totalLines": 4,
-    "downloadSizeFormatted": "8.4 KB",
-    "createdAt": "2026-09-03T23:38:26.261Z",
-    "lang": "kn"
-  },
-  {
-    "id": "ml_gods_work_done_in_gods_way",
-    "title": "ദൈവത്തിന്റെ പ്രവൃത്തി ദൈവികമായ വഴിയില്‍",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "ml_gods_work_done_in_gods_way.jpg",
-    "totalPages": 29,
-    "totalLines": 3,
-    "downloadSizeFormatted": "17.9 KB",
-    "createdAt": "2026-09-03T23:38:31.832Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_a_girls_viewpoint",
-    "title": "ഒരു പെണ്‍കുട്ടിയുടെ കാഴ്ചപ്പാട്",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ഒരു ക്രിസ്ത്യന്‍ പെണ്‍കുട്ടിയുടെ അനുഭവങ്ങള്‍",
-    "coverFile": "ml_a_girls_viewpoint.jpg",
-    "totalPages": 97,
-    "totalLines": 8,
-    "downloadSizeFormatted": "62.9 KB",
-    "createdAt": "2026-09-03T23:38:33.647Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_a_good_foundation",
-    "title": "ഇളകാത്തഅടിസ്ഥാനം",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "തന്റെ ആട്ടിന്‍ തൊഴുത്തിലേക്ക് പ്രവേശിക്കുവാനുള്ള ശരിയായ വഴി അതിന്റെ വാതിലിലൂടെയാണെന്ന് യേശു പറഞ്ഞിട്ടുണ്ട്. എന്നാല്‍ ചിലര്‍ മതില്‍ചാടിക്കടന്ന് ഉള്ളില്‍ക്കടക്കുവാന്‍ ശ്രമിക്കുമെന്നും കര്‍ത്താവ് സൂചിപ്പിച്ചിട്ടുണ്ട്(യോഹ.10:1).",
-    "coverFile": "ml_a_good_foundation.jpg",
-    "totalPages": 93,
-    "totalLines": 4,
-    "downloadSizeFormatted": "63.7 KB",
-    "createdAt": "2026-09-03T23:38:35.700Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_a_spiritual_leader",
-    "title": "ആത്മീയ നേതാവ്",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ആത്മിയനേതൃത്വം ആണ് ഇന്‍ഡ്യന്‍സഭകളിലെ അടിയന്തരമായ ആവശ്യം. ഒരു കൂട്ടം ക്രിസ്തീയപ്രവര്‍ത്തകര്‍ക്കും ബൈബിള്‍ കോളജ് അദ്ധ്യാപകര്‍ക്കും സഭാശുശ്രൂഷകന്മാര്‍ക്കും നല്‍കിയ തുടര്‍സന്ദേശങ്ങളാണ് ഈ പുസ്തകത്തിന്റെ ഉള്ളടക്കം”",
-    "coverFile": "ml_a_spiritual_leader.jpg",
-    "totalPages": 145,
-    "totalLines": 8,
-    "downloadSizeFormatted": "94.4 KB",
-    "createdAt": "2026-09-03T23:38:37.899Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_amazing_facts",
-    "title": "അദ്ഭുത സത്യങ്ങള്‍",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ദൈവത്തെയും മനുഷ്യനെയും കുറിച്ചുള്ള ഒരു ലഘുപുസ്തകം",
-    "coverFile": "ml_amazing_facts.jpg",
-    "totalPages": 48,
-    "totalLines": 7,
-    "downloadSizeFormatted": "29.2 KB",
-    "createdAt": "2026-09-03T23:38:39.369Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_gaining_gods_approval",
-    "title": "ദൈവത്തിന്റെ അംഗീകാരം ശോധനകളിലൂടെ",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ദൈവത്തെ നാം സകലതിനും ഉപരിയായി സ്‌നേഹിക്കുന്നുവോ എന്ന് അറിയുവാൻ നമ്മുടെ ഹൃദയങ്ങൾ പരിശോധിക്കേണത്തിന് അവിടുന്ന് ഉപയോഗിക്കുന്ന ഒരു ഉപാധി മാത്രമാണ് ഈ ലോകത്തിലെ ബഹുമതികളും വസ്തുവകകളും എന്ന് ഒരിക്കൽ വ്യക്തമാകും . യേശു ജീവിച്ചതു പോലെയുള്ള ഒരു ജീവിതം പൂർണ്ണ ഹൃദയത്തോടെ അനേഷിക്കുന്നവരാണ് ഈ ഭൂമിയിലെ ഏറ്റവും വിവേകമുള്ള മനുഷ്യർ എന്നും നാം കാണും. ദൈവത്താൽ ശോധന ചെയ്യപ്പെട്ട് അവിടുത്തെ അംഗീകാരം നേടി ക്രിസ്തുവിന്റെ മണവാട്ടി ആകുക എന്നതാണ് ഒരുവന് ലഭിക്കാവുന്ന ഏറ്റവും വലിയ ബഹുമതി",
-    "coverFile": "ml_gaining_gods_approval.jpg",
-    "totalPages": 102,
-    "totalLines": 6,
-    "downloadSizeFormatted": "76.2 KB",
-    "createdAt": "2026-09-03T23:38:41.448Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_god_made_mothers",
-    "title": "ദൈവം നിയമിച്ച അമ്മമാര്‍",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "അമ്മമാർക്കായി ഒരു പുസ്തകം ...",
-    "coverFile": "ml_god_made_mothers.jpg",
-    "totalPages": 104,
-    "totalLines": 3,
-    "downloadSizeFormatted": "73.2 KB",
-    "createdAt": "2026-09-03T23:38:43.391Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_know_your_enemy",
-    "title": "നിങ്ങളുടെ പ്രതിയോഗിയെ അറിയുക",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "യുവജനങ്ങളേ , സാത്താൻ നിങ്ങളെ ആക്രമിക്കുവാൻ ശ്രമിക്കുമെന്ന് നിങ്ങൾക്കറിയുമോ? അശുദ്ധിയാലും സ്വാർത്ഥതാത്‌പര്യങ്ങളാലും അഹങ്കാരത്താലും കാപട്യത്താലും നിങ്ങളെ മലിനപ്പെടുത്തുവാൻ അവൻ ശ്രമിക്കുന്നു . എന്നാൽ നമ്മുടെ കർത്താവായ യേശു കാൽവരിയിൽ അവനെ പരാജയപ്പെടുത്തിയത് ഓർത്തുകൊൾവിൻ . നാം പോകുന്നിടത്തെല്ലാം അന്ധകാര ശക്തികളുടെ മേലുള്ള മഹത്തായ ഈ വിജയം പ്രഖ്യാപിക്കുവാനാണ് നാമോരോരുത്തരും വിളിക്കപ്പെട്ടിരിക്കുന്നത്",
-    "coverFile": "ml_know_your_enemy.jpg",
-    "totalPages": 65,
-    "totalLines": 7,
-    "downloadSizeFormatted": "43.6 KB",
-    "createdAt": "2026-09-03T23:38:45.183Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_practical_discipleship",
-    "title": "ശിഷ്യത്വം പ്രായോഗിക തലത്തില്‍",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "യേശു പുരുഷാരത്തോട് ശിഷ്യത്തം പ്രസംഗിച്ചപ്പോൾ അവരുടെ എണ്ണം ചുരുങ്ങി ചുരുക്കം ചില ശിഷ്യന്മാർ മാത്രം അവശേഷിച്ചു. എന്നാൽ വിശ്വസ്തരായിരുന്ന ഈ ശിഷ്യരിലൂടെയാണ് യേശു ലോകത്തിൽ തന്റെ ലക്ഷ്യം നേടിയത്. അവിടുന്ന് നിങ്ങളെ ഇപ്പോൾ അതേ ശുശ്രൂഷക്കായി വിളിക്കുന്നു",
-    "coverFile": "ml_practical_discipleship.jpg",
-    "totalPages": 122,
-    "totalLines": 5,
-    "downloadSizeFormatted": "77.9 KB",
-    "createdAt": "2026-09-03T23:38:47.298Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_principles_of_serving_god",
-    "title": "ദൈവശുശ്രൂഷയുടെ പ്രമാണങ്ങള്‍",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ദിനംപ്രതി തന്റെ മുമ്പാകെ നിന്ന് തന്റെ ശബ്ദം കേള്‍ക്കുന്നവര്‍ ,ദൈവത്തെയല്ലാതെ മറ്റാരെയും മറ്റൊന്നിനെയും ആഗ്രഹിക്കാത്തവര്‍ , ഇങ്ങനെയുള്ള മനുഷ്യരെ ദൈവത്തിന് ആവശ്യമുണ്ട്",
-    "coverFile": "ml_principles_of_serving_god.jpg",
-    "totalPages": 56,
-    "totalLines": 3,
-    "downloadSizeFormatted": "38.9 KB",
-    "createdAt": "2026-09-03T23:38:49.056Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_sex_love_marriage",
-    "title": "സെക്സ്, പ്രേമം,വിവാഹം",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "ഒരാളുമായി പ്രണയത്തിലാകുന്നത്‌ ശരിയോ ? എങ്ങനെയാണ് ഞാൻ എന്റെ ജീവിത പങ്കാളിയെ തിരഞ്ഞെടുക്കുന്നത്? കൗമാരത്തിലും യുവത്വ ത്തിലുമുള്ള നിങ്ങൾക്ക് വേണ്ടുന്ന ശരിയായ ഉപദേശം ഈ പുസ്തകത്തിൽ കണ്ടെത്തുക",
-    "coverFile": "ml_sex_love_marriage.jpg",
-    "totalPages": 178,
-    "totalLines": 12,
-    "downloadSizeFormatted": "101.3 KB",
-    "createdAt": "2026-09-03T23:38:51.226Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_the_purpose_of_failure",
-    "title": "തോല്‍വിയിലെ ദൈവികലക്ഷ്യം",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "പ്രതീക്ഷക്കു വകയില്ലാത്ത ഒരു പരാജയമായിട്ടാണോ നിങ്ങൾ നിങ്ങളെത്തന്നെ കാണുന്നത് ? മുൻപ് ഒരായിരം പുതിയ തുടക്കങ്ങൾ കുറിച്ച് പരാജയപ്പെട്ടിട്ടുണ്ടെങ്കിലും , ഇന്ന് നിങ്ങൾക്ക് ഒരു പുതിയ തുടക്കം കുറിക്കാം . ദൈവത്തിന് ഇപ്പോഴും നിങ്ങളുടെ ജീവിതത്തെക്കുറിച്ചുള്ള സന്പൂർണ്ണ പദ്ധതി നിറവേറ്റാൻ സാധിക്കും",
-    "coverFile": "ml_the_purpose_of_failure.jpg",
-    "totalPages": 37,
-    "totalLines": 4,
-    "downloadSizeFormatted": "25.9 KB",
-    "createdAt": "2026-09-03T23:38:52.648Z",
-    "lang": "ml"
-  },
-  {
-    "id": "ml_the_real_truth",
-    "title": "യഥാര്‍ത്ഥ സത്യം",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "മനുഷ്യന്‍ മനസ്സിലാക്കുവാന്‍ കഠിനപരിശ്രമം നടത്തിയിട്ടുള്ള ഏറ്റവും വലിയ ഒരു രഹസ്യമുണ്ട്. അതാണ് തിന്മയുടെ രഹസ്യം. സര്‍വജ്ഞനും സ്നേഹവാനുമായ ദൈവം സൃഷ്ടിച്ച ഈ ലോകത്തില്‍ തിന്മ ഉദ്ഭവിക്കുവാനിടയായത് എങ്ങനെ ? ലോകത്തില്‍ എല്ലാ ഭാഗത്തും ഇത്രയധികം രോഗവും ദാരിദ്ര്യവും ദുഃഖവും യാതനയും നിലവിലിരിക്കുന്നത് എന്തുകൊണ്ട് ? ഈ കാര്യത്തില്‍ നമ്മെ സഹായിക്കുവാന്‍ ദൈവത്തിന് താല്‍പര്യമില്ലേ ? ഉത്തരം കണ്ടെത്തേണ്ട ചോദ്യങ്ങളാണ് ഇവയെല്ലാം. ബൈബിള്‍ ഇവയ്കുള്ള ഉത്തരം നമുക്ക് നല്‍കുന്നുണ്ട്.",
-    "coverFile": "ml_the_real_truth.jpg",
-    "totalPages": 65,
-    "totalLines": 3,
-    "downloadSizeFormatted": "42.6 KB",
-    "createdAt": "2026-09-03T23:38:54.399Z",
-    "lang": "ml"
-  },
-  {
-    "id": "de_through_the_bible",
-    "title": "Durch die Bibel",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Dieser Kommentar zu allen 66 Büchern der Bibel zeigt, dass jedes einzelne Buch der Bibel eine Botschaft für uns heute hat.",
-    "coverFile": "de_through_the_bible.jpg",
-    "totalPages": 16,
-    "totalLines": 7,
-    "downloadSizeFormatted": "18.7 KB",
-    "createdAt": "2026-09-03T23:38:57.739Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_neededmen_of_god",
-    "title": "Gesucht – Männer Gottes",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "de_neededmen_of_god.jpg",
-    "totalPages": 72,
-    "totalLines": 1,
-    "downloadSizeFormatted": "39.4 KB",
-    "createdAt": "2026-09-03T23:38:58.654Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_basic_christian_teachings",
-    "title": "Christliche Grundlehren",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "de_basic_christian_teachings.jpg",
-    "totalPages": 734,
-    "totalLines": 3,
-    "downloadSizeFormatted": "294.4 KB",
-    "createdAt": "2026-09-03T23:39:02.804Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_hear_o_my_sons",
-    "title": "Hört, meine Söhne!",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Väter werden angehalten, ihre Kinder in der \"Unterweisung des Herrn\" zu erziehen. Was ich in diesem Buch schrieb war Unterweisung an meine Kinder aus dem Wort Gottes, um sie zur Hingabe an den Herrn Jesus zu führen",
-    "coverFile": "de_hear_o_my_sons.jpg",
-    "totalPages": 631,
-    "totalLines": 35,
-    "downloadSizeFormatted": "333.7 KB",
-    "createdAt": "2026-09-03T23:39:06.413Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_gods_work_done_in_gods_way",
-    "title": "GOTTES WERK AUF GOTTES WEISE GETAN",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Ist es möglich, Gottes Werk heute auf dieselbe Weise zu tun, wie es Jesus und die Apostel getan haben? Die Antwort ist JA. In diesem Buch schreibt Zac Poonen, wie er und seine Mitarbeiter das bewiesen haben.",
-    "coverFile": "de_gods_work_done_in_gods_way.jpg",
-    "totalPages": 320,
-    "totalLines": 7,
-    "downloadSizeFormatted": "179.4 KB",
-    "createdAt": "2026-09-03T23:39:09.288Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_read_the_gospel",
-    "title": "Lies das Evangelium",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "\"Lies das Evangelium - das wahre Evangelium neu entdecken\"",
-    "coverFile": "de_read_the_gospel.jpg",
-    "totalPages": 48,
-    "totalLines": 6,
-    "downloadSizeFormatted": "26.9 KB",
-    "createdAt": "2026-09-03T23:39:11.191Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_the_congregation_the_club_and_the_church",
-    "title": "Die Versammlung, der Club und die Gemeinde",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "de_the_congregation_the_club_and_the_church.jpg",
-    "totalPages": 53,
-    "totalLines": 5,
-    "downloadSizeFormatted": "30.2 KB",
-    "createdAt": "2026-09-03T23:39:13.337Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_a_heavenly_home",
-    "title": "Ein himmlisches Zuhause",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Ein Leitfaden für junge verheiratete Paare",
-    "coverFile": "de_a_heavenly_home.jpg",
-    "totalPages": 57,
-    "totalLines": 4,
-    "downloadSizeFormatted": "33.1 KB",
-    "createdAt": "2026-09-03T23:39:15.470Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_a_spiritual_leader",
-    "title": "Ein geistlicher Leiter",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Lass dich herausfordern, ein geistlicher Leiter zu werden, der ein vorbildlicher Diener Christi und für die junge Generation ein Vorbild ist – einer der sagt: „Folge mir nach, so wie ich Christus folge.“",
-    "coverFile": "de_a_spiritual_leader.jpg",
-    "totalPages": 141,
-    "totalLines": 5,
-    "downloadSizeFormatted": "77.6 KB",
-    "createdAt": "2026-09-03T23:39:17.849Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_beauty_for_ashes",
-    "title": "SCHÖNHEIT STATT ASCHE",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Christus bietet uns die Schönheit seines eigenen Lebens im Austausch für unser selbstzentriertes Leben an. Lies, wie du dieses Privileg genießen kannst.",
-    "coverFile": "de_beauty_for_ashes.jpg",
-    "totalPages": 122,
-    "totalLines": 4,
-    "downloadSizeFormatted": "64.8 KB",
-    "createdAt": "2026-09-03T23:39:20.157Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_fifty_marks_of_pharisees",
-    "title": "Fünfzig Kennzeichen von Pharisäern",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Eine Person kann die Gebote halten, nach Heiligkeit streben oder sogar ein Missionar sein und immer noch Gefahr laufen, ein Pharisäer zu werden. Der Geist der Pharisäer ist gefährlich, weil er dem Geist Christi entgegengesetzt ist. Wenn du frei von Pharisäertum sein möchtest, dann lies dieses Buch …",
-    "coverFile": "de_fifty_marks_of_pharisees.jpg",
-    "totalPages": 110,
-    "totalLines": 9,
-    "downloadSizeFormatted": "54.2 KB",
-    "createdAt": "2026-09-03T23:39:22.668Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_finding_gods_will",
-    "title": "Gottes Willen finden",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Wie man Gottes Willen in verschiedenen Angelegenheiten herausfindet",
-    "coverFile": "de_finding_gods_will.jpg",
-    "totalPages": 97,
-    "totalLines": 9,
-    "downloadSizeFormatted": "50.4 KB",
-    "createdAt": "2026-09-03T23:39:24.921Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_gaining_gods_approval",
-    "title": "Gottes Anerkennung gewinnen",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Eines Tages wird es offenbar werden, dass die Ehre und der materielle Gewinn nur ein Mittel waren, durch das Gott unsere Herzen prüfte, um zu sehen, ob wir ihn mehr als alles andere lieben. Wir werden sehen, dass die weisesten Menschen auf der Erde diejenigen sind, die von ganzem Herzen danach trachten, so wie Jesus zu wandeln. Die größte Ehre, die jemand haben kann, besteht darin, einen Platz in der Braut Christi zu haben, als einer, der von Gott selber geprüft und anerkannt wurde.",
-    "coverFile": "de_gaining_gods_approval.jpg",
-    "totalPages": 92,
-    "totalLines": 5,
-    "downloadSizeFormatted": "61.1 KB",
-    "createdAt": "2026-09-03T23:39:27.248Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_god_centred_praying",
-    "title": "Gottzentriertes Gebet",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Wie wir beten sollten",
-    "coverFile": "de_god_centred_praying.jpg",
-    "totalPages": 123,
-    "totalLines": 4,
-    "downloadSizeFormatted": "71.0 KB",
-    "createdAt": "2026-09-03T23:39:29.537Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_know_your_enemy",
-    "title": "Erkenne deinen Feind",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Ihr Jugendlichen, wisst ihr, dass ihr das Ziel von Satans Angriffen seid? Er versucht euch mit Unreinheit, selbstsüchtigem Ehrgeiz, Stolz und Heuchelei zu beschmutzen. Aber erinnert euch daran, dass Satan von unserem Herrn Jesus auf Golgatha besiegt wurde. Unsere Berufung ist es jetzt, überall wo wir hingehen, diesen gewaltigen Sieg über die Mächte der Finsternis zum Ausdruck zu bringen.",
-    "coverFile": "de_know_your_enemy.jpg",
-    "totalPages": 57,
-    "totalLines": 7,
-    "downloadSizeFormatted": "32.7 KB",
-    "createdAt": "2026-09-03T23:39:31.533Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_knowing_gods_ways",
-    "title": "GOTTES WEGE ERKENNEN",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Bist du mehr von den Wundertaten Gottes als davon, ihn zu erkennen und seine Wege zu verstehen beeindruckt? Ewiges Leben bedeutet nicht für immer zu leben, sondern Gott und Jesus Christus, den er gesandt hat, zu erkennen.",
-    "coverFile": "de_knowing_gods_ways.jpg",
-    "totalPages": 311,
-    "totalLines": 6,
-    "downloadSizeFormatted": "175.5 KB",
-    "createdAt": "2026-09-03T23:39:34.268Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_living_as_jesus_lived",
-    "title": "Leben wie Jesus gelebt hat",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Jesus ist nicht nur unser Retter, sondern auch unser Vorläufer (Hebr 6,20). Er ist unser Vorbild, wie wir allezeit und in allen Situationen im Geist, in vollkommenem Gehorsam gegenüber Gott, leben sollen. Er hat nie aus eigener Initiative heraus, durch seine eigenen Fähigkeiten oder zu seiner eigenen Ehre gehandelt. Er hat nur das getan, was in Gott seinen Ursprung hatte – und er tat es durch Gottes Kraft und zu seiner Herrlichkeit.",
-    "coverFile": "de_living_as_jesus_lived.jpg",
-    "totalPages": 104,
-    "totalLines": 5,
-    "downloadSizeFormatted": "61.4 KB",
-    "createdAt": "2026-09-03T23:39:36.496Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_new_wine_in_new_wineskins",
-    "title": "Neuer Wein in neuen Schläuchen",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Die Traditionen von Menschen, die sich im Christentum in zwanzig Jahrhunderten angehäuft haben. Wenn wir Gottes Zweck in unserer Zeit und Epoche erfüllen wollen, müssen wir bereit sein, jeder menschlichen Tradition, die im Gegensatz zum Wort Gottes steht, Gewalt anzutun (Mt 11,12). Wenn du den Mut dazu hast, dann lies dieses Buch. Es wird dein Leben und deinen Dienst verändern.",
-    "coverFile": "de_new_wine_in_new_wineskins.jpg",
-    "totalPages": 334,
-    "totalLines": 4,
-    "downloadSizeFormatted": "175.5 KB",
-    "createdAt": "2026-09-03T23:39:39.298Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_one_body_in_christ",
-    "title": "Ein Leib in Christus",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Die Gemeinde ist berufen, gegenüber der Welt die Schönheit der Liebe Christi zu manifestieren, was eine grundlegende Notwendigkeit ist, um das Evangelium zu verbreiten. Viele Gemeinden sind stattdessen Brutstätten von interner Politik und von Rivalitäten. Was können wir tun, um den traurigen Zustand der zwischenmenschlichen Beziehungen in unserer heutigen Christenheit zu verbessern? Das Wort Gottes hat darauf eine Antwort, wenn wir darauf hören …",
-    "coverFile": "de_one_body_in_christ.jpg",
-    "totalPages": 105,
-    "totalLines": 11,
-    "downloadSizeFormatted": "58.4 KB",
-    "createdAt": "2026-09-03T23:39:41.590Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_principles_of_serving_god",
-    "title": "Prinzipien, Gott zu dienen",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Gott braucht heute kompromisslose Männer, die vor seinem Angesicht stehen und täglich seine Stimme hören – Männer, dessen einziges Verlangen Gott selbst ist.",
-    "coverFile": "de_principles_of_serving_god.jpg",
-    "totalPages": 56,
-    "totalLines": 8,
-    "downloadSizeFormatted": "35.7 KB",
-    "createdAt": "2026-09-03T23:39:44.221Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_secrets_of_victory",
-    "title": "GEHEIMNISSE DES SIEGES",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Glaubst du, dass Gott dich so sehr liebt wie er Jesus liebt, wenn du ein Jünger Jesu bist? Finde deine Sicherheit in dieser Liebe. Glaube von ganzem Herzen, dass Gott dir helfen möchte, allezeit siegreich zu leben.",
-    "coverFile": "de_secrets_of_victory.jpg",
-    "totalPages": 72,
-    "totalLines": 15,
-    "downloadSizeFormatted": "45.7 KB",
-    "createdAt": "2026-09-03T23:39:46.622Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_the_day_of_small_beginnings",
-    "title": "AUS BESCHEIDENEN ANFÄNGEN",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Dieses Buch ist eine sehr notwendige geistliche Herausforderung für jeden Mann und jede Frau, die von Gott gebraucht werden möchten. Lies einige der wichtigen Lektionen, die Zac Poonen und seine Mitarbeiter gelernt haben, als sie danach trachteten, dem Herrn zu dienen und seine Gemeinde zu bauen. Genauso wie sich große Türen in kleinen Angeln drehen, haben sie gelernt, dass kleine Entscheidungen die Qualität ihrer Arbeit für den Herrn bestimmten.",
-    "coverFile": "de_the_day_of_small_beginnings.jpg",
-    "totalPages": 290,
-    "totalLines": 5,
-    "downloadSizeFormatted": "133.5 KB",
-    "createdAt": "2026-09-03T23:39:49.505Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_the_final_triumph",
-    "title": "Der finale Triumph",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Vers für Vers durch das Buch der Offenbarung.",
-    "coverFile": "de_the_final_triumph.jpg",
-    "totalPages": 470,
-    "totalLines": 8,
-    "downloadSizeFormatted": "252.4 KB",
-    "createdAt": "2026-09-03T23:39:52.609Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_the_full_gospel",
-    "title": "Das volle Evangelium",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Jesus sagte, wenn wir die Wahrheit kennten, würde uns die Wahrheit frei machen (Joh 8,32). Der Beweis, dass wir die Wahrheit gehört haben liegt darin, dass wir von der Macht der Sünde in unserem Leben befreit wurden. Paulus verkündete den „vollen Ratschluss Gottes“ (Apg 20,27). Alle Christen müssen dringend das volle Evangelium hören, wenn sie wirklich geistlich und nicht bloß religiös werden möchten.",
-    "coverFile": "de_the_full_gospel.jpg",
-    "totalPages": 320,
-    "totalLines": 3,
-    "downloadSizeFormatted": "186.6 KB",
-    "createdAt": "2026-09-03T23:39:55.363Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_the_lord_and_his_church",
-    "title": "Der Herr und seine Gemeinde",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Die sieben Gemeinden im Buch der Offenbarung.",
-    "coverFile": "de_the_lord_and_his_church.jpg",
-    "totalPages": 119,
-    "totalLines": 9,
-    "downloadSizeFormatted": "70.2 KB",
-    "createdAt": "2026-09-03T23:39:57.654Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_the_new_covenant_servant",
-    "title": "Der Diener des Neuen Bundes",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Wo sind die Propheten, die mit dem Feuer des Heiligen Geistes predigen, die die Reinheit der Gemeinde bewahren können? Männer, die bewusste Sünde überwinden, Geld hassen und von keinem Menschen Ehre suchen? Gott braucht solche Männer. Wenn du ein solcher Mann sein möchtest, dann lies dieses Buch …",
-    "coverFile": "de_the_new_covenant_servant.jpg",
-    "totalPages": 136,
-    "totalLines": 13,
-    "downloadSizeFormatted": "82.1 KB",
-    "createdAt": "2026-09-03T23:40:00.013Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_the_supreme_priorities",
-    "title": "Die höchsten Prioritäten",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Jagst du wie ein zweijähriges Kind, das ein billiges Spielzeug einem wertvollen Scheck vorzieht, nach zeitlichen statt nach ewigen Dingen? Was sind deine höchsten Prioritäten?",
-    "coverFile": "de_the_supreme_priorities.jpg",
-    "totalPages": 173,
-    "totalLines": 4,
-    "downloadSizeFormatted": "80.3 KB",
-    "createdAt": "2026-09-03T23:40:02.781Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_god_made_mothers",
-    "title": "Gott schuf Mütter",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Ein Buch für Mütter...",
-    "coverFile": "de_god_made_mothers.jpg",
-    "totalPages": 67,
-    "totalLines": 1,
-    "downloadSizeFormatted": "35.7 KB",
-    "createdAt": "2026-09-03T23:40:04.909Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_sex_love_marriage",
-    "title": "Sex, Liebe und Ehe",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Ist es in richtig, miteinander zu gehen/auszugehen? Wie steht es mit dem „Sich ineinander verlieben“? Wie sollte ich meinen Partner fürs Leben auswählen? In diesem Buch findest du klaren Rat, der dir in deinen Teenager- und Jugendjahren helfen wird.",
-    "coverFile": "de_sex_love_marriage.jpg",
-    "totalPages": 180,
-    "totalLines": 5,
-    "downloadSizeFormatted": "89.6 KB",
-    "createdAt": "2026-09-03T23:40:07.470Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_the_purpose_of_failure",
-    "title": "Wie Gott Versagen benutzt",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Betrachtest du dich selber als einen „hoffnungslosen“ Versager? Sogar wenn du in der Vergangenheit eintausend Mal neu angefangen und wieder versagt hast, so kannst du heute den 1001. Neuanfang machen. Gott kann seinen perfekten Plan für dein Leben immer noch erfüllen.",
-    "coverFile": "de_the_purpose_of_failure.jpg",
-    "totalPages": 58,
-    "totalLines": 9,
-    "downloadSizeFormatted": "35.5 KB",
-    "createdAt": "2026-09-03T23:40:09.504Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_woman_why_are_you_weeping",
-    "title": "Frau, warum weinst du?",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Trost für leidende Frauen",
-    "coverFile": "de_woman_why_are_you_weeping.jpg",
-    "totalPages": 95,
-    "totalLines": 3,
-    "downloadSizeFormatted": "56.0 KB",
-    "createdAt": "2026-09-03T23:40:11.801Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_practical_discipleship",
-    "title": "Praktische Jüngerschaft",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Als Jesus der Volksmenge Jüngerschaft/Nachfolge predigte, schrumpfte sie auf eine Handvoll von Jüngern zusammen. Aber es war durch diese wenigen treuen Nachfolger, durch die Jesus seine Zwecke in dieser Welt erfüllte. Nun ruft er dich in denselben Dienst.",
-    "coverFile": "de_practical_discipleship.jpg",
-    "totalPages": 102,
-    "totalLines": 7,
-    "downloadSizeFormatted": "56.7 KB",
-    "createdAt": "2026-09-03T23:40:14.044Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_the_real_truth",
-    "title": "Die echte Wahrheit",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Eine detaillierte – einfache und klare – Erklärung der Heilsbotschaft für jene, die nichts über den christlichen Glauben wissen.",
-    "coverFile": "de_the_real_truth.jpg",
-    "totalPages": 49,
-    "totalLines": 3,
-    "downloadSizeFormatted": "30.8 KB",
-    "createdAt": "2026-09-03T23:40:16.053Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_encouragement_for_mothers",
-    "title": "Ermutigung für Mütter",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Gott ist unser himmlischer Vater, der daran interessiert ist, uns zu helfen, ein besseres Elternteil und eine bessere Ehefrau zu werden. Lies und lass dich von den Wahrheiten ermutigen, die Annie Poonen geholfen haben, ein gottesfürchtiges Heim zu bauen.",
-    "coverFile": "de_encouragement_for_mothers.jpg",
-    "totalPages": 36,
-    "totalLines": 8,
-    "downloadSizeFormatted": "21.1 KB",
-    "createdAt": "2026-09-03T23:40:18.135Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_a_girls_viewpoint",
-    "title": "Aus Sicht eines Mädchens",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Dies ist die Geschichte von den Erfahrungen eines jungen Mädchens …",
-    "coverFile": "de_a_girls_viewpoint.jpg",
-    "totalPages": 96,
-    "totalLines": 4,
-    "downloadSizeFormatted": "52.6 KB",
-    "createdAt": "2026-09-03T23:40:20.591Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_amazing_facts",
-    "title": "Erstaunliche Tatsachen",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Ein grundlegendes Buch über Gott und Mensch",
-    "coverFile": "de_amazing_facts.jpg",
-    "totalPages": 42,
-    "totalLines": 5,
-    "downloadSizeFormatted": "21.9 KB",
-    "createdAt": "2026-09-03T23:40:22.614Z",
-    "lang": "de"
-  },
-  {
-    "id": "de_a_good_foundation",
-    "title": "Ein gutes Fundament",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "Ein Leitfaden, um ein gutes und starkes Fundament zu legen, bevor du deine Reise durchs Leben beginnst. Ein Fundament, das bei Sturm und Regen nicht erschüttert werden kann.",
-    "coverFile": "de_a_good_foundation.jpg",
-    "totalPages": 75,
-    "totalLines": 8,
-    "downloadSizeFormatted": "48.8 KB",
-    "createdAt": "2026-09-03T23:40:24.900Z",
-    "lang": "de"
-  },
-  {
-    "id": "ta_humble_women_can_excel",
-    "title": "தழைத்தோங்கும் தாழ்மையான பெண்",
-    "author": "ஆனி சகரியா பூணன்",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "தழைத்தோங்கும் தாழ்மையான பெண்: பணிவிடை ஆவியும் தியாகமும் கொண்டு இயேசுவை நோக்கி ஓடும் தாழ்மையுள்ள பெண்மணி -&nbsp;ஆனி சகரியா பூணன் -&nbsp;கிறிஸ்தவ ஐக்கிய சபை https://tamil.cfcindia.com",
-    "coverFile": "ta_humble_women_can_excel.jpg",
-    "totalPages": 103,
-    "totalLines": 311,
-    "downloadSizeFormatted": "61.2 KB",
-    "createdAt": "2026-09-03T23:31:59.152Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_needed_men_of_god",
-    "title": "தேவ மனிதர்கள் எங்கே?",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "தேவா! காண அரிதாகிவிட்ட இந்நாட்களில், மெய்யான தேவ மனிதர்களை எம் தேசத்தில் எழுப்புவீராக!",
-    "coverFile": "ta_needed_men_of_god.jpg",
-    "totalPages": 83,
-    "totalLines": 295,
-    "downloadSizeFormatted": "56.8 KB",
-    "createdAt": "2026-09-03T23:32:00.268Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_a_good_foundation",
-    "title": "நல்லதோர் அஸ்திபாரம்",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "“ஆழமாய் தோண்டி, அஸ்திவாரம் போட்டவன் வீடு ... அசைக்கப்படுவதில்லை” (லூக்கா 6:48).",
-    "coverFile": "ta_a_good_foundation.jpg",
-    "totalPages": 106,
-    "totalLines": 437,
-    "downloadSizeFormatted": "71.8 KB",
-    "createdAt": "2026-09-03T23:32:21.581Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_encouragement_for_mothers",
-    "title": "தாயின் பணியை தாங்கிடும் தேவன்!",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "\"உத்தம தாயின் பணிக்கு..... பரிசுத்தாவி துணையாளர். உதவி உண்டு!\" (யோவான் 14 : 18)",
-    "coverFile": "ta_encouragement_for_mothers.jpg",
-    "totalPages": 44,
-    "totalLines": 162,
-    "downloadSizeFormatted": "29.3 KB",
-    "createdAt": "2026-09-03T23:33:18.728Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_finding_gods_will",
-    "title": "தேவ சித்தம் அறியணுமே!",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "“உம்முடைய சித்தம் பரமண்டலத்திலே செய்யப்படுவதுபோல பூமியிலேயும் செய்யப்படுவதாக!” (மத்தேயு.6:10)",
-    "coverFile": "ta_finding_gods_will.jpg",
-    "totalPages": 116,
-    "totalLines": 390,
-    "downloadSizeFormatted": "74.5 KB",
-    "createdAt": "2026-09-03T23:33:21.614Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_heavenly_home",
-    "title": "சுபமங்கள தெய்வீக இல்லம்!",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "உங்கள் நாட்கள் பூமியின் மேல் பரலோகம் இருக்கும் நாட்களைப் போல நிச்சயமாய் இருக்கும் (உபாகமம் 11:18 - KJV).",
-    "coverFile": "ta_heavenly_home.jpg",
-    "totalPages": 69,
-    "totalLines": 274,
-    "downloadSizeFormatted": "45.3 KB",
-    "createdAt": "2026-09-04T04:15:35.235Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_principles_of_serving_god",
-    "title": "கர்த்தருக்கு ஊழியம் செய்திட உத்தம வழிகள்",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "“நான் எங்கே இருக்கிறேனோ அங்கே என் ஊழியக்காரனும் இருப்பான்” (யோவான் 12:26).",
-    "coverFile": "ta_principles_of_serving_god.jpg",
-    "totalPages": 65,
-    "totalLines": 283,
-    "downloadSizeFormatted": "45.3 KB",
-    "createdAt": "2026-09-03T23:34:53.469Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_the_congregation_the_club_and_the_church",
-    "title": "ஆராதனை கூடுகை ஜன சங்கம் ஸ்தல சபை",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "“இரு திசை கொண்ட சிலுவையின் உறவே, புதிய உடன்படிக்கையின் சபையை கட்டும்!\"",
-    "coverFile": "ta_the_congregation_the_club_and_the_church.jpg",
-    "totalPages": 59,
-    "totalLines": 234,
-    "downloadSizeFormatted": "39.6 KB",
-    "createdAt": "2026-09-03T23:35:19.868Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_the_preacher_whom_i_want_to_follow",
-    "title": "யார், பின்பற்ற உகந்த பிரசங்கி?",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "நான் கிறிஸ்துவை பின்பற்றுகிறது போல நீங்கள் என்னை பின்பற்றுங்கள் (1கொரி 11:1)",
-    "coverFile": "ta_the_preacher_whom_i_want_to_follow.jpg",
-    "totalPages": 6,
-    "totalLines": 64,
-    "downloadSizeFormatted": "6.1 KB",
-    "createdAt": "2026-09-03T23:35:21.183Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_what_god_wants_you_to_be",
-    "title": "நீங்கள் எப்படியிருக்க தேவன் விரும்புகிறார்?",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "“என் இருதயத்துக்கு ஏற்றவனாகக் கண்டேன்” (அப்போஸ்தலர் 13:22)",
-    "coverFile": "ta_what_god_wants_you_to_be.jpg",
-    "totalPages": 27,
-    "totalLines": 155,
-    "downloadSizeFormatted": "21.4 KB",
-    "createdAt": "2026-09-03T23:35:24.042Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_fifty_marks_of_godly_men_booklet",
-    "title": "தேவ மனிதரின் \"50\" அடையாளங்கள் (சிற்றேடு)",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "ta_fifty_marks_of_godly_men_booklet.jpg",
-    "totalPages": 9,
-    "totalLines": 87,
-    "downloadSizeFormatted": "8.5 KB",
-    "createdAt": "2026-09-03T23:35:36.123Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_fifty_marks_of_phariseesbooklet",
-    "title": "பரிசேயரின் “50” அடையாளங்கள் (சிற்றேடு)",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "",
-    "coverFile": "ta_fifty_marks_of_phariseesbooklet.jpg",
-    "totalPages": 9,
-    "totalLines": 131,
-    "downloadSizeFormatted": "10.2 KB",
-    "createdAt": "2026-09-03T23:35:36.717Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_amazing_facts_booklet",
-    "title": "வியப்பூட்டும் உண்மைகள் (சிற்றேடு)",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "தேவனையும் மனிதனையும் குறித்ததான அடிப்படை காரியங்கள்",
-    "coverFile": "ta_amazing_facts_booklet.jpg",
-    "totalPages": 16,
-    "totalLines": 78,
-    "downloadSizeFormatted": "11.4 KB",
-    "createdAt": "2026-09-03T23:35:37.596Z",
-    "lang": "ta"
-  },
-  {
-    "id": "ta_the_real_truth_booklet",
-    "title": "இதுவே மெய்யான சத்தியம் (சிற்றேடு)",
-    "author": "Zac Poonen",
-    "subject": "Christian Living",
-    "categories": [
-      "Christian Living"
-    ],
-    "description": "கிறிஸ்துவத்தை பற்றி அறியாதவர்களுக்கு, எளிமையான முறையில் இரட்சிப்பைக் குறித்த விளக்கம்",
-    "coverFile": "ta_the_real_truth_booklet.jpg",
-    "totalPages": 31,
-    "totalLines": 156,
-    "downloadSizeFormatted": "21.6 KB",
-    "createdAt": "2026-09-03T23:35:38.488Z",
-    "lang": "ta"
+    ]
   }
 ]
