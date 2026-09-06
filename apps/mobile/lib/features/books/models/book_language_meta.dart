@@ -44,11 +44,16 @@ class BookLanguageMeta {
     'mr': BookLanguageMeta(code: 'mr', englishName: 'Marathi', nativeName: 'मराठी'),
   };
 
-  /// Resolves metadata for a language code (case-insensitive).
+  /// Resolves metadata for a language code or full name (case-insensitive).
   static BookLanguageMeta fromCode(String code) {
-    final lower = code.toLowerCase();
+    final lower = code.trim().toLowerCase();
     final meta = supportedLanguages[lower];
     if (meta != null) return meta;
+    for (final m in supportedLanguages.values) {
+      if (m.englishName.toLowerCase() == lower || m.nativeName.toLowerCase() == lower) {
+        return m;
+      }
+    }
     return BookLanguageMeta(
       code: code,
       englishName: code.toUpperCase(),

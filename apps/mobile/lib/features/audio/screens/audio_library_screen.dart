@@ -1,13 +1,16 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/layout/adaptivity.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../books/models/book_language_meta.dart';
 import '../controllers/audio_player_controller.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
 import '../services/audio_storage_service.dart';
+import '../widgets/audio_language_dropdown.dart';
 import '../widgets/audio_search_delegate.dart';
 
 /// Main Audio tab screen — browse sermon series, continue listening, explore topics,
@@ -29,7 +32,11 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
   bool _isLoading = true;
 
   String _selectedCategory = 'All';
-  String _selectedLanguage = 'All';
+  Set<String> _selectedLanguages = {'All'};
+  List<String> _availableLanguages = ['All'];
+  Map<String, int> _languageTrackCounts = {};
+
+  static const String _prefKeyLanguages = 'audio_library_languages';
 
   static const _categories = [
     'All',
@@ -43,17 +50,6 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
     'The Church',
     'Conferences',
     'General Sermons',
-    'Multilingual',
-  ];
-
-  static const _languages = [
-    'All',
-    'English',
-    'Tamil',
-    'Telugu',
-    'Hindi',
-    'Malayalam',
-    'Kannada',
   ];
 
   @override
@@ -61,6 +57,10 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
     super.initState();
     _loadData();
   }
+
+  bool get _isAllLanguagesSelected =>
+      _selectedLanguages.isEmpty ||
+      _selectedLanguages.any((l) => l.toLowerCase() == 'all');
 
   Future<void> _loadData({bool forceRefresh = false}) async {
     final catalog = await _catalogService.getCatalog(forceRefresh: forceRefresh);
@@ -70,84 +70,71 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       lastSec = await _storageService.getPosition(lastTrack.id);
     }
 
+    final counts = <String, int>{'All': 0};
+    final Set<String> uniqueLangs = {};
+
+    for (final s in catalog) {
+      final lang = s.language.trim();
+      if (lang.isEmpty) continue;
+      uniqueLangs.add(lang);
+      counts['All'] = (counts['All'] ?? 0) + s.trackCount;
+      counts[lang] = (counts[lang] ?? 0) + s.trackCount;
+    }
+
+    final sortedLangs = uniqueLangs.toList()
+      ..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
+
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_prefKeyLanguages);
+    final initialSelection = (saved != null && saved.isNotEmpty)
+        ? saved.toSet()
+        : _selectedLanguages;
+
     if (mounted) {
       setState(() {
         _seriesList = catalog;
         _lastPlayedTrack = lastTrack;
         _lastPlayedSeconds = lastSec;
+        _languageTrackCounts = counts;
+        _availableLanguages = ['All', ...sortedLangs];
+        _selectedLanguages = initialSelection;
         _isLoading = false;
       });
     }
   }
 
+  void _onLanguagesSelected(Set<String> newSelection) {
+    final valid = newSelection.isEmpty ? {'All'} : newSelection;
+    setState(() {
+      _selectedLanguages = valid;
+    });
+    SharedPreferences.getInstance().then((p) {
+      p.setStringList(_prefKeyLanguages, valid.toList());
+    });
+  }
+
   List<AudioSeries> get _filteredSeries {
+    final isAll = _isAllLanguagesSelected;
+
     return _seriesList.where((s) {
       final matchesCategory =
           _selectedCategory == 'All' || s.category == _selectedCategory;
-      final matchesLanguage = _selectedLanguage == 'All' ||
-          s.language.toLowerCase() == _selectedLanguage.toLowerCase();
-      return matchesCategory && matchesLanguage;
-    }).toList();
-  }
+      if (!matchesCategory) return false;
 
-  void _showLanguageSelector(BuildContext context, AppTokens tokens, ThemeData theme) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: tokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Text(
-                    'Select Language',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: tokens.onSurface,
-                    ),
-                  ),
-                ),
-                const Divider(),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _languages.length,
-                    itemBuilder: (_, index) {
-                      final lang = _languages[index];
-                      final isSelected = _selectedLanguage == lang;
-                      return ListTile(
-                        title: Text(
-                          lang == 'All' ? 'All Languages' : lang,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isSelected ? theme.colorScheme.primary : tokens.onSurface,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                        trailing: isSelected
-                            ? Icon(Icons.check, color: theme.colorScheme.primary)
-                            : null,
-                        onTap: () {
-                          setState(() => _selectedLanguage = lang);
-                          Navigator.pop(ctx);
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+      if (isAll) return true;
+
+      final sLangLower = s.language.toLowerCase();
+      final sMeta = BookLanguageMeta.fromCode(s.language);
+
+      return _selectedLanguages.any((l) {
+        final lLower = l.toLowerCase();
+        final lMeta = BookLanguageMeta.fromCode(l);
+        return lLower == sLangLower ||
+            lMeta.englishName.toLowerCase() == sLangLower ||
+            lLower == sMeta.code.toLowerCase() ||
+            lMeta.code.toLowerCase() == sMeta.code.toLowerCase();
+      });
+    }).toList();
   }
 
   @override
@@ -157,6 +144,8 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
         (theme.brightness == Brightness.dark
             ? AppTokens.dark
             : AppTokens.light);
+
+    final isAllLang = _isAllLanguagesSelected;
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -182,22 +171,6 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
               );
             },
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: ActionChip(
-              avatar: Icon(Icons.language, size: 16, color: tokens.onSurface),
-              label: Text(
-                _selectedLanguage == 'All' ? 'Lang' : _selectedLanguage,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: tokens.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              backgroundColor: tokens.surfaceVariant,
-              side: BorderSide.none,
-              onPressed: () => _showLanguageSelector(context, tokens, theme),
-            ),
-          ),
         ],
       ),
       body: _isLoading
@@ -210,12 +183,24 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Language Selection Dropdown (Books Library style)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: AudioLanguageDropdown(
+                        selectedLanguages: _selectedLanguages,
+                        availableLanguages: _availableLanguages,
+                        trackCounts: _languageTrackCounts,
+                        onLanguagesSelected: _onLanguagesSelected,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
                     // Categories Bar
                     _buildCategoryChips(tokens, theme),
                     const SizedBox(height: 16),
 
                     // Featured Series Carousel (when on All)
-                    if (_selectedCategory == 'All' && _selectedLanguage == 'All') ...[
+                    if (_selectedCategory == 'All' && isAllLang) ...[
                       _buildSeriesCarousel(context, tokens, theme),
                       const SizedBox(height: 24),
                     ],
@@ -227,7 +212,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
                     ],
 
                     // Topics Grid (only when on All)
-                    if (_selectedCategory == 'All' && _selectedLanguage == 'All') ...[
+                    if (_selectedCategory == 'All' && isAllLang) ...[
                       _buildTopicsSection(context, tokens, theme),
                       const SizedBox(height: 24),
                     ],
@@ -568,10 +553,20 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
     ThemeData theme,
   ) {
     final filtered = _filteredSeries;
+    final isAllLang = _isAllLanguagesSelected;
+    final String langSuffix;
+    if (isAllLang) {
+      langSuffix = '';
+    } else if (_selectedLanguages.length == 1) {
+      final meta = BookLanguageMeta.fromCode(_selectedLanguages.first);
+      langSuffix = ' • ${meta.englishName}';
+    } else {
+      langSuffix = ' • ${_selectedLanguages.length} Languages';
+    }
 
     final headerTitle = _selectedCategory == 'All'
-        ? 'All Series (${filtered.length})'
-        : '$_selectedCategory (${filtered.length})';
+        ? 'All Series (${filtered.length}$langSuffix)'
+        : '$_selectedCategory (${filtered.length}$langSuffix)';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -588,12 +583,15 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
                   color: tokens.onSurface,
                 ),
               ),
-              if (_selectedCategory != 'All' || _selectedLanguage != 'All')
+              if (_selectedCategory != 'All' || !isAllLang)
                 TextButton(
                   onPressed: () {
                     setState(() {
                       _selectedCategory = 'All';
-                      _selectedLanguage = 'All';
+                      _selectedLanguages = {'All'};
+                    });
+                    SharedPreferences.getInstance().then((p) {
+                      p.setStringList(_prefKeyLanguages, ['All']);
                     });
                   },
                   child: const Text('Reset'),
