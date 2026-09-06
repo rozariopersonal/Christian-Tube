@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/layout/adaptivity.dart';
+import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../books/models/book_language_meta.dart';
 import '../controllers/audio_player_controller.dart';
@@ -205,49 +206,51 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Language Selection Dropdown (Books Library style)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: AudioLanguageDropdown(
-                        selectedLanguages: _selectedLanguages,
-                        availableLanguages: _availableLanguages,
-                        trackCounts: _languageTrackCounts,
-                        onLanguagesSelected: _onLanguagesSelected,
+                child: MaxWidthBox(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Language Selection Dropdown (Books Library style)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: AudioLanguageDropdown(
+                          selectedLanguages: _selectedLanguages,
+                          availableLanguages: _availableLanguages,
+                          trackCounts: _languageTrackCounts,
+                          onLanguagesSelected: _onLanguagesSelected,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                      const SizedBox(height: 14),
 
-                    // Categories Bar
-                    _buildCategoryChips(tokens, theme),
-                    const SizedBox(height: 16),
+                      // Categories Bar
+                      _buildCategoryChips(tokens, theme),
+                      const SizedBox(height: 16),
 
-                    // Featured Series Carousel (when on All)
-                    if (_selectedCategory == 'All' && isAllLang) ...[
-                      _buildSeriesCarousel(context, tokens, theme),
-                      const SizedBox(height: 24),
+                      // Featured Series Carousel (when on All)
+                      if (_selectedCategory == 'All' && isAllLang) ...[
+                        _buildSeriesCarousel(context, tokens, theme),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Continue Listening Card
+                      if (_lastPlayedTrack != null) ...[
+                        _buildContinueListening(context, tokens, theme),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Topics Grid (only when on All)
+                      if (_selectedCategory == 'All' && isAllLang) ...[
+                        _buildTopicsSection(context, tokens, theme),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // All Series Grid for selected category/filter
+                      _buildSeriesGrid(context, tokens, theme),
+
+                      // Space for persistent MiniPlayer
+                      const SizedBox(height: 100),
                     ],
-
-                    // Continue Listening Card
-                    if (_lastPlayedTrack != null) ...[
-                      _buildContinueListening(context, tokens, theme),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // Topics Grid (only when on All)
-                    if (_selectedCategory == 'All' && isAllLang) ...[
-                      _buildTopicsSection(context, tokens, theme),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // All Series Grid for selected category/filter
-                    _buildSeriesGrid(context, tokens, theme),
-
-                    // Space for persistent MiniPlayer
-                    const SizedBox(height: 100),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -537,51 +540,60 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: topics.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 2.2,
-            ),
-            itemBuilder: (context, index) {
-              final topic = topics[index];
-              return Material(
-                color: tokens.surfaceElevated,
-                borderRadius: BorderRadius.circular(14),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () {
-                    setState(() {
-                      _selectedCategory = topic['category'] as String;
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Row(
-                      children: [
-                        Icon(
-                          topic['icon'] as IconData,
-                          color: theme.colorScheme.primary,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            topic['title'] as String,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: tokens.onSurface,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final screenClass = ScreenClass.of(context);
+              final crossAxisCount = screenClass.isCompact
+                  ? 2
+                  : (screenClass == ScreenClass.medium ? 3 : 4);
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: topics.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 2.2,
                 ),
+                itemBuilder: (context, index) {
+                  final topic = topics[index];
+                  return Material(
+                    color: tokens.surfaceElevated,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () {
+                        setState(() {
+                          _selectedCategory = topic['category'] as String;
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Row(
+                          children: [
+                            Icon(
+                              topic['icon'] as IconData,
+                              color: theme.colorScheme.primary,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                topic['title'] as String,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: tokens.onSurface,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),

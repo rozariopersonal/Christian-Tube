@@ -343,14 +343,14 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
                                             Icons.all_inclusive_rounded,
                                             size: 18,
                                             color: isSelected
-                                                ? Colors.white
+                                                ? tokens.onScrim
                                                 : tokens.onSurface,
                                           )
                                         : Text(
                                             meta.code.toUpperCase(),
                                             style: TextStyle(
                                               color: isSelected
-                                                  ? Colors.white
+                                                  ? tokens.onScrim
                                                   : tokens.onSurface,
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,

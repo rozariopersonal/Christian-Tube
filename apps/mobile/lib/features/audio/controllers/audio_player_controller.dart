@@ -20,6 +20,12 @@ class AudioPlayerController extends ChangeNotifier {
   AudioPlayerState _state = const AudioPlayerState();
   AudioPlayerState get state => _state;
 
+  @visibleForTesting
+  void setStateForTesting(AudioPlayerState newState) {
+    _state = newState;
+    notifyListeners();
+  }
+
   StreamSubscription<Duration>? _posSub;
   StreamSubscription<Duration?>? _durSub;
   StreamSubscription<Duration>? _bufSub;

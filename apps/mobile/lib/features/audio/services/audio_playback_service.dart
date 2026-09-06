@@ -10,6 +10,8 @@ class AudioPlaybackService {
   final AudioPlayer _player;
   bool _isSessionConfigured = false;
 
+  StreamSubscription? _becomingNoisySubscription;
+
   AudioPlaybackService({AudioPlayer? player}) : _player = player ?? AudioPlayer();
 
   Stream<Duration> get positionStream => _player.positionStream;
@@ -31,6 +33,10 @@ class AudioPlaybackService {
     try {
       final session = await AudioSession.instance;
       await session.configure(const AudioSessionConfiguration.speech());
+      _becomingNoisySubscription?.cancel();
+      _becomingNoisySubscription = session.becomingNoisyEventStream.listen((_) {
+        pause();
+      });
       _isSessionConfigured = true;
     } catch (_) {
       // Ignored if unsupported on current test environment
@@ -114,5 +120,8 @@ class AudioPlaybackService {
 
   Future<void> setVolume(double volume) => _player.setVolume(volume);
 
-  Future<void> dispose() => _player.dispose();
+  Future<void> dispose() async {
+    _becomingNoisySubscription?.cancel();
+    await _player.dispose();
+  }
 }

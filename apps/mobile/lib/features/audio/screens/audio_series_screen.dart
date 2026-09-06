@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../controllers/audio_player_controller.dart';
 import '../models/audio_series.dart';
@@ -7,7 +8,8 @@ import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
 import '../services/audio_storage_service.dart';
 
-/// Displays the tracks of an audio series.
+/// Displays the tracks of an audio series with "Play All",
+/// individual track resumption badges, live equalizers, and responsive layout constraints.
 class AudioSeriesScreen extends StatefulWidget {
   final String seriesId;
   final AudioSeries? initialSeries;
@@ -83,93 +85,113 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
       ),
       body: _isLoading && series == null
           ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-              slivers: [
-                // Header details
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Cover Art
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            width: 100,
-                            height: 100,
-                            color: tokens.surfaceVariant,
-                            child: series?.coverUrl != null &&
-                                    series!.coverUrl!.isNotEmpty
-                                ? CachedNetworkImage(
-                                    imageUrl: series.coverUrl!,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (_, __, ___) => Icon(
-                                      Icons.album,
-                                      size: 40,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.album,
-                                    size: 40,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-
-                        // Title & Info
-                        Expanded(
-                          child: Column(
+          : MaxWidthBox(
+              child: CustomScrollView(
+                slivers: [
+                  // Header details
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                series?.title ?? '',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: tokens.onSurface,
+                              // Cover Art
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  width: 100,
+                                  height: 100,
+                                  color: tokens.surfaceVariant,
+                                  child: series?.coverUrl != null &&
+                                          series!.coverUrl!.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: series.coverUrl!,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (_, __, ___) => Icon(
+                                            Icons.album,
+                                            size: 40,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.album,
+                                          size: 40,
+                                          color: theme.colorScheme.primary,
+                                        ),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${series?.speaker} • ${series?.trackCount ?? 0} Tracks',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: tokens.onSurfaceMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                series?.description ?? '',
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: tokens.onSurfaceMuted,
+                              const SizedBox(width: 16),
+
+                              // Title & Info
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      series?.title ?? '',
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: tokens.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${series?.speaker} • ${series?.trackCount ?? 0} Tracks',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: tokens.onSurfaceMuted,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      series?.description ?? '',
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: tokens.onSurfaceMuted,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                          if (series != null && series.tracks.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            FilledButton.tonalIcon(
+                              onPressed: () {
+                                AudioPlayerController.instance.playTrack(
+                                  series.tracks.first,
+                                  queue: series.tracks,
+                                );
+                              },
+                              icon: const Icon(Icons.play_arrow, size: 20),
+                              label: Text('Play All (${series.tracks.length} Tracks)'),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
-                // Track list
-                if (series != null)
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final track = series.tracks[index];
-                        return _buildTrackTile(context, track, series.tracks, index);
-                      },
-                      childCount: series.tracks.length,
+                  // Track list
+                  if (series != null)
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final track = series.tracks[index];
+                          return _buildTrackTile(context, track, series.tracks, index);
+                        },
+                        childCount: series.tracks.length,
+                      ),
                     ),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 100), // padding for mini-player
                   ),
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 100), // padding for mini-player
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }
@@ -223,7 +245,7 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
                 : Text(
                     '${index + 1}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                       fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.bold,
                       color: isCurrentTrack
                           ? theme.colorScheme.primary
                           : tokens.onSurfaceMuted,
@@ -243,6 +265,8 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
           ),
           subtitle: Text(
             subtitleText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
               color: tokens.onSurfaceMuted,
             ),
@@ -256,6 +280,7 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
                   ? theme.colorScheme.primary
                   : tokens.onSurfaceMuted,
             ),
+            tooltip: isCurrentTrack && state.isPlaying ? 'Pause' : 'Play',
             onPressed: () {
               if (isCurrentTrack) {
                 AudioPlayerController.instance.togglePlayPause();
