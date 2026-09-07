@@ -58,7 +58,7 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
     final dio = Dio();
     final jsonPath = join((await getTemporaryDirectory()).path, 'scriptures.json');
 
-    final urls = GitHubDataService.scripturesFeedUrls();
+    final urls = GitHubDataService.scripturesPoolUrls();
     Object? lastError;
     for (final url in urls) {
       try {

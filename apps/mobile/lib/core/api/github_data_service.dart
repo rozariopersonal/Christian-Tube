@@ -36,7 +36,7 @@ import 'release_assets.dart';
 /// ├── fonts/
 /// │   └── {Family}_{File}.ttf             # on-demand reader fonts (SIL OFL)
 /// ├── commentaries/
-/// │   └── {bookNum}/{chapter}.json          # Zac Poonen book scripture links
+/// │   └── {bookNum}/{chapter}.json        # Zac Poonen book scripture links
 /// └── scriptures.json
 /// ```
 class GitHubDataService {
@@ -229,7 +229,7 @@ class GitHubDataService {
   static List<String> bookNamesUrls() =>
       ReleaseAssets.urlsFor('book_names.json');
 
-  // ── Words feed ────────────────────────────────────────────────────────────
+  // ── Words Feed (Micro-Feed) ───────────────────────────────────────────────
 
   static List<String> wordsFeedManifestUrls() =>
       ReleaseAssets.urlsFor('words_feed/manifest.json');
@@ -240,9 +240,19 @@ class GitHubDataService {
   static List<String> wordsFeedTopicUrls(String topicSlug) =>
       ReleaseAssets.urlsFor('words_feed/topics/$topicSlug.json');
 
-  /// Scripture feed (micro-feed / words engine).
-  static List<String> scripturesFeedUrls() =>
+  static List<String> scripturesPoolUrls() =>
       ReleaseAssets.urlsFor('scriptures.json');
+
+  // ── WFTW Articles (Micro-Feed) ────────────────────────────────────────────
+
+  static List<String> wftwManifestUrls() =>
+      ReleaseAssets.urlsFor('articles/wftw_manifest.json');
+
+  static List<String> wftwFeedDbUrls() =>
+      ReleaseAssets.urlsFor('articles/wftw_feed.sqlite.gz');
+
+  static List<String> wftwArticleUrls(String articleId) =>
+      ReleaseAssets.urlsFor('articles/wftw/$articleId.json');
 
   // ── Binaries ──────────────────────────────────────────────────────────────
 

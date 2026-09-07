@@ -16,7 +16,7 @@ class WebFeedDataAdapter implements FeedDataAdapter {
     
     downloadProgress.value = 0.0;
     final dio = Dio();
-    final urls = GitHubDataService.scripturesFeedUrls();
+    final urls = GitHubDataService.scripturesPoolUrls();
     Object? lastError;
     
     for (final url in urls) {

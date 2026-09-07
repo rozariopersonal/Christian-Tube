@@ -1,4 +1,4 @@
-name: Daily CFC Audio Catalog Sync
+name: Daily CFC Content Sync
 
 on:
   schedule:
@@ -12,8 +12,8 @@ permissions:
   contents: write
 
 jobs:
-  sync-audio:
-    name: Sync CFC Audio Catalog
+  sync-content:
+    name: Sync CFC Audio and Articles
     runs-on: ubuntu-latest
 
     steps:
@@ -29,31 +29,35 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run Audio Synchronizer
-        run: node tool/sync_cfc_audio.js
+      - name: Run Synchronizers
+        run: |
+          node tool/sync_cfc_audio.js
+          node tool/sync_cfc_articles.js
 
-      - name: Commit and Push Releases Catalog Updates
+      - name: Commit and Push Releases Updates
         run: |
           cd releases
-          if [ -n "$(git status --porcelain audio/)" ]; then
-            echo "Changes detected in releases/audio/. Committing to releases repository..."
+          if [ -n "$(git status --porcelain audio/ articles/)" ]; then
+            echo "Changes detected in releases/. Committing to releases repository..."
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add audio/
-            git commit -m "chore(audio): sync CFC India audio catalog [skip ci]"
+            git add audio/ articles/
+            git commit -m "chore(data): sync CFC India audio and articles [skip ci]"
             git push origin main
             
             cd ..
             git add releases
-            git commit -m "chore(releases): update audio catalog submodule pointer [skip ci]"
+            git commit -m "chore(releases): update data submodule pointer [skip ci]"
             git push origin main
 
             # Purge jsDelivr edge CDN cache so mobile apps receive updates instantly
-            echo "Purging jsDelivr edge cache for audio catalog..."
+            echo "Purging jsDelivr edge cache for manifests..."
             curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/audio/catalog.json" || true
-            echo "Audio catalog in releases/ successfully synced and pushed!" >> $GITHUB_STEP_SUMMARY
+            curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/articles/wftw_manifest.json" || true
+            
+            echo "Audio and articles in releases/ successfully synced and pushed!" >> $GITHUB_STEP_SUMMARY
           else
             cd ..
-            echo "No audio catalog changes detected. Everything is up to date."
-            echo "Audio catalog in releases/ is up to date. Zero changes." >> $GITHUB_STEP_SUMMARY
+            echo "No data changes detected. Everything is up to date."
+            echo "Data in releases/ is up to date. Zero changes." >> $GITHUB_STEP_SUMMARY
           fi

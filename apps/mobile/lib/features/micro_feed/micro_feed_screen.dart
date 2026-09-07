@@ -162,6 +162,12 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
           }
         }
       }
+    } else {
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+      _currentPage = 0;
+      _initializeAndLoad();
     }
   }
 

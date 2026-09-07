@@ -25,6 +25,7 @@ import 'features/downloads/screens/downloads_manager_screen.dart';
 import 'features/audio/screens/audio_library_screen.dart';
 import 'features/audio/screens/audio_series_screen.dart';
 import 'features/audio/models/audio_series.dart';
+import 'features/articles/screens/article_reader_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'layout/main_layout_screen.dart';
 
@@ -226,6 +227,18 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               initialPage: page,
               highlightStartLine: startLine,
               highlightEndLine: endLine,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/article/:id',
+          builder: (context, state) {
+            final articleId = state.pathParameters['id'] ?? '';
+            final extra = state.extra;
+            final extraMap = extra is Map<String, dynamic> ? extra : null;
+            return ArticleReaderScreen(
+              articleId: articleId,
+              initialTitle: extraMap?['title'] as String?,
             );
           },
         ),

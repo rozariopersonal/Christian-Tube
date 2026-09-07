@@ -20,7 +20,7 @@ class ParsedScriptureRef {
 
 class ScriptureRefParser {
   static final RegExp scriptureRegex = RegExp(
-    r'(?:^|\s)(?:([123]\s*)?[\p{L}\p{M}]{2,30}(?:\s+(?:of|இராஜாக்கள்|சாமுவேல்|நாளாகமம்|கொரிந்தியர்|தெசலோனிக்கேயர்|தீமோத்தேயு|பேதுரு|யோவான்)\s+[\p{L}\p{M}]{2,30})?\.?)\s+(\d+)[:\.](\d+)(?:[-–](\d+))?(?:\s|$|[,\.;:!?\)])',
+    r'(?:^|\s)(?:([123]\s*)?[\p{L}\p{M}]{2,30}(?:\s+(?:of|இராஜாக்கள்|சாமுவேல்|நாளாகமம்|கொரிந்தியர்|தெசலோனிக்கேயர்|தீமோத்தேயு|பேதுரு|யோவான்)\s+[\p{L}\p{M}]{2,30})?\.?)\s+(\d+)[:\.](\d+(?:[-–]\d+)?(?:,\s*\d+(?:[-–]\d+)?)*)(?:\s|$|[;\.!?\)])',
     unicode: true,
   );
 
@@ -179,18 +179,24 @@ class ScriptureRefParser {
     final chapterPart = beforeColon.substring(lastSpace + 1).trim();
     final chapter = int.tryParse(chapterPart) ?? 1;
 
+    // Clean trailing punctuation
+    final cleanAfter = afterColon.replaceAll(RegExp(r'[;\.!?\)]+$'), '').trim();
+
     int startVerse = 1;
     int? endVerse;
 
-    if (afterColon.contains('-') || afterColon.contains('–')) {
-      final dash = afterColon.contains('-') ? '-' : '–';
-      final parts = afterColon.split(dash);
+    // Handle comma-separated verses e.g. "1, 4" or "1-4, 9"
+    final primaryChunk = cleanAfter.split(',').first.trim();
+
+    if (primaryChunk.contains('-') || primaryChunk.contains('–')) {
+      final dash = primaryChunk.contains('-') ? '-' : '–';
+      final parts = primaryChunk.split(dash);
       startVerse = int.tryParse(parts[0].trim()) ?? 1;
       if (parts.length > 1) {
         endVerse = int.tryParse(parts[1].trim());
       }
     } else {
-      startVerse = int.tryParse(afterColon) ?? 1;
+      startVerse = int.tryParse(primaryChunk) ?? 1;
     }
 
     final bookNum = _abbrevToBookNum[bookPart];

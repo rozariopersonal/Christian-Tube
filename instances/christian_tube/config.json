@@ -29,7 +29,7 @@
   ],
   "microFeed": {
     "enabled": true,
-    "engine": "scripture",
+    "engine": "wftw",
     "tabTitle": "Words",
     "tabIcon": "auto_awesome_outlined",
     "endpoint": "/micro-feeds",
