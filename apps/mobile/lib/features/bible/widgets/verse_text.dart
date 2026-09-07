@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../features/engines/scripture/models/scripture_theme_state.dart';
 import '../models/bible_verse.dart';
 import '../../../shared/services/reader_appearance.dart';
 
@@ -94,7 +95,7 @@ class _VerseTextState extends State<VerseText> {
   Widget _buildContent(BuildContext context, ThemeData theme) {
     final tokens = context.tokens;
     final app = widget.appearance;
-    final fontFamily = app.useSerifFont ? 'serif' : null;
+    final fontFamily = ScriptureThemeCatalog.resolveFontFamily(app.fontFamily, app.languageCode);
     
     return Text.rich(
       TextSpan(

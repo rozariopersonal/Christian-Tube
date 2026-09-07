@@ -348,6 +348,118 @@ class ScriptureThemeCatalog {
     }
   }
 
+  /// Resolves a logical [fontFamily] id to the concrete Google Fonts family
+  /// name for [languageCode], mirroring [getTextStyle]:
+  /// - per-language ids map to that family, unknown ids fall back to the
+  ///   language's default serif;
+  /// - English ids map to the Latin family, unknown ids yield `null` so the
+  ///   theme font applies.
+  ///
+  /// Unlike [getTextStyle] this never touches Google Fonts runtime loading, so
+  /// it is safe to call synchronously from pure span/paragraph builders (and
+  /// in widget-free unit tests). The returned name resolves at paint time
+  /// because the same family is registered app-wide via the theme text theme.
+  static String? resolveFontFamily(String fontFamily, String? languageCode) {
+    switch (normalizeLanguageCode(languageCode)) {
+      case 'tam':
+        switch (fontFamily) {
+          case 'MuktaMalar':
+            return 'Mukta Malar';
+          case 'Catamaran':
+            return 'Catamaran';
+          case 'Kavivanar':
+            return 'Kavivanar';
+          case 'ArimaMadurai':
+            return 'Arima';
+          case 'Coiny':
+            return 'Coiny';
+          case 'NotoSerifTamil':
+          default:
+            return 'Noto Serif Tamil';
+        }
+      case 'mal':
+        switch (fontFamily) {
+          case 'Gayathri':
+            return 'Gayathri';
+          case 'Manjari':
+            return 'Manjari';
+          case 'Chilanka':
+            return 'Chilanka';
+          case 'AnekMalayalam':
+            return 'Anek Malayalam';
+          case 'NotoSerifMalayalam':
+          default:
+            return 'Noto Serif Malayalam';
+        }
+      case 'tel':
+        switch (fontFamily) {
+          case 'Mandali':
+            return 'Mandali';
+          case 'Ramabhadra':
+            return 'Ramabhadra';
+          case 'Gidugu':
+            return 'Gidugu';
+          case 'Suranna':
+            return 'Suranna';
+          case 'AnekTelugu':
+            return 'Anek Telugu';
+          case 'NotoSerifTelugu':
+          default:
+            return 'Noto Serif Telugu';
+        }
+      case 'hin':
+        switch (fontFamily) {
+          case 'RozhaOne':
+            return 'Rozha One';
+          case 'YatraOne':
+            return 'Yatra One';
+          case 'Kalam':
+            return 'Kalam';
+          case 'Poppins':
+            return 'Poppins';
+          case 'AnekDevanagari':
+            return 'Anek Devanagari';
+          case 'NotoSerifDevanagari':
+          default:
+            return 'Noto Serif Devanagari';
+        }
+      case 'kan':
+        switch (fontFamily) {
+          case 'BalooTamma2':
+            return 'Baloo Tamma 2';
+          case 'Hubballi':
+            return 'Hubballi';
+          case 'AnekKannada':
+            return 'Anek Kannada';
+          case 'NotoSerifKannada':
+          default:
+            return 'Noto Serif Kannada';
+        }
+      case 'en':
+      default:
+        switch (fontFamily) {
+          case 'Cinzel':
+            return 'Cinzel';
+          case 'Cormorant':
+            return 'Cormorant Garamond';
+          case 'Outfit':
+            return 'Outfit';
+          case 'Lora':
+            return 'Lora';
+          case 'Merriweather':
+            return 'Merriweather';
+          case 'GreatVibes':
+            return 'Great Vibes';
+          case 'Montserrat':
+            return 'Montserrat';
+          case 'Playfair':
+            return 'Playfair Display';
+          default:
+            return null;
+        }
+    }
+  }
+
   // Curated Text Color Palette
   static const List<ScriptureColorOption> colorPalette = [
     ScriptureColorOption(

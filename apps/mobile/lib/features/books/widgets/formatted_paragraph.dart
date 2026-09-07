@@ -3,6 +3,7 @@ import 'package:flutter/painting.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
+import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
 
 /// Builds the `InlineSpan` tree for a single paragraph of book text.
@@ -30,11 +31,15 @@ class FormattedParagraphBuilder {
     List<BookHighlight> highlights, {
     required TapGestureRecognizer Function(ParsedScriptureRef? parsed, String refText) makeRecognizer,
   }) {
+    final fontFamily = ScriptureThemeCatalog.resolveFontFamily(
+      appearance.fontFamily,
+      appearance.languageCode,
+    );
     final matches = ScriptureRefParser.scriptureRegex.allMatches(pageText).toList();
 
     if (matches.isEmpty) {
       final spans = <InlineSpan>[];
-      _appendSpansWithHighlights(spans, pageText, textColor, appearance, highlights);
+      _appendSpansWithHighlights(spans, pageText, textColor, fontFamily, appearance, highlights);
       return spans;
     }
 
@@ -44,7 +49,7 @@ class FormattedParagraphBuilder {
     for (final match in matches) {
       if (match.start > lastMatchEnd) {
         final chunk = pageText.substring(lastMatchEnd, match.start);
-        _appendSpansWithHighlights(spans, chunk, textColor, appearance, highlights);
+        _appendSpansWithHighlights(spans, chunk, textColor, fontFamily, appearance, highlights);
       }
 
       final refText = match.group(0)!;
@@ -59,7 +64,7 @@ class FormattedParagraphBuilder {
           decorationColor: tokens.accent.withValues(alpha: 0.6),
           fontSize: appearance.fontSize,
           height: appearance.lineHeight,
-          fontFamily: appearance.useSerifFont ? 'serif' : null,
+          fontFamily: fontFamily,
         ),
         recognizer: makeRecognizer(parsed, refText),
       ));
@@ -69,7 +74,7 @@ class FormattedParagraphBuilder {
 
     if (lastMatchEnd < pageText.length) {
       final chunk = pageText.substring(lastMatchEnd);
-      _appendSpansWithHighlights(spans, chunk, textColor, appearance, highlights);
+      _appendSpansWithHighlights(spans, chunk, textColor, fontFamily, appearance, highlights);
     }
 
     return spans;
@@ -79,6 +84,7 @@ class FormattedParagraphBuilder {
     List<InlineSpan> spans,
     String text,
     Color textColor,
+    String? fontFamily,
     ReaderAppearance appearance,
     List<BookHighlight> highlights,
   ) {
@@ -86,7 +92,7 @@ class FormattedParagraphBuilder {
       color: textColor,
       fontSize: appearance.fontSize,
       height: appearance.lineHeight,
-      fontFamily: appearance.useSerifFont ? 'serif' : null,
+      fontFamily: fontFamily,
     );
 
     if (highlights.isEmpty) {

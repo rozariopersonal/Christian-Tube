@@ -5,6 +5,7 @@ import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
+import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'formatted_paragraph.dart';
@@ -107,6 +108,10 @@ class BookBlockWidget extends StatelessWidget {
         highlightEndLine != null &&
         block.startLine <= highlightEndLine! &&
         block.endLine >= highlightStartLine!;
+    final fontFamily = ScriptureThemeCatalog.resolveFontFamily(
+      appearance.fontFamily,
+      appearance.languageCode,
+    );
 
     Widget content;
 
@@ -160,7 +165,7 @@ class BookBlockWidget extends StatelessWidget {
                   fontSize: (appearance.fontSize + 6).clamp(18.0, 32.0),
                   fontWeight: FontWeight.bold,
                   height: 1.25,
-                  fontFamily: appearance.useSerifFont ? 'serif' : null,
+                  fontFamily: fontFamily,
                 ),
               ),
               const SizedBox(height: 12),
@@ -187,7 +192,7 @@ class BookBlockWidget extends StatelessWidget {
               fontSize: (appearance.fontSize + 3.0).clamp(16.0, 26.0),
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
-              fontFamily: appearance.useSerifFont ? 'serif' : null,
+              fontFamily: fontFamily,
             ),
           ),
         );
@@ -203,7 +208,7 @@ class BookBlockWidget extends StatelessWidget {
               fontSize: (appearance.fontSize + 1.5).clamp(14.0, 22.0),
               fontWeight: FontWeight.w600,
               letterSpacing: 0.15,
-              fontFamily: appearance.useSerifFont ? 'serif' : null,
+              fontFamily: fontFamily,
             ),
           ),
         );
@@ -228,7 +233,7 @@ class BookBlockWidget extends StatelessWidget {
               fontStyle: FontStyle.italic,
               fontSize: appearance.fontSize,
               height: appearance.lineHeight,
-              fontFamily: appearance.useSerifFont ? 'serif' : null,
+              fontFamily: fontFamily,
             ),
           ),
         );
