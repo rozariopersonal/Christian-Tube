@@ -184,10 +184,12 @@ Widget _buildFontChip(
   ReaderAppearance appearance,
 ) {
   final tokens = context.tokens;
-  final previewStyle = ScriptureThemeCatalog.getTextStyle(
-    fontFamily: font.id,
-    languageCode: font.languageCode ?? appearance.languageCode,
-    baseSize: 15,
+  final previewStyle = TextStyle(
+    fontFamily: ScriptureThemeCatalog.resolveFontFamily(
+      font.id,
+      font.languageCode ?? appearance.languageCode,
+    ),
+    fontSize: 15,
     color: isSelected ? tokens.accent : tokens.onSurface,
     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
   );
