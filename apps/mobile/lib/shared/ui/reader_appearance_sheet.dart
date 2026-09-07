@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/core/layout/adaptivity.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
 
 /// Shows the reading-appearance sheet (theme, font family, font size) for readers.
@@ -106,49 +107,19 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
 
             Text('Font Family', style: TextStyle(color: mutedCol, fontSize: 12)),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: appearance.useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
-                      side: BorderSide(color: appearance.useSerifFont ? tokens.accent : borderCol),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () {
-                      setModalState(() => appearance.useSerifFont = true);
-                    },
-                    child: Text(
-                      'Serif (Book)',
-                      style: TextStyle(
-                        fontFamily: 'serif',
-                        color: appearance.useSerifFont ? tokens.accent : textCol,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: !appearance.useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
-                      side: BorderSide(color: !appearance.useSerifFont ? tokens.accent : borderCol),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () {
-                      setModalState(() => appearance.useSerifFont = false);
-                    },
-                    child: Text(
-                      'Sans-Serif',
-                      style: TextStyle(
-                        color: !appearance.useSerifFont ? tokens.accent : textCol,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            SizedBox(
+              height: 52,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: ScriptureThemeCatalog.getFontsForLanguage(appearance.languageCode).length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final fonts = ScriptureThemeCatalog.getFontsForLanguage(appearance.languageCode);
+                  final font = fonts[index];
+                  final isSelected = font.id == appearance.fontFamily;
+                  return _buildFontChip(context, font, isSelected, setModalState, appearance);
+                },
+              ),
             ),
             const SizedBox(height: 20),
 
@@ -203,4 +174,73 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
       ),
     );
   }
+}
+
+Widget _buildFontChip(
+  BuildContext context,
+  ScriptureFontOption font,
+  bool isSelected,
+  StateSetter setModalState,
+  ReaderAppearance appearance,
+) {
+  final tokens = context.tokens;
+  final previewStyle = ScriptureThemeCatalog.getTextStyle(
+    fontFamily: font.id,
+    languageCode: font.languageCode ?? appearance.languageCode,
+    baseSize: 15,
+    color: isSelected ? tokens.accent : tokens.onSurface,
+    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+  );
+
+  return GestureDetector(
+    onTap: () {
+      setModalState(() => appearance.fontFamily = font.id);
+    },
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isSelected ? tokens.accent.withValues(alpha: 0.22) : tokens.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isSelected ? tokens.accent : tokens.surfaceBorder,
+          width: isSelected ? 1.5 : 1.0,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: tokens.scrim.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isSelected
+                    ? tokens.accent.withValues(alpha: 0.5)
+                    : tokens.surfaceBorder,
+                width: 0.8,
+              ),
+            ),
+            child: Text(
+              font.sampleGlyph,
+              style: previewStyle.copyWith(
+                fontSize: 13,
+                height: 1.2,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            font.name,
+            style: TextStyle(
+              color: isSelected ? tokens.accent : tokens.onSurface,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

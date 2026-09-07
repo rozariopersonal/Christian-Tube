@@ -103,7 +103,7 @@ class ScriptureThemeCatalog {
   ];
 
   static List<ScriptureFontOption> getFontsForLanguage(String? languageCode) {
-    switch (languageCode) {
+    switch (normalizeLanguageCode(languageCode)) {
       case 'tam':
         return const [
           ScriptureFontOption(
@@ -324,6 +324,30 @@ class ScriptureThemeCatalog {
     return 'Playfair';
   }
 
+  /// Normalizes a locale/ISO language code so 2-letter (books catalog) and
+  /// 3-letter (bible catalog `languageCode`) forms resolve to the same set.
+  static String normalizeLanguageCode(String? languageCode) {
+    switch (languageCode?.trim().toLowerCase()) {
+      case 'ta':
+      case 'tam':
+        return 'tam';
+      case 'ml':
+      case 'mal':
+        return 'mal';
+      case 'te':
+      case 'tel':
+        return 'tel';
+      case 'hi':
+      case 'hin':
+        return 'hin';
+      case 'kn':
+      case 'kan':
+        return 'kan';
+      default:
+        return 'en';
+    }
+  }
+
   // Curated Text Color Palette
   static const List<ScriptureColorOption> colorPalette = [
     ScriptureColorOption(
@@ -494,8 +518,10 @@ class ScriptureThemeCatalog {
     FontStyle fontStyle = FontStyle.normal,
     Color color = Colors.white,
   }) {
+    final lang = normalizeLanguageCode(languageCode);
+
     // 1. Tamil Fonts
-    if (languageCode == 'tam') {
+    if (lang == 'tam') {
       switch (fontFamily) {
         case 'MuktaMalar':
           return GoogleFonts.muktaMalar(
@@ -550,7 +576,7 @@ class ScriptureThemeCatalog {
     }
 
     // 2. Malayalam Fonts
-    if (languageCode == 'mal') {
+    if (lang == 'mal') {
       switch (fontFamily) {
         case 'Gayathri':
           return GoogleFonts.gayathri(
@@ -597,7 +623,7 @@ class ScriptureThemeCatalog {
     }
 
     // 3. Telugu Fonts
-    if (languageCode == 'tel') {
+    if (lang == 'tel') {
       switch (fontFamily) {
         case 'Mandali':
           return GoogleFonts.mandali(
@@ -652,7 +678,7 @@ class ScriptureThemeCatalog {
     }
 
     // 4. Hindi (Devanagari) Fonts
-    if (languageCode == 'hin') {
+    if (lang == 'hin') {
       switch (fontFamily) {
         case 'RozhaOne':
           return GoogleFonts.rozhaOne(
@@ -707,7 +733,7 @@ class ScriptureThemeCatalog {
     }
 
     // 5. Kannada Fonts
-    if (languageCode == 'kan') {
+    if (lang == 'kan') {
       switch (fontFamily) {
         case 'BalooTamma2':
           return GoogleFonts.balooTamma2(

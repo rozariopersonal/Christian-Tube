@@ -4,6 +4,7 @@ import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book.dart';
 import 'package:mobile/features/books/models/book_chapter.dart';
 import 'package:mobile/features/books/models/book_line.dart';
+import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/features/books/services/book_service.dart';
 import 'package:mobile/features/books/services/page_loader.dart';
@@ -239,12 +240,35 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test('defaults are serif, 17pt, system theme, 1.65 line height', () {
+test('defaults are Playfair, 17pt, system theme, 1.65 line height', () {
       final a = ReaderAppearance();
-      expect(a.useSerifFont, isTrue);
+      expect(a.fontFamily, 'Playfair');
       expect(a.fontSize, 17.0);
       expect(a.themeMode, ReaderThemeMode.system);
       expect(a.lineHeight, 1.65);
+    });
+
+    test('fontFamily setter persists and notifies', () async {
+      final a = ReaderAppearance();
+      var fired = 0;
+      a.addListener(() => fired++);
+      a.fontFamily = 'Cinzel';
+      expect(a.fontFamily, 'Cinzel');
+      expect(fired, 1);
+      await Future<void>.delayed(Duration.zero);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('book_reader_font_family'), 'Cinzel');
+    });
+
+    test('useSerifFont compat getter maps to serif families', () {
+      final a = ReaderAppearance();
+      expect(a.useSerifFont, isTrue);
+      a.useSerifFont = false;
+      expect(a.fontFamily, 'Outfit');
+      expect(a.useSerifFont, isFalse);
+      a.useSerifFont = true;
+      expect(a.fontFamily, 'Playfair');
+      expect(a.useSerifFont, isTrue);
     });
 
     test('fontSize setter bounds within 14..26', () {
@@ -265,18 +289,20 @@ void main() {
       expect(a.lineHeight, 2.0);
     });
 
-    test('theme colors map correctly', () {
-      final a = ReaderAppearance()..themeMode = ReaderThemeMode.sepia;
-      expect(a.background(tokensDark), const Color(0xFFFBF0D9));
-      expect(a.textColor(tokensDark), const Color(0xFF3B2F2F));
-
-      a.themeMode = ReaderThemeMode.amoled;
-      expect(a.background(tokensDark), const Color(0xFF000000));
-      expect(a.textColor(tokensDark), const Color(0xFFFFFFFF));
-
-      a.themeMode = ReaderThemeMode.system;
+    test('theme colors map correctly to app tokens', () {
+      final a = ReaderAppearance();
       expect(a.background(tokensLight), tokensLight.background);
+      expect(a.background(tokensDark), tokensDark.background);
+      expect(a.textColor(tokensLight), tokensLight.onSurface);
       expect(a.textColor(tokensDark), tokensDark.onSurface);
+      expect(a.surface(tokensLight), tokensLight.surface);
+      expect(a.surface(tokensDark), tokensDark.surface);
+      expect(a.surfaceBorder(tokensLight), tokensLight.surfaceBorder);
+      expect(a.surfaceBorder(tokensDark), tokensDark.surfaceBorder);
+      expect(a.surfaceVariant(tokensLight), tokensLight.surfaceVariant);
+      expect(a.surfaceVariant(tokensDark), tokensDark.surfaceVariant);
+      expect(a.mutedTextColor(tokensLight), tokensLight.onSurfaceMuted);
+      expect(a.mutedTextColor(tokensDark), tokensDark.onSurfaceMuted);
     });
 
     test('highlight colors map by index', () {
@@ -287,71 +313,60 @@ void main() {
       expect(ReaderAppearance.highlightColorByIndex(9), const Color(0xFFFFD54F));
     });
 
-    test('loadFromPrefs reads persisted values', () async {
+test('loadFromPrefs reads persisted values and ignores legacy theme override', () async {
       SharedPreferences.setMockInitialValues({
         'book_reader_font_size': 20.0,
-        'book_reader_serif': false,
+        'book_reader_font_family': 'Lora',
         'book_reader_theme_mode': 'sepia',
         'book_reader_line_height': 1.9,
       });
       final a = ReaderAppearance();
       await a.loadFromPrefs();
       expect(a.fontSize, 20.0);
-      expect(a.useSerifFont, isFalse);
-      expect(a.themeMode, ReaderThemeMode.sepia);
+      expect(a.fontFamily, 'Lora');
       expect(a.lineHeight, 1.9);
+      // Legacy theme mode override was removed from prefs so app theme takes precedence
+      expect(a.usesSystemTheme, isTrue);
+    });
+
+    test('loadFromPrefs migrates legacy serif boolean when no font family key', () async {
+      SharedPreferences.setMockInitialValues({
+        'book_reader_serif': false,
+      });
+      final a = ReaderAppearance();
+      await a.loadFromPrefs();
+      expect(a.fontFamily, 'Outfit');
+
+      SharedPreferences.setMockInitialValues({
+        'book_reader_serif': true,
+      });
+      final b = ReaderAppearance();
+      await b.loadFromPrefs();
+      expect(b.fontFamily, 'Playfair');
     });
 
     test('mutating a setting notifies listeners', () {
       final a = ReaderAppearance();
       var fired = 0;
       a.addListener(() => fired++);
-      a.fontSize = 18;
-      a.useSerifFont = false;
+a.fontSize = 18;
+      a.fontFamily = 'Outfit';
       a.lineHeight = 2.0;
       a.themeMode = ReaderThemeMode.dark;
       // 4 changes, but each setter notifies exactly once
       expect(fired, 4);
     });
 
-    test('isDark evaluates properly across all modes and system tokens', () {
+    test('isDark evaluates properly from system tokens', () {
       final a = ReaderAppearance();
-      expect(a.themeMode, ReaderThemeMode.system);
       expect(a.isDark(AppTokens.light), isFalse);
-      expect(a.isDark(AppTokens.dark), isTrue);
-
-      a.themeMode = ReaderThemeMode.paper;
-      expect(a.isDark(AppTokens.light), isFalse);
-      expect(a.isDark(AppTokens.dark), isFalse);
-
-      a.themeMode = ReaderThemeMode.sepia;
-      expect(a.isDark(AppTokens.light), isFalse);
-      expect(a.isDark(AppTokens.dark), isFalse);
-
-      a.themeMode = ReaderThemeMode.dark;
-      expect(a.isDark(AppTokens.light), isTrue);
-      expect(a.isDark(AppTokens.dark), isTrue);
-
-      a.themeMode = ReaderThemeMode.amoled;
-      expect(a.isDark(AppTokens.light), isTrue);
       expect(a.isDark(AppTokens.dark), isTrue);
     });
 
     test('surface and surfaceBorder return appropriate theme colors', () {
       final a = ReaderAppearance();
-      a.themeMode = ReaderThemeMode.paper;
-      expect(a.surface(AppTokens.light), const Color(0xFFFFFFFF));
-      expect(a.surfaceBorder(AppTokens.light), const Color(0x1F000000));
-
-      a.themeMode = ReaderThemeMode.dark;
-      expect(a.surface(AppTokens.light), const Color(0xFF282B37));
-      expect(a.surfaceBorder(AppTokens.light), const Color(0x1FFFFFFF));
-
-      a.themeMode = ReaderThemeMode.amoled;
-      expect(a.surface(AppTokens.light), const Color(0xFF121212));
-      expect(a.surfaceBorder(AppTokens.light), const Color(0x26FFFFFF));
-
-      a.themeMode = ReaderThemeMode.system;
+      expect(a.surface(AppTokens.light), AppTokens.light.surface);
+      expect(a.surfaceBorder(AppTokens.light), AppTokens.light.surfaceBorder);
       expect(a.surface(AppTokens.dark), AppTokens.dark.surface);
       expect(a.surfaceBorder(AppTokens.dark), AppTokens.dark.surfaceBorder);
     });
@@ -388,9 +403,28 @@ void main() {
         onScrimMuted: Colors.white70,
         isDark: true,
       );
-      expect(a.isDark(amoledTokens), isTrue);
+expect(a.isDark(amoledTokens), isTrue);
       expect(a.background(amoledTokens), Colors.black);
       expect(a.surface(amoledTokens), const Color(0xFF121212));
+    });
+  });
+
+  group('ScriptureThemeCatalog language normalization', () {
+    test('normalizeLanguageCode maps 2-letter and 3-letter codes', () {
+      expect(ScriptureThemeCatalog.normalizeLanguageCode('ta'), 'tam');
+      expect(ScriptureThemeCatalog.normalizeLanguageCode('TAM'), 'tam');
+      expect(ScriptureThemeCatalog.normalizeLanguageCode('ml'), 'mal');
+      expect(ScriptureThemeCatalog.normalizeLanguageCode('te'), 'tel');
+      expect(ScriptureThemeCatalog.normalizeLanguageCode('hi'), 'hin');
+      expect(ScriptureThemeCatalog.normalizeLanguageCode('kn'), 'kan');
+      expect(ScriptureThemeCatalog.normalizeLanguageCode('en'), 'en');
+      expect(ScriptureThemeCatalog.normalizeLanguageCode('de'), 'en');
+      expect(ScriptureThemeCatalog.normalizeLanguageCode(null), 'en');
+    });
+
+    test('getFontsForLanguage resolves Tamil fonts for 2-letter ta code', () {
+      final fonts = ScriptureThemeCatalog.getFontsForLanguage('ta');
+      expect(fonts.first.id, 'MuktaMalar');
     });
   });
 }

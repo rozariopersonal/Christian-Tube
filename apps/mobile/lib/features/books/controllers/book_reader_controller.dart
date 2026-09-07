@@ -202,6 +202,10 @@ class BookReaderController extends ChangeNotifier {
     final chapters = await _bookService.getChapters(_bookId);
     if (_disposed) return;
 
+    if (book.language.isNotEmpty && appearance.languageCode != book.language) {
+      appearance.languageCode = book.language;
+    }
+
     // Resolve initial position: explicit target wins, else restore saved progress.
     var initialPage = _state.currentPage;
     var initialLine = _requestedStartLine ?? 1;

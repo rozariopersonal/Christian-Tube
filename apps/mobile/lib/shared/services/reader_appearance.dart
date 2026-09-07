@@ -18,6 +18,7 @@ enum ReaderThemeMode { system, paper, sepia, dark, amoled }
 class ReaderAppearance extends ChangeNotifier {
   static const String prefFontSize = 'book_reader_font_size';
   static const String prefSerif = 'book_reader_serif';
+  static const String prefFontFamily = 'book_reader_font_family';
   static const String prefThemeMode = 'book_reader_theme_mode';
   static const String prefLineHeight = 'book_reader_line_height';
 
@@ -25,18 +26,28 @@ class ReaderAppearance extends ChangeNotifier {
   static const double _maxFontSize = 26.0;
 
   double _fontSize = 17.0;
-  bool _useSerifFont = true;
+  String _fontFamily = 'Playfair';
   ReaderThemeMode _themeMode = ReaderThemeMode.system;
   double _lineHeight = 1.65;
+  String _languageCode = 'en';
 
   double get fontSize => _fontSize;
-  bool get useSerifFont => _useSerifFont;
+  String get fontFamily => _fontFamily;
   ReaderThemeMode get themeMode => _themeMode;
   double get lineHeight => _lineHeight;
   double get minFontSize => _minFontSize;
   double get maxFontSize => _maxFontSize;
+  String get languageCode => _languageCode;
 
   bool get usesSystemTheme => _themeMode == ReaderThemeMode.system;
+
+  bool get useSerifFont => _fontFamily == 'Playfair' || _fontFamily == 'serif';
+
+  set useSerifFont(bool value) {
+    _fontFamily = value ? 'Playfair' : 'Outfit';
+    notifyListeners();
+    unawaited(_saveString(prefFontFamily, _fontFamily));
+  }
 
   set fontSize(double value) {
     if (value < _minFontSize || value > _maxFontSize) return;
@@ -45,16 +56,20 @@ class ReaderAppearance extends ChangeNotifier {
     unawaited(_saveDouble(prefFontSize, value));
   }
 
-  set useSerifFont(bool value) {
-    _useSerifFont = value;
+  set fontFamily(String value) {
+    _fontFamily = value;
     notifyListeners();
-    unawaited(_saveBool(prefSerif, value));
+    unawaited(_saveString(prefFontFamily, value));
+  }
+
+  set languageCode(String value) {
+    _languageCode = value;
+    notifyListeners();
   }
 
   set themeMode(ReaderThemeMode value) {
     _themeMode = value;
     notifyListeners();
-    unawaited(_saveThemeMode());
   }
 
   set lineHeight(double value) {
@@ -67,32 +82,30 @@ class ReaderAppearance extends ChangeNotifier {
   Future<void> loadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Remove any legacy theme mode override so readers always follow the app theme
+      if (prefs.containsKey(prefThemeMode)) {
+        await prefs.remove(prefThemeMode);
+      }
+
       final savedSize = prefs.getDouble(prefFontSize);
       if (savedSize != null && savedSize >= _minFontSize && savedSize <= _maxFontSize) {
         _fontSize = savedSize;
       }
-      final savedSerif = prefs.getBool(prefSerif);
-      if (savedSerif != null) {
-        _useSerifFont = savedSerif;
+
+      final savedFontFamily = prefs.getString(prefFontFamily);
+      if (savedFontFamily != null && savedFontFamily.isNotEmpty) {
+        _fontFamily = savedFontFamily;
+      } else {
+        final savedSerif = prefs.getBool(prefSerif);
+        if (savedSerif != null) {
+          _fontFamily = savedSerif ? 'Playfair' : 'Outfit';
+        }
       }
-      final savedTheme = prefs.getString(prefThemeMode);
-      if (savedTheme != null) {
-        _themeMode = ReaderThemeMode.values.firstWhere(
-          (m) => m.name == savedTheme,
-          orElse: () => ReaderThemeMode.system,
-        );
-      }
+
       final savedLineHeight = prefs.getDouble(prefLineHeight);
       if (savedLineHeight != null && savedLineHeight >= 1.0 && savedLineHeight <= 2.5) {
         _lineHeight = savedLineHeight;
       }
-    } catch (_) {}
-  }
-
-  Future<void> _saveThemeMode() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(prefThemeMode, _themeMode.name);
     } catch (_) {}
   }
 
@@ -103,115 +116,26 @@ class ReaderAppearance extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> _saveBool(String key, bool value) async {
+  Future<void> _saveString(String key, String value) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(key, value);
+      await prefs.setString(key, value);
     } catch (_) {}
   }
 
-  bool isDark(AppTokens tokens) {
-    switch (_themeMode) {
-      case ReaderThemeMode.paper:
-      case ReaderThemeMode.sepia:
-        return false;
-      case ReaderThemeMode.dark:
-      case ReaderThemeMode.amoled:
-        return true;
-      case ReaderThemeMode.system:
-        return tokens.isDark;
-    }
-  }
+  bool isDark(AppTokens tokens) => tokens.isDark;
 
-  Color background(AppTokens tokens) {
-    switch (_themeMode) {
-      case ReaderThemeMode.paper:
-        return const Color(0xFFFAF9F6);
-      case ReaderThemeMode.sepia:
-        return const Color(0xFFFBF0D9);
-      case ReaderThemeMode.dark:
-        return const Color(0xFF1E212B);
-      case ReaderThemeMode.amoled:
-        return const Color(0xFF000000);
-      case ReaderThemeMode.system:
-        return tokens.background;
-    }
-  }
+  Color background(AppTokens tokens) => tokens.background;
 
-  Color surface(AppTokens tokens) {
-    switch (_themeMode) {
-      case ReaderThemeMode.paper:
-        return const Color(0xFFFFFFFF);
-      case ReaderThemeMode.sepia:
-        return const Color(0xFFF5E8CE);
-      case ReaderThemeMode.dark:
-        return const Color(0xFF282B37);
-      case ReaderThemeMode.amoled:
-        return const Color(0xFF121212);
-      case ReaderThemeMode.system:
-        return tokens.surface;
-    }
-  }
+  Color surface(AppTokens tokens) => tokens.surface;
 
-  Color surfaceVariant(AppTokens tokens) {
-    switch (_themeMode) {
-      case ReaderThemeMode.paper:
-        return const Color(0xFFF0EFEA);
-      case ReaderThemeMode.sepia:
-        return const Color(0xFFF0E4C9);
-      case ReaderThemeMode.dark:
-        return const Color(0xFF282B37);
-      case ReaderThemeMode.amoled:
-        return const Color(0xFF141414);
-      case ReaderThemeMode.system:
-        return tokens.surfaceVariant;
-    }
-  }
+  Color surfaceVariant(AppTokens tokens) => tokens.surfaceVariant;
 
-  Color surfaceBorder(AppTokens tokens) {
-    switch (_themeMode) {
-      case ReaderThemeMode.paper:
-        return const Color(0x1F000000);
-      case ReaderThemeMode.sepia:
-        return const Color(0x283B2F2F);
-      case ReaderThemeMode.dark:
-        return const Color(0x1FFFFFFF);
-      case ReaderThemeMode.amoled:
-        return const Color(0x26FFFFFF);
-      case ReaderThemeMode.system:
-        return tokens.surfaceBorder;
-    }
-  }
+  Color surfaceBorder(AppTokens tokens) => tokens.surfaceBorder;
 
-  Color textColor(AppTokens tokens) {
-    switch (_themeMode) {
-      case ReaderThemeMode.paper:
-        return const Color(0xFF1A1A1A);
-      case ReaderThemeMode.sepia:
-        return const Color(0xFF3B2F2F);
-      case ReaderThemeMode.dark:
-        return const Color(0xFFE6EDF3);
-      case ReaderThemeMode.amoled:
-        return const Color(0xFFFFFFFF);
-      case ReaderThemeMode.system:
-        return tokens.onSurface;
-    }
-  }
+  Color textColor(AppTokens tokens) => tokens.onSurface;
 
-  Color mutedTextColor(AppTokens tokens) {
-    switch (_themeMode) {
-      case ReaderThemeMode.paper:
-        return const Color(0xFF6B6860);
-      case ReaderThemeMode.sepia:
-        return const Color(0xFF7A685B);
-      case ReaderThemeMode.dark:
-        return const Color(0xFF9EA7B3);
-      case ReaderThemeMode.amoled:
-        return const Color(0xFFA0A0A0);
-      case ReaderThemeMode.system:
-        return tokens.onSurfaceMuted;
-    }
-  }
+  Color mutedTextColor(AppTokens tokens) => tokens.onSurfaceMuted;
 
   /// Maps a highlight [colorIndex] (0..3) to its rendered [Color].
   static Color highlightColorByIndex(int colorIndex) {

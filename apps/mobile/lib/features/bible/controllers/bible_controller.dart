@@ -362,6 +362,13 @@ class BibleController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _syncAppearanceLanguage() {
+    final lang = (_state.selectedVersion?.lang ?? '');
+    if (lang.isNotEmpty && appearance.languageCode != lang) {
+      appearance.languageCode = lang;
+    }
+  }
+
   Future<void> _checkCrossRefsInstalled() async {
     try {
       final installed = await _crossRefService.isInstalled();
@@ -500,6 +507,7 @@ class BibleController extends ChangeNotifier {
     _update((s) => s.copyWith(versions: versions, selectedVersion: selectedVersion));
     _applyInitialJump();
     _applySavedProgress();
+    _syncAppearanceLanguage();
   }
 
   Future<void> _loadCrossReferencesForChapter(int bookNumber, int chapter) async {
@@ -706,6 +714,7 @@ class BibleController extends ChangeNotifier {
     if (_state.selectedVersion?.shortname == version.shortname &&
         _stream != null) {
       _update((s) => s.copyWith(selectedVersion: version));
+      _syncAppearanceLanguage();
       return;
     }
     _scrollTarget = BibleScrollTarget(
@@ -718,6 +727,7 @@ class BibleController extends ChangeNotifier {
           selectedVersion: version,
           isLoading: true,
         ));
+    _syncAppearanceLanguage();
     await _loadChapter();
   }
 
