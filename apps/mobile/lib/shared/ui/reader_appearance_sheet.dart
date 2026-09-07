@@ -57,109 +57,50 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
             ),
             const SizedBox(height: 16),
 
-            // Quick Dark Mode toggle row
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: appearance.surfaceVariant(tokens),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: borderCol),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        appearance.isDark(tokens) ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                        size: 20,
-                        color: tokens.accent,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Dark Mode',
-                        style: TextStyle(
-                          color: textCol,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+                  Icon(
+                    tokens.isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                    size: 20,
+                    color: tokens.accent,
                   ),
-                  Switch.adaptive(
-                    value: appearance.isDark(tokens),
-                    activeTrackColor: tokens.accent,
-                    onChanged: (val) {
-                      setModalState(() {
-                        appearance.themeMode = val ? ReaderThemeMode.dark : ReaderThemeMode.paper;
-                      });
-                    },
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Theme',
+                          style: TextStyle(
+                            color: textCol,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          tokens.isDark
+                              ? (tokens.background == Colors.black
+                                  ? 'Pure OLED Black (from App Settings)'
+                                  : 'Dark Mode (from App Settings)')
+                              : 'Light Mode (from App Settings)',
+                          style: TextStyle(
+                            color: mutedCol,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 18),
-
-            Text('Theme Palette', style: TextStyle(color: mutedCol, fontSize: 12)),
-            const SizedBox(height: 8),
-            // Row 1: Light / Natural reading themes
-            Row(
-              children: [
-                _buildThemeChip(
-                  ctx,
-                  'System',
-                  ReaderThemeMode.system,
-                  tokens.surfaceVariant,
-                  tokens.onSurface,
-                  setModalState,
-                  appearance,
-                ),
-                const SizedBox(width: 8),
-                _buildThemeChip(
-                  ctx,
-                  'Paper',
-                  ReaderThemeMode.paper,
-                  const Color(0xFFFAF9F6),
-                  const Color(0xFF1A1A1A),
-                  setModalState,
-                  appearance,
-                ),
-                const SizedBox(width: 8),
-                _buildThemeChip(
-                  ctx,
-                  'Sepia',
-                  ReaderThemeMode.sepia,
-                  const Color(0xFFFBF0D9),
-                  const Color(0xFF3B2F2F),
-                  setModalState,
-                  appearance,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Row 2: Dark reading themes
-            Row(
-              children: [
-                _buildThemeChip(
-                  ctx,
-                  'Dark',
-                  ReaderThemeMode.dark,
-                  const Color(0xFF1E212B),
-                  const Color(0xFFE6EDF3),
-                  setModalState,
-                  appearance,
-                ),
-                const SizedBox(width: 8),
-                _buildThemeChip(
-                  ctx,
-                  'AMOLED',
-                  ReaderThemeMode.amoled,
-                  const Color(0xFF000000),
-                  const Color(0xFFFFFFFF),
-                  setModalState,
-                  appearance,
-                ),
-              ],
             ),
             const SizedBox(height: 20),
 
@@ -262,45 +203,4 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
       ),
     );
   }
-}
-
-Widget _buildThemeChip(
-  BuildContext context,
-  String label,
-  ReaderThemeMode mode,
-  Color bg,
-  Color text,
-  StateSetter setModalState,
-  ReaderAppearance appearance,
-) {
-  final tokens = context.tokens;
-  final isSelected = appearance.themeMode == mode;
-
-  return Expanded(
-    child: GestureDetector(
-      onTap: () {
-        setModalState(() => appearance.themeMode = mode);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? tokens.accent : appearance.surfaceBorder(tokens),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: text,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          ),
-        ),
-      ),
-    ),
-  );
 }

@@ -213,15 +213,6 @@ class ReaderAppearance extends ChangeNotifier {
     }
   }
 
-  /// Toggles between light (paper) and dark mode with one tap.
-  void toggleDarkMode(AppTokens tokens) {
-    if (isDark(tokens)) {
-      themeMode = ReaderThemeMode.paper;
-    } else {
-      themeMode = ReaderThemeMode.dark;
-    }
-  }
-
   /// Maps a highlight [colorIndex] (0..3) to its rendered [Color].
   static Color highlightColorByIndex(int colorIndex) {
     switch (colorIndex) {

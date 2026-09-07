@@ -44,7 +44,6 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
     final appearance = controller.appearance;
     final chapterTitle = controller.currentChapterTitle();
 
-    final isDark = appearance.isDark(tokens);
     final textCol = appearance.textColor(tokens);
     final mutedCol = appearance.mutedTextColor(tokens);
     final width = MediaQuery.sizeOf(context).width;
@@ -91,7 +90,7 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
         ],
       ),
-      actions: width < 380
+      actions: width < 360
           ? [
               IconButton(
                 icon: Icon(Icons.list_alt_rounded, color: mutedCol, size: 21),
@@ -103,28 +102,10 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
                 color: appearance.surface(tokens),
                 tooltip: 'More options',
                 onSelected: (val) {
-                  if (val == 'toggle_dark') appearance.toggleDarkMode(tokens);
                   if (val == 'highlights') onOpenHighlights();
                   if (val == 'appearance') onShowAppearance();
                 },
                 itemBuilder: (ctx) => [
-                  PopupMenuItem(
-                    value: 'toggle_dark',
-                    child: Row(
-                      children: [
-                        Icon(
-                          isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                          color: tokens.accent,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-                          style: TextStyle(color: textCol),
-                        ),
-                      ],
-                    ),
-                  ),
                   PopupMenuItem(
                     value: 'highlights',
                     child: Row(
@@ -149,15 +130,6 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ]
           : [
-              IconButton(
-                icon: Icon(
-                  isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                  color: textCol,
-                  size: 21,
-                ),
-                tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-                onPressed: () => appearance.toggleDarkMode(tokens),
-              ),
               IconButton(
                 icon: Icon(Icons.edit_note_rounded, color: tokens.accent, size: 22),
                 tooltip: 'Highlights & Notes',

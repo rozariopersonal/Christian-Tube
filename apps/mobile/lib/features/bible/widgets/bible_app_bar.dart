@@ -32,8 +32,6 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
     final s = controller.state;
     final tokens = context.tokens;
     final appearance = controller.appearance;
-    final isDark = appearance.isDark(tokens);
-    final width = MediaQuery.sizeOf(context).width;
 
     return AppBar(
       backgroundColor: appearance.background(tokens),
@@ -64,15 +62,6 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
           icon: Icon(Icons.search, color: appearance.textColor(tokens)),
           onPressed: onShowSearch,
         ),
-        if (width >= 360)
-          IconButton(
-            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            icon: Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              color: appearance.textColor(tokens),
-            ),
-            onPressed: () => appearance.toggleDarkMode(tokens),
-          ),
         IconButton(
           tooltip: 'Appearance Settings',
           icon: Text(
@@ -88,8 +77,6 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
         _MoreMenu(
           appearance: appearance,
           tokens: tokens,
-          isDark: isDark,
-          onToggleDarkMode: () => appearance.toggleDarkMode(tokens),
           onDownloads: onPushManager,
           onBooks: () => Navigator.push(
             context,
@@ -192,8 +179,6 @@ class _MoreMenu extends StatelessWidget {
   const _MoreMenu({
     required this.appearance,
     required this.tokens,
-    required this.isDark,
-    required this.onToggleDarkMode,
     required this.onDownloads,
     required this.onBooks,
     required this.onBookmarks,
@@ -202,8 +187,6 @@ class _MoreMenu extends StatelessWidget {
 
   final ReaderAppearance appearance;
   final AppTokens tokens;
-  final bool isDark;
-  final VoidCallback onToggleDarkMode;
   final VoidCallback onDownloads;
   final VoidCallback onBooks;
   final VoidCallback onBookmarks;
@@ -217,8 +200,6 @@ class _MoreMenu extends StatelessWidget {
       color: appearance.surface(tokens),
       onSelected: (value) {
         switch (value) {
-          case 'toggle_dark':
-            onToggleDarkMode();
           case 'books':
             onBooks();
           case 'downloads':
@@ -230,23 +211,6 @@ class _MoreMenu extends StatelessWidget {
         }
       },
       itemBuilder: (ctx) => [
-        PopupMenuItem(
-          value: 'toggle_dark',
-          child: Row(
-            children: [
-              Icon(
-                isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                size: 18,
-                color: tokens.accent,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-                style: TextStyle(color: appearance.textColor(tokens)),
-              ),
-            ],
-          ),
-        ),
         PopupMenuItem(
           value: 'downloads',
           child: Row(

@@ -356,18 +356,41 @@ void main() {
       expect(a.surfaceBorder(AppTokens.dark), AppTokens.dark.surfaceBorder);
     });
 
-    test('toggleDarkMode toggles between dark and paper modes', () {
+    test('system theme matches app settings tokens', () {
       final a = ReaderAppearance();
-      a.themeMode = ReaderThemeMode.paper;
-      expect(a.isDark(AppTokens.light), isFalse);
+      expect(a.themeMode, ReaderThemeMode.system);
 
-      a.toggleDarkMode(AppTokens.light);
-      expect(a.themeMode, ReaderThemeMode.dark);
-      expect(a.isDark(AppTokens.light), isTrue);
-
-      a.toggleDarkMode(AppTokens.light);
-      expect(a.themeMode, ReaderThemeMode.paper);
+      // Light app theme
       expect(a.isDark(AppTokens.light), isFalse);
+      expect(a.background(AppTokens.light), AppTokens.light.background);
+      expect(a.surface(AppTokens.light), AppTokens.light.surface);
+      expect(a.textColor(AppTokens.light), AppTokens.light.onSurface);
+
+      // Dark app theme
+      expect(a.isDark(AppTokens.dark), isTrue);
+      expect(a.background(AppTokens.dark), AppTokens.dark.background);
+      expect(a.surface(AppTokens.dark), AppTokens.dark.surface);
+      expect(a.textColor(AppTokens.dark), AppTokens.dark.onSurface);
+
+      // AMOLED app theme
+      const amoledTokens = AppTokens(
+        background: Colors.black,
+        surface: Color(0xFF121212),
+        surfaceVariant: Color(0xFF141414),
+        surfaceElevated: Color(0xFF1E293B),
+        surfaceBorder: Colors.white12,
+        onSurface: Colors.white,
+        onSurfaceMuted: Colors.white60,
+        onSurfaceDisabled: Colors.white38,
+        accent: Color(0xFFF59E0B),
+        scrim: Colors.black,
+        onScrim: Colors.white,
+        onScrimMuted: Colors.white70,
+        isDark: true,
+      );
+      expect(a.isDark(amoledTokens), isTrue);
+      expect(a.background(amoledTokens), Colors.black);
+      expect(a.surface(amoledTokens), const Color(0xFF121212));
     });
   });
 }
