@@ -109,6 +109,7 @@ void main() {
     required BookLineIndex index,
     required BookChapterStream stream,
     List<int>? fetchLog,
+    ReaderAppearance? appearance,
   }) {
     return tester.pumpWidget(MaterialApp(
       theme: ThemeData.light().copyWith(extensions: const [AppTokens.light]),
@@ -120,7 +121,7 @@ void main() {
           isChapterLoaded: stream.contains,
           chapterLines: stream.bufferedLines,
           highlightCache: (page) => const <BookHighlight>[],
-          appearance: ReaderAppearance(),
+          appearance: appearance ?? ReaderAppearance(),
           tokens: AppTokens.light,
           textColor: Colors.black,
           itemScrollController: itemScrollController,
@@ -244,5 +245,59 @@ void main() {
     await pumpContent(tester, index: index, stream: stream);
 
     expect(find.byType(ScrollablePositionedList), findsNothing);
+  });
+
+  testWidgets('changing appearance.fontFamily live-updates rendered lines',
+      (tester) async {
+    tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    late final BookChapterStream stream;
+    late final BookLineIndex index;
+    await tester.runAsync(() async {
+      stream = await loadedStream();
+      index = BookLineIndex(totalLines: 14)
+        ..extend(1, 6)
+        ..extend(2, 4)
+        ..extend(3, 4);
+    });
+
+    final appearance = ReaderAppearance();
+    await pumpContent(tester, index: index, stream: stream, appearance: appearance);
+    await tester.pump();
+
+    expect(find.text('ch1 p1 l1'), findsOneWidget);
+    final probe = find.text('ch1 p1 l1');
+    InlineSpan? span = tester.widget<Text>(probe).textSpan;
+    String? before = span is TextSpan ? span.style?.fontFamily : null;
+    for (final child in (span is TextSpan) ? span.children ?? const <InlineSpan>[] : const <InlineSpan>[]) {
+      final s = (child as TextSpan).style;
+      if (s?.fontFamily != null) {
+        before = s!.fontFamily;
+        break;
+      }
+    }
+    debugPrint('BOOK BEFORE: $before');
+
+    appearance.fontFamily = 'Cinzel';
+    await tester.pump(const Duration(milliseconds: 50));
+
+    span = tester.widget<Text>(probe).textSpan;
+    String? after = span is TextSpan ? span.style?.fontFamily : null;
+    for (final child in (span is TextSpan) ? span.children ?? const <InlineSpan>[] : const <InlineSpan>[]) {
+      final s = (child as TextSpan).style;
+      if (s?.fontFamily != null) {
+        after = s!.fontFamily;
+        break;
+      }
+    }
+    debugPrint('BOOK AFTER:  $after');
+    expect(after, 'Cinzel',
+        reason: 'font did NOT live-update (before=$before after=$after)');
+    expect(tester.takeException(), isNull);
   });
 }

@@ -273,9 +273,12 @@ class BookBlockWidget extends StatelessWidget {
         break;
     }
 
-    return KeyedSubtree(
-      key: resolveBlockKey(pageNum, block.startLine),
-      child: content,
+    return ListenableBuilder(
+      listenable: appearance,
+      builder: (context, _) => KeyedSubtree(
+        key: resolveBlockKey(pageNum, block.startLine),
+        child: content,
+      ),
     );
   }
 }

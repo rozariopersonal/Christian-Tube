@@ -40,56 +40,60 @@ class _VerseTextState extends State<VerseText> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (widget.verse.isChapterHeader) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 32.0, bottom: 16.0, left: 16.0, right: 16.0),
-        child: Text(
-          widget.verse.chapterTitle ?? '',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.primary,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
-
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) => _downPosition = event.position,
-      onPointerUp: (event) {
-        if (_downPosition != null && (event.position - _downPosition!).distance < 18) {
-          widget.onTap?.call();
+    return ListenableBuilder(
+      listenable: widget.appearance,
+      builder: (context, _) {
+        final theme = Theme.of(context);
+        if (widget.verse.isChapterHeader) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 32.0, bottom: 16.0, left: 16.0, right: 16.0),
+            child: Text(
+              widget.verse.chapterTitle ?? '',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          );
         }
-      },
-      child: MouseRegion(
-        onEnter: (_) => _hoverNotifier.value = true,
-        onExit: (_) => _hoverNotifier.value = false,
-        cursor: SystemMouseCursors.click,
-        child: ValueListenableBuilder<bool>(
-          valueListenable: _hoverNotifier,
-          builder: (context, isHovering, _) {
-            return AnimatedContainer(
-              width: double.infinity,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              color: widget.isSelected
-                  ? theme.colorScheme.primary.withValues(alpha: 0.22)
-                  : widget.isHighlighted
-                      ? (widget.appearance.isDark(context.tokens)
-                          ? theme.colorScheme.primary.withValues(alpha: 0.28)
-                          : theme.colorScheme.primaryContainer)
-                      : isHovering
-                          ? widget.appearance.textColor(context.tokens).withValues(alpha: 0.06)
-                          : Colors.transparent,
-              padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
-              child: _buildContent(context, theme),
-            );
+
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (event) => _downPosition = event.position,
+          onPointerUp: (event) {
+            if (_downPosition != null && (event.position - _downPosition!).distance < 18) {
+              widget.onTap?.call();
+            }
           },
-        ),
-      ),
+          child: MouseRegion(
+            onEnter: (_) => _hoverNotifier.value = true,
+            onExit: (_) => _hoverNotifier.value = false,
+            cursor: SystemMouseCursors.click,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _hoverNotifier,
+              builder: (context, isHovering, _) {
+                return AnimatedContainer(
+                  width: double.infinity,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  color: widget.isSelected
+                      ? theme.colorScheme.primary.withValues(alpha: 0.22)
+                      : widget.isHighlighted
+                          ? (widget.appearance.isDark(context.tokens)
+                              ? theme.colorScheme.primary.withValues(alpha: 0.28)
+                              : theme.colorScheme.primaryContainer)
+                          : isHovering
+                              ? widget.appearance.textColor(context.tokens).withValues(alpha: 0.06)
+                              : Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
+                  child: _buildContent(context, theme),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
   Widget _buildContent(BuildContext context, ThemeData theme) {

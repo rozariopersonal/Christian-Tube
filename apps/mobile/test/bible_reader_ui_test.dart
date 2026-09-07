@@ -299,4 +299,61 @@ void main() {
     expect(selectedVerse, 16);
     expect(tester.takeException(), isNull);
   });
+
+  String? firstVerseFontFamily(WidgetTester tester) {
+    final verses = find.byType(VerseText);
+    if (verses.evaluate().isEmpty) return null;
+    InlineSpan? span;
+    for (final e in verses.evaluate()) {
+      final t = find.descendant(
+        of: find.byWidget(e.widget),
+        matching: find.byType(Text),
+      );
+      if (t.evaluate().isNotEmpty) {
+        span = tester.widget<Text>(t.first).textSpan;
+        break;
+      }
+    }
+    if (span is! TextSpan) return null;
+    for (final child in span.children ?? const <InlineSpan>[]) {
+      final style = (child as TextSpan).style;
+      if (style?.fontFamily != null) return style!.fontFamily;
+    }
+    return span.style?.fontFamily;
+  }
+
+  testWidgets('changing appearance.fontFamily live-updates rendered verses',
+      (tester) async {
+    tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: null,
+      saveProgress: false,
+    );
+    await tester.runAsync(() async {
+      await controller.init();
+    });
+
+    await tester.pumpWidget(wrapWithApp(BibleScreen(controller: controller)));
+    await tester.pumpAndSettle();
+
+    final before = firstVerseFontFamily(tester);
+    expect(before, isNotNull, reason: 'no verse text rendered to probe');
+
+    controller.appearance.fontFamily = 'Cinzel';
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final after = firstVerseFontFamily(tester);
+    expect(after, 'Cinzel',
+        reason: 'font did NOT live-update (before=$before after=$after)');
+    expect(tester.takeException(), isNull);
+  });
 }

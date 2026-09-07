@@ -53,6 +53,13 @@ class BookLineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: appearance,
+      builder: (context, _) => _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
     final block = BookParagraphGrouper.blockFromLine(line);
     final fontFamily = ScriptureThemeCatalog.resolveFontFamily(
       appearance.fontFamily,
