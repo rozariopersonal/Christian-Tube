@@ -95,7 +95,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
       '/feed',
       '/shorts',
       if (_isBibleTabEnabled) '/bible',
-      if (_isBooksTabEnabled) '/books',
+      if (_isBooksTabEnabled) '/library',
       if (kMicroFeedEnabled) '/words',
       if (_isAudioTabEnabled) '/audio' else '/profile',
     ];
@@ -143,9 +143,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
         ),
       if (_isBooksTabEnabled)
         const _NavSpec(
-          label: 'Books',
-          icon: Icons.auto_stories_outlined,
-          selectedIcon: Icons.auto_stories,
+          label: 'Library',
+          icon: Icons.local_library_outlined,
+          selectedIcon: Icons.local_library,
         ),
       if (kMicroFeedEnabled)
         const _NavSpec(

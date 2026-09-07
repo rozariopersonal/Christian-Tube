@@ -22,10 +22,12 @@ import 'features/bible/services/bible_passage_navigator.dart';
 import 'features/books/screens/books_catalog_screen.dart';
 import 'features/books/screens/book_reader_screen.dart';
 import 'features/downloads/screens/downloads_manager_screen.dart';
+import 'features/library/screens/library_screen.dart';
 import 'features/audio/screens/audio_library_screen.dart';
 import 'features/audio/screens/audio_series_screen.dart';
 import 'features/audio/models/audio_series.dart';
 import 'features/articles/screens/article_reader_screen.dart';
+import 'features/articles/screens/wftw_teachings_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'layout/main_layout_screen.dart';
 
@@ -133,6 +135,10 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               builder: (context, state) => const ChannelsScreen(),
             ),
             GoRoute(
+              path: '/library',
+              builder: (context, state) => const LibraryScreen(),
+            ),
+            GoRoute(
               path: '/books',
               builder: (context, state) => const BooksCatalogScreen(),
             ),
@@ -195,6 +201,10 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             GoRoute(
               path: '/search',
               builder: (context, state) => const SearchScreen(),
+            ),
+            GoRoute(
+              path: '/teachings',
+              builder: (context, state) => const WftwTeachingsScreen(),
             ),
             GoRoute(
               path: '/watch-plans',

@@ -245,11 +245,16 @@ class GitHubDataService {
 
   // ── WFTW Articles (Micro-Feed) ────────────────────────────────────────────
 
-  static List<String> wftwManifestUrls() =>
+static List<String> wftwManifestUrls() =>
       ReleaseAssets.urlsFor('articles/wftw_manifest.json');
 
   static List<String> wftwFeedDbUrls() =>
       ReleaseAssets.urlsFor('articles/wftw_feed.sqlite.gz');
+
+  /// Web-safe index of all WFTW articles (id/title/date/year/verse) for the
+  /// teaching browser on all platforms.
+  static List<String> wftwIndexUrls() =>
+      ReleaseAssets.urlsFor('articles/wftw_index.json');
 
   static List<String> wftwArticleUrls(String articleId) =>
       ReleaseAssets.urlsFor('articles/wftw/$articleId.json');

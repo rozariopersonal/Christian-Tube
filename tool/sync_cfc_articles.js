@@ -23,6 +23,9 @@ const WFTW_JSON_DIR = path.join(RELEASES_ARTICLES_DIR, 'wftw');
 const FEED_DB_PATH = path.join(RELEASES_ARTICLES_DIR, 'wftw_feed.sqlite');
 const FEED_DB_GZ_PATH = path.join(RELEASES_ARTICLES_DIR, 'wftw_feed.sqlite.gz');
 const MANIFEST_PATH = path.join(RELEASES_ARTICLES_DIR, 'wftw_manifest.json');
+// Web-safe article index (used by the app's article browser on all platforms;
+// the feed DB itself is mobile-only SQLite).
+const INDEX_PATH = path.join(RELEASES_ARTICLES_DIR, 'wftw_index.json');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -265,9 +268,32 @@ async function scrapeMonth(year, monthNum) {
 }
 
 async function finish() {
-    console.log("Generating Gzip & Manifest...");
+    console.log("Generating Index, Gzip & Manifest...");
+
+    // Build the platform-neutral article index from the feed DB.
+    const rows = feedDb.prepare(
+        'SELECT article_id, article_title, date_ms, year, book_number, chapter, start_verse, end_verse FROM wftw_verses'
+    ).all();
+    const index = rows.map((r) => {
+        const d = new Date(r.date_ms);
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        return {
+            id: r.article_id,
+            title: r.article_title,
+            date: `${d.getUTCFullYear()}-${mm}-${dd}`,
+            year: r.year ?? null,
+            bookNumber: r.book_number ?? null,
+            chapter: r.chapter ?? null,
+            startVerse: r.start_verse ?? null,
+            endVerse: r.end_verse ?? null
+        };
+    }).sort((a, b) => b.date.localeCompare(a.date));
+    fs.writeFileSync(INDEX_PATH, JSON.stringify(index));
+    console.log(`Wrote ${INDEX_PATH} (${index.length} entries)`);
+
     feedDb.close();
-    
+
     // Gzip the sqlite file
     const dbBuffer = fs.readFileSync(FEED_DB_PATH);
     const gzipped = zlib.gzipSync(dbBuffer);
