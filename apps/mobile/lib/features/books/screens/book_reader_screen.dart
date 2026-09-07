@@ -252,7 +252,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       return Center(child: CircularProgressIndicator(color: tokens.accent));
     }
     return MaxWidthBox(
-      maxWidth: kContentMaxWidth,
+      maxWidth: kReadingMaxWidth,
       child: BookVirtualScrollContent(
         totalLines: s.book!.totalLines,
         totalChapters: s.chapters.length,

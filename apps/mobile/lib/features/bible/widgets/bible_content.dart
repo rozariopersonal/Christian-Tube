@@ -55,6 +55,7 @@ class BibleContent extends StatelessWidget {
     final itemCount = s.totalRows;
     final isWholeBible = verseIndex != null;
     return MaxWidthBox(
+      maxWidth: kReadingMaxWidth,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification is ScrollStartNotification &&
