@@ -75,11 +75,13 @@ class _VerseTextState extends State<VerseText> {
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
               color: widget.isSelected
-                  ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                  ? theme.colorScheme.primary.withValues(alpha: 0.22)
                   : widget.isHighlighted
-                      ? theme.colorScheme.primaryContainer
+                      ? (widget.appearance.isDark(context.tokens)
+                          ? theme.colorScheme.primary.withValues(alpha: 0.28)
+                          : theme.colorScheme.primaryContainer)
                       : isHovering
-                          ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
+                          ? widget.appearance.textColor(context.tokens).withValues(alpha: 0.06)
                           : Colors.transparent,
               padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
               child: _buildContent(context, theme),

@@ -313,6 +313,62 @@ void main() {
       // 4 changes, but each setter notifies exactly once
       expect(fired, 4);
     });
+
+    test('isDark evaluates properly across all modes and system tokens', () {
+      final a = ReaderAppearance();
+      expect(a.themeMode, ReaderThemeMode.system);
+      expect(a.isDark(AppTokens.light), isFalse);
+      expect(a.isDark(AppTokens.dark), isTrue);
+
+      a.themeMode = ReaderThemeMode.paper;
+      expect(a.isDark(AppTokens.light), isFalse);
+      expect(a.isDark(AppTokens.dark), isFalse);
+
+      a.themeMode = ReaderThemeMode.sepia;
+      expect(a.isDark(AppTokens.light), isFalse);
+      expect(a.isDark(AppTokens.dark), isFalse);
+
+      a.themeMode = ReaderThemeMode.dark;
+      expect(a.isDark(AppTokens.light), isTrue);
+      expect(a.isDark(AppTokens.dark), isTrue);
+
+      a.themeMode = ReaderThemeMode.amoled;
+      expect(a.isDark(AppTokens.light), isTrue);
+      expect(a.isDark(AppTokens.dark), isTrue);
+    });
+
+    test('surface and surfaceBorder return appropriate theme colors', () {
+      final a = ReaderAppearance();
+      a.themeMode = ReaderThemeMode.paper;
+      expect(a.surface(AppTokens.light), const Color(0xFFFFFFFF));
+      expect(a.surfaceBorder(AppTokens.light), const Color(0x1F000000));
+
+      a.themeMode = ReaderThemeMode.dark;
+      expect(a.surface(AppTokens.light), const Color(0xFF282B37));
+      expect(a.surfaceBorder(AppTokens.light), const Color(0x1FFFFFFF));
+
+      a.themeMode = ReaderThemeMode.amoled;
+      expect(a.surface(AppTokens.light), const Color(0xFF121212));
+      expect(a.surfaceBorder(AppTokens.light), const Color(0x26FFFFFF));
+
+      a.themeMode = ReaderThemeMode.system;
+      expect(a.surface(AppTokens.dark), AppTokens.dark.surface);
+      expect(a.surfaceBorder(AppTokens.dark), AppTokens.dark.surfaceBorder);
+    });
+
+    test('toggleDarkMode toggles between dark and paper modes', () {
+      final a = ReaderAppearance();
+      a.themeMode = ReaderThemeMode.paper;
+      expect(a.isDark(AppTokens.light), isFalse);
+
+      a.toggleDarkMode(AppTokens.light);
+      expect(a.themeMode, ReaderThemeMode.dark);
+      expect(a.isDark(AppTokens.light), isTrue);
+
+      a.toggleDarkMode(AppTokens.light);
+      expect(a.themeMode, ReaderThemeMode.paper);
+      expect(a.isDark(AppTokens.light), isFalse);
+    });
   });
 }
 

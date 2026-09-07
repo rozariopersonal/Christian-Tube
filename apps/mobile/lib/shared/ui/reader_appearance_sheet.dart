@@ -15,6 +15,10 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
   final screen = ScreenClass.of(context);
 
   Widget buildSheetContent(BuildContext ctx, StateSetter setModalState) {
+    final textCol = appearance.textColor(tokens);
+    final mutedCol = appearance.mutedTextColor(tokens);
+    final borderCol = appearance.surfaceBorder(tokens);
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -27,7 +31,7 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: tokens.surfaceBorder,
+                  color: borderCol,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -39,36 +43,127 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
                 Text(
                   'Reading Appearance',
                   style: TextStyle(
-                    color: tokens.onSurface,
+                    color: textCol,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
                 ),
                 if (!screen.isCompact)
                   IconButton(
-                    icon: Icon(Icons.close, size: 20, color: tokens.onSurfaceMuted),
+                    icon: Icon(Icons.close, size: 20, color: mutedCol),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            Text('Theme', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
+            // Quick Dark Mode toggle row
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: appearance.surfaceVariant(tokens),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: borderCol),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        appearance.isDark(tokens) ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                        size: 20,
+                        color: tokens.accent,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Dark Mode',
+                        style: TextStyle(
+                          color: textCol,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Switch.adaptive(
+                    value: appearance.isDark(tokens),
+                    activeTrackColor: tokens.accent,
+                    onChanged: (val) {
+                      setModalState(() {
+                        appearance.themeMode = val ? ReaderThemeMode.dark : ReaderThemeMode.paper;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            Text('Theme Palette', style: TextStyle(color: mutedCol, fontSize: 12)),
             const SizedBox(height: 8),
+            // Row 1: Light / Natural reading themes
             Row(
               children: [
-                _buildThemeChip(ctx, 'Paper', ReaderThemeMode.paper, const Color(0xFFFAF9F6), const Color(0xFF1A1A1A), setModalState, appearance),
+                _buildThemeChip(
+                  ctx,
+                  'System',
+                  ReaderThemeMode.system,
+                  tokens.surfaceVariant,
+                  tokens.onSurface,
+                  setModalState,
+                  appearance,
+                ),
                 const SizedBox(width: 8),
-                _buildThemeChip(ctx, 'Sepia', ReaderThemeMode.sepia, const Color(0xFFFBF0D9), const Color(0xFF3B2F2F), setModalState, appearance),
+                _buildThemeChip(
+                  ctx,
+                  'Paper',
+                  ReaderThemeMode.paper,
+                  const Color(0xFFFAF9F6),
+                  const Color(0xFF1A1A1A),
+                  setModalState,
+                  appearance,
+                ),
                 const SizedBox(width: 8),
-                _buildThemeChip(ctx, 'Dark', ReaderThemeMode.dark, const Color(0xFF1E212B), const Color(0xFFE6EDF3), setModalState, appearance),
+                _buildThemeChip(
+                  ctx,
+                  'Sepia',
+                  ReaderThemeMode.sepia,
+                  const Color(0xFFFBF0D9),
+                  const Color(0xFF3B2F2F),
+                  setModalState,
+                  appearance,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Row 2: Dark reading themes
+            Row(
+              children: [
+                _buildThemeChip(
+                  ctx,
+                  'Dark',
+                  ReaderThemeMode.dark,
+                  const Color(0xFF1E212B),
+                  const Color(0xFFE6EDF3),
+                  setModalState,
+                  appearance,
+                ),
                 const SizedBox(width: 8),
-                _buildThemeChip(ctx, 'AMOLED', ReaderThemeMode.amoled, const Color(0xFF000000), const Color(0xFFFFFFFF), setModalState, appearance),
+                _buildThemeChip(
+                  ctx,
+                  'AMOLED',
+                  ReaderThemeMode.amoled,
+                  const Color(0xFF000000),
+                  const Color(0xFFFFFFFF),
+                  setModalState,
+                  appearance,
+                ),
               ],
             ),
             const SizedBox(height: 20),
 
-            Text('Font Family', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
+            Text('Font Family', style: TextStyle(color: mutedCol, fontSize: 12)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -76,7 +171,7 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       backgroundColor: appearance.useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
-                      side: BorderSide(color: appearance.useSerifFont ? tokens.accent : tokens.surfaceBorder),
+                      side: BorderSide(color: appearance.useSerifFont ? tokens.accent : borderCol),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     onPressed: () {
@@ -86,7 +181,7 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
                       'Serif (Book)',
                       style: TextStyle(
                         fontFamily: 'serif',
-                        color: appearance.useSerifFont ? tokens.accent : tokens.onSurface,
+                        color: appearance.useSerifFont ? tokens.accent : textCol,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -97,7 +192,7 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       backgroundColor: !appearance.useSerifFont ? tokens.accent.withValues(alpha: 0.15) : null,
-                      side: BorderSide(color: !appearance.useSerifFont ? tokens.accent : tokens.surfaceBorder),
+                      side: BorderSide(color: !appearance.useSerifFont ? tokens.accent : borderCol),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     onPressed: () {
@@ -106,7 +201,7 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
                     child: Text(
                       'Sans-Serif',
                       style: TextStyle(
-                        color: !appearance.useSerifFont ? tokens.accent : tokens.onSurface,
+                        color: !appearance.useSerifFont ? tokens.accent : textCol,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -119,8 +214,8 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Font Size', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
-                Text('${appearance.fontSize.toInt()} pt', style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold)),
+                Text('Font Size', style: TextStyle(color: mutedCol, fontSize: 12)),
+                Text('${appearance.fontSize.toInt()} pt', style: TextStyle(color: textCol, fontWeight: FontWeight.bold)),
               ],
             ),
             Slider(
@@ -139,10 +234,12 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
     );
   }
 
+  final sheetBg = appearance.surface(tokens);
+
   if (screen.isCompact) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: tokens.surface,
+      backgroundColor: sheetBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -155,7 +252,7 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: tokens.surface,
+        backgroundColor: sheetBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
@@ -190,7 +287,7 @@ Widget _buildThemeChip(
           color: bg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? tokens.accent : tokens.surfaceBorder,
+            color: isSelected ? tokens.accent : appearance.surfaceBorder(tokens),
             width: isSelected ? 2 : 1,
           ),
         ),

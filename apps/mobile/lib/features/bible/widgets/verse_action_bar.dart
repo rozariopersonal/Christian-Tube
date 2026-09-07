@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../shared/services/reader_appearance.dart';
 
 class VerseActionBar extends StatelessWidget {
   final int selectedCount;
@@ -8,6 +9,7 @@ class VerseActionBar extends StatelessWidget {
   final VoidCallback onBookmark;
   final VoidCallback onClear;
   final VoidCallback? onStudy;
+  final ReaderAppearance? appearance;
 
   const VerseActionBar({
     super.key,
@@ -17,6 +19,7 @@ class VerseActionBar extends StatelessWidget {
     required this.onBookmark,
     required this.onClear,
     this.onStudy,
+    this.appearance,
   });
 
   @override
@@ -24,9 +27,15 @@ class VerseActionBar extends StatelessWidget {
     if (selectedCount == 0) return const SizedBox.shrink();
 
     final tokens = context.tokens;
+    final bg = appearance?.surface(tokens) ?? tokens.surface;
+    final textCol = appearance?.textColor(tokens) ?? tokens.onSurface;
+    final mutedCol = appearance?.mutedTextColor(tokens) ?? tokens.onSurfaceMuted;
+    final borderCol = appearance?.surfaceBorder(tokens) ?? tokens.surfaceBorder;
+
     return Container(
       decoration: BoxDecoration(
-        color: tokens.surface,
+        color: bg,
+        border: Border(top: BorderSide(color: borderCol, width: 0.5)),
         boxShadow: [
           BoxShadow(
             color: tokens.scrim.withValues(alpha: 0.1),
@@ -47,14 +56,14 @@ class VerseActionBar extends StatelessWidget {
                 children: [
                   IconButton(
                     tooltip: 'Deselect all',
-                    icon: Icon(Icons.close, color: tokens.onSurfaceMuted, size: 20),
+                    icon: Icon(Icons.close, color: mutedCol, size: 20),
                     onPressed: onClear,
                   ),
                   Expanded(
                     child: Text(
                       '$selectedCount selected',
                       style: TextStyle(
-                        color: tokens.onSurface,
+                        color: textCol,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
@@ -72,6 +81,7 @@ class VerseActionBar extends StatelessWidget {
                     child: _ActionItem(
                       icon: Icons.copy,
                       label: 'Copy',
+                      textColor: textCol,
                       onPressed: onCopy,
                     ),
                   ),
@@ -79,6 +89,7 @@ class VerseActionBar extends StatelessWidget {
                     child: _ActionItem(
                       icon: Icons.ios_share,
                       label: 'Share',
+                      textColor: textCol,
                       onPressed: onShare,
                     ),
                   ),
@@ -86,6 +97,7 @@ class VerseActionBar extends StatelessWidget {
                     child: _ActionItem(
                       icon: Icons.bookmark_add_outlined,
                       label: 'Bookmark',
+                      textColor: textCol,
                       onPressed: onBookmark,
                     ),
                   ),
@@ -94,6 +106,7 @@ class VerseActionBar extends StatelessWidget {
                       child: _ActionItem(
                         icon: Icons.auto_stories_outlined,
                         label: 'Study',
+                        textColor: textCol,
                         onPressed: onStudy!,
                       ),
                     ),
@@ -111,16 +124,17 @@ class _ActionItem extends StatelessWidget {
   const _ActionItem({
     required this.icon,
     required this.label,
+    required this.textColor,
     required this.onPressed,
   });
 
   final IconData icon;
   final String label;
+  final Color textColor;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(8),
@@ -129,14 +143,14 @@ class _ActionItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: tokens.onSurface, size: 22),
+            Icon(icon, color: textColor, size: 22),
             const SizedBox(height: 4),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: tokens.onSurface,
+                color: textColor,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),

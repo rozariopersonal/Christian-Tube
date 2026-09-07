@@ -202,13 +202,13 @@ class BookLineItem extends StatelessWidget {
               errorWidget: (context, _, __) => Container(
                 height: 120,
                 decoration: BoxDecoration(
-                  color: tokens.surfaceVariant.withValues(alpha: 0.4),
+                  color: appearance.surfaceVariant(tokens).withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: Text(
                     'Page image unavailable',
-                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                    style: TextStyle(color: appearance.mutedTextColor(tokens), fontSize: 12),
                   ),
                 ),
               ),

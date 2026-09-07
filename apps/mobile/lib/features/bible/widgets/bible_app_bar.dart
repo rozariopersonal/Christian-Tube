@@ -5,6 +5,8 @@ import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
 import '../models/bible_version.dart';
 import '../controllers/bible_controller.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../shared/services/reader_appearance.dart';
 
 class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
   const BibleAppBar({
@@ -28,32 +30,66 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final s = controller.state;
+    final tokens = context.tokens;
+    final appearance = controller.appearance;
+    final isDark = appearance.isDark(tokens);
+    final width = MediaQuery.sizeOf(context).width;
+
     return AppBar(
+      backgroundColor: appearance.background(tokens),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      iconTheme: IconThemeData(color: appearance.textColor(tokens)),
       title: s.selectedVersion != null
           ? _VersionPicker(
               selectedVersion: s.selectedVersion!,
               versions: s.versions,
+              appearance: appearance,
+              tokens: tokens,
               onSelect: controller.selectVersion,
               onManage: onPushManager,
             )
-          : const Text(
+          : Text(
               'Bible',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: appearance.textColor(tokens),
+              ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),
       actions: [
         IconButton(
           tooltip: 'Search Bible',
-          icon: const Icon(Icons.search),
+          icon: Icon(Icons.search, color: appearance.textColor(tokens)),
           onPressed: onShowSearch,
         ),
+        if (width >= 360)
+          IconButton(
+            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            icon: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              color: appearance.textColor(tokens),
+            ),
+            onPressed: () => appearance.toggleDarkMode(tokens),
+          ),
         IconButton(
           tooltip: 'Appearance Settings',
-          icon: const Text('Aa', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          icon: Text(
+            'Aa',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: appearance.textColor(tokens),
+            ),
+          ),
           onPressed: onShowReadingSettings,
         ),
         _MoreMenu(
+          appearance: appearance,
+          tokens: tokens,
+          isDark: isDark,
+          onToggleDarkMode: () => appearance.toggleDarkMode(tokens),
           onDownloads: onPushManager,
           onBooks: () => Navigator.push(
             context,
@@ -71,12 +107,16 @@ class _VersionPicker extends StatelessWidget {
   const _VersionPicker({
     required this.selectedVersion,
     required this.versions,
+    required this.appearance,
+    required this.tokens,
     required this.onSelect,
     required this.onManage,
   });
 
   final BibleVersion selectedVersion;
   final List<BibleVersion> versions;
+  final ReaderAppearance appearance;
+  final AppTokens tokens;
   final ValueChanged<BibleVersion> onSelect;
   final VoidCallback onManage;
 
@@ -130,15 +170,16 @@ class _VersionPicker extends StatelessWidget {
               Flexible(
                 child: Text(
                   selectedVersion.shortname,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: appearance.textColor(tokens),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
               ),
-              const Icon(Icons.arrow_drop_down, size: 20),
+              Icon(Icons.arrow_drop_down, size: 20, color: appearance.mutedTextColor(tokens)),
             ],
           ),
         ),
@@ -149,12 +190,20 @@ class _VersionPicker extends StatelessWidget {
 
 class _MoreMenu extends StatelessWidget {
   const _MoreMenu({
+    required this.appearance,
+    required this.tokens,
+    required this.isDark,
+    required this.onToggleDarkMode,
     required this.onDownloads,
     required this.onBooks,
     required this.onBookmarks,
     required this.onSettings,
   });
 
+  final ReaderAppearance appearance;
+  final AppTokens tokens;
+  final bool isDark;
+  final VoidCallback onToggleDarkMode;
   final VoidCallback onDownloads;
   final VoidCallback onBooks;
   final VoidCallback onBookmarks;
@@ -164,8 +213,12 @@ class _MoreMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       tooltip: 'More',
+      icon: Icon(Icons.more_vert, color: appearance.textColor(tokens)),
+      color: appearance.surface(tokens),
       onSelected: (value) {
         switch (value) {
+          case 'toggle_dark':
+            onToggleDarkMode();
           case 'books':
             onBooks();
           case 'downloads':
@@ -177,28 +230,51 @@ class _MoreMenu extends StatelessWidget {
         }
       },
       itemBuilder: (ctx) => [
-        const PopupMenuItem(
+        PopupMenuItem(
+          value: 'toggle_dark',
+          child: Row(
+            children: [
+              Icon(
+                isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                size: 18,
+                color: tokens.accent,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+                style: TextStyle(color: appearance.textColor(tokens)),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
           value: 'downloads',
           child: Row(
             children: [
-              Icon(Icons.download_for_offline_rounded, size: 18),
-              SizedBox(width: 10),
-              Text('Offline Library & Downloads'),
+              Icon(Icons.download_for_offline_rounded, size: 18, color: appearance.textColor(tokens)),
+              const SizedBox(width: 10),
+              Text('Offline Library & Downloads', style: TextStyle(color: appearance.textColor(tokens))),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'books',
           child: Row(
             children: [
-              Icon(Icons.library_books_rounded, size: 18),
-              SizedBox(width: 10),
-              Text('Books Library'),
+              Icon(Icons.library_books_rounded, size: 18, color: appearance.textColor(tokens)),
+              const SizedBox(width: 10),
+              Text('Books Library', style: TextStyle(color: appearance.textColor(tokens))),
             ],
           ),
         ),
-        const PopupMenuItem(value: 'bookmarks', child: Text('Bookmarks')),
-        const PopupMenuItem(value: 'settings', child: Text('Reading settings')),
+        PopupMenuItem(
+          value: 'bookmarks',
+          child: Text('Bookmarks', style: TextStyle(color: appearance.textColor(tokens))),
+        ),
+        PopupMenuItem(
+          value: 'settings',
+          child: Text('Reading settings', style: TextStyle(color: appearance.textColor(tokens))),
+        ),
       ],
     );
   }

@@ -110,6 +110,19 @@ class ReaderAppearance extends ChangeNotifier {
     } catch (_) {}
   }
 
+  bool isDark(AppTokens tokens) {
+    switch (_themeMode) {
+      case ReaderThemeMode.paper:
+      case ReaderThemeMode.sepia:
+        return false;
+      case ReaderThemeMode.dark:
+      case ReaderThemeMode.amoled:
+        return true;
+      case ReaderThemeMode.system:
+        return tokens.isDark;
+    }
+  }
+
   Color background(AppTokens tokens) {
     switch (_themeMode) {
       case ReaderThemeMode.paper:
@@ -125,18 +138,18 @@ class ReaderAppearance extends ChangeNotifier {
     }
   }
 
-  Color textColor(AppTokens tokens) {
+  Color surface(AppTokens tokens) {
     switch (_themeMode) {
       case ReaderThemeMode.paper:
-        return const Color(0xFF1A1A1A);
-      case ReaderThemeMode.sepia:
-        return const Color(0xFF3B2F2F);
-      case ReaderThemeMode.dark:
-        return const Color(0xFFE6EDF3);
-      case ReaderThemeMode.amoled:
         return const Color(0xFFFFFFFF);
+      case ReaderThemeMode.sepia:
+        return const Color(0xFFF5E8CE);
+      case ReaderThemeMode.dark:
+        return const Color(0xFF282B37);
+      case ReaderThemeMode.amoled:
+        return const Color(0xFF121212);
       case ReaderThemeMode.system:
-        return tokens.onSurface;
+        return tokens.surface;
     }
   }
 
@@ -155,6 +168,36 @@ class ReaderAppearance extends ChangeNotifier {
     }
   }
 
+  Color surfaceBorder(AppTokens tokens) {
+    switch (_themeMode) {
+      case ReaderThemeMode.paper:
+        return const Color(0x1F000000);
+      case ReaderThemeMode.sepia:
+        return const Color(0x283B2F2F);
+      case ReaderThemeMode.dark:
+        return const Color(0x1FFFFFFF);
+      case ReaderThemeMode.amoled:
+        return const Color(0x26FFFFFF);
+      case ReaderThemeMode.system:
+        return tokens.surfaceBorder;
+    }
+  }
+
+  Color textColor(AppTokens tokens) {
+    switch (_themeMode) {
+      case ReaderThemeMode.paper:
+        return const Color(0xFF1A1A1A);
+      case ReaderThemeMode.sepia:
+        return const Color(0xFF3B2F2F);
+      case ReaderThemeMode.dark:
+        return const Color(0xFFE6EDF3);
+      case ReaderThemeMode.amoled:
+        return const Color(0xFFFFFFFF);
+      case ReaderThemeMode.system:
+        return tokens.onSurface;
+    }
+  }
+
   Color mutedTextColor(AppTokens tokens) {
     switch (_themeMode) {
       case ReaderThemeMode.paper:
@@ -167,6 +210,15 @@ class ReaderAppearance extends ChangeNotifier {
         return const Color(0xFFA0A0A0);
       case ReaderThemeMode.system:
         return tokens.onSurfaceMuted;
+    }
+  }
+
+  /// Toggles between light (paper) and dark mode with one tap.
+  void toggleDarkMode(AppTokens tokens) {
+    if (isDark(tokens)) {
+      themeMode = ReaderThemeMode.paper;
+    } else {
+      themeMode = ReaderThemeMode.dark;
     }
   }
 

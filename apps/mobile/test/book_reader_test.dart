@@ -647,6 +647,33 @@ void main() {
       }
     });
 
+    testWidgets('BookReaderScreen renders in Dark and AMOLED mode without overflow', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'book_reader_font_size': 18.0,
+        'book_reader_serif': true,
+        'book_reader_theme_mode': 'dark',
+      });
+
+      for (final width in [320.0, 600.0, 840.0]) {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(
+              extensions: const [AppTokens.dark],
+            ),
+            home: const BookReaderScreen(bookId: 'test_book_dark'),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull);
+      }
+    });
+
     testWidgets('BookService and BookReaderScreen render real book chapters and lines', (tester) async {
       await tester.runAsync(() async {
         final bookService = BookService.instance;

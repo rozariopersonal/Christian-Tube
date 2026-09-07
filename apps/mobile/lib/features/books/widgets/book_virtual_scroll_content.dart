@@ -132,7 +132,7 @@ class BookVirtualScrollContent extends StatelessWidget {
             widthFactor: row.isEven ? 1.0 : 0.72,
             child: Container(
               decoration: BoxDecoration(
-                color: tokens.surfaceVariant.withValues(alpha: 0.6),
+                color: appearance.surfaceVariant(tokens).withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),

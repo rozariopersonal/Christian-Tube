@@ -10,6 +10,7 @@ import '../models/bible_verse.dart';
 import '../services/bible_chapter_stream.dart';
 import '../widgets/verse_item.dart';
 import '../controllers/bible_controller.dart';
+import '../../../shared/services/reader_appearance.dart';
 
 class BibleContent extends StatelessWidget {
   const BibleContent({
@@ -124,6 +125,7 @@ class BibleContent extends StatelessWidget {
                       SelectionContainer.disabled(
                         child: _ChapterHeader(
                           chapter: controller.currentChapter,
+                          appearance: controller.appearance,
                           bookName: controller.displayBookName(controller.currentBook),
                           chapterTitle: controller.displayChapterTitle(controller.currentChapter),
                           isBookStart: controller.currentChapter == 1,
@@ -152,6 +154,7 @@ class BibleContent extends StatelessWidget {
                       SelectionContainer.disabled(
                         child: _ChapterHeader(
                           chapter: ref.chapter,
+                          appearance: controller.appearance,
                           bookName: controller.displayBookName(bookName),
                           chapterTitle: controller.displayChapterTitle(ref.chapter),
                           isBookStart: ref.chapter == 1,
@@ -159,12 +162,14 @@ class BibleContent extends StatelessWidget {
                       ),
                       _PlaceholderRow(
                         key: ValueKey('ph-${ref.bookNumber}-${ref.chapter}-${ref.verse}'),
+                        appearance: controller.appearance,
                       ),
                     ],
                   );
                 }
                 return _PlaceholderRow(
                   key: ValueKey('ph-${ref.bookNumber}-${ref.chapter}-${ref.verse}'),
+                  appearance: controller.appearance,
                 );
               }
               final verseWidget = _VerseRow(
@@ -185,6 +190,7 @@ class BibleContent extends StatelessWidget {
                     SelectionContainer.disabled(
                       child: _ChapterHeader(
                         chapter: ref.chapter,
+                        appearance: controller.appearance,
                         bookName: controller.displayBookName(bookName),
                         chapterTitle: controller.displayChapterTitle(ref.chapter),
                         isBookStart: ref.chapter == 1,
@@ -248,11 +254,16 @@ class _VerseRow extends StatelessWidget {
 }
 
 class _PlaceholderRow extends StatelessWidget {
-  const _PlaceholderRow({super.key});
+  const _PlaceholderRow({
+    super.key,
+    required this.appearance,
+  });
+
+  final ReaderAppearance appearance;
 
   @override
   Widget build(BuildContext context) {
-    final fill = context.tokens.surfaceVariant;
+    final fill = appearance.surfaceVariant(context.tokens);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
       child: Column(
@@ -428,12 +439,14 @@ class _ChapterEmptyState extends StatelessWidget {
 class _ChapterHeader extends StatelessWidget {
   const _ChapterHeader({
     required this.chapter,
+    required this.appearance,
     this.bookName,
     this.chapterTitle,
     this.isBookStart = false,
   });
 
   final int chapter;
+  final ReaderAppearance appearance;
   final String? bookName;
   final String? chapterTitle;
   final bool isBookStart;
@@ -471,7 +484,7 @@ class _ChapterHeader extends StatelessWidget {
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: isBookStart
-                  ? tokens.onSurfaceMuted
+                  ? appearance.mutedTextColor(tokens)
                   : theme.colorScheme.primary,
               letterSpacing: 0.3,
             ),
@@ -483,7 +496,7 @@ class _ChapterHeader extends StatelessWidget {
             thickness: 0.5,
             indent: 48,
             endIndent: 48,
-            color: tokens.surfaceBorder.withValues(alpha: 0.5),
+            color: appearance.surfaceBorder(tokens).withValues(alpha: 0.6),
           ),
         ],
       ),

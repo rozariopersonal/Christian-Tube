@@ -49,16 +49,16 @@ class ReaderPageColumn extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.menu_book_rounded, size: 36, color: tokens.onSurfaceMuted.withValues(alpha: 0.6)),
+              Icon(Icons.menu_book_rounded, size: 36, color: appearance.mutedTextColor(tokens).withValues(alpha: 0.6)),
               const SizedBox(height: 12),
               Text(
                 'Page $pageNum not available',
-                style: TextStyle(color: tokens.onSurface, fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(color: appearance.textColor(tokens), fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
               Text(
                 'Unable to load page content',
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                style: TextStyle(color: appearance.mutedTextColor(tokens), fontSize: 12),
               ),
               const SizedBox(height: 12),
               FilledButton.tonalIcon(
@@ -90,7 +90,7 @@ class ReaderPageColumn extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Loading page $pageNum...',
-              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+              style: TextStyle(color: appearance.mutedTextColor(tokens), fontSize: 12),
             ),
           ],
         ),

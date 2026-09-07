@@ -33,7 +33,9 @@ class ReaderNavigationBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = controller.state;
     final appearance = controller.appearance;
-    final muted = appearance.mutedTextColor(tokens);
+    final textCol = appearance.textColor(tokens);
+    final mutedCol = appearance.mutedTextColor(tokens);
+    final borderCol = appearance.surfaceBorder(tokens);
 
     final canGoPrev = isDualPage ? s.spreadLeftPage > 1 : s.currentPage > 1;
     final canGoNext = isDualPage
@@ -44,7 +46,10 @@ class ReaderNavigationBar extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
         child: Container(
-          color: bgColor.withValues(alpha: 0.8),
+          decoration: BoxDecoration(
+            color: bgColor.withValues(alpha: 0.85),
+            border: Border(top: BorderSide(color: borderCol, width: 0.5)),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: SafeArea(
             top: false,
@@ -57,7 +62,7 @@ class ReaderNavigationBar extends StatelessWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.chevron_left_rounded, size: 28),
-                      color: canGoPrev ? tokens.onSurface : tokens.onSurfaceDisabled,
+                      color: canGoPrev ? textCol : mutedCol.withValues(alpha: 0.35),
                       onPressed: canGoPrev ? onPrevious : null,
                       tooltip: 'Previous',
                     ),
@@ -71,9 +76,9 @@ class ReaderNavigationBar extends StatelessWidget {
                               child: Text(
                                 controller.currentChapterTitle(),
                                 style: TextStyle(
-                                  color: tokens.onSurface,
+                                  color: textCol,
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                 ),
                                 textAlign: TextAlign.center,
                                 maxLines: 1,
@@ -85,12 +90,12 @@ class ReaderNavigationBar extends StatelessWidget {
                               final displayRight = validLeftPage + 1 <= totalPages ? validLeftPage + 1 : null;
                               return Text(
                                 'Pages $validLeftPage–${displayRight ?? validLeftPage} of $totalPages • ${(s.lastPercent * 100).toInt()}%',
-                                style: TextStyle(color: muted, fontSize: 11.5),
+                                style: TextStyle(color: mutedCol, fontSize: 11.5),
                               );
                             } else {
                               return Text(
                                 'Page ${s.currentPage} of $totalPages • ${(s.lastPercent * 100).toInt()}%',
-                                style: TextStyle(color: muted, fontSize: 11.5),
+                                style: TextStyle(color: mutedCol, fontSize: 11.5),
                               );
                             }
                           }),
@@ -99,7 +104,7 @@ class ReaderNavigationBar extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.chevron_right_rounded, size: 28),
-                      color: canGoNext ? tokens.onSurface : tokens.onSurfaceDisabled,
+                      color: canGoNext ? textCol : mutedCol.withValues(alpha: 0.35),
                       onPressed: canGoNext ? onNext : null,
                       tooltip: 'Next',
                     ),

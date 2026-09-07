@@ -27,9 +27,12 @@ class BibleBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = controller.state;
+    final appearance = controller.appearance;
+
     if (s.selectedVerses.isNotEmpty) {
       return VerseActionBar(
         selectedCount: s.selectedVerses.length,
+        appearance: appearance,
         onCopy: onCopy,
         onShare: onShare,
         onBookmark: onBookmark,
@@ -38,6 +41,7 @@ class BibleBottomNav extends StatelessWidget {
       );
     }
     return _ChapterNav(
+      appearance: appearance,
       canFetchPrev: s.canFetchPrev,
       canFetchNext: s.canFetchNext,
       onPrev: controller.fetchPrevChapter,
@@ -52,6 +56,7 @@ class BibleBottomNav extends StatelessWidget {
 
 class _ChapterNav extends StatelessWidget {
   const _ChapterNav({
+    required this.appearance,
     required this.canFetchPrev,
     required this.canFetchNext,
     required this.onPrev,
@@ -60,6 +65,7 @@ class _ChapterNav extends StatelessWidget {
     required this.currentBookLabel,
   });
 
+  final dynamic appearance;
   final bool canFetchPrev;
   final bool canFetchNext;
   final VoidCallback onPrev;
@@ -69,13 +75,20 @@ class _ChapterNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final bg = appearance.background(tokens);
+    final textCol = appearance.textColor(tokens);
+    final mutedCol = appearance.mutedTextColor(tokens);
+    final borderCol = appearance.surfaceBorder(tokens);
+
     return Container(
       height: 56,
       decoration: BoxDecoration(
-        color: context.tokens.background,
+        color: bg,
+        border: Border(top: BorderSide(color: borderCol, width: 0.5)),
         boxShadow: [
           BoxShadow(
-            color: context.tokens.scrim.withValues(alpha: 0.1),
+            color: tokens.scrim.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),
@@ -94,8 +107,8 @@ class _ChapterNav extends StatelessWidget {
                   tooltip: 'Previous chapter',
                   icon: const Icon(Icons.chevron_left_rounded, size: 30),
                   color: canFetchPrev
-                      ? context.tokens.onSurface
-                      : context.tokens.onSurfaceDisabled,
+                      ? textCol
+                      : mutedCol.withValues(alpha: 0.35),
                 ),
               ),
               Expanded(
@@ -118,17 +131,18 @@ class _ChapterNav extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 currentBookLabel,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  color: textCol,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.only(left: 2),
-                              child: Icon(Icons.arrow_drop_down, size: 20),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 2),
+                              child: Icon(Icons.arrow_drop_down, size: 20, color: mutedCol),
                             ),
                           ],
                         ),
@@ -145,8 +159,8 @@ class _ChapterNav extends StatelessWidget {
                   tooltip: 'Next chapter',
                   icon: const Icon(Icons.chevron_right_rounded, size: 30),
                   color: canFetchNext
-                      ? context.tokens.onSurface
-                      : context.tokens.onSurfaceDisabled,
+                      ? textCol
+                      : mutedCol.withValues(alpha: 0.35),
                 ),
               ),
             ],
