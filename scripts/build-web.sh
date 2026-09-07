@@ -3,7 +3,7 @@ set -e
 
 INSTANCE_ID="${INSTANCE_ID:-christian_tube}"
 FLUTTER_CHANNEL="${FLUTTER_CHANNEL:-stable}"
-FLUTTER_VERSION="${FLUTTER_VERSION:-3.24.0}"
+FLUTTER_VERSION="${FLUTTER_VERSION:-3.47.1}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FLUTTER_DIR="$ROOT_DIR/.flutter-sdk"
 APP_DIR="$ROOT_DIR/apps/mobile"
@@ -32,6 +32,6 @@ node scripts/prepare-instance.js "$INSTANCE_ID"
 echo "==> Running flutter build web..."
 cd "$APP_DIR"
 flutter pub get
-flutter build web --release --web-renderer canvaskit
+flutter build web --release
 
 echo "==> Build complete: $APP_DIR/build/web"
