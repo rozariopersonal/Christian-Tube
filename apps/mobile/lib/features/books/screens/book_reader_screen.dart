@@ -310,92 +310,95 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     final validLeftPage = s.spreadLeftPage.clamp(1, totalPages);
     final rightPage = validLeftPage + 1 <= totalPages ? validLeftPage + 1 : null;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop || _isPopping) return;
-        _isPopping = true;
-        await _controller.flushProgressToDb();
-        if (context.mounted) {
-          Navigator.of(context).pop(result);
-        }
-      },
-      child: Scaffold(
-        backgroundColor: bgColor,
-        appBar: s.showChrome
-            ? BookReaderAppBar(
-                controller: _controller,
-                tokens: tokens,
-                bgColor: bgColor,
-                isDualPage: isDualPage,
-                validLeftPage: validLeftPage,
-                rightPage: rightPage,
-                totalPages: totalPages,
-                onOpenToc: () => _openToc(isDualPage),
-                onOpenHighlights: _openHighlights,
-                onShowAppearance: () => _showAppearanceSheet(context),
-              )
-            : null,
-        body: s.isLoading
-            ? Center(child: CircularProgressIndicator(color: tokens.accent))
-            : s.book == null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.menu_book_rounded, size: 48, color: tokens.onSurfaceMuted.withValues(alpha: 0.6)),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Book not found',
-                            style: TextStyle(color: tokens.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'This book could not be located in the catalog.',
-                            style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton.tonalIcon(
-                            icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                            label: const Text('Go Back'),
-                            onPressed: () => Navigator.of(context).maybePop(),
-                          ),
-                        ],
+    return ListenableBuilder(
+      listenable: appearance,
+      builder: (context, _) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop || _isPopping) return;
+          _isPopping = true;
+          await _controller.flushProgressToDb();
+          if (context.mounted) {
+            Navigator.of(context).pop(result);
+          }
+        },
+        child: Scaffold(
+          backgroundColor: bgColor,
+          appBar: s.showChrome
+              ? BookReaderAppBar(
+                  controller: _controller,
+                  tokens: tokens,
+                  bgColor: bgColor,
+                  isDualPage: isDualPage,
+                  validLeftPage: validLeftPage,
+                  rightPage: rightPage,
+                  totalPages: totalPages,
+                  onOpenToc: () => _openToc(isDualPage),
+                  onOpenHighlights: _openHighlights,
+                  onShowAppearance: () => _showAppearanceSheet(context),
+                )
+              : null,
+          body: s.isLoading
+              ? Center(child: CircularProgressIndicator(color: tokens.accent))
+              : s.book == null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.menu_book_rounded, size: 48, color: tokens.onSurfaceMuted.withValues(alpha: 0.6)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Book not found',
+                              style: TextStyle(color: tokens.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'This book could not be located in the catalog.',
+                              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.tonalIcon(
+                              icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                              label: const Text('Go Back'),
+                              onPressed: () => Navigator.of(context).maybePop(),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  )
-: continuous
+                    )
+                  : continuous
                       ? _buildContinuousContent(tokens)
                       : isDualPage
                           ? _buildDualPageSpreadView(tokens)
                           : _buildMobilePageView(tokens),
-        bottomNavigationBar: s.showChrome && s.book != null
-            ? ReaderNavigationBar(
-                controller: _controller,
-                tokens: tokens,
-                bgColor: bgColor,
-                isDualPage: isDualPage,
-                totalPages: totalPages,
-                validLeftPage: validLeftPage,
-                rightPage: rightPage,
-                onPrevious: () {
-                  if (isDualPage) {
-                    _coordinator.turnSpread(-2);
-                  } else if (s.currentPage > 1) {
-                    _coordinator.jumpToPage(s.currentPage - 1);
-                  }
-                },
-                onNext: () {
-                  if (isDualPage) {
-                    _coordinator.turnSpread(2);
-                  } else if (s.currentPage < totalPages) {
-                    _coordinator.jumpToPage(s.currentPage + 1);
-                  }
-                },
-              )
-            : null,
+          bottomNavigationBar: s.showChrome && s.book != null
+              ? ReaderNavigationBar(
+                  controller: _controller,
+                  tokens: tokens,
+                  bgColor: bgColor,
+                  isDualPage: isDualPage,
+                  totalPages: totalPages,
+                  validLeftPage: validLeftPage,
+                  rightPage: rightPage,
+                  onPrevious: () {
+                    if (isDualPage) {
+                      _coordinator.turnSpread(-2);
+                    } else if (s.currentPage > 1) {
+                      _coordinator.jumpToPage(s.currentPage - 1);
+                    }
+                  },
+                  onNext: () {
+                    if (isDualPage) {
+                      _coordinator.turnSpread(2);
+                    } else if (s.currentPage < totalPages) {
+                      _coordinator.jumpToPage(s.currentPage + 1);
+                    }
+                  },
+                )
+              : null,
+        ),
       ),
     );
   }
