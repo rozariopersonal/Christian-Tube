@@ -3,18 +3,37 @@
  * tool/sync_cfc_articles.js
  *
  * Scraper for CFC India Word for the Week (WFTW) articles.
- * Builds:
+ * English build (default / --all) produces:
  *  - releases/articles/wftw_feed.sqlite.gz (for the mobile feed)
  *  - releases/articles/wftw_manifest.json (for background sync hot-swapping)
  *  - releases/articles/wftw/*.json (individual live-synced articles)
+ *  - releases/articles/wftw_index.json (web-safe article index)
+ *
+ * Multi-language build (--langs=...) produces, for every configured language:
+ *  - releases/articles/{code}/{YYYY_MM_DD}.json (translated article content)
+ *  - releases/articles/{code}/index.json (per-language web-safe index)
+ *  - releases/articles/articles_index.json (combined index with `lang` field)
+ *  - releases/articles/languages.json (manifest with per-language counts)
+ *
+ * Usage:
+ *   node tool/sync_cfc_articles.js                    # English: current month + indexes
+ *   node tool/sync_cfc_articles.js --all              # English: full backfill 2001→now
+ *   node tool/sync_cfc_articles.js --langs=seed        # incremental: seed languages, recent months
+ *   node tool/sync_cfc_articles.js --langs=all         # incremental: all languages, recent months
+ *   node tool/sync_cfc_articles.js --langs=de,ta       # incremental: comma-separated subset
+ *   node tool/sync_cfc_articles.js --langs=seed --full # deep backfill for seed languages
  */
 
 const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { DatabaseSync } = require('node:sqlite');
 const zlib = require('zlib');
+
+const LANGUAGE_MANIFEST_PATH = path.join(__dirname, 'cfc_languages.json');
+const LANGUAGE_MANIFEST = JSON.parse(fs.readFileSync(LANGUAGE_MANIFEST_PATH, 'utf8')).languages;
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const STATE_DB_PATH = path.join(DATA_DIR, 'cfc_articles_state.sqlite');
@@ -27,11 +46,19 @@ const MANIFEST_PATH = path.join(RELEASES_ARTICLES_DIR, 'wftw_manifest.json');
 // the feed DB itself is mobile-only SQLite).
 const INDEX_PATH = path.join(RELEASES_ARTICLES_DIR, 'wftw_index.json');
 
+const COMBINED_INDEX_PATH = path.join(RELEASES_ARTICLES_DIR, 'articles_index.json');
+const LANGUAGES_MANIFEST_OUT_PATH = path.join(RELEASES_ARTICLES_DIR, 'languages.json');
+
+// How many consecutive empty month-grids (going back in time) end a language's
+// deep crawl. The WFTW archive is published weekly from each language's start,
+// so genuinely-empty tail months mean translations had not begun yet.
+const STALE_MONTH_STOP = 8;
+
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(WFTW_JSON_DIR)) fs.mkdirSync(WFTW_JSON_DIR, { recursive: true });
 
-// Initialize state ledger
+// Initialize state ledger (English crawl only)
 const stateDb = new DatabaseSync(STATE_DB_PATH);
 stateDb.exec(`
   CREATE TABLE IF NOT EXISTS crawled_articles (
@@ -68,9 +95,11 @@ feedDb.exec(`
 `);
 
 // HTTP Helper
+const TRANSPORT = { 'https:': https, 'http:': http };
 function fetch(url, retries = 3) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'ChristianTubeCrawler/1.0' } }, (res) => {
+    const mod = TRANSPORT[url.startsWith('https:') ? 'https:' : 'http:'] || http;
+    mod.get(url, { headers: { 'User-Agent': 'ChristianTubeCrawler/1.0' } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         let loc = res.headers.location;
         if (!loc.startsWith('http')) loc = new URL(loc, url).href;
@@ -136,6 +165,54 @@ const MONTHS = {
   'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
 };
 
+/**
+ * Extracts the article body HTML from a WFTW article page.
+ * Order of preference:
+ *  1. `.article-body` container (English pages),
+ *  2. the `.field-name-body` Drupal region up to the excerpt-end marker
+ *     (language pages; keeps sidebar/footer `<p>` text out),
+ *  3. bare `<p>` tags (fallback).
+ */
+function extractBodyHtml(html) {
+  const articleBody = html.match(/<div[^>]*class="article-body"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>\s*<\/div>/i);
+  if (articleBody) return articleBody[1];
+
+  const bodyStart = html.indexOf('field-name-body');
+  if (bodyStart >= 0) {
+    const endMarker = html.indexOf('ENDS class="article-home-excerpts"', bodyStart);
+    const regionEnd = endMarker >= 0 ? endMarker : Math.min(html.length, bodyStart + 60000);
+    const region = html.slice(bodyStart, regionEnd);
+    const pTags = region.match(/<p[^>]*>[\s\S]*?<\/p>/gi) || [];
+    return pTags.join('');
+  }
+
+  const pMatches = html.match(/<p>[\s\S]*?<\/p>/gi);
+  if (pMatches) return pMatches.filter(p => !p.includes('cfcindia.com/wftw')).join('');
+
+  return '';
+}
+
+/** Builds the article `lines` array from body HTML + title (mirrors English build). */
+function buildLines(contentHtml, title) {
+  const lines = [];
+  lines.push({ line: 1, text: title, isHeading: true, headingLevel: 1 });
+
+  let lineCount = 2;
+  const pTags = contentHtml.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+
+  let combinedTextForExtraction = title + " ";
+
+  for (const p of pTags) {
+    let text = cleanHtml(p);
+    if (!text) continue;
+    lines.push({ line: lineCount++, text: text, isHeading: false });
+    if (lineCount <= 4) {
+        combinedTextForExtraction += text + " ";
+    }
+  }
+  return { lines, combinedTextForExtraction };
+}
+
 async function processArticle(url, title, dateObj) {
   const articleId = `${dateObj.year}_${dateObj.monthStr}_${dateObj.day.padStart(2, '0')}`;
   
@@ -153,35 +230,9 @@ async function processArticle(url, title, dateObj) {
   console.log(`Processing article: ${articleId} - ${title}`);
   
   // Parse HTML
-  let contentHtml = '';
-  const contentMatch = html.match(/<div[^>]*class="article-body"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>\s*<\/div>/i);
-  if (contentMatch) {
-    contentHtml = contentMatch[1];
-  } else {
-    // fallback, try to find content between specific tags
-    const pMatches = html.match(/<p>[\s\S]*?<\/p>/gi);
-    if (pMatches) {
-        // filter out footer texts
-        contentHtml = pMatches.filter(p => !p.includes('cfcindia.com/wftw')).join('');
-    }
-  }
+  const contentHtml = extractBodyHtml(html);
 
-  const lines = [];
-  lines.push({ line: 1, text: title, isHeading: true, headingLevel: 1 });
-  
-  let lineCount = 2;
-  const pTags = contentHtml.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
-  
-  let combinedTextForExtraction = title + " ";
-  
-  for (const p of pTags) {
-    let text = cleanHtml(p);
-    if (!text) continue;
-    lines.push({ line: lineCount++, text: text, isHeading: false });
-    if (lineCount <= 4) {
-        combinedTextForExtraction += text + " ";
-    }
-  }
+  const { lines, combinedTextForExtraction } = buildLines(contentHtml, title);
 
   // Extract Scripture
   const scripture = extractScripture(combinedTextForExtraction);
@@ -267,6 +318,258 @@ async function scrapeMonth(year, monthNum) {
   }
 }
 
+/**
+ * Crawls one language month-grid. Returns the number of article blocks found
+ * so the caller can stop the deep crawl when months go stale.
+ */
+async function scrapeLangMonth(lang, langEntry, year, monthNum, seenUrls) {
+  const url = `${langEntry.base}/wftw?y=${year}&m=${monthNum}`;
+  const html = await fetch(url);
+
+  const dir = path.join(RELEASES_ARTICLES_DIR, lang);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  const monthStr = monthNum.toString().padStart(2, '0');
+  const excerptsRegex = /<div class="col-lg-6 col-md-6\s*col-sm-6 col-xs-12 wftw-home-excerpts ">([\s\S]*?)<\/div><!--ENDS class="article-home-excerpts" -->/gi;
+  let block;
+  let found = 0;
+  while ((block = excerptsRegex.exec(html)) !== null) {
+      const dayMatch = block[1].match(/<div class="wftw-day">\s*(\d+)\s*<\/div>/i);
+      const titleMatch = block[1].match(/<a href="(https?:\/\/[^"]+\/wftw\/[^"]+)">([\s\S]*?)<\/a>/i);
+      if (!dayMatch || !titleMatch) continue;
+
+      const dayNum = parseInt(dayMatch[1].trim(), 10);
+      if (Number.isNaN(dayNum)) continue;
+
+      const articleUrl = titleMatch[1];
+      // Sparse language months pad their grid with the most recent article(s),
+      // which then bubble up in every later month page. A URL already captured
+      // for this language this run belongs to an earlier month — skip it.
+      if (seenUrls.has(articleUrl)) {
+          console.log(`[${lang}] seen (pad skip): ${articleUrl}`);
+          continue;
+      }
+      seenUrls.add(articleUrl);
+
+      const dateObj = {
+          day: dayNum,
+          month: '',
+          monthStr,
+          year: year
+      };
+      const title = cleanHtml(titleMatch[2]);
+      found++;
+
+      const articleId = `${dateObj.year}_${dateObj.monthStr}_${dayNum.toString().padStart(2, '0')}`;
+      const outPath = path.join(dir, `${articleId}.json`);
+      if (fs.existsSync(outPath)) {
+          console.log(`[${lang}] exists: ${articleId}`);
+          continue;
+      }
+      try {
+          await processLangArticle(lang, dir, articleUrl, title, dateObj);
+      } catch (e) {
+          // A bad page must not abort the language crawl; the missing file is
+          // retried on the next run.
+          console.error(`[${lang}] SKIP (continue): ${title} -- ${e.message}`);
+      }
+  }
+  return found;
+}
+
+async function processLangArticle(lang, dir, url, title, dateObj) {
+  const articleId = `${dateObj.year}_${dateObj.monthStr}_${dateObj.day.toString().padStart(2, '0')}`;
+  console.log(`[${lang}] Processing article: ${articleId} - ${title}`);
+
+  const html = await fetch(url);
+  const contentHtml = extractBodyHtml(html);
+  const { lines } = buildLines(contentHtml, title);
+
+  const articleJson = {
+    id: articleId,
+    title: title,
+    date: `${dateObj.year}-${dateObj.monthStr}-${dateObj.day.toString().padStart(2, '0')}`,
+    author: "Zac Poonen",
+    lines: lines
+  };
+  fs.writeFileSync(path.join(dir, `${articleId}.json`), JSON.stringify(articleJson, null, 2));
+}
+
+/** Deep backfill for one language: current month down to its floor year. */
+async function crawlLangDeep(langEntry) {
+  const lang = langEntry.code;
+  console.log(`\n=== Deep crawl ${langEntry.label} (${lang}) ===`);
+  const seenUrls = new Set();
+
+  // Bound the crawl to committed history so daily full runs don't re-scan
+  // months we already contain. Fresh checkouts keep scanning to the floor.
+  const dir = path.join(RELEASES_ARTICLES_DIR, lang);
+  let earliestYear = null;
+  if (fs.existsSync(dir)) {
+    for (const f of fs.readdirSync(dir)) {
+      const y = parseInt(f.slice(0, 4), 10);
+      if (Number.isInteger(y)) earliestYear = earliestYear === null ? y : Math.min(earliestYear, y);
+    }
+  }
+  const lowerBound = earliestYear !== null && earliestYear <= langEntry.floorYear
+      ? earliestYear - 1
+      : langEntry.floorYear;
+
+  const now = new Date();
+  let consecutiveEmpty = 0;
+  let total = 0;
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1;
+  let firstStop = true;
+  while (year >= lowerBound) {
+    let found = 0;
+    try {
+      found = await scrapeLangMonth(lang, langEntry, year, month, seenUrls);
+    } catch (e) {
+      if (firstStop) console.error(`[${lang}] Month ${year}-${month} failed: ${e.message}`);
+    }
+    firstStop = false;
+    total += found;
+    if (found === 0 && year < now.getFullYear()) {
+      consecutiveEmpty++;
+      if (consecutiveEmpty >= STALE_MONTH_STOP) {
+        console.log(`[${lang}] Stopping backfill at ${year}-${month} (${consecutiveEmpty} empty months).`);
+        break;
+      }
+    } else if (found > 0) {
+      consecutiveEmpty = 0;
+    }
+
+    month--;
+    if (month === 0) { month = 12; year--; }
+  }
+  console.log(`[${lang}] crawl complete: ${total} new articles.`);
+}
+
+/** Incremental crawl for one language: the most recent months only. */
+async function crawlLangIncremental(langEntry) {
+  const lang = langEntry.code;
+  console.log(`\n=== Incremental ${langEntry.label} (${lang}) ===`);
+  const seenUrls = new Set();
+  const now = new Date();
+  const seen = new Set();
+  const candidates = [];
+  // Current month, then the previous month (mirrors the English daily crawl).
+  for (let i = 0; i < 2; i++) {
+    let y = now.getFullYear();
+    let m = now.getMonth() + 1 - i;
+    if (m <= 0) { m += 12; y--; }
+    const key = `${y}-${m}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push([y, m]);
+  }
+  for (const [y, m] of candidates) {
+    try {
+      await scrapeLangMonth(lang, langEntry, y, m, seenUrls);
+    } catch (e) {
+      console.error(`[${lang}] Month ${y}-${m} failed: ${e.message}`);
+    }
+  }
+}
+
+/** Regenerates per-language indexes from their committed content folders. */
+function buildLangIndex(dir) {
+  const entries = [];
+  if (!fs.existsSync(dir)) return entries;
+  for (const f of fs.readdirSync(dir)) {
+    if (f === 'index.json' || !f.endsWith('.json')) continue;
+    try {
+      const json = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      const y = json.date ? parseInt(json.date.slice(0, 4), 10) : null;
+      entries.push({
+        id: json.id,
+        title: json.title,
+        date: json.date,
+        year: Number.isInteger(y) ? y : null,
+        bookNumber: null,
+        chapter: null,
+        startVerse: null,
+        endVerse: null
+      });
+    } catch (_) {
+      // skip unreadable/incomplete files (likely from an interrupted run)
+    }
+  }
+  entries.sort((a, b) => b.date.localeCompare(a.date));
+  return entries;
+}
+
+/** Returns English index entries (from the committed web-safe index file). */
+function englishEntries() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(INDEX_PATH, 'utf8'));
+    if (Array.isArray(raw)) return raw;
+  } catch (_) {}
+  try {
+    const rows = feedDb.prepare(
+      'SELECT article_id, article_title, date_ms, year, book_number, chapter, start_verse, end_verse FROM wftw_verses'
+    ).all();
+    return rows.map((r) => {
+      const d = new Date(r.date_ms);
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      return {
+        id: r.article_id,
+        title: r.article_title,
+        date: `${d.getUTCFullYear()}-${mm}-${dd}`,
+        year: r.year ?? null,
+        bookNumber: r.book_number ?? null,
+        chapter: r.chapter ?? null,
+        startVerse: r.start_verse ?? null,
+        endVerse: r.end_verse ?? null
+      };
+    });
+  } catch (_) {}
+  return [];
+}
+
+/** Writes per-language indexes, the combined index, and the language manifest. */
+function finishLanguages() {
+  console.log("Generating per-language indexes, combined index & languages manifest...");
+
+  const combined = [];
+  const langCounts = [];
+
+  // English first (hosted under articles/wftw/, index from wftw_index.json).
+  const en = englishEntries().map((e) => ({ ...e, lang: 'en' }));
+  combined.push(...en);
+  langCounts.push({ code: 'en', count: en.length });
+
+  for (const entry of LANGUAGE_MANIFEST) {
+    const code = entry.code;
+    if (code === 'en') continue;
+    const dir = path.join(RELEASES_ARTICLES_DIR, code);
+    const index = buildLangIndex(dir);
+    // Only materialize an index once a language actually has articles.
+    if (index.length > 0) {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify(index));
+      console.log(`Wrote articles/${code}/index.json (${index.length} entries)`);
+      combined.push(...index.map((e) => ({ ...e, lang: code })));
+    }
+    langCounts.push({ code, count: index.length });
+  }
+
+  combined.sort((a, b) => (b.date.localeCompare(a.date) || a.lang.localeCompare(b.lang)));
+  fs.writeFileSync(COMBINED_INDEX_PATH, JSON.stringify(combined));
+  console.log(`Wrote ${COMBINED_INDEX_PATH} (${combined.length} entries)`);
+
+  // Language manifest for the app's language picker. Names come from the
+  // tool manifest; order: most articles first.
+  const nameOf = new Map(LANGUAGE_MANIFEST.map((l) => [l.code, l.label]));
+  const manifest = langCounts
+    .sort((a, b) => b.count - a.count)
+    .map((c) => ({ code: c.code, name: nameOf.get(c.code) || c.code, count: c.count }));
+  fs.writeFileSync(LANGUAGES_MANIFEST_OUT_PATH, JSON.stringify(manifest));
+  console.log(`Wrote ${LANGUAGES_MANIFEST_OUT_PATH}`);
+}
+
 async function finish() {
     console.log("Generating Index, Gzip & Manifest...");
 
@@ -309,27 +612,21 @@ async function finish() {
     console.log(`Wrote ${MANIFEST_PATH}`);
 }
 
-async function main() {
-    const args = process.argv.slice(2);
-    const isAll = args.includes('--all');
-    
+/** English crawl mode (legacy behaviour). */
+async function runEnglish(full) {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1; // 1-12
-    
-    if (isAll) {
+
+    if (full) {
         for (let y = currentYear; y >= 2001; y--) {
             for (let m = 12; m >= 1; m--) {
-                // optimization: if we hit future months, skip
                 if (y === currentYear && m > currentMonth) continue;
                 await scrapeMonth(y, m);
             }
         }
     } else {
-        // Just scrape the current month
         await scrapeMonth(currentYear, currentMonth);
-        
-        // Also scrape previous month just in case we are on the 1st of the month
         if (now.getDate() < 7) {
             let pM = currentMonth - 1;
             let pY = currentYear;
@@ -337,8 +634,51 @@ async function main() {
             await scrapeMonth(pY, pM);
         }
     }
-    
+
     await finish();
+}
+
+/** Resolves --langs=... to a list of language entries (English excluded here). */
+function resolveLangsArg(value) {
+  if (value === 'seed' || value === 'all') {
+    return LANGUAGE_MANIFEST.filter((l) => l.code !== 'en' && !l.disabled && (value === 'all' || l.seed));
+  }
+  const codes = value.split(',').map((c) => c.trim()).filter(Boolean);
+  const out = [];
+  for (const code of codes) {
+    if (code === 'en') { console.warn('English is managed by the default/--all mode; skipping.'); continue; }
+    const entry = LANGUAGE_MANIFEST.find((l) => l.code === code);
+    if (!entry) { console.warn(`Unknown language code '${code}' — skipping.`); continue; }
+    if (entry.disabled) { console.warn(`[${code}] disabled — skipping.`); continue; }
+    out.push(entry);
+  }
+  return out;
+}
+
+async function main() {
+    const args = process.argv.slice(2);
+    const isAll = args.includes('--all');
+    const full = args.includes('--full');
+    const langsArgIdx = args.findIndex((a) => a.startsWith('--langs='));
+
+    if (langsArgIdx >= 0) {
+        const langs = resolveLangsArg(args[langsArgIdx].slice('--langs='.length));
+        if (langs.length === 0) {
+            console.error('No languages selected for --langs. Use seed, all, en-free codes, e.g. de,ta.');
+            process.exit(1);
+        }
+        for (const entry of langs) {
+            if (full) {
+                await crawlLangDeep(entry);
+            } else {
+                await crawlLangIncremental(entry);
+            }
+        }
+        finishLanguages();
+        return;
+    }
+
+    await runEnglish(isAll);
 }
 
 main().catch(err => {

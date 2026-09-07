@@ -33,6 +33,7 @@ jobs:
         run: |
           node tool/sync_cfc_audio.js
           node tool/sync_cfc_articles.js
+          node tool/sync_cfc_articles.js --langs=all
 
       - name: Commit and Push Releases Updates
         run: |
@@ -53,7 +54,9 @@ jobs:
             # Purge jsDelivr edge CDN cache so mobile apps receive updates instantly
             echo "Purging jsDelivr edge cache for manifests..."
             curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/audio/catalog.json" || true
-            curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/articles/wftw_manifest.json" || true
+            curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/articles/wftw_index.json" || true
+            curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/articles/articles_index.json" || true
+            curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/articles/languages.json" || true
             
             echo "Audio and articles in releases/ successfully synced and pushed!" >> $GITHUB_STEP_SUMMARY
           else
