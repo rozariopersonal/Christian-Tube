@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 void pausePlatformMainVideo() {}
 void resumePlatformMainVideo() {}
+void seekPlatformMainVideoTo(double seconds) {}
 
 Widget buildPlatformVideoPlayer({
   required String videoId,

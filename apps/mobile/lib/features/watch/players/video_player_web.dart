@@ -36,6 +36,21 @@ void resumePlatformMainVideo() {
   } catch (_) {}
 }
 
+void seekPlatformMainVideoTo(double seconds) {
+  final sec = seconds > 0 ? seconds.toInt() : 0;
+  try {
+    final iframes = html.document.querySelectorAll('iframe');
+    for (final elem in iframes) {
+      if (elem is html.IFrameElement) {
+        elem.contentWindow?.postMessage(
+          '{"event":"command","func":"seekTo","args":[$sec,true]}',
+          '*',
+        );
+      }
+    }
+  } catch (_) {}
+}
+
 Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,

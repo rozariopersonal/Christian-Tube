@@ -76,6 +76,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void _resumeVideoAfterFullscreenToggle() {
     resumePlatformMainVideo();
+    final resumeAt =
+        _currentPositionSeconds > 0 ? _currentPositionSeconds : null;
+    if (resumeAt != null) {
+      seekPlatformMainVideoTo(resumeAt);
+    }
     for (final delayMs in [150, 350, 600, 1000]) {
       _resumeTimers.add(Timer(Duration(milliseconds: delayMs), () {
         if (mounted) {

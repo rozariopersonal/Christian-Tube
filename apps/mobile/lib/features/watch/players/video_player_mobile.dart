@@ -23,6 +23,15 @@ void resumePlatformMainVideo() {
   } catch (_) {}
 }
 
+void seekPlatformMainVideoTo(double seconds) {
+  final sec = seconds > 0 ? seconds.toInt() : 0;
+  try {
+    _activeMainWebViewController?.evaluateJavascript(
+      source: "try { if (typeof seekTo === 'function') { seekTo($sec); } } catch(e) {}",
+    );
+  } catch (_) {}
+}
+
 Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,
@@ -259,6 +268,13 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
             try {
                 if (player && typeof player.playVideo === 'function') {
                     player.playVideo();
+                }
+            } catch(err){}
+        }
+        function seekTo(sec) {
+            try {
+                if (player && typeof player.seekTo === 'function') {
+                    player.seekTo(sec, true);
                 }
             } catch(err){}
         }
