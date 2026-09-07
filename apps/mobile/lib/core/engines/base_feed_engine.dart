@@ -19,6 +19,10 @@ abstract class BaseFeedEngine<T, F extends BaseFeedFilterState> {
   /// One-time async initialization for the engine (e.g. initializing local SQLite databases).
   Future<void> initialize();
 
+  /// Returns a user-facing explanation for a load failure, or null to fall
+  /// back to the generic "Failed to load feed" message.
+  String? mapLoadError(Object error) => null;
+
   /// The default initial filter / settings state.
   F get initialFilterState;
 

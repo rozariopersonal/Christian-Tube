@@ -35,6 +35,9 @@ class ScriptureEngine
   String get engineType => 'scripture';
 
   @override
+  String? mapLoadError(Object error) => null;
+
+  @override
   String get defaultTabTitle => 'Words';
 
   @override

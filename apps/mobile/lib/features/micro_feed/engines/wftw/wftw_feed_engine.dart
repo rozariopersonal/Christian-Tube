@@ -37,6 +37,9 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
   String get engineType => 'wftw';
 
   @override
+  String? mapLoadError(Object error) => null;
+
+  @override
   String get defaultTabTitle => 'Words';
 
   @override

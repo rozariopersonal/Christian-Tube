@@ -69,7 +69,7 @@ class CardActionButton extends StatelessWidget {
                   Shadow(
                     color: context.tokens.scrim.withValues(alpha: 0.87),
                     blurRadius: 4,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),

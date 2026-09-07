@@ -100,19 +100,35 @@ class _WftwCardViewState extends State<WftwCardView> {
     }
   }
 
-  void _handleEdgeDrag(ScrollNotification notification) {
-    if (widget.onEdgePageShift == null) return;
-    final now = DateTime.now();
-    if (now.difference(_lastEdgeShift) < const Duration(milliseconds: 650)) return;
-
-    final metrics = notification.metrics;
-    if (metrics.pixels <= metrics.minScrollExtent - 48) {
-      _lastEdgeShift = now;
-      widget.onEdgePageShift!(-1);
-    } else if (metrics.pixels >= metrics.maxScrollExtent + 48) {
-      _lastEdgeShift = now;
-      widget.onEdgePageShift!(1);
+  // Scroll-past-edge detection: when the card's content overflows the screen,
+  // continuing the drag past the top/bottom edge pages to the prev/next card.
+  // While content fits, ClampingScrollPhysics registers no drag recognizer at
+  // rest, so the parent PageView handles swipes naturally.
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (widget.onEdgePageShift == null) return false;
+    final DragUpdateDetails? details;
+    if (notification is ScrollUpdateNotification) {
+      details = notification.dragDetails;
+    } else if (notification is OverscrollNotification) {
+      details = notification.dragDetails;
+    } else {
+      return false;
     }
+    if (details == null) return false;
+    final metrics = notification.metrics;
+    if (metrics.maxScrollExtent <= 0) return false;
+    if (DateTime.now().difference(_lastEdgeShift) < const Duration(milliseconds: 600)) {
+      return false;
+    }
+    final delta = details.primaryDelta ?? 0;
+    if (delta < -1 && metrics.pixels >= metrics.maxScrollExtent - 1) {
+      _lastEdgeShift = DateTime.now();
+      widget.onEdgePageShift!(1);
+    } else if (delta > 1 && metrics.pixels <= 1) {
+      _lastEdgeShift = DateTime.now();
+      widget.onEdgePageShift!(-1);
+    }
+    return false;
   }
 
   @override
@@ -154,15 +170,9 @@ class _WftwCardViewState extends State<WftwCardView> {
         // 3. Scrollable content canvas
         SafeArea(
           child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification ||
-                  notification is OverscrollNotification) {
-                _handleEdgeDrag(notification);
-              }
-              return false;
-            },
+            onNotification: _handleScrollNotification,
             child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
+              physics: const ClampingScrollPhysics(),
               padding: const EdgeInsets.only(
                 left: 24.0,
                 right: 24.0,
