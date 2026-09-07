@@ -46,6 +46,48 @@ class AuthService extends ChangeNotifier {
       } catch (e) {
         debugPrint('Failed to parse cached user: $e');
       }
+
+      // On web, restore the Google OAuth session silently so the account
+      // persists across browser sessions and the ID token can be refreshed
+      // (Google ID tokens expire after ~1 hour).
+      if (kIsWeb) {
+        _restoreWebGoogleSession();
+      }
+    }
+  }
+
+  /// Restores a persistent Google sign-in session on web. Uses the silent
+  /// sign-in flow to reload the account and refresh the (expiring) ID token
+  /// without forcing the user through the account picker again. Silently
+  /// degrades to the cached session if Google's session has expired.
+  Future<void> _restoreWebGoogleSession() async {
+    try {
+      final account = await _googleSignIn.signInSilently();
+      if (account != null) {
+        final auth = await account.authentication;
+        if (auth.idToken != null && auth.idToken!.isNotEmpty) {
+          // Keep the existing profile but refresh the ID token.
+          _currentUser = User(
+            id: _currentUser?.id ?? account.id,
+            email: account.email,
+            displayName:
+                account.displayName != null && account.displayName!.isNotEmpty
+                    ? account.displayName!
+                    : account.email.split('@').first,
+            photoUrl: account.photoUrl,
+            idToken: auth.idToken,
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(
+              'current_user', jsonEncode(_currentUser!.toJson()));
+          await prefs.setString('auth_token', auth.idToken!);
+          notifyListeners();
+          debugPrint('Web Google session restored silently.');
+        }
+      }
+    } catch (e) {
+      // Session not available/expired; keep using the cached profile.
+      debugPrint('Web Google session restore skipped: $e');
     }
   }
 
@@ -79,10 +121,15 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Disconnect previous session to allow clean account picker
-      try {
-        await _googleSignIn.signOut();
-      } catch (_) {}
+      // Disconnect previous session to allow clean account picker.
+      // On web this is skipped: signOut() would revoke Google's persisted
+      // session cookie, defeating cross-session persistence. The web flow
+      // reuses the existing session; a fresh token is silent-signed on load.
+      if (!kIsWeb) {
+        try {
+          await _googleSignIn.signOut();
+        } catch (_) {}
+      }
 
       GoogleSignInAccount? account;
       String? innerError;
