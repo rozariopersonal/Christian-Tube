@@ -356,4 +356,53 @@ void main() {
         reason: 'font did NOT live-update (before=$before after=$after)');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('tapping a font chip in the appearance sheet live-updates verses',
+      (tester) async {
+    tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: null,
+      saveProgress: false,
+    );
+    await tester.runAsync(() async {
+      await controller.init();
+    });
+
+    await tester.pumpWidget(wrapWithApp(BibleScreen(controller: controller)));
+    await tester.pumpAndSettle();
+
+    final chipTap = find.byTooltip('Appearance Settings');
+    expect(chipTap, findsOneWidget, reason: 'appearance button not found');
+    await tester.tap(chipTap);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Font Family'), findsOneWidget,
+        reason: 'appearance sheet did not open');
+
+    await tester.dragUntilVisible(
+      find.text('Outfit'),
+      find.byType(ListView).last,
+      const Offset(-120, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Outfit'), findsWidgets,
+        reason: 'Outfit chip not found in the sheet');
+
+    await tester.tap(find.text('Outfit').first);
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final after = firstVerseFontFamily(tester);
+    expect(after, 'Outfit',
+        reason: 'tapping the Outfit chip did NOT live-update the verses');
+    expect(tester.takeException(), isNull);
+  });
 }
