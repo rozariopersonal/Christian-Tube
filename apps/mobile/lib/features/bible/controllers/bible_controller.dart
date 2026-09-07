@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../engines/scripture/services/bible_download_manager.dart';
@@ -18,6 +20,7 @@ import '../services/bible_verse_counts_service.dart';
 import '../services/bible_verse_index.dart';
 import '../services/cross_reference_service.dart';
 import '../../../shared/services/reader_appearance.dart';
+import '../../../shared/services/reader_fonts_service.dart';
 
 /// Immutable snapshot of every field the Bible reader UI needs.
 ///
@@ -340,6 +343,8 @@ class BibleController extends ChangeNotifier {
     _downloadManager.addListener(_onDownloadManagerChanged);
     await _bookNames.ensureLoaded();
     await appearance.loadFromPrefs();
+    unawaited(ReaderFontsService.instance
+        .ensureResolved(appearance.fontFamily, appearance.languageCode));
     appearance.addListener(notifyListeners);
     _loadSettings();
     await _fetchData();

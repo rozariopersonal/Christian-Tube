@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 
 void main() {
@@ -42,9 +42,8 @@ void main() {
     'NotoSerifKannada': const MapEntry('kan', 'Noto Serif Kannada'),
   };
 
-  test('every selectable reader family resolves to a bundled font asset',
+  test('every selectable reader family resolves to a hosted font slug',
       () async {
-    TestWidgetsFlutterBinding.ensureInitialized();
     for (final entry in idToFamily.entries) {
       final id = entry.key;
       final lang = entry.value.key;
@@ -52,14 +51,17 @@ void main() {
       final resolved = ScriptureThemeCatalog.resolveFontFamily(id, lang);
       expect(resolved, family,
           reason: 'resolveFontFamily($id, $lang) should resolve to $family');
-      final file = 'assets/fonts/${family.replaceAll(' ', '_')}-Regular.ttf';
-      final data = await rootBundle.load(file);
-      expect(data.lengthInBytes, greaterThan(500),
-          reason: '$file should be a real font asset');
+      final urls = GitHubDataService.readerFontUrls(family);
+      expect(urls.length, 2,
+          reason: '$family should have CDN + raw GitHub mirror URLs');
+      expect(urls.first, contains('fonts/${family.replaceAll(' ', '_')}-Regular.ttf'),
+          reason: 'CDN URL must point at the hosted font slug for $family');
+      expect(urls.last, contains('fonts/${family.replaceAll(' ', '_')}-Regular.ttf'),
+          reason: 'raw URL must point at the hosted font slug for $family');
     }
   });
 
-  testWidgets('reader text renders with a bundled family without errors',
+  testWidgets('reader text renders with a resolved family without errors',
       (tester) async {
     await tester.pumpWidget(
       MaterialApp(

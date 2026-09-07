@@ -33,6 +33,8 @@ import 'release_assets.dart';
 /// │   ├── manifest.json
 /// │   ├── daily.json
 /// │   └── topics/{slug}.json
+/// ├── fonts/
+/// │   └── {Family}_{File}.ttf             # on-demand reader fonts (SIL OFL)
 /// ├── commentaries/
 /// │   └── {bookNum}/{chapter}.json          # Zac Poonen book scripture links
 /// └── scriptures.json
@@ -257,6 +259,15 @@ class GitHubDataService {
   /// Audio series tracklist manifest for a given series ID.
   static List<String> audioSeriesUrls(String seriesId) =>
       ReleaseAssets.urlsFor('audio/series/$seriesId.json');
+
+  // ── Reader fonts ──────────────────────────────────────────────────────────
+
+  /// On-demand reader font TTF for [familyName] (the resolved Google Fonts
+  /// family, e.g. `Playfair Display`). Files are hosted in the releases repo,
+  /// never bundled with the app.
+  static List<String> readerFontUrls(String familyName) =>
+      ReleaseAssets.urlsFor(
+          'fonts/${familyName.replaceAll(' ', '_')}-Regular.ttf');
 
   // ── Repo manifest ─────────────────────────────────────────────────────────
 

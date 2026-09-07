@@ -256,6 +256,8 @@ Christian-Tube-Releases/
 │   ├── manifest.json
 │   ├── daily.json
 │   └── topics/{slug}.json
+├── fonts/
+│   └── {Family}_{File}.ttf              # On-demand reader fonts (SIL OFL), never bundled in the app
 ├── scriptures.json                       # Micro-feed scripture pool
 ├── book_names.json                       # Localized book names across versions
 └── manifest.json                         # Top-level dataset checksums & versions

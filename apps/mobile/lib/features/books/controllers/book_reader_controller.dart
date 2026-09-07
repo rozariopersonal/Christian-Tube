@@ -5,6 +5,7 @@ import '../models/book_chapter.dart';
 import '../models/book_highlight.dart';
 import '../models/book_line.dart';
 import '../../../shared/services/reader_appearance.dart';
+import '../../../shared/services/reader_fonts_service.dart';
 import '../services/book_chapter_stream.dart';
 import '../services/book_line_index.dart';
 import '../services/book_service.dart';
@@ -205,6 +206,8 @@ class BookReaderController extends ChangeNotifier {
     if (book.language.isNotEmpty && appearance.languageCode != book.language) {
       appearance.languageCode = book.language;
     }
+    unawaited(ReaderFontsService.instance
+        .ensureResolved(appearance.fontFamily, appearance.languageCode));
 
     // Resolve initial position: explicit target wins, else restore saved progress.
     var initialPage = _state.currentPage;

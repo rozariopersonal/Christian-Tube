@@ -4,6 +4,7 @@ import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
+import 'package:mobile/shared/services/reader_fonts_service.dart';
 
 /// Shows the reading-appearance sheet (theme, font family, font size) for readers.
 ///
@@ -107,19 +108,26 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
 
             Text('Font Family', style: TextStyle(color: mutedCol, fontSize: 12)),
             const SizedBox(height: 8),
-            SizedBox(
-              height: 52,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: ScriptureThemeCatalog.getFontsForLanguage(appearance.languageCode).length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final fonts = ScriptureThemeCatalog.getFontsForLanguage(appearance.languageCode);
-                  final font = fonts[index];
-                  final isSelected = font.id == appearance.fontFamily;
-                  return _buildFontChip(context, font, isSelected, setModalState, appearance);
-                },
-              ),
+            ListenableBuilder(
+              listenable: ReaderFontsService.instance,
+              builder: (context, _) {
+                final fonts =
+                    ScriptureThemeCatalog.getFontsForLanguage(appearance.languageCode);
+                return SizedBox(
+                  height: 52,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: fonts.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final font = fonts[index];
+                      final isSelected = font.id == appearance.fontFamily;
+                      return _buildFontChip(
+                          context, font, isSelected, setModalState, appearance);
+                    },
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 20),
 
@@ -197,6 +205,8 @@ Widget _buildFontChip(
   return GestureDetector(
     onTap: () {
       setModalState(() => appearance.fontFamily = font.id);
+      ReaderFontsService.instance
+          .ensureResolved(font.id, font.languageCode ?? appearance.languageCode);
     },
     child: AnimatedContainer(
       duration: const Duration(milliseconds: 200),
