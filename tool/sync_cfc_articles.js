@@ -39,9 +39,15 @@ stateDb.exec(`
   );
 `);
 
-// Initialize output Feed DB
-if (fs.existsSync(FEED_DB_PATH)) {
-    // We append/update the feed db each run
+// Initialize output Feed DB. CI checkouts are fresh (the uncompressed DB is
+// not committed), so continue from the committed archive: decompress the .gz
+// into the working DB first, then append/upsert this run's articles. Without
+// this each CI run rebuilt the feed from only the current month, losing history.
+if (!fs.existsSync(FEED_DB_PATH) && fs.existsSync(FEED_DB_GZ_PATH)) {
+    console.log("Continuing from committed feed archive (wftw_feed.sqlite.gz)...");
+    const compressed = fs.readFileSync(FEED_DB_GZ_PATH);
+    const decompressed = zlib.gunzipSync(compressed);
+    fs.writeFileSync(FEED_DB_PATH, decompressed);
 }
 const feedDb = new DatabaseSync(FEED_DB_PATH);
 feedDb.exec(`
@@ -246,8 +252,14 @@ async function scrapeMonth(year, monthNum) {
           };
           const articleUrl = titleMatch[1];
           const title = cleanHtml(titleMatch[2]);
-          
-          await processArticle(articleUrl, title, dateObj);
+
+          try {
+              await processArticle(articleUrl, title, dateObj);
+          } catch (e) {
+              // One bad page (404, transient error) must not abort the whole
+              // backfill; the content-hash ledger lets a later rerun retry it.
+              console.error(`SKIP (continue): ${title} -- ${e.message}`);
+          }
       }
   }
 }
