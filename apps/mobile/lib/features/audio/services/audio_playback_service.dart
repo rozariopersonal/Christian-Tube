@@ -3,16 +3,20 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/audio_track.dart';
+import 'audio_local_library.dart';
 
 /// Wraps the underlying [AudioPlayer] engine and handles streaming,
 /// local chunk caching, fallback URLs, and audio session events.
 class AudioPlaybackService {
   final AudioPlayer _player;
   bool _isSessionConfigured = false;
+  final AudioLocalLibrary _localLibrary;
 
   StreamSubscription? _becomingNoisySubscription;
 
-  AudioPlaybackService({AudioPlayer? player}) : _player = player ?? AudioPlayer();
+  AudioPlaybackService({AudioPlayer? player, AudioLocalLibrary? localLibrary})
+      : _player = player ?? AudioPlayer(),
+        _localLibrary = localLibrary ?? AudioLocalLibrary();
 
   Stream<Duration> get positionStream => _player.positionStream;
   Stream<Duration?> get durationStream => _player.durationStream;
@@ -44,13 +48,28 @@ class AudioPlaybackService {
   }
 
   /// Loads and prepares an [AudioTrack] for streaming with local chunk caching.
-  /// If the primary [audioUrl] fails, automatically attempts [fallbackUrl].
+  /// If the track has been downloaded for offline use, the local file is played
+  /// instead of the remote stream. Otherwise the primary [audioUrl] is used, with
+  /// automatic fallback to [fallbackUrl] on failure.
   Future<Duration?> loadTrack(AudioTrack track, {int initialPositionSec = 0}) async {
     await _ensureAudioSession();
 
     final initialPosition = initialPositionSec > 0
         ? Duration(seconds: initialPositionSec)
         : Duration.zero;
+
+    // Offline: prefer the locally downloaded file when present.
+    final localUri = await _localLibrary.localUriFor(track);
+    if (localUri != null) {
+      try {
+        return await _player.setAudioSource(
+          AudioSource.uri(Uri.parse(localUri)),
+          initialPosition: initialPosition,
+        );
+      } catch (e) {
+        debugPrint('Local audio load failed, falling back to stream: $e');
+      }
+    }
 
     // Headers to guarantee Cloudflare CDN byte-range and cache support
     final headers = {'User-Agent': 'ChristianTube/1.32'};

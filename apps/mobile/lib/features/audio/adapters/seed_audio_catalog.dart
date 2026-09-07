@@ -1,0 +1,187 @@
+import '../models/audio_series.dart';
+import '../models/audio_track.dart';
+
+/// Offline seed catalog used when the remote releases repository is
+/// unreachable. Lives in the adapter layer so the catalog service stays a thin
+/// facade. Media streams directly from cfcindia.org servers.
+class SeedAudioCatalog {
+  SeedAudioCatalog._();
+
+  static final List<AudioSeries> catalog = [
+    AudioSeries(
+      id: 'through_the_bible',
+      title: 'Through The Bible',
+      description:
+          '70-Hour Bible Survey bringing out the distinctive message of each book from Genesis to Revelation.',
+      speaker: 'Zac Poonen',
+      trackCount: 70,
+      category: 'Bible Survey',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
+      tracks: _ttbTracks,
+    ),
+    AudioSeries(
+      id: 'foundational_truths',
+      title: 'Basic Christian Truths',
+      description:
+          'Crucial foundational teachings on discipleship, repentance, the cross, and victorious Christian living.',
+      speaker: 'Zac Poonen',
+      trackCount: 16,
+      category: 'Foundations',
+      coverUrl: 'https://www.cfcindia.org/images/bank/weekly_podcast.jpg',
+      tracks: _foundationsTracks,
+    ),
+    AudioSeries(
+      id: 'the_church',
+      title: 'The Church & Discipleship',
+      description:
+          'Understanding New Testament church principles, fellowship, and servant leadership.',
+      speaker: 'Zac Poonen',
+      trackCount: 10,
+      category: 'The Church',
+      coverUrl: 'https://www.cfcindia.org/resources/en/icon/cfc-logo-maroon.png',
+      tracks: _churchTracks,
+    ),
+  ];
+
+  static final Map<String, AudioSeries> seriesById = {
+    for (final s in catalog) s.id: s,
+  };
+
+  static final List<AudioTrack> _ttbTracks = [
+    const AudioTrack(
+      id: 'ttb_01_genesis_01',
+      title: 'Genesis - Part 1: Creation & The Fall',
+      seriesId: 'through_the_bible',
+      seriesTitle: 'Through The Bible',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3130,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/01-genesis-1.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
+      scriptureBook: 'GEN',
+      scriptureChapter: 1,
+    ),
+    const AudioTrack(
+      id: 'ttb_02_genesis_02',
+      title: 'Genesis - Part 2: Abraham & The Covenant',
+      seriesId: 'through_the_bible',
+      seriesTitle: 'Through The Bible',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3205,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/02-genesis-2.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
+      scriptureBook: 'GEN',
+      scriptureChapter: 12,
+    ),
+    const AudioTrack(
+      id: 'ttb_03_genesis_03',
+      title: 'Genesis - Part 3: Isaac, Jacob & Joseph',
+      seriesId: 'through_the_bible',
+      seriesTitle: 'Through The Bible',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3180,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/03-genesis-3.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
+      scriptureBook: 'GEN',
+      scriptureChapter: 37,
+    ),
+    const AudioTrack(
+      id: 'ttb_04_exodus_01',
+      title: 'Exodus - Part 1: Deliverance from Egypt',
+      seriesId: 'through_the_bible',
+      seriesTitle: 'Through The Bible',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3150,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/04-exodus-1.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
+      scriptureBook: 'EXO',
+      scriptureChapter: 1,
+    ),
+    const AudioTrack(
+      id: 'ttb_05_exodus_02',
+      title: 'Exodus - Part 2: The Law & The Tabernacle',
+      seriesId: 'through_the_bible',
+      seriesTitle: 'Through The Bible',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3220,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/study-series/through-the-bible/05-exodus-2.mp3',
+      coverUrl: 'https://www.cfcindia.com/images/bank/cfc_ttb.jpg',
+      scriptureBook: 'EXO',
+      scriptureChapter: 25,
+    ),
+  ];
+
+  static final List<AudioTrack> _foundationsTracks = [
+    const AudioTrack(
+      id: 'ft_01_seven_truths',
+      title: 'Seven Truths Every Christian Must Know',
+      seriesId: 'foundational_truths',
+      seriesTitle: 'Basic Christian Truths',
+      speaker: 'Zac Poonen',
+      durationSeconds: 2980,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/sermon-series/single-sermons/seven-truths-that-every-christian-must-know.mp3',
+      scriptureBook: 'JHN',
+      scriptureChapter: 8,
+      scriptureVerse: 32,
+    ),
+    const AudioTrack(
+      id: 'ft_02_christ_defeated_satan',
+      title: 'Christ Defeated Satan On The Cross',
+      seriesId: 'foundational_truths',
+      seriesTitle: 'Basic Christian Truths',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3120,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/sermon-series/the-power-of-christs-resurrection/christ-defeated-satan-on-the-cross.mp3',
+      scriptureBook: 'COL',
+      scriptureChapter: 2,
+      scriptureVerse: 15,
+    ),
+    const AudioTrack(
+      id: 'ft_03_god_rest',
+      title: 'You Can Enter Into God’s Rest',
+      seriesId: 'foundational_truths',
+      seriesTitle: 'Basic Christian Truths',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3040,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/sermon-series/single-sermons/you-can-enter-into-gods-rest.mp3',
+      scriptureBook: 'HEB',
+      scriptureChapter: 4,
+      scriptureVerse: 9,
+    ),
+  ];
+
+  static final List<AudioTrack> _churchTracks = [
+    const AudioTrack(
+      id: 'ch_01_god_centered',
+      title: 'The God-Centered Can Build The Church',
+      seriesId: 'the_church',
+      seriesTitle: 'The Church & Discipleship',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3180,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/sermon-series/single-sermons/the-god-centered-can-build-the-church.mp3',
+      scriptureBook: 'EPH',
+      scriptureChapter: 4,
+    ),
+    const AudioTrack(
+      id: 'ch_02_light_in_darkness',
+      title: 'The Church - A Light In The Darkness',
+      seriesId: 'the_church',
+      seriesTitle: 'The Church & Discipleship',
+      speaker: 'Zac Poonen',
+      durationSeconds: 3240,
+      audioUrl:
+          'https://www.cfcindia.org/resources/en/sermon-series/single-sermons/the-church-a-light-in-the-darkness.mp3',
+      scriptureBook: 'MAT',
+      scriptureChapter: 5,
+      scriptureVerse: 14,
+    ),
+  ];
+}

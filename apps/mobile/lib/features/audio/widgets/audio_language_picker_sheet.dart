@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_tokens.dart';
 import '../../books/models/book_language_meta.dart';
+import 'audio_language_list_tile.dart';
 
-/// An adaptive modal sheet for selecting one or multiple languages in the Audio Library.
-///
-/// Features multi-selection checkboxes, native script subtitles,
-/// track count badges per language, quick-search filtering, "Select All",
-/// and an "Apply Selection" confirmation action.
+/// An adaptive modal sheet for selecting one or multiple languages in the Audio
+/// Library. Features multi-search filtering, track counts, "Select All", and an
+/// "Apply Selection" confirmation action.
 class AudioLanguagePickerSheet extends StatefulWidget {
   final Set<String> selectedLanguages;
   final List<String> availableLanguages;
@@ -22,7 +22,8 @@ class AudioLanguagePickerSheet extends StatefulWidget {
   });
 
   @override
-  State<AudioLanguagePickerSheet> createState() => _AudioLanguagePickerSheetState();
+  State<AudioLanguagePickerSheet> createState() =>
+      _AudioLanguagePickerSheetState();
 }
 
 class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
@@ -56,7 +57,6 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
         return;
       }
 
-      // If 'All' was selected, clear it and add this specific language
       if (_isAllSelected()) {
         _currentSelection = {code};
         return;
@@ -65,7 +65,6 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
       final normalizedCode = code;
       if (_currentSelection.any((l) => l.toLowerCase() == code.toLowerCase())) {
         _currentSelection.removeWhere((l) => l.toLowerCase() == code.toLowerCase());
-        // If everything was deselected, default back to 'All'
         if (_currentSelection.isEmpty) {
           _currentSelection = {'All'};
         }
@@ -88,7 +87,8 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
     int total = 0;
     for (final code in _currentSelection) {
       final meta = BookLanguageMeta.fromCode(code);
-      total += widget.trackCounts[code] ?? widget.trackCounts[meta.englishName] ?? 0;
+      total +=
+          widget.trackCounts[code] ?? widget.trackCounts[meta.englishName] ?? 0;
     }
     return total;
   }
@@ -113,7 +113,6 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
     final tokens = context.tokens;
     final isAll = _isAllSelected();
 
-    // Filter available languages based on search query
     final filteredLanguages = widget.availableLanguages.where((code) {
       if (_filterQuery.isEmpty) return true;
       final meta = BookLanguageMeta.fromCode(code);
@@ -138,7 +137,6 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 12),
-            // Drag Handle
             Center(
               child: Container(
                 width: 36,
@@ -151,7 +149,6 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
             ),
             const SizedBox(height: 14),
 
-            // Header Row
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
@@ -163,7 +160,8 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
                       color: tokens.accent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.translate_rounded, color: tokens.accent, size: 20),
+                    child:
+                        Icon(Icons.translate_rounded, color: tokens.accent, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -194,7 +192,8 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
                     TextButton(
                       onPressed: _selectAll,
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -216,7 +215,6 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
               ),
             ),
 
-            // Search filter if at least 5 languages
             if (widget.availableLanguages.length >= 5) ...[
               const SizedBox(height: 10),
               Padding(
@@ -236,8 +234,10 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: 'Search language or script...',
-                      hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-                      prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 18),
+                      hintStyle:
+                          TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+                      prefixIcon:
+                          Icon(Icons.search, color: tokens.onSurfaceMuted, size: 18),
                       prefixIconConstraints: const BoxConstraints(
                         minWidth: 40,
                         minHeight: 40,
@@ -249,7 +249,8 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
                                 minWidth: 36,
                                 minHeight: 36,
                               ),
-                              icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 16),
+                              icon: Icon(Icons.clear,
+                                  color: tokens.onSurfaceMuted, size: 16),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() => _filterQuery = '');
@@ -261,7 +262,8 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
                         minHeight: 40,
                       ),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 10),
                     ),
                     onChanged: (val) => setState(() => _filterQuery = val.trim()),
                   ),
@@ -272,7 +274,6 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
             const SizedBox(height: 10),
             Divider(color: tokens.surfaceBorder, height: 1),
 
-            // Languages List
             Flexible(
               child: filteredLanguages.isEmpty
                   ? Padding(
@@ -280,7 +281,8 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
                       child: Center(
                         child: Text(
                           'No matching language found',
-                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+                          style:
+                              TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
                         ),
                       ),
                     )
@@ -300,152 +302,23 @@ class _AudioLanguagePickerSheetState extends State<AudioLanguagePickerSheet> {
                         final isSelected = code.toLowerCase() == 'all'
                             ? isAll
                             : (!isAll &&
-                                _currentSelection.any(
-                                    (l) => l.toLowerCase() == code.toLowerCase() ||
-                                           l.toLowerCase() == meta.code.toLowerCase()));
+                                _currentSelection.any((l) =>
+                                    l.toLowerCase() == code.toLowerCase() ||
+                                    l.toLowerCase() == meta.code.toLowerCase()));
                         final count = widget.trackCounts[code] ??
                             widget.trackCounts[meta.englishName] ??
                             0;
 
-                        return Material(
-                          color: isSelected
-                              ? tokens.accent.withValues(alpha: 0.08)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => _toggleLanguage(code),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                children: [
-                                  // Language Code / Icon Badge
-                                  Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? tokens.accent
-                                          : tokens.surfaceVariant,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? tokens.accent
-                                            : tokens.surfaceBorder,
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: code == 'All'
-                                        ? Icon(
-                                            Icons.all_inclusive_rounded,
-                                            size: 18,
-                                            color: isSelected
-                                                ? tokens.onScrim
-                                                : tokens.onSurface,
-                                          )
-                                        : Text(
-                                            meta.code.toUpperCase(),
-                                            style: TextStyle(
-                                              color: isSelected
-                                                  ? tokens.onScrim
-                                                  : tokens.onSurface,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                  ),
-                                  const SizedBox(width: 14),
-
-                                  // Language Names
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          meta.englishName,
-                                          style: TextStyle(
-                                            color: isSelected
-                                                ? tokens.accent
-                                                : tokens.onSurface,
-                                            fontWeight: isSelected
-                                                ? FontWeight.bold
-                                                : FontWeight.w600,
-                                            fontSize: 14.5,
-                                          ),
-                                        ),
-                                        if (code != 'All' &&
-                                            meta.nativeName.isNotEmpty &&
-                                            meta.nativeName != meta.englishName)
-                                          Padding(
-                                            padding: const EdgeInsets.only(top: 2),
-                                            child: Text(
-                                              meta.nativeName,
-                                              style: TextStyle(
-                                                color: tokens.onSurfaceMuted,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  // Track count pill badge
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? tokens.accent.withValues(alpha: 0.15)
-                                          : tokens.surfaceVariant,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? tokens.accent.withValues(alpha: 0.3)
-                                            : tokens.surfaceBorder,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '$count tracks',
-                                      style: TextStyle(
-                                        color: isSelected
-                                            ? tokens.accent
-                                            : tokens.onSurfaceMuted,
-                                        fontSize: 11,
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-
-                                  // Multi-select Checkbox Icon
-                                  Icon(
-                                    isSelected
-                                        ? Icons.check_box_rounded
-                                        : Icons.check_box_outline_blank_rounded,
-                                    color: isSelected
-                                        ? tokens.accent
-                                        : tokens.onSurfaceDisabled.withValues(alpha: 0.6),
-                                    size: 22,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        return AudioLanguageListTile(
+                          code: code,
+                          isSelected: isSelected,
+                          trackCount: count,
+                          onTap: () => _toggleLanguage(code),
                         );
                       },
                     ),
             ),
 
-            // Footer Action: Apply Selection Button
             Divider(color: tokens.surfaceBorder, height: 1),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
