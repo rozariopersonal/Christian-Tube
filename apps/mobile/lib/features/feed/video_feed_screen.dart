@@ -400,8 +400,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       child: GridView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(12),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: gridColumnsFor(context),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          // Scales the column count with the available width so the feed
+          // fills wide web windows instead of leaving large side gutters.
+          maxCrossAxisExtent: GridExtents.feed * 1.15,
           crossAxisSpacing: 12,
           mainAxisSpacing: 16,
           childAspectRatio: 1.1,

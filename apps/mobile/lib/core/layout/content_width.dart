@@ -1,20 +1,56 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'adaptivity.dart';
 
-/// Max readable measure for scrollable content lists.
-const double kContentMaxWidth = 1080;
-
-/// Max width for modal bottom sheets on `medium`+ screens.
-const double kSheetMaxWidth = 640;
-
-/// Centered width constraint for content lists so cards/text do not stretch
-/// edge-to-edge on tablets and wide web windows.
+/// Preferred readable measure for scrollable list/grid content.
 ///
-/// Exempt surfaces (video players, shorts grids, scripture cards) must use
-/// their own grid rules; this is for text/card lists.
+/// Screens fill the full viewport up to this width, then content grows
+/// proportionally (see [adaptiveContentMaxWidth]) on wide and ultra-wide
+/// displays instead of leaving large side gutters.
+const double kContentMaxWidth = 1600;
+
+/// Absolute ceiling for content width on ultra-wide monitors (e.g. 3440px).
+const double kUltraContentMaxWidth = 3200;
+
+/// How fast content width grows beyond [kContentMaxWidth] as the viewport
+/// grows. 1.0 fills the viewport edge-to-edge; lower values keep side air.
+const double kUltraWidthSlope = 0.8;
+
+/// Max width for pure text-reading surfaces (Bible reader, book reader)
+/// where very long line lengths hurt readability.
+const double kReadingMaxWidth = 1080;
+
+/// Resolves the content max-width for a given viewport width so screens
+/// adapt to the window:
+///
+/// - `compact`/`medium` and any width up to [kContentMaxWidth]: fills the
+///   viewport (no artificial cap).
+/// - Beyond that, content grows at [kUltraWidthSlope] the rate of the
+///   viewport so ultra-wide monitors stay filled with breathing room, capped
+///   at [kUltraContentMaxWidth].
+///
+/// Example widths (viewport → content): 1920 → 1856, 2560 → 2368,
+/// 3440 → 3072, 3840 → 3200.
+double adaptiveContentMaxWidth(double viewportWidth) {
+  if (viewportWidth <= kContentMaxWidth) return viewportWidth;
+  final grown =
+      kContentMaxWidth + (viewportWidth - kContentMaxWidth) * kUltraWidthSlope;
+  return math.min(grown, kUltraContentMaxWidth);
+}
+
+/// Centered, viewport-adaptive width constraint for content lists so
+/// cards/text fill the screen comfortably on phones, tablets, web windows,
+/// and ultra-wide displays (see [adaptiveContentMaxWidth]).
+///
+/// When [maxWidth] is omitted it is resolved from the incoming layout
+/// constraints via [adaptiveContentMaxWidth]. Pass an explicit value to
+/// override (e.g. [kReadingMaxWidth] for text readers). Exempt surfaces
+/// (video players, shorts grids, scripture cards) must use their own grid
+/// rules; this is for text/card lists.
 class MaxWidthBox extends StatelessWidget {
   final Widget child;
-  final double maxWidth;
+  final double? maxWidth;
   final EdgeInsetsGeometry padding;
   final AlignmentGeometry alignment;
   final double? heightFactor;
@@ -22,7 +58,7 @@ class MaxWidthBox extends StatelessWidget {
   const MaxWidthBox({
     super.key,
     required this.child,
-    this.maxWidth = kContentMaxWidth,
+    this.maxWidth,
     this.padding = EdgeInsets.zero,
     this.alignment = Alignment.topCenter,
     this.heightFactor,
@@ -30,16 +66,25 @@ class MaxWidthBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: alignment,
-      heightFactor: heightFactor,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: Padding(padding: padding, child: child),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final resolved =
+            maxWidth ?? adaptiveContentMaxWidth(constraints.maxWidth);
+        return Align(
+          alignment: alignment,
+          heightFactor: heightFactor,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: resolved),
+            child: Padding(padding: padding, child: child),
+          ),
+        );
+      },
     );
   }
 }
+
+/// Max width for modal bottom sheets on `medium`+ screens.
+const double kSheetMaxWidth = 640;
 
 /// `showModalBottomSheet` that honors the adaptive rule: on `compact` the
 /// sheet behaves exactly as before; on `medium`/`expanded` the sheet body is
