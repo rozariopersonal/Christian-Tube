@@ -12,6 +12,7 @@ class VerseItem extends StatelessWidget {
   final BibleVerse verse;
   final bool isSelected;
   final bool isHighlighted;
+  final int? highlightColorIndex;
   final VoidCallback? onVerseTap;
   final ReaderAppearance appearance;
 
@@ -41,6 +42,7 @@ class VerseItem extends StatelessWidget {
     required this.isHighlighted,
     required this.onVerseTap,
     required this.appearance,
+    this.highlightColorIndex,
     this.crossReferences = const [],
     this.backgroundNotes = const [],
     this.resolvedTexts = const {},
@@ -58,6 +60,7 @@ class VerseItem extends StatelessWidget {
       verse: verse,
       isSelected: isSelected,
       isHighlighted: isHighlighted,
+      highlightColorIndex: highlightColorIndex,
       onTap: onVerseTap,
       appearance: appearance,
       refCount: crossReferences.length,

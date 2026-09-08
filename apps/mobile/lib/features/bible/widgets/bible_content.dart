@@ -234,10 +234,17 @@ class _VerseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = controller.state;
+    final highlightKey =
+        BibleControllerState.verseHighlightKey(
+      controller.currentBook,
+      controller.currentChapter,
+      verse.number,
+    );
     return VerseItem(
       verse: verse,
       isSelected: s.selectedVerses.contains(verse.number),
       isHighlighted: s.highlightedVerse == verse.number,
+      highlightColorIndex: s.verseHighlights[highlightKey],
       appearance: controller.appearance,
       onVerseTap: () => onVerseTap(verse.number),
       crossReferences: s.chapterCrossRefs[verse.number] ?? const [],

@@ -6,6 +6,7 @@ import '../../downloads/screens/downloads_manager_screen.dart';
 import 'package:flutter/services.dart';
 import '../widgets/book_chapter_selector.dart';
 import '../../../shared/ui/reader_appearance_sheet.dart';
+import '../../../shared/ui/highlight_color_picker.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../models/bible_verse.dart';
 import '../widgets/bible_search_sheet.dart';
@@ -450,6 +451,36 @@ class _BibleScreenState extends State<BibleScreen> {
     }
   }
 
+  Future<void> _highlightSelectedVerses() async {
+    final s = _controller.state;
+    if (s.selectedVerses.isEmpty) return;
+
+    final selected = s.verses
+        .where((v) => s.selectedVerses.contains(v.number))
+        .toList();
+    if (selected.isEmpty) return;
+
+    final label = selected.length == 1
+        ? '${_controller.currentBook} ${_controller.currentChapter}:${selected.first.number}'
+        : '${_controller.currentBook} ${_controller.currentChapter}:'
+            '${selected.first.number}-${selected.last.number}';
+
+    final result = await HighlightColorPicker.show(
+      context,
+      titles: [label],
+      currentColorIndex: s.highlightColorForSelection,
+      hasHighlight: s.selectionHasHighlight,
+    );
+    if (!mounted || result == null) return;
+
+    switch (result) {
+      case HighlightPickerPicked(:final colorIndex):
+        await _controller.applyHighlight(colorIndex);
+      case HighlightPickerRemoved():
+        await _controller.removeHighlight();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
@@ -491,6 +522,7 @@ class _BibleScreenState extends State<BibleScreen> {
           onCopy: _copySelectedVerses,
           onShare: _shareSelectedVerses,
           onBookmark: _bookmarkSelectedVerses,
+          onHighlight: _highlightSelectedVerses,
           onClear: _controller.clearSelection,
           onStudy: s.selectedVerses.isNotEmpty
               ? () => _openVerseStudyScreen(s.selectedVerses.first)

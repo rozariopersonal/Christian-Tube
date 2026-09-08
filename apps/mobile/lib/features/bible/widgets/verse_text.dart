@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../core/theme/highlight_palette.dart';
 import '../../../features/engines/scripture/models/scripture_theme_state.dart';
 import '../models/bible_verse.dart';
 import '../../../shared/services/reader_appearance.dart';
@@ -8,6 +9,7 @@ class VerseText extends StatefulWidget {
   final BibleVerse verse;
   final bool isSelected;
   final bool isHighlighted;
+  final int? highlightColorIndex;
   final VoidCallback? onTap;
   final ReaderAppearance appearance;
   final int refCount;
@@ -18,6 +20,7 @@ class VerseText extends StatefulWidget {
     required this.verse,
     this.isSelected = false,
     this.isHighlighted = false,
+    this.highlightColorIndex,
     this.onTap,
     required this.appearance,
     this.refCount = 0,
@@ -58,6 +61,11 @@ class _VerseTextState extends State<VerseText> {
           );
         }
 
+        final highlightColor =
+            widget.highlightColorIndex == null
+                ? null
+                : HighlightPalette.colorFor(widget.highlightColorIndex!);
+
         return Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: (event) => _downPosition = event.position,
@@ -73,21 +81,28 @@ class _VerseTextState extends State<VerseText> {
             child: ValueListenableBuilder<bool>(
               valueListenable: _hoverNotifier,
               builder: (context, isHovering, _) {
+                final Color? background;
+                if (widget.isSelected) {
+                  background = theme.colorScheme.primary.withValues(alpha: 0.22);
+                } else if (highlightColor != null) {
+                  background = highlightColor;
+                } else if (widget.isHighlighted) {
+                  background = widget.appearance.isDark(context.tokens)
+                      ? theme.colorScheme.primary.withValues(alpha: 0.28)
+                      : theme.colorScheme.primaryContainer;
+                } else if (isHovering) {
+                  background = widget.appearance.textColor(context.tokens).withValues(alpha: 0.06);
+                } else {
+                  background = null;
+                }
+
                 return AnimatedContainer(
                   width: double.infinity,
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
-                  color: widget.isSelected
-                      ? theme.colorScheme.primary.withValues(alpha: 0.22)
-                      : widget.isHighlighted
-                          ? (widget.appearance.isDark(context.tokens)
-                              ? theme.colorScheme.primary.withValues(alpha: 0.28)
-                              : theme.colorScheme.primaryContainer)
-                          : isHovering
-                              ? widget.appearance.textColor(context.tokens).withValues(alpha: 0.06)
-                              : Colors.transparent,
+                  color: background ?? Colors.transparent,
                   padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
-                  child: _buildContent(context, theme),
+                  child: _buildContent(context, theme, highlightColor),
                 );
               },
             ),
@@ -96,18 +111,38 @@ class _VerseTextState extends State<VerseText> {
       },
     );
   }
-  Widget _buildContent(BuildContext context, ThemeData theme) {
+
+  Widget _buildContent(
+    BuildContext context,
+    ThemeData theme,
+    Color? highlightColor,
+  ) {
     final tokens = context.tokens;
     final app = widget.appearance;
     final fontFamily = ScriptureThemeCatalog.resolveFontFamily(app.fontFamily, app.languageCode);
-    
+
+    // When a highlight is applied the entire text block flips to the contrast
+    // color so dark highlights get white text and light highlights stay dark.
+    final hasHighlight = highlightColor != null;
+    final mutedTextColor = hasHighlight
+        ? HighlightPalette.onColorFor(widget.highlightColorIndex!).withValues(alpha: 0.75)
+        : app.mutedTextColor(tokens);
+    final bodyTextColor = hasHighlight
+        ? HighlightPalette.onColorFor(widget.highlightColorIndex!)
+        : widget.verse.isSecondary
+            ? app.mutedTextColor(tokens)
+            : app.textColor(tokens);
+    final iconColor = hasHighlight
+        ? HighlightPalette.onColorFor(widget.highlightColorIndex!).withValues(alpha: 0.85)
+        : theme.colorScheme.primary.withValues(alpha: 0.7);
+
     return Text.rich(
       TextSpan(
         children: [
           TextSpan(
             text: '${widget.verse.number}',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: app.mutedTextColor(tokens),
+              color: mutedTextColor,
               fontWeight: FontWeight.bold,
               fontSize: app.fontSize * 0.7,
               fontFamily: fontFamily,
@@ -121,7 +156,7 @@ class _VerseTextState extends State<VerseText> {
                 child: Icon(
                   Icons.link_rounded,
                   size: app.fontSize * 0.45,
-                  color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                  color: iconColor,
                 ),
               ),
             ),
@@ -133,7 +168,7 @@ class _VerseTextState extends State<VerseText> {
                 child: Icon(
                   Icons.menu_book_rounded,
                   size: app.fontSize * 0.45,
-                  color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                  color: iconColor,
                 ),
               ),
             ),
@@ -143,9 +178,7 @@ class _VerseTextState extends State<VerseText> {
               height: app.lineHeight,
               fontSize: app.fontSize,
               fontFamily: fontFamily,
-              color: widget.verse.isSecondary
-                  ? app.mutedTextColor(tokens)
-                  : app.textColor(tokens),
+              color: bodyTextColor,
             ),
           ),
         ],

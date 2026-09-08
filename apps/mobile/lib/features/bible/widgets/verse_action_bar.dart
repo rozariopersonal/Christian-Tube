@@ -7,6 +7,7 @@ class VerseActionBar extends StatelessWidget {
   final VoidCallback onCopy;
   final VoidCallback onShare;
   final VoidCallback onBookmark;
+  final VoidCallback onHighlight;
   final VoidCallback onClear;
   final VoidCallback? onStudy;
   final ReaderAppearance? appearance;
@@ -17,6 +18,7 @@ class VerseActionBar extends StatelessWidget {
     required this.onCopy,
     required this.onShare,
     required this.onBookmark,
+    required this.onHighlight,
     required this.onClear,
     this.onStudy,
     this.appearance,
@@ -99,6 +101,14 @@ class VerseActionBar extends StatelessWidget {
                       label: 'Bookmark',
                       textColor: textCol,
                       onPressed: onBookmark,
+                    ),
+                  ),
+                  Expanded(
+                    child: _ActionItem(
+                      icon: Icons.border_color_rounded,
+                      label: 'Highlight',
+                      textColor: textCol,
+                      onPressed: onHighlight,
                     ),
                   ),
                   if (onStudy != null)

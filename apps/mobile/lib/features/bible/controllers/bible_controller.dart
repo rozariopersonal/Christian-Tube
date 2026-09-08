@@ -13,6 +13,7 @@ import '../models/bible_version.dart';
 import '../models/bible_background_note.dart';
 import '../models/cross_reference.dart';
 import '../services/bible_bookmark_service.dart';
+import '../services/bible_highlight_service.dart';
 import '../services/bible_background_service.dart';
 import '../services/bible_chapter_stream.dart';
 import '../services/bible_settings_service.dart';
@@ -21,6 +22,7 @@ import '../services/bible_verse_index.dart';
 import '../services/cross_reference_service.dart';
 import '../../../shared/services/reader_appearance.dart';
 import '../../../shared/services/reader_fonts_service.dart';
+import '../../../core/theme/highlight_palette.dart';
 
 /// Immutable snapshot of every field the Bible reader UI needs.
 ///
@@ -40,6 +42,9 @@ class BibleControllerState {
     this.settings = const BibleSettings(),
     this.settingsLoaded = false,
     this.highlightedVerse,
+    this.verseHighlights = const {},
+    this.highlightColorForSelection,
+    this.selectionHasHighlight = false,
     this.chapterCrossRefs = const {},
     this.crossRefTexts = const {},
     this.crossRefsInstalled = false,
@@ -60,6 +65,16 @@ class BibleControllerState {
   final BibleSettings settings;
   final bool settingsLoaded;
   final int? highlightedVerse;
+
+  /// Per-verse highlight color index, keyed by `book:chapter:verse`.
+  final Map<String, int> verseHighlights;
+
+  /// The highlight color index shared by all currently selected verses, or null
+  /// when the selection has no single common color (or is empty).
+  final int? highlightColorForSelection;
+
+  /// True when at least one currently selected verse has a highlight.
+  final bool selectionHasHighlight;
   final Map<int, List<CrossReference>> chapterCrossRefs;
   final Map<String, String> crossRefTexts;
   final bool crossRefsInstalled;
@@ -114,6 +129,10 @@ class BibleControllerState {
         .map((v) => '$prefix[${v.number}] ${v.text}')
         .join('\n');
   }
+
+  /// Canonical map key for a verse's highlight lookup.
+  static String verseHighlightKey(String book, int chapter, int verse) =>
+      '$book:$chapter:$verse';
 }
 
 /// Convenience extension to reduce per-call boilerplate when constructing
@@ -131,6 +150,10 @@ extension _StateCopy on BibleControllerState {
     bool? settingsLoaded,
     int? highlightedVerse,
     bool clearHighlighted = false,
+    Map<String, int>? verseHighlights,
+    int? highlightColorForSelection,
+    bool clearHighlightColorForSelection = false,
+    bool? selectionHasHighlight,
     Map<int, List<CrossReference>>? chapterCrossRefs,
     Map<String, String>? crossRefTexts,
     bool? crossRefsInstalled,
@@ -151,6 +174,12 @@ extension _StateCopy on BibleControllerState {
         settings: settings ?? this.settings,
         settingsLoaded: settingsLoaded ?? this.settingsLoaded,
         highlightedVerse: clearHighlighted ? null : (highlightedVerse ?? this.highlightedVerse),
+        verseHighlights: verseHighlights ?? this.verseHighlights,
+        highlightColorForSelection: clearHighlightColorForSelection
+            ? null
+            : (highlightColorForSelection ?? this.highlightColorForSelection),
+        selectionHasHighlight:
+            selectionHasHighlight ?? this.selectionHasHighlight,
         chapterCrossRefs: chapterCrossRefs ?? this.chapterCrossRefs,
         crossRefTexts: crossRefTexts ?? this.crossRefTexts,
         crossRefsInstalled: crossRefsInstalled ?? this.crossRefsInstalled,
@@ -226,6 +255,7 @@ class BibleController extends ChangeNotifier {
   final LocalBibleService _localBibleService = LocalBibleService();
   final BibleSettingsService _settingsService = BibleSettingsService();
   final BibleBookmarkService _bookmarkService = BibleBookmarkService();
+  final BibleHighlightService _highlightService = BibleHighlightService();
   final BibleDownloadManager _downloadManager = BibleDownloadManager();
   final BookNameService _bookNames = BookNameService();
   final CrossReferenceService _crossRefService = CrossReferenceService();
@@ -635,6 +665,7 @@ class BibleController extends ChangeNotifier {
     stream.preloadAround(bn, chapter, radius: 2);
     _loadCrossReferencesForChapter(bn, chapter);
     _loadBackgroundsForChapter(bn, chapter);
+    _loadHighlightsForChapter(book, chapter);
     if (rows.isNotEmpty && saveProgress) {
       _settingsService.saveReadingProgress(version.shortname, book, chapter);
     }
@@ -685,6 +716,7 @@ class BibleController extends ChangeNotifier {
     stream.preloadAround(bookNumber, chapter, radius: 2);
     _loadCrossReferencesForChapter(bookNumber, chapter);
     _loadBackgroundsForChapter(bookNumber, chapter);
+    _loadHighlightsForChapter(book, chapter);
     if (saveProgress) {
       _settingsService.saveReadingProgress(version.shortname, book, chapter);
     }
@@ -711,6 +743,26 @@ class BibleController extends ChangeNotifier {
       _update((s) => s.copyWith(chapterBackgrounds: map));
     } catch (e) {
       debugPrint('BibleController _loadBackgroundsForChapter error: $e');
+    }
+  }
+
+  /// Loads persisted highlights for [book]/[chapter] into the state map. Merged
+  /// with any highlights already loaded for other chapters.
+  Future<void> _loadHighlightsForChapter(String book, int chapter) async {
+    final epoch = _loadEpoch;
+    try {
+      final found = await _highlightService.getForChapter(book, chapter);
+      if (epoch != _loadEpoch || _disposed) return; // stale
+      final merged = Map<String, int>.from(_state.verseHighlights);
+      for (final h in found) {
+        for (final v in h.verses) {
+          merged[BibleControllerState.verseHighlightKey(book, chapter, v)] =
+              h.colorIndex;
+        }
+      }
+      _update((s) => s.copyWith(verseHighlights: merged));
+    } catch (e) {
+      debugPrint('BibleController _loadHighlightsForChapter error: $e');
     }
   }
 
@@ -833,11 +885,110 @@ class BibleController extends ChangeNotifier {
     } else {
       newSelected.add(verseNumber);
     }
-    _update((s) => s.copyWith(selectedVerses: newSelected));
+    _update((s) => s.copyWith(
+          selectedVerses: newSelected,
+          highlightColorForSelection: _selectionHighlightColor(s, newSelected),
+          selectionHasHighlight: _selectionHasHighlight(s, newSelected),
+        ));
   }
 
   void clearSelection() {
-    _update((s) => s.copyWith(selectedVerses: {}));
+    _update((s) => s.copyWith(
+          selectedVerses: {},
+          clearHighlightColorForSelection: true,
+          selectionHasHighlight: false,
+        ));
+  }
+
+  /// The common highlight color (if any) shared by all [selected] verses of the
+  /// current chapter. Returns null when the selection is empty, has no
+  /// highlights, or mixes different colors.
+  int? _selectionHighlightColor(BibleControllerState s, Set<int> selected) {
+    if (selected.isEmpty) return null;
+    final keyPrefix = '$currentBook:$currentChapter:';
+    final colors = <int>{};
+    for (final v in selected) {
+      final c = s.verseHighlights['$keyPrefix$v'];
+      if (c != null) colors.add(c);
+    }
+    return colors.length == 1 ? colors.first : null;
+  }
+
+  /// True when at least one of [selected] verses currently has a highlight.
+  bool _selectionHasHighlight(BibleControllerState s, Set<int> selected) {
+    if (selected.isEmpty) return false;
+    final keyPrefix = '$currentBook:$currentChapter:';
+    return selected.any((v) => s.verseHighlights['$keyPrefix$v'] != null);
+  }
+
+  /// Applies [colorIndex] to every currently selected verse, persisting the
+  /// highlights and refreshing the selection marker. Clears the selection after.
+  Future<void> applyHighlight(int colorIndex) async {
+    if (_state.selectedVerses.isEmpty || _state.selectedVersion == null) return;
+    final selected = _state.verses
+        .where((v) => _state.selectedVerses.contains(v.number))
+        .toList();
+    if (selected.isEmpty) return;
+    if (colorIndex < 0 || colorIndex >= HighlightPalette.count) return;
+
+    final verses = selected.map((v) => v.number).toList();
+    final text = selected.map((v) => v.text).join('\n');
+    final version = _state.selectedVersion!;
+    try {
+      await _highlightService.apply(
+        versionId: version.shortname,
+        book: _currentBook,
+        chapter: _currentChapter,
+        verses: verses,
+        colorIndex: colorIndex,
+        text: text,
+      );
+      _update((s) {
+        final merged = Map<String, int>.from(s.verseHighlights);
+        for (final v in verses) {
+          merged[
+              BibleControllerState.verseHighlightKey(_currentBook, _currentChapter, v)] =
+              colorIndex;
+        }
+        return s.copyWith(
+          verseHighlights: merged,
+          selectedVerses: {},
+          clearHighlightColorForSelection: true,
+          selectionHasHighlight: false,
+        );
+      });
+    } catch (e) {
+      debugPrint('BibleController applyHighlight error: $e');
+    }
+  }
+
+  /// Removes the highlight from every currently selected verse. Clears the
+  /// selection after.
+  Future<void> removeHighlight() async {
+    if (_state.selectedVerses.isEmpty) return;
+    final verses = _state.selectedVerses.toList();
+    try {
+      await _highlightService.remove(
+        book: _currentBook,
+        chapter: _currentChapter,
+        verses: verses,
+      );
+      _update((s) {
+        final merged = Map<String, int>.from(s.verseHighlights);
+        for (final v in verses) {
+          merged.remove(
+              BibleControllerState.verseHighlightKey(_currentBook, _currentChapter, v));
+        }
+        return s.copyWith(
+          verseHighlights: merged,
+          selectedVerses: {},
+          clearHighlightColorForSelection: true,
+          selectionHasHighlight: false,
+        );
+      });
+    } catch (e) {
+      debugPrint('BibleController removeHighlight error: $e');
+    }
   }
 
   void updateSettings(BibleSettings newSettings) {
