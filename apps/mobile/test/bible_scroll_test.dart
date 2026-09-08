@@ -372,4 +372,80 @@ void main() {
     // Verify John 4 verses are visible and rendered without placeholder skeleton
     expect(find.textContaining('Verse text for John 4:'), findsWidgets);
   });
+
+  testWidgets(
+      'Switching version preserves the current verse position on screen',
+      (tester) async {
+    tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: 1,
+      saveProgress: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: const [AppTokens.dark]),
+        home: BibleScreen(controller: controller),
+      ),
+    );
+    controller.init();
+
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+
+    // Scroll down to a specific verse so a non-trivial position is visible.
+    for (var i = 0; i < 12; i++) {
+      await tester.drag(
+          find.byType(ScrollablePositionedList), const Offset(0, -160));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pumpAndSettle();
+
+    // The reader must be tracking a verse well past 1.
+    expect(controller.currentVerse, greaterThan(3),
+        reason: 'manual scrolling should update the tracked visible verse');
+
+    // Switch version while preserving position.
+    final tamilVersion =
+        controller.versions.firstWhere((v) => v.shortname == 'TAOBVSI');
+    await tester.runAsync(() async {
+      await controller.selectVersion(tamilVersion);
+    });
+
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // The visible verse must be preserved, not reset to verse 1.
+    final verse = controller.currentVerse;
+    expect(verse, greaterThan(3),
+        reason: 'version switch must keep the current verse position');
+
+    final topVerse = find.textContaining(RegExp('யோவான் 3:$verse '));
+    expect(topVerse, findsOneWidget,
+        reason: 'the verse the user was reading must still be on screen');
+    expect(find.textContaining('யோவான் 3:1 '), findsNothing,
+        reason: 'reader must not jump back to verse 1 after a version switch');
+  });
 }

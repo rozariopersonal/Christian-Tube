@@ -139,7 +139,7 @@ class _BibleScreenState extends State<BibleScreen> {
     }
     if (first == null) return;
     final ref = s.index!.rowToReference(first.index);
-    _controller.updateVisibleChapter(ref.bookNumber, ref.chapter);
+    _controller.updateVisibleChapter(ref.bookNumber, ref.chapter, verse: ref.verse);
   }
 
   void _onControllerUpdate() {

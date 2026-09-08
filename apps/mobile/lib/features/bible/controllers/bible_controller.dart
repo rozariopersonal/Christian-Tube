@@ -248,6 +248,7 @@ class BibleController extends ChangeNotifier {
 
   String _currentBook;
   int _currentChapter;
+  int _currentVerse = 1;
 
   BibleChapterStream? _stream;
 
@@ -268,8 +269,9 @@ class BibleController extends ChangeNotifier {
   /// Current chapter (needed for display in the screen's title).
   int get currentChapter => _currentChapter;
 
-  /// Current verse — either the last highlighted verse or the first verse.
-  int get currentVerse => _state.highlightedVerse ?? 1;
+  /// Current verse — the top-most visible verse during scrolling, falling
+  /// back to the last highlighted verse or the first verse.
+  int get currentVerse => _currentVerse > 0 ? _currentVerse : (_state.highlightedVerse ?? 1);
 
   /// Returns and clears the pending scroll target once its target chapter is
   /// buffered by the stream. Returns null while the chapter is still loading;
@@ -665,7 +667,7 @@ class BibleController extends ChangeNotifier {
   /// visible chapter if needed, and warms the surrounding chapters.
   ///
   /// Called by the screen from the scroll item-positions listener.
-  void updateVisibleChapter(int bookNumber, int chapter) {
+  void updateVisibleChapter(int bookNumber, int chapter, {int? verse}) {
     final stream = _stream;
     final version = _state.selectedVersion;
     if (version == null || stream == null) return;
@@ -674,6 +676,7 @@ class BibleController extends ChangeNotifier {
       return;
     }
     final book = BookNameService.englishBookNames[bookNumber - 1];
+    if (verse != null && verse >= 1) _currentVerse = verse;
     if (book == _currentBook && chapter == _currentChapter) return;
     _currentBook = book;
     _currentChapter = chapter;
@@ -725,7 +728,7 @@ class BibleController extends ChangeNotifier {
     _scrollTarget = BibleScrollTarget(
       book: _currentBook,
       chapter: _currentChapter,
-      verse: _state.highlightedVerse ?? 1,
+      verse: currentVerse,
       highlight: false,
     );
     _update((s) => s.copyWith(
@@ -843,6 +846,9 @@ class BibleController extends ChangeNotifier {
   }
 
   void setHighlight(int? verseNumber) {
+    if (verseNumber != null && verseNumber >= 1) {
+      _currentVerse = verseNumber;
+    }
     _update((s) => verseNumber == null
         ? s.copyWith(clearHighlighted: true)
         : s.copyWith(highlightedVerse: verseNumber));
