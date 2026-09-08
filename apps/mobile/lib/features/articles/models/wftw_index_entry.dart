@@ -7,6 +7,7 @@ class WftwIndexEntry {
   final String id;
   final String title;
   final String date;
+  final String lang;
   final int? year;
   final int? bookNumber;
   final int? chapter;
@@ -17,6 +18,7 @@ class WftwIndexEntry {
     required this.id,
     required this.title,
     required this.date,
+    this.lang = 'en',
     this.year,
     this.bookNumber,
     this.chapter,
@@ -29,6 +31,7 @@ class WftwIndexEntry {
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? 'Untitled',
       date: json['date'] as String? ?? '',
+      lang: json['lang'] as String? ?? 'en',
       year: json['year'] as int?,
       bookNumber: json['bookNumber'] as int?,
       chapter: json['chapter'] as int?,

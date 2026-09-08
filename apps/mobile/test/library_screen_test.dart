@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/articles/models/wftw_index_entry.dart';
+import 'package:mobile/features/articles/services/wftw_index_service.dart';
 import 'package:mobile/features/books/models/book.dart';
 import 'package:mobile/features/books/models/user_reading_progress.dart';
 import 'package:mobile/features/library/screens/library_screen.dart';
@@ -66,15 +67,45 @@ const List<WftwIndexEntry> sampleTeachings = [
   ),
 ];
 
+const List<WftwIndexEntry> sampleArticles = [
+  WftwIndexEntry(
+    id: '2026_09_06',
+    title: 'The Narrow Way (Tamil teaching)',
+    date: '2026-09-06',
+    year: 2026,
+    lang: 'ta',
+  ),
+  WftwIndexEntry(
+    id: '2026_08_30',
+    title: 'German devotion',
+    date: '2026-08-30',
+    year: 2026,
+    lang: 'de',
+  ),
+];
+
+const List<ArticleLanguage> sampleLanguages = [
+  ArticleLanguage(code: 'en', name: 'English', count: 3),
+  ArticleLanguage(code: 'ta', name: 'Tamil', count: 2),
+  ArticleLanguage(code: 'de', name: 'Deutsch', count: 1),
+];
+
 const List<double> kBreakpoints = [320, 600, 840, 1400];
 
 Widget buildLibrary({
   LibraryDataLoader? loader,
   Future<List<WftwIndexEntry>> Function()? wftwLoader,
+  Future<List<WftwIndexEntry>> Function()? articlesLoader,
+  Future<List<ArticleLanguage>> Function()? languagesLoader,
 }) {
   return MaterialApp(
     theme: testTheme(),
-    home: LibraryScreen(loader: loader, wftwLoader: wftwLoader),
+    home: LibraryScreen(
+      loader: loader,
+      wftwLoader: wftwLoader,
+      articlesLoader: articlesLoader,
+      languagesLoader: languagesLoader,
+    ),
   );
 }
 
@@ -102,6 +133,8 @@ void main() {
         await tester.pumpWidget(buildLibrary(
           loader: loaderWithData(),
           wftwLoader: () async => sampleTeachings,
+          articlesLoader: () async => sampleArticles,
+          languagesLoader: () async => sampleLanguages,
         ));
         await tester.pumpAndSettle();
 
@@ -111,8 +144,8 @@ void main() {
         expect(find.text('Word for the Week'), findsOneWidget);
         expect(find.text('Few Will Find the Narrow Way'), findsOneWidget);
         expect(find.text('Articles'), findsOneWidget);
-        expect(find.textContaining('coming soon'), findsOneWidget);
-        expect(find.text('View all'), findsNWidgets(2));
+        expect(find.text('Tamil'), findsNWidgets(2));
+        expect(find.text('View all'), findsNWidgets(3));
         expect(tester.takeException(), isNull);
       });
     }
@@ -139,39 +172,54 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Word for the Week'), findsNothing);
-      expect(find.text('Articles'), findsOneWidget);
+      expect(find.text('Articles'), findsNothing);
     });
 
-    testWidgets('article placeholder tap shows coming-soon snackbar',
+    testWidgets('hides articles shelf when combined index fails to load',
         (tester) async {
       setSurfaceSize(tester, 400, 800);
       await tester.pumpWidget(buildLibrary(
         loader: loaderWithData(),
         wftwLoader: () async => sampleTeachings,
+        articlesLoader: () async => throw Exception('offline'),
       ));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Articles'));
-      await tester.pump();
-      expect(find.text('Articles are coming soon.'), findsOneWidget);
+      expect(find.text('Word for the Week'), findsOneWidget);
+      expect(find.text('Articles'), findsNothing);
+      expect(find.text('Tamil'), findsNothing);
     });
   });
 
   GoRouter buildRouter() => GoRouter(
-      initialLocation: '/library',
-      routes: [
-        GoRoute(
-          path: '/library',
-          builder: (_, __) => const _RoutedLibrary(),
-        ),
-        GoRoute(path: '/books', builder: (_, __) => const _Dest(body: 'books-dest')),
-        GoRoute(path: '/teachings', builder: (_, __) => const _Dest(body: 'teachings-dest')),
-        GoRoute(
-          path: '/article/:id',
-          builder: (_, state) => _Dest(body: 'article-${state.pathParameters['id']}'),
-        ),
-      ],
-    );
+        initialLocation: '/library',
+        routes: [
+          GoRoute(
+            path: '/library',
+            builder: (_, __) => const _RoutedLibrary(),
+          ),
+          GoRoute(path: '/books', builder: (_, __) => const _Dest(body: 'books-dest')),
+          GoRoute(
+              path: '/teachings',
+              builder: (_, __) => const _Dest(body: 'teachings-dest')),
+          GoRoute(
+              path: '/articles',
+              builder: (_, __) => const _Dest(body: 'articles-dest')),
+          GoRoute(
+            path: '/article/:id',
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              final lang = state.uri.queryParameters['lang'] ??
+                  extra?['lang'] as String? ??
+                  'en';
+              return _Dest(
+                body:
+                    'article-${state.pathParameters['id']}-lang-$lang',
+              );
+            },
+          ),
+        ],
+      );
 
   group('LibraryScreen navigation', () {
     testWidgets('Books View all routes to /books', (tester) async {
@@ -182,7 +230,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('View all').first);
+      await tester.tap(find.text('View all').at(0));
       await tester.pumpAndSettle();
       expect(find.text('books-dest'), findsOneWidget);
     });
@@ -196,9 +244,22 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('View all').last);
+      await tester.tap(find.text('View all').at(1));
       await tester.pumpAndSettle();
       expect(find.text('teachings-dest'), findsOneWidget);
+    });
+
+    testWidgets('Articles View all routes to /articles', (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      await tester.pumpWidget(MaterialApp.router(
+        routerConfig: buildRouter(),
+        theme: testTheme(),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View all').at(2));
+      await tester.pumpAndSettle();
+      expect(find.text('articles-dest'), findsOneWidget);
     });
 
     testWidgets('tapping a teaching shelf tile routes to the article',
@@ -212,7 +273,21 @@ void main() {
 
       await tester.tap(find.text('Few Will Find the Narrow Way'));
       await tester.pumpAndSettle();
-      expect(find.text('article-2026_09_06'), findsOneWidget);
+      expect(find.text('article-2026_09_06-lang-en'), findsOneWidget);
+    });
+
+    testWidgets('tapping a non-English article tile carries its language',
+        (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      await tester.pumpWidget(MaterialApp.router(
+        routerConfig: buildRouter(),
+        theme: testTheme(),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('The Narrow Way (Tamil teaching)'));
+      await tester.pumpAndSettle();
+      expect(find.text('article-2026_09_06-lang-ta'), findsOneWidget);
     });
   });
 }
@@ -236,11 +311,15 @@ class _RoutedLibrary extends StatelessWidget {
         ],
       ),
       wftwLoader: _nullWftw,
+      articlesLoader: _nullArticles,
+      languagesLoader: _loadLanguages,
     );
   }
 }
 
 Future<List<WftwIndexEntry>> _nullWftw() async => sampleTeachings;
+Future<List<WftwIndexEntry>> _nullArticles() async => sampleArticles;
+Future<List<ArticleLanguage>> _loadLanguages() async => sampleLanguages;
 
 class _Dest extends StatelessWidget {
   final String body;

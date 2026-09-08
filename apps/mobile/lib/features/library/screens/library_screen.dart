@@ -14,13 +14,21 @@ import '../../books/screens/book_reader_screen.dart';
 import '../services/library_data_loader.dart';
 
 /// Library hub — one scrolling landing for everything users read:
-/// recent books (with progress), the Word-for-the-Week teachings, and a
-/// placeholder for a future Articles collection.
+/// recent books (with progress), the Word-for-the-Week teachings, and the
+/// multi-language Articles collection.
 class LibraryScreen extends StatefulWidget {
   final LibraryDataLoader? loader;
   final WftwIndexLoader? wftwLoader;
+  final ArticlesCatalogLoader? articlesLoader;
+  final ArticlesLanguagesLoader? languagesLoader;
 
-  const LibraryScreen({super.key, this.loader, this.wftwLoader});
+  const LibraryScreen({
+    super.key,
+    this.loader,
+    this.wftwLoader,
+    this.articlesLoader,
+    this.languagesLoader,
+  });
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -29,10 +37,15 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   late final LibraryDataLoader _loader;
   late final WftwIndexLoader _wftwLoader;
+  late final ArticlesCatalogLoader _articlesLoader;
+  late final ArticlesLanguagesLoader _languagesLoader;
 
   List<Book> _recentBooks = const [];
   Map<String, UserReadingProgress> _progressMap = const {};
   List<WftwIndexEntry> _wftwRecent = const [];
+  List<WftwIndexEntry> _articlesRecent = const [];
+  Map<String, String> _langNameByCode = const {};
+  List<String> _articleLangChips = const [];
   bool _loading = true;
 
   static const int _recentBookLimit = 10;
@@ -44,6 +57,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _loader = widget.loader ?? BookServiceLibraryLoader();
     _wftwLoader =
         widget.wftwLoader ?? () => WftwIndexService().getIndex();
+    _articlesLoader = widget.articlesLoader ??
+        () => WftwIndexService().getArticlesIndex();
+    _languagesLoader =
+        widget.languagesLoader ?? WftwIndexService().getLanguages;
     _loadData();
   }
 
@@ -74,11 +91,29 @@ class _LibraryScreenState extends State<LibraryScreen> {
         debugPrint('Word for the Week shelf unavailable: $e');
       }
 
+      List<WftwIndexEntry> articles = const [];
+      Map<String, String> langNames = const {};
+      try {
+        final loaded = await _articlesLoader();
+        articles = loaded.length <= _wftwShelfCount
+            ? loaded
+            : loaded.sublist(0, _wftwShelfCount);
+        final languages = await _languagesLoader();
+        langNames = {
+          for (final l in languages) l.code: l.name,
+        };
+        _articleLangChips = languages.map((l) => l.name).take(6).toList();
+      } catch (e) {
+        debugPrint('Articles shelf unavailable: $e');
+      }
+
       if (!mounted) return;
       setState(() {
         _recentBooks = recentBooks;
         _progressMap = progressMap;
         _wftwRecent = index;
+        _articlesRecent = articles;
+        _langNameByCode = langNames;
         _loading = false;
       });
     } catch (e) {
@@ -202,9 +237,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           onTapArticle: _openWftwArticle,
                         ),
                       ),
-                    SliverToBoxAdapter(
-                      child: _buildArticlesPlaceholder(tokens),
-                    ),
+                    if (_articlesRecent.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: WftwShelf(
+                          entries: _articlesRecent,
+                          title: 'Articles',
+                          icon: Icons.article_outlined,
+                          langNames: _articleLangChips,
+                          langLabelOf: _articleLangLabel,
+                          onViewAll: _openArticles,
+                          onTapArticle: _openArticle,
+                        ),
+                      ),
                     const SliverToBoxAdapter(
                       child: SizedBox(height: 40),
                     ),
@@ -401,79 +445,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _buildArticlesPlaceholder(AppTokens tokens) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: Material(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Articles are coming soon.'),
-                backgroundColor: tokens.onSurface,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        tokens.accent.withValues(alpha: 0.22),
-                        tokens.accent.withValues(alpha: 0.08),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.article_outlined, color: tokens.accent, size: 24),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Articles',
-                        style: TextStyle(
-                          color: tokens.onSurface,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Devotionals, magazine & study articles — coming soon.',
-                        style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.schedule_rounded, color: tokens.onSurfaceMuted, size: 20),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _openTeachings() {
     context.push('/teachings');
   }
 
+  void _openArticles() {
+    context.push('/articles');
+  }
+
   void _openWftwArticle(WftwIndexEntry entry) {
     context.push('/article/${entry.id}', extra: {'title': entry.title});
+  }
+
+  void _openArticle(WftwIndexEntry entry) {
+    final lang = entry.lang == 'en' ? null : entry.lang;
+    context.push(
+      '/article/${entry.id}',
+      extra: {'title': entry.title, if (lang != null) 'lang': lang},
+    );
+  }
+
+  String? _articleLangLabel(WftwIndexEntry entry) {
+    if (entry.lang == 'en') return null;
+    final name = _langNameByCode[entry.lang];
+    if (name != null && name.isNotEmpty) return name;
+    return entry.lang.length <= 3 ? entry.lang.toUpperCase() : entry.lang;
   }
 }

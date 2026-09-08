@@ -26,6 +26,7 @@ import 'features/library/screens/library_screen.dart';
 import 'features/audio/screens/audio_library_screen.dart';
 import 'features/audio/screens/audio_series_screen.dart';
 import 'features/audio/models/audio_series.dart';
+import 'features/articles/screens/article_browser_screen.dart';
 import 'features/articles/screens/article_reader_screen.dart';
 import 'features/articles/screens/wftw_teachings_screen.dart';
 import 'l10n/app_localizations.dart';
@@ -207,6 +208,16 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               builder: (context, state) => const WftwTeachingsScreen(),
             ),
             GoRoute(
+              path: '/articles',
+              builder: (context, state) {
+                final qp = state.uri.queryParameters;
+                final extra = state.extra as Map<String, dynamic>?;
+                return ArticleBrowserScreen(
+                  initialLang: qp['lang'] ?? extra?['lang'] as String? ?? 'en',
+                );
+              },
+            ),
+            GoRoute(
               path: '/watch-plans',
               builder: (context, state) => const WatchPlansScreen(),
             ),
@@ -246,9 +257,13 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             final articleId = state.pathParameters['id'] ?? '';
             final extra = state.extra;
             final extraMap = extra is Map<String, dynamic> ? extra : null;
+            final lang = (state.uri.queryParameters['lang'] ??
+                    extraMap?['lang'] as String?)
+                ?.trim();
             return ArticleReaderScreen(
               articleId: articleId,
               initialTitle: extraMap?['title'] as String?,
+              lang: (lang == null || lang.isEmpty) ? 'en' : lang,
             );
           },
         ),

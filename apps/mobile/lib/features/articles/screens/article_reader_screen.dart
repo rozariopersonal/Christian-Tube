@@ -12,12 +12,14 @@ import '../services/article_sync_service.dart';
 
 class ArticleReaderScreen extends StatefulWidget {
   final String articleId;
+  final String lang;
   final String? initialTitle;
   final ArticleSyncService? syncService;
 
   const ArticleReaderScreen({
     super.key,
     required this.articleId,
+    this.lang = 'en',
     this.initialTitle,
     this.syncService,
   });
@@ -35,6 +37,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     super.initState();
     _controller = ArticleReaderController(
       widget.articleId,
+      lang: widget.lang,
       syncService: widget.syncService,
     );
   }

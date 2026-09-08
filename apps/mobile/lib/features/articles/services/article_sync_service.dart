@@ -29,14 +29,17 @@ class ArticleSyncService {
     return dir.path;
   }
 
-  Future<ArticleData?> getArticle(String articleId) async {
+  Future<ArticleData?> getArticle(String articleId, {String? lang}) async {
+    final code = (lang == null || lang.trim().isEmpty) ? 'en' : lang.trim().toLowerCase();
+    final cacheKey = '$code/$articleId';
+
     // 1. Check memory cache (instant)
-    if (_memoryCache.containsKey(articleId)) {
-      return _memoryCache[articleId];
+    if (_memoryCache.containsKey(cacheKey)) {
+      return _memoryCache[cacheKey];
     }
 
     final cacheDir = await _getCacheDirectory();
-    final localFile = File(p.join(cacheDir, '$articleId.json'));
+    final localFile = File(p.join(cacheDir, '${code}_$articleId.json'));
 
     // 2. Check disk cache
     if (await localFile.exists()) {
@@ -44,15 +47,15 @@ class ArticleSyncService {
         final content = await localFile.readAsString();
         final json = jsonDecode(content) as Map<String, dynamic>;
         final article = ArticleData.fromJson(json);
-        _memoryCache[articleId] = article;
+        _memoryCache[cacheKey] = article;
         return article;
       } catch (e) {
-        debugPrint('Failed to read cached article $articleId: $e');
+        debugPrint('Failed to read cached article $cacheKey: $e');
       }
     }
 
     // 3. Fetch from remote CDN
-    final urls = GitHubDataService.wftwArticleUrls(articleId);
+    final urls = GitHubDataService.languageArticleUrls(code, articleId);
     for (final url in urls) {
       try {
         final response = await _dio.get<String>(
@@ -65,7 +68,7 @@ class ArticleSyncService {
           final article = ArticleData.fromJson(json);
 
           // Save to memory cache
-          _memoryCache[articleId] = article;
+          _memoryCache[cacheKey] = article;
 
           // Save to disk cache asynchronously
           localFile.writeAsString(response.data!).catchError((_) => localFile);
@@ -82,7 +85,7 @@ class ArticleSyncService {
       final content = await localFile.readAsString();
       final json = jsonDecode(content) as Map<String, dynamic>;
       final article = ArticleData.fromJson(json);
-      _memoryCache[articleId] = article;
+      _memoryCache[cacheKey] = article;
       return article;
     }
 

@@ -9,11 +9,43 @@ import '../models/wftw_index_entry.dart';
 /// supply a fake without network access.
 typedef WftwIndexLoader = Future<List<WftwIndexEntry>> Function();
 
+/// Multi-language articles index loader (used by the Library articles shelf
+/// and the browser). Receives the requested [lang].
+
+/// Loads a single language's article index.
+typedef ArticlesLoader = Future<List<WftwIndexEntry>> Function(String lang);
+
+/// Combined multi-language catalog loader (Library articles shelf preview).
+typedef ArticlesCatalogLoader = Future<List<WftwIndexEntry>> Function();
+
+/// Languages catalog loader.
+typedef ArticlesLanguagesLoader = Future<List<ArticleLanguage>> Function();
+
+class ArticleLanguage {
+  final String code;
+  final String name;
+  final int count;
+
+  const ArticleLanguage({
+    required this.code,
+    required this.name,
+    required this.count,
+  });
+
+  factory ArticleLanguage.fromJson(Map<String, dynamic> json) =>
+      ArticleLanguage(
+        code: json['code'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        count: json['count'] as int? ?? 0,
+      );
+}
+
 /// Fetch + memory cache for the Word-for-the-Week article index
-/// (`articles/wftw_index.json`).
+/// (`articles/wftw_index.json`) and the multi-language combined index
+/// (`articles/articles_index.json`).
 ///
-/// Web-safe: unlike the feed SQLite sync, this uses plain HTTP (no `dart:io`,
-/// no `sqflite`), so the teaching browser works on both mobile and web.
+/// Web-safe: uses plain HTTP (no `dart:io`, no `sqflite`), so the teaching
+/// browser works on both mobile and web.
 class WftwIndexService {
   static final WftwIndexService _instance = WftwIndexService._internal();
   factory WftwIndexService() => _instance;
@@ -27,6 +59,8 @@ class WftwIndexService {
   );
 
   List<WftwIndexEntry>? _cache;
+  List<WftwIndexEntry>? _combinedCache;
+  final Map<String, List<WftwIndexEntry>> _langCaches = {};
 
   Future<List<WftwIndexEntry>> getIndex() async {
     final cached = _cache;
@@ -55,6 +89,105 @@ class WftwIndexService {
     }
     throw Exception(
       'Failed to load Word for the Week index'
+      '${lastError != null ? ': $lastError' : ''}. '
+      'Please check your internet connection.',
+    );
+  }
+
+  /// Combined multi-language articles index (`articles/articles_index.json`).
+  Future<List<WftwIndexEntry>> getArticlesIndex() async {
+    final cached = _combinedCache;
+    if (cached != null) return cached;
+
+    final urls = GitHubDataService.articlesIndexUrls();
+    Object? lastError;
+    for (final url in urls) {
+      try {
+        final response = await _dio.get<String>(
+          url,
+          options: Options(responseType: ResponseType.plain),
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          final decoded = jsonDecode(response.data!) as List<dynamic>;
+          final entries = decoded
+              .map((e) => WftwIndexEntry.fromJson(e as Map<String, dynamic>))
+              .toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
+          _combinedCache = entries;
+          return entries;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception(
+      'Failed to load articles index'
+      '${lastError != null ? ': $lastError' : ''}. '
+      'Please check your internet connection.',
+    );
+  }
+
+  /// Per-language article index (`articles/{lang}/index.json`). English is
+  /// served from the flat `articles/wftw_index.json`.
+  Future<List<WftwIndexEntry>> getLanguageArticles(String lang) async {
+    if (lang == 'en') return getIndex();
+
+    final cached = _langCaches[lang];
+    if (cached != null) return cached;
+
+    final urls = GitHubDataService.languageArticlesIndexUrls(lang);
+    Object? lastError;
+    for (final url in urls) {
+      try {
+        final response = await _dio.get<String>(
+          url,
+          options: Options(responseType: ResponseType.plain),
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          final decoded = jsonDecode(response.data!) as List<dynamic>;
+          final entries = decoded
+              .map((e) => WftwIndexEntry.fromJson(
+                    (e as Map<String, dynamic>)..['lang'] = lang,
+                  ))
+              .toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
+          _langCaches[lang] = entries;
+          return entries;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception(
+      'Failed to load articles for $lang'
+      '${lastError != null ? ': $lastError' : ''}. '
+      'Please check your internet connection.',
+    );
+  }
+
+  /// Language catalog (`articles/languages.json`): non-zero-count entries.
+  Future<List<ArticleLanguage>> getLanguages() async {
+    final urls = GitHubDataService.articlesLanguagesUrls();
+    Object? lastError;
+    for (final url in urls) {
+      try {
+        final response = await _dio.get<String>(
+          url,
+          options: Options(responseType: ResponseType.plain),
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          final decoded = jsonDecode(response.data!) as List<dynamic>;
+          return decoded
+              .map((e) => ArticleLanguage.fromJson(e as Map<String, dynamic>))
+              .where((l) => l.count > 0 && l.code.isNotEmpty)
+              .toList();
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception(
+      'Failed to load languages catalog'
       '${lastError != null ? ': $lastError' : ''}. '
       'Please check your internet connection.',
     );

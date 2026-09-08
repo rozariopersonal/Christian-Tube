@@ -259,6 +259,28 @@ static List<String> wftwManifestUrls() =>
   static List<String> wftwArticleUrls(String articleId) =>
       ReleaseAssets.urlsFor('articles/wftw/$articleId.json');
 
+  /// Combined multi-language article index (all languages, `lang` per entry).
+  static List<String> articlesIndexUrls() =>
+      ReleaseAssets.urlsFor('articles/articles_index.json');
+
+  /// Per-language article index (`articles/{lang}/index.json`).
+  static List<String> languageArticlesIndexUrls(String lang) =>
+      ReleaseAssets.urlsFor('articles/${lang.toLowerCase()}/index.json');
+
+  /// Language catalog (`articles/languages.json`): code, label, article count.
+  static List<String> articlesLanguagesUrls() =>
+      ReleaseAssets.urlsFor('articles/languages.json');
+
+  /// Live article body for [articleId] in [lang]. English articles live flat
+  /// under `articles/wftw/`, other languages under `articles/{lang}/`.
+  static List<String> languageArticleUrls(String lang, String articleId) {
+    if (lang.trim().isEmpty || lang == 'en') {
+      return wftwArticleUrls(articleId);
+    }
+    return ReleaseAssets.urlsFor(
+        'articles/${lang.toLowerCase()}/$articleId.json');
+  }
+
   // ── Binaries ──────────────────────────────────────────────────────────────
 
   /// Precompiled binary packages (e.g. ffmpeg arm64).

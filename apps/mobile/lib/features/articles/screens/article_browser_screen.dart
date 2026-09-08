@@ -7,19 +7,29 @@ import '../models/wftw_index_entry.dart';
 import '../services/wftw_index_service.dart';
 import '../widgets/article_row.dart';
 
-/// Browse the Word-for-the-Week article archive, grouped by year, with a
-/// client-side title search. Rows open the article reader (`/article/:id`).
-class WftwTeachingsScreen extends StatefulWidget {
-  final WftwIndexLoader? loader;
+/// Multi-language articles browser: picks a language (English + the seeded
+/// CFC languages), then browses that language's Word-for-the-Week archive
+/// grouped by year, with a client-side title search.
+class ArticleBrowserScreen extends StatefulWidget {
+  final ArticlesLoader? loader;
+  final ArticlesLanguagesLoader? languagesLoader;
+  final String initialLang;
 
-  const WftwTeachingsScreen({super.key, this.loader});
+  const ArticleBrowserScreen({
+    super.key,
+    this.loader,
+    this.languagesLoader,
+    this.initialLang = 'en',
+  });
 
   @override
-  State<WftwTeachingsScreen> createState() => _WftwTeachingsScreenState();
+  State<ArticleBrowserScreen> createState() => _ArticleBrowserScreenState();
 }
 
-class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
+class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
   final TextEditingController _searchController = TextEditingController();
+  late String _lang;
+  List<ArticleLanguage> _languages = const [];
   List<WftwIndexEntry> _entries = const [];
   bool _loading = true;
   String? _error;
@@ -28,7 +38,9 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _lang = widget.initialLang;
+    _loadLanguages();
+    _loadEntries(_lang);
   }
 
   @override
@@ -37,14 +49,25 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadLanguages() async {
+    try {
+      final loader = widget.languagesLoader ?? WftwIndexService().getLanguages;
+      final languages = await loader();
+      if (!mounted) return;
+      setState(() => _languages = languages);
+    } catch (e) {
+      debugPrint('Articles languages unavailable: $e');
+    }
+  }
+
+  Future<void> _loadEntries(String lang) async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final loader = widget.loader ?? WftwIndexService().getIndex;
-      final entries = await loader();
+      final loader = widget.loader ?? WftwIndexService().getLanguageArticles;
+      final entries = await loader(lang);
       if (!mounted) return;
       setState(() {
         _entries = entries;
@@ -59,6 +82,19 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
     }
   }
 
+  void _selectLanguage(String lang) {
+    if (lang == _lang) return;
+    setState(() => _lang = lang);
+    _loadEntries(lang);
+  }
+
+  String get _langName {
+    for (final l in _languages) {
+      if (l.code == _lang) return l.name;
+    }
+    return _lang.toUpperCase();
+  }
+
   List<WftwIndexEntry> get _filtered {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return _entries;
@@ -68,7 +104,10 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
   }
 
   void _openArticle(WftwIndexEntry entry) {
-    context.push('/article/${entry.id}', extra: {'title': entry.title});
+    context.push(
+      '/article/${entry.id}',
+      extra: {'title': entry.title, 'lang': _lang},
+    );
   }
 
   @override
@@ -82,16 +121,51 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Word for the Week', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Articles', style: TextStyle(fontWeight: FontWeight.bold)),
             if (!_loading && _error == null)
               Text(
-                '${_entries.length} teachings • Zac Poonen',
+                '${_entries.length} articles • $_langName',
                 style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
               ),
           ],
         ),
       ),
-      body: _buildBody(tokens),
+      body: Column(
+        children: [
+          if (_languages.isNotEmpty) _buildLanguageBar(tokens),
+          Expanded(child: _buildBody(tokens)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageBar(AppTokens tokens) {
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          for (final lang in _languages)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(lang.name),
+                labelStyle: TextStyle(
+                  fontSize: 12.5,
+                  color: _lang == lang.code ? tokens.onSurface : tokens.onSurfaceMuted,
+                  fontWeight: _lang == lang.code ? FontWeight.w600 : FontWeight.w400,
+                ),
+                selected: _lang == lang.code,
+                selectedColor: tokens.accent.withValues(alpha: 0.2),
+                backgroundColor: tokens.surfaceVariant,
+                side: BorderSide(color: tokens.surfaceBorder),
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) => _selectLanguage(lang.code),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -103,7 +177,7 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
           children: [
             CircularProgressIndicator(color: tokens.accent),
             const SizedBox(height: 16),
-            Text('Loading teachings...',
+            Text('Loading articles...',
                 style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14)),
           ],
         ),
@@ -119,13 +193,13 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
               Icon(Icons.cloud_off_rounded, color: tokens.onSurfaceMuted, size: 40),
               const SizedBox(height: 12),
               Text(
-                'Could not load Word for the Week teachings.',
+                'Could not load articles for $_langName.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: tokens.onSurfaceMuted),
               ),
               const SizedBox(height: 16),
               FilledButton.tonal(
-                onPressed: _load,
+                onPressed: () => _loadEntries(_lang),
                 style: FilledButton.styleFrom(
                   backgroundColor: tokens.surfaceVariant,
                   foregroundColor: tokens.onSurface,
@@ -152,7 +226,7 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
                 controller: _searchController,
                 onChanged: (value) => setState(() => _query = value),
                 decoration: InputDecoration(
-                  hintText: 'Search teachings...',
+                  hintText: 'Search articles...',
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: _query.isEmpty
                       ? null
@@ -179,7 +253,7 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
               hasScrollBody: false,
               child: Center(
                 child: Text(
-                  'No teachings match "${_query.trim()}".',
+                  'No articles match "${_query.trim()}".',
                   style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
                 ),
               ),
@@ -223,6 +297,7 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) => ArticleRow(
                     entry: yearGroup.value[index],
+                    langLabel: _lang == 'en' ? null : _langName,
                     onTap: () => _openArticle(yearGroup.value[index]),
                   ),
                   childCount: yearGroup.value.length,

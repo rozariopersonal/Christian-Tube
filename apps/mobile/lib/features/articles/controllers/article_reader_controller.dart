@@ -30,19 +30,24 @@ class ArticleReaderState {
 
 class ArticleReaderController extends ChangeNotifier {
   final String articleId;
+  final String lang;
   final ArticleSyncService _syncService;
   final ReaderAppearance appearance = ReaderAppearance();
 
   ArticleReaderState _state = const ArticleReaderState();
   ArticleReaderState get state => _state;
 
-  ArticleReaderController(this.articleId, {ArticleSyncService? syncService})
-      : _syncService = syncService ?? ArticleSyncService() {
+  ArticleReaderController(
+    this.articleId, {
+    this.lang = 'en',
+    ArticleSyncService? syncService,
+  }) : _syncService = syncService ?? ArticleSyncService() {
     appearance.addListener(notifyListeners);
     _init();
   }
 
   Future<void> _init() async {
+    appearance.languageCode = lang;
     await appearance.loadFromPrefs();
     await loadArticle();
   }
@@ -52,7 +57,7 @@ class ArticleReaderController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data = await _syncService.getArticle(articleId);
+      final data = await _syncService.getArticle(articleId, lang: lang);
       _state = _state.copyWith(isLoading: false, article: data);
     } catch (e) {
       _state = _state.copyWith(

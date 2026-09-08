@@ -19,7 +19,7 @@ ThemeData testTheme() => ThemeData(
 
 class _OfflineSyncService implements ArticleSyncService {
   @override
-  Future<ArticleData?> getArticle(String articleId) async {
+  Future<ArticleData?> getArticle(String articleId, {String? lang}) async {
     throw Exception('offline');
   }
 }
