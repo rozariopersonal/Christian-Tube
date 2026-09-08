@@ -502,6 +502,34 @@ void main() {
       expect(verses, {16, 18});
     });
 
+    test('removing a verse in user tier marks the kept highlight dirty for sync',
+        () async {
+      UserItemSyncService.instance.setUserIdForTest('u1');
+      final service = BibleHighlightService();
+      await service.apply(
+        versionId: 'TAOBVSI',
+        book: 'John',
+        chapter: 3,
+        verses: [16, 17],
+        colorIndex: 7,
+        text: 'a\nb',
+      );
+
+      // Let a tick pass so the next timestamp is strictly later.
+      await Future.delayed(const Duration(milliseconds: 20));
+      final since = DateTime.now().toUtc();
+      await Future.delayed(const Duration(milliseconds: 20));
+
+      await service.remove(book: 'John', chapter: 3, verses: [17]);
+
+      final dirty = await UserItemRepository.instance
+          .loadDirtySince('u1', since);
+      final highlights =
+          dirty.where((i) => i.itemType == UserItem.typeHighlight).toList();
+      expect(highlights, isNotEmpty);
+      expect(highlights.any((i) => i.verseStart == 16), isTrue);
+    });
+
     test('user tier highlights never leak across accounts', () async {
       UserItemSyncService.instance.setUserIdForTest('u1');
       await BibleHighlightService().apply(

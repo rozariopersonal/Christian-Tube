@@ -51,6 +51,7 @@ class UserItemSyncService {
   String? _currentUserId;
   bool _attached = false;
   bool _pushing = false;
+  bool _needsRepush = false;
   Timer? _pushDebounce;
   final Set<String> _rehomeLock = <String>{};
 
@@ -153,7 +154,10 @@ class UserItemSyncService {
   }
 
   Future<void> _pushDirty(String userId) async {
-    if (_pushing) return;
+    if (_pushing) {
+      _needsRepush = true;
+      return;
+    }
     _pushing = true;
     try {
       final rawCursor = await _loadCursor(userId);
@@ -185,6 +189,10 @@ class UserItemSyncService {
       debugPrint('UserItemSyncService push non-blocking warning: $e');
     } finally {
       _pushing = false;
+      if (_needsRepush) {
+        _needsRepush = false;
+        unawaited(_pushDirty(userId));
+      }
     }
   }
 

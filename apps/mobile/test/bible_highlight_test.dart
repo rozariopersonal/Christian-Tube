@@ -121,6 +121,34 @@ void main() {
       expect(forChapter.first.colorIndex, 12);
     });
 
+    test('apply with partial overlap keeps unselected verses', () async {
+      final service = BibleHighlightService();
+      await service.apply(
+        versionId: 'TAOBVSI',
+        book: 'John',
+        chapter: 3,
+        verses: [16, 17, 18],
+        colorIndex: 7,
+        text: 'a\nb\nc',
+      );
+      // Recolor only verse 16 — verses 17,18 should keep their highlight.
+      await service.apply(
+        versionId: 'TAOBVSI',
+        book: 'John',
+        chapter: 3,
+        verses: [16],
+        colorIndex: 4,
+        text: 'a',
+      );
+
+      final forChapter = await service.getForChapter('John', 3);
+      expect(forChapter.length, 2);
+      final green = forChapter.firstWhere((h) => h.colorIndex == 4);
+      expect(green.verses, [16]);
+      final red = forChapter.firstWhere((h) => h.colorIndex == 7);
+      expect(red.verses, [17, 18]);
+    });
+
     test('remove deletes the highlight for the given verses only', () async {
       final service = BibleHighlightService();
       await service.apply(

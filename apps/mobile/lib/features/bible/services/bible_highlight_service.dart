@@ -68,13 +68,26 @@ class BibleHighlightService {
     final all = await loadHighlights();
     final verseSet = verses.toSet();
 
-    // Remove any existing highlights (any color/version) that cover these verses.
+    // Remove any existing highlights (any color/version) that cover these verses,
+    // keeping the non-covered verses as a leftover run so unselected verses
+    // don't silently lose their highlight.
     final remaining = <BibleHighlight>[];
     for (final h in all) {
       if (h.book == book &&
           h.chapter == chapter &&
           h.verses.any((v) => verseSet.contains(v))) {
-        continue; // drop covered verses
+        final kept = h.verses.where((v) => !verseSet.contains(v)).toList();
+        if (kept.isEmpty) continue;
+        remaining.add(BibleHighlight(
+          versionId: h.versionId,
+          book: h.book,
+          chapter: h.chapter,
+          verses: kept,
+          colorIndex: h.colorIndex,
+          text: h.text,
+          savedAt: DateTime.now(),
+        ));
+        continue;
       }
       remaining.add(h);
     }
@@ -122,7 +135,7 @@ class BibleHighlightService {
           verses: kept,
           colorIndex: h.colorIndex,
           text: h.text,
-          savedAt: h.savedAt,
+          savedAt: DateTime.now(),
         ));
       } else {
         remaining.add(h);
