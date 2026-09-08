@@ -17,10 +17,24 @@ class ReleaseAssets {
   /// (e.g. `'rozariopersonal/Christian-Tube-Releases'`).
   static String get _repo => AppConfig.releasesRepo;
 
+  /// Current dataset revision read from the top-level `manifest.json`
+  /// (`revision` field). Bumping it on a data push changes every asset URL,
+  /// which busts client (`CachedNetworkImage`) and CDN caches without an app
+  /// release. Empty until [ReleaseRevision] resolves.
+  static String revision = '';
+
+  /// Query-string suffix that cache-busts asset URLs against the current
+  /// dataset revision. Empty when no revision has been resolved yet.
+  static String _revisionQuery() =>
+      revision.isEmpty ? '' : '?rv=$revision';
+
   /// Ordered candidate URLs for [relativePath]; jsDelivr CDN first (edge-
   /// cached globally), raw GitHub second as fallback.
-  static List<String> urlsFor(String relativePath) => [
-        'https://cdn.jsdelivr.net/gh/$_repo@$_branch/$relativePath',
-        'https://raw.githubusercontent.com/$_repo/$_branch/$relativePath',
-      ];
+  static List<String> urlsFor(String relativePath) {
+    final query = _revisionQuery();
+    return [
+      'https://cdn.jsdelivr.net/gh/$_repo@$_branch/$relativePath$query',
+      'https://raw.githubusercontent.com/$_repo/$_branch/$relativePath$query',
+    ];
+  }
 }

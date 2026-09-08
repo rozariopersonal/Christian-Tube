@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'core/api/release_revision.dart';
 import 'core/config/app_config.dart';
 import 'core/engines/active_engine.g.dart';
 import 'core/models/video.dart';
@@ -36,6 +37,11 @@ import 'layout/main_layout_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppConfig.initialize();
+
+  // Resolve the dataset revision (used to cache-bust every release-asset URL)
+  // before the first frame so book covers / fonts render at the current
+  // revision instead of a stale cached copy.
+  await ReleaseRevision.load();
 
   // Run secondary initializations in background to eliminate startup blank screen
   NotificationService().initialize().catchError((e) => debugPrint('Notification init error: $e'));
