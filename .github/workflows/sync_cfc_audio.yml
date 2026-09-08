@@ -44,7 +44,8 @@ jobs:
 
       - name: Commit and Push Releases Updates
         env:
-          REPO_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          RELEASES_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          MAIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           # Global identity so BOTH the releases submodule and the outer repo
@@ -53,17 +54,25 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Pin push auth to REPO_TOKEN (checkout's default credential is the
-          # GITHUB_TOKEN, which cannot write to the separate releases repo).
-          git config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
-          git config http.https://github.com/.extraheader "AUTHORIZATION: bearer ${REPO_TOKEN}"
+          # Submodules are checked out on a detached HEAD, so "git push origin
+          # main" would push a stale local branch and silently drop the new
+          # commit. Always push HEAD:main, and authenticate per-repository:
+          # RELEASE_PAT for the releases repo, GITHUB_TOKEN (contents: write on
+          # this repo) for Christian-Tube itself.
+          push_head() {
+            local token="$1"
+            local remote
+            remote=$(git remote get-url origin)
+            git config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+            git -c credential.helper= push "https://x-access-token:${token}@${remote#https://}" HEAD:main
+          }
 
           cd releases
           if [ -n "$(git status --porcelain audio/ articles/)" ]; then
             echo "Changes detected in releases/. Committing to releases repository..."
             git add audio/ articles/
             git commit -m "chore(data): sync CFC India audio and articles [skip ci]"
-            git push origin main || {
+            push_head "${RELEASES_TOKEN}" || {
               echo "::error::Push to Christian-Tube-Releases failed. Confirm the RELEASE_PAT secret is set and has write access to the releases repository."
               exit 1
             }
@@ -72,7 +81,7 @@ jobs:
             git add releases
             if [ -n "$(git status --porcelain releases)" ]; then
               git commit -m "chore(releases): update data submodule pointer [skip ci]"
-              git push origin main
+              push_head "${MAIN_TOKEN}"
             fi
 
             # Purge jsDelivr edge CDN cache so mobile apps receive updates instantly
