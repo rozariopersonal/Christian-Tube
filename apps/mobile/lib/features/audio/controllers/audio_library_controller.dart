@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../books/models/book_language_meta.dart';
+import '../../../shared/services/library_languages_controller.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
@@ -108,23 +108,40 @@ class AudioLibraryController extends ChangeNotifier {
     'General Sermons',
   ];
 
-  static const _prefKeyLanguages = 'audio_library_languages';
-
   final AudioCatalogService _catalogService;
   final AudioStorageService _storageService;
 
+  /// Shared source of truth for the language filter. The whole library (books,
+  /// songs, articles, audio) filters by this one selection.
+  final LibraryLanguagesController _langController;
+  late final bool _ownsLangController;
+
   AudioLibraryViewState _state = const AudioLibraryViewState();
   AudioLibraryViewState get state => _state;
+
+  LibraryLanguagesController get languageController => _langController;
 
   bool _disposed = false;
 
   AudioLibraryController({
     AudioCatalogService? catalogService,
     AudioStorageService? storageService,
+    LibraryLanguagesController? langController,
   })  : _catalogService = catalogService ?? AudioCatalogService(),
-        _storageService = storageService ?? AudioStorageService() {
+        _storageService = storageService ?? AudioStorageService(),
+        _langController = langController ?? LibraryLanguagesController(),
+        _ownsLangController = langController == null {
+    _langController.addListener(_onLangChanged);
     loadData();
     AudioPlayerController.instance.addListener(_onPlayerStateChanged);
+  }
+
+  void _onLangChanged() {
+    if (_disposed) return;
+    _state = _state.copyWith(
+      selectedLanguages: _langController.state.selectedLanguages,
+    );
+    notifyListeners();
   }
 
   void _onPlayerStateChanged() {
@@ -167,11 +184,8 @@ class AudioLibraryController extends ChangeNotifier {
     final sortedLangs = uniqueLangs.toList()
       ..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
 
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getStringList(_prefKeyLanguages);
-    final initialSelection = (saved != null && saved.isNotEmpty)
-        ? saved.toSet()
-        : _state.selectedLanguages;
+    // Register this content type's languages with the shared controller.
+    _langController.announceLanguages(uniqueLangs);
 
     if (_disposed) return;
     _state = _state.copyWith(
@@ -181,7 +195,7 @@ class AudioLibraryController extends ChangeNotifier {
       lastPlayedSeconds: lastSec,
       languageTrackCounts: counts,
       availableLanguages: ['All', ...sortedLangs],
-      selectedLanguages: initialSelection,
+      selectedLanguages: _langController.state.selectedLanguages,
     );
     notifyListeners();
   }
@@ -192,28 +206,20 @@ class AudioLibraryController extends ChangeNotifier {
   }
 
   void selectLanguages(Set<String> newSelection) {
-    final valid = newSelection.isEmpty ? {'All'} : newSelection;
-    _state = _state.copyWith(selectedLanguages: valid);
-    notifyListeners();
-    SharedPreferences.getInstance().then((p) {
-      p.setStringList(_prefKeyLanguages, valid.toList());
-    });
+    _langController.selectLanguages(newSelection);
   }
 
   void resetFilters() {
-    _state = _state.copyWith(
-      selectedCategory: 'All',
-      selectedLanguages: const {'All'},
-    );
+    _state = _state.copyWith(selectedCategory: 'All');
     notifyListeners();
-    SharedPreferences.getInstance().then((p) {
-      p.setStringList(_prefKeyLanguages, ['All']);
-    });
+    _langController.reset();
   }
 
   @override
   void dispose() {
     _disposed = true;
+    _langController.removeListener(_onLangChanged);
+    if (_ownsLangController) _langController.dispose();
     AudioPlayerController.instance.removeListener(_onPlayerStateChanged);
     super.dispose();
   }

@@ -3,11 +3,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../shared/services/library_languages_controller.dart';
+import '../../../shared/ui/language_dropdown.dart';
 import '../controllers/audio_library_controller.dart';
 import '../models/audio_series.dart';
 import '../widgets/audio_category_chips.dart';
 import '../widgets/audio_continue_listening_card.dart';
-import '../widgets/audio_language_dropdown.dart';
 import '../widgets/audio_search_delegate.dart';
 import '../widgets/audio_series_carousel.dart';
 import '../widgets/audio_series_grid.dart';
@@ -17,7 +18,9 @@ import '../widgets/audio_topics_grid.dart';
 /// topics, and filter by category and language. Thin assembler: all behavior
 /// lives in [AudioLibraryController], the widgets are presentational.
 class AudioLibraryScreen extends StatefulWidget {
-  const AudioLibraryScreen({super.key});
+  final LibraryLanguagesController? langController;
+
+  const AudioLibraryScreen({super.key, this.langController});
 
   @override
   State<AudioLibraryScreen> createState() => _AudioLibraryScreenState();
@@ -29,7 +32,9 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = AudioLibraryController();
+    _controller = AudioLibraryController(
+      langController: widget.langController,
+    );
   }
 
   @override
@@ -91,11 +96,15 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
                           Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 20),
-                            child: AudioLanguageDropdown(
-                              selectedLanguages: state.selectedLanguages,
+                            child: LanguageDropdown(
+                              selectedLanguages:
+                                  _controller.languageController.state.selectedLanguages,
                               availableLanguages: state.availableLanguages,
-                              trackCounts: state.languageTrackCounts,
-                              onLanguagesSelected: _controller.selectLanguages,
+                              itemCounts: state.languageTrackCounts,
+                              onLanguagesSelected:
+                                  _controller.languageController.selectLanguages,
+                              itemNoun: 'tracks',
+                              headerTitle: 'Audio by Language',
                             ),
                           ),
                           const SizedBox(height: 14),

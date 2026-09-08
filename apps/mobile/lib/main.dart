@@ -170,7 +170,10 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                     ),
                   );
                 }
-                return const AudioLibraryScreen();
+                return AudioLibraryScreen(
+                  langController:
+                      LibraryLanguagesController.fromRouteExtra(state.extra),
+                );
               },
             ),
             GoRoute(
