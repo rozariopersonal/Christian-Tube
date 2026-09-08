@@ -34,7 +34,6 @@ class VerseText extends StatefulWidget {
 }
 
 class _VerseTextState extends State<VerseText> {
-  Offset? _downPosition;
   late final ValueNotifier<bool> _hoverNotifier = ValueNotifier<bool>(false);
 
   @override
@@ -68,14 +67,13 @@ class _VerseTextState extends State<VerseText> {
                 ? null
                 : HighlightPalette.colorFor(widget.highlightColorIndex!);
 
-        return Listener(
+        // A real GestureDetector tap is used instead of manual pointer math so
+        // that long-presses (text selection) and scroll drags are correctly
+        // routed to SelectionArea / the scrollable and never accidentally
+        // toggle verse selection.
+        return GestureDetector(
           behavior: HitTestBehavior.translucent,
-          onPointerDown: (event) => _downPosition = event.position,
-          onPointerUp: (event) {
-            if (_downPosition != null && (event.position - _downPosition!).distance < 18) {
-              widget.onTap?.call();
-            }
-          },
+          onTap: widget.onTap,
           child: MouseRegion(
             onEnter: (_) => _hoverNotifier.value = true,
             onExit: (_) => _hoverNotifier.value = false,

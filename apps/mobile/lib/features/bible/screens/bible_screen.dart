@@ -57,6 +57,9 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _isProgrammaticScrolling = false;
   Timer? _highlightTimer;
   Timer? _programmaticScrollTimer;
+  int _prevSelectedCount = 0;
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
+      _undoSnackBarController;
 
   @override
   void initState() {
@@ -150,6 +153,15 @@ class _BibleScreenState extends State<BibleScreen> {
     final s = _controller.state;
     if (s.isLoading) return;
 
+    final selectedCount = s.selectedVerses.length;
+    if (selectedCount < _prevSelectedCount &&
+        selectedCount == 0 &&
+        _prevSelectedCount > 0 &&
+        _controller.canRestoreSelection) {
+      _showUndoClearedSelection();
+    }
+    _prevSelectedCount = selectedCount;
+
     final target = _controller.consumeScrollTargetIfReady();
     if (target != null) {
       _initialPositioned = true;
@@ -192,6 +204,30 @@ class _BibleScreenState extends State<BibleScreen> {
         }
       }
     }
+  }
+
+  void _showUndoClearedSelection() {
+    _undoSnackBarController?.close();
+    _undoSnackBarController = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Selection cleared'),
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            final restored = _controller.restoreSelection();
+            if (restored == null || restored.verses.isEmpty) return;
+            // Restore the exact verse the selection last pointed at so the
+            // reader scrolls back into the chapter the selection lived in.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _scrollToVerse(restored.verses.first, highlight: false);
+            });
+          },
+        ),
+      ),
+    );
   }
 
   void _scrollToGlobalIndex(int index, int verseNumber, {bool highlight = true}) {

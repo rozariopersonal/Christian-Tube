@@ -37,6 +37,7 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
   late int _selectedVerse;
   List<BibleVerse>? _chapterVerses;
   bool _loadingVerses = false;
+  int _verseLoadGeneration = 0;
 
   @override
   void initState() {
@@ -190,16 +191,23 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
     if (loader == null) return;
     final book = _selectedBook;
     final chapter = _selectedChapter;
+    final generation = ++_verseLoadGeneration;
     setState(() => _loadingVerses = true);
     try {
       final verses = await loader(book, chapter);
-      if (!mounted || book != _selectedBook || chapter != _selectedChapter) return;
+      // Stale response guard: a newer chapter selection supersedes this one.
+      if (!mounted ||
+          generation != _verseLoadGeneration ||
+          book != _selectedBook ||
+          chapter != _selectedChapter) {
+        return;
+      }
       setState(() {
         _chapterVerses = verses.isEmpty ? null : verses;
         _loadingVerses = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _verseLoadGeneration) return;
       setState(() {
         _chapterVerses = null;
         _loadingVerses = false;

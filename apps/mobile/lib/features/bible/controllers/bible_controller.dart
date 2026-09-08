@@ -219,6 +219,20 @@ class BibleScrollTarget {
   });
 }
 
+/// The book/chapter/verses of a selection that was auto-cleared by scrolling
+/// into a new chapter. Usable to navigate back and restore it (undo).
+class RestoredSelection {
+  final String book;
+  final int chapter;
+  final Set<int> verses;
+
+  const RestoredSelection({
+    required this.book,
+    required this.chapter,
+    required this.verses,
+  });
+}
+
 /// Encapsulates every business-logic operation for the Bible reader.
 ///
 /// The screen is responsible for:
@@ -720,9 +734,28 @@ class BibleController extends ChangeNotifier {
     final book = BookNameService.englishBookNames[bookNumber - 1];
     if (verse != null && verse >= 1) _currentVerse = verse;
     if (book == _currentBook && chapter == _currentChapter) return;
+
+    // Clear selection when the user scrolls into a different chapter so that
+    // stale verse numbers from the previous chapter are never acted upon. The
+    // first auto-clear is recorded for undo; later same-session clears while
+    // the selection is already empty must not clobber it.
+    final hadSelection = _state.selectedVerses.isNotEmpty;
+    if (hadSelection && _previousSelection == null) {
+      _previousSelection =
+          Set<int>.from(_state.selectedVerses);
+      _previousSelectionBook = _currentBook;
+      _previousSelectionChapter = _currentChapter;
+    }
+
     _currentBook = book;
     _currentChapter = chapter;
-    _update((s) => s.copyWith(currentBook: book, currentChapter: chapter));
+    _update((s) => s.copyWith(
+          currentBook: book,
+          currentChapter: chapter,
+          selectedVerses: hadSelection ? {} : s.selectedVerses,
+          clearHighlightColorForSelection: hadSelection,
+          selectionHasHighlight: hadSelection ? false : s.selectionHasHighlight,
+        ));
     _fillChapterInBackground(bookNumber, chapter);
     stream.preloadAround(bookNumber, chapter, radius: 2);
     _loadCrossReferencesForChapter(bookNumber, chapter);
@@ -732,6 +765,82 @@ class BibleController extends ChangeNotifier {
     if (saveProgress) {
       _settingsService.saveReadingProgress(version.shortname, book, chapter);
     }
+  }
+
+  // ── Undo-support for auto-cleared selection ────────────────────────────
+
+  Set<int>? _previousSelection;
+  String? _previousSelectionBook;
+  int? _previousSelectionChapter;
+
+  /// Whether there is a previous selection that can be restored.
+  bool get canRestoreSelection => _previousSelection != null;
+
+  /// Restores the selection that was auto-cleared when the user scrolled into
+  /// a different chapter. When the current chapter differs from where the
+  /// selection lived, the reader is navigated back to that chapter first.
+  /// Returns the restored selection info, or null when nothing is pending.
+  RestoredSelection? restoreSelection() {
+    final prev = _previousSelection;
+    final book = _previousSelectionBook;
+    final chapter = _previousSelectionChapter;
+    if (prev == null || book == null || chapter == null) return null;
+
+    final result = RestoredSelection(
+      book: book,
+      chapter: chapter,
+      verses: prev,
+    );
+
+    _previousSelection = null;
+    _previousSelectionBook = null;
+    _previousSelectionChapter = null;
+
+    if (_currentBook == book && _currentChapter == chapter) {
+      _update((s) => s.copyWith(
+            selectedVerses: prev,
+            highlightColorForSelection: _selectionHighlightColor(s, prev),
+            selectionHasHighlight: _selectionHasHighlight(s, prev),
+          ));
+      return result;
+    }
+
+    // Selection lived in a different chapter — navigate back and re-arm it so
+    // it survives the chapter load.
+    _currentBook = book;
+    _currentChapter = chapter;
+    _pendingRestoredSelection = prev;
+    _update((s) => s.copyWith(
+          currentBook: book,
+          currentChapter: chapter,
+          isLoading: true,
+        ));
+    final epoch = ++_loadEpoch;
+    _ensureChapterLoaded(book, chapter, epoch: epoch).then((_) {
+      if (_disposed || epoch != _loadEpoch) return;
+      final restore = _pendingRestoredSelection;
+      _pendingRestoredSelection = null;
+      if (restore != null) {
+        _update((s) => s.copyWith(
+              isLoading: false,
+              selectedVerses: restore,
+              highlightColorForSelection: _selectionHighlightColor(s, restore),
+              selectionHasHighlight: _selectionHasHighlight(s, restore),
+            ));
+      }
+    });
+    return result;
+  }
+
+  Set<int>? _pendingRestoredSelection;
+
+  /// Clears any pending auto-clear undo state (e.g. on explicit selection
+  /// actions that supersede it).
+  void discardRestorableSelection() {
+    _previousSelection = null;
+    _previousSelectionBook = null;
+    _previousSelectionChapter = null;
+    _pendingRestoredSelection = null;
   }
 
   Future<void> _fillChapterInBackground(int bookNumber, int chapter) async {
@@ -889,6 +998,7 @@ class BibleController extends ChangeNotifier {
   /// chapter only refreshes the current selection.
   Future<void> _navigateTo(String book, int chapter, {int? verse}) async {
     if (!bibleBooks.containsKey(book)) return;
+    discardRestorableSelection();
     final sameChapter = book == _currentBook && chapter == _currentChapter;
     final armVerse = verse ?? (sameChapter ? null : 1);
     final shouldHighlight = verse != null;
@@ -906,9 +1016,18 @@ class BibleController extends ChangeNotifier {
       return;
     }
 
+    // Clear selection when navigating to a different chapter.
+    final clearSel = !sameChapter && _state.selectedVerses.isNotEmpty;
     _currentBook = book;
     _currentChapter = chapter;
-    _update((s) => s.copyWith(isLoading: true, currentBook: book, currentChapter: chapter));
+    _update((s) => s.copyWith(
+          isLoading: true,
+          currentBook: book,
+          currentChapter: chapter,
+          selectedVerses: clearSel ? {} : s.selectedVerses,
+          clearHighlightColorForSelection: clearSel,
+          selectionHasHighlight: clearSel ? false : s.selectionHasHighlight,
+        ));
     final epoch = ++_loadEpoch;
     await _ensureChapterLoaded(book, chapter, epoch: epoch);
     if (epoch != _loadEpoch || _disposed) return;
@@ -927,6 +1046,7 @@ class BibleController extends ChangeNotifier {
 
   void toggleVerseSelection(int verseNumber) {
     if (verseNumber == 0) return;
+    if (_state.selectedVerses.isEmpty) discardRestorableSelection();
     final newSelected = Set<int>.from(_state.selectedVerses);
     if (newSelected.contains(verseNumber)) {
       newSelected.remove(verseNumber);
@@ -941,6 +1061,7 @@ class BibleController extends ChangeNotifier {
   }
 
   void clearSelection() {
+    discardRestorableSelection();
     _update((s) => s.copyWith(
           selectedVerses: {},
           clearHighlightColorForSelection: true,

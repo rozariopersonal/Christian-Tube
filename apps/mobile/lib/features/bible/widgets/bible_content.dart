@@ -61,7 +61,10 @@ class BibleContent extends StatelessWidget {
           if (notification is ScrollStartNotification &&
               notification.dragDetails != null) {
             SystemChannels.textInput.invokeMethod('TextInput.hide');
-            controller.clearSelection();
+            // Selection is NOT cleared here: it persists across scrolls within
+            // a chapter and is only auto-cleared when updateVisibleChapter
+            // detects the user crossed into a different chapter (see
+            // BibleController.updateVisibleChapter).
           }
           return false;
         },

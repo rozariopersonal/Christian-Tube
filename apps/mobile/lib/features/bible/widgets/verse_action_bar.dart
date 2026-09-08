@@ -76,61 +76,55 @@ class VerseActionBar extends StatelessWidget {
                 ],
               ),
             ),
-            // Bottom row: Actions
-            Padding(
+            // Bottom row: Actions — horizontally scrollable so the six items
+            // never overflow at 320dp width or large text scales.
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _ActionItem(
+              child: Align(
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ActionItem(
                       icon: Icons.copy,
                       label: 'Copy',
                       textColor: textCol,
                       onPressed: onCopy,
                     ),
-                  ),
-                  Expanded(
-                    child: _ActionItem(
+                    _ActionItem(
                       icon: Icons.ios_share,
                       label: 'Share',
                       textColor: textCol,
                       onPressed: onShare,
                     ),
-                  ),
-                  Expanded(
-                    child: _ActionItem(
+                    _ActionItem(
                       icon: Icons.bookmark_add_outlined,
                       label: 'Bookmark',
                       textColor: textCol,
                       onPressed: onBookmark,
                     ),
-                  ),
-                  Expanded(
-                    child: _ActionItem(
+                    _ActionItem(
                       icon: Icons.border_color_rounded,
                       label: 'Highlight',
                       textColor: textCol,
                       onPressed: onHighlight,
                     ),
-                  ),
-                  Expanded(
-                    child: _ActionItem(
+                    _ActionItem(
                       icon: Icons.edit_note_rounded,
                       label: 'Note',
                       textColor: textCol,
                       onPressed: onNote,
                     ),
-                  ),
-                  if (onStudy != null)
-                    Expanded(
-                      child: _ActionItem(
+                    if (onStudy != null)
+                      _ActionItem(
                         icon: Icons.auto_stories_outlined,
                         label: 'Study',
                         textColor: textCol,
                         onPressed: onStudy!,
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -155,27 +149,31 @@ class _ActionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: textColor, size: 22),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+    return SizedBox(
+      width: 64,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: textColor, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
