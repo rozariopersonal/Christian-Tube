@@ -23,6 +23,7 @@ import 'features/bible/screens/bible_screen.dart';
 import 'features/bible/services/bible_passage_navigator.dart';
 import 'features/books/screens/books_catalog_screen.dart';
 import 'features/books/screens/book_reader_screen.dart';
+import 'shared/services/library_languages_controller.dart';
 import 'features/downloads/screens/downloads_manager_screen.dart';
 import 'features/library/screens/library_screen.dart';
 import 'features/audio/screens/audio_library_screen.dart';
@@ -31,6 +32,9 @@ import 'features/audio/models/audio_series.dart';
 import 'features/articles/screens/article_browser_screen.dart';
 import 'features/articles/screens/article_reader_screen.dart';
 import 'features/articles/screens/wftw_teachings_screen.dart';
+import 'features/songs/models/song.dart';
+import 'features/songs/screens/song_reader_screen.dart';
+import 'features/songs/screens/songs_library_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'layout/main_layout_screen.dart';
 
@@ -151,7 +155,10 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             ),
             GoRoute(
               path: '/books',
-              builder: (context, state) => const BooksCatalogScreen(),
+              builder: (context, state) => BooksCatalogScreen(
+                langController:
+                    LibraryLanguagesController.fromRouteExtra(state.extra),
+              ),
             ),
             GoRoute(
               path: '/audio',
@@ -228,6 +235,13 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               },
             ),
             GoRoute(
+              path: '/songs',
+              builder: (context, state) => SongsLibraryScreen(
+                langController:
+                    LibraryLanguagesController.fromRouteExtra(state.extra),
+              ),
+            ),
+            GoRoute(
               path: '/watch-plans',
               builder: (context, state) => const WatchPlansScreen(),
             ),
@@ -275,6 +289,14 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               initialTitle: extraMap?['title'] as String?,
               lang: (lang == null || lang.isEmpty) ? 'en' : lang,
             );
+          },
+        ),
+        GoRoute(
+          path: '/song/:id',
+          builder: (context, state) {
+            final extra = state.extra;
+            final song = extra is Song ? extra : null;
+            return SongReaderScreen(song: song ?? Song.empty());
           },
         ),
       ],

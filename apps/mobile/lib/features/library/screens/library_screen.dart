@@ -5,12 +5,17 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/github_data_service.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../shared/services/library_languages_controller.dart';
+import '../../../shared/ui/language_dropdown.dart';
 import '../../articles/models/wftw_index_entry.dart';
 import '../../articles/services/wftw_index_service.dart';
 import '../../articles/widgets/wftw_shelf.dart';
 import '../../books/models/book.dart';
 import '../../books/models/user_reading_progress.dart';
 import '../../books/screens/book_reader_screen.dart';
+import '../../songs/models/song.dart';
+import '../../songs/services/songs_catalog_service.dart';
+import '../../songs/widgets/song_shelf.dart';
 import '../services/library_data_loader.dart';
 
 /// Library hub — one scrolling landing for everything users read:
@@ -21,6 +26,7 @@ class LibraryScreen extends StatefulWidget {
   final WftwIndexLoader? wftwLoader;
   final ArticlesCatalogLoader? articlesLoader;
   final ArticlesLanguagesLoader? languagesLoader;
+  final SongsCatalogLoader? songsLoader;
 
   const LibraryScreen({
     super.key,
@@ -28,6 +34,7 @@ class LibraryScreen extends StatefulWidget {
     this.wftwLoader,
     this.articlesLoader,
     this.languagesLoader,
+    this.songsLoader,
   });
 
   @override
@@ -39,17 +46,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
   late final WftwIndexLoader _wftwLoader;
   late final ArticlesCatalogLoader _articlesLoader;
   late final ArticlesLanguagesLoader _languagesLoader;
+  late final SongsCatalogLoader _songsLoader;
+  late final LibraryLanguagesController _langController;
 
   List<Book> _recentBooks = const [];
+  List<Book> _allBooks = const [];
   Map<String, UserReadingProgress> _progressMap = const {};
   List<WftwIndexEntry> _wftwRecent = const [];
   List<WftwIndexEntry> _articlesRecent = const [];
+  List<WftwIndexEntry> _allArticles = const [];
+  List<Song> _songs = const [];
+  List<Song> _allSongs = const [];
   Map<String, String> _langNameByCode = const {};
   List<String> _articleLangChips = const [];
   bool _loading = true;
 
   static const int _recentBookLimit = 10;
   static const int _wftwShelfCount = 8;
+  static const int _songShelfCount = 10;
 
   @override
   void initState() {
@@ -61,7 +75,41 @@ class _LibraryScreenState extends State<LibraryScreen> {
         () => WftwIndexService().getArticlesIndex();
     _languagesLoader =
         widget.languagesLoader ?? WftwIndexService().getLanguages;
+    _songsLoader = widget.songsLoader ??
+        () => SongsCatalogService().getSongs();
+    _langController = LibraryLanguagesController()
+      ..addListener(_onLanguagesChanged);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _langController.removeListener(_onLanguagesChanged);
+    _langController.dispose();
+    super.dispose();
+  }
+
+  void _onLanguagesChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _announceLanguages(
+    List<Book> books,
+    List<WftwIndexEntry> articles,
+    List<Song> songs,
+  ) {
+    final codes = <String>{};
+    for (final b in books) {
+      if (b.language.isNotEmpty) codes.add(b.language);
+    }
+    for (final a in articles) {
+      if (a.lang.isNotEmpty) codes.add(a.lang);
+    }
+    for (final s in songs) {
+      if (s.language.isNotEmpty) codes.add(s.language);
+    }
+    _langController.announceLanguages(codes);
   }
 
   Future<void> _loadData() async {
@@ -81,6 +129,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
         if (match != null) recentBooks.add(match);
       }
 
+      final List<WftwIndexEntry> allArticles = [];
+      Map<String, String> langNames = const {};
+      try {
+        allArticles.addAll(await _articlesLoader());
+        final languages = await _languagesLoader();
+        langNames = {
+          for (final l in languages) l.code: l.name,
+        };
+        _articleLangChips = languages.map((l) => l.name).take(6).toList();
+      } catch (e) {
+        debugPrint('Articles shelf unavailable: $e');
+      }
+      final articles = allArticles.length <= _wftwShelfCount
+          ? allArticles
+          : allArticles.sublist(0, _wftwShelfCount);
+
       List<WftwIndexEntry> index = const [];
       try {
         final loaded = await _wftwLoader();
@@ -91,28 +155,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
         debugPrint('Word for the Week shelf unavailable: $e');
       }
 
-      List<WftwIndexEntry> articles = const [];
-      Map<String, String> langNames = const {};
+      final List<Song> allSongs = [];
       try {
-        final loaded = await _articlesLoader();
-        articles = loaded.length <= _wftwShelfCount
-            ? loaded
-            : loaded.sublist(0, _wftwShelfCount);
-        final languages = await _languagesLoader();
-        langNames = {
-          for (final l in languages) l.code: l.name,
-        };
-        _articleLangChips = languages.map((l) => l.name).take(6).toList();
+        allSongs.addAll(await _songsLoader());
       } catch (e) {
-        debugPrint('Articles shelf unavailable: $e');
+        debugPrint('Songs shelf unavailable: $e');
       }
+      final songs = allSongs.length <= _songShelfCount
+          ? allSongs
+          : allSongs.sublist(0, _songShelfCount);
 
       if (!mounted) return;
+      _announceLanguages(books, allArticles, allSongs);
       setState(() {
         _recentBooks = recentBooks;
+        _allBooks = books;
+        _allArticles = allArticles;
+        _allSongs = allSongs;
         _progressMap = progressMap;
         _wftwRecent = index;
         _articlesRecent = articles;
+        _songs = songs;
         _langNameByCode = langNames;
         _loading = false;
       });
@@ -191,7 +254,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
             ),
             Text(
-              'Books • Teachings • Articles',
+              'Books • Songs • Teachings • Articles',
               style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
             ),
           ],
@@ -227,8 +290,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverToBoxAdapter(
+                      child: _buildLanguageFilter(tokens),
+                    ),
+                    SliverToBoxAdapter(
                       child: _buildBooksSection(tokens),
                     ),
+                    if (_filteredSongs.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: SongShelf(
+                          songs: _filteredSongs,
+                          onViewAll: _openSongs,
+                          onTapSong: _openSong,
+                        ),
+                      ),
                     if (_wftwRecent.isNotEmpty)
                       SliverToBoxAdapter(
                         child: WftwShelf(
@@ -240,7 +314,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     if (_articlesRecent.isNotEmpty)
                       SliverToBoxAdapter(
                         child: WftwShelf(
-                          entries: _articlesRecent,
+                          entries: _filteredArticles,
                           title: 'Articles',
                           icon: Icons.article_outlined,
                           langNames: _articleLangChips,
@@ -259,6 +333,67 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  Widget _buildLanguageFilter(AppTokens tokens) {
+    final state = _langController.state;
+    if (state.availableLanguages.length <= 1) return const SizedBox.shrink();
+
+    final itemCounts = <String, int>{'All': _allItemCount};
+    for (final code in state.availableLanguages) {
+      if (code.toLowerCase() == 'all') continue;
+      itemCounts[code] = _booksForLang(code).length +
+          _articlesForLang(code).length +
+          _songsForLang(code).length;
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: LanguageDropdown(
+        selectedLanguages: state.selectedLanguages,
+        availableLanguages: state.availableLanguages,
+        itemCounts: itemCounts,
+        onLanguagesSelected: _langController.selectLanguages,
+        itemNoun: 'items',
+        headerTitle: 'Library Languages',
+      ),
+    );
+  }
+
+  List<Book> _booksForLang(String code) => _allBooks
+      .where((b) => b.language.toLowerCase() == code.toLowerCase())
+      .toList();
+
+  List<WftwIndexEntry> _articlesForLang(String code) => _allArticles
+      .where((a) => a.lang.toLowerCase() == code.toLowerCase())
+      .toList();
+
+  List<Song> _songsForLang(String code) => _allSongs
+      .where((s) => s.language.toLowerCase() == code.toLowerCase())
+      .toList();
+
+  int get _allItemCount =>
+      _allBooks.length + _allArticles.length + _allSongs.length;
+
+  List<Book> get _filteredBooks {
+    final state = _langController.state;
+    if (state.isAllLanguages) return _recentBooks;
+    return _recentBooks
+        .where((b) => state.includes(b.language))
+        .toList();
+  }
+
+  List<WftwIndexEntry> get _filteredArticles {
+    final state = _langController.state;
+    if (state.isAllLanguages) return _articlesRecent;
+    return _articlesRecent
+        .where((a) => state.includes(a.lang))
+        .toList();
+  }
+
+  List<Song> get _filteredSongs {
+    final state = _langController.state;
+    if (state.isAllLanguages) return _songs;
+    return _songs.where((s) => state.includes(s.language)).toList();
+  }
+
   Widget _buildBooksSection(AppTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,17 +402,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
           tokens,
           icon: Icons.collections_bookmark_outlined,
           title: 'Books',
-          onViewAll: () => context.push('/books'),
+          onViewAll: () => context.push(
+            '/books',
+            extra: {'langController': _langController},
+          ),
         ),
-        if (_recentBooks.isNotEmpty)
+        if (_filteredBooks.isNotEmpty)
           SizedBox(
             height: 140,
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
-              itemCount: _recentBooks.length,
+              itemCount: _filteredBooks.length,
               itemBuilder: (context, index) {
-                final book = _recentBooks[index];
+                final book = _filteredBooks[index];
                 final progress = _progressMap[book.id];
                 return Container(
                   width: 240,
@@ -366,7 +504,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
               borderRadius: BorderRadius.circular(14),
               child: InkWell(
                 borderRadius: BorderRadius.circular(14),
-                onTap: () => context.push('/books'),
+                onTap: () => context.push(
+                  '/books',
+                  extra: {'langController': _langController},
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -451,6 +592,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   void _openArticles() {
     context.push('/articles');
+  }
+
+  void _openSongs() {
+    context.push('/songs', extra: {'langController': _langController});
+  }
+
+  void _openSong(Song song) {
+    context.push('/song/${song.id}', extra: song);
   }
 
   void _openWftwArticle(WftwIndexEntry entry) {

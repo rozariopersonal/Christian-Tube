@@ -82,7 +82,8 @@ class WebBookDataAdapter implements BookDataAdapter {
       }
 
       if (author != null && author.trim().isNotEmpty && author.trim().toLowerCase() != 'all') {
-        books = books.where((b) => b.author.toLowerCase() == author.trim().toLowerCase()).toList();
+        final a = author.trim().toLowerCase();
+        books = books.where((b) => b.author.toLowerCase().contains(a)).toList();
       }
 
       if (query != null && query.trim().isNotEmpty) {

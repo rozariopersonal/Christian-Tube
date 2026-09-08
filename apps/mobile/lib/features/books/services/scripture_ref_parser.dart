@@ -19,8 +19,16 @@ class ParsedScriptureRef {
 }
 
 class ScriptureRefParser {
+  /// Matches a scripture citation without consuming surrounding whitespace or
+  /// trailing punctuation.
+  ///
+  /// The leading boundary is a non-consuming lookbehind (start of string, a
+  /// space, or an opening bracket/quote) and the trailing boundary is a
+  /// lookahead, so periods, commas, quotes, closing parens, etc. after the
+  /// verse stay part of the surrounding prose rather than being swallowed into
+  /// the link.
   static final RegExp scriptureRegex = RegExp(
-    r'(?:^|\s)(?:([123]\s*)?[\p{L}\p{M}]{2,30}(?:\s+(?:of|இராஜாக்கள்|சாமுவேல்|நாளாகமம்|கொரிந்தியர்|தெசலோனிக்கேயர்|தீமோத்தேயு|பேதுரு|யோவான்)\s+[\p{L}\p{M}]{2,30})?\.?)\s+(\d+)[:\.](\d+(?:[-–]\d+)?(?:,\s*\d+(?:[-–]\d+)?)*)(?:\s|$|[;\.!?\)])',
+    r'(?:(?<=^)|(?<=\s)|(?<=[\("\u201C]))(?:([123]\s*)?[\p{L}\p{M}]{2,30}(?:\s+(?:of|இராஜாக்கள்|சாமுவேல்|நாளாகமம்|கொரிந்தியர்|தெசலோனிக்கேயர்|தீமோத்தேயு|பேதுரு|யோவான்)\s+[\p{L}\p{M}]{2,30})?\.?)\s+(\d+)[:\.](\d+(?:[-–]\d+)?(?:,\s*\d+(?:[-–]\d+)?)*)(?=\s|$|[;,!?\)\u201D"])',
     unicode: true,
   );
 

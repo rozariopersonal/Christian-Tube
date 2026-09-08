@@ -5,19 +5,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api/github_data_service.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../../shared/services/library_languages_controller.dart';
+import '../../../../shared/ui/language_dropdown.dart';
 import '../models/book.dart';
 import '../models/book_language_meta.dart';
 import '../models/user_reading_progress.dart';
 import '../services/book_service.dart';
 import '../widgets/book_card.dart';
-import '../widgets/books_language_dropdown.dart';
 import 'book_reader_screen.dart';
 import '../../downloads/screens/downloads_manager_screen.dart';
 
 /// Screen displaying the Books Library organized by subject groups with search,
 /// individual book on-demand downloading, and recent reading progress.
+///
+/// Language filtering reads the shared [LibraryLanguagesController], making
+/// books part of the app-wide single language source of truth. When no
+/// controller is supplied (route-pushed), one is created and disposed here.
 class BooksCatalogScreen extends StatefulWidget {
-  const BooksCatalogScreen({super.key});
+  final LibraryLanguagesController? langController;
+
+  const BooksCatalogScreen({super.key, this.langController});
 
   @override
   State<BooksCatalogScreen> createState() => _BooksCatalogScreenState();
@@ -26,6 +33,9 @@ class BooksCatalogScreen extends StatefulWidget {
 class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   final BookService _bookService = BookService.instance;
   final TextEditingController _searchController = TextEditingController();
+
+  late final LibraryLanguagesController _langController;
+  late final bool _ownsLangController;
 
   List<Book> _books = [];
   Map<String, List<Book>> _booksBySubject = {};
@@ -40,25 +50,32 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedSubject = 'All';
-  Set<String> _selectedLanguages = {'All'};
   bool _viewBySubjects = true;
 
-  static const String _prefKeyLanguages = 'books_catalog_languages';
-  static const String _prefKeyLanguage = 'books_catalog_language';
   static const String _prefKeyViewBySubjects = 'books_catalog_view_by_subjects';
 
   @override
   void initState() {
     super.initState();
+    _ownsLangController = widget.langController == null;
+    _langController =
+        (widget.langController ?? LibraryLanguagesController())
+          ..addListener(_onLanguagesChanged);
     _bookService.addListener(_onServiceUpdate);
     _loadSavedPrefs();
   }
 
   @override
   void dispose() {
+    _langController.removeListener(_onLanguagesChanged);
+    if (_ownsLangController) _langController.dispose();
     _bookService.removeListener(_onServiceUpdate);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onLanguagesChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onServiceUpdate() {
@@ -67,22 +84,10 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
 
   Future<void> _loadSavedPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedLanguagesList = prefs.getStringList(_prefKeyLanguages);
-    final savedLanguage = prefs.getString(_prefKeyLanguage);
     final savedViewBySubjects = prefs.getBool(_prefKeyViewBySubjects) ?? true;
-
-    Set<String> selectedLangs;
-    if (savedLanguagesList != null && savedLanguagesList.isNotEmpty) {
-      selectedLangs = savedLanguagesList.toSet();
-    } else if (savedLanguage != null && savedLanguage.isNotEmpty) {
-      selectedLangs = {savedLanguage};
-    } else {
-      selectedLangs = {'All'};
-    }
 
     if (mounted) {
       setState(() {
-        _selectedLanguages = selectedLangs;
         _viewBySubjects = savedViewBySubjects;
       });
     }
@@ -111,11 +116,15 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     final languages = ['All', ...sortedLangs];
     langBookCounts['All'] = allBooks.length;
 
-    final isAllLanguages = _selectedLanguages.isEmpty ||
-        _selectedLanguages.any((l) => l.toLowerCase() == 'all');
+    // Register this content type's languages with the shared controller so the
+    // whole library filters by one global selection.
+    _langController.announceLanguages(sortedLangs);
+    final langState = _langController.state;
+    final isAllLanguages = langState.isAllLanguages;
 
-    final selectedLower =
-        _selectedLanguages.map((l) => l.toLowerCase()).toSet();
+    final selectedLower = langState.selectedLanguages
+        .map((l) => l.toLowerCase())
+        .toSet();
 
     // Filter books by selected language(s) for subject grouping and subjects list
     final langFilteredBooks = isAllLanguages
@@ -304,21 +313,20 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   ),
                   onPressed: () {
                     Navigator.of(ctx).pop(false);
-                    final isAll = _selectedLanguages.isEmpty ||
-                        _selectedLanguages.any((l) => l.toLowerCase() == 'all');
+                    final langState = _langController.state;
+                    final isAll = langState.isAllLanguages;
                     _startDownloadAll(
-                      language: isAll || _selectedLanguages.length > 1
+                      language: isAll || langState.selectedLanguages.length > 1
                           ? null
-                          : _selectedLanguages.first,
+                          : langState.selectedLanguages.first,
                     );
                   },
                   icon: Icon(Icons.all_inclusive_rounded, color: tokens.onSurfaceMuted, size: 16),
                   label: Text(
-                    (_selectedLanguages.isEmpty ||
-                            _selectedLanguages.any((l) => l.toLowerCase() == 'all') ||
-                            _selectedLanguages.length > 1)
+                    (_langController.state.isAllLanguages ||
+                            _langController.state.selectedLanguages.length > 1)
                         ? 'Download All 181 Books (~13.4 MB)'
-                        : 'Download All ${BookLanguageMeta.fromCode(_selectedLanguages.first).englishName} Books',
+                        : 'Download All ${BookLanguageMeta.fromCode(_langController.state.selectedLanguages.first).englishName} Books',
                     style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5),
                   ),
                 ),
@@ -497,21 +505,24 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
 
   Widget _buildLanguageDropdown(AppTokens tokens) {
     if (_languages.length <= 1) return const SizedBox.shrink();
+    final langState = _langController.state;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: BooksLanguageDropdown(
-        selectedLanguages: _selectedLanguages,
+      child: LanguageDropdown(
+        selectedLanguages: langState.selectedLanguages,
         availableLanguages: _languages,
-        bookCounts: _languageBookCounts,
+        itemCounts: _languageBookCounts,
         onLanguagesSelected: _onLanguagesSelected,
+        itemNoun: 'books',
+        headerTitle: 'Books by Language',
         onDownloadAll: () {
-          final isAll = _selectedLanguages.isEmpty ||
-              _selectedLanguages.any((l) => l.toLowerCase() == 'all');
+          final langState = _langController.state;
+          final isAll = langState.isAllLanguages;
           _startDownloadAll(
-            language: isAll || _selectedLanguages.length > 1
+            language: isAll || langState.selectedLanguages.length > 1
                 ? null
-                : _selectedLanguages.first,
+                : langState.selectedLanguages.first,
           );
         },
       ),
@@ -519,18 +530,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   }
 
   void _onLanguagesSelected(Set<String> newSelection) {
-    final validSelection = newSelection.isEmpty ? {'All'} : newSelection;
-    setState(() {
-      _selectedLanguages = validSelection;
-      _selectedSubject = 'All'; // Reset subject when languages change
-    });
-    SharedPreferences.getInstance().then((p) {
-      p.setStringList(_prefKeyLanguages, validSelection.toList());
-      p.setString(
-        _prefKeyLanguage,
-        validSelection.length == 1 ? validSelection.first : 'All',
-      );
-    });
+    setState(() => _selectedSubject = 'All'); // Reset subject when languages change
+    _langController.selectLanguages(newSelection);
     _loadCatalog();
   }
 

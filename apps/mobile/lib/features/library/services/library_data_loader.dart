@@ -1,6 +1,10 @@
 import '../../books/models/book.dart';
 import '../../books/models/user_reading_progress.dart';
 import '../../books/services/book_service.dart';
+import '../../songs/models/song.dart';
+
+/// Song catalog loader function, injectable for widget tests.
+typedef SongsCatalogLoader = Future<List<Song>> Function();
 
 /// Thin facade over [BookService] so the Library screen stays testable:
 /// widget tests inject a fake provider and never open a real SQLite database.

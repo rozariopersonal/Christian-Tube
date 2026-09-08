@@ -1,27 +1,34 @@
 import 'package:flutter/material.dart';
-import '../../../../core/layout/content_width.dart';
-import '../../../../core/theme/app_tokens.dart';
-import '../models/book_language_meta.dart';
-import 'books_language_picker_sheet.dart';
 
-/// Special dropdown trigger widget for selecting one or multiple catalog languages
-/// in the Books Library.
+import '../../../core/layout/content_width.dart';
+import '../../../core/theme/app_tokens.dart';
+import 'language_meta.dart';
+import 'language_picker_sheet.dart';
+
+/// Dropdown trigger widget for selecting one or multiple catalog languages.
 ///
-/// Displays the active language(s), native script if applicable, combined book count,
-/// and opens an adaptive multi-select modal sheet.
-class BooksLanguageDropdown extends StatelessWidget {
+/// Shared across content types (books, songs, articles, audio). Displays the
+/// active language(s), native script if applicable, combined item count, and
+/// opens an adaptive multi-select modal sheet.
+class LanguageDropdown extends StatelessWidget {
   final Set<String> selectedLanguages;
   final List<String> availableLanguages;
-  final Map<String, int> bookCounts;
+  final Map<String, int> itemCounts;
   final ValueChanged<Set<String>> onLanguagesSelected;
+  final String itemNoun;
+  final String headerTitle;
+  final int searchThreshold;
   final VoidCallback? onDownloadAll;
 
-  const BooksLanguageDropdown({
+  const LanguageDropdown({
     super.key,
     required this.selectedLanguages,
     required this.availableLanguages,
-    required this.bookCounts,
+    required this.itemCounts,
     required this.onLanguagesSelected,
+    this.itemNoun = 'items',
+    this.headerTitle = 'Library Languages',
+    this.searchThreshold = 6,
     this.onDownloadAll,
   });
 
@@ -30,16 +37,35 @@ class BooksLanguageDropdown extends StatelessWidget {
         selectedLanguages.any((l) => l.toLowerCase() == 'all');
   }
 
+  /// Languages this dropdown actually offers content for, so entries that only
+  /// exist in another content type (zero item count and not currently
+  /// selected) are not presented as empty, dead-end choices.
+  List<String> _visibleLanguages() {
+    if (availableLanguages.length <= 1) return availableLanguages;
+    final result = <String>['All'];
+    for (final code in availableLanguages) {
+      if (code.toLowerCase() == 'all') continue;
+      if ((itemCounts[code] ?? 0) > 0 ||
+          selectedLanguages.any((s) => s.toLowerCase() == code.toLowerCase())) {
+        result.add(code);
+      }
+    }
+    return result;
+  }
+
   void _showLanguagePicker(BuildContext context) {
     showAdaptiveBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => BooksLanguagePickerSheet(
+      builder: (ctx) => LanguagePickerSheet(
         selectedLanguages: selectedLanguages,
-        availableLanguages: availableLanguages,
-        bookCounts: bookCounts,
+        availableLanguages: _visibleLanguages(),
+        itemCounts: itemCounts,
         onLanguagesSelected: onLanguagesSelected,
+        itemNoun: itemNoun,
+        headerTitle: headerTitle,
+        searchThreshold: searchThreshold,
         onDownloadAll: onDownloadAll,
       ),
     );
@@ -57,19 +83,18 @@ class BooksLanguageDropdown extends StatelessWidget {
     if (isAll) {
       titleText = 'All Languages';
       subtitleText = null;
-      totalCount = bookCounts['All'] ?? 0;
+      totalCount = itemCounts['All'] ?? 0;
     } else if (selectedLanguages.length == 1) {
       final code = selectedLanguages.first;
-      final meta = BookLanguageMeta.fromCode(code);
+      final meta = LanguageMeta.fromCode(code);
       titleText = meta.englishName;
       if (meta.nativeName.isNotEmpty && meta.nativeName != meta.englishName) {
         subtitleText = meta.nativeName;
       }
-      totalCount = bookCounts[code] ?? 0;
+      totalCount = itemCounts[code] ?? 0;
     } else {
-      final metas = selectedLanguages
-          .map((c) => BookLanguageMeta.fromCode(c))
-          .toList();
+      final metas =
+          selectedLanguages.map((c) => LanguageMeta.fromCode(c)).toList();
       if (metas.length == 2) {
         titleText = '${metas[0].englishName}, ${metas[1].englishName}';
       } else {
@@ -79,13 +104,14 @@ class BooksLanguageDropdown extends StatelessWidget {
       subtitleText = '${selectedLanguages.length} Languages';
       totalCount = selectedLanguages.fold(
         0,
-        (sum, code) => sum + (bookCounts[code] ?? 0),
+        (sum, code) => sum + (itemCounts[code] ?? 0),
       );
     }
 
     return Semantics(
       button: true,
-      label: 'Filter library by languages. Currently: $titleText ($totalCount books)',
+      label:
+          'Filter library by languages. Currently: $titleText ($totalCount $itemNoun)',
       child: Material(
         color: tokens.surfaceVariant,
         borderRadius: BorderRadius.circular(12),
@@ -100,7 +126,6 @@ class BooksLanguageDropdown extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // Globe / Language Icon Badge
                 Container(
                   width: 28,
                   height: 28,
@@ -116,7 +141,6 @@ class BooksLanguageDropdown extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
 
-                // Language Name & Native Name / Count
                 Expanded(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -151,16 +175,16 @@ class BooksLanguageDropdown extends StatelessWidget {
 
                 const SizedBox(width: 8),
 
-                // Book count badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: tokens.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: tokens.surfaceBorder),
                   ),
                   child: Text(
-                    '$totalCount ${totalCount == 1 ? 'book' : 'books'}',
+                    '$totalCount ${countNoun(itemNoun, totalCount)}',
                     style: TextStyle(
                       color: tokens.onSurfaceMuted,
                       fontSize: 11,
@@ -171,7 +195,6 @@ class BooksLanguageDropdown extends StatelessWidget {
 
                 const SizedBox(width: 4),
 
-                // Dropdown Chevron Indicator
                 Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: tokens.onSurfaceMuted,

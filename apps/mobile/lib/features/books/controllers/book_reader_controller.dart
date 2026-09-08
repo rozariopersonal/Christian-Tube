@@ -302,17 +302,21 @@ class BookReaderController extends ChangeNotifier {
   /// Records continuous-mode progress from the leading visible global [row].
   /// Derives page/line from the buffered source line so existing page-based
   /// consumers (catalog "continue", reader chrome) keep working.
+  ///
+  /// Only rows that resolve through [BookLineIndex.splitRow] are recorded —
+  /// this guarantees the row's chapter has a contiguous, known prefix, so a
+  /// placeholder row sitting in an undiscovered gap can never map to the wrong
+  /// line (and a wrong persisted position).
   void markProgressFromRow(int row) {
     final idx = _lineIndex;
     if (idx == null) return;
-    final chapter = idx.chapterForRow(row);
-    final lines =
-        chapter == null ? null : continuousStream.bufferedLines(chapter);
+    final split = idx.splitRow(row);
+    if (split == null) return;
+    final chapter = split.chapterIndex;
+    final lines = continuousStream.bufferedLines(chapter);
     if (lines == null || lines.isEmpty) return;
-    final start = idx.startRow(chapter!);
-    final ordinal = row - start;
-    if (ordinal < 0 || ordinal >= lines.length) return;
-    final line = lines[ordinal];
+    if (split.ordinal < 0 || split.ordinal >= lines.length) return;
+    final line = lines[split.ordinal];
     if (_state.lastReadPage == line.pageNumber &&
         _state.lastReadLine == line.lineNumber) {
       return;

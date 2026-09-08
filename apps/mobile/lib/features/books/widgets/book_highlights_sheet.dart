@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../shared/services/reader_appearance.dart';
 import '../controllers/book_reader_controller.dart';
 import '../models/book_highlight.dart';
 
@@ -86,19 +87,8 @@ class _BookHighlightsSheetState extends State<BookHighlightsSheet> {
     }
   }
 
-  Color _highlightColor(int colorIndex) {
-    switch (colorIndex) {
-      case 1:
-        return const Color(0xFF81C784); // Green
-      case 2:
-        return const Color(0xFF64B5F6); // Blue
-      case 3:
-        return const Color(0xFFF48FB1); // Pink
-      case 0:
-      default:
-        return const Color(0xFFFFD54F); // Amber / Yellow
-    }
-  }
+  Color _highlightColor(int colorIndex) =>
+      ReaderAppearance.highlightColorByIndex(colorIndex);
 
   @override
   Widget build(BuildContext context) {

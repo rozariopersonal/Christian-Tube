@@ -297,6 +297,12 @@ static List<String> wftwManifestUrls() =>
   static List<String> audioSeriesUrls(String seriesId) =>
       ReleaseAssets.urlsFor('audio/series/$seriesId.json');
 
+  // ── Songs & Hymns ─────────────────────────────────────────────────────────
+
+  /// Song catalog manifest listing all songs across collections/languages.
+  static List<String> songsCatalogUrls() =>
+      ReleaseAssets.urlsFor('songs/catalog.json');
+
   // ── Reader fonts ──────────────────────────────────────────────────────────
 
   /// On-demand reader font TTF for [familyName] (the resolved Google Fonts
