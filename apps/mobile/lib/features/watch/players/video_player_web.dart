@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_tokens.dart';
 
 final Set<String> _registeredVideoViews = {};
 
@@ -235,8 +234,8 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
 
   Widget _buildFullScreenButton(BuildContext context) {
     return Positioned(
-      right: 10,
-      top: 10,
+      right: 8,
+      bottom: 8,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -245,24 +244,20 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
             widget.onToggleFullScreen?.call();
             _scheduleResume();
           },
-          customBorder: const CircleBorder(),
+          borderRadius: BorderRadius.circular(4),
           child: Container(
-            width: 38,
-            height: 38,
+            width: 40,
+            height: 32,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: context.tokens.scrim.withValues(alpha: 0.62),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.24),
-                width: 1.2,
-              ),
+              color: Colors.black.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(
               widget.isFullScreen
                   ? Icons.fullscreen_exit_rounded
                   : Icons.fullscreen_rounded,
               color: Colors.white,
-              size: 21,
+              size: 20,
             ),
           ),
         ),

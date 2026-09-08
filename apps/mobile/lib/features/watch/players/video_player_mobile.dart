@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import '../../../core/theme/app_tokens.dart';
 
 InAppWebViewController? _activeMainWebViewController;
 
@@ -361,8 +360,8 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
 
   Widget _buildFullScreenButton(BuildContext context) {
     return Positioned(
-      right: 10,
-      top: 10,
+      right: 8,
+      bottom: 8,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -371,24 +370,20 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
             widget.onToggleFullScreen?.call();
             _scheduleResume();
           },
-          customBorder: const CircleBorder(),
+          borderRadius: BorderRadius.circular(4),
           child: Container(
-            width: 38,
-            height: 38,
+            width: 40,
+            height: 32,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: context.tokens.scrim.withValues(alpha: 0.62),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.24),
-                width: 1.2,
-              ),
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(
               widget.isFullScreen
                   ? Icons.fullscreen_exit_rounded
                   : Icons.fullscreen_rounded,
               color: Colors.white,
-              size: 21,
+              size: 20,
             ),
           ),
         ),
