@@ -72,13 +72,15 @@ db.exec(`
 
 function fetch(url, retries = 3) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'ChristianTubeCrawler/1.0' } }, (res) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'ChristianTubeCrawler/1.0' }, timeout: 15000 }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
         let loc = res.headers.location;
         if (!loc.startsWith('http')) loc = new URL(loc, url).href;
-        return resolve(fetch(loc, retries));
+        return resolve(fetch(loc, retries - 1));
       }
       if (res.statusCode !== 200) {
+        res.resume();
         if (retries > 0) {
           return setTimeout(() => resolve(fetch(url, retries - 1)), 1000);
         }
@@ -87,11 +89,19 @@ function fetch(url, retries = 3) {
       let d = '';
       res.on('data', c => d += c);
       res.on('end', () => resolve(d));
-    }).on('error', (err) => {
+    });
+    req.on('error', (err) => {
       if (retries > 0) {
         return setTimeout(() => resolve(fetch(url, retries - 1)), 1500);
       }
       reject(err);
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      if (retries > 0) {
+        return setTimeout(() => resolve(fetch(url, retries - 1)), 1500);
+      }
+      reject(new Error(`Timeout for ${url}`));
     });
   });
 }
@@ -469,8 +479,8 @@ async function crawlSermonsApi() {
 
       page++;
     } catch (err) {
-      console.error(`Error on page ${page}: ${err.message}`);
-      break;
+      console.error(`Error on page ${page}: ${err.message} — skipping, will retry next run`);
+      page++;
     }
   }
 

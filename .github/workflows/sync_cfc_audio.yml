@@ -30,26 +30,50 @@ jobs:
           node-version: 22
 
       - name: Run Synchronizers
+        timeout-minutes: 30
         run: |
-          node tool/sync_cfc_audio.js
-          node tool/sync_cfc_articles.js
-          node tool/sync_cfc_articles.js --langs=all
+          set -e
+          AUDIO_OK=true; ARTICLES_OK=true; LANGS_OK=true
+          node tool/sync_cfc_audio.js  || { echo "::error::Audio sync failed"; AUDIO_OK=false; }
+          node tool/sync_cfc_articles.js || { echo "::error::English articles sync failed"; ARTICLES_OK=false; }
+          node tool/sync_cfc_articles.js --langs=all || { echo "::error::Language articles sync failed"; LANGS_OK=false; }
+          if [ "$AUDIO_OK" = false ] && [ "$ARTICLES_OK" = false ] && [ "$LANGS_OK" = false ]; then
+            echo "::error::All synchronizers failed"
+            exit 1
+          fi
 
       - name: Commit and Push Releases Updates
+        env:
+          REPO_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
         run: |
+          set -e
+          # Global identity so BOTH the releases submodule and the outer repo
+          # have a committer identity (local config inside the submodule does
+          # not propagate back to the parent repo).
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Pin push auth to REPO_TOKEN (checkout's default credential is the
+          # GITHUB_TOKEN, which cannot write to the separate releases repo).
+          git config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git config http.https://github.com/.extraheader "AUTHORIZATION: bearer ${REPO_TOKEN}"
+
           cd releases
           if [ -n "$(git status --porcelain audio/ articles/)" ]; then
             echo "Changes detected in releases/. Committing to releases repository..."
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
             git add audio/ articles/
             git commit -m "chore(data): sync CFC India audio and articles [skip ci]"
-            git push origin main
-            
+            git push origin main || {
+              echo "::error::Push to Christian-Tube-Releases failed. Confirm the RELEASE_PAT secret is set and has write access to the releases repository."
+              exit 1
+            }
+
             cd ..
             git add releases
-            git commit -m "chore(releases): update data submodule pointer [skip ci]"
-            git push origin main
+            if [ -n "$(git status --porcelain releases)" ]; then
+              git commit -m "chore(releases): update data submodule pointer [skip ci]"
+              git push origin main
+            fi
 
             # Purge jsDelivr edge CDN cache so mobile apps receive updates instantly
             echo "Purging jsDelivr edge cache for manifests..."
@@ -57,7 +81,7 @@ jobs:
             curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/articles/wftw_index.json" || true
             curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/articles/articles_index.json" || true
             curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/articles/languages.json" || true
-            
+
             echo "Audio and articles in releases/ successfully synced and pushed!" >> $GITHUB_STEP_SUMMARY
           else
             cd ..
