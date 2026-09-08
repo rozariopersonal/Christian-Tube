@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:mobile/features/bible/models/bible_highlight.dart';
 import 'package:mobile/features/engines/scripture/adapters/bible_data_adapter.dart';
 import 'package:mobile/features/engines/scripture/adapters/sqlite_bible_data_adapter.dart';
 import 'package:mobile/features/engines/scripture/adapters/web_bible_data_adapter.dart';
@@ -154,5 +155,20 @@ class LocalBibleService {
   Future<List<List<int>>> getChapterVerseCounts(String versionId) async {
     final adapter = await _getAdapter();
     return adapter.getChapterVerseCounts(versionId);
+  }
+
+  Future<List<BibleHighlight>> loadHighlights() async {
+    final adapter = await _getAdapter();
+    return adapter.loadHighlights();
+  }
+
+  Future<void> saveHighlights(List<BibleHighlight> highlights) async {
+    final adapter = await _getAdapter();
+    return adapter.saveHighlights(highlights);
+  }
+
+  Future<void> clearHighlights() async {
+    final adapter = await _getAdapter();
+    return adapter.clearHighlights();
   }
 }

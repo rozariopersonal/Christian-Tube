@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import '../../../../core/api/github_data_service.dart';
 import '../../../bible/models/bible_book.dart';
+import '../../../bible/models/bible_highlight.dart';
 import '../services/book_name_service.dart';
 import 'bible_data_adapter.dart';
 
@@ -24,7 +25,7 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
 
     _db = await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await _createSchema(db);
       },
@@ -32,6 +33,7 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         if (oldVersion < 2) {
           await db.execute('DROP TABLE IF EXISTS verses');
           await db.execute('DROP TABLE IF EXISTS installed_versions');
+          await db.execute('DROP TABLE IF EXISTS bible_highlights');
           await _createSchema(db);
           return;
         }
@@ -40,6 +42,22 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         }
         if (oldVersion < 4) {
           // bible_backgrounds table no longer used; skip migration.
+        }
+        if (oldVersion < 5) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS bible_highlights (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              version_id TEXT NOT NULL,
+              book TEXT NOT NULL,
+              chapter INTEGER NOT NULL,
+              color_index INTEGER NOT NULL,
+              verses_json TEXT NOT NULL,
+              text TEXT NOT NULL,
+              saved_at TEXT NOT NULL
+            );
+          ''');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_bible_highlights_chapter ON bible_highlights (book, chapter);');
         }
       },
     );
@@ -69,6 +87,20 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         installed_at TEXT NOT NULL
       );
     ''');
+
+    await db.execute('''
+      CREATE TABLE bible_highlights (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        version_id TEXT NOT NULL,
+        book TEXT NOT NULL,
+        chapter INTEGER NOT NULL,
+        color_index INTEGER NOT NULL,
+        verses_json TEXT NOT NULL,
+        text TEXT NOT NULL,
+        saved_at TEXT NOT NULL
+      );
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_bible_highlights_chapter ON bible_highlights (book, chapter);');
   }
 
   @override
@@ -417,5 +449,57 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     if (_db == null) return;
     await _db!.delete('verses', where: 'LOWER(version_id) = ?', whereArgs: [versionId.toLowerCase()]);
     await _db!.delete('installed_versions', where: 'LOWER(id) = ?', whereArgs: [versionId.toLowerCase()]);
+  }
+
+  @override
+  Future<List<BibleHighlight>> loadHighlights() async {
+    if (_db == null) await initialize();
+    if (_db == null) return [];
+    final rows = await _db!.query('bible_highlights', orderBy: 'id ASC');
+    final highlights = <BibleHighlight>[];
+    for (final r in rows) {
+      try {
+        highlights.add(BibleHighlight.fromJson({
+          'versionId': r['version_id'],
+          'book': r['book'],
+          'chapter': r['chapter'],
+          'verses': (jsonDecode(r['verses_json'] as String) as List<dynamic>)
+              .cast<int>(),
+          'colorIndex': r['color_index'],
+          'text': r['text'],
+          'savedAt': r['saved_at'],
+        }));
+      } catch (_) {
+        // Tolerate a corrupt row so a single bad entry cannot break reading.
+      }
+    }
+    return highlights;
+  }
+
+  @override
+  Future<void> saveHighlights(List<BibleHighlight> highlights) async {
+    if (_db == null) await initialize();
+    if (_db == null) return;
+    final batch = _db!.batch();
+    batch.delete('bible_highlights');
+    for (final h in highlights) {
+      batch.insert('bible_highlights', {
+        'version_id': h.versionId,
+        'book': h.book,
+        'chapter': h.chapter,
+        'color_index': h.colorIndex,
+        'verses_json': jsonEncode(h.verses),
+        'text': h.text,
+        'saved_at': h.savedAt.toIso8601String(),
+      });
+    }
+    await batch.commit(noResult: true);
+  }
+
+  @override
+  Future<void> clearHighlights() async {
+    if (_db == null) await initialize();
+    if (_db == null) return;
+    await _db!.delete('bible_highlights');
   }
 }

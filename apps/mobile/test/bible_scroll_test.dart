@@ -369,6 +369,13 @@ void main() {
     await tester.drag(find.byType(ScrollablePositionedList), const Offset(0, -600));
     await tester.pumpAndSettle();
 
+    // Let DB-backed async work (verse rows, highlight load) finish so no
+    // sqflite transaction timer stays pending when the test ends.
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    });
+    await tester.pumpAndSettle();
+
     // Verify John 4 verses are visible and rendered without placeholder skeleton
     expect(find.textContaining('Verse text for John 4:'), findsWidgets);
   });

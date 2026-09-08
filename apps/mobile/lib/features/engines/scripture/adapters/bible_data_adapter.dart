@@ -1,3 +1,5 @@
+import '../../../bible/models/bible_highlight.dart';
+
 abstract class BibleDataAdapter {
   Future<void> initialize();
   Future<void> close();
@@ -39,4 +41,13 @@ abstract class BibleDataAdapter {
     required String sizeDisplay,
   });
   Future<void> deleteVersion(String versionId);
+
+  /// Loads all saved verse highlights, ordered by creation.
+  Future<List<BibleHighlight>> loadHighlights();
+
+  /// Atomically replaces the full set of saved verse highlights.
+  Future<void> saveHighlights(List<BibleHighlight> highlights);
+
+  /// Deletes every saved verse highlight.
+  Future<void> clearHighlights();
 }

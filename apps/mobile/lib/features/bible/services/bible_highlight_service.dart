@@ -1,36 +1,18 @@
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
 import '../models/bible_highlight.dart';
 
 /// Persists per-verse color highlights for the Bible reader.
 ///
-/// Highlights are stored as a single JSON blob keyed by version+book+chapter,
-/// allowing multiple verses to share one highlight color. This mirrors the
-/// [BibleBookmarkService] persistence pattern (SharedPreferences JSON blob).
+/// Highlights are stored in the local Bible SQLite database (native) with a
+/// SharedPreferences fallback on web, via [LocalBibleService]. Multiple verses
+/// may share one highlight color. This mirrors the [BibleBookmarkService]
+/// persistence pattern.
 class BibleHighlightService {
-  static const String _key = 'bible_highlights_v1';
+  Future<List<BibleHighlight>> loadHighlights() =>
+      LocalBibleService().loadHighlights();
 
-  Future<List<BibleHighlight>> loadHighlights() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null || raw.isEmpty) return [];
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      return list
-          .map((e) => BibleHighlight.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<void> _saveAll(List<BibleHighlight> highlights) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _key,
-      jsonEncode(highlights.map((h) => h.toJson()).toList()),
-    );
-  }
+  Future<void> _saveAll(List<BibleHighlight> highlights) =>
+      LocalBibleService().saveHighlights(highlights);
 
   /// Returns all highlights for the given [book] [chapter], regardless of
   /// version (verse numbers are canonical across translations).
@@ -121,8 +103,5 @@ class BibleHighlightService {
     return removed;
   }
 
-  Future<void> clearAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key);
-  }
+  Future<void> clearAll() => LocalBibleService().clearHighlights();
 }

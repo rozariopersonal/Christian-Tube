@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:mobile/core/api/github_data_service.dart';
+import 'package:mobile/features/bible/models/bible_highlight.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/features/engines/scripture/services/bible_download_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'bible_data_adapter.dart';
 
 class WebBibleDataAdapter implements BibleDataAdapter {
@@ -683,5 +685,37 @@ class WebBibleDataAdapter implements BibleDataAdapter {
   Future<void> deleteVersion(String versionId) async {
     _webInstalledVersions.remove(versionId);
     _webVerses.removeWhere((key, _) => key.startsWith('${versionId}_'));
+  }
+
+  static const String _highlightKey = 'bible_highlights_v1';
+
+  @override
+  Future<List<BibleHighlight>> loadHighlights() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_highlightKey);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .map((e) => BibleHighlight.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Future<void> saveHighlights(List<BibleHighlight> highlights) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _highlightKey,
+      jsonEncode(highlights.map((h) => h.toJson()).toList()),
+    );
+  }
+
+  @override
+  Future<void> clearHighlights() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_highlightKey);
   }
 }

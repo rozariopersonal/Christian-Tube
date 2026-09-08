@@ -1,17 +1,41 @@
+import 'dart:io';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/color_utils.dart';
 import 'package:mobile/core/theme/highlight_palette.dart';
 import 'package:mobile/features/bible/models/bible_highlight.dart';
 import 'package:mobile/features/bible/services/bible_highlight_service.dart';
+import 'package:mobile/features/engines/scripture/adapters/web_bible_data_adapter.dart';
+import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('BibleHighlightService', () {
-    setUp(() {
-      SharedPreferences.setMockInitialValues({});
+  group('BibleHighlightService (SQLite)', () {
+    late Directory tempDir;
+
+    setUpAll(() async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    });
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('bible_highlight_test_');
+      LocalBibleService.overrideDbPath = p.join(tempDir.path, 'bible.db');
+      await LocalBibleService.resetForTest();
+    });
+
+    tearDown(() async {
+      LocalBibleService.overrideDbPath = null;
+      await LocalBibleService.resetForTest();
+      try {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      } catch (_) {}
     });
 
     test('apply + load round-trips a single verse highlight', () async {
@@ -34,6 +58,25 @@ void main() {
       expect(h.verses, [16]);
       expect(h.colorIndex, 7);
       expect(h.reference, 'John 3:16');
+    });
+
+    test('highlights persist in the database across adapter reopen', () async {
+      await BibleHighlightService().apply(
+        versionId: 'TAOBVSI',
+        book: 'John',
+        chapter: 3,
+        verses: [16],
+        colorIndex: 7,
+        text: 'For God so loved the world',
+      );
+
+      // Reopen the very same database file through a fresh adapter — this is
+      // only possible if highlights were written to SQLite, not shared prefs.
+      await LocalBibleService.resetForTest();
+      final all = await BibleHighlightService().loadHighlights();
+      expect(all.length, 1);
+      expect(all.first.verses, [16]);
+      expect(all.first.colorIndex, 7);
     });
 
     test('apply supports multiple verses together', () async {
@@ -113,13 +156,36 @@ void main() {
       await service.clearAll();
       expect(await service.loadHighlights(), isEmpty);
     });
+  });
+
+  group('WebBibleDataAdapter highlights (SharedPreferences fallback)', () {
+    test('persists and loads a highlight', () async {
+      SharedPreferences.setMockInitialValues({});
+      final adapter = WebBibleDataAdapter();
+      await adapter.saveHighlights([
+        BibleHighlight(
+          versionId: 'TAOBVSI',
+          book: 'John',
+          chapter: 3,
+          verses: [16],
+          colorIndex: 4,
+          text: 'x',
+          savedAt: DateTime.utc(2026, 9, 8),
+        ),
+      ]);
+
+      final all = await adapter.loadHighlights();
+      expect(all.length, 1);
+      expect(all.first.verses, [16]);
+      expect(all.first.colorIndex, 4);
+    });
 
     test('corrupt JSON is tolerated', () async {
       SharedPreferences.setMockInitialValues({
         'bible_highlights_v1': 'not json at all',
       });
-      final service = BibleHighlightService();
-      expect(await service.loadHighlights(), isEmpty);
+      final adapter = WebBibleDataAdapter();
+      expect(await adapter.loadHighlights(), isEmpty);
     });
   });
 
