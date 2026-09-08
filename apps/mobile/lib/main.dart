@@ -15,6 +15,7 @@ import 'features/profile/profile_screen.dart';
 import 'features/profile/user_service.dart';
 import 'features/search/search_screen.dart';
 import 'features/shorts/shorts_feed_screen.dart';
+import 'features/user_items/services/user_item_sync_service.dart';
 import 'features/watch/video_player_screen.dart';
 import 'features/watch_plans/watch_plans_screen.dart';
 import 'features/bible/screens/bible_screen.dart';
@@ -72,6 +73,9 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
   void initState() {
     super.initState();
     _userService.fetchUserData();
+    // Re-home device-local highlights/bookmarks/notes into the user tier and
+    // sync with the backend when an account signs in or a cached session loads.
+    UserItemSyncService.instance.attachTo(_authService);
 
     _router = GoRouter(
       initialLocation: '/feed',

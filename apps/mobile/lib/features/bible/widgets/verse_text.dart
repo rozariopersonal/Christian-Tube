@@ -14,6 +14,7 @@ class VerseText extends StatefulWidget {
   final ReaderAppearance appearance;
   final int refCount;
   final int commentaryCount;
+  final bool hasNote;
 
   const VerseText({
     super.key,
@@ -25,6 +26,7 @@ class VerseText extends StatefulWidget {
     required this.appearance,
     this.refCount = 0,
     this.commentaryCount = 0,
+    this.hasNote = false,
   });
 
   @override
@@ -167,6 +169,18 @@ class _VerseTextState extends State<VerseText> {
                 padding: const EdgeInsets.only(left: 1.0, right: 1.0, top: 2.0),
                 child: Icon(
                   Icons.menu_book_rounded,
+                  size: app.fontSize * 0.45,
+                  color: iconColor,
+                ),
+              ),
+            ),
+          if (widget.hasNote)
+            WidgetSpan(
+              alignment: PlaceholderAlignment.top,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 1.0, right: 1.0, top: 2.0),
+                child: Icon(
+                  Icons.edit_note_rounded,
                   size: app.fontSize * 0.45,
                   color: iconColor,
                 ),

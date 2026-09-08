@@ -1,11 +1,30 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:mobile/features/user_items/services/user_item_sync_service.dart';
+import 'package:mobile/shared/annotations/user_item.dart';
+import 'package:mobile/shared/annotations/user_item_repository.dart';
 import '../models/bible_bookmark.dart';
 
+/// Persists per-verse Bible bookmarks.
+///
+/// **Two-tier storage**: pre-auth, bookmarks live in a SharedPreferences blob
+/// (device-only, never uploaded). Signed-in users route through the per-user
+/// `user_items` store via [UserItemSyncService], keeping the same public API.
 class BibleBookmarkService {
   static const String _key = 'bible_bookmarks_v1';
 
-  Future<List<BibleBookmark>> loadBookmarks() async {
+  bool get _userTier => UserItemSyncService.instance.isUserTierActive;
+  String get _userId => UserItemSyncService.instance.currentUserId!;
+
+  Future<List<BibleBookmark>> loadBookmarks() => _userTier
+      ? _loadUserBookmarks()
+      : _loadDeviceBookmarks();
+
+  /// Device-tier-only load (used by sign-in re-home, never routed).
+  Future<List<BibleBookmark>> loadDeviceBookmarks() => _loadDeviceBookmarks();
+
+  Future<List<BibleBookmark>> _loadDeviceBookmarks() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return [];
@@ -19,7 +38,22 @@ class BibleBookmarkService {
     }
   }
 
+  Future<List<BibleBookmark>> _loadUserBookmarks() async {
+    final items = await UserItemRepository.instance
+        .loadForType(_userId, UserItem.typeBookmark);
+    return items.map((i) => i.toBibleBookmark()).toList();
+  }
+
   Future<void> _saveAll(List<BibleBookmark> bookmarks) async {
+    if (_userTier) {
+      final items = bookmarks
+          .map((b) => UserItem.fromBibleBookmark(b, _userId))
+          .toList();
+      await UserItemRepository.instance
+          .replaceForType(_userId, UserItem.typeBookmark, items);
+      UserItemSyncService.instance.schedulePush();
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _key,
@@ -82,6 +116,18 @@ class BibleBookmarkService {
   }
 
   Future<void> clearAll() async {
+    if (_userTier) {
+      await UserItemRepository.instance
+          .replaceForType(_userId, UserItem.typeBookmark, const []);
+      UserItemSyncService.instance.schedulePush();
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
+  }
+
+  /// Device-tier-only clear (used by sign-in re-home, never routed).
+  Future<void> clearDeviceBookmarks() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
   }

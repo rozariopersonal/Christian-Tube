@@ -1,18 +1,47 @@
 import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
+import 'package:mobile/features/user_items/services/user_item_sync_service.dart';
+import 'package:mobile/shared/annotations/user_item.dart';
+import 'package:mobile/shared/annotations/user_item_repository.dart';
 import '../models/bible_highlight.dart';
 
 /// Persists per-verse color highlights for the Bible reader.
 ///
-/// Highlights are stored in the local Bible SQLite database (native) with a
-/// SharedPreferences fallback on web, via [LocalBibleService]. Multiple verses
-/// may share one highlight color. This mirrors the [BibleBookmarkService]
-/// persistence pattern.
+/// **Two-tier storage**: pre-auth, highlights live in the local Bible SQLite
+/// database (native) or SharedPreferences (web) via [LocalBibleService] and are
+/// never uploaded. Once a user signs in, [UserItemSyncService] re-homes those
+/// device highlights into the per-user `user_items` store and all reads/writes
+/// route there; the user tier is then synchronized with the backend database.
+/// Highlights keep the replace model (one color per verse) in both tiers.
 class BibleHighlightService {
-  Future<List<BibleHighlight>> loadHighlights() =>
+  bool get _userTier => UserItemSyncService.instance.isUserTierActive;
+  String get _userId => UserItemSyncService.instance.currentUserId!;
+
+  Future<List<BibleHighlight>> loadHighlights() => _userTier
+      ? _loadUserHighlights()
+      : LocalBibleService().loadHighlights();
+
+  /// Device-tier-only load (used by sign-in re-home, never routed).
+  Future<List<BibleHighlight>> loadDeviceHighlights() =>
       LocalBibleService().loadHighlights();
 
-  Future<void> _saveAll(List<BibleHighlight> highlights) =>
-      LocalBibleService().saveHighlights(highlights);
+  Future<List<BibleHighlight>> _loadUserHighlights() async {
+    final items = await UserItemRepository.instance
+        .loadForType(_userId, UserItem.typeHighlight);
+    return items.map((i) => i.toBibleHighlight()).toList();
+  }
+
+  Future<void> _saveAll(List<BibleHighlight> highlights) async {
+    if (_userTier) {
+      final items = highlights
+          .map((h) => UserItem.fromBibleHighlight(h, _userId))
+          .toList();
+      await UserItemRepository.instance
+          .replaceForType(_userId, UserItem.typeHighlight, items);
+      UserItemSyncService.instance.schedulePush();
+      return;
+    }
+    await LocalBibleService().saveHighlights(highlights);
+  }
 
   /// Returns all highlights for the given [book] [chapter], regardless of
   /// version (verse numbers are canonical across translations).
@@ -103,5 +132,17 @@ class BibleHighlightService {
     return removed;
   }
 
-  Future<void> clearAll() => LocalBibleService().clearHighlights();
+  Future<void> clearAll() async {
+    if (_userTier) {
+      await UserItemRepository.instance
+          .replaceForType(_userId, UserItem.typeHighlight, const []);
+      UserItemSyncService.instance.schedulePush();
+      return;
+    }
+    await LocalBibleService().clearHighlights();
+  }
+
+  /// Device-tier-only clear (used by sign-in re-home, never routed).
+  Future<void> clearDeviceHighlights() =>
+      LocalBibleService().clearHighlights();
 }

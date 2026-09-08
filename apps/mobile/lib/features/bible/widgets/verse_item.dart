@@ -27,7 +27,10 @@ class VerseItem extends StatelessWidget {
 
   /// Number of verses currently selected.
   final int selectedCount;
-  
+
+  /// Whether the verse has a saved user note (shows the note indicator).
+  final bool hasNote;
+
   /// Actions for the action card.
   final VoidCallback? onCopy;
   final VoidCallback? onShare;
@@ -47,6 +50,7 @@ class VerseItem extends StatelessWidget {
     this.backgroundNotes = const [],
     this.resolvedTexts = const {},
     this.selectedCount = 0,
+    this.hasNote = false,
     this.onCopy,
     this.onShare,
     this.onBookmark,
@@ -65,6 +69,7 @@ class VerseItem extends StatelessWidget {
       appearance: appearance,
       refCount: crossReferences.length,
       commentaryCount: backgroundNotes.length,
+      hasNote: hasNote,
     );
   }
 }

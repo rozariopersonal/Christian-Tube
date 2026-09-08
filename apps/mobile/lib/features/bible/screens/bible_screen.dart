@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../widgets/book_chapter_selector.dart';
 import '../../../shared/ui/reader_appearance_sheet.dart';
 import '../../../shared/ui/highlight_color_picker.dart';
+import '../../../shared/ui/note_editor_sheet.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../models/bible_verse.dart';
 import '../widgets/bible_search_sheet.dart';
@@ -481,6 +482,64 @@ class _BibleScreenState extends State<BibleScreen> {
     }
   }
 
+  /// Opens the note editor for the first verse of the current selection (or
+  /// [verseNumber] when provided) and persists the result through the
+  /// controller.
+  Future<void> _openNoteEditor([int? verseNumber]) async {
+    final s = _controller.state;
+    if (s.selectedVerses.isEmpty && verseNumber == null) return;
+    final targetVerse = verseNumber ?? s.selectedVerses.first;
+    final existing = await _controller.getNoteForVerse(targetVerse);
+    if (!mounted) return;
+
+    final verseLabel =
+        '${_controller.displayBookName(_controller.currentBook)} '
+        '${_controller.currentChapter}:$targetVerse';
+
+    final result = await NoteEditorSheet.show(
+      context,
+      initialText: existing?.text ?? '',
+      contextText: _controller.verseTextFor(targetVerse),
+      title: verseLabel,
+      hasExistingNote: existing != null && existing.text.trim().isNotEmpty,
+    );
+    if (!mounted || result == null) return;
+
+    switch (result) {
+      case NoteEditorSave(:final text):
+        await _controller.saveNoteForVerse(targetVerse, text);
+      case NoteEditorDelete():
+        await _controller.deleteNoteForVerse(targetVerse);
+      case NoteEditorDismiss():
+        break;
+    }
+    _controller.clearSelection();
+    switch (result) {
+      case NoteEditorSave():
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Note saved'),
+              duration: Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      case NoteEditorDelete():
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Note deleted'),
+              duration: Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      case NoteEditorDismiss():
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
@@ -523,6 +582,7 @@ class _BibleScreenState extends State<BibleScreen> {
           onShare: _shareSelectedVerses,
           onBookmark: _bookmarkSelectedVerses,
           onHighlight: _highlightSelectedVerses,
+          onNote: _openNoteEditor,
           onClear: _controller.clearSelection,
           onStudy: s.selectedVerses.isNotEmpty
               ? () => _openVerseStudyScreen(s.selectedVerses.first)

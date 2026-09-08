@@ -13,6 +13,7 @@ class BibleBottomNav extends StatelessWidget {
     required this.onShare,
     required this.onBookmark,
     required this.onHighlight,
+    required this.onNote,
     required this.onClear,
     required this.onStudy,
   });
@@ -23,6 +24,7 @@ class BibleBottomNav extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback onBookmark;
   final VoidCallback onHighlight;
+  final VoidCallback onNote;
   final VoidCallback onClear;
   final VoidCallback? onStudy;
 
@@ -39,6 +41,7 @@ class BibleBottomNav extends StatelessWidget {
         onShare: onShare,
         onBookmark: onBookmark,
         onHighlight: onHighlight,
+        onNote: onNote,
         onClear: onClear,
         onStudy: onStudy,
       );

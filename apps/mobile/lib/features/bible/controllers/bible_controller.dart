@@ -22,6 +22,8 @@ import '../services/bible_verse_index.dart';
 import '../services/cross_reference_service.dart';
 import '../../../shared/services/reader_appearance.dart';
 import '../../../shared/services/reader_fonts_service.dart';
+import '../../../shared/services/note_service.dart';
+import '../../../shared/models/note.dart';
 import '../../../core/theme/highlight_palette.dart';
 
 /// Immutable snapshot of every field the Bible reader UI needs.
@@ -52,6 +54,7 @@ class BibleControllerState {
     this.chapterBackgrounds = const {},
     this.counts = const BibleVerseCounts([]),
     this.loadedChapters = const {},
+    this.verseNotes = const {},
     this.index,
   });
 
@@ -87,6 +90,10 @@ class BibleControllerState {
 
   /// Chapters streamed into memory so far, keyed by [bibleChapterId].
   final Map<int, List<BibleVerse>> loadedChapters;
+
+  /// Canonical keys (`book:chapter:verse`) of verses that have a user note.
+  /// Drives the small note indicator in the verse gutter.
+  final Set<String> verseNotes;
 
   /// Whole-Bible row index derived from [counts]; null when counts are absent.
   final BibleVerseIndex? index;
@@ -161,6 +168,7 @@ extension _StateCopy on BibleControllerState {
     Map<int, List<BibleBackgroundNote>>? chapterBackgrounds,
     BibleVerseCounts? counts,
     Map<int, List<BibleVerse>>? loadedChapters,
+    Set<String>? verseNotes,
     BibleVerseIndex? index,
   }) =>
       BibleControllerState(
@@ -187,6 +195,7 @@ extension _StateCopy on BibleControllerState {
         chapterBackgrounds: chapterBackgrounds ?? this.chapterBackgrounds,
         counts: counts ?? this.counts,
         loadedChapters: loadedChapters ?? this.loadedChapters,
+        verseNotes: verseNotes ?? this.verseNotes,
         index: index ?? this.index,
       );
 }
@@ -256,6 +265,7 @@ class BibleController extends ChangeNotifier {
   final BibleSettingsService _settingsService = BibleSettingsService();
   final BibleBookmarkService _bookmarkService = BibleBookmarkService();
   final BibleHighlightService _highlightService = BibleHighlightService();
+  final NoteService _noteService = NoteService.instance;
   final BibleDownloadManager _downloadManager = BibleDownloadManager();
   final BookNameService _bookNames = BookNameService();
   final CrossReferenceService _crossRefService = CrossReferenceService();
@@ -666,6 +676,7 @@ class BibleController extends ChangeNotifier {
     _loadCrossReferencesForChapter(bn, chapter);
     _loadBackgroundsForChapter(bn, chapter);
     _loadHighlightsForChapter(book, chapter);
+    _loadNotesForChapter(book, chapter);
     if (rows.isNotEmpty && saveProgress) {
       _settingsService.saveReadingProgress(version.shortname, book, chapter);
     }
@@ -717,6 +728,7 @@ class BibleController extends ChangeNotifier {
     _loadCrossReferencesForChapter(bookNumber, chapter);
     _loadBackgroundsForChapter(bookNumber, chapter);
     _loadHighlightsForChapter(book, chapter);
+    _loadNotesForChapter(book, chapter);
     if (saveProgress) {
       _settingsService.saveReadingProgress(version.shortname, book, chapter);
     }
@@ -765,6 +777,42 @@ class BibleController extends ChangeNotifier {
       debugPrint('BibleController _loadHighlightsForChapter error: $e');
     }
   }
+
+  /// Loads persisted notes for [book]/[chapter] into the state's note-key set.
+  /// Merged with notes already loaded for other chapters.
+  Future<void> _loadNotesForChapter(String book, int chapter) async {
+    final epoch = _loadEpoch;
+    try {
+      final notes = await _noteService.getNotesForFeature(_bibleFeatureName);
+      if (epoch != _loadEpoch || _disposed) return; // stale
+      final prefix = '$book:$chapter:';
+      final merged = Set<String>.from(_state.verseNotes);
+      for (final n in notes) {
+        if (n.targetId.startsWith(prefix)) {
+          final versePart = n.targetId.substring(prefix.length);
+          final verse = int.tryParse(versePart);
+          if (verse != null && verse >= 1) {
+            merged.add(
+                BibleControllerState.verseHighlightKey(book, chapter, verse));
+          }
+        }
+      }
+      _update((s) => s.copyWith(verseNotes: merged));
+    } catch (e) {
+      debugPrint('BibleController _loadNotesForChapter error: $e');
+    }
+  }
+
+  static const String _bibleFeatureName = 'bible';
+
+  /// The canonical `book:chapter:verse` note key for a verse.
+  static String verseNoteKey(String book, int chapter, int verse) =>
+      BibleControllerState.verseHighlightKey(book, chapter, verse);
+
+  /// The stored note's `targetId` (`Book Chapter:verse`) for [book]/[chapter]/
+  /// [verse].
+  static String verseNoteTargetId(String book, int chapter, int verse) =>
+      Note.bibleTargetId(book, chapter, verse);
 
   // ── Public methods ─────────────────────────────────────────────────────
 
@@ -1046,6 +1094,59 @@ class BibleController extends ChangeNotifier {
   }
 
   String? _lastBookmarkMessage;
+
+  /// The saved note for [verseNumber] in the current book/chapter, or null
+  /// when none exists.
+  Future<Note?> getNoteForVerse(int verseNumber) =>
+      _noteService.getNoteForTarget(
+        _bibleFeatureName,
+        verseNoteTargetId(_currentBook, _currentChapter, verseNumber),
+      );
+
+  /// Resolves the verse text for [verseNumber] (used as read-only context in
+  /// the note editor).
+  String verseTextFor(int verseNumber) {
+    final v = _state.verses.where((v) => v.number == verseNumber).firstOrNull;
+    return v?.text ?? '';
+  }
+
+  /// Saves the user note [text] for [verseNumber] in the current book/chapter
+  /// and refreshes the state's note-key set.
+  Future<void> saveNoteForVerse(int verseNumber, String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    final targetId = verseNoteTargetId(_currentBook, _currentChapter, verseNumber);
+    final existing = await _noteService.getNoteForTarget(
+      _bibleFeatureName,
+      targetId,
+    );
+    final note = Note(
+      id: existing?.id ?? '',
+      feature: _bibleFeatureName,
+      targetId: targetId,
+      text: trimmed,
+      contextText: verseTextFor(verseNumber),
+      createdAt: existing?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    await _noteService.saveNote(note);
+    final key =
+        verseNoteKey(_currentBook, _currentChapter, verseNumber);
+    _update((s) => s.copyWith(verseNotes: {...s.verseNotes, key}));
+  }
+
+  /// Deletes the note for [verseNumber] in the current book/chapter, if any,
+  /// and refreshes the state's note-key set.
+  Future<void> deleteNoteForVerse(int verseNumber) async {
+    final targetId = verseNoteTargetId(_currentBook, _currentChapter, verseNumber);
+    await _noteService.deleteNote(_bibleFeatureName, targetId);
+    final key =
+        verseNoteKey(_currentBook, _currentChapter, verseNumber);
+    _update((s) {
+      final updated = Set<String>.from(s.verseNotes)..remove(key);
+      return s.copyWith(verseNotes: updated);
+    });
+  }
 
   Future<void> redownloadDefault() async {
     _update((s) => s.copyWith(isLoading: true, chapterEmpty: false));

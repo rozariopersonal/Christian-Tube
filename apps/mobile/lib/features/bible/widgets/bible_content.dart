@@ -245,6 +245,7 @@ class _VerseRow extends StatelessWidget {
       isSelected: s.selectedVerses.contains(verse.number),
       isHighlighted: s.highlightedVerse == verse.number,
       highlightColorIndex: s.verseHighlights[highlightKey],
+      hasNote: s.verseNotes.contains(highlightKey),
       appearance: controller.appearance,
       onVerseTap: () => onVerseTap(verse.number),
       crossReferences: s.chapterCrossRefs[verse.number] ?? const [],
