@@ -32,9 +32,9 @@ class BibleHighlightService {
 
   Future<void> _saveAll(List<BibleHighlight> highlights) async {
     if (_userTier) {
-      final items = highlights
-          .map((h) => UserItem.fromBibleHighlight(h, _userId))
-          .toList();
+      final items = <UserItem>[
+        for (final h in highlights) ...UserItem.fromBibleHighlight(h, _userId),
+      ];
       await UserItemRepository.instance
           .replaceForType(_userId, UserItem.typeHighlight, items);
       UserItemSyncService.instance.schedulePush();

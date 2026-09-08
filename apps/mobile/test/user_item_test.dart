@@ -59,7 +59,9 @@ void main() {
         text: 'a\nb\nc',
         savedAt: DateTime.utc(2026, 9, 8, 1),
       );
-      final item = UserItem.fromBibleHighlight(h, 'u1');
+      final items = UserItem.fromBibleHighlight(h, 'u1');
+      expect(items, hasLength(1));
+      final item = items.single;
       expect(item.userId, 'u1');
       expect(item.itemType, UserItem.typeHighlight);
       expect(item.verseStart, 16);
@@ -71,6 +73,56 @@ void main() {
       expect(back.colorIndex, 7);
       expect(back.text, h.text);
       expect(back.savedAt, h.savedAt);
+    });
+
+    test('non-contiguous highlights split into one run per contiguous range',
+        () {
+      // Removing the middle verse leaves a hole; the hole must not be
+      // re-expanded when read back through the range-based user_items store.
+      final h = BibleHighlight(
+        versionId: 'TAOBVSI',
+        book: 'John',
+        chapter: 3,
+        verses: [16, 18, 19],
+        colorIndex: 7,
+        text: 'x',
+        savedAt: DateTime.utc(2026, 9, 8, 1),
+      );
+      final items = UserItem.fromBibleHighlight(h, 'u1');
+      expect(items, hasLength(2));
+      expect(items[0].verseStart, 16);
+      expect(items[0].verseEnd, 16);
+      expect(items[1].verseStart, 18);
+      expect(items[1].verseEnd, 19);
+      expect(items[1].id, isNot(items[0].id));
+
+      final restored = items.map((i) => i.toBibleHighlight()).toList();
+      expect(restored.map((x) => x.verses).toList(), [
+        [16],
+        [18, 19],
+      ]);
+    });
+
+    test('timestamps are normalized to UTC on the wire and in the DB', () {
+      final local = DateTime(2026, 9, 8, 12); // local zone builds offset form
+      final item = UserItem(
+        userId: 'u1',
+        id: 'n1',
+        itemType: UserItem.typeNote,
+        feature: UserItem.featureBible,
+        targetId: 'Genesis:1:3',
+        text: 'x',
+        createdAt: local,
+        updatedAt: local,
+      );
+      expect(item.toJson()['createdAt'], endsWith('Z'));
+      expect(item.toJson()['updatedAt'], endsWith('Z'));
+      expect(item.toMap()['created_at'], endsWith('Z'));
+      expect(item.toMap()['updated_at'], endsWith('Z'));
+      expect(
+        UserItem.fromJson(item.toJson()).createdAt.isUtc,
+        isTrue,
+      );
     });
 
     test('fromBibleBookmark → toBibleBookmark round-trips a verse', () {
@@ -429,6 +481,25 @@ void main() {
       final highlights = await service.loadHighlights();
       expect(highlights, hasLength(1));
       expect(highlights.first.verses, [17]);
+    });
+
+    test('removing a middle verse does not resurrect it (user tier)',
+        () async {
+      UserItemSyncService.instance.setUserIdForTest('u1');
+      final service = BibleHighlightService();
+      await service.apply(
+        versionId: 'TAOBVSI',
+        book: 'John',
+        chapter: 3,
+        verses: [16, 17, 18],
+        colorIndex: 7,
+        text: 'x',
+      );
+      await service.remove(book: 'John', chapter: 3, verses: [17]);
+
+      final forChapter = await service.getForChapter('John', 3);
+      final verses = forChapter.expand((h) => h.verses).toSet();
+      expect(verses, {16, 18});
     });
 
     test('user tier highlights never leak across accounts', () async {

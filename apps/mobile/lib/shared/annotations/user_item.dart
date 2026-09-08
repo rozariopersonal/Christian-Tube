@@ -116,6 +116,10 @@ class UserItem {
   }
 
   /// Wire + web-cache JSON shape.
+  ///
+  /// Timestamps are normalized to UTC (ISO-8601 `Z`) so that lexicographic
+  /// ordering of the string form matches chronological order everywhere (the
+  /// SQLite push window compares `updated_at` as text).
   Map<String, dynamic> toJson() => {
         'userId': userId,
         'id': id,
@@ -130,8 +134,8 @@ class UserItem {
         'colorIndex': colorIndex,
         'text': text,
         'contextText': contextText,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
+        'createdAt': createdAt.toUtc().toIso8601String(),
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
         'deleted': deleted,
       };
 
@@ -157,6 +161,9 @@ class UserItem {
       );
 
   /// SQLite column shape.
+  ///
+  /// Timestamps are normalized to UTC (ISO-8601 `Z`) so `updated_at > ?`
+  /// text comparisons and `ORDER BY updated_at DESC` sort chronologically.
   Map<String, dynamic> toMap() => {
         'user_id': userId,
         'id': id,
@@ -171,8 +178,8 @@ class UserItem {
         'color_index': colorIndex,
         'text': text,
         'context_text': contextText,
-        'created_at': createdAt.toIso8601String(),
-        'updated_at': updatedAt.toIso8601String(),
+        'created_at': createdAt.toUtc().toIso8601String(),
+        'updated_at': updatedAt.toUtc().toIso8601String(),
         'deleted': deleted ? 1 : 0,
       };
 
@@ -197,28 +204,52 @@ class UserItem {
         deleted: (map['deleted'] as int? ?? 0) == 1,
       );
 
-  /// Converts a (device-local) Bible highlight into a user item.
-  factory UserItem.fromBibleHighlight(BibleHighlight h, String userId) {
-    final verses = h.verses;
-    final start = verses.isNotEmpty ? verses.first : 0;
-    final end = verses.isNotEmpty ? verses.last : start;
-    return UserItem(
-      userId: userId,
-      id: 'h_${h.versionId}_${h.book}_${h.chapter}_$start',
-      itemType: typeHighlight,
-      feature: featureBible,
-      versionId: h.versionId,
-      book: h.book,
-      chapter: h.chapter,
-      verseStart: start,
-      verseEnd: end,
-      targetId: '${h.book}:${h.chapter}:$start',
-      colorIndex: h.colorIndex,
-      text: h.text,
-      createdAt: h.savedAt,
-      updatedAt: h.savedAt,
-    );
+  /// Splits a (device-local) Bible highlight into one [UserItem] per
+  /// contiguous verse run.
+  ///
+  /// The `user_items` schema anchors a highlight by a single
+  /// `verse_start`/`verse_end` range, but the device tier can hold
+  /// non-contiguous verse lists (removing the middle verse of a run leaves
+  /// holes). Storing a hole as one range would re-expand the removed verse on
+  /// read, so we partition into runs. Each run keeps the highlight's color.
+  static List<UserItem> fromBibleHighlight(BibleHighlight h, String userId) {
+    if (h.verses.isEmpty) return const [];
+    final verses = [...h.verses]..sort();
+    final items = <UserItem>[];
+    var start = verses.first;
+    var end = start;
+    for (var i = 1; i < verses.length; i++) {
+      final v = verses[i];
+      if (v == end + 1) {
+        end = v;
+        continue;
+      }
+      items.add(_highlightRun(h, userId, start, end));
+      start = v;
+      end = v;
+    }
+    items.add(_highlightRun(h, userId, start, end));
+    return items;
   }
+
+  static UserItem _highlightRun(
+          BibleHighlight h, String userId, int start, int end) =>
+      UserItem(
+        userId: userId,
+        id: 'h_${h.versionId}_${h.book}_${h.chapter}_$start',
+        itemType: typeHighlight,
+        feature: featureBible,
+        versionId: h.versionId,
+        book: h.book,
+        chapter: h.chapter,
+        verseStart: start,
+        verseEnd: end,
+        targetId: '${h.book}:${h.chapter}:$start',
+        colorIndex: h.colorIndex,
+        text: h.text,
+        createdAt: h.savedAt.toUtc(),
+        updatedAt: h.savedAt.toUtc(),
+      );
 
   BibleHighlight toBibleHighlight() => BibleHighlight(
         versionId: versionId,

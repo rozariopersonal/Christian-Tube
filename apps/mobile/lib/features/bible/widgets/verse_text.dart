@@ -83,28 +83,53 @@ class _VerseTextState extends State<VerseText> {
             child: ValueListenableBuilder<bool>(
               valueListenable: _hoverNotifier,
               builder: (context, isHovering, _) {
-                final Color? background;
+                // Highlight/selection tints hug the words (YouVersion-style
+                // rounded box) rather than painting the whole list row. Only
+                // the hover affordance keeps a full-width subtle fill.
+                final Color? wordFill;
                 if (widget.isSelected) {
-                  background = theme.colorScheme.primary.withValues(alpha: 0.22);
+                  wordFill = theme.colorScheme.primary.withValues(alpha: 0.22);
                 } else if (highlightColor != null) {
-                  background = highlightColor;
+                  wordFill = highlightColor;
                 } else if (widget.isHighlighted) {
-                  background = widget.appearance.isDark(context.tokens)
+                  wordFill = widget.appearance.isDark(context.tokens)
                       ? theme.colorScheme.primary.withValues(alpha: 0.28)
                       : theme.colorScheme.primaryContainer;
-                } else if (isHovering) {
-                  background = widget.appearance.textColor(context.tokens).withValues(alpha: 0.06);
                 } else {
-                  background = null;
+                  wordFill = null;
                 }
 
-                return AnimatedContainer(
-                  width: double.infinity,
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  color: background ?? Colors.transparent,
+                final content = _buildContent(context, theme, highlightColor);
+                final Widget decorated = wordFill != null
+                    ? Align(
+                        alignment: Alignment.centerLeft,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          decoration: BoxDecoration(
+                            color: wordFill,
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                          child: content,
+                        ),
+                      )
+                    : isHovering
+                        ? AnimatedContainer(
+                            width: double.infinity,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            color: widget
+                                .appearance
+                                .textColor(context.tokens)
+                                .withValues(alpha: 0.06),
+                            child: content,
+                          )
+                        : content;
+
+                return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
-                  child: _buildContent(context, theme, highlightColor),
+                  child: decorated,
                 );
               },
             ),

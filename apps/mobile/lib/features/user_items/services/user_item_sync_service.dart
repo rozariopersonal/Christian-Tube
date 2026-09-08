@@ -32,6 +32,13 @@ import 'package:mobile/shared/services/note_service.dart';
 /// notes are tombstoned through push, then purged locally after ack. All
 /// network failures degrade silently — the local user tier stays fully usable
 /// offline and sync resumes on the next trigger.
+///
+/// Known limitation: highlights/bookmarks are full-list stores on the device.
+/// Because row ids change when a range is edited, a pushed dirty row can't
+/// express "the old row no longer exists", so a deletion made on device A can
+/// briefly reappear on device B until it is edited again. A type-level replace
+/// mode on the backend would close this; until then this is the documented
+/// trade-off of the per-row LWW contract.
 class UserItemSyncService {
   UserItemSyncService._();
 
@@ -100,7 +107,7 @@ class UserItemSyncService {
     if (!_rehomeLock.add(userId)) return;
     try {
       final items = <UserItem>[
-        ...deviceHighlights.map((h) => UserItem.fromBibleHighlight(h, userId)),
+        ...deviceHighlights.expand((h) => UserItem.fromBibleHighlight(h, userId)),
         ...deviceBookmarks.map((b) => UserItem.fromBibleBookmark(b, userId)),
         ...deviceNotes.map((n) => UserItem.fromNote(n, userId)),
       ];
@@ -166,7 +173,14 @@ class UserItemSyncService {
         if (i.updatedAt.isAfter(maxTs)) maxTs = i.updatedAt;
       }
       await _saveCursor(userId, maxTs);
-      await _repository.purgeTombstones(userId);
+      // Purge ONLY the tombstones acked by this batch. A wholesale purge could
+      // delete a tombstone created after the window was snapshot but before the
+      // POST landed, losing that deletion on other devices forever.
+      for (final i in dirty) {
+        if (i.deleted) {
+          await _repository.remove(userId, i.id);
+        }
+      }
     } catch (e) {
       debugPrint('UserItemSyncService push non-blocking warning: $e');
     } finally {
