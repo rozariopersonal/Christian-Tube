@@ -6,7 +6,6 @@ import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../books/models/book_scripture_link.dart';
-import '../../books/screens/book_reader_screen.dart';
 import '../../dictionary/models/dictionary_entry.dart';
 import '../../dictionary/services/dictionary_service.dart';
 import '../../engines/scripture/services/book_name_service.dart';
@@ -111,16 +110,9 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   }
 
   void _openBookReader(BuildContext context, BookScriptureLink link) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BookReaderScreen(
-          bookId: link.bookId,
-          initialPage: link.pageNumber,
-          highlightStartLine: link.startLine,
-          highlightEndLine: link.endLine,
-        ),
-      ),
+    context.push(
+      '/books/${link.bookId}?page=${link.pageNumber}'
+      '&startLine=${link.startLine}&endLine=${link.endLine}',
     );
   }
 

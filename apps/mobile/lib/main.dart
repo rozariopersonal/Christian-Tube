@@ -4,7 +4,9 @@ import 'core/api/release_revision.dart';
 import 'core/config/app_config.dart';
 import 'core/engines/active_engine.g.dart';
 import 'core/link/deep_link_controller.dart';
+import 'core/models/playlist.dart';
 import 'core/models/video.dart';
+import 'core/models/watch_plan.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_tokens.dart';
 import 'core/theme/theme_service.dart';
@@ -14,14 +16,21 @@ import 'features/auth/auth_service.dart';
 import 'features/channels/channel_service.dart';
 import 'features/channels/channels_screen.dart';
 import 'features/engines/scripture/services/bible_download_manager.dart';
+import 'features/engines/scripture/screens/saved_scriptures_screen.dart';
 import 'features/feed/video_feed_screen.dart';
+import 'features/history/history_screen.dart';
 import 'features/micro_feed/micro_feed_screen.dart';
+import 'features/profile/admin_users_screen.dart';
+import 'features/profile/playlist_detail_screen.dart';
 import 'features/profile/profile_screen.dart';
+import 'features/profile/settings_screen.dart';
+import 'features/profile/subscriptions_screen.dart';
 import 'features/profile/user_service.dart';
 import 'features/search/search_screen.dart';
 import 'features/shorts/shorts_feed_screen.dart';
 import 'features/user_items/services/user_item_sync_service.dart';
 import 'features/watch/video_player_screen.dart';
+import 'features/watch_plans/watch_plan_detail_screen.dart';
 import 'features/watch_plans/watch_plans_screen.dart';
 import 'features/bible/screens/bible_screen.dart';
 import 'features/bible/services/bible_passage_navigator.dart';
@@ -322,6 +331,53 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               songId: songId,
               initialSong: song,
             );
+          },
+        ),
+        GoRoute(
+          path: '/history',
+          builder: (context, state) => const HistoryScreen(),
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (context, state) =>
+              SettingsScreen(themeService: _themeService),
+        ),
+        GoRoute(
+          path: '/admin-users',
+          builder: (context, state) =>
+              AdminUsersScreen(userService: _userService),
+        ),
+        GoRoute(
+          path: '/subscriptions',
+          builder: (context, state) =>
+              SubscriptionsScreen(channelService: _channelService),
+        ),
+        GoRoute(
+          path: '/saved-scriptures',
+          builder: (context, state) => const SavedScripturesScreen(),
+        ),
+        GoRoute(
+          path: '/playlists/:id',
+          builder: (context, state) {
+            final playlist = state.extra is Playlist ? state.extra as Playlist : null;
+            if (playlist == null) {
+              return const Scaffold(
+                body: Center(child: Text('Playlist not found')),
+              );
+            }
+            return PlaylistDetailScreen(playlist: playlist);
+          },
+        ),
+        GoRoute(
+          path: '/watch-plans/:id',
+          builder: (context, state) {
+            final plan = state.extra is WatchPlan ? state.extra as WatchPlan : null;
+            if (plan == null) {
+              return const Scaffold(
+                body: Center(child: Text('Watch plan not found')),
+              );
+            }
+            return WatchPlanDetailScreen(plan: plan);
           },
         ),
       ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/core/engines/base_feed_engine.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/features/bible/models/bible_reference.dart';
@@ -15,7 +16,6 @@ import 'services/bible_download_manager.dart';
 import 'services/saved_scripture_service.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
-import 'screens/saved_scriptures_screen.dart';
 import 'widgets/bible_version_picker_modal.dart';
 import 'widgets/compare_version_picker_sheet.dart';
 import 'widgets/scripture_card_view.dart';
@@ -444,12 +444,7 @@ class ScriptureEngine
           builder: (context, count, _) {
             return GestureDetector(
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (ctx) => const SavedScripturesScreen(),
-                  ),
-                );
+                context.push('/saved-scriptures');
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -692,12 +687,7 @@ class ScriptureEngine
                         label: 'View Saved',
                         textColor: tokens.accent,
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (ctx) => const SavedScripturesScreen(),
-                            ),
-                          );
+                          context.push('/saved-scriptures');
                         },
                       )
                     : null,
