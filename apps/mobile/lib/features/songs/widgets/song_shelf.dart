@@ -60,7 +60,7 @@ class SongShelf extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 120,
+          height: 132,
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,

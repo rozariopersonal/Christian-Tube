@@ -98,6 +98,7 @@ Widget buildLibrary({
   Future<List<WftwIndexEntry>> Function()? wftwLoader,
   Future<List<WftwIndexEntry>> Function()? articlesLoader,
   Future<List<ArticleLanguage>> Function()? languagesLoader,
+  Future<List<Song>> Function()? songsLoader,
 }) {
   return MaterialApp(
     theme: testTheme(),
@@ -106,6 +107,7 @@ Widget buildLibrary({
       wftwLoader: wftwLoader,
       articlesLoader: articlesLoader,
       languagesLoader: languagesLoader,
+      songsLoader: songsLoader,
     ),
   );
 }
@@ -212,9 +214,12 @@ void main() {
       await tester.tap(find.text('All Languages'));
       await tester.pumpAndSettle();
 
-      // The registered language shows its name, never its raw ISO code.
+      // The registered language shows its name, never a raw ISO code, as the
+      // chooseable label; the code glyph stays only in the decorative badge
+      // (same convention as 'TA' / 'HI' in the badge box).
       expect(find.text('Gujarati'), findsWidgets);
-      expect(find.text('GU'), findsNothing);
+      expect(find.text('gu'), findsNothing);
+      expect(find.text('GU'), findsOneWidget);
     });
   });
 
