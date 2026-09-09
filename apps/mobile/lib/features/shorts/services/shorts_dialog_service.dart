@@ -93,7 +93,7 @@ class ShortsDialogService {
       return;
     }
 
-    final appUrl = 'https://christiantube.app/#/watch/${short.sourceVideoId ?? short.id}?start=${(short.clipStartTime ?? 0).toInt()}';
+    final appUrl = '${AppConfig.shareBaseUrl}/watch/${short.sourceVideoId ?? short.id}?start=${(short.clipStartTime ?? 0).toInt()}';
     final ytUrl = 'https://www.youtube.com/shorts/${short.id}';
 
     Share.share(

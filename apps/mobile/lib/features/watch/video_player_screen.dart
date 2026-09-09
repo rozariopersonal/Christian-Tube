@@ -440,7 +440,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             icon: const Icon(Icons.share_outlined),
             tooltip: 'Share',
             onPressed: () {
-              Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
+              Share.share('${AppConfig.shareBaseUrl}/watch/$_activeVideoId');
             },
           ),
         IconButton(
@@ -833,7 +833,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           icon: Icons.share_outlined,
           label: 'Share',
           onTap: () {
-            Share.share('${AppConfig.apiBaseUrl}/watch/$_activeVideoId');
+            Share.share('${AppConfig.shareBaseUrl}/watch/$_activeVideoId');
           },
         ),
         const SizedBox(width: 8),

@@ -323,7 +323,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     );
                   }
                 } else if (action == 'share') {
-                  Share.share('${AppConfig.apiBaseUrl}/watch/${video.id}');
+                  Share.share('${AppConfig.shareBaseUrl}/watch/${video.id}');
                 }
               },
               itemBuilder: (ctx) => [

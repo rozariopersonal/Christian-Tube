@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,7 +10,19 @@ class AppConfig {
   static String version = '1.28.0';
   static int versionCode = 45;
   static String apiBaseUrl = 'https://christianapp-zjdh.onrender.com';
+  static String webAppUrl = 'https://christianapp.vercel.app';
   static String releasesRepo = 'rozariopersonal/Christian-Tube-Releases';
+
+  static String get shareBaseUrl {
+    if (kIsWeb) {
+      try {
+        return Uri.base.origin;
+      } catch (_) {
+        return webAppUrl;
+      }
+    }
+    return webAppUrl;
+  }
   static String apkFileName = 'christian-app.apk';
   static String? googleClientId;
 
@@ -59,6 +72,7 @@ class AppConfig {
       version = json['version'] ?? version;
       versionCode = json['versionCode'] ?? versionCode;
       apiBaseUrl = json['apiBaseUrl'] ?? apiBaseUrl;
+      webAppUrl = json['webAppUrl'] ?? webAppUrl;
       releasesRepo = json['releasesRepo'] ?? releasesRepo;
       apkFileName = json['apkFileName'] ?? apkFileName;
       googleClientId = json['googleClientId'];
