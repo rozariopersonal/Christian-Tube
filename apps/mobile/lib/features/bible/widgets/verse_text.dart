@@ -16,14 +16,6 @@ class VerseText extends StatefulWidget {
   final int commentaryCount;
   final bool hasNote;
 
-  /// When a highlight is active, these control whether the highlight
-  /// marker extends into the vertical gap toward the neighbouring verse to
-  /// render a continuous highlight across consecutive verses.
-  /// A value of `0` means the neighbour shares the same highlight colour and
-  /// the marker should fill the gap; any other value keeps a normal gap.
-  final double? highlightStartPadding;
-  final double? highlightEndPadding;
-
   const VerseText({
     super.key,
     required this.verse,
@@ -35,8 +27,6 @@ class VerseText extends StatefulWidget {
     this.refCount = 0,
     this.commentaryCount = 0,
     this.hasNote = false,
-    this.highlightStartPadding,
-    this.highlightEndPadding,
   });
 
   @override
@@ -44,11 +34,6 @@ class VerseText extends StatefulWidget {
 }
 
 class _VerseTextState extends State<VerseText> {
-  // Total vertical gap between two adjacent verse rows (each contributes
-  // 6.0 of outer top/bottom padding) that must be spanned by the highlight
-  // marker so consecutive highlighted verses render without a break.
-  static const double _kInterVerseGap = 12.0;
-
   late final ValueNotifier<bool> _hoverNotifier = ValueNotifier<bool>(false);
 
   @override
@@ -92,11 +77,15 @@ class _VerseTextState extends State<VerseText> {
             child: ValueListenableBuilder<bool>(
               valueListenable: _hoverNotifier,
               builder: (context, isHovering, _) {
+                // A persistent highlight keeps its own marker colour. When such
+                // a verse is also selected we show selection via an underline
+                // instead of swapping the marker for the selection tint.
+                final bool hasPersistentHighlight = highlightColor != null;
                 final Color? highlightFill;
-                if (widget.isSelected) {
-                  highlightFill = theme.colorScheme.primary.withValues(alpha: 0.22);
-                } else if (highlightColor != null) {
+                if (hasPersistentHighlight) {
                   highlightFill = highlightColor;
+                } else if (widget.isSelected) {
+                  highlightFill = theme.colorScheme.primary.withValues(alpha: 0.22);
                 } else if (widget.isHighlighted) {
                   highlightFill = widget.appearance.isDark(context.tokens)
                       ? theme.colorScheme.primary.withValues(alpha: 0.28)
@@ -105,46 +94,11 @@ class _VerseTextState extends State<VerseText> {
                   highlightFill = null;
                 }
 
-                final hasHighlightBg = highlightFill != null;
-
-                // The highlight only reaches the text length (marker-pen
-                // look) and does not change the text layout. We anchor on
-                // the text's intrinsic width rather than filling the row.
-                final content = _buildContent(context, theme, highlightColor);
+                final hasHighlight = highlightFill != null;
+                final showUnderline = widget.isSelected && hasPersistentHighlight;
 
                 final Widget verseBody;
-                if (hasHighlightBg) {
-                  // When a neighbouring verse shares this highlight colour,
-                  // extend the marker into the inter-verse gap (and square the
-                  // corner on that side) so consecutive verses form one clean
-                  // continuous highlight band.
-                  final topJoined = (widget.highlightStartPadding ?? 6.0) == 0.0;
-                  final bottomJoined = (widget.highlightEndPadding ?? 6.0) == 0.0;
-                  final topExtend = topJoined ? _kInterVerseGap : 0.0;
-                  final bottomExtend = bottomJoined ? _kInterVerseGap : 0.0;
-                  final radius = 4.0;
-                  verseBody = Align(
-                    alignment: Alignment.centerLeft,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      decoration: BoxDecoration(
-                        color: highlightFill,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(topJoined ? 0.0 : radius),
-                          bottom: Radius.circular(bottomJoined ? 0.0 : radius),
-                        ),
-                      ),
-                      padding: EdgeInsets.only(
-                        left: 3.0,
-                        right: 3.0,
-                        top: 1.0 + topExtend,
-                        bottom: 1.0 + bottomExtend,
-                      ),
-                      child: content,
-                    ),
-                  );
-                } else if (isHovering) {
+                if (isHovering && !hasHighlight) {
                   verseBody = Align(
                     alignment: Alignment.centerLeft,
                     child: AnimatedContainer(
@@ -154,15 +108,22 @@ class _VerseTextState extends State<VerseText> {
                           .appearance
                           .textColor(context.tokens)
                           .withValues(alpha: 0.06),
-                      child: content,
+                      child: _buildContent(context, theme, highlightColor),
                     ),
                   );
                 } else {
-                  verseBody = content;
+                  // Marker-pen highlight: the background is applied directly to
+                  // the text style so each rendered line gets its own marker
+                  // bar that hugs the line width (natural ragged edge on
+                  // wrapped lines) and fills the line-height gaps. The box
+                  // approach is intentionally avoided -- it paints one rectangle
+                  // around the whole paragraph instead of per-line marks. This
+                  // also never changes the text layout.
+                  verseBody = _buildContent(context, theme, highlightColor,
+                      highlightOn: hasHighlight ? highlightFill : null,
+                      underline: showUnderline);
                 }
 
-                // Constant outer vertical padding so highlighting never
-                // shifts the surrounding text layout.
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
                   child: verseBody,
@@ -178,8 +139,10 @@ class _VerseTextState extends State<VerseText> {
   Widget _buildContent(
     BuildContext context,
     ThemeData theme,
-    Color? highlightColor,
-  ) {
+    Color? highlightColor, {
+    Color? highlightOn,
+    bool underline = false,
+  }) {
     final tokens = context.tokens;
     final app = widget.appearance;
     final fontFamily = ScriptureThemeCatalog.resolveFontFamily(app.fontFamily, app.languageCode);
@@ -201,6 +164,7 @@ class _VerseTextState extends State<VerseText> {
 
     return Text.rich(
       TextSpan(
+        style: highlightOn != null ? TextStyle(backgroundColor: highlightOn) : null,
         children: [
           TextSpan(
             text: '${widget.verse.number}',
@@ -209,6 +173,7 @@ class _VerseTextState extends State<VerseText> {
               fontWeight: FontWeight.bold,
               fontSize: app.fontSize * 0.7,
               fontFamily: fontFamily,
+              decoration: underline ? TextDecoration.underline : null,
             ),
           ),
           if (widget.refCount > 0)
@@ -254,6 +219,7 @@ class _VerseTextState extends State<VerseText> {
               fontSize: app.fontSize,
               fontFamily: fontFamily,
               color: bodyTextColor,
+              decoration: underline ? TextDecoration.underline : null,
             ),
           ),
         ],
