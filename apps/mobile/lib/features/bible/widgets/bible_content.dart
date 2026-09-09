@@ -243,11 +243,39 @@ class _VerseRow extends StatelessWidget {
       controller.currentChapter,
       verse.number,
     );
+    final colorIndex = s.verseHighlights[highlightKey];
+
+    // Compute adjacency for continuous highlight backgrounds.
+    // When consecutive verses share the same highlight color, the background
+    // fills the vertical padding gaps between them.
+    double? startPad;
+    double? endPad;
+    if (colorIndex != null) {
+      final verseList = s.verses;
+      final idx = verse.number - 1;
+      final prevSame = idx > 0 &&
+          verseList[idx - 1].number == verse.number - 1 &&
+          s.verseHighlights[BibleControllerState.verseHighlightKey(
+            controller.currentBook,
+            controller.currentChapter,
+            verse.number - 1,
+          )] == colorIndex;
+      final nextSame = idx < verseList.length - 1 &&
+          verseList[idx + 1].number == verse.number + 1 &&
+          s.verseHighlights[BibleControllerState.verseHighlightKey(
+            controller.currentBook,
+            controller.currentChapter,
+            verse.number + 1,
+          )] == colorIndex;
+      startPad = prevSame ? 0.0 : 6.0;
+      endPad = nextSame ? 0.0 : 6.0;
+    }
+
     return VerseItem(
       verse: verse,
       isSelected: s.selectedVerses.contains(verse.number),
       isHighlighted: s.highlightedVerse == verse.number,
-      highlightColorIndex: s.verseHighlights[highlightKey],
+      highlightColorIndex: colorIndex,
       hasNote: s.verseNotes.contains(highlightKey),
       appearance: controller.appearance,
       onVerseTap: () => onVerseTap(verse.number),
@@ -255,6 +283,8 @@ class _VerseRow extends StatelessWidget {
       backgroundNotes: s.chapterBackgrounds[verse.number] ?? const [],
       resolvedTexts: s.crossRefTexts,
       selectedCount: s.selectedVerses.length,
+      highlightStartPadding: startPad,
+      highlightEndPadding: endPad,
       onCopy: onCopy,
       onShare: onShare,
       onBookmark: onBookmark,

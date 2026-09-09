@@ -16,6 +16,14 @@ class VerseText extends StatefulWidget {
   final int commentaryCount;
   final bool hasNote;
 
+  /// When a highlight is active, these control whether the highlight
+  /// marker extends into the vertical gap toward the neighbouring verse to
+  /// render a continuous highlight across consecutive verses.
+  /// A value of `0` means the neighbour shares the same highlight colour and
+  /// the marker should fill the gap; any other value keeps a normal gap.
+  final double? highlightStartPadding;
+  final double? highlightEndPadding;
+
   const VerseText({
     super.key,
     required this.verse,
@@ -27,6 +35,8 @@ class VerseText extends StatefulWidget {
     this.refCount = 0,
     this.commentaryCount = 0,
     this.hasNote = false,
+    this.highlightStartPadding,
+    this.highlightEndPadding,
   });
 
   @override
@@ -34,6 +44,11 @@ class VerseText extends StatefulWidget {
 }
 
 class _VerseTextState extends State<VerseText> {
+  // Total vertical gap between two adjacent verse rows (each contributes
+  // 6.0 of outer top/bottom padding) that must be spanned by the highlight
+  // marker so consecutive highlighted verses render without a break.
+  static const double _kInterVerseGap = 12.0;
+
   late final ValueNotifier<bool> _hoverNotifier = ValueNotifier<bool>(false);
 
   @override
@@ -67,10 +82,6 @@ class _VerseTextState extends State<VerseText> {
                 ? null
                 : HighlightPalette.colorFor(widget.highlightColorIndex!);
 
-        // A real GestureDetector tap is used instead of manual pointer math so
-        // that long-presses (text selection) and scroll drags are correctly
-        // routed to SelectionArea / the scrollable and never accidentally
-        // toggle verse selection.
         return GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: widget.onTap,
@@ -81,53 +92,80 @@ class _VerseTextState extends State<VerseText> {
             child: ValueListenableBuilder<bool>(
               valueListenable: _hoverNotifier,
               builder: (context, isHovering, _) {
-                // Highlight/selection tints hug the words (YouVersion-style
-                // rounded box) rather than painting the whole list row. Only
-                // the hover affordance keeps a full-width subtle fill.
-                final Color? wordFill;
+                final Color? highlightFill;
                 if (widget.isSelected) {
-                  wordFill = theme.colorScheme.primary.withValues(alpha: 0.22);
+                  highlightFill = theme.colorScheme.primary.withValues(alpha: 0.22);
                 } else if (highlightColor != null) {
-                  wordFill = highlightColor;
+                  highlightFill = highlightColor;
                 } else if (widget.isHighlighted) {
-                  wordFill = widget.appearance.isDark(context.tokens)
+                  highlightFill = widget.appearance.isDark(context.tokens)
                       ? theme.colorScheme.primary.withValues(alpha: 0.28)
                       : theme.colorScheme.primaryContainer;
                 } else {
-                  wordFill = null;
+                  highlightFill = null;
                 }
 
-                final content = _buildContent(context, theme, highlightColor);
-                final Widget decorated = wordFill != null
-                    ? Align(
-                        alignment: Alignment.centerLeft,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          decoration: BoxDecoration(
-                            color: wordFill,
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
-                          child: content,
-                        ),
-                      )
-                    : isHovering
-                        ? AnimatedContainer(
-                            width: double.infinity,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                            color: widget
-                                .appearance
-                                .textColor(context.tokens)
-                                .withValues(alpha: 0.06),
-                            child: content,
-                          )
-                        : content;
+                final hasHighlightBg = highlightFill != null;
 
+                // The highlight only reaches the text length (marker-pen
+                // look) and does not change the text layout. We anchor on
+                // the text's intrinsic width rather than filling the row.
+                final content = _buildContent(context, theme, highlightColor);
+
+                final Widget verseBody;
+                if (hasHighlightBg) {
+                  // When a neighbouring verse shares this highlight colour,
+                  // extend the marker into the inter-verse gap (and square the
+                  // corner on that side) so consecutive verses form one clean
+                  // continuous highlight band.
+                  final topJoined = (widget.highlightStartPadding ?? 6.0) == 0.0;
+                  final bottomJoined = (widget.highlightEndPadding ?? 6.0) == 0.0;
+                  final topExtend = topJoined ? _kInterVerseGap : 0.0;
+                  final bottomExtend = bottomJoined ? _kInterVerseGap : 0.0;
+                  final radius = 4.0;
+                  verseBody = Align(
+                    alignment: Alignment.centerLeft,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      decoration: BoxDecoration(
+                        color: highlightFill,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(topJoined ? 0.0 : radius),
+                          bottom: Radius.circular(bottomJoined ? 0.0 : radius),
+                        ),
+                      ),
+                      padding: EdgeInsets.only(
+                        left: 3.0,
+                        right: 3.0,
+                        top: 1.0 + topExtend,
+                        bottom: 1.0 + bottomExtend,
+                      ),
+                      child: content,
+                    ),
+                  );
+                } else if (isHovering) {
+                  verseBody = Align(
+                    alignment: Alignment.centerLeft,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      color: widget
+                          .appearance
+                          .textColor(context.tokens)
+                          .withValues(alpha: 0.06),
+                      child: content,
+                    ),
+                  );
+                } else {
+                  verseBody = content;
+                }
+
+                // Constant outer vertical padding so highlighting never
+                // shifts the surrounding text layout.
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
-                  child: decorated,
+                  child: verseBody,
                 );
               },
             ),

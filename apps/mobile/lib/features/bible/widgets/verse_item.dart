@@ -38,6 +38,11 @@ class VerseItem extends StatelessWidget {
   final VoidCallback? onClear;
   final void Function(int initialTab)? onOpenStudyPage;
 
+  /// When a highlight is active, controls whether the highlight background
+  /// extends into vertical padding to join adjacent highlighted verses.
+  final double? highlightStartPadding;
+  final double? highlightEndPadding;
+
   const VerseItem({
     super.key,
     required this.verse,
@@ -56,6 +61,8 @@ class VerseItem extends StatelessWidget {
     this.onBookmark,
     this.onClear,
     this.onOpenStudyPage,
+    this.highlightStartPadding,
+    this.highlightEndPadding,
   });
 
   @override
@@ -70,6 +77,8 @@ class VerseItem extends StatelessWidget {
       refCount: crossReferences.length,
       commentaryCount: backgroundNotes.length,
       hasNote: hasNote,
+      highlightStartPadding: highlightStartPadding,
+      highlightEndPadding: highlightEndPadding,
     );
   }
 }
