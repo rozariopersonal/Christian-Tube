@@ -10,6 +10,7 @@ import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/shared/ui/reader_appearance_sheet.dart';
 import 'package:share_plus/share_plus.dart';
 import '../controllers/article_reader_controller.dart';
+import '../models/wftw_index_entry.dart';
 import '../services/article_sync_service.dart';
 
 class ArticleReaderScreen extends StatefulWidget {
@@ -304,21 +305,8 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              sliver: SliverList(
+                sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  // Article Title
-                  Text(
-                    article.title,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: appearance.fontSize * 1.5,
-                      fontWeight: FontWeight.bold,
-                      height: 1.3,
-                      fontFamily: fontFamily,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
                   // Metadata: Author & Date
                   Row(
                     children: [
@@ -341,7 +329,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          article.date,
+                          formatWftwDate(article.date),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
