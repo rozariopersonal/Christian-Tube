@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import '../../../core/theme/app_tokens.dart';
 
 InAppWebViewController? _activeMainWebViewController;
 
@@ -285,20 +286,21 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     if (InAppWebViewPlatform.instance == null) {
       return widget.builder(
         context,
         Container(
-          color: Colors.black,
-          child: const Center(
-            child: Icon(Icons.play_circle_fill, color: Colors.white, size: 48),
+          color: tokens.scrim,
+          child: Center(
+            child: Icon(Icons.play_circle_fill, color: tokens.onScrim, size: 48),
           ),
         ),
       );
     }
 
     final webView = Container(
-      color: Colors.black,
+      color: tokens.scrim,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -359,6 +361,7 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
   }
 
   Widget _buildFullScreenButton(BuildContext context) {
+    final tokens = context.tokens;
     return Positioned(
       right: 8,
       bottom: 8,
@@ -375,14 +378,14 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
             width: 40,
             height: 32,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
+              color: tokens.onScrim.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(
               widget.isFullScreen
                   ? Icons.fullscreen_exit_rounded
                   : Icons.fullscreen_rounded,
-              color: Colors.white,
+              color: tokens.onScrim,
               size: 20,
             ),
           ),

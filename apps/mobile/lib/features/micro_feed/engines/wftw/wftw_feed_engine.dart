@@ -192,7 +192,7 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
         // 2. Filter & Sort Pill
         GestureDetector(
           onTap: () {
-            showModalBottomSheet(
+            showAdaptiveBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
               isScrollControlled: true,
@@ -315,7 +315,7 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
         icon: Icons.palette_outlined,
         label: 'Style',
         onTap: () {
-          showModalBottomSheet(
+          showAdaptiveBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
             isScrollControlled: true,

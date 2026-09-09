@@ -72,6 +72,8 @@ data/dictionaries_published/
 *.sqlite.gz
 data/dictionaries_raw/
 data/temp_releases_repo/
+# Downloaded song-source caches (Tamil worshipsongs DB + Hymnal API)
+data/hymnal/
 apps/mobile/test/scratch_*.dart
 .codex/
 

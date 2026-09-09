@@ -6,6 +6,7 @@ import 'core/engines/active_engine.g.dart';
 import 'core/link/deep_link_controller.dart';
 import 'core/models/video.dart';
 import 'core/services/notification_service.dart';
+import 'core/theme/app_tokens.dart';
 import 'core/theme/theme_service.dart';
 import 'core/web/url_strategy.dart'
     if (dart.library.html) 'core/web/url_strategy_web.dart';
@@ -97,6 +98,13 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
 
     _router = GoRouter(
       initialLocation: '/feed',
+      redirect: (context, state) {
+        if (state.matchedLocation == '/' || state.matchedLocation.isEmpty) {
+          return '/feed';
+        }
+        return null;
+      },
+      errorBuilder: (context, state) => const _NotFoundScreen(),
       routes: [
         ShellRoute(
           builder: (context, state, child) {
@@ -110,10 +118,13 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             GoRoute(
               path: '/shorts',
               builder: (context, state) {
+                final extraMap = state.extra is Map<String, dynamic>
+                    ? state.extra as Map<String, dynamic>
+                    : null;
                 final shortId = state.uri.queryParameters['id'] ??
                     state.uri.queryParameters['videoId'] ??
-                    (state.extra as Map<String, dynamic>?)?['shortId'] as String?;
-                final initialIndex = (state.extra as Map<String, dynamic>?)?['initialIndex'] as int?;
+                    extraMap?['shortId'] as String?;
+                final initialIndex = extraMap?['initialIndex'] as int?;
                 return ShortsFeedScreen(
                   initialShortId: shortId,
                   initialIndex: initialIndex,
@@ -137,9 +148,11 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                   initialVersionId: qp['version'] ?? extra?['version'] as String?,
                   initialBook: qp['book'] ?? extra?['book'] as String?,
                   initialChapter: int.tryParse(qp['chapter'] ?? '') ??
-                      (extra?['chapter'] as int?),
+                      (extra?['chapter'] as int?) ??
+                      1,
                   initialVerse: int.tryParse(qp['verse'] ?? '') ??
-                      (extra?['verse'] as int?),
+                      (extra?['verse'] as int?) ??
+                      1,
                 );
               },
             ),
@@ -302,9 +315,13 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
         GoRoute(
           path: '/song/:id',
           builder: (context, state) {
+            final songId = state.pathParameters['id'] ?? '';
             final extra = state.extra;
             final song = extra is Song ? extra : null;
-            return SongReaderScreen(song: song ?? Song.empty());
+            return SongReaderScreen(
+              songId: songId,
+              initialSong: song,
+            );
           },
         ),
       ],
@@ -330,6 +347,68 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
           supportedLocales: AppLocalizations.supportedLocales,
         );
       },
+    );
+  }
+}
+
+/// Fallback screen shown when a route does not match (404).
+class _NotFoundScreen extends StatelessWidget {
+  const _NotFoundScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: tokens.background,
+      appBar: AppBar(
+        backgroundColor: tokens.background,
+        elevation: 0,
+        title: Text(
+          'Not Found',
+          style: TextStyle(
+            color: tokens.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.link_off_rounded,
+                size: 48,
+                color: tokens.onSurfaceMuted,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Page not found',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: tokens.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'The page you are looking for does not exist.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: tokens.onSurfaceMuted,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => context.go('/feed'),
+                icon: const Icon(Icons.home_outlined),
+                label: const Text('Back to feed'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

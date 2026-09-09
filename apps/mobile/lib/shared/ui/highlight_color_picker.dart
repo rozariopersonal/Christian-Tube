@@ -136,16 +136,18 @@ class HighlightColorPicker extends StatelessWidget {
                 hasHighlight
                     ? 'Pick a new color, or remove the current highlight.'
                     : 'Pick a color for the selected text.',
-                style: TextStyle(color: mutedCol, fontSize: 12),
+                style: TextStyle(color: mutedCol, fontSize: 13),
               ),
               const SizedBox(height: 16),
-              GridView.count(
-                crossAxisCount: 5,
+              GridView(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1,
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 72,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1,
+                ),
                 children: [
                   for (var i = 0; i < HighlightPalette.count; i++)
                     _ColorSwatch(

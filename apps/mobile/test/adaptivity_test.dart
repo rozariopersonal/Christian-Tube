@@ -57,8 +57,8 @@ void main() {
       expect(resolve(width: 599), AppNavMode.bottomBar);
     });
 
-    test('compact landscape hides navigation', () {
-      expect(resolve(width: 599, landscape: true), AppNavMode.hidden);
+    test('compact landscape shows the rail so navigation stays reachable', () {
+      expect(resolve(width: 599, landscape: true), AppNavMode.rail);
     });
 
     test('medium and expanded always use the rail', () {

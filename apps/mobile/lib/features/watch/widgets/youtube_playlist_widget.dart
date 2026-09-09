@@ -92,7 +92,7 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                             const SizedBox(height: 2),
                             Text(
                               'Video $currentNumber of $total',
-                              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
                             ),
                           ],
                         ),
@@ -105,7 +105,7 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Action Row: Loop, Shuffle, Autoplay, Prev, Next
+                  // Action Row: Loop, Shuffle, Prev, Next
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -162,19 +162,22 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                             ? widget.onNext
                             : null,
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
 
-                      // Autoplay Switch
-                      Row(
-                        children: [
-                          Text('Autoplay', style: TextStyle(fontSize: 11, color: tokens.onSurfaceMuted)),
-                          const SizedBox(width: 4),
-                          Switch(
-                            value: widget.isAutoplay,
-                            activeThumbColor: primary,
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            onChanged: widget.onToggleAutoplay,
-                          ),
-                        ],
+                  // Autoplay Toggle (own row so it never overflows at 320dp)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text('Autoplay',
+                          style: TextStyle(fontSize: 13, color: tokens.onSurfaceMuted)),
+                      const SizedBox(width: 4),
+                      Switch(
+                        value: widget.isAutoplay,
+                        activeThumbColor: primary,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        onChanged: widget.onToggleAutoplay,
                       ),
                     ],
                   ),
@@ -213,7 +216,7 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                                 ? Icon(Icons.play_arrow_rounded, color: primary, size: 20)
                                 : Text(
                                     '${index + 1}',
-                                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13, fontWeight: FontWeight.bold),
                                     textAlign: TextAlign.center,
                                   ),
                           ),
@@ -241,12 +244,16 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                                         decoration: BoxDecoration(
-                                          color: Colors.black87,
+                                          color: tokens.scrim,
                                           borderRadius: BorderRadius.circular(3),
                                         ),
                                         child: Text(
                                           video.duration!,
-                                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                                          style: TextStyle(
+                                            color: tokens.onScrim,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -274,7 +281,7 @@ class _YouTubePlaylistWidgetState extends State<YouTubePlaylistWidget> {
                                 const SizedBox(height: 2),
                                 Text(
                                   video.channelTitle,
-                                  style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11),
+                                  style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),

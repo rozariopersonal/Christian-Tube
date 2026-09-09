@@ -9,6 +9,8 @@ import '../models/book_highlight.dart';
 import '../services/book_service.dart';
 import '../services/book_paragraph_grouper.dart';
 import '../services/reading_position_tracker.dart';
+import '../services/scripture_ref_parser.dart';
+import '../../engines/scripture/services/book_name_service.dart';
 import '../../../../shared/ui/reader_appearance_sheet.dart';
 import '../widgets/book_highlights_sheet.dart';
 import '../widgets/book_toc_sheet.dart';
@@ -72,6 +74,11 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Prewarm localized book names so scripture references inside the book
+    // (in any supported language) resolve to tappable verse popups.
+    BookNameService().ensureLoaded().then((_) {
+      ScriptureRefParser.refreshRuntimeBookNumbers();
+    });
     _controller = BookReaderController(
       BookService.instance,
       widget.bookId,

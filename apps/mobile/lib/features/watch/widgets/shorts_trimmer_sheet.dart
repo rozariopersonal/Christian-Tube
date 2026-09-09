@@ -494,7 +494,7 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                       decoration: BoxDecoration(
                                         border: Border(
                                           right: BorderSide(
-                                            color: Colors.black
+                                             color: tokens.scrim
                                                 .withValues(alpha: 0.45),
                                             width: 1.0,
                                           ),
@@ -507,7 +507,7 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
 placeholder: (context, url) =>
                                             Container(
                                           color: tokens.surface,
-                                          child: const Center(
+                                          child: Center(
                                             child: SizedBox(
                                               width: 12,
                                               height: 12,
@@ -516,7 +516,7 @@ placeholder: (context, url) =>
                                                 valueColor:
                                                     AlwaysStoppedAnimation<
                                                         Color>(
-                                                        Colors.white24),
+                                                        tokens.onScrimMuted),
                                               ),
                                             ),
                                           ),
@@ -539,28 +539,28 @@ placeholder: (context, url) =>
 
                             // 2. Inactive Region Dimming Overlays
                             // Left unselected region
-                            if (startPct > 0)
-                              Positioned(
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: startPct * trackWidth,
-                                child: Container(
-                                  color: Colors.black.withValues(alpha: 0.65),
-                                ),
-                              ),
+                             if (startPct > 0)
+                               Positioned(
+                                 left: 0,
+                                 top: 0,
+                                 bottom: 0,
+                                 width: startPct * trackWidth,
+                                 child: Container(
+                                   color: tokens.scrim.withValues(alpha: 0.65),
+                                 ),
+                               ),
 
-                            // Right unselected region
-                            if (endPct < 1.0)
-                              Positioned(
-                                left: endPct * trackWidth,
-                                right: 0,
-                                top: 0,
-                                bottom: 0,
-                                child: Container(
-                                  color: Colors.black.withValues(alpha: 0.65),
-                                ),
-                              ),
+                             // Right unselected region
+                             if (endPct < 1.0)
+                               Positioned(
+                                 left: endPct * trackWidth,
+                                 right: 0,
+                                 top: 0,
+                                 bottom: 0,
+                                 child: Container(
+                                   color: tokens.scrim.withValues(alpha: 0.65),
+                                 ),
+                               ),
 
                             // 3. Highlight Window (Selected Clip Box with Tactile Handles)
                             Positioned(
@@ -598,7 +598,7 @@ placeholder: (context, url) =>
                                       child: Container(
                                         width: 3.5,
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                           color: tokens.onScrim,
                                           borderRadius:
                                               BorderRadius.circular(2),
                                         ),
@@ -611,7 +611,7 @@ placeholder: (context, url) =>
                                         vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.black
+                                        color: tokens.scrim
                                             .withValues(alpha: 0.75),
                                         borderRadius:
                                             BorderRadius.circular(4),
@@ -638,7 +638,7 @@ placeholder: (context, url) =>
                                       child: Container(
                                         width: 3.5,
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                           color: tokens.onScrim,
                                           borderRadius:
                                               BorderRadius.circular(2),
                                         ),
@@ -664,7 +664,7 @@ placeholder: (context, url) =>
                                   child: Container(
                                     width: 2.5,
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: tokens.onScrim,
                                       boxShadow: [
                                         BoxShadow(
                                           color: tokens.accent
@@ -849,8 +849,10 @@ placeholder: (context, url) =>
                           const RoundSliderThumbShape(enabledThumbRadius: 10),
                       overlayColor: tokens.accent.withValues(alpha: 0.2),
                       valueIndicatorColor: tokens.accent,
-                      valueIndicatorTextStyle: const TextStyle(
-                        color: Colors.black,
+                      valueIndicatorTextStyle: TextStyle(
+                        color: tokens.accent.computeLuminance() > 0.45
+                            ? Colors.black
+                            : Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -938,7 +940,9 @@ placeholder: (context, url) =>
                       onPressed: _onPublish,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: tokens.accent,
-                        foregroundColor: Colors.black,
+                        foregroundColor: tokens.accent.computeLuminance() > 0.45
+                            ? Colors.black
+                            : Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),

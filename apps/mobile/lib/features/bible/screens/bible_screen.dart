@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../downloads/screens/downloads_manager_screen.dart';
 import 'package:flutter/services.dart';
 import '../widgets/book_chapter_selector.dart';
 import '../../../shared/ui/reader_appearance_sheet.dart';
@@ -301,10 +301,7 @@ class _BibleScreenState extends State<BibleScreen> {
   // ── Navigation helpers ────────────────────────────────────────────────
 
   Future<void> _pushManager() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const DownloadsManagerScreen(initialTab: 1)),
-    );
+    await context.push('/bible-manager');
     _controller.fetchData();
   }
 

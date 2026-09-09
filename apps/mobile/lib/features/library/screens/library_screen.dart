@@ -13,7 +13,6 @@ import '../../articles/services/wftw_index_service.dart';
 import '../../articles/widgets/wftw_shelf.dart';
 import '../../books/models/book.dart';
 import '../../books/models/user_reading_progress.dart';
-import '../../books/screens/book_reader_screen.dart';
 import '../../songs/models/song.dart';
 import '../../songs/services/songs_catalog_service.dart';
 import '../../songs/widgets/song_shelf.dart';
@@ -229,15 +228,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
       targetLine = shouldResume ? progress.currentLine : 1;
     }
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BookReaderScreen(
-          bookId: book.id,
-          initialPage: targetPage,
-          highlightStartLine: targetLine,
-          highlightEndLine: targetLine,
-        ),
-      ),
+    await context.push(
+      '/books/${book.id}?page=$targetPage&startLine=$targetLine&endLine=$targetLine',
     );
     _loadData();
   }
@@ -264,7 +256,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
             Text(
               'Books • Songs • Teachings • Articles',
-              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
             ),
           ],
         ),
@@ -485,7 +477,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: tokens.onSurfaceMuted,
-                                  fontSize: 11,
+                                  fontSize: 13,
                                 ),
                               ),
                               const SizedBox(height: 5),

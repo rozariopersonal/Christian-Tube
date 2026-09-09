@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../layout/adaptivity.dart';
 
 /// Centralized service to manage bottom navigation tab bar visibility across the entire app.
 class BottomBarVisibilityService extends ChangeNotifier {
@@ -56,23 +58,28 @@ class BottomBarVisibilityService extends ChangeNotifier {
     }
   }
 
-  /// Calculates whether the bottom navigation tabs should be visible given the current context and route.
+  /// Whether the bottom tab bar should be visible in the current context.
+  ///
+  /// Delegates to [resolveNavMode] so the shell has exactly one navigation
+  /// policy: the bottom bar is only shown when the resolved mode is `bottomBar`
+  /// (compact portrait). Compact landscape uses a rail instead; fullscreen
+  /// media suppresses all navigation.
   bool shouldShow({
     required BuildContext context,
     required String currentPath,
     int? selectedIndex,
   }) {
-    // 1. Hide when device/screen is in Landscape (e.g. Fullscreen Video Player)
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    if (isLandscape) return false;
-
-    // 2. Hide when a short video is actively playing
-    if (_isShortPlaying) return false;
-
-    // 3. Hide if explicitly requested (e.g. modals, croppers, overlays)
-    if (_isExplicitlyHidden) return false;
-
-    // 4. Default: Show bottom tabs in all screens and portrait modes (including Shorts browsing grid)
-    return true;
+    final size = MediaQuery.sizeOf(context);
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final mode = resolveNavMode(
+      width: size.width,
+      isLandscape: isLandscape,
+      isShortPlaying: _isShortPlaying,
+      isExplicitlyHidden: _isExplicitlyHidden,
+      isWatchRoute: currentPath.startsWith('/watch'),
+      isWeb: kIsWeb,
+    );
+    return mode == AppNavMode.bottomBar;
   }
 }

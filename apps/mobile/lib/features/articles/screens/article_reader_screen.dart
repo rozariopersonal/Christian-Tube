@@ -6,6 +6,7 @@ import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/books/widgets/scripture_verse_popup.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
+import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/shared/ui/reader_appearance_sheet.dart';
 import 'package:share_plus/share_plus.dart';
@@ -43,6 +44,11 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
       lang: widget.lang,
       syncService: widget.syncService,
     );
+    // Load localized book names so scripture references in the article's
+    // language resolve to tappable verse popups.
+    BookNameService().ensureLoaded().then((_) {
+      ScriptureRefParser.refreshRuntimeBookNumbers();
+    });
   }
 
   @override

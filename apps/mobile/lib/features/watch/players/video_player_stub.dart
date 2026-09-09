@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 
 void pausePlatformMainVideo() {}
 void resumePlatformMainVideo() {}
@@ -15,7 +16,7 @@ Widget buildPlatformVideoPlayer({
   return Builder(
     builder: (context) => builder(
       context,
-      Container(color: Colors.black),
+      Container(color: context.tokens.scrim),
     ),
   );
 }

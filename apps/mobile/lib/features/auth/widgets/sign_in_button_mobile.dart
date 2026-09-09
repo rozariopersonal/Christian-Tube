@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class SignInButtonMobile extends StatelessWidget {
   final VoidCallback? onPressed;
@@ -12,29 +13,30 @@ class SignInButtonMobile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return ElevatedButton.icon(
       onPressed: isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor: tokens.surface,
+        foregroundColor: tokens.onSurface,
         elevation: 2,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: Colors.grey.shade300),
+          side: BorderSide(color: tokens.surfaceBorder),
         ),
       ),
       icon: isLoading
-          ? const SizedBox(
+          ? SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(strokeWidth: 2, color: tokens.accent),
             )
           : Image.network(
               'https://developers.google.com/identity/images/g-logo.png',
               height: 18,
               errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.account_circle, color: Colors.blue),
+                  Icon(Icons.account_circle, color: tokens.accent),
             ),
       label: const Text(
         'Sign in with Google',

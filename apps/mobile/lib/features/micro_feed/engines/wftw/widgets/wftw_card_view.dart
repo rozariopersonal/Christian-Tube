@@ -150,6 +150,7 @@ class _WftwCardViewState extends State<WftwCardView> {
     if (widget.filterState.textAlign == 'left') textAlign = TextAlign.left;
     if (widget.filterState.textAlign == 'right') textAlign = TextAlign.right;
 
+    final tokens = context.tokens;
     final mediaQuery = MediaQuery.of(context);
     final height = mediaQuery.size.height;
     final heightFactor = (height / 800.0).clamp(0.75, 1.25);
@@ -162,7 +163,7 @@ class _WftwCardViewState extends State<WftwCardView> {
       fit: StackFit.expand,
       children: [
         // 1. Background preset
-        _buildBackground(preset),
+        _buildBackground(preset, tokens),
 
         // 2. Scrim overlay for legibility
         const CardScrimOverlay(),
@@ -216,16 +217,16 @@ class _WftwCardViewState extends State<WftwCardView> {
                               ? FontStyle.italic
                               : FontStyle.normal,
                         ).copyWith(
-                          shadows: const [
+                          shadows: [
                             Shadow(
-                              color: Colors.black,
+                              color: tokens.scrim,
                               blurRadius: 18,
-                              offset: Offset(0, 2),
+                              offset: const Offset(0, 2),
                             ),
                             Shadow(
-                              color: Colors.black54,
+                              color: tokens.scrim.withValues(alpha: 0.54),
                               blurRadius: 6,
-                              offset: Offset(0, 1),
+                              offset: const Offset(0, 1),
                             ),
                           ],
                         ),
@@ -256,7 +257,7 @@ class _WftwCardViewState extends State<WftwCardView> {
     return dynamicBaseSize;
   }
 
-  Widget _buildBackground(BackgroundPreset preset) {
+  Widget _buildBackground(BackgroundPreset preset, AppTokens tokens) {
     if (preset.isGradient && preset.gradientColors != null) {
       if (preset.isAnimatedGradient) {
         return AnimatedFluidGradient(
@@ -281,14 +282,14 @@ class _WftwCardViewState extends State<WftwCardView> {
         height: double.infinity,
         fadeInDuration: const Duration(milliseconds: 300),
         placeholder: (context, url) => Container(
-          color: const Color(0xFF0F172A),
+          color: tokens.surface,
         ),
         errorWidget: (context, url, error) => Container(
-          color: const Color(0xFF0F172A),
+          color: tokens.surface,
         ),
       );
     }
-    return Container(color: const Color(0xFF0F172A));
+    return Container(color: tokens.surface);
   }
 }
 

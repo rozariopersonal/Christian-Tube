@@ -82,7 +82,7 @@ class SearchVideoCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${Formatters.formatViews(video.viewCount)} views • ${Formatters.formatTimeAgo(video.publishedAt)}',
-                    style: theme.textTheme.bodySmall?.copyWith(color: tokens.onSurfaceMuted, fontSize: 11),
+                    style: theme.textTheme.bodySmall?.copyWith(color: tokens.onSurfaceMuted, fontSize: 13),
                   ),
                 ],
               ),

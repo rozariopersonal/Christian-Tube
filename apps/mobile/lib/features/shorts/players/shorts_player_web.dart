@@ -5,6 +5,7 @@ import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import '../../../core/models/short.dart';
+import '../../../core/theme/app_tokens.dart';
 
 final Map<int, html.IFrameElement> _activeWebSlots = {};
 final Set<String> _registeredSlotViews = {};
@@ -54,6 +55,7 @@ void seekPlatformShort(int slotIndex, double seconds) {
 }
 
 Widget buildPlatformShortsPlayer({
+  required BuildContext context,
   required Short short,
   required bool isPlaying,
   int slotIndex = 0,
@@ -297,9 +299,10 @@ class _WebShortsPlayerWidgetState extends State<_WebShortsPlayerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return ClipRect(
       child: Container(
-        color: Colors.black,
+        color: tokens.scrim,
         child: Center(
           child: HtmlElementView(
             key: ValueKey(_viewId),

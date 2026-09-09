@@ -288,7 +288,36 @@ Christian-Tube-Releases/
 - **Books**: The catalog (`books/catalog.json`) is common and language-agnostic. Book content
   is partitioned cleanly by language code (`books/{lang}/...`).
 
-### 4. Git Submodule Workflow
+### 4. Asset Revision & Cache Busting
+
+Static assets (book covers, fonts, audio art) are served from immutable-looking
+URLs, but the client caches them **by URL** (`CachedNetworkImage` disk cache and
+CDN edge caches). Replacing a file in place (same path, same branch) does **not**
+reach existing installs — the old bytes keep being served from local cache.
+
+Rules:
+
+- The top-level `releases/manifest.json` owns a `revision` field — the single
+  version token for the whole dataset. Keep it unique per release.
+- **Must** bust asset caches via that revision: `ReleaseAssets.urlsFor(...)`
+  appends `?rv=<revision>` to every candidate URL. When `manifest.json`'s
+  `revision` is bumped on a data push, all asset URLs change and caches refetch
+  without an app release.
+- **Must** bump `revision` in `releases/manifest.json` whenever hosted data or
+  binaries change (covers, fonts, catalog, chapters, feeds, audio, sqlite
+  packages). A commit that changes data but not the revision is a bug: installs
+  will keep showing stale assets.
+- **Must not** change cached asset filenames or directory structures as a
+  substitute for bumping the revision.
+- The client resolves the revision through `ReleaseRevision.load()` (`lib/core/
+  api/release_revision.dart`), called in `main()` before `runApp`. It seeds from
+  `SharedPreferences` (offline-safe) then refreshes from the live manifest with a
+  bounded timeout. Never block: failures fall back to the last-known revision
+  and are non-fatal.
+- The manifest fetch itself strips the `?rv=` query so it can always resolve the
+  newest revision.
+
+### 5. Git Submodule Workflow
 
 - The releases repo lives at `releases/`. When updating hosted data assets or binaries:
   1. Make edits and commit inside `releases/`.

@@ -21,6 +21,7 @@ class NativeShortsPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return buildPlatformShortsPlayer(
+      context: context,
       short: short,
       isPlaying: isPlaying,
       slotIndex: slotIndex,

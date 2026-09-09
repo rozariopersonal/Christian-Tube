@@ -55,9 +55,14 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              isAdmin ? 'Channel Administration' : 'Subscriptions',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 20),
+            title: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                isAdmin ? 'Channel Administration' : 'Subscriptions',
+                maxLines: 1,
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
             ),
             actions: [
               if (isAdmin)
@@ -246,7 +251,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                   ),
                   label: Text(
                     isSubscribed ? 'Subscribed' : 'Subscribe',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
                 if (isAdmin) ...[
@@ -328,8 +333,8 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
           final submittedBy = req['submittedBy'] ?? 'Anonymous';
           final status = req['status'] ?? 'PENDING';
 
-          Color statusColor = Colors.amber;
-          if (status == 'APPROVED') statusColor = Colors.green;
+          Color statusColor = context.tokens.accent;
+          if (status == 'APPROVED') statusColor = Theme.of(context).colorScheme.primary;
           if (status == 'REJECTED') statusColor = Theme.of(context).colorScheme.error;
 
           return Container(
@@ -367,12 +372,12 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                 const SizedBox(height: 6),
                 Text(
                   'URL: $channelUrl',
-                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
+                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Requested by: $submittedBy',
-                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 11),
+                  style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                 ),
                 if (status == 'PENDING') ...[
                   const SizedBox(height: 12),
@@ -387,8 +392,8 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade600,
-                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
                         ),
                         onPressed: () async {
                           final success = await _channelService.approveRequest(id, _authService.currentUser?.email);
@@ -396,7 +401,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(success ? 'Channel approved & video ingestion started!' : 'Approval failed'),
-                                backgroundColor: success ? Colors.green : Theme.of(context).colorScheme.error,
+                                backgroundColor: success ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
                               ),
                             );
                           }
@@ -432,7 +437,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(success ? 'Channel added successfully!' : 'Failed to add channel'),
-                backgroundColor: success ? Colors.green : Theme.of(context).colorScheme.error,
+                backgroundColor: success ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
               ),
             );
           }
@@ -461,7 +466,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(success ? 'Channel request submitted to admin!' : 'Failed to submit request'),
-                backgroundColor: success ? Colors.green : Theme.of(context).colorScheme.error,
+                backgroundColor: success ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
               ),
             );
           }
@@ -550,83 +555,88 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: context.tokens.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Add Channel (Admin)', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
-              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _queryController,
-            decoration: InputDecoration(
-              hintText: 'Search YouTube channel or paste URL...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.arrow_forward),
-                onPressed: () => _performSearch(_queryController.text),
-              ),
-              filled: true,
-              fillColor: context.tokens.surfaceVariant,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-            ),
-            onSubmitted: _performSearch,
-          ),
-          const SizedBox(height: 16),
-          if (_queryController.text.trim().isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.flash_on_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Ingest "${_queryController.text.trim()}" directly',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                    ),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () {
-                      final input = _queryController.text.trim();
-                      if (input.isNotEmpty) {
-                        Navigator.pop(context);
-                        widget.onAddDirect(input, input);
-                      }
-                    },
-                    child: const Text('Add Now'),
-                  ),
-                ],
-              ),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: context.tokens.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Add Channel (Admin)', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+              ],
             ),
             const SizedBox(height: 12),
-          ],
-          if (_isSearching)
-            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-          else
-            Expanded(
+            TextField(
+              controller: _queryController,
+              decoration: InputDecoration(
+                hintText: 'Search YouTube channel or paste URL...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.arrow_forward),
+                  onPressed: () => _performSearch(_queryController.text),
+                ),
+                filled: true,
+                fillColor: context.tokens.surfaceVariant,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              ),
+              onSubmitted: _performSearch,
+            ),
+            const SizedBox(height: 16),
+            if (_queryController.text.trim().isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.flash_on_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Ingest "${_queryController.text.trim()}" directly',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () {
+                        final input = _queryController.text.trim();
+                        if (input.isNotEmpty) {
+                          Navigator.pop(context);
+                          widget.onAddDirect(input, input);
+                        }
+                      },
+                      child: const Text('Add Now'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (_isSearching)
+              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            else
+              Flexible(
               child: _searchResults.isEmpty
                   ? Center(
                       child: Text(
@@ -662,7 +672,8 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
                       },
                     ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -700,87 +711,93 @@ class _RequestChannelBottomSheetState extends State<_RequestChannelBottomSheet> 
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: context.tokens.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Request Channel', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
-              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Find a YouTube channel you would like the admin to approve and add to the platform:',
-            style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search YouTube channel or paste URL...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.arrow_forward),
-                onPressed: () => _search(_searchController.text),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: context.tokens.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Request Channel', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Find a YouTube channel you would like the admin to approve and add to the platform:',
+              style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search YouTube channel or paste URL...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.arrow_forward),
+                  onPressed: () => _search(_searchController.text),
+                ),
+                filled: true,
+                fillColor: context.tokens.surfaceVariant,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
-              filled: true,
-              fillColor: context.tokens.surfaceVariant,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              onSubmitted: _search,
             ),
-            onSubmitted: _search,
-          ),
-          const SizedBox(height: 12),
-          if (_isSearching)
-            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-          else
-            Expanded(
-              child: _searchResults.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.search, size: 48, color: context.tokens.onSurfaceDisabled),
-                          const SizedBox(height: 8),
-                          Text('Search for a YouTube channel above', style: TextStyle(color: context.tokens.onSurfaceMuted)),
-                        ],
+            const SizedBox(height: 12),
+            if (_isSearching)
+              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            else
+              Flexible(
+                child: _searchResults.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.search, size: 48, color: context.tokens.onSurfaceDisabled),
+                            const SizedBox(height: 8),
+                            Text('Search for a YouTube channel above', style: TextStyle(color: context.tokens.onSurfaceMuted)),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: _searchResults.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, idx) {
+                          final r = _searchResults[idx];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage: r['thumbnail'] != null ? NetworkImage(r['thumbnail']) : null,
+                              child: r['thumbnail'] == null ? const Icon(Icons.tv) : null,
+                            ),
+                            title: Text(r['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: Text(
+                              '${Formatters.formatSubscribers(r['subscriberCount'])} subs',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            trailing: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                widget.onSubmitRequest(r['id'] ?? '', r['name'] ?? '');
+                              },
+                              child: const Text('Request'),
+                            ),
+                          );
+                        },
                       ),
-                    )
-                  : ListView.separated(
-                      itemCount: _searchResults.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, idx) {
-                        final r = _searchResults[idx];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: r['thumbnail'] != null ? NetworkImage(r['thumbnail']) : null,
-                            child: r['thumbnail'] == null ? const Icon(Icons.tv) : null,
-                          ),
-                          title: Text(r['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          subtitle: Text(
-                            '${Formatters.formatSubscribers(r['subscriberCount'])} subs',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          trailing: ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              widget.onSubmitRequest(r['id'] ?? '', r['name'] ?? '');
-                            },
-                            child: const Text('Request'),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-        ],
+              ),
+          ],
+        ),
       ),
     );
   }

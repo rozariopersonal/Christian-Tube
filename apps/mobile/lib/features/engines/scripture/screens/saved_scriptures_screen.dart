@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/layout/content_width.dart';
 import '../../../../core/link/deep_link_service.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/scripture_card.dart';
@@ -136,15 +137,17 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _cards.isEmpty
               ? _buildEmptyState(context)
-              : ListView.separated(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _cards.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 14),
-                  itemBuilder: (context, index) {
-                    final card = _cards[index];
-                    return _buildSavedCard(context, card);
-                  },
+              : MaxWidthBox(
+                  child: ListView.separated(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _cards.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      final card = _cards[index];
+                      return _buildSavedCard(context, card);
+                    },
+                  ),
                 ),
     );
   }

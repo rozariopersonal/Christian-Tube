@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/layout/content_width.dart';
@@ -7,7 +8,6 @@ import '../../core/link/deep_link_service.dart';
 import '../../core/models/video.dart';
 import '../../core/utils/formatters.dart';
 import '../profile/user_service.dart';
-import '../watch/video_player_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final List<Video>? history;
@@ -212,15 +212,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildHistoryRow(BuildContext context, Video video) {
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (ctx) => VideoPlayerScreen(
-              videoId: video.id,
-              initialVideo: video,
-            ),
-          ),
-        );
+        context.push('/watch/${video.id}', extra: video);
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -251,13 +243,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.8),
+                          color: context.tokens.scrim.withValues(alpha: 0.8),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           video.duration!,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.tokens.onScrim,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
@@ -291,7 +283,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       color: context.tokens.onSurfaceMuted,
                     ),
                   ),
@@ -299,7 +291,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   Text(
                     '${Formatters.formatViews(video.viewCount)} views • ${Formatters.formatTimeAgo(video.publishedAt)}',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 13,
                       color: context.tokens.onSurfaceDisabled,
                     ),
                   ),

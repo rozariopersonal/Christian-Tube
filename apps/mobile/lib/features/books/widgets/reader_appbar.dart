@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:mobile/core/config/app_config.dart';
+import 'package:mobile/core/layout/adaptivity.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
@@ -103,7 +104,7 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
         ],
       ),
-      actions: width < 360
+      actions: needsCollapsedActions(width)
           ? [
               IconButton(
                 icon: Icon(Icons.list_alt_rounded, color: mutedCol, size: 21),

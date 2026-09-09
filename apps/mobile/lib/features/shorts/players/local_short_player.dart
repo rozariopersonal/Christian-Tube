@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../../core/models/local_short_item.dart';
+import '../../../core/theme/app_tokens.dart';
 
 class LocalShortPlayer extends StatefulWidget {
   final LocalShortItem item;
@@ -108,10 +109,11 @@ class _LocalShortPlayerState extends State<LocalShortPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     if (_hasError || !_isInitialized || _controller == null) {
       // Background Sermon Thumbnail fallback while loading / rendering
       return Container(
-        color: Colors.black,
+        color: tokens.scrim,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -119,19 +121,19 @@ class _LocalShortPlayerState extends State<LocalShortPlayer> {
               Image.network(
                 widget.item.sourceVideoThumbnail!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(color: const Color(0xFF0F172A)),
+                errorBuilder: (_, __, ___) => Container(color: tokens.surface),
               )
             else
-              Container(color: const Color(0xFF0F172A)),
+              Container(color: tokens.surface),
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black45,
+                    tokens.scrim.withValues(alpha: 0.45),
                     Colors.transparent,
-                    Colors.black87,
+                    tokens.scrim.withValues(alpha: 0.87),
                   ],
                 ),
               ),
@@ -142,7 +144,7 @@ class _LocalShortPlayerState extends State<LocalShortPlayer> {
     }
 
     return Container(
-      color: Colors.black,
+      color: tokens.scrim,
       child: Center(
         child: AspectRatio(
           aspectRatio: _controller!.value.aspectRatio > 0

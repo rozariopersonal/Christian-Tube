@@ -359,6 +359,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         });
       },
       builder: (context, player) {
+        final tokens = context.tokens;
         if (isFullscreen) {
           return PopScope(
             canPop: !_isFullScreen,
@@ -382,7 +383,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               }
             },
             child: Scaffold(
-              backgroundColor: Colors.black,
+              backgroundColor: tokens.scrim,
               body: SizedBox.expand(child: player),
             ),
           );
@@ -456,6 +457,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   // ── Compact (Phone Portrait) Layout ────────────────────────────────────────
   Widget _buildCompactLayout(BuildContext context, Widget player) {
+    final tokens = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -463,7 +465,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         AspectRatio(
           aspectRatio: 16 / 9,
           child: Container(
-            color: Colors.black,
+            color: tokens.scrim,
             child: player,
           ),
         ),
@@ -519,6 +521,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   // ── Real YouTube Desktop / Tablet (Medium & Expanded) Layout ───────────────
   Widget _buildExpandedLayout(BuildContext context, Widget player) {
+    final tokens = context.tokens;
     final screenClass = ScreenClass.of(context);
     final isExpanded = screenClass == ScreenClass.expanded;
     final sidebarWidth = isExpanded ? 380.0 : 240.0;
@@ -540,16 +543,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1280),
-                      child: AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            color: Colors.black,
-                            child: player,
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              color: tokens.scrim,
+                              child: player,
+                            ),
                           ),
                         ),
-                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -702,7 +705,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: tokens.onSurfaceMuted,
-                        fontSize: 11,
+                        fontSize: 13,
                       ),
                     ),
                 ],
@@ -723,9 +726,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                minimumSize: const Size(0, 40),
+                tapTargetSize: MaterialTapTargetSize.padded,
               ),
               onPressed: () {
                 if (_video?.channelId.isNotEmpty == true) {
@@ -742,7 +745,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   const SizedBox(width: 4),
                   Text(
                     isSubscribed ? 'Subscribed' : 'Subscribe',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),

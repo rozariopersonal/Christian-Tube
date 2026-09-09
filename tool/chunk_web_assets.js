@@ -3,10 +3,8 @@ const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 
 const BASE_DIR = path.join(__dirname, '..');
-const REPO_DIR = path.join(
-  process.env.USERPROFILE || 'C:\\Users\\Arul Rozario',
-  '.gemini\\antigravity-ide\\brain\\cb507cb7-2230-4248-aea5-7c55031079fc\\scratch\\releases_repo'
-);
+// The Christian-Tube-Releases repo, mounted as a git submodule at the repo root.
+const REPO_DIR = path.join(BASE_DIR, 'releases');
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -457,9 +455,16 @@ function chunkWordsFeed() {
 // -------------------------------------------------------------
 function generateGlobalIndex() {
   console.log('\n--- 7. Generating Global index.json ---');
+  // Resolve the releases repo name from app config rather than hardcoding.
+  let repo = 'Christian-Tube-Releases';
+  const configPath = path.join(BASE_DIR, 'apps', 'mobile', 'assets', 'app_config.json');
+  try {
+    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (cfg.releasesRepo) repo = cfg.releasesRepo;
+  } catch (_) {}
   const indexData = {
-    repository: 'Christian-Tube-Releases',
-    cdnBase: 'https://cdn.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main',
+    repository: repo,
+    cdnBase: `https://cdn.jsdelivr.net/gh/${repo}@main`,
     updatedAt: new Date().toISOString(),
     endpoints: {
       bibles: {
@@ -517,4 +522,38 @@ function runAll() {
   console.log('====================================================');
 }
 
-runAll();
+function runAll() {
+  const startTime = Date.now();
+  console.log('====================================================');
+  console.log('Starting Unified Asset Chunking for CDN & Web Access');
+  console.log('====================================================');
+
+  chunkBibles();
+  chunkBooksAndCommentaries();
+  // Dictionaries use live online APIs (FreeDictionaryAPI / Wiktionary) on web and SQLite when downloaded
+  chunkCrossReferences();
+  chunkBackgrounds();
+  chunkWordsFeed();
+  generateGlobalIndex();
+
+  const durationSec = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log('\n====================================================');
+  console.log(`✓ All assets successfully chunked in ${durationSec}s!`);
+  console.log(`Target directory: ${REPO_DIR}`);
+  console.log('====================================================');
+}
+
+// Allow a targeted words-feed-only regeneration (common after the scripture
+// analysis pipeline rewrites scriptures.json) without touching the other
+// asset trees:  CHUNKER_TARGET=wordsfeed node chunk_web_assets.js
+const target = (process.env.CHUNKER_TARGET || '').toLowerCase();
+if (target === 'wordsfeed') {
+  console.log('====================================================');
+  console.log('Targeted Words Feed chunking only');
+  console.log('====================================================');
+  chunkWordsFeed();
+  console.log(`Target directory: ${REPO_DIR}`);
+  console.log('====================================================');
+} else {
+  runAll();
+}

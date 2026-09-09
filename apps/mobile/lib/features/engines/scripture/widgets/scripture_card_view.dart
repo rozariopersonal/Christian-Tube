@@ -194,6 +194,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final preset = ScriptureThemeCatalog.getPreset(widget.card.activeBackground);
     final targetVersion = widget.filterState.activeVersionId;
 
@@ -349,15 +350,15 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                     children: [
                       // Opening Quote Mark
                       Text(
-                        '“',
+                        '"',
                         style: TextStyle(
                           fontSize: 48,
                           height: 0.8,
                           fontFamily: 'serif',
                           color: context.accent.withValues(alpha: 0.9),
-                          shadows: const [
+                          shadows: [
                             Shadow(
-                              color: Colors.black87,
+                              color: tokens.scrim.withValues(alpha: 0.87),
                               blurRadius: 12,
                               offset: Offset(0, 2),
                             ),
@@ -390,14 +391,14 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                           textWidthBasis: TextWidthBasis.parent,
                           style: textStyle.copyWith(
                             color: textColor,
-                            shadows: const [
+                            shadows: [
                               Shadow(
-                                color: Colors.black,
+                                color: tokens.scrim,
                                 blurRadius: 16,
                                 offset: Offset(0, 2),
                               ),
                               Shadow(
-                                color: Colors.black54,
+                                color: tokens.scrim.withValues(alpha: 0.54),
                                 blurRadius: 6,
                                 offset: Offset(0, 1),
                               ),
@@ -434,17 +435,17 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                             fontFamily: activeFontFamily,
                             languageCode: comparisonMeta?.languageCode ?? 'en',
                             baseSize: comparisonFontSize,
-                            color: Colors.white.withValues(alpha: 0.88),
+                            color: tokens.onScrim.withValues(alpha: 0.88),
                             fontWeight: FontWeight.w400,
                             fontStyle: FontStyle.italic,
-                          ).copyWith(shadows: const [
+                          ).copyWith(shadows: [
                             Shadow(
-                              color: Colors.black,
+                              color: tokens.scrim,
                               blurRadius: 16,
                               offset: Offset(0, 2),
                             ),
                             Shadow(
-                              color: Colors.black54,
+                              color: tokens.scrim.withValues(alpha: 0.54),
                               blurRadius: 6,
                               offset: Offset(0, 1),
                             ),
@@ -493,6 +494,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   }
 
   Widget _buildBackground(BackgroundPreset preset) {
+    final tokens = context.tokens;
     if (preset.isGradient && preset.gradientColors != null) {
       if (preset.isAnimatedGradient) {
         return AnimatedFluidGradient(
@@ -517,27 +519,27 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         height: double.infinity,
         fadeInDuration: const Duration(milliseconds: 300),
         placeholder: (context, url) => Container(
-          color: const Color(0xFF0F172A),
-          child: const Center(
+          color: tokens.surface,
+          child: Center(
             child: CircularProgressIndicator(
-              color: Colors.white24,
+              color: tokens.onScrim.withValues(alpha: 0.24),
               strokeWidth: 1.5,
             ),
           ),
         ),
         errorWidget: (context, url, error) => Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF0F172A), Color(0xFF020617)],
+              colors: [tokens.surface, tokens.scrim],
             ),
           ),
         ),
       );
     } else {
       return Container(
-        color: const Color(0xFF0A0A0A),
+        color: tokens.scrim,
       );
     }
   }
@@ -559,12 +561,13 @@ class _ReferenceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final borderColor = subdued
-        ? Colors.white.withValues(alpha: 0.25)
+        ? tokens.onScrim.withValues(alpha: 0.25)
         : context.accent.withValues(alpha: 0.4);
-    final accent = subdued ? Colors.white70 : context.tokens.accent;
+    final accent = subdued ? tokens.onScrimMuted : context.tokens.accent;
     final accentBg = subdued
-        ? Colors.white10
+        ? tokens.onScrim.withValues(alpha: 0.10)
         : context.accent.withValues(alpha: 0.25);
 
     return GestureDetector(
@@ -574,13 +577,13 @@ class _ReferenceBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
           color: onTap != null
-              ? Colors.black.withValues(alpha: 0.55)
-              : Colors.black.withValues(alpha: 0.45),
+              ? tokens.scrim.withValues(alpha: 0.55)
+              : tokens.scrim.withValues(alpha: 0.45),
           borderRadius: const BorderRadius.all(Radius.circular(20)),
           border: Border.all(color: onTap != null ? context.accent.withValues(alpha: 0.7) : borderColor, width: 1.0),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: tokens.scrim.withValues(alpha: 0.3),
               blurRadius: 8,
             ),
           ],
@@ -592,8 +595,8 @@ class _ReferenceBadge extends StatelessWidget {
               child: Text(
                 reference,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: tokens.onScrim,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,

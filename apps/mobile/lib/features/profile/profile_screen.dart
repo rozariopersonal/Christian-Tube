@@ -1,18 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import '../auth/auth_service.dart';
 import '../channels/channel_service.dart';
-import '../channels/channels_screen.dart';
-import '../engines/scripture/screens/saved_scriptures_screen.dart';
 import '../engines/scripture/services/saved_scripture_service.dart';
-import '../downloads/screens/downloads_manager_screen.dart';
-import '../history/history_screen.dart';
-import '../watch_plans/watch_plans_screen.dart';
-import 'admin_users_screen.dart';
-import 'playlist_detail_screen.dart';
-import 'settings_screen.dart';
-import 'subscriptions_screen.dart';
 import 'user_service.dart';
 import 'widgets/app_share_dialog.dart';
 import '../../core/theme/app_tokens.dart';
@@ -149,12 +141,7 @@ class ProfileScreen extends StatelessWidget {
                 icon: const Icon(Icons.settings_outlined),
                 tooltip: 'Settings',
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (ctx) => SettingsScreen(themeService: themeService),
-                    ),
-                  );
+                  context.push('/settings');
                 },
               ),
             ],
@@ -201,7 +188,7 @@ class ProfileScreen extends StatelessWidget {
                                           color: Theme.of(context).colorScheme.primary,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
-                                        child: Text('ADMIN', style: TextStyle(color: ColorScheme.of(context).onPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
+                                        child: Text('ADMIN', style: TextStyle(color: ColorScheme.of(context).onPrimary, fontSize: 11, fontWeight: FontWeight.bold)),
                                       ),
                                     ],
                                   ],
@@ -214,12 +201,12 @@ class ProfileScreen extends StatelessWidget {
                                   children: [
                                     InkWell(
                                       onTap: () => _showQuickSignInDialog(context),
-                                      child: Text('Switch account', style: TextStyle(color: context.tokens.accent, fontSize: 12, fontWeight: FontWeight.w600)),
+                                      child: Text('Switch account', style: TextStyle(color: context.tokens.accent, fontSize: 13, fontWeight: FontWeight.w600)),
                                     ),
-                                    Text('  •  ', style: TextStyle(color: context.tokens.onSurfaceDisabled, fontSize: 12)),
+                                    Text('  •  ', style: TextStyle(color: context.tokens.onSurfaceDisabled, fontSize: 13)),
                                     InkWell(
                                       onTap: () => authService.signOut(),
-                                      child: Text('Sign out', style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12)),
+                                      child: Text('Sign out', style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13)),
                                     ),
                                   ],
                                 ),
@@ -265,7 +252,7 @@ class ProfileScreen extends StatelessWidget {
                               TextButton.icon(
                                 onPressed: () => _showQuickSignInDialog(context),
                                 icon: const Icon(Icons.email_outlined, size: 16),
-                                label: const Text('Sign In with Email / Name', style: TextStyle(fontSize: 12)),
+                                label: const Text('Sign In with Email / Name', style: TextStyle(fontSize: 13)),
                               ),
                             ],
                           ],
@@ -300,15 +287,10 @@ class ProfileScreen extends StatelessWidget {
                           contentPadding: EdgeInsets.zero,
                           leading: Icon(Icons.people_alt_outlined, color: context.tokens.accent),
                           title: const Text('User Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          subtitle: const Text('View registered users, block or unblock accounts', style: TextStyle(fontSize: 11)),
+                          subtitle: const Text('View registered users, block or unblock accounts', style: TextStyle(fontSize: 13)),
                           trailing: const Icon(Icons.chevron_right, size: 20),
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (ctx) => AdminUsersScreen(userService: userService),
-                              ),
-                            );
+                            context.push('/admin-users');
                           },
                         ),
                       ],
@@ -327,12 +309,7 @@ class ProfileScreen extends StatelessWidget {
                     const Text('History', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                     TextButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (ctx) => const HistoryScreen(),
-                          ),
-                        );
+                        context.push('/history');
                       },
                       child: const Text('View all', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
@@ -381,17 +358,12 @@ class ProfileScreen extends StatelessWidget {
                   valueListenable: SavedScriptureService().savedCountNotifier,
                   builder: (context, count, _) => Text(
                     count == 1 ? '1 favorite verse saved' : '$count favorite verses saved',
-                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
+                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                   ),
                 ),
                 trailing: const Icon(Icons.chevron_right, size: 20),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (ctx) => const SavedScripturesScreen(),
-                    ),
-                  );
+                  context.push('/saved-scriptures');
                 },
               ),
 
@@ -410,16 +382,11 @@ class ProfileScreen extends StatelessWidget {
                   title: const Text('Offline Library & Downloads', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   subtitle: Text(
                     'Bibles, Dictionaries, Books & Commentaries',
-                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
+                    style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                   ),
                   trailing: const Icon(Icons.chevron_right, size: 20),
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (ctx) => const DownloadsManagerScreen(),
-                      ),
-                    );
+                    context.push('/downloads');
                   },
                 ),
 
@@ -429,28 +396,25 @@ class ProfileScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Playlists & Watch Plans', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.add, size: 20),
-                          tooltip: 'New Playlist',
-                          onPressed: () => _showCreatePlaylistDialog(context),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (ctx) => const WatchPlansScreen(),
-                              ),
-                            );
-                          },
-                          child: const Text('Watch Plans', style: TextStyle(fontWeight: FontWeight.w600)),
-                        ),
-                      ],
+                    const Expanded(
+                      child: Text(
+                        'Playlists & Watch Plans',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, size: 20),
+                      tooltip: 'New Playlist',
+                      onPressed: () => _showCreatePlaylistDialog(context),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        context.push('/watch-plans');
+                      },
+                      child: const Text('Watch Plans', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -478,15 +442,10 @@ class ProfileScreen extends StatelessWidget {
                       child: Icon(Icons.playlist_play, color: Theme.of(context).colorScheme.error),
                     ),
                     title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    subtitle: Text('${p.videoCount} videos', style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12)),
+                    subtitle: Text('${p.videoCount} videos', style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13)),
                     trailing: const Icon(Icons.chevron_right, size: 20),
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (ctx) => PlaylistDetailScreen(playlist: p),
-                        ),
-                      );
+                      context.push('/playlists/${p.id}', extra: p);
                     },
                   ),
                 ),
@@ -500,12 +459,7 @@ class ProfileScreen extends StatelessWidget {
                 title: const Text('Your Subscriptions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 trailing: const Icon(Icons.chevron_right, size: 20),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (ctx) => SubscriptionsScreen(channelService: channelService),
-                    ),
-                  );
+                  context.push('/subscriptions');
                 },
               ),
 
@@ -516,12 +470,7 @@ class ProfileScreen extends StatelessWidget {
                 title: const Text('Channels', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 trailing: const Icon(Icons.chevron_right, size: 20),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (ctx) => const ChannelsScreen(),
-                    ),
-                  );
+                  context.push('/channels');
                 },
               ),
 
@@ -530,15 +479,10 @@ class ProfileScreen extends StatelessWidget {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 leading: const Icon(Icons.palette_outlined),
                 title: const Text('Appearance, Fonts & Language', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                subtitle: const Text('Dark Mode, AMOLED Black, Colors, Typography', style: TextStyle(fontSize: 12)),
+                subtitle: const Text('Dark Mode, AMOLED Black, Colors, Typography', style: TextStyle(fontSize: 13)),
                 trailing: const Icon(Icons.chevron_right, size: 20),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (ctx) => SettingsScreen(themeService: themeService),
-                    ),
-                  );
+                  context.push('/settings');
                 },
               ),
 
@@ -547,7 +491,7 @@ class ProfileScreen extends StatelessWidget {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 leading: const Icon(Icons.qr_code_2_rounded),
                 title: const Text('Share App & QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                subtitle: const Text('Share download link or scan QR code', style: TextStyle(fontSize: 12)),
+                subtitle: const Text('Share download link or scan QR code', style: TextStyle(fontSize: 13)),
                 trailing: const Icon(Icons.chevron_right, size: 20),
                 onTap: () => AppShareDialog.show(context),
               ),
@@ -565,7 +509,7 @@ class ProfileScreen extends StatelessWidget {
       margin: const EdgeInsets.only(right: 12),
       child: InkWell(
         onTap: () {
-          Navigator.pushNamed(context, '/watch/${video.id}', arguments: {'video': video});
+          context.push('/watch/${video.id}', extra: {'video': video});
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -595,7 +539,7 @@ color: context.tokens.scrim,
                   ),
                   child: Text(
                     video.duration!,
-                    style: TextStyle(color: context.tokens.onSurface, fontSize: 9, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: context.tokens.onSurface, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -606,13 +550,13 @@ color: context.tokens.scrim,
               video.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, height: 1.2),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.2),
             ),
             Text(
               video.channelTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 10, color: context.tokens.onSurfaceMuted),
+              style: TextStyle(fontSize: 13, color: context.tokens.onSurfaceMuted),
             ),
           ],
         ),

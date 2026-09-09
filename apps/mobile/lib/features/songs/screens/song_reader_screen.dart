@@ -6,6 +6,7 @@ import '../../../core/layout/content_width.dart';
 import '../../../core/link/deep_link_service.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../models/song.dart';
+import '../services/songs_catalog_service.dart';
 import '../services/song_transliteration_controller.dart';
 
 /// Full lyrics reader for a single song.
@@ -15,9 +16,10 @@ import '../services/song_transliteration_controller.dart';
 /// `titleRoman`/`versesRoman`), an optional toggle switches the visible lyric
 /// text to the transliteration — a persisted, app-wide preference.
 class SongReaderScreen extends StatefulWidget {
-  final Song song;
+  final String? songId;
+  final Song? initialSong;
 
-  const SongReaderScreen({super.key, required this.song});
+  const SongReaderScreen({super.key, this.songId, this.initialSong});
 
   @override
   State<SongReaderScreen> createState() => _SongReaderScreenState();
@@ -25,12 +27,32 @@ class SongReaderScreen extends StatefulWidget {
 
 class _SongReaderScreenState extends State<SongReaderScreen> {
   late final SongTransliterationController _translit;
+  Song? _song;
+  bool _loading = false;
+
+  String get _effectiveId => widget.songId ?? widget.initialSong?.id ?? '';
 
   @override
   void initState() {
     super.initState();
     _translit = SongTransliterationController()..addListener(_onChanged);
     _translit.load();
+    _song = widget.initialSong;
+    if (_song == null && _effectiveId.isNotEmpty) {
+      _loadSong();
+    }
+  }
+
+  Future<void> _loadSong() async {
+    setState(() => _loading = true);
+    try {
+      final loaded = await SongsCatalogService().getSong(_effectiveId);
+      if (mounted) setState(() => _song = loaded);
+    } catch (_) {
+      if (mounted) setState(() => _song = Song.empty());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -50,10 +72,17 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final theme = Theme.of(context);
-    final song = widget.song;
-    final translitAvailable = song.hasTransliteration;
+    final song = _song;
+    final translitAvailable = song?.hasTransliteration ?? false;
 
-    if (song.id.isEmpty) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: tokens.background,
+        body: Center(child: CircularProgressIndicator(color: tokens.accent)),
+      );
+    }
+
+    if (song == null || song.id.isEmpty) {
       return Scaffold(
         backgroundColor: tokens.background,
         appBar: AppBar(
@@ -95,13 +124,14 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
       );
     }
 
+    final s = song!;
     // The Latin view shows the transliterated title; the primary view keeps
     // the true title. Fall back to the available one when a view is missing.
     final title =
-        _showTranslit && (song.titleRoman?.isNotEmpty ?? false)
-            ? song.titleRoman!
-            : song.title;
-    final author = song.author;
+        _showTranslit && (s.titleRoman?.isNotEmpty ?? false)
+            ? s.titleRoman!
+            : s.title;
+    final author = s.author;
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -119,9 +149,9 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
             tooltip: 'Share',
             icon: Icon(Icons.share_outlined, color: tokens.onSurfaceMuted, size: 21),
             onPressed: () {
-              final link = DeepLinkService.song(song.id);
+              final link = DeepLinkService.song(s.id);
               Share.share(
-                '$title — ${song.author ?? song.collection ?? AppConfig.appName}\n$link',
+                '$title — ${s.author ?? s.collection ?? AppConfig.appName}\n$link',
                 subject: title,
               );
             },
@@ -154,10 +184,10 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (author != null || song.collection != null) ...[
+              if (author != null || s.collection != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  [if (author != null) author, if (song.collection != null) song.collection!]
+                  [if (author != null) author, if (s.collection != null) s.collection!]
                       .join(' • '),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: tokens.onSurfaceMuted,
@@ -165,16 +195,16 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
                 ),
               ],
               const SizedBox(height: 24),
-              for (var i = 0; i < song.verses.length; i++) ...[
+              for (var i = 0; i < s.verses.length; i++) ...[
                 _VerseBlock(
                   number: i + 1,
-                  primaryText: song.verses[i],
+                  primaryText: s.verses[i],
                   romanText: _showTranslit ? _romanAt(i) : null,
                   showRoman: _showTranslit,
                   textColor: tokens.onSurface,
                   romanColor: tokens.onSurfaceMuted,
                 ),
-                if (i != song.verses.length - 1) const SizedBox(height: 16),
+                if (i != s.verses.length - 1) const SizedBox(height: 16),
               ],
             ],
           ),
@@ -186,8 +216,9 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
   /// Resolves the transliteration for verse [i], tolerating a short/mismatched
   /// [Song.versesRoman] list by treating missing entries as empty.
   String _romanAt(int i) {
-    if (i < 0 || i >= widget.song.versesRoman.length) return '';
-    return widget.song.versesRoman[i];
+    final versesRoman = _song?.versesRoman ?? const <String>[];
+    if (i < 0 || i >= versesRoman.length) return '';
+    return versesRoman[i];
   }
 }
 

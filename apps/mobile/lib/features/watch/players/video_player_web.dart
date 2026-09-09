@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_tokens.dart';
 
 final Set<String> _registeredVideoViews = {};
 
@@ -209,8 +210,9 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final container = Container(
-      color: Colors.black,
+      color: tokens.scrim,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -233,6 +235,7 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
   }
 
   Widget _buildFullScreenButton(BuildContext context) {
+    final tokens = context.tokens;
     return Positioned(
       right: 8,
       bottom: 8,
@@ -249,14 +252,14 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
             width: 40,
             height: 32,
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6),
+              color: tokens.scrim.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(
               widget.isFullScreen
                   ? Icons.fullscreen_exit_rounded
                   : Icons.fullscreen_rounded,
-              color: Colors.white,
+              color: tokens.onScrim,
               size: 20,
             ),
           ),

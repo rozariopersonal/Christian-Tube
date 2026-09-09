@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api/github_data_service.dart';
 import '../../../../core/layout/content_width.dart';
@@ -12,8 +13,6 @@ import '../models/book_language_meta.dart';
 import '../models/user_reading_progress.dart';
 import '../services/book_service.dart';
 import '../widgets/book_card.dart';
-import 'book_reader_screen.dart';
-import '../../downloads/screens/downloads_manager_screen.dart';
 
 /// Screen displaying the Books Library organized by subject groups with search,
 /// individual book on-demand downloading, and recent reading progress.
@@ -196,7 +195,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
         ? book.downloadSizeFormatted
         : 'under 100 KB';
 
-    final confirmed = await showModalBottomSheet<bool>(
+    final confirmed = await showAdaptiveBottomSheet<bool>(
       context: context,
       backgroundColor: tokens.surface,
       shape: const RoundedRectangleBorder(
@@ -368,7 +367,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     final tokens = context.tokens;
     final isInstalled = _installedBookIds.contains(book.id);
 
-    showModalBottomSheet<void>(
+    showAdaptiveBottomSheet<void>(
       context: context,
       backgroundColor: tokens.surface,
       shape: const RoundedRectangleBorder(
@@ -410,8 +409,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                 if (isInstalled)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                    title: const Text('Remove Download', style: TextStyle(color: Colors.redAccent)),
+                    leading: Icon(Icons.delete_outline_rounded, color: Theme.of(context).colorScheme.error),
+                    title: Text('Remove Download', style: TextStyle(color: Theme.of(context).colorScheme.error)),
                     subtitle: Text(
                       'Frees storage. Notes and reading progress are preserved.',
                       style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
@@ -483,15 +482,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
       targetLine = shouldResume ? progress.currentLine : 1;
     }
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BookReaderScreen(
-          bookId: book.id,
-          initialPage: targetPage,
-          highlightStartLine: targetLine,
-          highlightEndLine: targetLine,
-        ),
-      ),
+    await context.push(
+      '/books/${book.id}?page=$targetPage&startLine=$targetLine&endLine=$targetLine',
     );
 
     // Refresh progress on return
@@ -557,7 +549,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
               backgroundColor: tokens.surfaceVariant,
               selectedColor: tokens.accent,
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : tokens.onSurface,
+                color: isSelected ? Theme.of(context).colorScheme.onPrimary : tokens.onSurface,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 12.5,
               ),
@@ -835,12 +827,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
             ),
             tooltip: 'Offline Downloads & Commentaries',
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const DownloadsManagerScreen(initialTab: 3),
-                ),
-              ).then((_) => _loadCatalog());
+              context.push('/downloads?tab=3').then((_) => _loadCatalog());
             },
           ),
           IconButton(

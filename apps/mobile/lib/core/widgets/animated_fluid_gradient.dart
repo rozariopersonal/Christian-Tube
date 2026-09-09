@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../theme/app_tokens.dart';
 
 class AnimatedFluidGradient extends StatefulWidget {
   final List<Color> colors;
@@ -71,7 +72,10 @@ class _AnimatedFluidGradientState extends State<AnimatedFluidGradient>
           ),
           child: Container(
             // Safety Overlay: Guarantees high contrast for white text
-            color: Colors.black.withOpacity(widget.overlayOpacity),
+            color: (Theme.of(context).extension<AppTokens>() ??
+                    AppTokens.light)
+                .scrim
+                .withValues(alpha: widget.overlayOpacity),
           ),
         );
       },

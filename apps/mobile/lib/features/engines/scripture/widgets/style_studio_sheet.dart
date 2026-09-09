@@ -372,10 +372,10 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
               imageUrl: preset.imageUrl!,
               fit: BoxFit.cover,
               errorWidget: (_, __, ___) =>
-                  Container(color: const Color(0xFF1E293B)),
+                  Container(color: context.tokens.surfaceVariant),
             )
           else
-            Container(color: const Color(0xFF0F172A)),
+            Container(color: context.tokens.surface),
 
           // Dark Scrim Overlay
           Container(
@@ -405,9 +405,9 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: textStyle.copyWith(
-                        shadows: const [
+                        shadows: [
                           Shadow(
-                            color: Colors.black,
+                            color: context.tokens.scrim,
                             blurRadius: 8,
                             offset: Offset(0, 1),
                           ),
@@ -420,7 +420,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
+                      color: context.tokens.scrim.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: context.accent.withValues(alpha: 0.3),
@@ -531,10 +531,10 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                 imageUrl: preset.imageUrl!,
                 fit: BoxFit.cover,
                 errorWidget: (_, __, ___) =>
-                    Container(color: const Color(0xFF1E293B)),
+                    Container(color: context.tokens.surfaceVariant),
               )
             else
-              Container(color: const Color(0xFF0F172A)),
+              Container(color: context.tokens.surface),
 
             Container(
               decoration: BoxDecoration(
@@ -566,8 +566,8 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
               right: 4,
               child: Text(
                 preset.name,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: context.tokens.onScrim,
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                 ),
@@ -691,8 +691,8 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                 Icons.check,
                 size: 18,
                 color: colorOption.color.computeLuminance() > 0.5
-                    ? Colors.black
-                    : Colors.white,
+                    ? context.tokens.scrim
+                    : context.tokens.onScrim,
               )
             : null,
       ),

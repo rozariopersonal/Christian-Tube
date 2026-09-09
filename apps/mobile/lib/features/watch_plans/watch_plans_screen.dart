@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/models/watch_plan.dart';
 import '../../core/config/app_config.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
-import 'watch_plan_detail_screen.dart';
 
 class WatchPlansScreen extends StatefulWidget {
   const WatchPlansScreen({super.key});
@@ -239,10 +240,11 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                     ],
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                  itemCount: _plans.length,
-                  itemBuilder: (context, index) {
+              : MaxWidthBox(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                    itemCount: _plans.length,
+                    itemBuilder: (context, index) {
                     final plan = _plans[index];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
@@ -251,10 +253,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (ctx) => WatchPlanDetailScreen(plan: plan)),
-                          );
+                          context.push('/watch-plans/${plan.id}', extra: plan);
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -282,7 +281,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                                         const SizedBox(width: 4),
                                         Text(
                                           '${plan.streakDays}d streak',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: context.tokens.accent),
+                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: context.tokens.accent),
                                         ),
                                       ],
                                     ),
@@ -307,19 +306,16 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                                       children: [
                                         Icon(Icons.timer_outlined, size: 16, color: theme.colorScheme.primary),
                                         const SizedBox(width: 6),
-                                        Text('${plan.targetMinutesPerDay} mins/day', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                        Text('${plan.targetMinutesPerDay} mins/day', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                                         Icon(Icons.check_circle_outline, size: 16, color: Theme.of(context).colorScheme.primary),
                                         const SizedBox(width: 6),
-                                        Text('${plan.completedVideosCount} completed', style: const TextStyle(fontSize: 12)),
+                                        Text('${plan.completedVideosCount} completed', style: const TextStyle(fontSize: 13)),
                                       ],
                                     ),
                                   ),
                                   TextButton(
                                     onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (ctx) => WatchPlanDetailScreen(plan: plan)),
-                                      );
+                                      context.push('/watch-plans/${plan.id}', extra: plan);
                                     },
                                     child: const Text('Continue Plan →'),
                                   ),
@@ -332,6 +328,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
                     );
                   },
                 ),
+              ),
     );
   }
 }

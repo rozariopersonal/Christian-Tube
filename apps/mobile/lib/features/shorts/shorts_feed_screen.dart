@@ -201,7 +201,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                       context.tokens.scrim,
                       context.tokens.scrim,
                       context.tokens.scrim.withValues(alpha: 0.8),
-                      const Color(0x00000000),
+                      context.tokens.scrim.withValues(alpha: 0.0),
                     ],
                     stops: const [0.0, 0.55, 0.80, 1.0],
                   ),
@@ -214,7 +214,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.search, color: Colors.white, size: 22),
+                          icon: Icon(Icons.search, color: context.tokens.onScrim, size: 22),
                           tooltip: 'Search Shorts',
                           onPressed: () async {
                             final selectedShort = await showSearch<Short?>(
@@ -233,7 +233,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.refresh, color: Colors.white, size: 22),
+                          icon: Icon(Icons.refresh, color: context.tokens.onScrim, size: 22),
                           tooltip: 'Refresh',
                           onPressed: () {
                             _communityController.fetchShorts();
@@ -251,7 +251,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
               top: MediaQuery.of(context).padding.top + 8,
               left: 4,
               child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                icon: Icon(Icons.arrow_back_ios_new, color: context.tokens.onScrim, size: 20),
                 tooltip: 'Back',
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

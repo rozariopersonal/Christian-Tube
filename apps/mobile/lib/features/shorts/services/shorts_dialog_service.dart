@@ -27,7 +27,7 @@ class ShortsDialogService {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            const Icon(Icons.delete_outline, color: Colors.redAccent, size: 24),
+            Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 24),
             const SizedBox(width: 8),
             Text('Delete Creation', style: TextStyle(color: ctx.tokens.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
           ],
@@ -43,7 +43,7 @@ class ShortsDialogService {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: Theme.of(context).colorScheme.error,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
@@ -227,7 +227,9 @@ class ShortsDialogService {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ctx.accent,
-                      foregroundColor: Colors.black,
+                      foregroundColor: ctx.accent.computeLuminance() > 0.45
+                          ? Colors.black
+                          : Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),

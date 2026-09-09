@@ -46,18 +46,18 @@ class ShortBottomDetails extends StatelessWidget {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.only(left: 16, right: 16, bottom: 20, top: 40),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                Color(0xFA000000),
-                Color(0xDD000000),
-                Color(0x99000000),
-                Color(0x88000000),
-                Color(0x00000000),
+                context.tokens.scrim.withValues(alpha: 0.98),
+                context.tokens.scrim.withValues(alpha: 0.87),
+                context.tokens.scrim.withValues(alpha: 0.6),
+                context.tokens.scrim.withValues(alpha: 0.53),
+                context.tokens.scrim.withValues(alpha: 0.0),
               ],
-              stops: [0.0, 0.50, 0.70, 0.88, 1.0],
+              stops: const [0.0, 0.50, 0.70, 0.88, 1.0],
             ),
           ),
           child: Column(

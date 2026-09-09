@@ -256,6 +256,7 @@ class _FlutterVideoControlsOverlayState
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final tokens = context.tokens;
         final width = constraints.maxWidth;
         final zoneWidth = width * 0.38;
 
@@ -283,21 +284,21 @@ class _FlutterVideoControlsOverlayState
                   duration: const Duration(milliseconds: 200),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: tokens.onScrim.withValues(alpha: 0.15),
                       borderRadius: const BorderRadius.horizontal(
                         right: Radius.circular(100),
                       ),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.replay_10_rounded, color: Colors.white, size: 36),
-                          SizedBox(height: 4),
+                          Icon(Icons.replay_10_rounded, color: tokens.onScrim, size: 36),
+                          const SizedBox(height: 4),
                           Text(
                             '-10s',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: tokens.onScrim,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -324,21 +325,21 @@ class _FlutterVideoControlsOverlayState
                   duration: const Duration(milliseconds: 200),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: tokens.onScrim.withValues(alpha: 0.15),
                       borderRadius: const BorderRadius.horizontal(
                         left: Radius.circular(100),
                       ),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.forward_10_rounded, color: Colors.white, size: 36),
-                          SizedBox(height: 4),
+                          Icon(Icons.forward_10_rounded, color: tokens.onScrim, size: 36),
+                          const SizedBox(height: 4),
                           Text(
                             '+10s',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: tokens.onScrim,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -440,13 +441,14 @@ class _FlutterVideoControlsOverlayState
     required VoidCallback onTap,
     bool isPrimary = false,
   }) {
+    final tokens = context.tokens;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
         splashColor: context.tokens.accent.withValues(alpha: 0.3),
-        highlightColor: Colors.white24,
+        highlightColor: tokens.onScrim.withValues(alpha: 0.24),
         child: Container(
           width: buttonSize,
           height: buttonSize,
@@ -456,13 +458,15 @@ class _FlutterVideoControlsOverlayState
                 ? context.tokens.accent.withValues(alpha: 0.9)
                 : context.tokens.scrim.withValues(alpha: 0.5),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
+              color: tokens.onScrim.withValues(alpha: 0.18),
               width: 1.2,
             ),
           ),
           child: Icon(
             icon,
-            color: isPrimary ? Colors.black87 : Colors.white,
+            color: isPrimary
+                ? tokens.scrim.withValues(alpha: 0.87)
+                : tokens.onScrim,
             size: size,
           ),
         ),
@@ -471,6 +475,7 @@ class _FlutterVideoControlsOverlayState
   }
 
   Widget _buildBottomBar() {
+    final tokens = context.tokens;
     final maxMs = _totalDuration.inMilliseconds.toDouble();
     final curMs = _currentPosition.inMilliseconds.toDouble().clamp(0.0, maxMs);
 
@@ -495,7 +500,7 @@ class _FlutterVideoControlsOverlayState
               trackHeight: 3.5,
               trackShape: const RoundedRectSliderTrackShape(),
               activeTrackColor: context.tokens.accent,
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
+              inactiveTrackColor: tokens.onScrim.withValues(alpha: 0.28),
               thumbColor: context.tokens.accent,
               thumbShape: RoundSliderThumbShape(
                 enabledThumbRadius: _isScrubbing ? 7.5 : 5.5,
@@ -543,8 +548,8 @@ class _FlutterVideoControlsOverlayState
                 // Time Display
                 Text(
                   '${_formatDuration(_currentPosition)} / ${_formatDuration(_totalDuration)}',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: tokens.onScrim,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.3,
@@ -597,13 +602,13 @@ class _FlutterVideoControlsOverlayState
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: tokens.onScrim.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       '${_playbackRate}x',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: tokens.onScrim,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -622,7 +627,7 @@ class _FlutterVideoControlsOverlayState
                       (widget.controller?.value.isFullScreen ?? widget.isFullScreen)
                           ? Icons.fullscreen_exit_rounded
                           : Icons.fullscreen_rounded,
-                      color: Colors.white,
+                      color: tokens.onScrim,
                     ),
                     tooltip: 'Fullscreen',
                     onPressed: () {

@@ -46,6 +46,13 @@ int gridColumnsFor(BuildContext context, {int compact = 1, int medium = 2, int e
   }
 }
 
+/// Whether an `AppBar` should collapse trailing actions into an overflow
+/// `PopupMenuButton` to avoid overflow at the app's narrowest supported width
+/// (see Responsive & Adaptive UI Standard, rule 7).
+///
+/// Pure by width so tests can exercise it without a widget tree.
+bool needsCollapsedActions(double width) => width < 360;
+
 /// Recommended minimum tile widths (dp) for shared grid content.
 class GridExtents {
   GridExtents._();
@@ -74,8 +81,8 @@ enum AppNavMode {
 
 /// Pure decision logic for which shell navigation to show.
 ///
-/// - `compact` portrait keeps the bottom bar; `compact` landscape hides it
-///   (matching the legacy fullscreen-video behavior on phones).
+/// - `compact` portrait keeps the bottom bar; `compact` landscape shows the
+///   rail so navigation stays reachable on any device orientation.
 /// - `medium`/`expanded` always use a rail, except during fullscreen media
 ///   (shorts playing, or the landscape watch player on non-web platforms).
 /// - Explicit hides always suppress navigation.
@@ -90,7 +97,7 @@ AppNavMode resolveNavMode({
   if (isExplicitlyHidden || isShortPlaying) return AppNavMode.hidden;
   final isCompact = width < 600;
   if (isCompact) {
-    return isLandscape ? AppNavMode.hidden : AppNavMode.bottomBar;
+    return isLandscape ? AppNavMode.rail : AppNavMode.bottomBar;
   }
   final fullscreenMedia = !isWeb && isLandscape && isWatchRoute;
   return fullscreenMedia ? AppNavMode.hidden : AppNavMode.rail;

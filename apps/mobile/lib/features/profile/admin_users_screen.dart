@@ -182,7 +182,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                                     ),
                                                     child: Text(
                                                       'ADMIN',
-                                                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 9, fontWeight: FontWeight.bold),
+                                                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 11, fontWeight: FontWeight.bold),
                                                     ),
                                                   ),
                                               ],
@@ -190,14 +190,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                             const SizedBox(height: 2),
                                             Text(
                                               email,
-                                              style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
+                                              style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
                                               'Active: $lastLogin',
-                                              style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 11),
+                                              style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                                             ),
                                           ],
                                         ),
@@ -217,7 +217,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                           onPressed: () => _confirmToggleBlock(context, id, name, isBlocked),
                                           child: Text(
                                             isBlocked ? 'Unblock' : 'Block',
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                     ],
@@ -245,7 +245,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         children: [
           Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 11, color: context.tokens.onSurfaceMuted)),
+          Text(label, style: TextStyle(fontSize: 13, color: context.tokens.onSurfaceMuted)),
         ],
       ),
     );

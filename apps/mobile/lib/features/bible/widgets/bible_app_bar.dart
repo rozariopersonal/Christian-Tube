@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/layout/content_width.dart';
-import '../../books/screens/books_catalog_screen.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
 import '../models/bible_version.dart';
@@ -78,10 +78,7 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
           appearance: appearance,
           tokens: tokens,
           onDownloads: onPushManager,
-          onBooks: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const BooksCatalogScreen()),
-          ),
+          onBooks: () => context.push('/books'),
           onBookmarks: onOpenBookmarks,
           onSettings: onShowReadingSettings,
         ),

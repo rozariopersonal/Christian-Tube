@@ -83,7 +83,7 @@ class RecommendationVideoCard extends StatelessWidget {
                     '${video.channelTitle} • ${Formatters.formatViews(video.viewCount)} views • ${Formatters.formatTimeAgo(video.publishedAt)}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11),
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
                   ),
                 ],
               ),

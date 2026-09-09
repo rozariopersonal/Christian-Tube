@@ -257,14 +257,14 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
                   return TextStyle(
                     fontSize: 11,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? tokens.onSurface : tokens.onSurfaceMuted,
+                    color: isSelected ? context.primary : tokens.onSurfaceMuted,
                   );
                 }),
                 iconTheme: WidgetStateProperty.resolveWith((states) {
                   final isSelected = states.contains(WidgetState.selected);
                   return IconThemeData(
                     size: 24,
-                    color: isSelected ? tokens.onSurface : tokens.onSurfaceMuted,
+                    color: isSelected ? context.primary : tokens.onSurfaceMuted,
                   );
                 }),
               ),
@@ -292,9 +292,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
 
   Widget _buildNavigationRail(bool isDark, int selectedIndex) {
     final tokens = Theme.of(context).extension<AppTokens>() ?? (isDark ? AppTokens.dark : AppTokens.light);
-    final selectedColor = tokens.onSurface;
+    final selectedColor = context.primary;
     final unselectedColor = tokens.onSurfaceMuted;
-    final indicator = tokens.surfaceVariant;
+    final indicator = context.primary.withValues(alpha: 0.12);
 
     return NavigationRail(
       backgroundColor: tokens.background,

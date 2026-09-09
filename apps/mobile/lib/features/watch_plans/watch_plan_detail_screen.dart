@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/video.dart';
 import '../../core/models/watch_plan.dart';
 import '../../core/api/api_client.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 
@@ -64,8 +65,9 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.plan.title)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: MaxWidthBox(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
         children: [
           Text(
             widget.plan.title,
@@ -113,7 +115,7 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Playlist Queue', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text('${_videos.length} items', style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12)),
+              Text('${_videos.length} items', style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13)),
             ],
           ),
           const SizedBox(height: 10),
@@ -150,6 +152,7 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
               );
             }),
         ],
+        ),
       ),
     );
   }
@@ -159,7 +162,7 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
       children: [
         Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 12, color: context.tokens.onSurfaceMuted)),
+        Text(label, style: TextStyle(fontSize: 13, color: context.tokens.onSurfaceMuted)),
       ],
     );
   }

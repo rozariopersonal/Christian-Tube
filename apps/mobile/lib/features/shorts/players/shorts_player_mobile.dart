@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../../core/models/short.dart';
+import '../../../core/theme/app_tokens.dart';
 
 final Map<int, InAppWebViewController> _activeMobileSlots = {};
 
@@ -38,6 +39,7 @@ void seekPlatformShort(int slotIndex, double seconds) {
 }
 
 Widget buildPlatformShortsPlayer({
+  required BuildContext context,
   required Short short,
   required bool isPlaying,
   int slotIndex = 0,
@@ -330,9 +332,10 @@ class _MobileShortsPlayerWidgetState extends State<_MobileShortsPlayerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return ClipRect(
       child: Container(
-        color: Colors.black,
+        color: tokens.scrim,
         child: InAppWebView(
           initialData: InAppWebViewInitialData(
             data: _buildShortsPlayerHtml(

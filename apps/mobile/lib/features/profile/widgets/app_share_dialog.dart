@@ -222,17 +222,17 @@ class _AppShareDialogState extends State<AppShareDialog> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: tokens.surface,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
+                      color: tokens.scrim.withValues(alpha: 0.12),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
                   ],
                   border: Border.all(
-                    color: Colors.grey.shade200,
+                    color: tokens.surfaceBorder,
                     width: 1.5,
                   ),
                 ),
@@ -257,10 +257,10 @@ class _AppShareDialogState extends State<AppShareDialog> {
                         const SizedBox(width: 8),
                         Text(
                           AppConfig.appName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
+                            color: tokens.onSurface,
                             letterSpacing: -0.2,
                           ),
                         ),
@@ -268,15 +268,15 @@ class _AppShareDialogState extends State<AppShareDialog> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                            color: tokens.accent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             'v$_appVersion',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF2563EB),
+                              color: tokens.accent,
                             ),
                           ),
                         ),
@@ -288,27 +288,27 @@ class _AppShareDialogState extends State<AppShareDialog> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: tokens.surface,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade100, width: 1),
+                        border: Border.all(color: tokens.surfaceBorder, width: 1),
                       ),
                       child: QrImageView(
                         data: _downloadUrl,
                         version: QrVersions.auto,
                         size: 200.0,
-                        backgroundColor: Colors.white,
+                        backgroundColor: tokens.surface,
                         errorCorrectionLevel: QrErrorCorrectLevel.H,
                         embeddedImage: const AssetImage('assets/logo.png'),
                         embeddedImageStyle: const QrEmbeddedImageStyle(
                           size: Size(44, 44),
                         ),
-                        eyeStyle: const QrEyeStyle(
+                        eyeStyle: QrEyeStyle(
                           eyeShape: QrEyeShape.square,
-                          color: Color(0xFF0F172A),
+                          color: tokens.onSurface,
                         ),
-                        dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleStyle: QrDataModuleStyle(
                           dataModuleShape: QrDataModuleShape.square,
-                          color: Color(0xFF0F172A),
+                          color: tokens.onSurface,
                         ),
                       ),
                     ),

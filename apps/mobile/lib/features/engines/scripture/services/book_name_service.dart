@@ -35,6 +35,10 @@ class BookNameService {
 
   bool get isLoaded => _namesByVersion.isNotEmpty;
 
+  /// All loaded localized names, keyed by lowercased and uppercased version id.
+  /// Empty before [ensureLoaded] completes.
+  Map<String, Map<String, String>> get namesByVersion => _namesByVersion;
+
   static List<String> get englishBookNames => _bookNamesKey;
 
   static String englishNameFor(int bookNumber) {

@@ -27,8 +27,14 @@ class ScriptureRefParser {
   /// lookahead, so periods, commas, quotes, closing parens, etc. after the
   /// verse stay part of the surrounding prose rather than being swallowed into
   /// the link.
+  /// Capture groups:
+  ///  1 = ordinal prefix (`1`, `2`, `3`) with optional period
+  ///  2 = book name (single word, or `X of Y` style phrase)
+  ///  3 = chapter
+  ///  4 = chapter-range end (e.g. the `7` in `Matthew 5-7`)
+  ///  5 = verse expression (`16`, `1-4:4`, `23, 24`, ...)
   static final RegExp scriptureRegex = RegExp(
-    r'(?:(?<=^)|(?<=\s)|(?<=[\("\u201C]))(?:([123]\s*)?[\p{L}\p{M}]{2,30}(?:\s+(?:of|இராஜாக்கள்|சாமுவேல்|நாளாகமம்|கொரிந்தியர்|தெசலோனிக்கேயர்|தீமோத்தேயு|பேதுரு|யோவான்)\s+[\p{L}\p{M}]{2,30})?\.?)\s+(\d+)[:\.](\d+(?:[-–]\d+)?(?:,\s*\d+(?:[-–]\d+)?)*)(?=\s|$|[;,!?\)\u201D"])',
+    r'(?:(?<=^)|(?<=\s)|(?<=[\("\u201C]))(?:([123]\.?\s*)?([\p{L}\p{M}]{2,30}(?:\s+(?:of|இராஜாக்கள்|சாமுவேல்|நாளாகமம்|கொரிந்தியர்|தெசலோனிக்கேயர்|தீமோத்தேயு|பேதுரு|யோவான்)\s+[\p{L}\p{M}]{2,30})?)\.?)\s+(\d+)(?:[-–](\d+))?(?:[:\.](\d+(?:[-–]\d+(?:[:\.]\d+)?)?(?:,\s*\d+(?:[-–]\d+)?)*))?(?=\s|$|[.;,!?\\)\u201D"])',
     unicode: true,
   );
 
@@ -43,8 +49,8 @@ class ScriptureRefParser {
     'ruth': 8,
     '1 sam': 9, '1 samuel': 9, '1sam': 9,
     '2 sam': 10, '2 samuel': 10, '2sam': 10,
-    '1 kings': 11, '1 kgs': 11, '1kings': 11,
-    '2 kings': 12, '2 kgs': 12, '2kings': 12,
+    '1 kings': 11, '1 kgs': 11, '1 ki': 11, '1kings': 11,
+    '2 kings': 12, '2 kgs': 12, '2 ki': 12, '2kings': 12,
     '1 chron': 13, '1 chronicles': 13, '1 chr': 13,
     '2 chron': 14, '2 chronicles': 14, '2 chr': 14,
     'ezra': 15,
@@ -168,57 +174,91 @@ class ScriptureRefParser {
     'வெளிப்படுத்தின விசேஷம்': 66, 'வெளிப்படுத்தல்': 66, 'வெளி': 66,
   };
 
+  /// Merged localized book names loaded from [BookNameService] (backed by the
+  /// releases repo's `book_names.json`). Keyed by a normalized book phrase (a
+  /// single word, or `1 कुरिन्थियों` / `1. Mose` / `1 கொரிந்தியர்` style). Kept
+  /// `null` until the service has data; an empty refresh leaves it `null` so
+  /// the next lookup retries instead of caching a useless map.
+  static Map<String, int>? _runtimeBookNumbers;
+
+  /// Rebuilds [_runtimeBookNumbers] from every loaded Bible version's localized
+  /// book names. Because canonical book numbers are shared across versions
+  /// (and languages), a single merged map safely resolves references in all
+  /// languages the app ships a Bible version for (e.g. German `Römer`,
+  /// Malayalam `കൊരിന്ത്യർ`, Kannada `ರೋಮಾಪುರದವರಿಗೆ`, Korean `요한복음`, etc.).
+  static void refreshRuntimeBookNumbers() {
+    final merged = <String, int>{};
+    for (final byNum in BookNameService().namesByVersion.values) {
+      for (final entry in byNum.entries) {
+        final num = int.tryParse(entry.key);
+        if (num == null || num < 1 || num > 66) continue;
+        final norm = _normalize(entry.value);
+        if (norm.isNotEmpty) {
+          merged.putIfAbsent(norm, () => num);
+        }
+      }
+    }
+    _runtimeBookNumbers = merged.isEmpty ? null : merged;
+  }
+
+  static int? _resolveBook(String book) {
+    final staticHit = _abbrevToBookNum[book];
+    if (staticHit != null) return staticHit;
+    if (_runtimeBookNumbers == null) refreshRuntimeBookNumbers();
+    return _runtimeBookNumbers?[book];
+  }
+
+  /// Lowercases, strips periods (`1. Mose` / `பிலே.`) and collapses whitespace
+  /// so a captured phrase matches the same key derived from [refreshRuntimeBookNumbers].
+  static String _normalize(String raw) => raw
+      .toLowerCase()
+      .replaceAll('.', '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
   static ParsedScriptureRef? parse(String citation) {
     final match = scriptureRegex.firstMatch(citation);
     if (match == null) return null;
 
-    final fullMatch = match.group(0)!;
-    int splitIdx = fullMatch.indexOf(':');
-    if (splitIdx == -1) splitIdx = fullMatch.lastIndexOf('.');
-    if (splitIdx == -1) return null;
+    final bookPhrase = _normalize('${match.group(1) ?? ''}${match.group(2) ?? ''}');
+    if (bookPhrase.isEmpty) return null;
 
-    final beforeColon = fullMatch.substring(0, splitIdx).trim();
-    final afterColon = fullMatch.substring(splitIdx + 1).trim();
+    final bookNum = _resolveBook(bookPhrase);
+    if (bookNum == null) return null;
 
-    final lastSpace = beforeColon.lastIndexOf(' ');
-    if (lastSpace == -1) return null;
-
-    final bookPart = beforeColon.substring(0, lastSpace).trim().toLowerCase().replaceAll('.', '');
-    final chapterPart = beforeColon.substring(lastSpace + 1).trim();
-    final chapter = int.tryParse(chapterPart) ?? 1;
-
-    // Clean trailing punctuation
-    final cleanAfter = afterColon.replaceAll(RegExp(r'[;\.!?\)]+$'), '').trim();
+    final chapter = int.tryParse(match.group(3) ?? '');
+    if (chapter == null) return null;
 
     int startVerse = 1;
     int? endVerse;
 
-    // Handle comma-separated verses e.g. "1, 4" or "1-4, 9"
-    final primaryChunk = cleanAfter.split(',').first.trim();
+    final verseGroup = match.group(5);
+    if (verseGroup != null && verseGroup.isNotEmpty) {
+      // Comma-separated verses e.g. "1, 4" or "1-4, 9"
+      final primaryChunk = verseGroup.split(',').first.trim();
 
-    if (primaryChunk.contains('-') || primaryChunk.contains('–')) {
-      final dash = primaryChunk.contains('-') ? '-' : '–';
-      final parts = primaryChunk.split(dash);
-      startVerse = int.tryParse(parts[0].trim()) ?? 1;
-      if (parts.length > 1) {
-        endVerse = int.tryParse(parts[1].trim());
+      if (primaryChunk.contains('-') || primaryChunk.contains('–')) {
+        final dash = primaryChunk.contains('-') ? '-' : '–';
+        final parts = primaryChunk.split(dash);
+        startVerse = int.tryParse(parts[0].trim()) ?? 1;
+        if (parts.length > 1) {
+          // Cross-chapter verse ranges like "1-4:4" carry the end chapter in
+          // the end verse segment; extract the numeric verse number from it.
+          final endSegments = parts[1].trim().split(RegExp(r'[:\.]'));
+          endVerse = int.tryParse(endSegments.first.trim());
+        }
+      } else {
+        startVerse = int.tryParse(primaryChunk) ?? 1;
       }
-    } else {
-      startVerse = int.tryParse(primaryChunk) ?? 1;
     }
-
-    final bookNum = _abbrevToBookNum[bookPart];
-    if (bookNum == null) return null;
-
-    final canonName = BookNameService.englishNameFor(bookNum);
 
     return ParsedScriptureRef(
       bookNumber: bookNum,
-      bookName: canonName,
+      bookName: BookNameService.englishNameFor(bookNum),
       chapter: chapter,
       startVerse: startVerse,
       endVerse: endVerse,
-      rawMatch: fullMatch,
+      rawMatch: match.group(0)!,
     );
   }
 }

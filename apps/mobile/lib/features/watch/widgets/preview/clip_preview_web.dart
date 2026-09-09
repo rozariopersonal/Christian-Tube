@@ -5,6 +5,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/models/local_short_item.dart';
+import '../../../../core/theme/app_tokens.dart';
 
 final Set<String> _registeredClipViews = {};
 
@@ -300,12 +301,13 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
     final is9x16 = widget.framingMode == ShortsFramingMode.portrait9x16;
 
     final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    final tokens = context.tokens;
 
     Widget playerOrThumb = isTest
         ? Image.network(
             _thumbnailUrl,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(color: Colors.black),
+            errorBuilder: (_, __, ___) => Container(color: tokens.scrim),
           )
         : HtmlElementView(
             key: ValueKey(_viewId),
@@ -325,12 +327,12 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
           height: canvasHeight,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.black,
+            color: tokens.scrim,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3), width: 1.5),
+            border: Border.all(color: tokens.accent.withValues(alpha: 0.3), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                color: tokens.accent.withValues(alpha: 0.08),
                 blurRadius: 16,
                 spreadRadius: 2,
               ),
@@ -358,7 +360,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                     bottom: 0,
                     width: cropBoxLeft.clamp(0.0, canvasWidth),
                     child: Container(
-                      color: Colors.black.withValues(alpha: 0.68),
+                      color: tokens.scrim.withValues(alpha: 0.68),
                     ),
                   ),
 
@@ -369,7 +371,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                     bottom: 0,
                     right: 0,
                     child: Container(
-                      color: Colors.black.withValues(alpha: 0.68),
+                      color: tokens.scrim.withValues(alpha: 0.68),
                     ),
                   ),
 
@@ -382,12 +384,12 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: const Color(0xFFF59E0B),
+                          color: tokens.accent,
                           width: 2.0,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFF59E0B).withValues(alpha: _isDraggingCrop ? 0.55 : 0.3),
+                            color: tokens.accent.withValues(alpha: _isDraggingCrop ? 0.55 : 0.3),
                             blurRadius: _isDraggingCrop ? 16 : 12,
                             spreadRadius: _isDraggingCrop ? 2 : 1,
                           ),
@@ -402,10 +404,10 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                             child: Container(
                               width: 12,
                               height: 12,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 border: Border(
-                                  top: BorderSide(color: Color(0xFFF59E0B), width: 2),
-                                  left: BorderSide(color: Color(0xFFF59E0B), width: 2),
+                                  top: BorderSide(color: tokens.accent, width: 2),
+                                  left: BorderSide(color: tokens.accent, width: 2),
                                 ),
                               ),
                             ),
@@ -416,10 +418,10 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                             child: Container(
                               width: 12,
                               height: 12,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 border: Border(
-                                  top: BorderSide(color: Color(0xFFF59E0B), width: 2),
-                                  right: BorderSide(color: Color(0xFFF59E0B), width: 2),
+                                  top: BorderSide(color: tokens.accent, width: 2),
+                                  right: BorderSide(color: tokens.accent, width: 2),
                                 ),
                               ),
                             ),
@@ -430,10 +432,10 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                             child: Container(
                               width: 12,
                               height: 12,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(color: Color(0xFFF59E0B), width: 2),
-                                  left: BorderSide(color: Color(0xFFF59E0B), width: 2),
+                                  bottom: BorderSide(color: tokens.accent, width: 2),
+                                  left: BorderSide(color: tokens.accent, width: 2),
                                 ),
                               ),
                             ),
@@ -444,10 +446,10 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                             child: Container(
                               width: 12,
                               height: 12,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(color: Color(0xFFF59E0B), width: 2),
-                                  right: BorderSide(color: Color(0xFFF59E0B), width: 2),
+                                  bottom: BorderSide(color: tokens.accent, width: 2),
+                                  right: BorderSide(color: tokens.accent, width: 2),
                                 ),
                               ),
                             ),
@@ -458,22 +460,22 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.65),
+                                color: tokens.scrim.withValues(alpha: 0.65),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.7),
+                                  color: tokens.accent.withValues(alpha: 0.7),
                                   width: 1,
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.drag_indicator_rounded, color: Color(0xFFF59E0B), size: 13),
+                                  Icon(Icons.drag_indicator_rounded, color: tokens.accent, size: 13),
                                   const SizedBox(width: 2),
                                   Text(
                                     _getPanLabel(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: tokens.onScrim,
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -551,13 +553,13 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.circle, color: Colors.white, size: 7),
-                            SizedBox(width: 5),
+                          children: [
+                            Icon(Icons.circle, color: tokens.onScrim, size: 7),
+                            const SizedBox(width: 5),
                             Text(
                               'LIVE PREVIEW',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: tokens.onScrim,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.8,
@@ -569,23 +571,23 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                          color: tokens.surface.withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6)),
+                          border: Border.all(color: tokens.accent.withValues(alpha: 0.6)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               is9x16 ? Icons.crop_portrait : Icons.stay_current_landscape,
-                              color: const Color(0xFFF59E0B),
+                              color: tokens.accent,
                               size: 12,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               is9x16 ? '9:16 Short' : '16:9 Landscape',
-                              style: const TextStyle(
-                                color: Color(0xFFF59E0B),
+                              style: TextStyle(
+                                color: tokens.accent,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -608,13 +610,13 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.black.withValues(alpha: 0.65),
-                          border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+                          color: tokens.scrim.withValues(alpha: 0.65),
+                          border: Border.all(color: tokens.accent, width: 1.5),
                         ),
                         child: Icon(
                           _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                           size: 38,
-                          color: const Color(0xFFF59E0B),
+                          color: tokens.accent,
                         ),
                       ),
                     ),
@@ -634,7 +636,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withValues(alpha: 0.88),
+                          tokens.scrim.withValues(alpha: 0.88),
                         ],
                       ),
                     ),
@@ -653,10 +655,10 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1E293B),
+                                      color: tokens.surfaceVariant,
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color: const Color(0xFFF59E0B).withValues(alpha: 0.6),
+                                        color: tokens.accent.withValues(alpha: 0.6),
                                         width: 1.2,
                                       ),
                                     ),
@@ -665,14 +667,14 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                                       children: [
                                         Icon(
                                           _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                          color: const Color(0xFFF59E0B),
+                                          color: tokens.accent,
                                           size: 14,
                                         ),
                                         const SizedBox(width: 3),
                                         Text(
                                           _isPlaying ? 'Pause' : 'Play',
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: tokens.onScrim,
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
                                           ),
@@ -684,8 +686,8 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                                 const SizedBox(width: 8),
                                 Text(
                                   '${_formatSeconds(elapsedInClip)} / ${_formatSeconds(clipDuration)}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: tokens.onScrim,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     fontFamily: 'monospace',
@@ -695,13 +697,13 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                             ),
                             if (widget.isLooping) ...[
                               Row(
-                                children: const [
-                                  Icon(Icons.repeat, color: Color(0xFFF59E0B), size: 12),
-                                  SizedBox(width: 4),
+                                children: [
+                                  Icon(Icons.repeat, color: tokens.accent, size: 12),
+                                  const SizedBox(width: 4),
                                   Text(
                                     'Looping',
                                     style: TextStyle(
-                                      color: Color(0xFFF59E0B),
+                                      color: tokens.accent,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -740,7 +742,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                                       height: 5,
                                       width: barWidth,
                                       decoration: BoxDecoration(
-                                        color: Colors.white24,
+                                        color: tokens.onScrim.withValues(alpha: 0.24),
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                     ),
@@ -748,7 +750,7 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                                       height: 5,
                                       width: (progressFraction * barWidth).clamp(0.0, barWidth),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFF59E0B),
+                                        color: tokens.accent,
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                     ),
@@ -758,11 +760,11 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
                                         width: 10,
                                         height: 14,
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: tokens.onScrim,
                                           borderRadius: BorderRadius.circular(3),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: const Color(0xFFF59E0B)
+                                              color: tokens.accent
                                                   .withValues(alpha: 0.8),
                                               blurRadius: 4,
                                               spreadRadius: 1,

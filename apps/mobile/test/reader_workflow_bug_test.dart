@@ -108,6 +108,67 @@ void main() {
     });
   });
 
+  group('ScriptureRefParser Multi-Language Tests', () {
+    test('parses German references including ordinal-with-period book names', () {
+      final p1 = ScriptureRefParser.parse('1. Mose 1:1');
+      expect(p1, isNotNull);
+      expect(p1!.bookNumber, equals(1));
+      expect(p1.chapter, equals(1));
+      expect(p1.startVerse, equals(1));
+
+      final p2 = ScriptureRefParser.parse('Römer 8:28');
+      expect(p2, isNotNull);
+      expect(p2!.bookNumber, equals(45));
+      expect(p2.chapter, equals(8));
+      expect(p2.startVerse, equals(28));
+    });
+
+    test('parses Malayalam references', () {
+      final parsed = ScriptureRefParser.parse('1 കൊരിന്ത്യർ 12:21');
+      expect(parsed, isNotNull);
+      expect(parsed!.bookNumber, equals(46));
+      expect(parsed.chapter, equals(12));
+      expect(parsed.startVerse, equals(21));
+    });
+
+    test('parses Kannada references', () {
+      final parsed = ScriptureRefParser.parse('ರೋಮಾಪುರದವರಿಗೆ 8:28');
+      expect(parsed, isNotNull);
+      expect(parsed!.bookNumber, equals(45));
+      expect(parsed.chapter, equals(8));
+      expect(parsed.startVerse, equals(28));
+    });
+
+    test('parses Hindi references', () {
+      final parsed = ScriptureRefParser.parse('यूहन्ना 3:16');
+      expect(parsed, isNotNull);
+      expect(parsed!.bookNumber, equals(43));
+      expect(parsed.chapter, equals(3));
+      expect(parsed.startVerse, equals(16));
+    });
+
+    test('parses Telugu references', () {
+      final parsed = ScriptureRefParser.parse('యోహాను 3:16');
+      expect(parsed, isNotNull);
+      expect(parsed!.bookNumber, equals(43));
+      expect(parsed.chapter, equals(3));
+      expect(parsed.startVerse, equals(16));
+    });
+
+    test('parses Korean and Spanish references', () {
+      final p1 = ScriptureRefParser.parse('요한복음 3:16');
+      expect(p1, isNotNull);
+      expect(p1!.bookNumber, equals(43));
+      expect(p1.chapter, equals(3));
+
+      final p2 = ScriptureRefParser.parse('Romanos 8:28');
+      expect(p2, isNotNull);
+      expect(p2!.bookNumber, equals(45));
+      expect(p2.chapter, equals(8));
+      expect(p2.startVerse, equals(28));
+    });
+  });
+
   group('VerseActionBar 320px Responsiveness Tests', () {
     testWidgets('renders cleanly at 320px without RenderFlex overflow', (tester) async {
       tester.view.physicalSize = const Size(320, 600);

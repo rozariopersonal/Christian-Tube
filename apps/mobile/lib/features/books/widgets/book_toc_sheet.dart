@@ -223,7 +223,10 @@ class _BookTocSheetState extends State<BookTocSheet> {
                                 '${ch.chapterIndex}',
                                 style: TextStyle(
                                   color: isCurrentChapter
-                                      ? Colors.white
+                                      ? (tokens.accent.computeLuminance() >
+                                            0.45
+                                          ? Colors.black
+                                          : Colors.white)
                                       : tokens.onSurfaceMuted,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,

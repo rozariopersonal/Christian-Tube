@@ -195,7 +195,7 @@ class BookCard extends StatelessWidget {
             style: TextStyle(
               color: tokens.onSurface,
               fontWeight: FontWeight.bold,
-              fontSize: 12.5,
+              fontSize: 13,
               height: 1.2,
             ),
           ),
@@ -211,7 +211,7 @@ class BookCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: tokens.onSurfaceMuted,
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -222,7 +222,7 @@ class BookCard extends StatelessWidget {
                   style: TextStyle(
                     color: tokens.accent,
                     fontWeight: FontWeight.bold,
-                    fontSize: 10.5,
+                    fontSize: 13,
                   ),
                 )
               else
@@ -230,7 +230,7 @@ class BookCard extends StatelessWidget {
                   '${book.totalPages}p',
                   style: TextStyle(
                     color: tokens.onSurfaceMuted,
-                    fontSize: 10.5,
+                    fontSize: 13,
                   ),
                 ),
             ],
