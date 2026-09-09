@@ -5,7 +5,9 @@ import '../../../../core/api/github_data_service.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../engines/scripture/models/bible_version_meta.dart';
 import '../../engines/scripture/services/book_name_service.dart';
+import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
 import '../../bible/models/bible_reference.dart';
 import '../../bible/services/bible_passage_navigator.dart';
@@ -19,6 +21,11 @@ class ScriptureVersePopup extends StatefulWidget {
   final int? endVerse;
   final String rawReference;
 
+  /// Language of the surrounding text (e.g. the article's `lang`). When set,
+  /// the popup prefers an installed Bible version in that language over the
+  /// first-installed version so non-English readers see matching scripture.
+  final String? languageCode;
+
   const ScriptureVersePopup({
     super.key,
     required this.bookNumber,
@@ -26,6 +33,7 @@ class ScriptureVersePopup extends StatefulWidget {
     required this.startVerse,
     this.endVerse,
     required this.rawReference,
+    this.languageCode,
   });
 
   static Future<void> show(
@@ -35,6 +43,7 @@ class ScriptureVersePopup extends StatefulWidget {
     required int startVerse,
     int? endVerse,
     required String rawReference,
+    String? languageCode,
   }) async {
     final screen = ScreenClass.of(context);
     if (screen.isCompact) {
@@ -48,6 +57,7 @@ class ScriptureVersePopup extends StatefulWidget {
           startVerse: startVerse,
           endVerse: endVerse,
           rawReference: rawReference,
+          languageCode: languageCode,
         ),
       );
     } else {
@@ -64,6 +74,7 @@ class ScriptureVersePopup extends StatefulWidget {
               startVerse: startVerse,
               endVerse: endVerse,
               rawReference: rawReference,
+              languageCode: languageCode,
             ),
           ),
         ),
@@ -77,8 +88,11 @@ class ScriptureVersePopup extends StatefulWidget {
 
 class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
   final LocalBibleService _bibleService = LocalBibleService();
+  final BookNameService _bookNames = BookNameService();
+  List<String> _installedIds = const [];
   String? _verseText;
-  String _versionName = 'Berean Standard Bible';
+  String _versionName = '';
+  String _bookName = '';
   bool _isLoading = true;
 
   @override
@@ -131,11 +145,26 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
 
   Future<void> _loadVerse() async {
     await _bibleService.initialize();
-    final installed = await _bibleService.getInstalledVersionIds();
-    final version = installed.isNotEmpty ? installed.first : 'BSB';
+    _installedIds = await _bibleService.getInstalledVersionIds();
+    await _reload(_preferredVersion(_installedIds));
+  }
+
+  /// Loads verse text (and the localized book name) for [versionId],
+  /// falling back to WEB on the local DB and then streaming from the CDN.
+  Future<void> _reload(String versionId) async {
+    if (versionId == _versionName && (_verseText?.isNotEmpty ?? false)) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _versionName = versionId;
+        _isLoading = true;
+      });
+    }
 
     var text = await _bibleService.resolvePassage(
-      versionId: version,
+      versionId: versionId,
       bookNumber: widget.bookNumber,
       chapter: widget.chapter,
       startVerse: widget.startVerse,
@@ -156,7 +185,7 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
     // Live CDN streaming fallback if not stored in local SQLite
     if (text == null || text.isEmpty) {
       text = await _fetchVerseFromCdn(
-        versionId: version,
+        versionId: versionId,
         bookNumber: widget.bookNumber,
         chapter: widget.chapter,
         startVerse: widget.startVerse,
@@ -176,10 +205,65 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
     if (mounted) {
       setState(() {
         _verseText = text;
-        _versionName = version;
+        _bookName = _bookNames.nameFor(versionId, widget.bookNumber);
         _isLoading = false;
       });
     }
+  }
+
+  /// Picks the initial version. When [ScriptureVersePopup.languageCode] is
+  /// provided (e.g. the article's language), an installed catalog version
+  /// matching that language wins; otherwise the first installed version is
+  /// used, falling back to 'BSB' streaming when nothing is installed.
+  String _preferredVersion(List<String> installed) {
+    final lang = _normalizeLang(widget.languageCode ?? '');
+    if (lang.isNotEmpty) {
+      for (final id in installed) {
+        final meta = _metaFor(id);
+        if (meta != null && _normalizeLang(meta.languageCode) == lang) {
+          return id;
+        }
+      }
+    }
+    return installed.isNotEmpty ? installed.first : 'BSB';
+  }
+
+  /// Normalizes short article/library codes to the catalog's full ISO-like
+  /// language codes (e.g. `ta` -> `tam`, `hi` -> `hin`).
+  String _normalizeLang(String code) {
+    switch (code.trim().toLowerCase()) {
+      case 'ta':
+        return 'tam';
+      case 'hi':
+        return 'hin';
+      case 'te':
+        return 'tel';
+      case 'kn':
+        return 'kan';
+      case 'ml':
+        return 'mal';
+      default:
+        return code.trim().toLowerCase();
+    }
+  }
+
+  BibleVersionMeta? _metaFor(String id) {
+    for (final meta in BibleDownloadManager.catalog) {
+      if (meta.id.toLowerCase() == id.toLowerCase()) return meta;
+    }
+    return null;
+  }
+
+  /// All catalog versions, installed ones first, then grouped by language.
+  List<BibleVersionMeta> get _versionOptions {
+    final installed = _installedIds.toSet();
+    final sorted = [...BibleDownloadManager.catalog]..sort((a, b) {
+        final installedA = installed.contains(a.id) ? 0 : 1;
+        final installedB = installed.contains(b.id) ? 0 : 1;
+        if (installedA != installedB) return installedA - installedB;
+        return a.language.compareTo(b.language);
+      });
+    return sorted;
   }
 
   void _openInBible() {
@@ -189,6 +273,7 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
         bookNumber: widget.bookNumber,
         chapter: widget.chapter,
         verse: widget.startVerse,
+        versionId: _versionName.isEmpty ? null : _versionName,
       ),
     );
   }
@@ -196,7 +281,7 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final bookName = BookNameService.englishNameFor(widget.bookNumber);
+    final bookName = _bookName.isEmpty ? BookNameService.englishNameFor(widget.bookNumber) : _bookName;
     final citation = widget.endVerse != null && widget.endVerse != widget.startVerse
         ? '$bookName ${widget.chapter}:${widget.startVerse}-${widget.endVerse}'
         : '$bookName ${widget.chapter}:${widget.startVerse}';
@@ -248,9 +333,71 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Text(
-                      _versionName,
-                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                    PopupMenuButton<String>(
+                      onSelected: _reload,
+                      tooltip: 'Choose translation',
+                      position: PopupMenuPosition.over,
+                      itemBuilder: (context) => [
+                        for (final meta in _versionOptions)
+                          PopupMenuItem<String>(
+                            value: meta.id,
+                            height: 44,
+                            child: Row(
+                              children: [
+                                if (_versionName == meta.id)
+                                  Icon(Icons.check,
+                                      size: 16, color: tokens.accent)
+                                else
+                                  const SizedBox(width: 16),
+                                if (_installedIds.contains(meta.id))
+                                  Icon(Icons.download_done_rounded,
+                                      size: 14, color: tokens.onSurfaceMuted)
+                                else
+                                  const SizedBox(width: 14),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    meta.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: _versionName == meta.id
+                                          ? tokens.accent
+                                          : tokens.onSurface,
+                                      fontSize: 13.5,
+                                      fontWeight: _versionName == meta.id
+                                          ? FontWeight.bold
+                                          : FontWeight.w400,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 130),
+                            child: Text(
+                              _versionName.isEmpty ? 'Select version' : _versionName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: tokens.onSurfaceMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Icon(
+                            Icons.arrow_drop_down_rounded,
+                            size: 18,
+                            color: tokens.onSurfaceMuted,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
