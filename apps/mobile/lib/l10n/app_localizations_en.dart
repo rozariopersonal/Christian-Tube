@@ -46,4 +46,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noVideosFound => 'No videos found';
   @override
   String get retry => 'Retry';
+  @override
+  String get appearance => 'Appearance';
+  @override
+  String get readOnApp => 'Read on ${AppConfig.appName}';
+  @override
+  String get articleReadError => 'Connect to the internet to read this article.';
 }

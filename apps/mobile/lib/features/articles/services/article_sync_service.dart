@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mobile/core/api/github_data_service.dart';
+import 'package:mobile/core/api/release_assets.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../models/article_data.dart';
@@ -30,8 +31,19 @@ class ArticleSyncService {
   }
 
   Future<ArticleData?> getArticle(String articleId, {String? lang}) async {
-    final code = (lang == null || lang.trim().isEmpty) ? 'en' : lang.trim().toLowerCase();
-    final cacheKey = '$code/$articleId';
+    final code = (lang == null || lang.trim().isEmpty)
+        ? 'en'
+        : lang.trim().toLowerCase();
+
+    // Key the cache (memory + disk) by the dataset revision so a data push
+    // with a bumped `manifest.json` revision refetches article bodies instead
+    // of serving stale text for the rest of the session/installs.
+    final revision = ReleaseAssets.revision.trim();
+    final revisionTag = revision.isEmpty
+        ? ''
+        : '_${revision.replaceAll(RegExp(r'[^\w]'), '_')}';
+    final cacheKey = '$code/$articleId$revisionTag';
+    final fileName = '${code}_$articleId$revisionTag.json';
 
     // 1. Check memory cache (instant)
     if (_memoryCache.containsKey(cacheKey)) {
@@ -39,7 +51,7 @@ class ArticleSyncService {
     }
 
     final cacheDir = await _getCacheDirectory();
-    final localFile = File(p.join(cacheDir, '${code}_$articleId.json'));
+    final localFile = File(p.join(cacheDir, fileName));
 
     // 2. Check disk cache
     if (await localFile.exists()) {
@@ -71,7 +83,12 @@ class ArticleSyncService {
           _memoryCache[cacheKey] = article;
 
           // Save to disk cache asynchronously
-          localFile.writeAsString(response.data!).catchError((_) => localFile);
+          localFile
+              .writeAsString(response.data!)
+              .catchError((_) => localFile);
+
+          // Drop cache files for the same article from older revisions.
+          _pruneStaleFiles(cacheDir, code, articleId, fileName);
 
           return article;
         }
@@ -80,15 +97,37 @@ class ArticleSyncService {
       }
     }
 
-    // If fetch failed and disk cache exists, use disk cache
-    if (await localFile.exists()) {
-      final content = await localFile.readAsString();
-      final json = jsonDecode(content) as Map<String, dynamic>;
-      final article = ArticleData.fromJson(json);
-      _memoryCache[cacheKey] = article;
-      return article;
-    }
-
     throw Exception('Failed to load article. Please check your internet connection.');
+  }
+
+  /// Deletes disk-cache files for [articleId] under [code] that belong to a
+  /// different dataset revision, keeping only [keepFileName]. Best effort.
+  Future<void> _pruneStaleFiles(
+    String cacheDir,
+    String code,
+    String articleId,
+    String keepFileName,
+  ) async {
+    try {
+      final directory = Directory(cacheDir);
+      if (!await directory.exists()) return;
+      final prefix = '${code}_$articleId';
+      final keepPath = p.join(cacheDir, keepFileName);
+      await for (final entity in directory.list()) {
+        if (entity is! File) continue;
+        try {
+          final name = p.basename(entity.path);
+          if (name.startsWith(prefix) &&
+              name.endsWith('.json') &&
+              entity.path != keepPath) {
+            await entity.delete();
+          }
+        } catch (e) {
+          debugPrint('Failed to delete stale article cache file: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to prune stale article cache files: $e');
+    }
   }
 }

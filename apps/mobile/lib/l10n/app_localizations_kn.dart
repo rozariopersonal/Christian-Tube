@@ -1,4 +1,5 @@
 import 'app_localizations.dart';
+import '../core/config/app_config.dart';
 
 class AppLocalizationsKn extends AppLocalizations {
   AppLocalizationsKn([super.locale = 'kn']);
@@ -45,4 +46,10 @@ class AppLocalizationsKn extends AppLocalizations {
   String get noVideosFound => 'ಯಾವುದೇ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ';
   @override
   String get retry => 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ';
+  @override
+  String get appearance => 'ನೋಟ';
+  @override
+  String get readOnApp => '${AppConfig.appName}ನಲ್ಲಿ ಓದಿ';
+  @override
+  String get articleReadError => 'ಈ ಲೇಖನವನ್ನು ಓದಲು ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕದ ಅಗತ್ಯವಿದೆ.';
 }

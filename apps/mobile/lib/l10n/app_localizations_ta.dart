@@ -1,4 +1,5 @@
 import 'app_localizations.dart';
+import '../core/config/app_config.dart';
 
 class AppLocalizationsTa extends AppLocalizations {
   AppLocalizationsTa([super.locale = 'ta']);
@@ -45,4 +46,10 @@ class AppLocalizationsTa extends AppLocalizations {
   String get noVideosFound => 'வீடியோக்கள் எதுவும் கிடைக்கவில்லை';
   @override
   String get retry => 'மீண்டும் முயற்சிக்கவும்';
+  @override
+  String get appearance => 'தோற்றம்';
+  @override
+  String get readOnApp => '${AppConfig.appName} இல் படிக்கவும்';
+  @override
+  String get articleReadError => 'இந்தக் கட்டுரையைப் படிக்க இணைய இணைப்பு தேவை.';
 }

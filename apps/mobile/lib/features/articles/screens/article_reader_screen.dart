@@ -6,6 +6,7 @@ import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/books/widgets/scripture_verse_popup.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/shared/ui/reader_appearance_sheet.dart';
 import 'package:share_plus/share_plus.dart';
 import '../controllers/article_reader_controller.dart';
@@ -45,27 +46,35 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
   @override
   void dispose() {
+    _disposeRecognizers();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Disposes every recognizer created so far. Called before each build pass
+  /// (spans are rebuilt wholesale) and on dispose, so recognizers do not
+  /// accumulate while a reader stays on screen and rebuilds.
+  void _disposeRecognizers() {
     for (final r in _recognizers) {
       r.dispose();
     }
     _recognizers.clear();
-    _controller.dispose();
-    super.dispose();
   }
 
   TapGestureRecognizer _makeRecognizer(ParsedScriptureRef? parsed, String refText) {
     final recognizer = TapGestureRecognizer()
       ..onTap = () {
         if (parsed != null && mounted) {
-          ScriptureVersePopup.show(
-            context,
-            bookNumber: parsed.bookNumber,
-            chapter: parsed.chapter,
-            startVerse: parsed.startVerse,
-            endVerse: parsed.endVerse,
-            rawReference: refText,
-          );
-        }
+            ScriptureVersePopup.show(
+              context,
+              bookNumber: parsed.bookNumber,
+              chapter: parsed.chapter,
+              startVerse: parsed.startVerse,
+              endVerse: parsed.endVerse,
+              rawReference: refText,
+              languageCode: widget.lang,
+            );
+          }
       };
     _recognizers.add(recognizer);
     return recognizer;
@@ -152,6 +161,8 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, _) {
+        _disposeRecognizers();
+        final l10n = AppLocalizations.of(context);
         final state = _controller.state;
         final appearance = _controller.appearance;
         final fontFamily = ScriptureThemeCatalog.resolveFontFamily(
@@ -159,7 +170,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
           appearance.languageCode,
         );
 
-        final title = state.article?.title ?? widget.initialTitle ?? 'Article';
+        final title = state.article?.title ?? widget.initialTitle ?? l10n.appTitle;
 
         return Scaffold(
           backgroundColor: tokens.background,
@@ -191,7 +202,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                     fontSize: 16,
                   ),
                 ),
-                tooltip: 'Appearance',
+                tooltip: l10n.appearance,
                 onPressed: () => showReaderAppearanceSheet(context, appearance),
               ),
 
@@ -199,7 +210,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
               if (state.article != null)
                 IconButton(
                   icon: Icon(Icons.share_rounded, color: tokens.onSurface),
-                  tooltip: 'Share',
+                  tooltip: l10n.share,
                   onPressed: () {
                     final article = state.article!;
                     final link = DeepLinkService.article(
@@ -212,7 +223,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                     for (final l in article.lines.take(12)) {
                       buffer.writeln(l.text);
                     }
-                    buffer.writeln('\nRead on ChristianApp: $link');
+                    buffer.writeln('${l10n.readOnApp}: $link');
                     Share.share(
                       buffer.toString(),
                       subject: article.title,
@@ -221,7 +232,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                 ),
             ],
           ),
-          body: _buildBody(state, tokens, fontFamily, appearance),
+          body: _buildBody(state, tokens, fontFamily, appearance, l10n),
         );
       },
     );
@@ -232,6 +243,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     AppTokens tokens,
     String? fontFamily,
     dynamic appearance,
+    AppLocalizations l10n,
   ) {
     if (state.isLoading) {
       return Center(
@@ -242,7 +254,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
       );
     }
 
-    if (state.errorMessage != null && state.article == null) {
+    if (state.hasError && state.article == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -256,7 +268,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                state.errorMessage!,
+                l10n.articleReadError,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: tokens.onSurface,
@@ -268,7 +280,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
               ElevatedButton.icon(
                 onPressed: _controller.loadArticle,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Retry'),
+                label: Text(l10n.retry),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: tokens.accent,
                   foregroundColor: tokens.background,

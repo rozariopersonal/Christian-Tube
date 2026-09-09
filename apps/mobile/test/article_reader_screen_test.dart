@@ -4,6 +4,7 @@ import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/articles/models/article_data.dart';
 import 'package:mobile/features/articles/screens/article_reader_screen.dart';
 import 'package:mobile/features/articles/services/article_sync_service.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
@@ -34,6 +35,9 @@ void main() {
   Widget subject(String articleId, {String? initialTitle}) {
     return MaterialApp(
       theme: testTheme(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('en'),
       home: ArticleReaderScreen(
         articleId: articleId,
         initialTitle: initialTitle,

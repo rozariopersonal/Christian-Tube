@@ -1,4 +1,5 @@
 import 'app_localizations.dart';
+import '../core/config/app_config.dart';
 
 class AppLocalizationsMl extends AppLocalizations {
   AppLocalizationsMl([super.locale = 'ml']);
@@ -45,4 +46,10 @@ class AppLocalizationsMl extends AppLocalizations {
   String get noVideosFound => 'വീഡിയോകളൊന്നും കണ്ടെത്തിയില്ല';
   @override
   String get retry => 'വീണ്ടും ശ്രമിക്കുക';
+  @override
+  String get appearance => 'രൂപം';
+  @override
+  String get readOnApp => '${AppConfig.appName} ഇൽ വായിക്കുക';
+  @override
+  String get articleReadError => 'ഈ ലേഖനം വായിക്കാൻ ഇന്റർനെറ്റ് കണക്ഷൻ ആവശ്യമാണ്.';
 }

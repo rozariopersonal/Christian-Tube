@@ -58,6 +58,9 @@ abstract class AppLocalizations {
   String get updateNow;
   String get noVideosFound;
   String get retry;
+  String get appearance;
+  String get readOnApp;
+  String get articleReadError;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

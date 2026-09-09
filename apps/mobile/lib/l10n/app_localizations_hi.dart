@@ -1,4 +1,5 @@
 import 'app_localizations.dart';
+import '../core/config/app_config.dart';
 
 class AppLocalizationsHi extends AppLocalizations {
   AppLocalizationsHi([super.locale = 'hi']);
@@ -45,4 +46,10 @@ class AppLocalizationsHi extends AppLocalizations {
   String get noVideosFound => 'कोई वीडियो नहीं मिला';
   @override
   String get retry => 'पुनः प्रयास करें';
+  @override
+  String get appearance => 'स्वरूप';
+  @override
+  String get readOnApp => '${AppConfig.appName} पर पढ़ें';
+  @override
+  String get articleReadError => 'इस लेख को पढ़ने के लिए इंटरनेट कनेक्शन आवश्यक है।';
 }

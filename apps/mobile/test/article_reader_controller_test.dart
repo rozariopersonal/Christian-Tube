@@ -27,14 +27,14 @@ void main() {
   test('starts in the loading state and resolves to the article on success',
       () async {
     final service = MockArticleSyncService();
-    when(() => service.getArticle('2024_10_26'))
+    when(() => service.getArticle('2024_10_26', lang: any(named: 'lang')))
         .thenAnswer((_) async => _article);
 
     final controller = ArticleReaderController('2024_10_26', syncService: service);
     await pumpEventQueue();
 
     expect(controller.state.isLoading, isFalse);
-    expect(controller.state.errorMessage, isNull);
+    expect(controller.state.hasError, isFalse);
     expect(controller.state.article?.title, 'Faith in Trials');
     expect(controller.state.article?.lines.length, 2);
 
@@ -44,7 +44,8 @@ void main() {
   test('keeps the loading state while the fetch is in flight', () async {
     final service = MockArticleSyncService();
     final completer = Completer<ArticleData?>();
-    when(() => service.getArticle('x')).thenAnswer((_) => completer.future);
+    when(() => service.getArticle('x', lang: any(named: 'lang')))
+        .thenAnswer((_) => completer.future);
 
     final controller = ArticleReaderController('x', syncService: service);
     await pumpEventQueue();
@@ -58,16 +59,16 @@ void main() {
     controller.dispose();
   });
 
-  test('surfaces a user-friendly error message when the fetch fails', () async {
+  test('surfaces a user-friendly error state when the fetch fails', () async {
     final service = MockArticleSyncService();
-    when(() => service.getArticle('x')).thenThrow(Exception('network down'));
+    when(() => service.getArticle('x', lang: any(named: 'lang')))
+        .thenThrow(Exception('network down'));
 
     final controller = ArticleReaderController('x', syncService: service);
     await pumpEventQueue();
 
     expect(controller.state.isLoading, isFalse);
-    expect(controller.state.errorMessage,
-        'Connect to the internet to read this article.');
+    expect(controller.state.hasError, isTrue);
     expect(controller.state.article, isNull);
 
     controller.dispose();
@@ -76,7 +77,8 @@ void main() {
   test('loadArticle retry clears the error and reloads', () async {
     final service = MockArticleSyncService();
     var callCount = 0;
-    when(() => service.getArticle('x')).thenAnswer((_) async {
+    when(() => service.getArticle('x', lang: any(named: 'lang')))
+        .thenAnswer((_) async {
       callCount++;
       if (callCount == 1) throw Exception('first attempt fails');
       return _article;
@@ -84,10 +86,10 @@ void main() {
 
     final controller = ArticleReaderController('x', syncService: service);
     await pumpEventQueue();
-    expect(controller.state.errorMessage, isNotNull);
+    expect(controller.state.hasError, isTrue);
 
     await controller.loadArticle();
-    expect(controller.state.errorMessage, isNull);
+    expect(controller.state.hasError, isFalse);
     expect(controller.state.article, isNotNull);
 
     controller.dispose();

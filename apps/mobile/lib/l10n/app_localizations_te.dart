@@ -1,4 +1,5 @@
 import 'app_localizations.dart';
+import '../core/config/app_config.dart';
 
 class AppLocalizationsTe extends AppLocalizations {
   AppLocalizationsTe([super.locale = 'te']);
@@ -45,4 +46,10 @@ class AppLocalizationsTe extends AppLocalizations {
   String get noVideosFound => 'వీడియోలు కనుగొనబడలేదు';
   @override
   String get retry => 'మళ్ళీ ప్రయత్నించండి';
+  @override
+  String get appearance => 'రూపం';
+  @override
+  String get readOnApp => '${AppConfig.appName}లో చదవండి';
+  @override
+  String get articleReadError => 'ఈ కథనాన్ని చదవడానికి ఇంటర్నెట్ కనెక్షన్ అవసరం.';
 }

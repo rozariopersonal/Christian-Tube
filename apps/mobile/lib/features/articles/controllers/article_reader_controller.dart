@@ -5,24 +5,23 @@ import '../services/article_sync_service.dart';
 
 class ArticleReaderState {
   final bool isLoading;
-  final String? errorMessage;
+  final bool hasError;
   final ArticleData? article;
 
   const ArticleReaderState({
     this.isLoading = true,
-    this.errorMessage,
+    this.hasError = false,
     this.article,
   });
 
   ArticleReaderState copyWith({
     bool? isLoading,
-    String? errorMessage,
+    bool? hasError,
     ArticleData? article,
-    bool clearError = false,
   }) {
     return ArticleReaderState(
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      hasError: hasError ?? this.hasError,
       article: article ?? this.article,
     );
   }
@@ -53,17 +52,14 @@ class ArticleReaderController extends ChangeNotifier {
   }
 
   Future<void> loadArticle() async {
-    _state = _state.copyWith(isLoading: true, clearError: true);
+    _state = _state.copyWith(isLoading: true, hasError: false);
     notifyListeners();
 
     try {
       final data = await _syncService.getArticle(articleId, lang: lang);
       _state = _state.copyWith(isLoading: false, article: data);
     } catch (e) {
-      _state = _state.copyWith(
-        isLoading: false,
-        errorMessage: 'Connect to the internet to read this article.',
-      );
+      _state = _state.copyWith(isLoading: false, hasError: true);
     }
     notifyListeners();
   }
