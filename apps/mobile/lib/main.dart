@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:go_router/go_router.dart';
 import 'core/api/release_revision.dart';
 import 'core/config/app_config.dart';
@@ -8,6 +7,8 @@ import 'core/link/deep_link_controller.dart';
 import 'core/models/video.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/theme_service.dart';
+import 'core/web/url_strategy.dart'
+    if (dart.library.html) 'core/web/url_strategy_web.dart';
 import 'features/auth/auth_service.dart';
 import 'features/channels/channel_service.dart';
 import 'features/channels/channels_screen.dart';
@@ -45,7 +46,8 @@ void main() async {
   // Web: use clean path-based URLs (no '#') so shared links like
   // /watch/<id> resolve to real routes in the browser, Android App Links
   // match the same paths, and the OG function can serve preview meta.
-  usePathUrlStrategy();
+  // (Conditional import keeps web-only code out of native builds.)
+  configureUrlStrategy();
   await AppConfig.initialize();
 
   // Resolve the dataset revision (used to cache-bust every release-asset URL)
