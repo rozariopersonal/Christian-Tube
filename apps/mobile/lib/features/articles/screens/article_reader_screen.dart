@@ -1,12 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:mobile/core/layout/content_width.dart';
+import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/books/widgets/scripture_verse_popup.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/ui/reader_appearance_sheet.dart';
+import 'package:share_plus/share_plus.dart';
 import '../controllers/article_reader_controller.dart';
 import '../services/article_sync_service.dart';
 
@@ -199,27 +200,23 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                 IconButton(
                   icon: Icon(Icons.share_rounded, color: tokens.onSurface),
                   tooltip: 'Share',
-                  onPressed: () async {
+                  onPressed: () {
                     final article = state.article!;
+                    final link = DeepLinkService.article(
+                      widget.articleId,
+                      lang: widget.lang,
+                    );
                     final buffer = StringBuffer();
                     buffer.writeln(article.title);
                     buffer.writeln('By ${article.author} • ${article.date}\n');
-                    for (final l in article.lines) {
+                    for (final l in article.lines.take(12)) {
                       buffer.writeln(l.text);
                     }
-                    await Clipboard.setData(ClipboardData(text: buffer.toString()));
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Article copied to clipboard!',
-                            style: TextStyle(color: tokens.onSurface),
-                          ),
-                          backgroundColor: tokens.surface,
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    }
+                    buffer.writeln('\nRead on ChristianApp: $link');
+                    Share.share(
+                      buffer.toString(),
+                      subject: article.title,
+                    );
                   },
                 ),
             ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/link/deep_link_service.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
@@ -306,7 +307,12 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
                     foregroundColor: tokens.onSurfaceMuted,
                   ),
                   onPressed: () async {
-                    final textToCopy = '“$verseText”\n\n— ${card.referenceLabel} ($version)';
+                    final link = DeepLinkService.bible(
+                      book: card.bookName,
+                      chapter: card.chapter,
+                      verse: card.startVerse,
+                    );
+                    final textToCopy = '“$verseText”\n\n— ${card.referenceLabel} ($version)\n\n$link';
                     await Clipboard.setData(ClipboardData(text: textToCopy));
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(

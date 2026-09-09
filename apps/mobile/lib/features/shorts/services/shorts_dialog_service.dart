@@ -9,6 +9,7 @@ import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/layout/content_width.dart';
+import '../../../core/link/deep_link_service.dart';
 import '../../../shared/ui/channel_avatar.dart';
 import 'shorts_orchestrator_service.dart';
 
@@ -93,7 +94,11 @@ class ShortsDialogService {
       return;
     }
 
-    final appUrl = '${AppConfig.shareBaseUrl}/watch/${short.sourceVideoId ?? short.id}?start=${(short.clipStartTime ?? 0).toInt()}';
+    final appUrl = DeepLinkService.short(
+      short.id,
+      sourceVideoId: short.sourceVideoId,
+      startSec: (short.clipStartTime ?? 0).toDouble(),
+    );
     final ytUrl = 'https://www.youtube.com/shorts/${short.id}';
 
     Share.share(

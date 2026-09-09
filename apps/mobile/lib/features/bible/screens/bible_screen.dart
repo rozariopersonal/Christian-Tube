@@ -9,6 +9,7 @@ import '../../../shared/ui/reader_appearance_sheet.dart';
 import '../../../shared/ui/highlight_color_picker.dart';
 import '../../../shared/ui/note_editor_sheet.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../core/link/deep_link_service.dart';
 import '../models/bible_verse.dart';
 import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
@@ -468,7 +469,16 @@ class _BibleScreenState extends State<BibleScreen> {
             '· ${_controller.selectedVersion!.shortname}'
         : '${_controller.currentBook} ${_controller.currentChapter}';
     final text = s.selectedText();
-    final shareBody = text.isEmpty ? header : '$header\n$text\n\n— Christian Tube Bible';
+    final firstVerse = s.selectedVerses.first;
+    final link = DeepLinkService.bible(
+      version: _controller.selectedVersion?.shortname,
+      book: _controller.currentBook,
+      chapter: _controller.currentChapter,
+      verse: firstVerse,
+    );
+    final shareBody = text.isEmpty
+        ? '$header\n\n$link'
+        : '$header\n$text\n\n— Christian Tube Bible\n$link';
     Share.share(shareBody);
     _controller.clearSelection();
   }

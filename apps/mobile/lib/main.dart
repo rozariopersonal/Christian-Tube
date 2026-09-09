@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'core/api/release_revision.dart';
 import 'core/config/app_config.dart';
 import 'core/engines/active_engine.g.dart';
+import 'core/link/deep_link_controller.dart';
 import 'core/models/video.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/theme_service.dart';
@@ -305,6 +306,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
       ],
     );
     BiblePassageNavigator.instance.init(_router);
+    DeepLinkController.instance.attach(_router);
   }
 
   @override

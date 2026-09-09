@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/layout/content_width.dart';
+import '../../../core/link/deep_link_service.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../controllers/audio_player_controller.dart';
 import '../models/audio_track.dart';
@@ -175,8 +176,11 @@ class _FullAudioPlayerSheetState extends State<FullAudioPlayerSheet> {
             onSelected: (value) {
               switch (value) {
                 case 'share':
+                  final link = DeepLinkService.audioSeries(track.seriesId);
                   Share.share(
-                    'Listening to "${track.title}" by ${track.speaker} on Christian Tube\n${track.audioUrl}',
+                    'Listening to "${track.title}" by ${track.speaker}\n'
+                    'Open in ChristianApp: $link',
+                    subject: '${track.title} — ${track.seriesTitle}',
                   );
                   break;
                 case 'sleep_timer':

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/engines/base_feed_engine.dart';
 import 'package:mobile/core/layout/content_width.dart';
+import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/bible/models/bible_reference.dart';
 import 'package:mobile/features/bible/services/bible_passage_navigator.dart';
@@ -12,6 +13,7 @@ import 'package:mobile/features/engines/scripture/services/local_bible_service.d
 import 'package:mobile/features/engines/scripture/widgets/bible_version_picker_modal.dart';
 import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 import 'models/wftw_card.dart';
 import 'models/wftw_filter_state.dart';
 import 'services/wftw_database_service.dart';
@@ -293,23 +295,18 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
       CardActionButton(
         icon: Icons.share_rounded,
         label: 'Share',
-        onTap: () async {
+        onTap: () {
+          final verseLink = (item.bookName != null && item.chapter != null)
+              ? DeepLinkService.bible(
+                  book: item.bookName,
+                  chapter: item.chapter,
+                  verse: item.startVerse,
+                )
+              : DeepLinkService.article(item.articleId);
           final text = item.hasPrimaryVerse
-              ? '“${item.resolvedText ?? ""}”\n\n— ${item.referenceLabel}\nFrom: ${item.articleTitle}'
-              : '${item.articleTitle}\n\n${item.fallbackExcerpt ?? ""}';
-          await Clipboard.setData(ClipboardData(text: text));
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Article text copied to clipboard!',
-                  style: TextStyle(color: tokens.onSurface),
-                ),
-                backgroundColor: tokens.surface,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
+              ? '“${item.resolvedText ?? ""}”\n\n— ${item.referenceLabel}\nFrom: ${item.articleTitle}\n\n$verseLink'
+              : '${item.articleTitle}\n\n${item.fallbackExcerpt ?? ""}\n\n$verseLink';
+          Share.share(text);
         },
       ),
 

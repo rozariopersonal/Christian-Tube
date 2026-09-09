@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/layout/content_width.dart';
+import '../../../core/link/deep_link_service.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../models/song.dart';
 import '../services/song_transliteration_controller.dart';
@@ -112,6 +115,17 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
           style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Share',
+            icon: Icon(Icons.share_outlined, color: tokens.onSurfaceMuted, size: 21),
+            onPressed: () {
+              final link = DeepLinkService.song(song.id);
+              Share.share(
+                '$title — ${song.author ?? song.collection ?? AppConfig.appName}\n$link',
+                subject: title,
+              );
+            },
+          ),
           if (translitAvailable)
             IconButton(
               tooltip: _showTranslit ? 'Show original script' : 'Show transliteration',

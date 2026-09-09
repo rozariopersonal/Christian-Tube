@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/link/deep_link_service.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/scripture_card.dart';
 import '../services/file_saver.dart';
@@ -131,8 +132,13 @@ class ScriptureShareModal extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
+                      final link = DeepLinkService.bible(
+                        book: card.bookName,
+                        chapter: card.chapter,
+                        verse: card.startVerse,
+                      );
                       Share.share(
-                        '“${card.resolvedText ?? ""}”\n\n— ${card.referenceLabel}\n\nShared via $appName',
+                        '“${card.resolvedText ?? ""}”\n\n— ${card.referenceLabel}\n\n$link\n\nShared via $appName',
                       );
                     },
                     icon: const Icon(Icons.copy_rounded, size: 16),

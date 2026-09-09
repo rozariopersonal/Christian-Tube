@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/models/video.dart';
 import '../../core/config/app_config.dart';
+import '../../core/link/deep_link_service.dart';
 import '../../core/theme/app_tokens.dart';
 
 class VideoOptionsBottomSheet extends StatelessWidget {
@@ -60,7 +61,7 @@ class VideoOptionsBottomSheet extends StatelessWidget {
               title: const Text('Share Video'),
               onTap: () {
                 Navigator.pop(context);
-                final shareUrl = '${AppConfig.shareBaseUrl}/watch/${video.id}';
+                final shareUrl = DeepLinkService.video(video.id);
                 Share.share('Watch "${video.title}" on ${AppConfig.appName}: $shareUrl');
               },
             ),

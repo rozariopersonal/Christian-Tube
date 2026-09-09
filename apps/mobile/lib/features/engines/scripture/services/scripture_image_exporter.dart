@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/link/deep_link_service.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
 import 'bible_download_manager.dart';
@@ -338,7 +339,9 @@ class ScriptureImageExporter {
       final fileName =
           'verse_${sanitizedRef}_${DateTime.now().millisecondsSinceEpoch}.png';
       final shareText =
-          '“${card.resolvedText ?? ""}”\n\n— ${card.referenceLabel} (${card.resolvedVersion ?? activeVersionId})\n\nShared via $appName';
+          '“${card.resolvedText ?? ""}”\n\n— ${card.referenceLabel} (${card.resolvedVersion ?? activeVersionId})\n\n'
+          '${DeepLinkService.bible(book: card.bookName, chapter: card.chapter, verse: card.startVerse)}\n\n'
+          'Shared via $appName';
 
       // 2. Directly show the native / platform Share Dialog with the pre-created image!
       final xFile = XFile.fromData(

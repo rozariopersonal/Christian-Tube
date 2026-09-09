@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
+import '../../core/link/deep_link_service.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
@@ -440,7 +441,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             icon: const Icon(Icons.share_outlined),
             tooltip: 'Share',
             onPressed: () {
-              Share.share('${AppConfig.shareBaseUrl}/watch/$_activeVideoId');
+              Share.share(DeepLinkService.video(_activeVideoId));
             },
           ),
         IconButton(
@@ -833,7 +834,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           icon: Icons.share_outlined,
           label: 'Share',
           onTap: () {
-            Share.share('${AppConfig.shareBaseUrl}/watch/$_activeVideoId');
+            Share.share(DeepLinkService.video(_activeVideoId));
           },
         ),
         const SizedBox(width: 8),

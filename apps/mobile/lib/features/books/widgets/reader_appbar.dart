@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:mobile/core/config/app_config.dart';
+import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// The book reader's top app bar.
 ///
@@ -47,6 +50,16 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
     final textCol = appearance.textColor(tokens);
     final mutedCol = appearance.mutedTextColor(tokens);
     final width = MediaQuery.sizeOf(context).width;
+
+    void shareBook() {
+      final bookId = s.book?.id;
+      if (bookId == null || bookId.isEmpty) return;
+      final link = DeepLinkService.book(bookId);
+      Share.share(
+        '${s.book?.title ?? 'Book'} on ${AppConfig.appName}\n$link',
+        subject: s.book?.title,
+      );
+    }
 
     return AppBar(
       backgroundColor: bgColor.withValues(alpha: 0.85),
@@ -104,8 +117,19 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onSelected: (val) {
                   if (val == 'highlights') onOpenHighlights();
                   if (val == 'appearance') onShowAppearance();
+                  if (val == 'share') shareBook();
                 },
                 itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        Icon(Icons.share_outlined, color: tokens.accent, size: 20),
+                        const SizedBox(width: 12),
+                        Text('Share', style: TextStyle(color: textCol)),
+                      ],
+                    ),
+                  ),
                   PopupMenuItem(
                     value: 'highlights',
                     child: Row(
@@ -130,6 +154,11 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ]
           : [
+              IconButton(
+                icon: Icon(Icons.share_outlined, color: mutedCol, size: 21),
+                tooltip: 'Share',
+                onPressed: shareBook,
+              ),
               IconButton(
                 icon: Icon(Icons.edit_note_rounded, color: tokens.accent, size: 22),
                 tooltip: 'Highlights & Notes',

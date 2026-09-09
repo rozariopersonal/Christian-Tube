@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/layout/content_width.dart';
+import '../../../core/link/deep_link_service.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../controllers/audio_player_controller.dart';
 import '../controllers/audio_series_controller.dart';
@@ -70,6 +72,20 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            actions: [
+              if (series != null)
+                IconButton(
+                  tooltip: 'Share',
+                  icon: Icon(Icons.share_outlined, color: tokens.onSurfaceMuted, size: 21),
+                  onPressed: () {
+                    final link = DeepLinkService.audioSeries(widget.seriesId);
+                    Share.share(
+                      '${series.title} — ${series.speaker}\n$link',
+                      subject: series.title,
+                    );
+                  },
+                ),
+            ],
           ),
           body: state.isLoading && series == null
               ? const Center(child: CircularProgressIndicator())

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile/core/engines/base_feed_engine.dart';
+import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/features/bible/models/bible_reference.dart';
 import 'package:mobile/features/bible/services/bible_passage_navigator.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -637,8 +638,13 @@ class ScriptureEngine
         icon: Icons.copy_rounded,
         label: 'Copy',
         onTap: () async {
+          final link = DeepLinkService.bible(
+            book: item.bookName,
+            chapter: item.chapter,
+            verse: item.startVerse,
+          );
           final text =
-              '“${item.resolvedText ?? ""}”\n\n— ${item.referenceLabel} (${item.resolvedVersion ?? filterState.activeVersionId})';
+              '“${item.resolvedText ?? ""}”\n\n— ${item.referenceLabel} (${item.resolvedVersion ?? filterState.activeVersionId})\n\n$link';
           await Clipboard.setData(ClipboardData(text: text));
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

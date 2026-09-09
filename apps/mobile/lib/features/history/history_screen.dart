@@ -3,7 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/layout/content_width.dart';
-import '../../core/config/app_config.dart';
+import '../../core/link/deep_link_service.dart';
 import '../../core/models/video.dart';
 import '../../core/utils/formatters.dart';
 import '../profile/user_service.dart';
@@ -323,7 +323,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     );
                   }
                 } else if (action == 'share') {
-                  Share.share('${AppConfig.shareBaseUrl}/watch/${video.id}');
+                  Share.share(DeepLinkService.video(video.id));
                 }
               },
               itemBuilder: (ctx) => [
