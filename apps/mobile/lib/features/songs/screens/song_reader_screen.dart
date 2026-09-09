@@ -124,7 +124,7 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
       );
     }
 
-    final s = song!;
+    final s = song;
     // The Latin view shows the transliterated title; the primary view keeps
     // the true title. Fall back to the available one when a view is missing.
     final title =

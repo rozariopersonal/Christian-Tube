@@ -69,7 +69,7 @@ void main() {
         setSurfaceSize(tester, width, 800);
         await tester.pumpWidget(MaterialApp(
           theme: testTheme(),
-          home: SongReaderScreen(song: testSong),
+          home: SongReaderScreen(initialSong: testSong),
         ));
         await tester.pumpAndSettle();
 
@@ -94,7 +94,7 @@ void main() {
 
       await tester.pumpWidget(MaterialApp(
         theme: testTheme(),
-        home: SongReaderScreen(song: tamilSong),
+        home: SongReaderScreen(initialSong: tamilSong),
       ));
       await tester.pumpAndSettle();
 
@@ -114,7 +114,7 @@ void main() {
       setSurfaceSize(tester, 400, 800);
       await tester.pumpWidget(MaterialApp(
         theme: testTheme(),
-        home: const SongReaderScreen(song: Song.empty()),
+        home: const SongReaderScreen(initialSong: Song.empty()),
       ));
       await tester.pumpAndSettle();
 
