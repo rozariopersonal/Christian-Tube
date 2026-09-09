@@ -230,13 +230,10 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             ),
             GoRoute(
               path: '/articles',
-              builder: (context, state) {
-                final qp = state.uri.queryParameters;
-                final extra = state.extra as Map<String, dynamic>?;
-                return ArticleBrowserScreen(
-                  initialLang: qp['lang'] ?? extra?['lang'] as String? ?? 'en',
-                );
-              },
+              builder: (context, state) => ArticleBrowserScreen(
+                langController:
+                    LibraryLanguagesController.fromRouteExtra(state.extra),
+              ),
             ),
             GoRoute(
               path: '/songs',

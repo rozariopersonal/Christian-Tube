@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/articles/models/wftw_index_entry.dart';
 import 'package:mobile/features/articles/screens/article_browser_screen.dart';
-import 'package:mobile/features/articles/services/wftw_index_service.dart';
+import 'package:mobile/shared/services/library_languages_controller.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
   tester.view.physicalSize = Size(width, height);
@@ -17,7 +17,7 @@ ThemeData testTheme() => ThemeData(
       extensions: const [AppTokens.dark],
     );
 
-const List<WftwIndexEntry> sampleEnglish = [
+const List<WftwIndexEntry> sampleCombined = [
   WftwIndexEntry(
     id: '2026_09_06',
     title: 'Few Will Find the Narrow Way',
@@ -34,16 +34,6 @@ const List<WftwIndexEntry> sampleEnglish = [
     date: '2001-01-07',
     year: 2001,
   ),
-];
-
-const List<WftwIndexEntry> sampleTamil = [
-  WftwIndexEntry(
-    id: '2026_09_06',
-    title: 'Tamil Narrow Way teaching',
-    date: '2026-09-06',
-    year: 2026,
-    lang: 'ta',
-  ),
   WftwIndexEntry(
     id: '2025_01_05',
     title: 'Tamil old devotion',
@@ -51,11 +41,6 @@ const List<WftwIndexEntry> sampleTamil = [
     year: 2025,
     lang: 'ta',
   ),
-];
-
-const List<ArticleLanguage> sampleLanguages = [
-  ArticleLanguage(code: 'en', name: 'English', count: 2),
-  ArticleLanguage(code: 'ta', name: 'Tamil', count: 2),
 ];
 
 const List<double> kBreakpoints = [320, 600, 840, 1400];
@@ -76,77 +61,48 @@ class _ArticleStub extends StatelessWidget {
 void main() {
   group('ArticleBrowserScreen', () {
     for (final width in kBreakpoints) {
-      testWidgets('renders without overflow at ${width}px', (tester) async {
+      testWidgets('renders combined entries without overflow at ${width}px',
+          (tester) async {
         setSurfaceSize(tester, width, 800);
         await tester.pumpWidget(MaterialApp(
           theme: testTheme(),
-          home: ArticleBrowserScreen(
-            loader: (_) async => sampleEnglish,
-            languagesLoader: () async => sampleLanguages,
-          ),
+          home: ArticleBrowserScreen(loader: () async => sampleCombined),
         ));
         await tester.pumpAndSettle();
 
-        expect(find.text('2 articles • English'), findsOneWidget);
+        expect(find.text('3 articles • All'), findsOneWidget);
         expect(find.text('Few Will Find the Narrow Way'), findsOneWidget);
+        expect(find.text('Tamil old devotion'), findsOneWidget);
         expect(find.text('2026'), findsOneWidget);
         expect(find.text('2001'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }
 
-    testWidgets('switching language shows language chips and tagged rows',
+    testWidgets('honors shared library language filter (Tamil only)',
         (tester) async {
       setSurfaceSize(tester, 400, 800);
-      var requestedLang = '';
+      final lang = LibraryLanguagesController()
+        ..selectLanguages({'ta'});
       await tester.pumpWidget(MaterialApp(
         theme: testTheme(),
         home: ArticleBrowserScreen(
-          loader: (lang) async {
-            requestedLang = lang;
-            return sampleTamil;
-          },
-          languagesLoader: () async => sampleLanguages,
+          loader: () async => sampleCombined,
+          langController: lang,
         ),
       ));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Tamil'));
-      await tester.pumpAndSettle();
-
-      expect(requestedLang, 'ta');
-      expect(find.text('2 articles • Tamil'), findsOneWidget);
-      expect(find.text('Tamil Narrow Way teaching'), findsOneWidget);
-    });
-
-    testWidgets('initialLang opens directly in that language', (tester) async {
-      setSurfaceSize(tester, 400, 800);
-      String? requested;
-      await tester.pumpWidget(MaterialApp(
-        theme: testTheme(),
-        home: ArticleBrowserScreen(
-          initialLang: 'ta',
-          loader: (lang) async {
-            requested = lang;
-            return sampleTamil;
-          },
-          languagesLoader: () async => sampleLanguages,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(requested, 'ta');
-      expect(find.text('2 articles • Tamil'), findsOneWidget);
+      expect(find.text('1 articles • Tamil'), findsOneWidget);
+      expect(find.text('Tamil old devotion'), findsOneWidget);
+      expect(find.text('Few Will Find the Narrow Way'), findsNothing);
     });
 
     testWidgets('search filters rows in the current language', (tester) async {
       setSurfaceSize(tester, 400, 800);
       await tester.pumpWidget(MaterialApp(
         theme: testTheme(),
-        home: ArticleBrowserScreen(
-          loader: (_) async => sampleEnglish,
-          languagesLoader: () async => sampleLanguages,
-        ),
+        home: ArticleBrowserScreen(loader: () async => sampleCombined),
       ));
       await tester.pumpAndSettle();
 
@@ -163,25 +119,22 @@ void main() {
       var calls = 0;
       await tester.pumpWidget(MaterialApp(
         theme: testTheme(),
-        home: ArticleBrowserScreen(
-          loader: (_) async {
-            calls++;
-            if (calls == 1) throw Exception('network down');
-            return sampleEnglish;
-          },
-          languagesLoader: () async => sampleLanguages,
-        ),
+        home: ArticleBrowserScreen(loader: () async {
+          calls++;
+          if (calls == 1) throw Exception('network down');
+          return sampleCombined;
+        }),
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Could not load articles for English.'), findsOneWidget);
+      expect(find.text('Could not load articles.'), findsOneWidget);
 
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
       expect(find.text('Few Will Find the Narrow Way'), findsOneWidget);
     });
 
-    testWidgets('tapping a row routes to /article/:id with its language',
+    testWidgets('tapping a non-English row routes to /article/:id with its lang',
         (tester) async {
       setSurfaceSize(tester, 400, 800);
       final router = GoRouter(
@@ -189,11 +142,8 @@ void main() {
         routes: [
           GoRoute(
             path: '/articles',
-            builder: (_, __) => ArticleBrowserScreen(
-              loader: (_) async => sampleTamil,
-              languagesLoader: () async => sampleLanguages,
-              initialLang: 'ta',
-            ),
+            builder: (_, __) =>
+                ArticleBrowserScreen(loader: () async => sampleCombined),
           ),
           GoRoute(
             path: '/article/:id',
@@ -208,11 +158,11 @@ void main() {
           ),
         ],
       );
-      await tester.pumpWidget(
-          MaterialApp.router(routerConfig: router, theme: testTheme()));
+      await tester
+          .pumpWidget(MaterialApp.router(routerConfig: router, theme: testTheme()));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Tamil Narrow Way teaching'));
+      await tester.tap(find.text('Tamil old devotion'));
       await tester.pumpAndSettle();
       expect(find.byType(_ArticleStub), findsOneWidget);
     });

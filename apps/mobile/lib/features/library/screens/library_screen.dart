@@ -604,7 +604,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   void _openArticles() {
-    context.push('/articles');
+    context.push('/articles', extra: {'langController': _langController});
   }
 
   void _openSongs() {

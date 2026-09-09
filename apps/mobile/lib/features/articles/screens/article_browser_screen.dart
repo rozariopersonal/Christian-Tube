@@ -3,24 +3,22 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../shared/services/library_languages_controller.dart';
+import '../../../shared/ui/language_meta.dart';
 import '../models/wftw_index_entry.dart';
 import '../services/wftw_index_service.dart';
 import '../widgets/article_row.dart';
 
-/// Multi-language articles browser: picks a language (English + the seeded
-/// CFC languages), then browses that language's Word-for-the-Week archive
-/// grouped by year, with a client-side title search.
+/// Multi-language articles browser: lists the combined article archive
+/// (English + seeded CFC languages), filtered by the app-wide shared
+/// [LibraryLanguagesController] so language selection stays centralized at the
+/// Library level. No per-screen language picker. Grouped by year with a
+/// client-side title search.
 class ArticleBrowserScreen extends StatefulWidget {
-  final ArticlesLoader? loader;
-  final ArticlesLanguagesLoader? languagesLoader;
-  final String initialLang;
+  final WftwIndexLoader? loader;
+  final LibraryLanguagesController? langController;
 
-  const ArticleBrowserScreen({
-    super.key,
-    this.loader,
-    this.languagesLoader,
-    this.initialLang = 'en',
-  });
+  const ArticleBrowserScreen({super.key, this.loader, this.langController});
 
   @override
   State<ArticleBrowserScreen> createState() => _ArticleBrowserScreenState();
@@ -28,8 +26,9 @@ class ArticleBrowserScreen extends StatefulWidget {
 
 class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
   final TextEditingController _searchController = TextEditingController();
-  late String _lang;
-  List<ArticleLanguage> _languages = const [];
+  late final LibraryLanguagesController _langController;
+  late final bool _ownsLangController;
+
   List<WftwIndexEntry> _entries = const [];
   bool _loading = true;
   String? _error;
@@ -38,36 +37,32 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
   @override
   void initState() {
     super.initState();
-    _lang = widget.initialLang;
-    _loadLanguages();
-    _loadEntries(_lang);
+    _ownsLangController = widget.langController == null;
+    _langController = (widget.langController ?? LibraryLanguagesController())
+      ..addListener(_onLanguagesChanged);
+    _loadEntries();
   }
 
   @override
   void dispose() {
+    _langController.removeListener(_onLanguagesChanged);
+    if (_ownsLangController) _langController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadLanguages() async {
-    try {
-      final loader = widget.languagesLoader ?? WftwIndexService().getLanguages;
-      final languages = await loader();
-      if (!mounted) return;
-      setState(() => _languages = languages);
-    } catch (e) {
-      debugPrint('Articles languages unavailable: $e');
-    }
+  void _onLanguagesChanged() {
+    if (mounted) setState(() {});
   }
 
-  Future<void> _loadEntries(String lang) async {
+  Future<void> _loadEntries() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final loader = widget.loader ?? WftwIndexService().getLanguageArticles;
-      final entries = await loader(lang);
+      final loader = widget.loader ?? WftwIndexService().getArticlesIndex;
+      final entries = await loader();
       if (!mounted) return;
       setState(() {
         _entries = entries;
@@ -82,31 +77,36 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
     }
   }
 
-  void _selectLanguage(String lang) {
-    if (lang == _lang) return;
-    setState(() => _lang = lang);
-    _loadEntries(lang);
-  }
-
-  String get _langName {
-    for (final l in _languages) {
-      if (l.code == _lang) return l.name;
-    }
-    return _lang.toUpperCase();
+  /// All entries, filtered by the shared library language selection.
+  List<WftwIndexEntry> get _langFiltered {
+    final state = _langController.state;
+    if (state.isAllLanguages) return _entries;
+    return _entries.where((e) => state.includes(e.lang)).toList();
   }
 
   List<WftwIndexEntry> get _filtered {
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return _entries;
-    return _entries
+    final langFiltered = _langFiltered;
+    if (q.isEmpty) return langFiltered;
+    return langFiltered
         .where((e) => e.title.toLowerCase().contains(q))
         .toList();
   }
 
+  String get _countLabel {
+    final state = _langController.state;
+    if (state.isAllLanguages) return '${_langFiltered.length} articles • All';
+    if (state.selectedLanguages.length == 1) {
+      return '${_langFiltered.length} articles • ${LanguageMeta.fromCode(state.selectedLanguages.first).englishName}';
+    }
+    return '${_langFiltered.length} articles • ${state.selectedLanguages.length} languages';
+  }
+
   void _openArticle(WftwIndexEntry entry) {
+    final lang = entry.lang == 'en' ? null : entry.lang;
     context.push(
       '/article/${entry.id}',
-      extra: {'title': entry.title, 'lang': _lang},
+      extra: {'title': entry.title, if (lang != null) 'lang': lang},
     );
   }
 
@@ -124,48 +124,13 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
             const Text('Articles', style: TextStyle(fontWeight: FontWeight.bold)),
             if (!_loading && _error == null)
               Text(
-                '${_entries.length} articles • $_langName',
+                _countLabel,
                 style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
               ),
           ],
         ),
       ),
-      body: Column(
-        children: [
-          if (_languages.isNotEmpty) _buildLanguageBar(tokens),
-          Expanded(child: _buildBody(tokens)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLanguageBar(AppTokens tokens) {
-    return SizedBox(
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          for (final lang in _languages)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(lang.name),
-                labelStyle: TextStyle(
-                  fontSize: 12.5,
-                  color: _lang == lang.code ? tokens.onSurface : tokens.onSurfaceMuted,
-                  fontWeight: _lang == lang.code ? FontWeight.w600 : FontWeight.w400,
-                ),
-                selected: _lang == lang.code,
-                selectedColor: tokens.accent.withValues(alpha: 0.2),
-                backgroundColor: tokens.surfaceVariant,
-                side: BorderSide(color: tokens.surfaceBorder),
-                visualDensity: VisualDensity.compact,
-                onSelected: (_) => _selectLanguage(lang.code),
-              ),
-            ),
-        ],
-      ),
+      body: _buildBody(tokens),
     );
   }
 
@@ -193,13 +158,13 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
               Icon(Icons.cloud_off_rounded, color: tokens.onSurfaceMuted, size: 40),
               const SizedBox(height: 12),
               Text(
-                'Could not load articles for $_langName.',
+                'Could not load articles.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: tokens.onSurfaceMuted),
               ),
               const SizedBox(height: 16),
               FilledButton.tonal(
-                onPressed: () => _loadEntries(_lang),
+                onPressed: _loadEntries,
                 style: FilledButton.styleFrom(
                   backgroundColor: tokens.surfaceVariant,
                   foregroundColor: tokens.onSurface,
@@ -297,7 +262,6 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) => ArticleRow(
                     entry: yearGroup.value[index],
-                    langLabel: _lang == 'en' ? null : _langName,
                     onTap: () => _openArticle(yearGroup.value[index]),
                   ),
                   childCount: yearGroup.value.length,
