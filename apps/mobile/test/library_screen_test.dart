@@ -8,6 +8,7 @@ import 'package:mobile/features/books/models/book.dart';
 import 'package:mobile/features/books/models/user_reading_progress.dart';
 import 'package:mobile/features/library/screens/library_screen.dart';
 import 'package:mobile/features/library/services/library_data_loader.dart';
+import 'package:mobile/features/songs/models/song.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
   tester.view.physicalSize = Size(width, height);
@@ -188,6 +189,32 @@ void main() {
       expect(find.text('Word for the Week'), findsOneWidget);
       expect(find.text('Articles'), findsNothing);
       expect(find.text('Tamil'), findsNothing);
+    });
+
+    testWidgets('catalog languages outside the registry render as names',
+        (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      await tester.pumpWidget(buildLibrary(
+        loader: loaderWithData(),
+        wftwLoader: () async => sampleTeachings,
+        articlesLoader: () async => sampleArticles,
+        languagesLoader: () async => [
+          ...sampleLanguages,
+          const ArticleLanguage(code: 'gu', name: 'Gujarati', count: 1),
+        ],
+        songsLoader: () async => const [
+          Song(id: 's1', title: 'S', language: 'gu', verses: ['x']),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('All Languages'), findsOneWidget);
+      await tester.tap(find.text('All Languages'));
+      await tester.pumpAndSettle();
+
+      // The registered language shows its name, never its raw ISO code.
+      expect(find.text('Gujarati'), findsWidgets);
+      expect(find.text('GU'), findsNothing);
     });
   });
 

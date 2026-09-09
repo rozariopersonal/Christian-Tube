@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import '../../books/models/book_language_meta.dart';
 import '../../../shared/services/library_languages_controller.dart';
+import '../../../shared/ui/language_meta.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
@@ -64,7 +64,9 @@ class AudioLibraryViewState {
     );
   }
 
-  /// Series matching the active category and language filters.
+  /// Series matching the active category and language filters. Language values
+  /// are canonicalized (names like `English` become `en`) so they line up with
+  /// the shared controller's code-based selection.
   List<AudioSeries> get filteredSeries {
     final isAll = isAllLanguagesSelected;
 
@@ -75,17 +77,9 @@ class AudioLibraryViewState {
 
       if (isAll) return true;
 
-      final sLangLower = s.language.toLowerCase();
-      final sMeta = BookLanguageMeta.fromCode(s.language);
-
-      return selectedLanguages.any((l) {
-        final lLower = l.toLowerCase();
-        final lMeta = BookLanguageMeta.fromCode(l);
-        return lLower == sLangLower ||
-            lMeta.englishName.toLowerCase() == sLangLower ||
-            lLower == sMeta.code.toLowerCase() ||
-            lMeta.code.toLowerCase() == sMeta.code.toLowerCase();
-      });
+      final code = LanguageMeta.canonicalCode(s.language);
+      return code.isNotEmpty &&
+          selectedLanguages.any((l) => l.toLowerCase() == code);
     }).toList();
   }
 }
@@ -174,8 +168,8 @@ class AudioLibraryController extends ChangeNotifier {
     final Set<String> uniqueLangs = {};
 
     for (final s in catalog) {
-      final lang = s.language.trim();
-      if (lang.isEmpty) continue;
+      final lang = LanguageMeta.canonicalCode(s.language);
+      if (lang.isEmpty || lang == 'all') continue;
       uniqueLangs.add(lang);
       counts['All'] = (counts['All'] ?? 0) + s.trackCount;
       counts[lang] = (counts[lang] ?? 0) + s.trackCount;

@@ -107,5 +107,37 @@ void main() {
       controller.dispose();
       lang.dispose();
     });
+
+    test('canonicalizes full English names to codes on load', () async {
+      final lang = LibraryLanguagesController();
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService([
+          _series('en1', 'English'),
+          _series('ta1', 'Tamil'),
+          _series('fr1', 'Français'),
+        ]),
+        storageService: _FakeStorageService(),
+        langController: lang,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // States expose canonical codes, not the raw catalog names.
+      expect(controller.state.availableLanguages, containsAll(['All', 'en', 'ta', 'fr']));
+      expect(controller.state.availableLanguages, isNot(contains('English')));
+      expect(controller.state.languageTrackCounts.keys, containsAll(['en', 'ta', 'fr']));
+
+      // The names register once with the shared controller (no duplicates).
+      final available = lang.state.availableLanguages;
+      expect(available.toSet().length, available.length);
+      expect(available, containsAll(['en', 'ta', 'fr']));
+
+      // A name-based selection (as saved by older builds) still filters.
+      await lang.selectLanguages({'tamil'});
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(controller.state.filteredSeries.map((s) => s.id), ['ta1']);
+
+      controller.dispose();
+      lang.dispose();
+    });
   });
 }

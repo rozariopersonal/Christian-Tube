@@ -7,6 +7,7 @@ import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../shared/services/library_languages_controller.dart';
 import '../../../shared/ui/language_dropdown.dart';
+import '../../../shared/ui/language_meta.dart';
 import '../../articles/models/wftw_index_entry.dart';
 import '../../articles/services/wftw_index_service.dart';
 import '../../articles/widgets/wftw_shelf.dart';
@@ -137,6 +138,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
         langNames = {
           for (final l in languages) l.code: l.name,
         };
+        for (final l in languages) {
+          if (l.code.isNotEmpty) {
+            // Teach the shared language registry about catalog languages it
+            // does not already know so codes are shown as names, never as raw
+            // ISO codes.
+            LanguageMeta.registerLanguage(l.code, englishName: l.name);
+          }
+        }
         _articleLangChips = languages.map((l) => l.name).take(6).toList();
       } catch (e) {
         debugPrint('Articles shelf unavailable: $e');
@@ -358,16 +367,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   List<Book> _booksForLang(String code) => _allBooks
-      .where((b) => b.language.toLowerCase() == code.toLowerCase())
+      .where((b) => _canonical(b.language) == code.toLowerCase())
       .toList();
 
   List<WftwIndexEntry> _articlesForLang(String code) => _allArticles
-      .where((a) => a.lang.toLowerCase() == code.toLowerCase())
+      .where((a) => _canonical(a.lang) == code.toLowerCase())
       .toList();
 
   List<Song> _songsForLang(String code) => _allSongs
-      .where((s) => s.language.toLowerCase() == code.toLowerCase())
+      .where((s) => _canonical(s.language) == code.toLowerCase())
       .toList();
+
+  String _canonical(String raw) => LanguageMeta.canonicalCode(raw);
 
   int get _allItemCount =>
       _allBooks.length + _allArticles.length + _allSongs.length;
@@ -382,10 +393,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   List<WftwIndexEntry> get _filteredArticles {
     final state = _langController.state;
-    if (state.isAllLanguages) return _articlesRecent;
-    return _articlesRecent
-        .where((a) => state.includes(a.lang))
-        .toList();
+    final filtered = state.isAllLanguages
+        ? _allArticles
+        : _allArticles.where((a) => state.includes(a.lang)).toList();
+    return filtered.length <= _wftwShelfCount
+        ? filtered
+        : filtered.sublist(0, _wftwShelfCount);
   }
 
   List<Song> get _filteredSongs {
@@ -618,6 +631,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (entry.lang == 'en') return null;
     final name = _langNameByCode[entry.lang];
     if (name != null && name.isNotEmpty) return name;
+    final meta = LanguageMeta.fromCode(entry.lang);
+    if (meta.englishName.isNotEmpty &&
+        meta.englishName.toLowerCase() != entry.lang.toLowerCase()) {
+      return meta.englishName;
+    }
     return entry.lang.length <= 3 ? entry.lang.toUpperCase() : entry.lang;
   }
 }

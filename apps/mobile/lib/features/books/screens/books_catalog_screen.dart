@@ -106,11 +106,10 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     final langCodes = <String>{};
     final langBookCounts = <String, int>{};
     for (final b in allBooks) {
-      if (b.language.isNotEmpty) {
-        final code = b.language.toLowerCase();
-        langCodes.add(code);
-        langBookCounts[code] = (langBookCounts[code] ?? 0) + 1;
-      }
+      final code = BookLanguageMeta.canonicalCode(b.language);
+      if (code.isEmpty || code == 'all') continue;
+      langCodes.add(code);
+      langBookCounts[code] = (langBookCounts[code] ?? 0) + 1;
     }
     final sortedLangs = langCodes.toList()..sort();
     final languages = ['All', ...sortedLangs];
@@ -122,15 +121,11 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     final langState = _langController.state;
     final isAllLanguages = langState.isAllLanguages;
 
-    final selectedLower = langState.selectedLanguages
-        .map((l) => l.toLowerCase())
-        .toSet();
-
     // Filter books by selected language(s) for subject grouping and subjects list
     final langFilteredBooks = isAllLanguages
         ? allBooks
         : allBooks
-            .where((b) => selectedLower.contains(b.language.toLowerCase()))
+            .where((b) => langState.includes(b.language))
             .toList();
 
     // Subjects derived only from books in the selected languages

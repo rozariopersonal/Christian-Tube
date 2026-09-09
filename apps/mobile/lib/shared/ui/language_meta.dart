@@ -53,26 +53,75 @@ class LanguageMeta {
     'si': LanguageMeta(code: 'si', englishName: 'Sinhala', nativeName: 'සිංහල'),
     'es': LanguageMeta(code: 'es', englishName: 'Spanish', nativeName: 'Español'),
     'fr': LanguageMeta(code: 'fr', englishName: 'French', nativeName: 'Français'),
+    'it': LanguageMeta(code: 'it', englishName: 'Italian', nativeName: 'Italiano'),
     'pl': LanguageMeta(code: 'pl', englishName: 'Polish', nativeName: 'Polski'),
     'ru': LanguageMeta(code: 'ru', englishName: 'Russian', nativeName: 'Русский'),
     'mr': LanguageMeta(code: 'mr', englishName: 'Marathi', nativeName: 'मराठी'),
   };
 
+  /// Languages discovered at runtime (e.g. the hosted `languages.json`
+  /// catalog) that are not part of the static [supportedLanguages] set.
+  static final Map<String, LanguageMeta> _extraLanguages = {};
+
+  /// The static registry merged with any dynamically registered languages.
+  static Map<String, LanguageMeta> get allLanguages {
+    if (_extraLanguages.isEmpty) return supportedLanguages;
+    final merged = Map<String, LanguageMeta>.from(supportedLanguages);
+    merged.addAll(_extraLanguages);
+    return merged;
+  }
+
+  /// Registers a language found in a hosted catalog so its code resolves to a
+  /// human-readable label instead of the raw ISO code. No-op for codes already
+  /// declared in [supportedLanguages], which keep their richer metadata.
+  static void registerLanguage(
+    String code, {
+    required String englishName,
+    String nativeName = '',
+  }) {
+    final lower = code.trim().toLowerCase();
+    if (lower.isEmpty || lower == 'all') return;
+    if (supportedLanguages.containsKey(lower)) return;
+    _extraLanguages[lower] = LanguageMeta(
+      code: lower,
+      englishName: englishName.trim().isEmpty ? code : englishName,
+      nativeName: nativeName,
+    );
+  }
+
+  /// Canonical ISO code for a raw library value that may be a code (`en`) or a
+  /// full language name (`English`). Resolves through both the static registry
+  /// and dynamically registered languages; unknown values pass through
+  /// lowercased so callers can still filter on them deterministically.
+  static String canonicalCode(String raw) {
+    final lower = raw.trim().toLowerCase();
+    if (lower.isEmpty) return raw;
+    if (lower == 'all') return 'all';
+    final all = allLanguages;
+    final direct = all[lower];
+    if (direct != null) return lower;
+    for (final m in all.values) {
+      if (m.englishName.toLowerCase() == lower ||
+          m.nativeName.toLowerCase() == lower) {
+        return m.code;
+      }
+    }
+    return lower;
+  }
+
   /// Resolves metadata for a language code or full name (case-insensitive).
   static LanguageMeta fromCode(String code) {
     final lower = code.trim().toLowerCase();
-    final meta = supportedLanguages[lower];
+    if (lower == 'all') return supportedLanguages['all']!;
+    final all = allLanguages;
+    final meta = all[lower];
     if (meta != null) return meta;
-    for (final m in supportedLanguages.values) {
+    for (final m in all.values) {
       if (m.englishName.toLowerCase() == lower ||
           m.nativeName.toLowerCase() == lower) {
         return m;
       }
     }
-    return LanguageMeta(
-      code: code,
-      englishName: code.toUpperCase(),
-      nativeName: code.toUpperCase(),
-    );
+    return LanguageMeta(code: code, englishName: code, nativeName: '');
   }
 }

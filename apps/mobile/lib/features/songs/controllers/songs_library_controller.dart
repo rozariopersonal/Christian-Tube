@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../shared/services/library_languages_controller.dart';
+import '../../../shared/ui/language_meta.dart';
 import '../models/song.dart';
 import '../models/song_collection.dart';
 import '../services/songs_catalog_service.dart';
@@ -108,12 +109,13 @@ class SongsLibraryController extends ChangeNotifier {
   }
 
   /// Per-language song counts across the whole loaded catalog (plus `All`),
-  /// used to render truthful item counts in the shared dropdown.
+  /// used to render truthful item counts in the shared dropdown. Keys are
+  /// canonical language codes so they match the global selection.
   Map<String, int> get languageCounts {
     final counts = <String, int>{'All': 0};
     for (final s in _state.songs) {
-      final code = s.language.toLowerCase();
-      if (code.isEmpty) continue;
+      final code = LanguageMeta.canonicalCode(s.language);
+      if (code.isEmpty || code == 'all') continue;
       counts['All'] = (counts['All'] ?? 0) + 1;
       counts[code] = (counts[code] ?? 0) + 1;
     }

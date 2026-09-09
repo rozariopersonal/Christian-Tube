@@ -21,7 +21,7 @@ class LibraryLanguagesState {
 
   bool includes(String code) {
     if (isAllLanguages) return true;
-    final lower = code.toLowerCase();
+    final lower = LanguageMeta.canonicalCode(code);
     return selectedLanguages.any((l) => l.toLowerCase() == lower);
   }
 
@@ -73,8 +73,14 @@ class LibraryLanguagesController extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getStringList(_prefKeyLanguages);
       if (saved != null && saved.isNotEmpty) {
-        _state = _state.copyWith(selectedLanguages: saved.toSet());
+        final normalized = saved
+            .map((c) => LanguageMeta.canonicalCode(c))
+            .where((c) => c.isNotEmpty && c != 'all')
+            .toSet();
+        if (normalized.isEmpty) return;
+        _state = _state.copyWith(selectedLanguages: normalized);
         notifyListeners();
+        await prefs.setStringList(_prefKeyLanguages, normalized.toList());
       }
     } catch (e) {
       debugPrint('Language restore failed: $e');
@@ -82,12 +88,15 @@ class LibraryLanguagesController extends ChangeNotifier {
   }
 
   /// Registers a language code offered by a content type. Recomputes the
-  /// available-language list whenever the set of known codes changes.
+  /// available-language list whenever the set of known codes changes. Inputs
+  /// are canonicalized so full names (`English`) and codes (`en`) collapse to
+  /// one entry instead of duplicating the same language.
   void announceLanguages(Iterable<String> codes) {
     var changed = false;
     for (final raw in codes) {
       if (raw.isEmpty) continue;
-      final code = raw.toLowerCase();
+      final code = LanguageMeta.canonicalCode(raw);
+      if (code.isEmpty || code == 'all') continue;
       if (_knownLanguages.add(code)) changed = true;
     }
     if (!changed) return;
@@ -96,9 +105,15 @@ class LibraryLanguagesController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Applies a new selection and persists it.
+  /// Applies a new selection and persists it. The selection is canonicalized
+  /// so persisted codes stay consistent across content types.
   Future<void> selectLanguages(Set<String> selection) async {
-    final valid = selection.isEmpty ? {'All'} : selection;
+    final normalized = selection
+        .map((c) => LanguageMeta.canonicalCode(c))
+        .where((c) => c.isNotEmpty)
+        .map((c) => c == 'all' ? 'All' : c)
+        .toSet();
+    final valid = normalized.isEmpty ? {'All'} : normalized;
     _state = _state.copyWith(selectedLanguages: valid);
     notifyListeners();
     try {
