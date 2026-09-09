@@ -1,5 +1,6 @@
 {
   "buildCommand": "bash scripts/build-web.sh",
   "installCommand": "npm install",
-  "framework": null
+  "framework": null,
+  "outputDirectory": ".vercel/output"
 }
