@@ -31,6 +31,14 @@
 
   <title>ChristianApp</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Normalize legacy '#/...' hash routes to clean path URLs before the
+    // Flutter engine boots, so old shared links and hash-style deep links
+    // still land on the right page under path-based routing.
+    if (location.hash.length > 1 && location.hash.charAt(1) === '/') {
+      history.replaceState(null, '', location.hash.slice(1));
+    }
+  </script>
 </head>
 <body>
   <!--

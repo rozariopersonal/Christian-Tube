@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:go_router/go_router.dart';
 import 'core/api/release_revision.dart';
 import 'core/config/app_config.dart';
@@ -41,6 +42,10 @@ import 'layout/main_layout_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Web: use clean path-based URLs (no '#') so shared links like
+  // /watch/<id> resolve to real routes in the browser, Android App Links
+  // match the same paths, and the OG function can serve preview meta.
+  usePathUrlStrategy();
   await AppConfig.initialize();
 
   // Resolve the dataset revision (used to cache-bust every release-asset URL)
