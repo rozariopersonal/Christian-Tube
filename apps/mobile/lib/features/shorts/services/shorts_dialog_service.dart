@@ -228,8 +228,8 @@ class ShortsDialogService {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ctx.accent,
                       foregroundColor: ctx.accent.computeLuminance() > 0.45
-                          ? Colors.black
-                          : Colors.white,
+                          ? ctx.tokens.scrim
+                          : ctx.tokens.onSurface,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),

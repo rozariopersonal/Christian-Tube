@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
+import 'shorts_chrome.dart';
 
 class ShortsTabChip extends StatelessWidget {
   final String label;
@@ -21,7 +22,7 @@ class ShortsTabChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = context.accent;
     final onAccent = accent.computeLuminance() > 0.45
-        ? context.tokens.scrim
+        ? context.shortsChromeFg
         : context.tokens.onSurface;
     return GestureDetector(
       onTap: onTap,
@@ -29,7 +30,7 @@ class ShortsTabChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? accent : context.tokens.scrim,
+          color: isSelected ? accent : context.shortsChromeFill,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: activeJobs > 0
@@ -55,7 +56,7 @@ class ShortsTabChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? onAccent : context.tokens.onSurface,
+                color: isSelected ? onAccent : context.shortsChromeFg,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),

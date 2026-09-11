@@ -305,21 +305,21 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: context.tokens.scrim.withValues(alpha: 0.87),
+                        color: context.shortsChromeBg.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(20),
                         border:
-                            Border.all(color: context.tokens.onSurfaceMuted),
+                            Border.all(color: context.shortsChromeFgMuted),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.arrow_back_ios_new,
-                              size: 13, color: context.tokens.onScrim),
+                              size: 13, color: context.shortsChromeFg),
                           const SizedBox(width: 4),
                           Text(
                             'Back to Grid',
                             style: TextStyle(
-                                color: context.tokens.onScrim,
+                                color: context.shortsChromeFg,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold),
                           ),

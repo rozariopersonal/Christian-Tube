@@ -5,6 +5,7 @@ import '../../../core/models/local_short_item.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/ui/channel_avatar.dart';
+import 'shorts_chrome.dart';
 
 class ShortBottomDetails extends StatelessWidget {
   final Short short;
@@ -50,13 +51,7 @@ class ShortBottomDetails extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
-              colors: [
-                context.tokens.scrim.withValues(alpha: 0.98),
-                context.tokens.scrim.withValues(alpha: 0.87),
-                context.tokens.scrim.withValues(alpha: 0.6),
-                context.tokens.scrim.withValues(alpha: 0.53),
-                context.tokens.scrim.withValues(alpha: 0.0),
-              ],
+              colors: context.shortsBottomGradient,
               stops: const [0.0, 0.50, 0.70, 0.88, 1.0],
             ),
           ),
@@ -88,8 +83,8 @@ class ShortBottomDetails extends StatelessWidget {
                     ),
                     child: Builder(builder: (ctx) {
                       final onAccent = context.accent.computeLuminance() > 0.45
-                          ? context.tokens.scrim
-                          : context.tokens.onScrim;
+                          ? context.shortsChromeFg
+                          : context.shortsChromeFgMuted;
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -131,11 +126,13 @@ class ShortBottomDetails extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: context.tokens.onScrim,
+                            color: context.shortsChromeFg,
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                             shadows: [
-                              Shadow(color: context.tokens.scrim, blurRadius: 4),
+                              Shadow(
+                                  color: context.shortsChromeShadow,
+                                  blurRadius: 4),
                             ],
                           ),
                         ),
@@ -143,11 +140,13 @@ class ShortBottomDetails extends StatelessWidget {
                           Text(
                             '✂️ Clipped by ${short.creatorName}',
                             style: TextStyle(
-                              color: context.tokens.onScrimMuted,
+                              color: context.shortsChromeFgMuted,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                               shadows: [
-                                Shadow(color: context.tokens.scrim, blurRadius: 4),
+                                Shadow(
+                                    color: context.shortsChromeShadow,
+                                    blurRadius: 4),
                               ],
                             ),
                           ),
@@ -168,10 +167,10 @@ class ShortBottomDetails extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: context.tokens.onScrim,
+                          color: context.shortsChromeFg,
                           fontSize: 13,
                           shadows: [
-                            Shadow(color: context.tokens.scrim, blurRadius: 6),
+                            Shadow(color: context.shortsChromeShadow, blurRadius: 6),
                           ],
                         ),
                       ),
@@ -180,7 +179,7 @@ class ShortBottomDetails extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: context.tokens.onScrim.withValues(alpha: 0.12),
+                        color: context.shortsChromeFg.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -188,10 +187,10 @@ class ShortBottomDetails extends StatelessWidget {
                         children: [
                           Text(
                             'More',
-                            style: TextStyle(color: context.tokens.onScrimMuted, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: context.shortsChromeFgMuted, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(width: 2),
-                          Icon(Icons.expand_more_rounded, size: 12, color: context.tokens.onScrimMuted),
+                          Icon(Icons.expand_more_rounded, size: 12, color: context.shortsChromeFgMuted),
                         ],
                       ),
                     ),
@@ -260,8 +259,8 @@ class ShortBottomDetails extends StatelessWidget {
                                 ),
                                 child: Builder(builder: (ctx) {
                                   final onAccent = context.accent.computeLuminance() > 0.45
-                                      ? context.tokens.scrim
-                                      : context.tokens.onScrim;
+                                      ? context.shortsChromeFg
+                                      : context.shortsChromeFgMuted;
                                   return Text(
                                     Formatters.formatDuration(
                                       Duration(seconds: currentPosition.toInt()),
@@ -320,7 +319,7 @@ class ShortBottomDetails extends StatelessWidget {
                               height: thumbSize,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: context.tokens.onScrim,
+                                color: context.shortsChromeFg,
                                 border: Border.all(
                                   color: context.accent,
                                   width: isScrubbing ? 3.5 : 2.5,
@@ -334,7 +333,7 @@ class ShortBottomDetails extends StatelessWidget {
                                     spreadRadius: isScrubbing ? 2 : 0,
                                   ),
                                   BoxShadow(
-                                    color: context.tokens.scrim.withValues(alpha: 0.54),
+                                    color: context.shortsChromeShadow.withValues(alpha: 0.54),
                                     blurRadius: 4,
                                     offset: const Offset(0, 1),
                                   ),
@@ -359,7 +358,7 @@ class ShortBottomDetails extends StatelessWidget {
                       Duration(seconds: currentPosition.toInt()),
                     ),
                     style: TextStyle(
-                      color: context.tokens.onScrimMuted,
+                      color: context.shortsChromeFgMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -376,7 +375,7 @@ class ShortBottomDetails extends StatelessWidget {
                       ),
                     ),
                     style: TextStyle(
-                      color: context.tokens.onScrimMuted,
+                      color: context.shortsChromeFgMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/app_config.dart';
 import 'app_tokens.dart';
 
 enum AppColorTheme {
@@ -138,9 +137,8 @@ class ThemeService extends ChangeNotifier {
 
   ThemeData get lightTheme {
     final primaryColor = _colorTheme.color;
-    final accentColor = AppConfig.accentColor;
 
-    final AppTokens tokens = AppTokens.light.copyWith(accent: accentColor);
+    final AppTokens tokens = AppTokens.light.copyWith(accent: primaryColor);
 
     return ThemeData(
       useMaterial3: true,
@@ -149,7 +147,6 @@ class ThemeService extends ChangeNotifier {
         seedColor: primaryColor,
         brightness: Brightness.light,
         primary: primaryColor,
-        secondary: accentColor,
         surface: tokens.surface,
       ),
       scaffoldBackgroundColor: tokens.background,
@@ -186,7 +183,6 @@ class ThemeService extends ChangeNotifier {
 
   ThemeData get darkTheme {
     final primaryColor = _colorTheme.color;
-    final accentColor = AppConfig.accentColor;
     final bgColor = _isAmoled ? Colors.black : const Color(0xFF0F172A);
     final cardColor = _isAmoled ? const Color(0xFF121212) : const Color(0xFF1E293B);
 
@@ -195,7 +191,7 @@ class ThemeService extends ChangeNotifier {
       surface: cardColor,
       surfaceVariant: cardColor,
       surfaceElevated: _isAmoled ? const Color(0xFF1E293B) : const Color(0xFF283548),
-      accent: accentColor,
+      accent: primaryColor,
     );
 
     return ThemeData(
@@ -205,7 +201,6 @@ class ThemeService extends ChangeNotifier {
         seedColor: primaryColor,
         brightness: Brightness.dark,
         primary: primaryColor,
-        secondary: accentColor,
         surface: cardColor,
       ),
       scaffoldBackgroundColor: bgColor,

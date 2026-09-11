@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/short.dart';
 import '../../../core/theme/app_tokens.dart';
+import 'shorts_chrome.dart';
 
 class ShortActionBar extends StatelessWidget {
   final Short short;
@@ -24,8 +25,8 @@ class ShortActionBar extends StatelessWidget {
 
   Widget _buildShareButton(BuildContext context) {
     final onAccent = context.accent.computeLuminance() > 0.45
-        ? context.tokens.scrim
-        : context.tokens.onSurface;
+        ? context.shortsChromeFg
+        : context.shortsChromeFgMuted;
     return GestureDetector(
       onTap: onShare,
       child: Column(
@@ -51,12 +52,12 @@ class ShortActionBar extends StatelessWidget {
                   offset: const Offset(0, 3),
                 ),
                 BoxShadow(
-                  color: context.tokens.scrim.withValues(alpha: 0.54),
+                  color: context.shortsChromeShadow.withValues(alpha: 0.54),
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
               ],
-              border: Border.all(color: context.tokens.onScrim, width: 1.5),
+              border: Border.all(color: context.shortsChromeFg, width: 1.5),
             ),
             child: Icon(
               Icons.share_rounded,
@@ -68,12 +69,12 @@ class ShortActionBar extends StatelessWidget {
           Text(
             'Share',
             style: TextStyle(
-              color: context.tokens.onScrim,
+              color: context.shortsChromeFg,
               fontWeight: FontWeight.bold,
               fontSize: 12,
               shadows: [
-                Shadow(color: context.tokens.scrim, blurRadius: 6),
-                Shadow(color: context.tokens.scrim, blurRadius: 2),
+                Shadow(color: context.shortsChromeShadow, blurRadius: 6),
+                Shadow(color: context.shortsChromeShadow, blurRadius: 2),
               ],
             ),
           ),
