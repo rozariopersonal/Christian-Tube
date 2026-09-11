@@ -24,6 +24,10 @@ import 'widgets/youtube_playlist_widget.dart';
 import 'players/universal_video_player.dart';
 import 'widgets/shorts_trimmer_sheet.dart';
 import '../../core/models/short.dart';
+import '../audio/controllers/audio_player_controller.dart';
+import '../audio/models/audio_track.dart';
+import '../audio/services/audio_catalog_service.dart';
+import '../audio/widgets/full_audio_player_sheet.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
@@ -59,6 +63,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isDescriptionExpanded = false;
   bool _isLiked = false;
   bool _isDisliked = false;
+  
+  AudioTrack? _matchedAudioTrack;
 
   double _currentPositionSeconds = 0.0;
   double? _restoredStartSeconds;
@@ -121,6 +127,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _channelService.fetchChannels();
     _loadVideoDetails();
     _loadRelatedVideos();
+    _checkAudioTrack();
+  }
+
+  Future<void> _checkAudioTrack() async {
+    final track = await AudioCatalogService().findTrackByYoutubeId(_activeVideoId);
+    if (mounted) {
+      setState(() {
+        _matchedAudioTrack = track;
+      });
+    }
   }
 
   void _playNextInPlaylist() {
@@ -148,6 +164,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     });
     UserService().addToHistory(nextVid);
     _loadVideoDetails();
+    _loadRelatedVideos();
+    _checkAudioTrack();
   }
 
   void _toggleShuffle() {
@@ -804,6 +822,23 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (_matchedAudioTrack != null) ...[
+          _buildActionPill(
+            icon: Icons.headphones,
+            label: 'Listen to Audio',
+            onTap: () {
+              final pos = _currentPositionSeconds.toInt();
+              pausePlatformMainVideo();
+              AudioPlayerController.instance.playTrack(
+                _matchedAudioTrack!,
+                resumePositionSec: pos,
+              );
+              FullAudioPlayerSheet.show(context);
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+
         // Like / Dislike Segmented Pill
         Container(
           decoration: BoxDecoration(

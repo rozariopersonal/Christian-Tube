@@ -20,7 +20,7 @@ services:
   db:
     image: postgres:16
     container_name: christiantube-db
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -41,7 +41,7 @@ services:
       context: .
       dockerfile: deployment/prod/Dockerfile.backend
     container_name: christiantube-backend
-    restart: unless-stopped
+    restart: always
     depends_on:
       db:
         condition: service_healthy
@@ -56,5 +56,31 @@ services:
     ports:
       - "3000:3000"
 
+  transcriber:
+    build:
+      context: ./services/transcriber
+    container_name: christiantube-transcriber
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .transcriber.env
+    environment:
+      WORK_DIR: /work
+      POLL_INTERVAL: "300"
+      BATCH_LIMIT: "5"
+      LLM_URL: http://host.docker.internal:11434
+      LLM_MODEL: qwen2.5:7b
+      LLM_CONTEXT: "32768"
+      LLM_TIMEOUT: "2100"
+      WHISPER_URL: http://host.docker.internal:12788
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - transcriber-work:/work
+
 volumes:
   pgdata:
+  transcriber-work:
+

@@ -5,6 +5,11 @@ class AudioTrack {
   final String seriesId;
   final String seriesTitle;
   final String speaker;
+  final String? channelName; // YouTube channel name
+  final String? youtubeVideoId; // YouTube video ID for linking
+  final List<String>? tags; // YouTube video tags
+  final String? thumbnailUrl; // Thumbnail URL for the audio
+  final String? publishedAt; // Publication date ISO string
   final int durationSeconds;
   final String audioUrl;
   final String? fallbackUrl;
@@ -13,12 +18,19 @@ class AudioTrack {
   final int? scriptureChapter;
   final int? scriptureVerse;
 
+
+
   const AudioTrack({
     required this.id,
     required this.title,
     required this.seriesId,
     required this.seriesTitle,
     required this.speaker,
+    this.channelName,
+    this.youtubeVideoId,
+    this.tags,
+    this.thumbnailUrl,
+    this.publishedAt,
     required this.durationSeconds,
     required this.audioUrl,
     this.fallbackUrl,
@@ -52,6 +64,11 @@ class AudioTrack {
       seriesId: json['seriesId'] as String? ?? '',
       seriesTitle: json['seriesTitle'] as String? ?? '',
       speaker: json['speaker'] as String? ?? 'Zac Poonen',
+      channelName: json['channelName'] as String?,
+      youtubeVideoId: json['youtubeVideoId'] as String?,
+      tags: (json['tags'] as List?)?.cast<String>(),
+      thumbnailUrl: json['thumbnailUrl'] as String?,
+      publishedAt: json['publishedAt'] as String?,
       durationSeconds: json['durationSeconds'] as int? ?? 0,
       audioUrl: json['audioUrl'] as String? ?? '',
       fallbackUrl: json['fallbackUrl'] as String?,
@@ -68,6 +85,11 @@ class AudioTrack {
         'seriesId': seriesId,
         'seriesTitle': seriesTitle,
         'speaker': speaker,
+        'channelName': channelName,
+        'youtubeVideoId': youtubeVideoId,
+        if (tags != null) 'tags': tags,
+        'thumbnailUrl': thumbnailUrl,
+        'publishedAt': publishedAt,
         'durationSeconds': durationSeconds,
         'audioUrl': audioUrl,
         if (fallbackUrl != null) 'fallbackUrl': fallbackUrl,

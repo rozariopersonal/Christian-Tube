@@ -243,6 +243,14 @@ class AudioPlayerController extends ChangeNotifier {
     }
   }
 
+  /// Pauses playback if currently playing.
+  Future<void> pause() async {
+    if (_state.isPlaying) {
+      await _playbackService.pause();
+      await flushPlayback();
+    }
+  }
+
   /// Jumps to a specific duration.
   Future<void> seek(Duration position) async {
     _state = _state.copyWith(position: position);

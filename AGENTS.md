@@ -195,6 +195,8 @@ Favor `Theme.of(context).colorScheme.*` (e.g. `primary`, `onSurfaceVariant`,
 - **Must not** use `Theme.of(context).brightness == Brightness.dark ? ... :
   ...` ternaries to duplicate the palette; use `context.isDark` only for
   genuinely non-color branching (e.g. icon glyph choice).
+- Brightness branching on colors is allowed **only inside centralized chrome
+  helpers** (see §5). Screens must not duplicate those ternaries inline.
 - AMOLED must be respected everywhere: surfaces read from `tokens.surface` so
   true black propagates.
 
@@ -203,12 +205,30 @@ Favor `Theme.of(context).colorScheme.*` (e.g. `primary`, `onSurfaceVariant`,
 - The 7 `AppColorTheme` accents flow through `colorScheme.primary` and
   `AppConfig.accentColor`. **Must not** reference the fixed default
   blue/amber hexes directly in screens.
+- `ThemeService` sets `tokens.accent` to the selected `AppColorTheme` color, so
+  `context.accent` / `tokens.accent`, `colorScheme.primary`, and verse/book
+  highlights follow the accent picker together. **Must not** override
+  `secondary` with a separate `accentColor` in theme construction.
 
 ### 5. Immersive / media surfaces
 
 - Fullscreen players, shorts, scripture cards, and clip previews may keep a
-  dark "immersive" look, but their **chrome** (buttons, labels, scrims) must
-  still read from `context.tokens` so a light/future variant is supportable.
+  dark "immersive" look for the **media itself** (video frames, thumbnails,
+  playback surfaces) — that stays `scrim`.
+- Their **chrome** (buttons, labels, HUD gradients, scrims behind pills/chips)
+  must still be theme-aware through a shared helper so the light theme is not
+  black. Do this with the `ShortsChrome` extension
+  (`lib/features/shorts/widgets/shorts_chrome.dart`, public shared pattern):
+  - `shortsChromeBg` — dark: `scrim`, light: `surface`
+  - `shortsChromeFill` — dark: `scrim`, light: `surfaceVariant`
+  - `shortsChromeFg` — dark: `onScrim`, light: `onSurface`
+  - `shortsChromeFgMuted` — dark: `onScrimMuted`, light: `onSurfaceMuted`
+  - `shortsChromeShadow` — dark: `scrim`, light: `surfaceBorder`
+  - `shortsBottomGradient` — 5-stop bottom gradient (scrim in dark, surface in light)
+- Whole-surfaces hosting shorts/flows (grid/feed Scaffolds) use
+  `tokens.background`, not `scrim` — only the media itself is exempt.
+- **Must not** fall back to raw `Colors.black`/`Colors.white` (e.g. luminance
+  text on accent) — resolve through `tokens.scrim`/`tokens.onSurface`.
 
 ### 6. Future screens
 
@@ -252,6 +272,9 @@ Christian-Tube-Releases/
 │   └── {bookNum}/{chapter}.json          # Zac Poonen book commentaries referencing verses
 ├── dictionaries/
 │   └── dict_{id}.sqlite.gz               # Pre-compiled dictionary SQLite packages
+├── songs/
+│   ├── catalog.json                      # Live JSON catalog (streaming default)
+│   └── songs.sqlite.gz                   # Prebuilt SQLite with FTS5 search (optional download)
 ├── words_feed/
 │   ├── manifest.json
 │   ├── daily.json

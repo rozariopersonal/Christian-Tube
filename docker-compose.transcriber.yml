@@ -26,7 +26,7 @@ services:
   db:
     image: postgres:16
     container_name: christiantube-db
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -45,7 +45,7 @@ services:
     build:
       context: ./services/transcriber
     container_name: christiantube-transcriber
-    restart: unless-stopped
+    restart: always
     depends_on:
       db:
         condition: service_healthy

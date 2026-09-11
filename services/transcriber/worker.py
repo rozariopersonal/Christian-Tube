@@ -75,6 +75,7 @@ class Config:
     no_llm: bool = False
     insights_resume: bool = False
     video_id: str | None = None
+    audio_com_token: str | None = None
 
 
 def load_config(args: argparse.Namespace) -> Config:
@@ -113,6 +114,7 @@ def load_config(args: argparse.Namespace) -> Config:
         no_llm=args.no_llm,
         insights_resume=args.insights_resume,
         video_id=args.video_id or None,
+        audio_com_token=_env("AUDIO_COM_TOKEN") or None,
     )
 
 
@@ -250,6 +252,7 @@ def download_audio(video_id: str, out_dir: Path) -> Path:
         "wav",
         "--audio-quality",
         "0",
+        "--write-info-json",
         "--postprocessor-args",
         "-ar 16000 -ac 1",
         "-o",
@@ -332,6 +335,63 @@ class GitHubRepo:
         if data is None:
             return None
         return base64.b64decode(data["content"]).decode("utf-8")
+
+
+# --------------------------------------------------------------------------- #
+# Audio.com Client
+# --------------------------------------------------------------------------- #
+class AudioComClient:
+    def __init__(self, token: str):
+        import requests  # noqa: E402
+
+        self._requests = requests
+        clean_token = token[7:].strip() if token.lower().startswith("bearer ") else token.strip()
+        self.token = clean_token
+        self.api = "https://api.audio.com/v1"
+        self.headers = {
+            "Authorization": f"Bearer {clean_token}",
+            "Accept": "application/json",
+        }
+
+    def upload_audio(self, wav_path: Path, metadata: dict) -> str:
+        # 1. Get presigned URL
+        create_resp = self._requests.post(
+            f"{self.api}/audio/create",
+            headers=self.headers,
+            json={"title": metadata.get("title", "Untitled Audio")[:100]},
+            timeout=30,
+        )
+        if create_resp.status_code != 200:
+            raise RuntimeError(f"Audio.com create failed: {create_resp.status_code} {create_resp.text[:300]}")
+        create_data = create_resp.json()
+        audio_id = create_data.get("id")
+        upload_url = create_data.get("uploadUrl")
+        if not audio_id or not upload_url:
+            raise RuntimeError("Audio.com create missing id or uploadUrl")
+
+        # 2. Upload bytes
+        with open(wav_path, "rb") as f:
+            upload_resp = self._requests.put(upload_url, data=f, timeout=300)
+            if upload_resp.status_code not in (200, 201, 204):
+                raise RuntimeError(f"Audio.com PUT failed: {upload_resp.status_code} {upload_resp.text[:300]}")
+
+        # 3. Update extra metadata
+        update_resp = self._requests.put(
+            f"{self.api}/audio/{audio_id}",
+            headers=self.headers,
+            json={
+                "title": metadata.get("title", "Untitled Audio")[:100],
+                "description": (metadata.get("description") or "")[:2000],
+                "tags": metadata.get("tags", [])[:5],
+                "isPublic": True,
+            },
+            timeout=30,
+        )
+        if update_resp.status_code not in (200, 204):
+            log.warning("Audio.com update metadata failed: %s %s", update_resp.status_code, update_resp.text[:300])
+
+        return f"https://audio.com/{audio_id}"
+
 
 
 # --------------------------------------------------------------------------- #
@@ -590,6 +650,72 @@ def update_manifest(repo: GitHubRepo, entry: dict) -> None:
     repo.upsert("index.json", json.dumps(entries, indent=2, ensure_ascii=False), f"manifest: {entry['videoId']}")
 
 
+def update_audiocom_catalog(repo: GitHubRepo, track: dict) -> None:
+    import json  # noqa: E402
+
+    # 1. Update the series file
+    series_path = "audio/series/audiocom_uploads.json"
+    raw_series = repo.read_text_or_none(series_path)
+    if raw_series:
+        try:
+            series_data = json.loads(raw_series)
+        except json.JSONDecodeError:
+            series_data = None
+    else:
+        series_data = None
+
+    if not series_data:
+        series_data = {
+            "id": "audiocom_uploads",
+            "title": "Audio.com Uploads",
+            "description": "Audio tracks uploaded from Christian-Tube",
+            "speaker": "Various",
+            "trackCount": 0,
+            "category": "Uploads",
+            "language": "English",
+            "tracks": []
+        }
+
+    # Check if track already exists, else append
+    tracks = series_data.get("tracks", [])
+    tracks = [t for t in tracks if t.get("youtubeVideoId") != track.get("youtubeVideoId")]
+    tracks.append(track)
+    series_data["tracks"] = tracks
+    series_data["trackCount"] = len(tracks)
+
+    repo.upsert(series_path, json.dumps(series_data, indent=2, ensure_ascii=False), f"audio catalog: add track {track.get('youtubeVideoId')}")
+
+    # 2. Ensure series exists in catalog.json
+    catalog_path = "audio/catalog.json"
+    raw_cat = repo.read_text_or_none(catalog_path)
+    if raw_cat:
+        try:
+            cat_data = json.loads(raw_cat)
+        except json.JSONDecodeError:
+            cat_data = []
+    else:
+        cat_data = []
+
+    has_series = any(s.get("id") == "audiocom_uploads" for s in cat_data)
+    if not has_series:
+        cat_data.append({
+            "id": series_data["id"],
+            "title": series_data["title"],
+            "description": series_data["description"],
+            "speaker": series_data["speaker"],
+            "trackCount": series_data["trackCount"],
+            "category": series_data["category"],
+            "language": series_data["language"],
+        })
+    else:
+        for s in cat_data:
+            if s.get("id") == "audiocom_uploads":
+                s["trackCount"] = series_data["trackCount"]
+                break
+
+    repo.upsert(catalog_path, json.dumps(cat_data, indent=2, ensure_ascii=False), "audio catalog: update trackCount for audiocom_uploads")
+
+
 def _interrupted() -> bool:
     return _split_to_epoch is not None and time.time() >= _split_to_epoch
 
@@ -614,6 +740,48 @@ def process_video(db: Database, cfg: Config, trans: Transcriber, llm: LLM,
             with tempfile.TemporaryDirectory(prefix="tw_", dir=str(cfg.work_dir)) as tmp:
                 wav = download_audio(video_id, Path(tmp))
                 db.mark_progress(video_id, 40)
+
+                # Optional: Upload to Audio.com
+                if cfg.audio_com_token:
+                    import json  # noqa: E402
+                    info_path = wav.with_suffix(".info.json")
+                    metadata = {}
+                    if info_path.exists():
+                        try:
+                            with open(info_path, "r", encoding="utf-8") as f:
+                                info = json.load(f)
+                                metadata["title"] = title
+                                metadata["description"] = info.get("description", "")
+                                metadata["tags"] = info.get("tags", [])
+                                metadata["duration"] = info.get("duration", 0)
+                                metadata["thumbnail"] = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+                                metadata["uploader"] = info.get("uploader", channel)
+                        except Exception as e:
+                            log.warning("  failed to parse yt-dlp info json: %s", e)
+
+                    try:
+                        audiocom = AudioComClient(cfg.audio_com_token)
+                        audio_com_url = audiocom.upload_audio(wav, metadata)
+                        log.info("  uploaded to Audio.com: %s", audio_com_url)
+
+                        # Add to audio catalog
+                        update_audiocom_catalog(repo, {
+                            "id": video_id,
+                            "title": title,
+                            "seriesId": "audiocom_uploads",
+                            "seriesTitle": "Audio.com Uploads",
+                            "speaker": metadata.get("uploader", channel) or "Unknown",
+                            "channelName": channel,
+                            "youtubeVideoId": video_id,
+                            "tags": metadata.get("tags", []),
+                            "thumbnailUrl": metadata.get("thumbnail"),
+                            "publishedAt": published_at.isoformat() if hasattr(published_at, "isoformat") else str(published_at),
+                            "durationSeconds": int(metadata.get("duration", 0)),
+                            "audioUrl": audio_com_url,
+                        })
+                        log.info("  added to audiocom catalog")
+                    except Exception as e:
+                        log.error("  failed to upload to Audio.com: %s", e)
                 transcript = trans.transcribe(wav)
                 db.mark_progress(video_id, 70)
                 log.info("  transcript: %d chars", len(transcript))
@@ -660,6 +828,7 @@ def process_video(db: Database, cfg: Config, trans: Transcriber, llm: LLM,
         # 3) Manifest
         update_manifest(repo, {
             "videoId": video_id,
+            "youtubeVideoId": video_id,
             "title": title,
             "channel": channel,
             "publishedAt": getattr(published_at, "isoformat", lambda: str(published_at))(),

@@ -76,4 +76,6 @@ data/temp_releases_repo/
 data/hymnal/
 apps/mobile/test/scratch_*.dart
 .codex/
+.cache/
+.opencode/
 

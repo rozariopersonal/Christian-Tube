@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_tokens.dart';
 import '../controllers/audio_player_controller.dart';
@@ -31,6 +32,44 @@ class FullPlayerUtilityChips extends StatelessWidget {
       spacing: 10,
       runSpacing: 8,
       children: [
+        // Watch Video Chip
+        if (state.currentTrack?.youtubeVideoId != null &&
+            state.currentTrack!.youtubeVideoId!.isNotEmpty)
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () {
+              final pos = state.position.inSeconds;
+              AudioPlayerController.instance.pause();
+              Navigator.of(context).pop();
+              context.push('/watch/${state.currentTrack!.youtubeVideoId!}?start=$pos');
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.ondemand_video,
+                    size: 15,
+                    color: theme.colorScheme.secondary,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Watch Video',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.secondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
         // Speed Chip
         InkWell(
           borderRadius: BorderRadius.circular(20),

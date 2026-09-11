@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import '../models/audio_track.dart';
 import 'audio_local_library.dart';
 
@@ -58,12 +59,21 @@ class AudioPlaybackService {
         ? Duration(seconds: initialPositionSec)
         : Duration.zero;
 
+    final mediaItem = MediaItem(
+      id: track.id,
+      album: track.speaker.isNotEmpty ? track.speaker : 'ChristianTube',
+      title: track.title,
+      artist: track.speaker,
+      artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+      extras: {'youtubeVideoId': track.youtubeVideoId},
+    );
+
     // Offline: prefer the locally downloaded file when present.
     final localUri = await _localLibrary.localUriFor(track);
     if (localUri != null) {
       try {
         return await _player.setAudioSource(
-          AudioSource.uri(Uri.parse(localUri)),
+          AudioSource.uri(Uri.parse(localUri), tag: mediaItem),
           initialPosition: initialPosition,
         );
       } catch (e) {
@@ -83,11 +93,13 @@ class AudioPlaybackService {
         source = LockCachingAudioSource(
           Uri.parse(track.audioUrl),
           headers: headers,
+          tag: mediaItem,
         );
       } else {
         source = AudioSource.uri(
           Uri.parse(track.audioUrl),
           headers: headers,
+          tag: mediaItem,
         );
       }
 
