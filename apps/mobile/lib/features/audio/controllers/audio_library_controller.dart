@@ -8,6 +8,15 @@ import '../services/audio_catalog_service.dart';
 import '../services/audio_storage_service.dart';
 import 'audio_player_controller.dart';
 
+enum AudioFormat { sermons, songs }
+
+enum AudioViewMode {
+  featured,
+  byCategory,
+  bySpeaker,
+  alphabetical,
+}
+
 /// Immutable snapshot of the Audio Library browse state.
 ///
 /// Follows the repository standard: views read this single derived value
@@ -20,25 +29,34 @@ class AudioLibraryViewState {
   final AudioTrack? lastPlayedTrack;
   final int lastPlayedSeconds;
 
+  final AudioFormat selectedFormat;
   final String selectedCategory;
   final Set<String> selectedLanguages;
   final List<String> availableLanguages;
   final Map<String, int> languageTrackCounts;
+
+  final String searchQuery;
+  final AudioViewMode viewMode;
 
   const AudioLibraryViewState({
     this.isLoading = true,
     this.seriesList = const [],
     this.lastPlayedTrack,
     this.lastPlayedSeconds = 0,
+    this.selectedFormat = AudioFormat.sermons,
     this.selectedCategory = 'All',
     this.selectedLanguages = const {'All'},
     this.availableLanguages = const ['All'],
     this.languageTrackCounts = const {},
+    this.searchQuery = '',
+    this.viewMode = AudioViewMode.featured,
   });
 
   bool get isAllLanguagesSelected =>
       selectedLanguages.isEmpty ||
       selectedLanguages.any((l) => l.toLowerCase() == 'all');
+
+  bool get isSearching => searchQuery.trim().isNotEmpty;
 
   AudioLibraryViewState copyWith({
     bool? isLoading,
@@ -46,10 +64,13 @@ class AudioLibraryViewState {
     AudioTrack? lastPlayedTrack,
     bool clearLastPlayed = false,
     int? lastPlayedSeconds,
+    AudioFormat? selectedFormat,
     String? selectedCategory,
     Set<String>? selectedLanguages,
     List<String>? availableLanguages,
     Map<String, int>? languageTrackCounts,
+    String? searchQuery,
+    AudioViewMode? viewMode,
   }) {
     return AudioLibraryViewState(
       isLoading: isLoading ?? this.isLoading,
@@ -57,10 +78,13 @@ class AudioLibraryViewState {
       lastPlayedTrack:
           clearLastPlayed ? null : (lastPlayedTrack ?? this.lastPlayedTrack),
       lastPlayedSeconds: lastPlayedSeconds ?? this.lastPlayedSeconds,
+      selectedFormat: selectedFormat ?? this.selectedFormat,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       selectedLanguages: selectedLanguages ?? this.selectedLanguages,
       availableLanguages: availableLanguages ?? this.availableLanguages,
       languageTrackCounts: languageTrackCounts ?? this.languageTrackCounts,
+      searchQuery: searchQuery ?? this.searchQuery,
+      viewMode: viewMode ?? this.viewMode,
     );
   }
 
@@ -71,9 +95,13 @@ class AudioLibraryViewState {
     final isAll = isAllLanguagesSelected;
 
     return seriesList.where((s) {
+      final isSong = s.category.toLowerCase() == 'songs';
+      if (selectedFormat == AudioFormat.songs && !isSong) return false;
+      if (selectedFormat == AudioFormat.sermons && isSong) return false;
+
       final matchesCategory =
           selectedCategory == 'All' || s.category == selectedCategory;
-      if (!matchesCategory) return false;
+      if (selectedFormat == AudioFormat.sermons && !matchesCategory) return false;
 
       if (isAll) return true;
 
@@ -81,6 +109,56 @@ class AudioLibraryViewState {
       return code.isNotEmpty &&
           selectedLanguages.any((l) => l.toLowerCase() == code);
     }).toList();
+  }
+
+  /// Instant search results matching the active query against titles,
+  /// speakers, categories, and descriptions.
+  List<AudioSeries> get searchResults {
+    final clean = searchQuery.trim().toLowerCase();
+    if (clean.isEmpty) return filteredSeries;
+
+    return filteredSeries.where((s) {
+      return s.title.toLowerCase().contains(clean) ||
+          s.speaker.toLowerCase().contains(clean) ||
+          s.category.toLowerCase().contains(clean) ||
+          s.description.toLowerCase().contains(clean);
+    }).toList();
+  }
+
+  /// Groups matching series by Category.
+  Map<String, List<AudioSeries>> get seriesByCategory {
+    final map = <String, List<AudioSeries>>{};
+    for (final s in filteredSeries) {
+      final cat = s.category.isNotEmpty ? s.category : 'General Sermons';
+      map.putIfAbsent(cat, () => []).add(s);
+    }
+    return map;
+  }
+
+  /// Groups matching series by Speaker / Author.
+  Map<String, List<AudioSeries>> get seriesBySpeaker {
+    final map = <String, List<AudioSeries>>{};
+    for (final s in filteredSeries) {
+      final speaker = s.speaker.isNotEmpty ? s.speaker : 'Zac Poonen';
+      map.putIfAbsent(speaker, () => []).add(s);
+    }
+    return map;
+  }
+
+  /// Groups matching series alphabetically by first letter (A-Z, #).
+  Map<String, List<AudioSeries>> get seriesAlphabetical {
+    final sorted = List<AudioSeries>.from(filteredSeries)
+      ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+
+    final map = <String, List<AudioSeries>>{};
+    for (final s in sorted) {
+      final firstChar = s.title.trim().isNotEmpty
+          ? s.title.trim()[0].toUpperCase()
+          : '#';
+      final groupKey = RegExp(r'[A-Z]').hasMatch(firstChar) ? firstChar : '#';
+      map.putIfAbsent(groupKey, () => []).add(s);
+    }
+    return map;
   }
 }
 
@@ -199,12 +277,41 @@ class AudioLibraryController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectFormat(AudioFormat format) {
+    if (_state.selectedFormat == format) return;
+    _state = _state.copyWith(selectedFormat: format, selectedCategory: 'All');
+    notifyListeners();
+  }
+
   void selectLanguages(Set<String> newSelection) {
     _langController.selectLanguages(newSelection);
   }
 
+  void setSearchQuery(String query) {
+    if (_state.searchQuery == query) return;
+    _state = _state.copyWith(searchQuery: query);
+    notifyListeners();
+  }
+
+  void clearSearch() {
+    if (_state.searchQuery.isEmpty) return;
+    _state = _state.copyWith(searchQuery: '');
+    notifyListeners();
+  }
+
+  void setViewMode(AudioViewMode mode) {
+    if (_state.viewMode == mode) return;
+    _state = _state.copyWith(viewMode: mode);
+    notifyListeners();
+  }
+
   void resetFilters() {
-    _state = _state.copyWith(selectedCategory: 'All');
+    _state = _state.copyWith(
+      selectedFormat: AudioFormat.sermons,
+      selectedCategory: 'All',
+      searchQuery: '',
+      viewMode: AudioViewMode.featured,
+    );
     notifyListeners();
     _langController.reset();
   }

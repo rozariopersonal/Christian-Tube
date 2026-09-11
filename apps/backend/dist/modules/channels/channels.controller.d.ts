@@ -8,11 +8,9 @@ export declare class ChannelsController {
             videos: number;
         };
         id: string;
+        name: string;
         description: string | null;
         thumbnail: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        name: string;
         subscriberCount: string | null;
         category: string | null;
         language: string | null;
@@ -20,6 +18,8 @@ export declare class ChannelsController {
         syncCursor: string | null;
         syncStatus: string;
         lastSyncedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     }[]>;
     getChannel(id: string): Promise<{
         videoCount: number;
@@ -27,11 +27,9 @@ export declare class ChannelsController {
             videos: number;
         };
         id: string;
+        name: string;
         description: string | null;
         thumbnail: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        name: string;
         subscriberCount: string | null;
         category: string | null;
         language: string | null;
@@ -39,6 +37,8 @@ export declare class ChannelsController {
         syncCursor: string | null;
         syncStatus: string;
         lastSyncedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     searchYouTube(q: string): Promise<any[]>;
     addChannel(body: {
@@ -51,11 +51,9 @@ export declare class ChannelsController {
         message: string;
         channel: {
             id: string;
+            name: string;
             description: string | null;
             thumbnail: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
             subscriberCount: string | null;
             category: string | null;
             language: string | null;
@@ -63,6 +61,8 @@ export declare class ChannelsController {
             syncCursor: string | null;
             syncStatus: string;
             lastSyncedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     }>;
     removeChannel(id: string): Promise<{
@@ -70,11 +70,9 @@ export declare class ChannelsController {
         message: string;
         channel: {
             id: string;
+            name: string;
             description: string | null;
             thumbnail: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
             subscriberCount: string | null;
             category: string | null;
             language: string | null;
@@ -82,6 +80,8 @@ export declare class ChannelsController {
             syncCursor: string | null;
             syncStatus: string;
             lastSyncedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     }>;
     syncChannel(id: string): Promise<{
@@ -89,12 +89,12 @@ export declare class ChannelsController {
         message: string;
     }>;
     listChannelRequests(): Promise<{
-        status: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         channelUrl: string;
         notes: string | null;
+        status: string;
         submittedBy: string | null;
     }[]>;
     submitChannelRequest(body: {
@@ -102,12 +102,12 @@ export declare class ChannelsController {
         notes?: string;
         submittedBy?: string;
     }): Promise<{
-        status: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         channelUrl: string;
         notes: string | null;
+        status: string;
         submittedBy: string | null;
     }>;
     approveChannelRequest(id: string, body: {
@@ -116,21 +116,19 @@ export declare class ChannelsController {
         status: string;
         message: string;
         request: {
-            status: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             channelUrl: string;
             notes: string | null;
+            status: string;
             submittedBy: string | null;
         };
         channel: {
             id: string;
+            name: string;
             description: string | null;
             thumbnail: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
             subscriberCount: string | null;
             category: string | null;
             language: string | null;
@@ -138,6 +136,8 @@ export declare class ChannelsController {
             syncCursor: string | null;
             syncStatus: string;
             lastSyncedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     }>;
     rejectChannelRequest(id: string, body: {
@@ -146,12 +146,12 @@ export declare class ChannelsController {
         status: string;
         message: string;
         request: {
-            status: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             channelUrl: string;
             notes: string | null;
+            status: string;
             submittedBy: string | null;
         };
     }>;

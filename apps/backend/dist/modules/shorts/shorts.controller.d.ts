@@ -37,20 +37,20 @@ export declare class ShortsController {
     getMyCreations(user: CurrentUserType): Promise<any[]>;
     recordCreation(user: CurrentUserType, data: any): Promise<{
         id: string;
-        youtubeVideoId: string;
-        userId: string | null;
-        userEmail: string | null;
-        creatorName: string | null;
-        sourceVideoId: string | null;
-        title: string;
         description: string | null;
         thumbnail: string | null;
-        durationSeconds: number | null;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        creatorName: string | null;
+        sourceVideoId: string | null;
         clipStartTime: number | null;
         clipEndTime: number | null;
         cropOffsetX: number | null;
-        createdAt: Date;
-        updatedAt: Date;
+        youtubeVideoId: string;
+        userId: string | null;
+        userEmail: string | null;
+        durationSeconds: number | null;
     }>;
     cleanupLegacyShorts(): Promise<{
         success: boolean;

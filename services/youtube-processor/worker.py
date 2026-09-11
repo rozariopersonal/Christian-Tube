@@ -758,6 +758,344 @@ def map_language(lang_code: str | None) -> str:
     return mapping.get(code, code.capitalize())
 
 
+def detect_category(channel_name: str) -> str:
+    combined = channel_name.lower()
+    keywords = ["song", "music", "hymn", "worship", "choir", "praise", "paadalgal", "padalgal", "geethangal", "keerthanai", "sangeet"]
+    for kw in keywords:
+        if kw in combined:
+            return "Songs"
+    return "General Sermons"
+
+
+def detect_languages(title: str, description: str, default_lang: str = "English") -> tuple[str, str | None]:
+    """
+    Detects primary and secondary (translation) languages from title and description.
+    Returns: (primary_lang, secondary_lang) e.g. ('Tamil', 'English') or ('English', None).
+    """
+    text = f"{title or ''}\n{description or ''}"
+    lower = text.lower()
+
+    # 1. Check explicit translation / bilingual patterns
+    bilingual_patterns = [
+        (r'tamil[-/\s&]+english|english[-/\s&]+tamil|\[tamil-english\]', 'Tamil', 'English'),
+        (r'hindi[-/\s&]+english|english[-/\s&]+hindi|\[hindi-english\]', 'Hindi', 'English'),
+        (r'telugu[-/\s&]+english|english[-/\s&]+telugu', 'Telugu', 'English'),
+        (r'malayalam[-/\s&]+english|english[-/\s&]+malayalam', 'Malayalam', 'English'),
+        (r'kannada[-/\s&]+english|english[-/\s&]+kannada', 'Kannada', 'English'),
+        (r'spanish[-/\s&]+english|english[-/\s&]+spanish', 'Spanish', 'English'),
+    ]
+    for pattern, lang1, lang2 in bilingual_patterns:
+        if re.search(pattern, lower):
+            return lang1, lang2
+
+    # 2. Check translation mentions in text
+    translation_match = re.search(r'\b(tamil|hindi|telugu|malayalam|kannada|spanish)\s+(?:translation|audio|dubbed|dubbing)\b', lower)
+    if translation_match:
+        trans_lang = translation_match.group(1).capitalize()
+        return trans_lang, 'English'
+
+    # 3. Unicode script detection
+    tamil_chars = len(re.findall(r'[\u0B80-\u0BFF]', text))
+    hindi_chars = len(re.findall(r'[\u0900-\u097F]', text))
+    telugu_chars = len(re.findall(r'[\u0C00-\u0C7F]', text))
+    malayalam_chars = len(re.findall(r'[\u0D00-\u0D7F]', text))
+    kannada_chars = len(re.findall(r'[\u0C80-\u0CFF]', text))
+    latin_words = len(re.findall(r'[a-zA-Z]{3,}', text))
+
+    script_counts = {
+        'Tamil': tamil_chars,
+        'Hindi': hindi_chars,
+        'Telugu': telugu_chars,
+        'Malayalam': malayalam_chars,
+        'Kannada': kannada_chars,
+    }
+    
+    top_script, top_score = max(script_counts.items(), key=lambda x: x[1])
+
+    if top_score >= 5:
+        # Substantial Indic script found
+        secondary = "English" if latin_words >= 3 else None
+        return top_script, secondary
+
+    # 4. Check single language keyword in romanized text
+    if any(kw in lower for kw in ['tamil', 'tamizh']):
+        return 'Tamil', None if 'english' not in lower else 'English'
+    if 'hindi' in lower:
+        return 'Hindi', None if 'english' not in lower else 'English'
+    if 'telugu' in lower:
+        return 'Telugu', None if 'english' not in lower else 'English'
+    if 'malayalam' in lower:
+        return 'Malayalam', None if 'english' not in lower else 'English'
+    if 'kannada' in lower:
+        return 'Kannada', None if 'english' not in lower else 'English'
+    if any(kw in lower for kw in ['spanish', 'español']):
+        return 'Spanish', None if 'english' not in lower else 'English'
+
+    return default_lang or "English", None
+
+
+# --------------------------------------------------------------------------- #
+# Speaker Extraction & Canonical Mapping
+# --------------------------------------------------------------------------- #
+KNOWN_SPEAKERS_MAP = {
+    # Poonen Family
+    "zac poonen": "Zac Poonen",
+    "zac poone": "Zac Poonen",
+    "zac ponnen": "Zac Poonen",
+    "zac pooen": "Zac Poonen",
+    "bro zac": "Zac Poonen",
+    "bro. zac": "Zac Poonen",
+    "brother zac": "Zac Poonen",
+    "சகரியா பூணன்": "Zac Poonen",
+    "சகரியா  பூணன்": "Zac Poonen",
+    "annie poonen": "Annie Poonen",
+    "dr. annie poonen": "Annie Poonen",
+    "dr annie poonen": "Annie Poonen",
+    "sister annie poonen": "Annie Poonen",
+    "ஆனி பூணன்": "Annie Poonen",
+    "santosh poonen": "Santosh Poonen",
+    "santhosh poonen": "Santosh Poonen",
+    "சந்தோஷ் பூணன்": "Santosh Poonen",
+    "sandeep poonen": "Sandeep Poonen",
+    "சந்தீப் பூணன்": "Sandeep Poonen",
+    "sanjay poonen": "Sanjay Poonen",
+    "sunil poonen": "Sunil Poonen",
+
+    # CFC Bangalore Elders & Speakers
+    "charles banna": "Charles Banna",
+    "john pereira": "John Pereira",
+    "ஜான் பெரேரா": "John Pereira",
+    "danish thomas": "Danish Thomas",
+    "suresh abraham": "Suresh Abraham",
+    "paul williams": "Paul Williams",
+    "ian robson": "Ian Robson",
+    "இயன் ராப்சன்": "Ian Robson",
+
+    # Chennai & Tamil Nadu CFC Elders & Speakers
+    "sam varghese": "Sam Varghese",
+    "sam vaeghese": "Sam Varghese",
+    "sam vargese": "Sam Varghese",
+    "சாம் வர்கீஸ்": "Sam Varghese",
+    "jesudoss": "Jesudoss",
+    "ஜேசுதாஸ்": "Jesudoss",
+    "michael": "Michael",
+    "mishael jesuraj": "Michael",
+    "மைகேல்": "Michael",
+    "மைக்கேல்": "Michael",
+    "vincent": "Vincent",
+    "vincent wilson": "Vincent",
+    "வின்சென்ட்": "Vincent",
+    "chellaiah": "Chellaiah",
+    "chellaiya": "Chellaiah",
+    "செல்லையா": "Chellaiah",
+    "prakasam": "Prakasam",
+    "arputha prakasam": "Prakasam",
+    "பிரகாசம்": "Prakasam",
+    "அற்புத பிரகாசம்": "Prakasam",
+    "victor ramanathan": "Victor Ramanathan",
+    "bro victor": "Victor Ramanathan",
+    "bro. victor": "Victor Ramanathan",
+    "விக்டர்": "Victor Ramanathan",
+    "francis": "Francis",
+    "பிரான்சிஸ்": "Francis",
+    "parisutham": "Parisutham",
+    "பரிசுத்தம்": "Parisutham",
+    "deivaprakash": "Deivaprakash",
+    "devaprakash": "Deivaprakash",
+    "deivaprakasam": "Deivaprakash",
+    "தெய்வபிரகாஷ்": "Deivaprakash",
+    "தெய்வப்பிரகாஷ்": "Deivaprakash",
+    "தெய்வபிரகாசம்": "Deivaprakash",
+    "mathaiya": "Mathaiya",
+    "mathiya": "Mathaiya",
+    "மாத்தையா": "Mathaiya",
+    "antony jackson": "Antony Jackson",
+    "bobby antony": "Bobby Antony",
+    "charles antony": "Charles Antony",
+    "chuck antony": "Charles Antony",
+    "thavaseelan": "Thavaseelan",
+    "jeyaseelan": "Jeyaseelan",
+    "தவசீலன்": "Thavaseelan",
+    "finney": "Finney",
+    "ஃபின்னி": "Finney",
+    "பின்னி": "Finney",
+    "srinivasan": "Srinivasan",
+    "சீனிவாசன்": "Srinivasan",
+    "prabahar": "Prabahar",
+    "prabhakar": "Prabahar",
+    "robert prabhakar": "Prabahar",
+    "பிரபாகர்": "Prabahar",
+    "ezekiaraj": "Ezekiaraj",
+    "ezekia raj": "Ezekiaraj",
+    "எசேக்கியராஜ்": "Ezekiaraj",
+    "எசேக்கியாராஜ்": "Ezekiaraj",
+    "joyson silva": "Joyson Silva",
+    "joyson": "Joyson Silva",
+    "ஜாய்சன் சில்வா": "Joyson Silva",
+    "ஜாய்சன்": "Joyson Silva",
+    "joji samuel": "Joji Samuel",
+    "geoji samuel": "Joji Samuel",
+    "geoji t samuel": "Joji Samuel",
+    "joji t samuel": "Joji Samuel",
+    "ஜியோஜி சாமுவேல்": "Joji Samuel",
+    "calvin": "Calvin",
+    "prabhu joshua": "Prabhu Joshua",
+    "spn raj": "SPN Raj",
+    "raja kannan": "Raja Kannan",
+    "இராஜா கண்ணண்": "Raja Kannan",
+    "rajesh pon samuel": "Rajesh Pon Samuel",
+    "rizanth francis": "Rizanth Francis",
+    "rizanth": "Rizanth Francis",
+    "janardhanan": "Janardhanan",
+    "janarthanan": "Janardhanan",
+    "jayakumar": "Jayakumar",
+    "ஜெயக்குமார்": "Jayakumar",
+    "jayaprakash": "Jayaprakash",
+    "ஜெயபிரகாஷ்": "Jayaprakash",
+    "joby joseph": "Joby Joseph",
+    "john polo": "John Polo",
+    "ஜான் போலோ": "John Polo",
+    "jose jacob": "Jose Jacob",
+    "juvanis": "Juvanis",
+    "யுவானிஸ்": "Juvanis",
+    "mathew thomas": "Mathew Thomas",
+    "matthew thomas": "Mathew Thomas",
+    "palanisamy": "Palanisamy",
+    "பழனிச்சாமி": "Palanisamy",
+    "settu": "Settu",
+    "சேட்டு": "Settu",
+    "sundaresan": "Sundaresan",
+
+    # Regional Indian CFC Elders
+    "joseph kuruvilla": "Joseph Kuruvilla",
+    "abraham isac": "Abraham Isac",
+    "abraham isaac": "Abraham Isac",
+    "ஆபிரகாம் ஐசக்": "Abraham Isac",
+    "abraham varghese": "Abraham Varghese",
+    "samuel": "Samuel",
+    "bro samuel": "Samuel",
+    "சாமுவேல்": "Samuel",
+    "vedaiyan": "Vedaiyan",
+    "bro vedaiyan": "Vedaiyan",
+
+    # RLCF & NCCF (US)
+    "ajay chakravarthy": "Ajay Chakravarthy",
+    "அஜய் சக்ரவர்த்தி": "Ajay Chakravarthy",
+    "olu talabi": "Olu Talabi",
+    "david bertsch": "David Bertsch",
+    "jeremy utley": "Jeremy Utley",
+    "bobby mcdonald": "Bobby McDonald",
+    "wenhai pan": "Wenhai Pan",
+    "taylor seaton": "Taylor Seaton",
+    "andrei pavlov": "Andrei Pavlov",
+    "senthil thangaraj": "Senthil Thangaraj",
+    "santhosh selvaraj": "Santhosh Selvaraj",
+    "arnaldo brasil": "Arnaldo Brasil",
+
+    # Songwriters & Authors
+    "abraham plammootil": "Abraham Plammootil",
+    "graham kendrick": "Graham Kendrick",
+    "don moen": "Don Moen",
+    "robin mark": "Robin Mark",
+    "brian doerksen": "Brian Doerksen",
+    "don francisco": "Don Francisco",
+    "paul washer": "Paul Washer",
+    "billy graham": "Billy Graham",
+    "பில்லி கிரஹாம்": "Billy Graham",
+}
+
+KNOWN_SPEAKERS_SORTED = sorted(KNOWN_SPEAKERS_MAP.keys(), key=lambda x: len(x), reverse=True)
+
+BLACKLIST_TERMS = {
+    'holy spirit', 'jesus christ', 'word of god', 'bible study', 'sunday service',
+    'sunday message', 'cfc india', 'cfc bangalore', 'christian fellowship',
+    'fellowship church', 'gods word', 'daily devotion', 'morning devotion',
+    'youth meeting', 'church service', 'conference message', 'special meeting',
+    'tamil message', 'hindi message', 'telugu message', 'malayalam message',
+    'english message', 'nccf church', 'rlcf church', 'new covenant', 'river of life',
+    'cfc live', 'live stream', 'part', 'chapter', 'verse', 'session', 'godly life',
+    'spiritual life', 'new covenant life', 'old covenant', 'new testament', 'old testament',
+    'full sermon', 'full message', 'clip message', 'tamil christian song', 'the great commandment',
+    'sharing time', 'brothers sharing', 'church sharing', 'bread breaking', 'main message',
+    'family meeting', 'child dedication', 'youth camp songs', 'special sunday meeting',
+    'wednesday meeting', 'sunday special meeting', 'wednesday special meeting',
+    'all that jesus taught', 'through the bible', 'devotion to christ', 'title', 'subject', 'topic', 'series'
+}
+
+STOP_WORDS = {
+    'and', 'in', 'the', 'of', 'for', 'with', 'at', 'on', 'to', 'from', 'by', 'as',
+    'during', 'while', 'when', 'after', 'before', 'about', 'over', 'under', 'into', 'upon', 'through',
+    'part', 'session', 'chapter', 'verse', 'message', 'sermon', 'sharing', 'service',
+    'meeting', 'live', 'stream', 'video', 'tamil', 'english', 'hindi', 'telugu', 'malayalam',
+    'today', 'day', 'date', 'place', 'church', 'fellowship', 'sunday', 'wednesday',
+    'speaks', 'spoke', 'teaching', 'study', 'answers', 'questions', 'qa', 'q&a', 'title', 'subject', 'topic', 'series'
+}
+
+HEURISTIC_PATTERNS = [
+    re.compile(r'(?:Bro\.?|Brother|Br\.|Dr\.|Pastor|Pr\.|Sister|Sis\.|சகோ\.?|சகோதரர்|சகோதரி)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}|[\u0B80-\u0BFF]+(?:\s+[\u0B80-\u0BFF]+){0,2})'),
+    re.compile(r'(?:Speaker:?|by)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}|[\u0B80-\u0BFF]+(?:\s+[\u0B80-\u0BFF]+){1,2})', re.I),
+    re.compile(r'[-|–—]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\s*$', re.M),
+    re.compile(r'\|\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\s*$', re.M),
+]
+
+
+def clean_extracted_name(raw: str) -> str:
+    cleaned = re.sub(r'^(?:Bro\.?|Brother|Br\.|Dr\.|Pastor|Pr\.|Sister|Sis\.|சகோ\.?|சகோதரர்|சகோதரி)\s*', '', raw, flags=re.I).strip()
+    cleaned = re.sub(r'[\r\n\t]+', ' ', cleaned).strip()
+    cleaned = re.sub(r'\s*[-|–—:,]\s*$', '', cleaned).strip()
+    return cleaned
+
+
+def extract_speaker(title: str, description: str, default_speaker: str) -> str:
+    """
+    Extracts the speaker name from title/description:
+    1. Checks for known speakers (and transliterations/aliases).
+    2. If no known match, uses heuristic pattern extraction for any person name.
+    3. Falls back to default_speaker (uploader or channel name).
+    """
+    title = title or ""
+    description = description or ""
+    title_lower = title.lower()
+    desc_lower = description.lower()
+
+    # 1. Match known speakers in title
+    for key in KNOWN_SPEAKERS_SORTED:
+        pattern = r'(?:\b|_)' + re.escape(key) + r'(?:\b|_)' if re.match(r'^[a-z0-9\s\.]+$', key) else re.escape(key)
+        if re.search(pattern, title_lower):
+            return KNOWN_SPEAKERS_MAP[key]
+
+    # 2. Match known speakers in description
+    for key in KNOWN_SPEAKERS_SORTED:
+        pattern = r'(?:\b|_)' + re.escape(key) + r'(?:\b|_)' if re.match(r'^[a-z0-9\s\.]+$', key) else re.escape(key)
+        if re.search(pattern, desc_lower):
+            return KNOWN_SPEAKERS_MAP[key]
+
+    # 3. Heuristic Person Name Extraction from Title, then Description
+    for text in [title, description]:
+        for p in HEURISTIC_PATTERNS:
+            for m in p.finditer(text):
+                candidate = clean_extracted_name(m.group(1))
+                if len(candidate) >= 3 and candidate.lower() not in BLACKLIST_TERMS:
+                    # Trim trailing / leading stop words
+                    parts = candidate.split()
+                    while parts and parts[-1].lower() in STOP_WORDS:
+                        parts.pop()
+                    while parts and parts[0].lower() in STOP_WORDS:
+                        parts.pop(0)
+
+                    if 1 <= len(parts) <= 3:
+                        trimmed_name = ' '.join(parts)
+                        if trimmed_name.lower() in BLACKLIST_TERMS:
+                            continue
+                        # Check words are capitalized or Tamil
+                        if all(p[0].isupper() or ord(p[0]) > 127 for p in parts if p):
+                            if not any(p.lower() in STOP_WORDS for p in parts):
+                                return trimmed_name.title() if trimmed_name.isascii() else trimmed_name
+
+    return default_speaker
+
+
+
 def update_channel_audio_catalog(
     repo: GitHubRepo,
     channel_name: str,
@@ -775,6 +1113,7 @@ def update_channel_audio_catalog(
     series_id = slugify(channel_name)
     series_title = channel_name.strip() or "General Sermons"
     series_lang = map_language(channel_lang)
+    series_category = detect_category(channel_name)
     series_path = f"audio/series/{series_id}.json"
 
     raw_series = repo.read_text_or_none(series_path)
@@ -794,10 +1133,17 @@ def update_channel_audio_catalog(
             "speaker": track.get("speaker") or series_title,
             "coverUrl": track.get("thumbnailUrl"),
             "trackCount": 0,
-            "category": "General Sermons",
+            "category": series_category,
             "language": series_lang,
             "tracks": [],
         }
+    else:
+        # Update category if it was missing or default
+        if series_data.get("category", "General Sermons") == "General Sermons":
+            series_data["category"] = series_category
+
+    if series_data.get("category") == "Sermons":
+        series_data["category"] = "General Sermons"
 
     # Ensure track fields reflect the series
     track["seriesId"] = series_id
@@ -838,7 +1184,7 @@ def update_channel_audio_catalog(
         existing_entry["title"] = series_data["title"]
         existing_entry["speaker"] = series_data["speaker"]
         existing_entry["language"] = series_data["language"]
-        existing_entry["category"] = series_data.get("category", "General Sermons")
+        existing_entry["category"] = series_data.get("category", series_category)
         if not existing_entry.get("coverUrl") and series_data.get("coverUrl"):
             existing_entry["coverUrl"] = series_data["coverUrl"]
     else:
@@ -848,7 +1194,7 @@ def update_channel_audio_catalog(
             "description": series_data["description"],
             "speaker": series_data["speaker"],
             "trackCount": series_data["trackCount"],
-            "category": series_data.get("category", "General Sermons"),
+            "category": series_data.get("category", series_category),
             "language": series_data["language"],
             "coverUrl": series_data.get("coverUrl"),
         })
@@ -985,7 +1331,9 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
             final_title = meta.get("title") or title or "Untitled Audio"
             final_desc = meta.get("description") or db_desc or ""
             final_tags = meta.get("tags") or []
-            speaker = meta.get("uploader") or channel or "Unknown"
+            default_speaker = meta.get("uploader") or channel or "Unknown"
+            speaker = extract_speaker(final_title, final_desc, default_speaker)
+            primary_lang, secondary_lang = detect_languages(final_title, final_desc, map_language(channel_lang))
             duration = meta.get("duration") or 0
             thumbnail = meta.get("thumbnail") or f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
             width = meta.get("width", 0)
@@ -997,13 +1345,26 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
                 db.mark_short(video_id)
                 return
 
+            # Build rich Audio.com metadata tags (speaker, languages, channel)
+            audio_tags = list(final_tags)
+            for meta_tag in [speaker, primary_lang, secondary_lang, channel]:
+                if meta_tag and meta_tag not in audio_tags:
+                    audio_tags.append(meta_tag)
+
+            # Build rich Audio.com description header
+            lang_str = primary_lang
+            if secondary_lang:
+                lang_str += f" / {secondary_lang}"
+            desc_header = f"Speaker: {speaker} | Language: {lang_str} | Channel: {channel}"
+            rich_desc = f"{desc_header}\n\n{final_desc}" if final_desc else desc_header
+
             # 1. Upload to Audio.com (and link to channel collection)
             audio_url, stream_url = audiocom.upload_audio(
                 audio_file,
                 {
                     "title": final_title,
-                    "description": final_desc,
-                    "tags": final_tags,
+                    "description": rich_desc,
+                    "tags": audio_tags,
                 },
                 collection_name=channel,
             )
@@ -1014,13 +1375,15 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
             update_channel_audio_catalog(
                 repo,
                 channel_name=channel,
-                channel_lang=channel_lang,
+                channel_lang=primary_lang,
                 track={
                     "id": video_id,
                     "title": final_title,
                     "seriesId": series_id,
                     "seriesTitle": channel,
                     "speaker": speaker,
+                    "language": primary_lang,
+                    "secondaryLanguage": secondary_lang,
                     "channelName": channel,
                     "youtubeVideoId": video_id,
                     "tags": final_tags,

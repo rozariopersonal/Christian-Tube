@@ -22,21 +22,22 @@ export declare class SyncController {
         status: string;
         video: {
             id: string;
+            description: string;
+            thumbnail: string;
+            category: string | null;
             createdAt: Date;
             updatedAt: Date;
-            channelName: string;
-            description: string;
-            title: string;
             type: import(".prisma/client").$Enums.VideoType;
-            thumbnail: string;
+            title: string;
             channelId: string;
+            channelName: string;
             channelThumbnail: string | null;
             channelSubscriberCount: string | null;
             publishedAt: Date;
             duration: string;
             viewCount: number;
             tags: string[];
-            category: string | null;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
             transcriptionStatus: import(".prisma/client").$Enums.TranscriptionStatus;
             transcriptionProgress: number | null;
             transcriptionRetryCount: number;
@@ -51,6 +52,10 @@ export declare class SyncController {
             clipEndTime: number | null;
             cropOffsetX: number | null;
             clippedAt: Date | null;
+            audioUrl: string | null;
+            audioUploadStatus: string | null;
+            audioRetryCount: number | null;
+            audioLastError: string | null;
         };
         timestamp: string;
     }>;

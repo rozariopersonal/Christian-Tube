@@ -16,6 +16,7 @@ const config_1 = require("@nestjs/config");
 const schedule_1 = require("@nestjs/schedule");
 const prisma_service_1 = require("../prisma/prisma.service");
 const youtube_service_1 = require("../youtube/youtube.service");
+const metadata_extractor_1 = require("./metadata-extractor");
 let SyncService = SyncService_1 = class SyncService {
     constructor(configService, prisma, youtubeService) {
         this.configService = configService;
@@ -172,6 +173,12 @@ let SyncService = SyncService_1 = class SyncService {
                         catch (_) { }
                     }
                 }
+                const videoMetadata = (0, metadata_extractor_1.extractVideoMetadata)({
+                    title,
+                    description,
+                    channelTitle: snippet?.channelTitle || channel.name,
+                    tags,
+                });
                 await this.prisma.video.upsert({
                     where: { id: videoId },
                     update: {
@@ -187,6 +194,7 @@ let SyncService = SyncService_1 = class SyncService {
                         viewCount,
                         tags,
                         category: defaultCategory || channel.category || 'General',
+                        metadata: videoMetadata,
                         creatorName: parsedMeta?.creatorName || undefined,
                         creatorEmail: parsedMeta?.creatorEmail || undefined,
                         sourceVideoId: parsedMeta?.sourceVideoId || undefined,
@@ -208,6 +216,7 @@ let SyncService = SyncService_1 = class SyncService {
                         viewCount,
                         tags,
                         category: defaultCategory || channel.category || 'General',
+                        metadata: videoMetadata,
                         transcriptionStatus: 'pending',
                         creatorName: parsedMeta?.creatorName || null,
                         creatorEmail: parsedMeta?.creatorEmail || null,
@@ -290,6 +299,11 @@ let SyncService = SyncService_1 = class SyncService {
         this.logger.log(`✅ Synced total ${syncedCount} videos and shorts via web scraper for ${channel.name} (${channelId})`);
     }
     async upsertScrapedVideo(v, channel, defaultCategory) {
+        const videoMetadata = (0, metadata_extractor_1.extractVideoMetadata)({
+            title: v.title,
+            description: '',
+            channelTitle: channel.name,
+        });
         await this.prisma.video.upsert({
             where: { id: v.videoId },
             update: {
@@ -303,6 +317,7 @@ let SyncService = SyncService_1 = class SyncService {
                 channelThumbnail: channel.thumbnail,
                 channelSubscriberCount: channel.subscriberCount,
                 category: defaultCategory || channel.category || 'General',
+                metadata: videoMetadata,
             },
             create: {
                 id: v.videoId,
@@ -318,6 +333,7 @@ let SyncService = SyncService_1 = class SyncService {
                 duration: v.duration || '0:00',
                 viewCount: v.viewCount || 0,
                 category: defaultCategory || channel.category || 'General',
+                metadata: videoMetadata,
                 transcriptionStatus: 'pending',
             },
         });
@@ -386,6 +402,11 @@ let SyncService = SyncService_1 = class SyncService {
                             snippet?.thumbnails?.high?.url ||
                             snippet?.thumbnails?.medium?.url ||
                             `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                        const videoMetadata = (0, metadata_extractor_1.extractVideoMetadata)({
+                            title: snippet?.title || title,
+                            description: snippet?.description || '',
+                            channelTitle: snippet?.channelTitle || channelName,
+                        });
                         await this.prisma.video.upsert({
                             where: { id: videoId },
                             update: {
@@ -399,6 +420,7 @@ let SyncService = SyncService_1 = class SyncService {
                                 channelName: snippet?.channelTitle || channelName,
                                 channelThumbnail: channelThumb,
                                 category,
+                                metadata: videoMetadata,
                             },
                             create: {
                                 id: videoId,
@@ -413,6 +435,7 @@ let SyncService = SyncService_1 = class SyncService {
                                 duration,
                                 viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
                                 category,
+                                metadata: videoMetadata,
                                 transcriptionStatus: 'pending',
                             },
                         });
@@ -424,6 +447,11 @@ let SyncService = SyncService_1 = class SyncService {
                     this.logger.warn(`Could not fetch details for live WebSub video ${videoId}: ${apiErr.message}`);
                 }
             }
+            const fallbackMeta = (0, metadata_extractor_1.extractVideoMetadata)({
+                title,
+                description: '',
+                channelTitle: channelName,
+            });
             await this.prisma.video.upsert({
                 where: { id: videoId },
                 update: {
@@ -432,6 +460,7 @@ let SyncService = SyncService_1 = class SyncService {
                     channelName,
                     channelThumbnail: channelThumb,
                     category,
+                    metadata: fallbackMeta,
                 },
                 create: {
                     id: videoId,
@@ -446,6 +475,7 @@ let SyncService = SyncService_1 = class SyncService {
                     duration: '0:00',
                     viewCount: 0,
                     category,
+                    metadata: fallbackMeta,
                     transcriptionStatus: 'pending',
                 },
             });
@@ -526,6 +556,11 @@ let SyncService = SyncService_1 = class SyncService {
                 catch (_) { }
             }
         }
+        const videoMetadata = (0, metadata_extractor_1.extractVideoMetadata)({
+            title,
+            description,
+            channelTitle: channelName,
+        });
         const saved = await this.prisma.video.upsert({
             where: { id: videoId },
             update: {
@@ -538,6 +573,7 @@ let SyncService = SyncService_1 = class SyncService {
                 publishedAt,
                 duration,
                 viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
+                metadata: videoMetadata,
                 creatorUserId: parsedMeta?.creatorUserId || undefined,
                 creatorName: parsedMeta?.creatorName || undefined,
                 creatorEmail: parsedMeta?.creatorEmail || undefined,
@@ -559,6 +595,7 @@ let SyncService = SyncService_1 = class SyncService {
                 viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
                 tags: ['#Shorts'],
                 category: 'Shorts',
+                metadata: videoMetadata,
                 transcriptionStatus: 'pending',
                 creatorUserId: parsedMeta?.creatorUserId || null,
                 creatorName: parsedMeta?.creatorName || null,

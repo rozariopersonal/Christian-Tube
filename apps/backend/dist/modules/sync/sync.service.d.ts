@@ -49,18 +49,18 @@ export declare class SyncService implements OnModuleInit {
     private upsertScrapedVideo;
     refreshChannelMetadata(channelId: string): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
         description: string | null;
         thumbnail: string | null;
-        category: string | null;
         subscriberCount: string | null;
+        category: string | null;
         language: string | null;
         isActive: boolean;
         syncCursor: string | null;
         syncStatus: string;
         lastSyncedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     subscribeChannelToWebSub(channelId: string, mode?: 'subscribe' | 'unsubscribe'): Promise<boolean>;
     renewAllWebSubSubscriptions(): Promise<void>;
@@ -68,21 +68,22 @@ export declare class SyncService implements OnModuleInit {
     backfillVideoMetadata(batchSize?: number): Promise<void>;
     syncSingleVideo(videoId: string): Promise<{
         id: string;
+        description: string;
+        thumbnail: string;
+        category: string | null;
         createdAt: Date;
         updatedAt: Date;
-        channelName: string;
-        description: string;
-        title: string;
         type: import(".prisma/client").$Enums.VideoType;
-        thumbnail: string;
+        title: string;
         channelId: string;
+        channelName: string;
         channelThumbnail: string | null;
         channelSubscriberCount: string | null;
         publishedAt: Date;
         duration: string;
         viewCount: number;
         tags: string[];
-        category: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         transcriptionStatus: import(".prisma/client").$Enums.TranscriptionStatus;
         transcriptionProgress: number | null;
         transcriptionRetryCount: number;
@@ -97,5 +98,9 @@ export declare class SyncService implements OnModuleInit {
         clipEndTime: number | null;
         cropOffsetX: number | null;
         clippedAt: Date | null;
+        audioUrl: string | null;
+        audioUploadStatus: string | null;
+        audioRetryCount: number | null;
+        audioLastError: string | null;
     }>;
 }

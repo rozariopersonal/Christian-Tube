@@ -13,71 +13,71 @@ export declare class UsersService {
         photoUrl?: string;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         email: string;
         displayName: string | null;
         photoUrl: string | null;
         isBlocked: boolean;
         role: string;
         lastLoginAt: Date;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     findAll(query?: {
         search?: string;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         email: string;
         displayName: string | null;
         photoUrl: string | null;
         isBlocked: boolean;
         role: string;
         lastLoginAt: Date;
-        createdAt: Date;
-        updatedAt: Date;
     }[]>;
     findOne(id: string): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         email: string;
         displayName: string | null;
         photoUrl: string | null;
         isBlocked: boolean;
         role: string;
         lastLoginAt: Date;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     toggleBlock(id: string): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         email: string;
         displayName: string | null;
         photoUrl: string | null;
         isBlocked: boolean;
         role: string;
         lastLoginAt: Date;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     blockUser(id: string): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         email: string;
         displayName: string | null;
         photoUrl: string | null;
         isBlocked: boolean;
         role: string;
         lastLoginAt: Date;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     unblockUser(id: string): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         email: string;
         displayName: string | null;
         photoUrl: string | null;
         isBlocked: boolean;
         role: string;
         lastLoginAt: Date;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     private static playbackCache;
     savePlayback(data: {

@@ -13,18 +13,18 @@ export declare class ChannelsService {
             videos: number;
         };
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
         description: string | null;
         thumbnail: string | null;
-        category: string | null;
         subscriberCount: string | null;
+        category: string | null;
         language: string | null;
         isActive: boolean;
         syncCursor: string | null;
         syncStatus: string;
         lastSyncedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     }[]>;
     findOne(id: string): Promise<{
         videoCount: number;
@@ -32,18 +32,18 @@ export declare class ChannelsService {
             videos: number;
         };
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
         description: string | null;
         thumbnail: string | null;
-        category: string | null;
         subscriberCount: string | null;
+        category: string | null;
         language: string | null;
         isActive: boolean;
         syncCursor: string | null;
         syncStatus: string;
         lastSyncedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     resolveChannelInfo(input: string): Promise<{
         id: string;
@@ -65,18 +65,18 @@ export declare class ChannelsService {
         message: string;
         channel: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             thumbnail: string | null;
-            category: string | null;
             subscriberCount: string | null;
+            category: string | null;
             language: string | null;
             isActive: boolean;
             syncCursor: string | null;
             syncStatus: string;
             lastSyncedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     }>;
     syncChannel(id: string): Promise<{
@@ -88,18 +88,18 @@ export declare class ChannelsService {
         message: string;
         channel: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             thumbnail: string | null;
-            category: string | null;
             subscriberCount: string | null;
+            category: string | null;
             language: string | null;
             isActive: boolean;
             syncCursor: string | null;
             syncStatus: string;
             lastSyncedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     }>;
     listRequests(): Promise<{
@@ -138,18 +138,18 @@ export declare class ChannelsService {
         };
         channel: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             thumbnail: string | null;
-            category: string | null;
             subscriberCount: string | null;
+            category: string | null;
             language: string | null;
             isActive: boolean;
             syncCursor: string | null;
             syncStatus: string;
             lastSyncedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     }>;
     rejectRequest(id: string, reason?: string): Promise<{

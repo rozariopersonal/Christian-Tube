@@ -11,10 +11,10 @@ export declare class WordsController {
         totalPages: number;
         items: {
             id: string;
+            category: string;
             createdAt: Date;
             updatedAt: Date;
             tags: string[];
-            category: string;
             bookName: string | null;
             referenceLabel: string;
             text: string | null;
@@ -53,10 +53,10 @@ export declare class WordsController {
         isFeatured?: boolean;
     }): Promise<{
         id: string;
+        category: string;
         createdAt: Date;
         updatedAt: Date;
         tags: string[];
-        category: string;
         bookName: string | null;
         referenceLabel: string;
         text: string | null;
@@ -74,10 +74,10 @@ export declare class WordsController {
     }>;
     deleteWord(id: string): Promise<{
         id: string;
+        category: string;
         createdAt: Date;
         updatedAt: Date;
         tags: string[];
-        category: string;
         bookName: string | null;
         referenceLabel: string;
         text: string | null;
@@ -95,10 +95,10 @@ export declare class WordsController {
     }>;
     likeWord(id: string): Promise<{
         id: string;
+        category: string;
         createdAt: Date;
         updatedAt: Date;
         tags: string[];
-        category: string;
         bookName: string | null;
         referenceLabel: string;
         text: string | null;

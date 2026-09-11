@@ -10,6 +10,9 @@ from worker import (
     slugify,
     map_language,
     is_short_content,
+    detect_category,
+    extract_speaker,
+    detect_languages,
     AudioComClient,
     GitHubRepo,
     update_channel_audio_catalog,
@@ -17,6 +20,50 @@ from worker import (
 
 
 class TestWorkerCollections(unittest.TestCase):
+    def test_detect_languages(self):
+        # Bilingual patterns
+        self.assertEqual(detect_languages("10. Baptism in Fire by Bro Victor [Tamil-English]", ""), ("Tamil", "English"))
+        self.assertEqual(detect_languages("Don't Ever Lose Heart (SPANISH & ENGLISH)", ""), ("Spanish", "English"))
+        self.assertEqual(detect_languages("Sunday Service with Hindi Translation", ""), ("Hindi", "English"))
+        
+        # Indic script titles with English secondary
+        self.assertEqual(detect_languages("பிலிப்பியர் மூன்றாம் பகுதி | Philippians Third Session", ""), ("Tamil", "English"))
+        
+        # Pure native script
+        self.assertEqual(detect_languages("சகரியா பூணன் செய்தி", ""), ("Tamil", None))
+        
+        # Pure English
+        self.assertEqual(detect_languages("Devotion to Christ - Zac Poonen", ""), ("English", None))
+        
+        # Romanized keyword
+        self.assertEqual(detect_languages("Tamil Message by Bro. Vincent", ""), ("Tamil", None))
+
+    def test_extract_speaker(self):
+        # Known speakers from title (English)
+        self.assertEqual(extract_speaker("Devotion to Christ - Zac Poonen", "", "CFC India"), "Zac Poonen")
+        self.assertEqual(extract_speaker("Love and Grace - Charles Banna", "", "CFC India"), "Charles Banna")
+        self.assertEqual(extract_speaker("Knowing God | Ian Robson", "", "CFC India"), "Ian Robson")
+        self.assertEqual(extract_speaker("Bro. Parisutham - The Body of Christ", "", "CHENNAI CFC"), "Parisutham")
+        
+        # Known speakers from title (Tamil)
+        self.assertEqual(extract_speaker("இயேசு போதித்த அனைத்தும் | சகோ. சகரியா பூணன்", "", "CHENNAI CFC"), "Zac Poonen")
+        self.assertEqual(extract_speaker("மாம்சத்திற்கென்று விதையாதிருப்போம் | சகோ. செல்லையா", "", "CHENNAI CFC"), "Chellaiah")
+        
+        # Known speakers from description
+        self.assertEqual(extract_speaker("Sunday Sermon", "Preached by Bro. Sam Varghese at Chennai", "CHENNAI CFC"), "Sam Varghese")
+        
+        # Heuristic unknown person names
+        self.assertEqual(extract_speaker("Special Message | Bro. Arthur Pink", "", "CFC India"), "Arthur Pink")
+        self.assertEqual(extract_speaker("General Meeting", "Sharing by Bro. John Wesley during Sunday Service", "CFC Thanjavur"), "John Wesley")
+        
+        # Fallback to default speaker when no person name detected
+        self.assertEqual(extract_speaker("Sunday Service Live Stream", "Praise and worship", "CFC Thanjavur"), "CFC Thanjavur")
+
+    def test_detect_category(self):
+        self.assertEqual(detect_category("CFC Songs & Hymns"), "Songs")
+        self.assertEqual(detect_category("Tamil Padalgal"), "Songs")
+        self.assertEqual(detect_category("CFC India - Zac Poonen"), "General Sermons")
+        self.assertEqual(detect_category("CHENNAI CFC"), "General Sermons")
     def test_is_short_content(self):
         # By duration
         self.assertTrue(is_short_content("Regular Title", "desc", duration=45, width=1920, height=1080))

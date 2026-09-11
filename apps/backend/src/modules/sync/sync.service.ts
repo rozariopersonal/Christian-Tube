@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { YoutubeService, ExtractedVideo } from '../youtube/youtube.service';
+import { extractVideoMetadata } from './metadata-extractor';
 
 @Injectable()
 export class SyncService implements OnModuleInit {
@@ -206,6 +207,13 @@ export class SyncService implements OnModuleInit {
           }
         }
 
+        const videoMetadata = extractVideoMetadata({
+          title,
+          description,
+          channelTitle: snippet?.channelTitle || channel.name,
+          tags,
+        });
+
         await this.prisma.video.upsert({
           where: { id: videoId },
           update: {
@@ -221,6 +229,7 @@ export class SyncService implements OnModuleInit {
             viewCount,
             tags,
             category: defaultCategory || channel.category || 'General',
+            metadata: videoMetadata as any,
             creatorName: parsedMeta?.creatorName || undefined,
             creatorEmail: parsedMeta?.creatorEmail || undefined,
             sourceVideoId: parsedMeta?.sourceVideoId || undefined,
@@ -242,6 +251,7 @@ export class SyncService implements OnModuleInit {
             viewCount,
             tags,
             category: defaultCategory || channel.category || 'General',
+            metadata: videoMetadata as any,
             transcriptionStatus: 'pending',
             creatorName: parsedMeta?.creatorName || null,
             creatorEmail: parsedMeta?.creatorEmail || null,
@@ -347,6 +357,12 @@ export class SyncService implements OnModuleInit {
    * Helper to upsert a scraped video into PostgreSQL
    */
   private async upsertScrapedVideo(v: ExtractedVideo, channel: any, defaultCategory?: string | null) {
+    const videoMetadata = extractVideoMetadata({
+      title: v.title,
+      description: '',
+      channelTitle: channel.name,
+    });
+
     await this.prisma.video.upsert({
       where: { id: v.videoId },
       update: {
@@ -360,6 +376,7 @@ export class SyncService implements OnModuleInit {
         channelThumbnail: channel.thumbnail,
         channelSubscriberCount: channel.subscriberCount,
         category: defaultCategory || channel.category || 'General',
+        metadata: videoMetadata as any,
       },
       create: {
         id: v.videoId,
@@ -375,6 +392,7 @@ export class SyncService implements OnModuleInit {
         duration: v.duration || '0:00',
         viewCount: v.viewCount || 0,
         category: defaultCategory || channel.category || 'General',
+        metadata: videoMetadata as any,
         transcriptionStatus: 'pending',
       },
     });
@@ -468,6 +486,12 @@ export class SyncService implements OnModuleInit {
               snippet?.thumbnails?.medium?.url ||
               `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
+            const videoMetadata = extractVideoMetadata({
+              title: snippet?.title || title,
+              description: snippet?.description || '',
+              channelTitle: snippet?.channelTitle || channelName,
+            });
+
             await this.prisma.video.upsert({
               where: { id: videoId },
               update: {
@@ -481,6 +505,7 @@ export class SyncService implements OnModuleInit {
                 channelName: snippet?.channelTitle || channelName,
                 channelThumbnail: channelThumb,
                 category,
+                metadata: videoMetadata as any,
               },
               create: {
                 id: videoId,
@@ -495,6 +520,7 @@ export class SyncService implements OnModuleInit {
                 duration,
                 viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
                 category,
+                metadata: videoMetadata as any,
                 transcriptionStatus: 'pending',
               },
             });
@@ -507,6 +533,12 @@ export class SyncService implements OnModuleInit {
       }
 
       // Fallback direct upsert from XML payload
+      const fallbackMeta = extractVideoMetadata({
+        title,
+        description: '',
+        channelTitle: channelName,
+      });
+
       await this.prisma.video.upsert({
         where: { id: videoId },
         update: {
@@ -515,6 +547,7 @@ export class SyncService implements OnModuleInit {
           channelName,
           channelThumbnail: channelThumb,
           category,
+          metadata: fallbackMeta as any,
         },
         create: {
           id: videoId,
@@ -529,6 +562,7 @@ export class SyncService implements OnModuleInit {
           duration: '0:00',
           viewCount: 0,
           category,
+          metadata: fallbackMeta as any,
           transcriptionStatus: 'pending',
         },
       });
@@ -619,6 +653,12 @@ export class SyncService implements OnModuleInit {
       }
     }
 
+    const videoMetadata = extractVideoMetadata({
+      title,
+      description,
+      channelTitle: channelName,
+    });
+
     const saved = await this.prisma.video.upsert({
       where: { id: videoId },
       update: {
@@ -631,6 +671,7 @@ export class SyncService implements OnModuleInit {
         publishedAt,
         duration,
         viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
+        metadata: videoMetadata as any,
         creatorUserId: parsedMeta?.creatorUserId || undefined,
         creatorName: parsedMeta?.creatorName || undefined,
         creatorEmail: parsedMeta?.creatorEmail || undefined,
@@ -652,6 +693,7 @@ export class SyncService implements OnModuleInit {
         viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
         tags: ['#Shorts'],
         category: 'Shorts',
+        metadata: videoMetadata as any,
         transcriptionStatus: 'pending',
         creatorUserId: parsedMeta?.creatorUserId || null,
         creatorName: parsedMeta?.creatorName || null,

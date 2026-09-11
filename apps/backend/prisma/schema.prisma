@@ -34,6 +34,7 @@ model Video {
   viewCount              Int                 @default(0)
   tags                   String[]            @default([])
   category               String?
+  metadata               Json?
 
   transcriptionStatus    TranscriptionStatus @default(pending)
   transcriptionProgress  Int?
@@ -51,6 +52,12 @@ model Video {
   clipEndTime            Float?
   cropOffsetX            Float?              @default(0.0)
   clippedAt              DateTime?
+
+  // Audio Extraction Metadata
+  audioUrl               String?
+  audioUploadStatus      String?
+  audioRetryCount        Int?                @default(0)
+  audioLastError         String?
 
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt

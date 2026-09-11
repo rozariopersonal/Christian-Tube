@@ -15,13 +15,13 @@ class AudioTrack {
   final String? streamUrl; // Resolved direct audio stream URL (for audio.com etc.)
   final String? fallbackUrl;
   final String? coverUrl;
+  final String? language;
+  final String? secondaryLanguage;
   final String? scriptureBook;
   final int? scriptureChapter;
   final int? scriptureVerse;
 
-
-
-const AudioTrack({
+  const AudioTrack({
     required this.id,
     required this.title,
     required this.seriesId,
@@ -37,6 +37,8 @@ const AudioTrack({
     this.streamUrl,
     this.fallbackUrl,
     this.coverUrl,
+    this.language,
+    this.secondaryLanguage,
     this.scriptureBook,
     this.scriptureChapter,
     this.scriptureVerse,
@@ -76,6 +78,8 @@ const AudioTrack({
       streamUrl: json['streamUrl'] as String?,
       fallbackUrl: json['fallbackUrl'] as String?,
       coverUrl: json['coverUrl'] as String?,
+      language: json['language'] as String?,
+      secondaryLanguage: json['secondaryLanguage'] as String?,
       scriptureBook: json['scriptureBook'] as String?,
       scriptureChapter: json['scriptureChapter'] as int?,
       scriptureVerse: json['scriptureVerse'] as int?,
@@ -98,6 +102,8 @@ const AudioTrack({
         if (streamUrl != null) 'streamUrl': streamUrl,
         if (fallbackUrl != null) 'fallbackUrl': fallbackUrl,
         if (coverUrl != null) 'coverUrl': coverUrl,
+        if (language != null) 'language': language,
+        if (secondaryLanguage != null) 'secondaryLanguage': secondaryLanguage,
         if (scriptureBook != null) 'scriptureBook': scriptureBook,
         if (scriptureChapter != null) 'scriptureChapter': scriptureChapter,
         if (scriptureVerse != null) 'scriptureVerse': scriptureVerse,
