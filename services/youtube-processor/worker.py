@@ -202,6 +202,11 @@ class Database:
             JOIN "Channel" c ON c.id = v."channelId"
             WHERE v.type = 'VIDEO'
               AND (c."isActive" = true OR c."isActive" IS NULL)
+              AND c.name NOT ILIKE '%%short%%'
+              AND c.id != 'UC_ChristianTubeOfficial'
+              AND v.title NOT ILIKE '%%#short%%'
+              AND (v.description IS NULL OR v.description NOT ILIKE '%%#short%%')
+              AND (v."duration" IS NULL OR (v."duration" != '0:00' AND v."duration" NOT LIKE '0:0%%'))
               AND (v."audioUploadStatus" IS NULL OR v."audioUploadStatus" IN ({ph}))
               {retry_clause}
             ORDER BY v."publishedAt" DESC
@@ -245,6 +250,17 @@ class Database:
                    "audioRetryCount"=COALESCE("audioRetryCount", 0) + 1
                WHERE "id"=%s""",
             (error[:2000], video_id),
+        )
+
+    def mark_short(self, video_id: str) -> None:
+        """Marks a video as a short and ignores it from future audio processing."""
+        self.cur.execute(
+            """UPDATE "Video"
+               SET "type"='SHORT',
+                   "audioUploadStatus"='ignored',
+                   "audioLastError"='Ignored: YouTube Short detected'
+               WHERE "id"=%s""",
+            (video_id,),
         )
 
     def release_stale_processing(self) -> None:
@@ -581,6 +597,24 @@ def update_channel_audio_catalog(
     log.info("  synced track with GitHub releases audio catalog (series: %s)", series_id)
 
 
+def is_short_content(title: str, desc: str, duration: int, width: int = 0, height: int = 0) -> bool:
+    """
+    Returns True if the video is detected as a YouTube Short.
+    Criteria:
+    - Duration <= 90 seconds (standard YouTube Short limit)
+    - Vertical aspect ratio (height > width > 0)
+    - Explicit hashtag (#short or #shorts)
+    """
+    if 0 < duration <= 90:
+        return True
+    if height > 0 and width > 0 and height > width:
+        return True
+    combined = f"{title} {desc}".lower()
+    if "#short" in combined or "#shorts" in combined:
+        return True
+    return False
+
+
 # --------------------------------------------------------------------------- #
 # Audio Extraction
 # --------------------------------------------------------------------------- #
@@ -631,6 +665,8 @@ def extract_audio(video_id: str, out_dir: Path) -> tuple[Path, dict]:
                     "duration": int(info.get("duration", 0)),
                     "thumbnail": info.get("thumbnail") or f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg",
                     "uploader": info.get("uploader", ""),
+                    "width": int(info.get("width") or 0),
+                    "height": int(info.get("height") or 0),
                 }
         except Exception as e:
             log.warning("  failed to parse info.json: %s", e)
@@ -657,6 +693,14 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
             speaker = meta.get("uploader") or channel or "Unknown"
             duration = meta.get("duration") or 0
             thumbnail = meta.get("thumbnail") or f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+            width = meta.get("width", 0)
+            height = meta.get("height", 0)
+
+            # Skip YouTube Shorts
+            if is_short_content(final_title, final_desc, duration, width, height):
+                log.info("  >> Skipping %s: detected as YouTube Short (duration: %ss, %sx%s)", video_id, duration, width, height)
+                db.mark_short(video_id)
+                return
 
             # 1. Upload to Audio.com (and link to channel collection)
             audio_url = audiocom.upload_audio(

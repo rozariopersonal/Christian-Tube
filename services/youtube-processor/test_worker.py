@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from worker import (
     slugify,
     map_language,
+    is_short_content,
     AudioComClient,
     GitHubRepo,
     update_channel_audio_catalog,
@@ -16,6 +17,20 @@ from worker import (
 
 
 class TestWorkerCollections(unittest.TestCase):
+    def test_is_short_content(self):
+        # By duration
+        self.assertTrue(is_short_content("Regular Title", "desc", duration=45, width=1920, height=1080))
+        self.assertTrue(is_short_content("Regular Title", "desc", duration=60, width=1920, height=1080))
+        self.assertFalse(is_short_content("Full Sermon", "desc", duration=1800, width=1920, height=1080))
+
+        # By aspect ratio (vertical)
+        self.assertTrue(is_short_content("Vertical Video", "desc", duration=120, width=1080, height=1920))
+
+        # By hashtag
+        self.assertTrue(is_short_content("Great message #shorts", "desc", duration=120, width=1920, height=1080))
+        self.assertTrue(is_short_content("Great message", "Check this out #short", duration=120, width=1920, height=1080))
+        self.assertFalse(is_short_content("Shortest Path in Grace", "Full description", duration=3600, width=1920, height=1080))
+
     def test_slugify(self):
         self.assertEqual(slugify("Zac Poonen Sermons"), "zac_poonen_sermons")
         self.assertEqual(slugify("English Channel (Live!)"), "english_channel_live")
