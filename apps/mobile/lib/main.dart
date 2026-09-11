@@ -255,7 +255,10 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             ),
             GoRoute(
               path: '/teachings',
-              builder: (context, state) => const WftwTeachingsScreen(),
+              builder: (context, state) => WftwTeachingsScreen(
+                langController:
+                    LibraryLanguagesController.fromRouteExtra(state.extra),
+              ),
             ),
             GoRoute(
               path: '/articles',

@@ -5,6 +5,7 @@ import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/articles/models/wftw_index_entry.dart';
 import 'package:mobile/features/articles/screens/wftw_teachings_screen.dart';
 import 'package:mobile/features/articles/widgets/wftw_shelf.dart';
+import 'package:mobile/shared/services/library_languages_controller.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
   tester.view.physicalSize = Size(width, height);
@@ -40,20 +41,35 @@ List<WftwIndexEntry> sampleEntries() => const [
         date: '2001-01-07',
         year: 2001,
       ),
+      WftwIndexEntry(
+        id: '2026_09_06',
+        title: 'A Tamil Teaching (தமிழ்)',
+        date: '2026-09-06',
+        year: 2026,
+        lang: 'ta',
+      ),
     ];
 
 const List<double> kBreakpoints = [320, 600, 840, 1400];
 
 class _ArticleStub extends StatelessWidget {
-  const _ArticleStub();
+  final String? expectedLang;
+  const _ArticleStub({this.expectedLang});
+
   @override
-  Widget build(BuildContext context) => const Scaffold(body: Text('article-stub'));
+  Widget build(BuildContext context) {
+    if (expectedLang != null && expectedLang != 'en' && expectedLang != 'ta') {
+      throw StateError('unexpected lang $expectedLang');
+    }
+    return const Scaffold(body: Text('article-stub'));
+  }
 }
 
 void main() {
   group('WftwTeachingsScreen', () {
     for (final width in kBreakpoints) {
-      testWidgets('renders without overflow at ${width}px', (tester) async {
+      testWidgets('renders combined multi-language entries without overflow '
+          'at ${width}px', (tester) async {
         setSurfaceSize(tester, width, 800);
         await tester.pumpWidget(MaterialApp(
           theme: testTheme(),
@@ -62,13 +78,53 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Word for the Week'), findsOneWidget);
-        expect(find.text('3 teachings • Zac Poonen'), findsOneWidget);
+        expect(find.text('4 teachings • All'), findsOneWidget);
         expect(find.text('2026'), findsOneWidget);
         expect(find.text('2001'), findsOneWidget);
         expect(find.text('Few Will Find the Narrow Way'), findsOneWidget);
+        expect(find.text('A Tamil Teaching (தமிழ்)'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }
+
+    testWidgets('honors shared library language filter (Tamil only)',
+        (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      final lang = LibraryLanguagesController()
+        ..selectLanguages({'ta'});
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: WftwTeachingsScreen(
+          loader: () async => sampleEntries(),
+          langController: lang,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 teaching • Tamil'), findsOneWidget);
+      expect(find.text('A Tamil Teaching (தமிழ்)'), findsOneWidget);
+      expect(find.text('Few Will Find the Narrow Way'), findsNothing);
+    });
+
+    testWidgets('shows a helpful empty message when language has no teachings',
+        (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      final lang = LibraryLanguagesController()
+        ..selectLanguages({'de'});
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: WftwTeachingsScreen(
+          loader: () async => sampleEntries(),
+          langController: lang,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No teachings available in the selected languages.'),
+        findsOneWidget,
+      );
+    });
 
     testWidgets('search filters rows across years', (tester) async {
       setSurfaceSize(tester, 400, 800);
@@ -123,7 +179,8 @@ void main() {
       expect(find.text('Few Will Find the Narrow Way'), findsOneWidget);
     });
 
-    testWidgets('tapping a row navigates to the article route', (tester) async {
+    testWidgets('tapping an English row routes to the article route',
+        (tester) async {
       setSurfaceSize(tester, 400, 800);
       final router = GoRouter(
         initialLocation: '/teachings',
@@ -135,7 +192,14 @@ void main() {
           ),
           GoRoute(
             path: '/article/:id',
-            builder: (_, state) => const _ArticleStub(),
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return _ArticleStub(
+                expectedLang: state.uri.queryParameters['lang'] ??
+                    extra?['lang'] as String? ??
+                    'en',
+              );
+            },
           ),
         ],
       );
@@ -143,6 +207,38 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Few Will Find the Narrow Way'));
+      await tester.pumpAndSettle();
+      expect(find.byType(_ArticleStub), findsOneWidget);
+    });
+
+    testWidgets('tapping a non-English row routes with its language',
+        (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      final router = GoRouter(
+        initialLocation: '/teachings',
+        routes: [
+          GoRoute(
+            path: '/teachings',
+            builder: (_, __) =>
+                WftwTeachingsScreen(loader: () async => sampleEntries()),
+          ),
+          GoRoute(
+            path: '/article/:id',
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return _ArticleStub(
+                expectedLang: state.uri.queryParameters['lang'] ??
+                    extra?['lang'] as String? ??
+                    'en',
+              );
+            },
+          ),
+        ],
+      );
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router, theme: testTheme()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('A Tamil Teaching (தமிழ்)'));
       await tester.pumpAndSettle();
       expect(find.byType(_ArticleStub), findsOneWidget);
     });

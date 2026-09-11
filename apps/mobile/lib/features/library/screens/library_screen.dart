@@ -19,11 +19,10 @@ import '../../songs/widgets/song_shelf.dart';
 import '../services/library_data_loader.dart';
 
 /// Library hub — one scrolling landing for everything users read:
-/// recent books (with progress), the Word-for-the-Week teachings, and the
-/// multi-language Articles collection.
+/// recent books (with progress), the multi-language Articles collection
+/// (which includes the Word-for-the-Week teachings), and songs.
 class LibraryScreen extends StatefulWidget {
   final LibraryDataLoader? loader;
-  final WftwIndexLoader? wftwLoader;
   final ArticlesCatalogLoader? articlesLoader;
   final ArticlesLanguagesLoader? languagesLoader;
   final SongsCatalogLoader? songsLoader;
@@ -31,7 +30,6 @@ class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     super.key,
     this.loader,
-    this.wftwLoader,
     this.articlesLoader,
     this.languagesLoader,
     this.songsLoader,
@@ -43,7 +41,6 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   late final LibraryDataLoader _loader;
-  late final WftwIndexLoader _wftwLoader;
   late final ArticlesCatalogLoader _articlesLoader;
   late final ArticlesLanguagesLoader _languagesLoader;
   late final SongsCatalogLoader _songsLoader;
@@ -52,7 +49,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<Book> _recentBooks = const [];
   List<Book> _allBooks = const [];
   Map<String, UserReadingProgress> _progressMap = const {};
-  List<WftwIndexEntry> _wftwRecent = const [];
   List<WftwIndexEntry> _articlesRecent = const [];
   List<WftwIndexEntry> _allArticles = const [];
   List<Song> _songs = const [];
@@ -62,15 +58,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
   bool _loading = true;
 
   static const int _recentBookLimit = 10;
-  static const int _wftwShelfCount = 8;
+  static const int _shelfCount = 8;
   static const int _songShelfCount = 10;
 
   @override
   void initState() {
     super.initState();
     _loader = widget.loader ?? BookServiceLibraryLoader();
-    _wftwLoader =
-        widget.wftwLoader ?? () => WftwIndexService().getIndex();
     _articlesLoader = widget.articlesLoader ??
         () => WftwIndexService().getArticlesIndex();
     _languagesLoader =
@@ -149,19 +143,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
       } catch (e) {
         debugPrint('Articles shelf unavailable: $e');
       }
-      final articles = allArticles.length <= _wftwShelfCount
+      final articles = allArticles.length <= _shelfCount
           ? allArticles
-          : allArticles.sublist(0, _wftwShelfCount);
-
-      List<WftwIndexEntry> index = const [];
-      try {
-        final loaded = await _wftwLoader();
-        index = loaded.length <= _wftwShelfCount
-            ? loaded
-            : loaded.sublist(0, _wftwShelfCount);
-      } catch (e) {
-        debugPrint('Word for the Week shelf unavailable: $e');
-      }
+          : allArticles.sublist(0, _shelfCount);
 
       final List<Song> allSongs = [];
       try {
@@ -181,7 +165,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _allArticles = allArticles;
         _allSongs = allSongs;
         _progressMap = progressMap;
-        _wftwRecent = index;
         _articlesRecent = articles;
         _songs = songs;
         _langNameByCode = langNames;
@@ -255,7 +238,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
             ),
             Text(
-              'Books • Songs • Teachings • Articles',
+              'Books • Songs • Articles',
               style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
             ),
           ],
@@ -302,14 +285,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           songs: _filteredSongs,
                           onViewAll: _openSongs,
                           onTapSong: _openSong,
-                        ),
-                      ),
-                    if (_wftwRecent.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: WftwShelf(
-                          entries: _wftwRecent,
-                          onViewAll: _openTeachings,
-                          onTapArticle: _openWftwArticle,
                         ),
                       ),
                     if (_articlesRecent.isNotEmpty)
@@ -388,9 +363,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final filtered = state.isAllLanguages
         ? _allArticles
         : _allArticles.where((a) => state.includes(a.lang)).toList();
-    return filtered.length <= _wftwShelfCount
+    return filtered.length <= _shelfCount
         ? filtered
-        : filtered.sublist(0, _wftwShelfCount);
+        : filtered.sublist(0, _shelfCount);
   }
 
   List<Song> get _filteredSongs {
@@ -591,10 +566,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  void _openTeachings() {
-    context.push('/teachings');
-  }
-
   void _openArticles() {
     context.push('/articles', extra: {'langController': _langController});
   }
@@ -605,10 +576,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   void _openSong(Song song) {
     context.push('/song/${song.id}', extra: song);
-  }
-
-  void _openWftwArticle(WftwIndexEntry entry) {
-    context.push('/article/${entry.id}', extra: {'title': entry.title});
   }
 
   void _openArticle(WftwIndexEntry entry) {

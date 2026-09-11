@@ -49,25 +49,6 @@ Book book(String id, String title) => Book(
       createdAt: '2023-01-01',
     );
 
-const List<WftwIndexEntry> sampleTeachings = [
-  WftwIndexEntry(
-    id: '2026_09_06',
-    title: 'Few Will Find the Narrow Way',
-    date: '2026-09-06',
-    year: 2026,
-    bookNumber: 40,
-    chapter: 7,
-    startVerse: 13,
-    endVerse: 14,
-  ),
-  WftwIndexEntry(
-    id: '2026_08_30',
-    title: 'Seek the Gifts of the Spirit to Serve Others',
-    date: '2026-08-30',
-    year: 2026,
-  ),
-];
-
 const List<WftwIndexEntry> sampleArticles = [
   WftwIndexEntry(
     id: '2026_09_06',
@@ -95,7 +76,6 @@ const List<double> kBreakpoints = [320, 600, 840, 1400];
 
 Widget buildLibrary({
   LibraryDataLoader? loader,
-  Future<List<WftwIndexEntry>> Function()? wftwLoader,
   Future<List<WftwIndexEntry>> Function()? articlesLoader,
   Future<List<ArticleLanguage>> Function()? languagesLoader,
   Future<List<Song>> Function()? songsLoader,
@@ -104,7 +84,6 @@ Widget buildLibrary({
     theme: testTheme(),
     home: LibraryScreen(
       loader: loader,
-      wftwLoader: wftwLoader,
       articlesLoader: articlesLoader,
       languagesLoader: languagesLoader,
       songsLoader: songsLoader,
@@ -135,7 +114,6 @@ void main() {
         setSurfaceSize(tester, width, 800);
         await tester.pumpWidget(buildLibrary(
           loader: loaderWithData(),
-          wftwLoader: () async => sampleTeachings,
           articlesLoader: () async => sampleArticles,
           languagesLoader: () async => sampleLanguages,
         ));
@@ -144,11 +122,10 @@ void main() {
         expect(find.text('Library'), findsOneWidget);
         expect(find.text('Books'), findsOneWidget);
         expect(find.text('A Heavenly Home'), findsOneWidget);
-        expect(find.text('Word for the Week'), findsOneWidget);
-        expect(find.text('Few Will Find the Narrow Way'), findsOneWidget);
         expect(find.text('Articles'), findsOneWidget);
+        expect(find.text('The Narrow Way (Tamil teaching)'), findsOneWidget);
         expect(find.text('Tamil'), findsNWidgets(2));
-        expect(find.text('View all'), findsNWidgets(3));
+        expect(find.text('View all'), findsNWidgets(2));
         expect(tester.takeException(), isNull);
       });
     }
@@ -158,7 +135,8 @@ void main() {
       setSurfaceSize(tester, 400, 800);
       await tester.pumpWidget(buildLibrary(
         loader: _FakeLoader(books: [book('b1', 'First Book')], progress: const []),
-        wftwLoader: () async => sampleTeachings,
+        articlesLoader: () async => sampleArticles,
+        languagesLoader: () async => sampleLanguages,
       ));
       await tester.pumpAndSettle();
 
@@ -166,31 +144,19 @@ void main() {
       expect(find.text('A Heavenly Home'), findsNothing);
     });
 
-    testWidgets('hides teaching shelf when index fails to load', (tester) async {
-      setSurfaceSize(tester, 400, 800);
-      await tester.pumpWidget(buildLibrary(
-        loader: loaderWithData(),
-        wftwLoader: () async => throw Exception('offline'),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Word for the Week'), findsNothing);
-      expect(find.text('Articles'), findsNothing);
-    });
-
     testWidgets('hides articles shelf when combined index fails to load',
         (tester) async {
       setSurfaceSize(tester, 400, 800);
       await tester.pumpWidget(buildLibrary(
         loader: loaderWithData(),
-        wftwLoader: () async => sampleTeachings,
         articlesLoader: () async => throw Exception('offline'),
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Word for the Week'), findsOneWidget);
+      expect(find.text('A Heavenly Home'), findsOneWidget);
       expect(find.text('Articles'), findsNothing);
       expect(find.text('Tamil'), findsNothing);
+      expect(find.text('Word for the Week'), findsNothing);
     });
 
     testWidgets('catalog languages outside the registry render as names',
@@ -198,7 +164,6 @@ void main() {
       setSurfaceSize(tester, 400, 800);
       await tester.pumpWidget(buildLibrary(
         loader: loaderWithData(),
-        wftwLoader: () async => sampleTeachings,
         articlesLoader: () async => sampleArticles,
         languagesLoader: () async => [
           ...sampleLanguages,
@@ -232,9 +197,6 @@ void main() {
           ),
           GoRoute(path: '/books', builder: (_, __) => const _Dest(body: 'books-dest')),
           GoRoute(
-              path: '/teachings',
-              builder: (_, __) => const _Dest(body: 'teachings-dest')),
-          GoRoute(
               path: '/articles',
               builder: (_, __) => const _Dest(body: 'articles-dest')),
           GoRoute(
@@ -267,8 +229,7 @@ void main() {
       expect(find.text('books-dest'), findsOneWidget);
     });
 
-    testWidgets('Word for the Week View all routes to /teachings',
-        (tester) async {
+    testWidgets('Articles View all routes to /articles', (tester) async {
       setSurfaceSize(tester, 400, 800);
       await tester.pumpWidget(MaterialApp.router(
         routerConfig: buildRouter(),
@@ -278,34 +239,7 @@ void main() {
 
       await tester.tap(find.text('View all').at(1));
       await tester.pumpAndSettle();
-      expect(find.text('teachings-dest'), findsOneWidget);
-    });
-
-    testWidgets('Articles View all routes to /articles', (tester) async {
-      setSurfaceSize(tester, 400, 800);
-      await tester.pumpWidget(MaterialApp.router(
-        routerConfig: buildRouter(),
-        theme: testTheme(),
-      ));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('View all').at(2));
-      await tester.pumpAndSettle();
       expect(find.text('articles-dest'), findsOneWidget);
-    });
-
-    testWidgets('tapping a teaching shelf tile routes to the article',
-        (tester) async {
-      setSurfaceSize(tester, 400, 800);
-      await tester.pumpWidget(MaterialApp.router(
-        routerConfig: buildRouter(),
-        theme: testTheme(),
-      ));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Few Will Find the Narrow Way'));
-      await tester.pumpAndSettle();
-      expect(find.text('article-2026_09_06-lang-en'), findsOneWidget);
     });
 
     testWidgets('tapping a non-English article tile carries its language',
@@ -342,14 +276,12 @@ class _RoutedLibrary extends StatelessWidget {
           ),
         ],
       ),
-      wftwLoader: _nullWftw,
       articlesLoader: _nullArticles,
       languagesLoader: _loadLanguages,
     );
   }
 }
 
-Future<List<WftwIndexEntry>> _nullWftw() async => sampleTeachings;
 Future<List<WftwIndexEntry>> _nullArticles() async => sampleArticles;
 Future<List<ArticleLanguage>> _loadLanguages() async => sampleLanguages;
 

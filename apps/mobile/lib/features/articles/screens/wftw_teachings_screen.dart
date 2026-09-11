@@ -3,16 +3,21 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../shared/services/library_languages_controller.dart';
+import '../../../shared/ui/language_meta.dart';
 import '../models/wftw_index_entry.dart';
 import '../services/wftw_index_service.dart';
 import '../widgets/article_row.dart';
 
-/// Browse the Word-for-the-Week article archive, grouped by year, with a
-/// client-side title search. Rows open the article reader (`/article/:id`).
+/// Browse the multi-language Word-for-the-Week article archive (the combined
+/// index), grouped by year, with a client-side title search and the shared
+/// [LibraryLanguagesController] filter so language selection stays centralized
+/// at the Library level. Rows open the article reader (`/article/:id`).
 class WftwTeachingsScreen extends StatefulWidget {
   final WftwIndexLoader? loader;
+  final LibraryLanguagesController? langController;
 
-  const WftwTeachingsScreen({super.key, this.loader});
+  const WftwTeachingsScreen({super.key, this.loader, this.langController});
 
   @override
   State<WftwTeachingsScreen> createState() => _WftwTeachingsScreenState();
@@ -20,6 +25,9 @@ class WftwTeachingsScreen extends StatefulWidget {
 
 class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
   final TextEditingController _searchController = TextEditingController();
+  late final LibraryLanguagesController _langController;
+  late final bool _ownsLangController;
+
   List<WftwIndexEntry> _entries = const [];
   bool _loading = true;
   String? _error;
@@ -28,13 +36,22 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
   @override
   void initState() {
     super.initState();
+    _ownsLangController = widget.langController == null;
+    _langController = (widget.langController ?? LibraryLanguagesController())
+      ..addListener(_onLanguagesChanged);
     _load();
   }
 
   @override
   void dispose() {
+    _langController.removeListener(_onLanguagesChanged);
+    if (_ownsLangController) _langController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onLanguagesChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _load() async {
@@ -43,7 +60,7 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
       _error = null;
     });
     try {
-      final loader = widget.loader ?? WftwIndexService().getIndex;
+      final loader = widget.loader ?? WftwIndexService().getArticlesIndex;
       final entries = await loader();
       if (!mounted) return;
       setState(() {
@@ -59,16 +76,39 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
     }
   }
 
+  /// All entries, filtered by the shared library language selection.
+  List<WftwIndexEntry> get _langFiltered {
+    final state = _langController.state;
+    if (state.isAllLanguages) return _entries;
+    return _entries.where((e) => state.includes(e.lang)).toList();
+  }
+
   List<WftwIndexEntry> get _filtered {
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return _entries;
-    return _entries
+    final langFiltered = _langFiltered;
+    if (q.isEmpty) return langFiltered;
+    return langFiltered
         .where((e) => e.title.toLowerCase().contains(q))
         .toList();
   }
 
+  String get _countLabel {
+    final count = _langFiltered.length;
+    final noun = count == 1 ? 'teaching' : 'teachings';
+    final state = _langController.state;
+    if (state.isAllLanguages) return '$count $noun • All';
+    if (state.selectedLanguages.length == 1) {
+      return '$count $noun • ${LanguageMeta.fromCode(state.selectedLanguages.first).englishName}';
+    }
+    return '$count $noun • ${state.selectedLanguages.length} languages';
+  }
+
   void _openArticle(WftwIndexEntry entry) {
-    context.push('/article/${entry.id}', extra: {'title': entry.title});
+    final lang = entry.lang == 'en' ? null : entry.lang;
+    context.push(
+      '/article/${entry.id}',
+      extra: {'title': entry.title, if (lang != null) 'lang': lang},
+    );
   }
 
   @override
@@ -85,7 +125,7 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
             const Text('Word for the Week', style: TextStyle(fontWeight: FontWeight.bold)),
             if (!_loading && _error == null)
               Text(
-                '${_entries.length} teachings • Zac Poonen',
+                _countLabel,
                 style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
               ),
           ],
@@ -179,7 +219,9 @@ class _WftwTeachingsScreenState extends State<WftwTeachingsScreen> {
               hasScrollBody: false,
               child: Center(
                 child: Text(
-                  'No teachings match "${_query.trim()}".',
+                  _query.trim().isEmpty
+                      ? 'No teachings available in the selected languages.'
+                      : 'No teachings match "${_query.trim()}".',
                   style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
                 ),
               ),
