@@ -56,31 +56,25 @@ services:
     ports:
       - "3000:3000"
 
-  transcriber:
+  youtube-processor:
     build:
-      context: ./services/transcriber
-    container_name: christiantube-transcriber
+      context: ./services/youtube-processor
+    container_name: christiantube-youtube-processor
     restart: always
     depends_on:
       db:
         condition: service_healthy
     env_file:
-      - .transcriber.env
+      - .processor.env
     environment:
       WORK_DIR: /work
       POLL_INTERVAL: "300"
       BATCH_LIMIT: "5"
-      LLM_URL: http://host.docker.internal:11434
-      LLM_MODEL: qwen2.5:7b
-      LLM_CONTEXT: "32768"
-      LLM_TIMEOUT: "2100"
-      WHISPER_URL: http://host.docker.internal:12788
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
-      - transcriber-work:/work
+      - processor-work:/work
 
 volumes:
   pgdata:
-  transcriber-work:
+  processor-work:
+
 

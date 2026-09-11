@@ -78,4 +78,6 @@ apps/mobile/test/scratch_*.dart
 .codex/
 .cache/
 .opencode/
+.processor.env
+.transcriber.env
 
