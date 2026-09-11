@@ -61,9 +61,6 @@ services:
       context: ./services/youtube-processor
     container_name: christiantube-youtube-processor
     restart: always
-    depends_on:
-      db:
-        condition: service_healthy
     env_file:
       - .processor.env
     environment:
