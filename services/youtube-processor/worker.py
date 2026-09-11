@@ -15,6 +15,7 @@ import base64
 import json
 import logging
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -196,7 +197,7 @@ class Database:
             params.append(cfg.max_retries)
 
         query = f"""
-            SELECT v.id, v.title, v."channelName", v."publishedAt", v.description
+            SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
             FROM "Video" v
             JOIN "Channel" c ON c.id = v."channelId"
             WHERE v.type = 'VIDEO'
@@ -212,8 +213,9 @@ class Database:
 
     def fetch_one(self, video_id: str) -> tuple | None:
         self.cur.execute(
-            """SELECT v.id, v.title, v."channelName", v."publishedAt", v.description
+            """SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
                FROM "Video" v
+               LEFT JOIN "Channel" c ON c.id = v."channelId"
                WHERE v.id=%s""",
             (video_id,),
         )
@@ -270,8 +272,67 @@ class AudioComClient:
             "Authorization": f"Bearer {clean_token}",
             "Accept": "application/json",
         }
+        self._collection_cache: dict[str, str] = {}
 
-    def upload_audio(self, audio_file: Path, metadata: dict) -> str:
+    def get_or_create_collection(self, title: str) -> str | None:
+        """
+        Finds or creates an Audio.com collection matching the channel title.
+        Returns the collection ID string or None on failure.
+        """
+        clean_title = title.strip()[:100]
+        if not clean_title:
+            return None
+        lower_title = clean_title.lower()
+        if lower_title in self._collection_cache:
+            return self._collection_cache[lower_title]
+
+        try:
+            # 1. Check existing collections
+            resp = self._requests.get(f"{self.api}/collection/list", headers=self.headers, timeout=20)
+            if resp.status_code == 200:
+                for col in (resp.json() or []):
+                    c_title = col.get("title", "").strip()
+                    c_id = str(col.get("id"))
+                    self._collection_cache[c_title.lower()] = c_id
+                    if c_title.lower() == lower_title:
+                        return c_id
+
+            # 2. Create collection if not found
+            create_resp = self._requests.post(
+                f"{self.api}/collection/create",
+                headers=self.headers,
+                json={"title": clean_title},
+                timeout=20,
+            )
+            if create_resp.status_code in (200, 201):
+                col_data = create_resp.json()
+                col_id = str(col_data.get("id"))
+                self._collection_cache[lower_title] = col_id
+                log.info("  created new Audio.com collection '%s' (id: %s)", clean_title, col_id)
+                return col_id
+            else:
+                log.warning("  failed to create Audio.com collection '%s': %s", clean_title, create_resp.text[:200])
+        except Exception as e:
+            log.warning("  get_or_create_collection error: %s", e)
+        return None
+
+    def add_to_collection(self, collection_id: str, audio_id: str) -> None:
+        """Adds an audio track to a collection."""
+        try:
+            resp = self._requests.post(
+                f"{self.api}/collection/item/add?id={collection_id}",
+                headers=self.headers,
+                json={"audio": str(audio_id)},
+                timeout=20,
+            )
+            if resp.status_code in (200, 201, 204):
+                log.info("  added track %s to Audio.com collection %s", audio_id, collection_id)
+            else:
+                log.warning("  add to collection warning: %s %s", resp.status_code, resp.text[:200])
+        except Exception as e:
+            log.warning("  add_to_collection error: %s", e)
+
+    def upload_audio(self, audio_file: Path, metadata: dict, collection_name: str | None = None) -> str:
         title = metadata.get("title", "Untitled Sermon")[:100]
         file_size = audio_file.stat().st_size
         mime = "audio/mpeg" if audio_file.suffix.lower() == ".mp3" else "audio/wav"
@@ -317,7 +378,13 @@ class AudioComClient:
             except Exception as e:
                 log.warning("  success hook warning: %s", e)
 
-        # 4. Update track metadata
+        # 4. Associate with collection if requested
+        if collection_name:
+            col_id = self.get_or_create_collection(collection_name)
+            if col_id:
+                self.add_to_collection(col_id, str(audio_id))
+
+        # 5. Update track metadata
         log.info("  updating track metadata on Audio.com...")
         desc = (metadata.get("description") or "")[:2000]
         tags = (metadata.get("tags") or [])[:5]
@@ -385,13 +452,52 @@ class GitHubRepo:
         put_resp.raise_for_status()
 
 
-def update_audiocom_catalog(repo: GitHubRepo, track: dict) -> None:
+def slugify(text: str) -> str:
+    """Creates a clean URL-safe slug for series IDs."""
+    cleaned = re.sub(r"[^a-zA-Z0-9]+", "_", text.strip().lower()).strip("_")
+    return cleaned or "misc"
+
+
+def map_language(lang_code: str | None) -> str:
+    """Maps ISO language codes to readable names matching AudioSeries convention."""
+    if not lang_code:
+        return "English"
+    code = lang_code.lower().strip()
+    mapping = {
+        "en": "English",
+        "ta": "Tamil",
+        "te": "Telugu",
+        "hi": "Hindi",
+        "ml": "Malayalam",
+        "kn": "Kannada",
+        "mr": "Marathi",
+        "es": "Spanish",
+        "fr": "French",
+        "de": "German",
+        "pt": "Portuguese",
+        "ru": "Russian",
+        "zh": "Chinese",
+    }
+    return mapping.get(code, code.capitalize())
+
+
+def update_channel_audio_catalog(
+    repo: GitHubRepo,
+    channel_name: str,
+    channel_lang: str | None,
+    track: dict,
+) -> None:
     """
-    Registers the uploaded audio track in the GitHub Releases catalog.
-    - Updates audio/series/audiocom_uploads.json
+    Registers the uploaded audio track in the GitHub Releases catalog
+    under a series/collection named after the channel.
+    - Updates audio/series/{channel_slug}.json
     - Updates audio/catalog.json
     """
-    series_path = "audio/series/audiocom_uploads.json"
+    series_id = slugify(channel_name)
+    series_title = channel_name.strip() or "General Sermons"
+    series_lang = map_language(channel_lang)
+    series_path = f"audio/series/{series_id}.json"
+
     raw_series = repo.read_text_or_none(series_path)
     if raw_series:
         try:
@@ -403,15 +509,20 @@ def update_audiocom_catalog(repo: GitHubRepo, track: dict) -> None:
 
     if not series_data:
         series_data = {
-            "id": "audiocom_uploads",
-            "title": "Audio.com Uploads",
-            "description": "Audio sermons and messages uploaded from ChristianApp",
-            "speaker": "Various",
+            "id": series_id,
+            "title": series_title,
+            "description": f"Audio sermons and messages from {series_title}",
+            "speaker": track.get("speaker") or series_title,
+            "coverUrl": track.get("thumbnailUrl"),
             "trackCount": 0,
-            "category": "Uploads",
-            "language": "English",
+            "category": "Sermons",
+            "language": series_lang,
             "tracks": [],
         }
+
+    # Ensure track fields reflect the series
+    track["seriesId"] = series_id
+    track["seriesTitle"] = series_title
 
     tracks = series_data.get("tracks", [])
     # Deduplicate by youtubeVideoId
@@ -419,11 +530,13 @@ def update_audiocom_catalog(repo: GitHubRepo, track: dict) -> None:
     tracks.insert(0, track)  # newest first
     series_data["tracks"] = tracks
     series_data["trackCount"] = len(tracks)
+    if not series_data.get("coverUrl") and track.get("thumbnailUrl"):
+        series_data["coverUrl"] = track.get("thumbnailUrl")
 
     repo.upsert(
         series_path,
         json.dumps(series_data, indent=2, ensure_ascii=False),
-        f"audio catalog: add track {track.get('youtubeVideoId')}",
+        f"audio catalog: add track {track.get('youtubeVideoId')} to {series_id}",
     )
 
     # Update audio/catalog.json
@@ -437,8 +550,18 @@ def update_audiocom_catalog(repo: GitHubRepo, track: dict) -> None:
     else:
         cat_data = []
 
-    has_series = any(s.get("id") == "audiocom_uploads" for s in cat_data)
-    if not has_series:
+    # Clean up obsolete 'audiocom_uploads' placeholder if present
+    cat_data = [s for s in cat_data if s.get("id") != "audiocom_uploads"]
+
+    existing_entry = next((s for s in cat_data if s.get("id") == series_id), None)
+    if existing_entry:
+        existing_entry["trackCount"] = series_data["trackCount"]
+        existing_entry["title"] = series_data["title"]
+        existing_entry["speaker"] = series_data["speaker"]
+        existing_entry["language"] = series_data["language"]
+        if not existing_entry.get("coverUrl") and series_data.get("coverUrl"):
+            existing_entry["coverUrl"] = series_data["coverUrl"]
+    else:
         cat_data.append({
             "id": series_data["id"],
             "title": series_data["title"],
@@ -447,19 +570,15 @@ def update_audiocom_catalog(repo: GitHubRepo, track: dict) -> None:
             "trackCount": series_data["trackCount"],
             "category": series_data["category"],
             "language": series_data["language"],
+            "coverUrl": series_data.get("coverUrl"),
         })
-    else:
-        for s in cat_data:
-            if s.get("id") == "audiocom_uploads":
-                s["trackCount"] = series_data["trackCount"]
-                break
 
     repo.upsert(
         catalog_path,
         json.dumps(cat_data, indent=2, ensure_ascii=False),
-        "audio catalog: update trackCount for audiocom_uploads",
+        f"audio catalog: sync series {series_id} ({series_data['trackCount']} tracks)",
     )
-    log.info("  synced track with GitHub releases audio catalog")
+    log.info("  synced track with GitHub releases audio catalog (series: %s)", series_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -523,7 +642,7 @@ def extract_audio(video_id: str, out_dir: Path) -> tuple[Path, dict]:
 # Processing Orchestration
 # --------------------------------------------------------------------------- #
 def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg: Config, row: tuple) -> None:
-    video_id, title, channel, published_at, db_desc = row
+    video_id, title, channel, published_at, db_desc, channel_lang = row
     log.info(">> Processing video: %s | %s (%s)", video_id, title, channel)
 
     db.mark_processing(video_id)
@@ -539,7 +658,7 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
             duration = meta.get("duration") or 0
             thumbnail = meta.get("thumbnail") or f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
-            # 1. Upload to Audio.com
+            # 1. Upload to Audio.com (and link to channel collection)
             audio_url = audiocom.upload_audio(
                 audio_file,
                 {
@@ -547,17 +666,21 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
                     "description": final_desc,
                     "tags": final_tags,
                 },
+                collection_name=channel,
             )
 
-            # 2. Update GitHub Releases Audio Catalog
+            # 2. Update GitHub Releases Audio Catalog under channel collection/series
             pub_date = published_at.isoformat() if hasattr(published_at, "isoformat") else str(published_at)
-            update_audiocom_catalog(
+            series_id = slugify(channel)
+            update_channel_audio_catalog(
                 repo,
-                {
+                channel_name=channel,
+                channel_lang=channel_lang,
+                track={
                     "id": video_id,
                     "title": final_title,
-                    "seriesId": "audiocom_uploads",
-                    "seriesTitle": "Audio.com Uploads",
+                    "seriesId": series_id,
+                    "seriesTitle": channel,
                     "speaker": speaker,
                     "channelName": channel,
                     "youtubeVideoId": video_id,
