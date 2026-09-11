@@ -49,7 +49,7 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
       final loaded = await SongsCatalogService().getSong(_effectiveId);
       if (mounted) setState(() => _song = loaded);
     } catch (_) {
-      if (mounted) setState(() => _song = Song.empty());
+      if (mounted) setState(() => _song = const Song.empty());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -170,43 +170,53 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
             ),
         ],
       ),
-      body: MaxWidthBox(
-        maxWidth: kReadingMaxWidth,
+      body: Scrollbar(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: tokens.onSurface,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (author != null || s.collection != null) ...[
-                const SizedBox(height: 8),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            20,
+            24,
+            MediaQuery.paddingOf(context).bottom + 32,
+          ),
+          child: MaxWidthBox(
+            maxWidth: kReadingMaxWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  [if (author != null) author, if (s.collection != null) s.collection!]
-                      .join(' • '),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: tokens.onSurfaceMuted,
+                  title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: tokens.onSurface,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+                if (author != null || s.collection != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    [if (author != null) author, if (s.collection != null) s.collection!]
+                        .join(' • '),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: tokens.onSurfaceMuted,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                for (var i = 0; i < s.verses.length; i++) ...[
+                  _VerseBlock(
+                    number: i + 1,
+                    primaryText: s.verses[i],
+                    romanText: _showTranslit ? _romanAt(i) : null,
+                    showRoman: _showTranslit,
+                    textColor: tokens.onSurface,
+                    romanColor: tokens.onSurfaceMuted,
+                  ),
+                  if (i != s.verses.length - 1) const SizedBox(height: 16),
+                ],
               ],
-              const SizedBox(height: 24),
-              for (var i = 0; i < s.verses.length; i++) ...[
-                _VerseBlock(
-                  number: i + 1,
-                  primaryText: s.verses[i],
-                  romanText: _showTranslit ? _romanAt(i) : null,
-                  showRoman: _showTranslit,
-                  textColor: tokens.onSurface,
-                  romanColor: tokens.onSurfaceMuted,
-                ),
-                if (i != s.verses.length - 1) const SizedBox(height: 16),
-              ],
-            ],
+            ),
           ),
         ),
       ),

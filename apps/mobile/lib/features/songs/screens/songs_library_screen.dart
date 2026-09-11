@@ -172,36 +172,58 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
               if (!kIsWeb) _buildOfflineAction(),
             ],
           ),
-          body: MaxWidthBox(
-            maxWidth: 1080,
-            child: state.isLoading
-                ? Center(
-                    child: CircularProgressIndicator(color: tokens.accent),
-                  )
-                : RefreshIndicator(
-                    onRefresh: () => _controller.load(forceRefresh: true),
-                    color: tokens.accent,
+          body: state.isLoading
+              ? Center(
+                  child: CircularProgressIndicator(color: tokens.accent),
+                )
+              : RefreshIndicator(
+                  onRefresh: () => _controller.load(forceRefresh: true),
+                  color: tokens.accent,
+                  child: Scrollbar(
                     child: CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       slivers: [
                         SliverToBoxAdapter(
-                          child: _buildSearchField(tokens),
+                          child: Center(
+                            child: MaxWidthBox(
+                              maxWidth: 1080,
+                              child: _buildSearchField(tokens),
+                            ),
+                          ),
                         ),
                         SliverToBoxAdapter(
-                          child: _buildLanguageFilter(tokens),
+                          child: Center(
+                            child: MaxWidthBox(
+                              maxWidth: 1080,
+                              child: _buildLanguageFilter(tokens),
+                            ),
+                          ),
                         ),
                         SliverToBoxAdapter(
-                          child: _buildSegmentControl(tokens),
+                          child: Center(
+                            child: MaxWidthBox(
+                              maxWidth: 1080,
+                              child: _buildSegmentControl(tokens),
+                            ),
+                          ),
                         ),
                         SliverPadding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           sliver: _buildGroupList(tokens),
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: MediaQuery.paddingOf(context).bottom + 24,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-          ),
+                ),
         );
       },
     );
@@ -328,11 +350,16 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             sliver: SliverList.builder(
               itemCount: group.songs.length,
-              itemBuilder: (context, i) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: SongCard(
-                  song: group.songs[i],
-                  onTap: () => _openSong(group, i),
+              itemBuilder: (context, i) => Center(
+                child: MaxWidthBox(
+                  maxWidth: 1080,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SongCard(
+                      song: group.songs[i],
+                      onTap: () => _openSong(group, i),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -344,28 +371,33 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
 
   Widget _buildGroupHeader(AppTokens tokens, SongCollection group) {
     return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              group.label,
-              style: TextStyle(
-                color: tokens.onSurface,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            if (group.subtitle != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  group.subtitle!,
-                  style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+      child: Center(
+        child: MaxWidthBox(
+          maxWidth: 1080,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  group.label,
+                  style: TextStyle(
+                    color: tokens.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
-              ),
-          ],
+                if (group.subtitle != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      group.subtitle!,
+                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
