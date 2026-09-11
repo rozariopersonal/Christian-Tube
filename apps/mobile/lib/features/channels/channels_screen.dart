@@ -7,6 +7,7 @@ import '../../core/theme/app_tokens.dart';
 import '../../shared/ui/channel_avatar.dart';
 import '../auth/auth_service.dart';
 import 'channel_service.dart';
+import 'channel_detail_screen.dart';
 
 class ChannelsScreen extends StatefulWidget {
   const ChannelsScreen({super.key});
@@ -199,16 +200,26 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
           final ch = channels[index];
           final isSubscribed = ch.isSubscribed;
 
-          return Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: context.tokens.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: context.tokens.surfaceBorder,
+          return InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChannelDetailScreen(channelId: ch.id),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: context.tokens.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: context.tokens.surfaceBorder,
+                ),
               ),
-            ),
-            child: Row(
+              child: Row(
               children: [
                 ChannelAvatar(
                   avatarUrl: ch.avatarUrl,
@@ -278,10 +289,11 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                       ),
                     ],
                   ),
-              ],
-              ],
-            ),
-          );
+                ], // closes isAdmin
+              ], // closes Row children
+            ), // closes Row
+          ), // closes Container
+        ); // closes InkWell
         },
         ),
       ),

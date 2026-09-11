@@ -317,7 +317,14 @@ export class SyncService implements OnModuleInit {
       syncedCount++;
     }
 
-    // 3. Multi-batch HTML channel /shorts tab scraping
+    // 3. Multi-batch HTML channel /streams tab scraping (Live broadcasts)
+    const scrapedStreamsResult = await this.youtubeService.scrapeChannelStreamsTab(channelId, maxBatches);
+    for (const v of scrapedStreamsResult.videos) {
+      await this.upsertScrapedVideo(v, channel, defaultCategory);
+      syncedCount++;
+    }
+
+    // 4. Multi-batch HTML channel /shorts tab scraping
     const scrapedShortsResult = await this.youtubeService.scrapeChannelShortsTab(channelId, 25);
     for (const v of scrapedShortsResult.videos) {
       await this.upsertScrapedVideo({ ...v, videoType: 'SHORT' }, channel, defaultCategory);

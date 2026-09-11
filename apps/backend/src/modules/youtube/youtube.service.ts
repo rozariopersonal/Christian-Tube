@@ -529,6 +529,71 @@ export class YoutubeService {
   }
 
   /**
+   * Scrape channel /streams tab (Live broadcasts and recordings)
+   */
+  async scrapeChannelStreamsTab(channelId: string, maxBatches = 50): Promise<{ videos: ExtractedVideo[] }> {
+    const allVideos: ExtractedVideo[] = [];
+    try {
+      const streamsUrl = `https://www.youtube.com/channel/${channelId}/streams`;
+      const res = await axios.get(streamsUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        timeout: 10000,
+      });
+
+      const html = res.data;
+      if (typeof html === 'string') {
+        const jsonMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
+        if (jsonMatch) {
+          const data = JSON.parse(jsonMatch[1]);
+          const tabs = data?.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
+          const streamsTab = tabs.find((t: any) => t.tabRenderer?.title?.toLowerCase() === 'live');
+          const contents = streamsTab?.tabRenderer?.content?.richGridRenderer?.contents || [];
+
+          let { videos, nextContinuationToken } = extractVideosFromRichContents(contents);
+          allVideos.push(...videos);
+
+          let batch = 1;
+          while (nextContinuationToken && batch < maxBatches) {
+            batch++;
+            try {
+              const browseRes = await axios.post(
+                'https://www.youtube.com/youtubei/v1/browse',
+                {
+                  context: { client: { clientName: 'WEB', clientVersion: '2.20240301.00.00' } },
+                  continuation: nextContinuationToken,
+                },
+                {
+                  headers: {
+                    'User-Agent':
+                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  },
+                  timeout: 10000,
+                },
+              );
+
+              const actions = browseRes.data?.onResponseReceivedActions || [];
+              const continuationItems = actions[0]?.appendContinuationItemsAction?.continuationItems || [];
+              const pageResult = extractVideosFromRichContents(continuationItems);
+              allVideos.push(...pageResult.videos);
+              nextContinuationToken = pageResult.nextContinuationToken;
+            } catch (pageErr) {
+              break;
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Web scraper streams pagination error for ${channelId}: ${err.message}`);
+    }
+    const mapped = allVideos.map((v) => ({ ...v, videoType: 'VIDEO' as const }));
+    return { videos: mapped };
+  }
+
+  /**
    * Scrape Atom RSS Feed (top 15 latest uploads)
    */
   async scrapeRssFeed(channelId: string): Promise<ExtractedVideo[]> {

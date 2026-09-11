@@ -3,11 +3,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/channel.dart';
 import '../../core/models/channel_request.dart';
+import '../auth/auth_service.dart';
 
 class ChannelService extends ChangeNotifier {
   static final ChannelService _instance = ChannelService._internal();
   factory ChannelService() => _instance;
+
+  late AuthService _authService;
+
   ChannelService._internal() {
+    loadSubscriptions();
+  }
+
+  void attachToAuth(AuthService authService) {
+    _authService = authService;
+    authService.addListener(_onAuthChanged);
+    _onAuthChanged();
+  }
+
+  void _onAuthChanged() {
     loadSubscriptions();
   }
 
@@ -27,6 +41,32 @@ class ChannelService extends ChangeNotifier {
   bool isSubscribed(String channelId) => _subscribedIds.contains(channelId);
 
   Future<void> loadSubscriptions() async {
+    final isAuth = _authService?.isAuthenticated ?? false;
+
+    if (isAuth) {
+      await _loadFromServer();
+    } else {
+      await _loadFromPrefs();
+    }
+  }
+
+  Future<void> _loadFromServer() async {
+    try {
+      final response = await _apiClient.dio.get('/user/subscriptions');
+      if (response.statusCode == 200 && response.data != null) {
+        final List<dynamic> list = response.data['channelIds'] ?? [];
+        _subscribedIds = list.cast<String>().toSet();
+        await _saveToPrefs();
+        _syncSubscriptionStatus();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading subscriptions from server: $e');
+      await _loadFromPrefs();
+    }
+  }
+
+  Future<void> _loadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final list = prefs.getStringList('subscribed_channel_ids') ?? [];
@@ -34,6 +74,27 @@ class ChannelService extends ChangeNotifier {
       _syncSubscriptionStatus();
       notifyListeners();
     } catch (_) {}
+  }
+
+  Future<void> _saveToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('subscribed_channel_ids', _subscribedIds.toList());
+    } catch (_) {}
+  }
+
+  Future<void> _saveToServer() async {
+    final isAuth = _authService?.isAuthenticated ?? false;
+    if (!isAuth) return;
+
+    try {
+      await _apiClient.dio.post(
+        '/user/subscriptions/sync',
+        data: {'channelIds': _subscribedIds.toList()},
+      );
+    } catch (e) {
+      debugPrint('Error saving subscriptions to server: $e');
+    }
   }
 
   void _syncSubscriptionStatus() {
@@ -91,6 +152,25 @@ class ChannelService extends ChangeNotifier {
       _isLoadingRequests = false;
       notifyListeners();
     }
+  }
+
+  Future<Channel?> fetchChannelDetails(String channelId) async {
+    try {
+      dynamic response;
+      try {
+        response = await _apiClient.dio.get('/api/channels/$channelId');
+      } catch (_) {
+        response = await _apiClient.dio.get('/channels/$channelId');
+      }
+
+      if (response.statusCode == 200 && response.data != null) {
+        final ch = Channel.fromJson(response.data);
+        return ch.copyWith(isSubscribed: _subscribedIds.contains(ch.id));
+      }
+    } catch (e) {
+      debugPrint('Error fetching channel details for $channelId: $e');
+    }
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> searchYouTubeChannels(String query) async {
@@ -155,7 +235,8 @@ class ChannelService extends ChangeNotifier {
       if (response.statusCode == 200 || response.statusCode == 204) {
         _channels.removeWhere((c) => c.id == channelId);
         _subscribedIds.remove(channelId);
-        _saveSubscriptions();
+        await _saveToPrefs();
+        await _saveToServer();
         notifyListeners();
         return true;
       }
@@ -214,15 +295,10 @@ class ChannelService extends ChangeNotifier {
     return false;
   }
 
-  Future<void> _saveSubscriptions() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('subscribed_channel_ids', _subscribedIds.toList());
-    } catch (_) {}
-  }
-
   void toggleSubscribe(String channelId) {
-    if (_subscribedIds.contains(channelId)) {
+    final wasSubscribed = _subscribedIds.contains(channelId);
+
+    if (wasSubscribed) {
       _subscribedIds.remove(channelId);
     } else {
       _subscribedIds.add(channelId);
@@ -234,7 +310,8 @@ class ChannelService extends ChangeNotifier {
       _channels[index] = ch.copyWith(isSubscribed: _subscribedIds.contains(channelId));
     }
 
-    _saveSubscriptions();
+    _saveToPrefs();
+    _saveToServer();
     notifyListeners();
   }
 }

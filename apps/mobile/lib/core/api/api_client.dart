@@ -30,8 +30,16 @@ class ApiClient {
           }
           return handler.next(options);
         },
+        onResponse: (response, handler) {
+          if (response.statusCode == 401) {
+            _handleUnauthorized();
+          }
+          return handler.next(response);
+        },
         onError: (DioException error, handler) {
-          // Log or handle global errors
+          if (error.response?.statusCode == 401) {
+            _handleUnauthorized();
+          }
           return handler.next(error);
         },
       ),
@@ -48,5 +56,13 @@ class ApiClient {
         ],
       ),
     );
+  }
+
+  Future<void> _handleUnauthorized() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('current_user');
+    await prefs.remove('auth_token');
+    // The AuthService will pick up the change via its listener
+    // We could also emit an event here if needed
   }
 }

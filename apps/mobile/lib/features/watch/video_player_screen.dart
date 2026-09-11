@@ -18,6 +18,7 @@ import '../../shared/ui/channel_avatar.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
+import '../channels/channel_detail_screen.dart';
 import '../profile/user_service.dart';
 import '../../core/config/app_config.dart';
 import 'widgets/youtube_playlist_widget.dart';
@@ -740,35 +741,54 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ChannelAvatar(
-              avatarUrl: _video?.channelAvatarUrl,
-              channelTitle: _video?.channelTitle ?? 'Channel',
-              radius: 19,
-            ),
-            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _video?.channelTitle ?? 'Channel',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  if (_video?.subscriberCount != null)
-                    Text(
-                      '${Formatters.formatSubscribers(_video!.subscriberCount)} subscribers',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: tokens.onSurfaceMuted,
-                        fontSize: 13,
+              child: InkWell(
+                onTap: () {
+                  if (_video?.channelId.isNotEmpty == true) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChannelDetailScreen(channelId: _video!.channelId),
+                      ),
+                    );
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Row(
+                  children: [
+                    ChannelAvatar(
+                      avatarUrl: _video?.channelAvatarUrl,
+                      channelTitle: _video?.channelTitle ?? 'Channel',
+                      radius: 19,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _video?.channelTitle ?? 'Channel',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          if (_video?.subscriberCount != null)
+                            Text(
+                              '${Formatters.formatSubscribers(_video!.subscriberCount)} subscribers',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: tokens.onSurfaceMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 8),

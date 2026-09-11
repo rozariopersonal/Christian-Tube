@@ -13,6 +13,8 @@ export interface InitiateUploadDto {
   creatorUserId?: string;
   creatorName?: string;
   creatorEmail?: string;
+  userId?: string;
+  userEmail?: string;
 }
 
 export interface QuotaStatusResponse {

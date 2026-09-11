@@ -7,8 +7,6 @@ import '../../core/models/user.dart';
 import '../../core/config/app_config.dart';
 
 class AuthService extends ChangeNotifier {
-  // Client ID now comes dynamically from AppConfig
-
   final ApiClient _apiClient = ApiClient();
   late GoogleSignIn _googleSignIn;
 
@@ -47,26 +45,18 @@ class AuthService extends ChangeNotifier {
         debugPrint('Failed to parse cached user: $e');
       }
 
-      // On web, restore the Google OAuth session silently so the account
-      // persists across browser sessions and the ID token can be refreshed
-      // (Google ID tokens expire after ~1 hour).
       if (kIsWeb) {
         _restoreWebGoogleSession();
       }
     }
   }
 
-  /// Restores a persistent Google sign-in session on web. Uses the silent
-  /// sign-in flow to reload the account and refresh the (expiring) ID token
-  /// without forcing the user through the account picker again. Silently
-  /// degrades to the cached session if Google's session has expired.
   Future<void> _restoreWebGoogleSession() async {
     try {
       final account = await _googleSignIn.signInSilently();
       if (account != null) {
         final auth = await account.authentication;
         if (auth.idToken != null && auth.idToken!.isNotEmpty) {
-          // Keep the existing profile but refresh the ID token.
           _currentUser = User(
             id: _currentUser?.id ?? account.id,
             email: account.email,
@@ -86,7 +76,6 @@ class AuthService extends ChangeNotifier {
         }
       }
     } catch (e) {
-      // Session not available/expired; keep using the cached profile.
       debugPrint('Web Google session restore skipped: $e');
     }
   }
@@ -121,10 +110,6 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Disconnect previous session to allow clean account picker.
-      // On web this is skipped: signOut() would revoke Google's persisted
-      // session cookie, defeating cross-session persistence. The web flow
-      // reuses the existing session; a fresh token is silent-signed on load.
       if (!kIsWeb) {
         try {
           await _googleSignIn.signOut();
@@ -138,7 +123,6 @@ class AuthService extends ChangeNotifier {
       } catch (e) {
         debugPrint('Primary Google Sign-In attempt error: $e');
         innerError = e.toString();
-        // Fallback: try with serverClientId if configured
         if (!kIsWeb) {
           try {
             final fallbackSignIn = GoogleSignIn(
@@ -146,7 +130,7 @@ class AuthService extends ChangeNotifier {
               scopes: const ['email', 'profile'],
             );
             account = await fallbackSignIn.signIn();
-            innerError = null; // Cleared if fallback succeeds
+            innerError = null;
           } catch (e2) {
             debugPrint('Fallback Google Sign-In attempt error: $e2');
             innerError = e2.toString();
@@ -166,6 +150,13 @@ class AuthService extends ChangeNotifier {
           debugPrint('Google authentication token fetch warning: $authErr');
         }
 
+        if (idToken == null) {
+          _lastError = 'Failed to obtain Google ID token. Please try again.';
+          _isLoading = false;
+          notifyListeners();
+          return null;
+        }
+
         final user = User(
           id: account.id.isNotEmpty ? account.id : 'user_${DateTime.now().millisecondsSinceEpoch}',
           email: account.email,
@@ -173,19 +164,15 @@ class AuthService extends ChangeNotifier {
               ? account.displayName!
               : account.email.split('@').first,
           photoUrl: account.photoUrl,
-          idToken: idToken ?? 'token_${account.id}',
+          idToken: idToken,
         );
 
         _currentUser = user;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('current_user', jsonEncode(user.toJson()));
-        if (user.idToken != null) {
-          await prefs.setString('auth_token', user.idToken!);
-        }
+        await prefs.setString('auth_token', user.idToken!);
 
-        // Non-blocking sync with backend API
         _syncUserWithBackend(user);
-
         await checkIsAdmin(user.email);
 
         _isLoading = false;
@@ -219,40 +206,6 @@ class AuthService extends ChangeNotifier {
         debugPrint('Backend user sync non-blocking error: $e');
       }
     });
-  }
-
-  Future<User> signInAsGuest([String? customName, String? customEmail]) async {
-    _isLoading = true;
-    _lastError = null;
-    notifyListeners();
-
-    final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
-    final name = (customName != null && customName.trim().isNotEmpty)
-        ? customName.trim()
-        : '${AppConfig.appName} Member';
-    final email = (customEmail != null && customEmail.trim().isNotEmpty)
-        ? customEmail.trim()
-        : 'admin@centumacademy.org';
-
-    final user = User(
-      id: id,
-      email: email,
-      displayName: name,
-      photoUrl: null,
-      idToken: 'token_$id',
-    );
-
-    _currentUser = user;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('current_user', jsonEncode(user.toJson()));
-    await prefs.setString('auth_token', user.idToken ?? '');
-
-    _syncUserWithBackend(user);
-    await checkIsAdmin(user.email);
-
-    _isLoading = false;
-    notifyListeners();
-    return user;
   }
 
   Future<void> signOut() async {

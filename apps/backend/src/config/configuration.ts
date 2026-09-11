@@ -26,6 +26,7 @@ export default () => {
     instanceId,
     appName: process.env.APP_NAME || instanceConfig.appName || 'PrivateTube',
     databaseUrl: process.env.DATABASE_URL,
+    googleClientId: process.env.GOOGLE_CLIENT_ID || instanceConfig.googleClientId,
     youtubeApiKey: process.env.YOUTUBE_API_KEY,
     youtubeClientId: process.env.YOUTUBE_CLIENT_ID || instanceConfig.shorts?.youtubeClientId,
     youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET || instanceConfig.shorts?.youtubeClientSecret,

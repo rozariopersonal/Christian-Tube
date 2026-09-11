@@ -26,8 +26,9 @@ export class UsersService {
     const role = this.isAdmin(data.email) ? 'ADMIN' : 'USER';
 
     const user = await this.prisma.user.upsert({
-      where: { email: data.email },
+      where: { id: data.id },
       update: {
+        email: data.email,
         displayName: data.displayName || undefined,
         photoUrl: data.photoUrl || undefined,
         role,
@@ -98,8 +99,8 @@ export class UsersService {
   private static playbackCache = new Map<string, any>();
 
   async savePlayback(data: {
-    userEmail: string;
-    userId?: string;
+    userId: string;
+    userEmail?: string;
     deviceId?: string;
     mediaType?: string;
     trackId: string;
@@ -113,17 +114,19 @@ export class UsersService {
     payloadJson?: string;
     updatedAt?: string;
   }) {
+    const userId = (data.userId || '').trim();
     const email = (data.userEmail || '').trim().toLowerCase();
     const mediaType = (data.mediaType || 'audio').toLowerCase();
-    if (!email || !data.trackId) {
-      return { success: false, message: 'userEmail and trackId are required' };
+    
+    if (!userId || !data.trackId) {
+      return { success: false, message: 'userId and trackId are required' };
     }
 
     const updatedAtDate = data.updatedAt ? new Date(data.updatedAt) : new Date();
 
     const record = {
-      userEmail: email,
-      userId: data.userId || null,
+      userId,
+      userEmail: email || null,
       deviceId: data.deviceId || null,
       mediaType,
       trackId: data.trackId,
@@ -138,8 +141,8 @@ export class UsersService {
       updatedAt: updatedAtDate,
     };
 
-    // Cache immediately in memory
-    const cacheKey = `${email}:${mediaType}`;
+    // Cache immediately in memory (keyed by userId:mediaType)
+    const cacheKey = `${userId}:${mediaType}`;
     UsersService.playbackCache.set(cacheKey, record);
 
     // Try DB upsert if Prisma model exists
@@ -148,7 +151,7 @@ export class UsersService {
         await (this.prisma as any).userPlayback.upsert({
           where: {
             userEmail_mediaType: {
-              userEmail: email,
+              userEmail: email || userId,
               mediaType,
             },
           },
@@ -169,26 +172,26 @@ export class UsersService {
     return { success: true, playback: record };
   }
 
-  async getPlayback(query: { email?: string; userId?: string; mediaType?: string }) {
-    const email = (query.email || '').trim().toLowerCase();
+  async getPlayback(query: { userId?: string; userEmail?: string; mediaType?: string }) {
+    const userId = (query.userId || '').trim();
+    const email = (query.userEmail || '').trim().toLowerCase();
     const mediaType = (query.mediaType || 'audio').toLowerCase();
-    if (!email) {
+    
+    if (!userId && !email) {
       return null;
     }
 
-    const cacheKey = `${email}:${mediaType}`;
+    // Prefer userId for cache key
+    const cacheKey = userId ? `${userId}:${mediaType}` : `${email}:${mediaType}`;
 
     // Try reading from DB first
     try {
       if ((this.prisma as any).userPlayback) {
-        const row = await (this.prisma as any).userPlayback.findUnique({
-          where: {
-            userEmail_mediaType: {
-              userEmail: email,
-              mediaType,
-            },
-          },
-        });
+        const where = userId
+          ? { userEmail_mediaType: { userEmail: userId, mediaType } }
+          : { userEmail_mediaType: { userEmail: email, mediaType } };
+          
+        const row = await (this.prisma as any).userPlayback.findUnique({ where });
         if (row) return row;
       }
     } catch (e) {

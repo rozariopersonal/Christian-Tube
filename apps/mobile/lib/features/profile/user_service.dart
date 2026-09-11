@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
-import '../../core/models/channel.dart';
 import '../../core/models/playlist.dart';
 import '../../core/models/video.dart';
 
@@ -18,13 +17,11 @@ class UserService extends ChangeNotifier {
 
   List<Playlist> _playlists = [];
   List<Video> _history = [];
-  final List<Channel> _subscriptions = [];
   List<Map<String, dynamic>> _registeredUsers = [];
   bool _isLoadingUsers = false;
 
   List<Playlist> get playlists => _playlists;
   List<Video> get history => _history;
-  List<Channel> get subscriptions => _subscriptions;
   List<Map<String, dynamic>> get registeredUsers => _registeredUsers;
   bool get isLoadingUsers => _isLoadingUsers;
 

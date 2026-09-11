@@ -1,0 +1,117 @@
+import { WordsService } from './words.service';
+import { Response } from 'express';
+export declare class WordsController {
+    private readonly wordsService;
+    constructor(wordsService: WordsService);
+    downloadOfflineDb(res: Response): Promise<void>;
+    getWords(category?: string, translation?: string, search?: string, page?: string, limit?: string, seed?: string): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+        items: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tags: string[];
+            category: string;
+            bookName: string | null;
+            referenceLabel: string;
+            text: string | null;
+            engine: string;
+            bookNumber: number | null;
+            chapter: number | null;
+            startVerse: number | null;
+            endVerse: number | null;
+            verseMappings: import("@prisma/client/runtime/library").JsonValue | null;
+            translation: string;
+            backgroundPreset: string;
+            likesCount: number;
+            sharesCount: number;
+            isFeatured: boolean;
+        }[];
+    }>;
+    seedWords(body?: {
+        force?: boolean;
+    }): Promise<{
+        message: string;
+        inserted: number;
+        total: number;
+    }>;
+    createWord(body: {
+        referenceLabel: string;
+        text?: string;
+        verseMappings?: any;
+        translation?: string;
+        category?: string;
+        backgroundPreset?: string;
+        bookName?: string;
+        chapter?: number;
+        startVerse?: number;
+        endVerse?: number;
+        tags?: string[];
+        isFeatured?: boolean;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tags: string[];
+        category: string;
+        bookName: string | null;
+        referenceLabel: string;
+        text: string | null;
+        engine: string;
+        bookNumber: number | null;
+        chapter: number | null;
+        startVerse: number | null;
+        endVerse: number | null;
+        verseMappings: import("@prisma/client/runtime/library").JsonValue | null;
+        translation: string;
+        backgroundPreset: string;
+        likesCount: number;
+        sharesCount: number;
+        isFeatured: boolean;
+    }>;
+    deleteWord(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tags: string[];
+        category: string;
+        bookName: string | null;
+        referenceLabel: string;
+        text: string | null;
+        engine: string;
+        bookNumber: number | null;
+        chapter: number | null;
+        startVerse: number | null;
+        endVerse: number | null;
+        verseMappings: import("@prisma/client/runtime/library").JsonValue | null;
+        translation: string;
+        backgroundPreset: string;
+        likesCount: number;
+        sharesCount: number;
+        isFeatured: boolean;
+    }>;
+    likeWord(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tags: string[];
+        category: string;
+        bookName: string | null;
+        referenceLabel: string;
+        text: string | null;
+        engine: string;
+        bookNumber: number | null;
+        chapter: number | null;
+        startVerse: number | null;
+        endVerse: number | null;
+        verseMappings: import("@prisma/client/runtime/library").JsonValue | null;
+        translation: string;
+        backgroundPreset: string;
+        likesCount: number;
+        sharesCount: number;
+        isFeatured: boolean;
+    }>;
+}

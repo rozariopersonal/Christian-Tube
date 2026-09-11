@@ -111,10 +111,11 @@ def load_config(args: argparse.Namespace) -> Config:
     work_dir = Path(_env("WORK_DIR", "/work" if os.path.exists("/work") else "./scratch_work"))
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    # Parse channel filters (comma-separated)
+    # Parse channel filters (comma-separated CLI flag or CHANNELS env var)
     channel_filters = None
-    if getattr(args, 'channels', None):
-        channel_filters = [c.strip() for c in args.channels.split(',') if c.strip()]
+    raw_channels = getattr(args, 'channels', None) or _env("CHANNELS")
+    if raw_channels:
+        channel_filters = [c.strip() for c in raw_channels.split(',') if c.strip()]
 
     return Config(
         database_url=db_url,

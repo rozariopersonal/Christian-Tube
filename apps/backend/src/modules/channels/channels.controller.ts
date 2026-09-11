@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { AdminGuard } from '../../guards/admin.guard';
 import { ChannelsService } from './channels.service';
 
 @Controller(['channels', 'api/channels'])
@@ -10,10 +11,9 @@ export class ChannelsController {
     return this.channelsService.findAll();
   }
 
-  @Get('check-admin')
-  async checkAdmin(@Query('email') email: string) {
-    const isAdmin = this.channelsService.isAdmin(email);
-    return { email, isAdmin };
+  @Get(':id')
+  async getChannel(@Param('id') id: string) {
+    return this.channelsService.findOne(id);
   }
 
   @Get('search-youtube')
@@ -21,23 +21,27 @@ export class ChannelsController {
     return this.channelsService.searchYouTube(q);
   }
 
+  @UseGuards(AdminGuard)
   @Post()
   async addChannel(
-    @Body() body: { channelUrl: string; name?: string; category?: string; language?: string; adminEmail?: string },
+    @Body() body: { channelUrl: string; name?: string; category?: string; language?: string },
   ) {
     return this.channelsService.addChannel(body);
   }
 
+  @UseGuards(AdminGuard)
   @Delete(':id')
   async removeChannel(@Param('id') id: string) {
     return this.channelsService.removeChannel(id);
   }
 
+  @UseGuards(AdminGuard)
   @Post(':id/sync')
   async syncChannel(@Param('id') id: string) {
     return this.channelsService.syncChannel(id);
   }
 
+  @UseGuards(AdminGuard)
   @Get('requests')
   async listChannelRequests() {
     return this.channelsService.listRequests();
@@ -50,6 +54,7 @@ export class ChannelsController {
     return this.channelsService.createRequest(body);
   }
 
+  @UseGuards(AdminGuard)
   @Post('requests/:id/approve')
   async approveChannelRequest(
     @Param('id') id: string,
@@ -58,6 +63,7 @@ export class ChannelsController {
     return this.channelsService.approveRequest(id, body?.adminEmail);
   }
 
+  @UseGuards(AdminGuard)
   @Post('requests/:id/reject')
   async rejectChannelRequest(
     @Param('id') id: string,

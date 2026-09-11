@@ -120,6 +120,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
     // Re-home device-local highlights/bookmarks/notes into the user tier and
     // sync with the backend when an account signs in or a cached session loads.
     UserItemSyncService.instance.attachTo(_authService);
+    _channelService.attachToAuth(_authService);
 
     _router = GoRouter(
       initialLocation: '/feed',

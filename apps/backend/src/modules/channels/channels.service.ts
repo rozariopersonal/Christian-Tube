@@ -14,12 +14,6 @@ export class ChannelsService {
     private readonly syncService: SyncService,
   ) {}
 
-  isAdmin(email?: string): boolean {
-    if (!email) return false;
-    const adminEmails = this.configService.get<string[]>('adminEmails') || [];
-    return adminEmails.includes(email.trim().toLowerCase());
-  }
-
   async findAll() {
     const channels = await this.prisma.channel.findMany({
       where: { isActive: true },
@@ -35,6 +29,26 @@ export class ChannelsService {
       ...c,
       videoCount: c._count.videos,
     }));
+  }
+
+  async findOne(id: string) {
+    const channel = await this.prisma.channel.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { videos: true },
+        },
+      },
+    });
+
+    if (!channel) {
+      throw new NotFoundException('Channel not found');
+    }
+
+    return {
+      ...channel,
+      videoCount: channel._count.videos,
+    };
   }
 
   async resolveChannelInfo(input: string): Promise<{
