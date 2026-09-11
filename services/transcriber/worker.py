@@ -413,14 +413,14 @@ class AudioComClient:
         for attempt in range(1, max_attempts + 1):
             try:
                 resp = self._requests.get(
-                    f"{self.api}/audio/{audio_id}",
+                    f"{self.api}/audio/view?id={audio_id}",
                     headers=self.headers,
                     timeout=15,
                 )
                 if resp.status_code == 200:
                     data = resp.json()
                     play = data.get("play") or {}
-                    stream = play.get("stream_url") or play.get("streamUrl") or play.get("url")
+                    stream = play.get("url") or play.get("stream_url") or play.get("streamUrl")
                     if stream:
                         log.info("  resolved stream URL on attempt %d/%d", attempt, max_attempts)
                         return stream

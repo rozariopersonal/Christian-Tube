@@ -531,14 +531,14 @@ class AudioComClient:
         for attempt in range(1, max_attempts + 1):
             try:
                 resp = self._requests.get(
-                    f"{self.api}/audio/{audio_id}",
+                    f"{self.api}/audio/view?id={audio_id}",
                     headers=self.headers,
                     timeout=15,
                 )
                 if resp.status_code == 200:
                     data = resp.json()
                     play = data.get("play") or {}
-                    stream = play.get("stream_url") or play.get("streamUrl") or play.get("url")
+                    stream = play.get("url") or play.get("stream_url") or play.get("streamUrl")
                     if stream:
                         log.info("  resolved stream URL on attempt %d/%d", attempt, max_attempts)
                         return stream
@@ -590,8 +590,8 @@ class AudioComClient:
             log.info("  found %d audio track(s) to delete", len(audio_ids))
             for aid in audio_ids:
                 try:
-                    dr = self._requests.delete(
-                        f"{self.api}/audio/{aid}",
+                    dr = self._requests.post(
+                        f"{self.api}/audio/delete?id={aid}",
                         headers=self.headers,
                         timeout=15,
                     )
@@ -616,8 +616,8 @@ class AudioComClient:
                     cid = str(col.get("id", ""))
                     if cid:
                         try:
-                            dr = self._requests.delete(
-                                f"{self.api}/collection/{cid}",
+                            dr = self._requests.post(
+                                f"{self.api}/collection/delete?id={cid}",
                                 headers=self.headers,
                                 timeout=15,
                             )
@@ -664,19 +664,25 @@ class GitHubRepo:
             return base64.b64decode(data["content"]).decode("utf-8")
         return None
 
-    def upsert(self, path: str, content: str, message: str) -> None:
-        sha: str | None = None
-        get_resp = self._requests.get(self._url(path), headers=self.headers, timeout=20)
-        if get_resp.status_code == 200:
-            sha = get_resp.json().get("sha")
-
+    def upsert(self, path: str, content: str, message: str, max_retries: int = 3) -> None:
         encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
-        payload: dict[str, Any] = {"message": message, "content": encoded}
-        if sha:
-            payload["sha"] = sha
+        for attempt in range(max_retries):
+            sha: str | None = None
+            get_resp = self._requests.get(self._url(path), headers=self.headers, timeout=20)
+            if get_resp.status_code == 200:
+                sha = get_resp.json().get("sha")
 
-        put_resp = self._requests.put(self._url(path), headers=self.headers, json=payload, timeout=30)
-        put_resp.raise_for_status()
+            payload: dict[str, Any] = {"message": message, "content": encoded}
+            if sha:
+                payload["sha"] = sha
+
+            put_resp = self._requests.put(self._url(path), headers=self.headers, json=payload, timeout=30)
+            if put_resp.status_code in (200, 201):
+                return
+            if put_resp.status_code == 409 and attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            put_resp.raise_for_status()
 
 
 def slugify(text: str) -> str:
