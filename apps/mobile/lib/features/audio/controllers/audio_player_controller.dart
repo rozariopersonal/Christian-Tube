@@ -210,9 +210,26 @@ class AudioPlayerController extends ChangeNotifier {
         updatedAt: now,
       );
     } catch (e) {
+      String errorMessage;
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('http 403') || errorStr.contains('403 forbidden')) {
+        errorMessage = 'Access denied (403). This audio source may not allow direct streaming.';
+      } else if (errorStr.contains('html') || errorStr.contains('text/html') || errorStr.contains('unsupported') || errorStr.contains('not a valid audio')) {
+        errorMessage = 'Received a webpage instead of audio. The source URL may be a player page, not a direct audio file.';
+      } else if (errorStr.contains('cors') || errorStr.contains('cross-origin') || errorStr.contains('access-control-allow-origin')) {
+        errorMessage = 'Blocked by CORS policy. This audio source does not allow playback from this app.';
+      } else if (errorStr.contains('network') || errorStr.contains('connection') || errorStr.contains('timeout') || errorStr.contains('socket') || errorStr.contains('dns') || errorStr.contains('http 0')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (errorStr.contains('404') || errorStr.contains('not found')) {
+        errorMessage = 'Audio file not found (404). The source may have been moved or removed.';
+      } else if (errorStr.contains('401') || errorStr.contains('unauthorized') || errorStr.contains('403')) {
+        errorMessage = 'Authentication required. This audio source needs valid credentials.';
+      } else {
+        errorMessage = 'Unable to stream audio: ${e.toString().split('\n').first}';
+      }
       _state = _state.copyWith(
         status: AudioPlaybackStatus.error,
-        errorMessage: 'Unable to stream audio. Please check your connection.',
+        errorMessage: errorMessage,
       );
       notifyListeners();
     }

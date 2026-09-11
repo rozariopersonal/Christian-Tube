@@ -81,12 +81,18 @@ class AudioPlaybackService {
       }
     }
 
+    const headers = {
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+    };
+
     try {
       // Prefer streamUrl (resolved direct audio file) over audioUrl (may be a landing page).
       final uri = Uri.parse(
         track.streamUrl?.isNotEmpty == true ? track.streamUrl! : track.audioUrl,
       );
-      final source = AudioSource.uri(uri, tag: mediaItem);
+      final source = AudioSource.uri(uri, headers: headers, tag: mediaItem);
 
       final duration = await _player.setAudioSource(
         source,
@@ -99,6 +105,7 @@ class AudioPlaybackService {
         try {
           final fallbackSource = AudioSource.uri(
             Uri.parse(track.fallbackUrl!),
+            headers: headers,
             tag: mediaItem,
           );
 

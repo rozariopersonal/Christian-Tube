@@ -353,7 +353,13 @@ class AudioComClient:
             "Accept": "application/json",
         }
 
-    def upload_audio(self, wav_path: Path, metadata: dict) -> str:
+    def upload_audio(self, wav_path: Path, metadata: dict) -> tuple[str, str | None]:
+        """
+        Uploads audio to Audio.com and returns (audio_url, stream_url).
+        - audio_url:  human-readable landing page (https://audio.com/{id})
+        - stream_url: direct CDN audio file URL for streaming (resolved after
+                       transcoding), or None if transcoding hasn't completed.
+        """
         # 1. Get presigned URL
         create_resp = self._requests.post(
             f"{self.api}/audio/create",
@@ -390,7 +396,42 @@ class AudioComClient:
         if update_resp.status_code not in (200, 204):
             log.warning("Audio.com update metadata failed: %s %s", update_resp.status_code, update_resp.text[:300])
 
-        return f"https://audio.com/{audio_id}"
+        audio_url = f"https://audio.com/{audio_id}"
+
+        # 4. Resolve direct stream URL (poll for transcoding completion)
+        stream_url = self._resolve_stream_url(str(audio_id))
+
+        log.info("  successfully uploaded to Audio.com: %s (stream: %s)", audio_url, stream_url or "pending")
+        return audio_url, stream_url
+
+    def _resolve_stream_url(self, audio_id: str, max_attempts: int = 10, delay: int = 3) -> str | None:
+        """
+        Polls the Audio.com API for the transcoded stream URL.
+        Audio.com transcodes uploads asynchronously; the ``play.stream_url``
+        field becomes available once processing finishes.
+        """
+        for attempt in range(1, max_attempts + 1):
+            try:
+                resp = self._requests.get(
+                    f"{self.api}/audio/{audio_id}",
+                    headers=self.headers,
+                    timeout=15,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    play = data.get("play") or {}
+                    stream = play.get("stream_url") or play.get("streamUrl") or play.get("url")
+                    if stream:
+                        log.info("  resolved stream URL on attempt %d/%d", attempt, max_attempts)
+                        return stream
+            except Exception as e:
+                log.warning("  stream URL resolve attempt %d failed: %s", attempt, e)
+
+            if attempt < max_attempts:
+                time.sleep(delay)
+
+        log.warning("  could not resolve stream URL after %d attempts (transcoding may still be in progress)", max_attempts)
+        return None
 
 
 
@@ -761,8 +802,8 @@ def process_video(db: Database, cfg: Config, trans: Transcriber, llm: LLM,
 
                     try:
                         audiocom = AudioComClient(cfg.audio_com_token)
-                        audio_com_url = audiocom.upload_audio(wav, metadata)
-                        log.info("  uploaded to Audio.com: %s", audio_com_url)
+                        audio_com_url, stream_url = audiocom.upload_audio(wav, metadata)
+                        log.info("  uploaded to Audio.com: %s (stream: %s)", audio_com_url, stream_url or "pending")
 
                         # Add to audio catalog
                         update_audiocom_catalog(repo, {
@@ -778,6 +819,7 @@ def process_video(db: Database, cfg: Config, trans: Transcriber, llm: LLM,
                             "publishedAt": published_at.isoformat() if hasattr(published_at, "isoformat") else str(published_at),
                             "durationSeconds": int(metadata.get("duration", 0)),
                             "audioUrl": audio_com_url,
+                            "streamUrl": stream_url,
                         })
                         log.info("  added to audiocom catalog")
                     except Exception as e:
