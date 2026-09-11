@@ -9,7 +9,6 @@ import 'user_service.dart';
 import 'widgets/app_share_dialog.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/theme/theme_service.dart';
-import '../../core/config/app_config.dart';
 import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
@@ -197,8 +196,7 @@ class ProfileScreen extends StatelessWidget {
                                         WrapCrossAlignment.center,
                                     children: [
                                       InkWell(
-                                        onTap: () =>
-                                            _showQuickSignInDialog(context),
+                                        onTap: () => _handleGoogleSignIn(context),
                                         child: Text('Switch account',
                                             style: TextStyle(
                                                 color: context.tokens.accent,

@@ -13,6 +13,7 @@
   "apiBaseUrl": "https://template-tube-api.onrender.com",
   "releasesRepo": "rozariopersonal/Template-Tube-Releases",
   "apkFileName": "template-tube.apk",
+  "googleClientId": "YOUR_GOOGLE_CLIENT_ID_HERE",
   "defaultCategories": [
     "All",
     "Featured",

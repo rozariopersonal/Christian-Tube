@@ -41,7 +41,7 @@ class ChannelService extends ChangeNotifier {
   bool isSubscribed(String channelId) => _subscribedIds.contains(channelId);
 
   Future<void> loadSubscriptions() async {
-    final isAuth = _authService?.isAuthenticated ?? false;
+    final isAuth = _authService.isAuthenticated;
 
     if (isAuth) {
       await _loadFromServer();
@@ -84,7 +84,7 @@ class ChannelService extends ChangeNotifier {
   }
 
   Future<void> _saveToServer() async {
-    final isAuth = _authService?.isAuthenticated ?? false;
+    final isAuth = _authService.isAuthenticated;
     if (!isAuth) return;
 
     try {
