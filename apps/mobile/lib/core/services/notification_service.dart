@@ -22,6 +22,13 @@ class NotificationService {
         // Handle notification tap
       },
     );
+
+    // Request notification permission for Android 13+ (API 33+) to allow lockscreen media controls
+    final androidImplementation = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImplementation != null) {
+      await androidImplementation.requestNotificationsPermission();
+    }
   }
 
   Future<void> showNotification({

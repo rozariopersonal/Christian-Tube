@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -79,15 +80,20 @@ void main() async {
     } catch (_) {}
   }
 
-  // Android: initialize background audio playback WITHOUT blocking the first
-  // frame. AudioService.init spins up an isolate-based handler and can hang
-  // or throw on some devices; awaiting it here leaves a permanent white
-  // screen because runApp below never runs. Errors are non-fatal.
-  JustAudioBackground.init(
-    androidNotificationChannelId: 'org.rozario.christiantube.mobile.channel.audio',
-    androidNotificationChannelName: 'Audio playback',
-    androidNotificationOngoing: true,
-  ).catchError((Object e) => debugPrint('JustAudioBackground init error: $e'));
+  // Native: initialize background audio playback with a bounded timeout so
+  // AudioService is ready before AudioPlayerController is instantiated.
+  if (!kIsWeb) {
+    try {
+      await JustAudioBackground.init(
+        androidNotificationChannelId: 'org.rozario.christiantube.mobile.channel.audio',
+        androidNotificationChannelName: 'Audio playback',
+        androidNotificationOngoing: true,
+        androidNotificationIcon: 'mipmap/ic_launcher',
+      ).timeout(const Duration(seconds: 3));
+    } catch (e) {
+      debugPrint('JustAudioBackground init warning: $e');
+    }
+  }
 
   runApp(const PrivateTubeApp());
 }
