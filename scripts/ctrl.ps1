@@ -122,7 +122,6 @@ function Stop-WhisperService {
 function Invoke-Stack {
     $docker = Resolve-Docker
     if (-not $docker) { Write-Error "docker.exe not found." }
-    $env:DOCKER_HOST = & $docker context show 2>$null
     switch ($Action) {
         "up"   { & $docker compose -f $Compose up -d --build; break }
         "down" { & $docker compose -f $Compose down; break }
@@ -136,7 +135,6 @@ function Invoke-Run {
     if (-not $VideoId) { Write-Error "run requires -VideoId" }
     $docker = Resolve-Docker
     if (-not $docker) { Write-Error "docker.exe not found." }
-    $env:DOCKER_HOST = & $docker context show 2>$null
     $args = @("compose", "-f", $Compose, "exec", "-T", "worker",
               "python", "-u", "worker.py", "--video-id", $VideoId)
     if ($InsightsResume) { $args += "--insights-resume" }
@@ -156,7 +154,6 @@ function Show-Status {
     Write-Host "== Docker harness =="
     $docker = Resolve-Docker
     if ($docker) {
-        $env:DOCKER_HOST = & $docker context show 2>$null
         & $docker compose -f $Compose ps
     } else {
         Write-Host "  docker not found"
