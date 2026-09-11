@@ -425,6 +425,40 @@ class AudioComClient:
             log.warning("  failed to upload collection image to Audio.com: %s", e)
         return False
 
+    def find_existing_track_id(self, title: str) -> str | None:
+        """Finds if an audio track with this title already exists on Audio.com."""
+        clean_target = title.strip().lower()
+        if not hasattr(self, "_existing_audio_cache"):
+            self._existing_audio_cache = {}
+            try:
+                page = 1
+                while True:
+                    resp = self._requests.get(
+                        f"{self.api}/audio/list",
+                        headers=self.headers,
+                        params={"page": page, "limit": 100},
+                        timeout=20,
+                    )
+                    if resp.status_code != 200:
+                        break
+                    items = resp.json()
+                    if isinstance(items, dict):
+                        items = items.get("data") or items.get("audios") or items.get("items") or []
+                    if not items:
+                        break
+                    for item in items:
+                        t = (item.get("title") or "").strip().lower()
+                        aid = str(item.get("id", ""))
+                        if t and aid and t not in self._existing_audio_cache:
+                            self._existing_audio_cache[t] = aid
+                    if len(items) < 100:
+                        break
+                    page += 1
+            except Exception as e:
+                log.warning("  failed to populate existing audio cache: %s", e)
+
+        return self._existing_audio_cache.get(clean_target)
+
     def upload_audio(
         self,
         audio_file: Path,
@@ -439,6 +473,15 @@ class AudioComClient:
                        transcoding), or None if transcoding hasn't completed.
         """
         title = metadata.get("title", "Untitled Sermon")[:100]
+
+        # 0. Check if track with this title was already uploaded
+        existing_id = self.find_existing_track_id(title)
+        if existing_id:
+            log.info("  track '%s' already exists on Audio.com (id: %s), reusing existing", title, existing_id)
+            audio_url = f"https://audio.com/{existing_id}"
+            stream_url = self._resolve_stream_url(existing_id)
+            return audio_url, stream_url
+
         file_size = audio_file.stat().st_size
         mime = "audio/mpeg" if audio_file.suffix.lower() == ".mp3" else "audio/wav"
 
