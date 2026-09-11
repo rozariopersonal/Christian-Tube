@@ -348,7 +348,77 @@ class AudioComClient:
         except Exception as e:
             log.warning("  add_to_collection error: %s", e)
 
-    def upload_audio(self, audio_file: Path, metadata: dict, collection_name: str | None = None) -> str:
+    def upload_audio_image(self, audio_id: str, image_bytes: bytes, mime: str = "image/jpeg") -> bool:
+        """Uploads cover artwork for an audio track to Audio.com."""
+        try:
+            resp = self._requests.post(
+                f"{self.api}/audio/image/create?id={audio_id}",
+                headers=self.headers,
+                json={"mime": mime, "size": len(image_bytes)},
+                timeout=20,
+            )
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                upload_url = data.get("url")
+                success_hook = data.get("success")
+                if upload_url:
+                    put_resp = self._requests.put(upload_url, data=image_bytes, timeout=30)
+                    if put_resp.status_code in (200, 201, 204):
+                        if success_hook:
+                            try:
+                                self._requests.post(success_hook, timeout=10)
+                            except Exception:
+                                pass
+                        log.info("  uploaded cover image to Audio.com track %s", audio_id)
+                        return True
+            else:
+                log.warning("  audio/image/create warning (%s): %s", resp.status_code, resp.text[:200])
+        except Exception as e:
+            log.warning("  failed to upload track image to Audio.com: %s", e)
+        return False
+
+    def upload_collection_image(self, collection_id: str, image_bytes: bytes, mime: str = "image/jpeg") -> bool:
+        """Uploads cover artwork for a collection to Audio.com."""
+        try:
+            resp = self._requests.post(
+                f"{self.api}/collection/image/create?id={collection_id}",
+                headers=self.headers,
+                json={"mime": mime, "size": len(image_bytes)},
+                timeout=20,
+            )
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                upload_url = data.get("url")
+                success_hook = data.get("success")
+                if upload_url:
+                    put_resp = self._requests.put(upload_url, data=image_bytes, timeout=30)
+                    if put_resp.status_code in (200, 201, 204):
+                        if success_hook:
+                            try:
+                                self._requests.post(success_hook, timeout=10)
+                            except Exception:
+                                pass
+                        log.info("  uploaded cover image to Audio.com collection %s", collection_id)
+                        return True
+            else:
+                log.warning("  collection/image/create warning (%s): %s", resp.status_code, resp.text[:200])
+        except Exception as e:
+            log.warning("  failed to upload collection image to Audio.com: %s", e)
+        return False
+
+    def upload_audio(
+        self,
+        audio_file: Path,
+        metadata: dict,
+        collection_name: str | None = None,
+        image_bytes: bytes | None = None,
+    ) -> tuple[str, str | None]:
+        """
+        Uploads audio to Audio.com and returns (audio_url, stream_url).
+        - audio_url:  human-readable landing page (https://audio.com/{id})
+        - stream_url: direct CDN audio file URL for streaming (resolved after
+                       transcoding), or None if transcoding hasn't completed.
+        """
         title = metadata.get("title", "Untitled Sermon")[:100]
         file_size = audio_file.stat().st_size
         mime = "audio/mpeg" if audio_file.suffix.lower() == ".mp3" else "audio/wav"
@@ -394,13 +464,19 @@ class AudioComClient:
             except Exception as e:
                 log.warning("  success hook warning: %s", e)
 
-        # 4. Associate with collection if requested
+        # 4. Upload track cover artwork if available
+        if image_bytes:
+            self.upload_audio_image(str(audio_id), image_bytes)
+
+        # 5. Associate with collection if requested
         if collection_name:
             col_id = self.get_or_create_collection(collection_name)
             if col_id:
                 self.add_to_collection(col_id, str(audio_id))
+                if image_bytes:
+                    self.upload_collection_image(col_id, image_bytes)
 
-        # 5. Update track metadata
+        # 6. Update track metadata
         log.info("  updating track metadata on Audio.com...")
         desc = (metadata.get("description") or "")[:2000]
         tags = (metadata.get("tags") or [])[:5]
@@ -420,8 +496,41 @@ class AudioComClient:
             log.warning("Audio.com metadata update warning: %s %s", update_resp.status_code, update_resp.text[:300])
 
         audio_url = f"https://audio.com/{audio_id}"
-        log.info("  successfully uploaded to Audio.com: %s", audio_url)
-        return audio_url
+
+        # 7. Resolve direct stream URL (poll for transcoding completion)
+        stream_url = self._resolve_stream_url(str(audio_id))
+
+        log.info("  successfully uploaded to Audio.com: %s (stream: %s)", audio_url, stream_url or "pending")
+        return audio_url, stream_url
+
+    def _resolve_stream_url(self, audio_id: str, max_attempts: int = 10, delay: int = 3) -> str | None:
+        """
+        Polls the Audio.com API for the transcoded stream URL.
+        Audio.com transcodes uploads asynchronously; the ``play.stream_url``
+        field becomes available once processing finishes.
+        """
+        for attempt in range(1, max_attempts + 1):
+            try:
+                resp = self._requests.get(
+                    f"{self.api}/audio/{audio_id}",
+                    headers=self.headers,
+                    timeout=15,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    play = data.get("play") or {}
+                    stream = play.get("stream_url") or play.get("streamUrl") or play.get("url")
+                    if stream:
+                        log.info("  resolved stream URL on attempt %d/%d", attempt, max_attempts)
+                        return stream
+            except Exception as e:
+                log.warning("  stream URL resolve attempt %d failed: %s", attempt, e)
+
+            if attempt < max_attempts:
+                time.sleep(delay)
+
+        log.warning("  could not resolve stream URL after %d attempts (transcoding may still be in progress)", max_attempts)
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -703,7 +812,7 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
                 return
 
             # 1. Upload to Audio.com (and link to channel collection)
-            audio_url = audiocom.upload_audio(
+            audio_url, stream_url = audiocom.upload_audio(
                 audio_file,
                 {
                     "title": final_title,
@@ -733,6 +842,7 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
                     "publishedAt": pub_date,
                     "durationSeconds": int(duration),
                     "audioUrl": audio_url,
+                    "streamUrl": stream_url,
                 },
             )
 

@@ -12,6 +12,7 @@ class AudioTrack {
   final String? publishedAt; // Publication date ISO string
   final int durationSeconds;
   final String audioUrl;
+  final String? streamUrl; // Resolved direct audio stream URL (for audio.com etc.)
   final String? fallbackUrl;
   final String? coverUrl;
   final String? scriptureBook;
@@ -20,7 +21,7 @@ class AudioTrack {
 
 
 
-  const AudioTrack({
+const AudioTrack({
     required this.id,
     required this.title,
     required this.seriesId,
@@ -33,6 +34,7 @@ class AudioTrack {
     this.publishedAt,
     required this.durationSeconds,
     required this.audioUrl,
+    this.streamUrl,
     this.fallbackUrl,
     this.coverUrl,
     this.scriptureBook,
@@ -71,6 +73,7 @@ class AudioTrack {
       publishedAt: json['publishedAt'] as String?,
       durationSeconds: json['durationSeconds'] as int? ?? 0,
       audioUrl: json['audioUrl'] as String? ?? '',
+      streamUrl: json['streamUrl'] as String?,
       fallbackUrl: json['fallbackUrl'] as String?,
       coverUrl: json['coverUrl'] as String?,
       scriptureBook: json['scriptureBook'] as String?,
@@ -92,6 +95,7 @@ class AudioTrack {
         'publishedAt': publishedAt,
         'durationSeconds': durationSeconds,
         'audioUrl': audioUrl,
+        if (streamUrl != null) 'streamUrl': streamUrl,
         if (fallbackUrl != null) 'fallbackUrl': fallbackUrl,
         if (coverUrl != null) 'coverUrl': coverUrl,
         if (scriptureBook != null) 'scriptureBook': scriptureBook,

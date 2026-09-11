@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:audio_session/audio_session.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import '../models/audio_track.dart';
@@ -81,27 +81,12 @@ class AudioPlaybackService {
       }
     }
 
-    // Headers to guarantee Cloudflare CDN byte-range and cache support
-    final headers = {'User-Agent': 'ChristianTube/1.32'};
-
     try {
-      // On non-web platforms, LockCachingAudioSource writes chunks to disk as they stream.
-      // On web or environments where file cache is unavailable, standard AudioSource is used.
-      AudioSource source;
-      if (!kIsWeb) {
-        // ignore: experimental_member_use
-        source = LockCachingAudioSource(
-          Uri.parse(track.audioUrl),
-          headers: headers,
-          tag: mediaItem,
-        );
-      } else {
-        source = AudioSource.uri(
-          Uri.parse(track.audioUrl),
-          headers: headers,
-          tag: mediaItem,
-        );
-      }
+      // Prefer streamUrl (resolved direct audio file) over audioUrl (may be a landing page).
+      final uri = Uri.parse(
+        track.streamUrl?.isNotEmpty == true ? track.streamUrl! : track.audioUrl,
+      );
+      final source = AudioSource.uri(uri, tag: mediaItem);
 
       final duration = await _player.setAudioSource(
         source,
@@ -112,19 +97,10 @@ class AudioPlaybackService {
       // Fallback URL retry
       if (track.fallbackUrl != null && track.fallbackUrl!.isNotEmpty) {
         try {
-          AudioSource fallbackSource;
-          if (!kIsWeb) {
-            // ignore: experimental_member_use
-            fallbackSource = LockCachingAudioSource(
-              Uri.parse(track.fallbackUrl!),
-              headers: headers,
-            );
-          } else {
-            fallbackSource = AudioSource.uri(
-              Uri.parse(track.fallbackUrl!),
-              headers: headers,
-            );
-          }
+          final fallbackSource = AudioSource.uri(
+            Uri.parse(track.fallbackUrl!),
+            tag: mediaItem,
+          );
 
           final duration = await _player.setAudioSource(
             fallbackSource,
