@@ -254,21 +254,12 @@ static List<String> wftwManifestUrls() =>
   static List<String> wftwFeedDbUrls() =>
       ReleaseAssets.urlsFor('articles/wftw_feed.sqlite.gz');
 
-  /// Web-safe index of all WFTW articles (id/title/date/year/verse) for the
-  /// teaching browser on all platforms.
-  static List<String> wftwIndexUrls() =>
-      ReleaseAssets.urlsFor('articles/wftw_index.json');
-
   static List<String> wftwArticleUrls(String articleId) =>
       ReleaseAssets.urlsFor('articles/wftw/$articleId.json');
 
   /// Combined multi-language article index (all languages, `lang` per entry).
   static List<String> articlesIndexUrls() =>
       ReleaseAssets.urlsFor('articles/articles_index.json');
-
-  /// Per-language article index (`articles/{lang}/index.json`).
-  static List<String> languageArticlesIndexUrls(String lang) =>
-      ReleaseAssets.urlsFor('articles/${lang.toLowerCase()}/index.json');
 
   /// Language catalog (`articles/languages.json`): code, label, article count.
   static List<String> articlesLanguagesUrls() =>

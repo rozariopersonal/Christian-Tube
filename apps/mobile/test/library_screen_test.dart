@@ -124,7 +124,6 @@ void main() {
         expect(find.text('A Heavenly Home'), findsOneWidget);
         expect(find.text('Articles'), findsOneWidget);
         expect(find.text('The Narrow Way (Tamil teaching)'), findsOneWidget);
-        expect(find.text('Tamil'), findsNWidgets(2));
         expect(find.text('View all'), findsNWidgets(2));
         expect(tester.takeException(), isNull);
       });

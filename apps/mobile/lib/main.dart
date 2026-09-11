@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'core/api/release_revision.dart';
 import 'core/config/app_config.dart';
 import 'core/engines/active_engine.g.dart';
@@ -44,7 +45,6 @@ import 'features/audio/screens/audio_series_screen.dart';
 import 'features/audio/models/audio_series.dart';
 import 'features/articles/screens/article_browser_screen.dart';
 import 'features/articles/screens/article_reader_screen.dart';
-import 'features/articles/screens/wftw_teachings_screen.dart';
 import 'features/songs/models/song.dart';
 import 'features/songs/screens/song_reader_screen.dart';
 import 'features/songs/screens/songs_library_screen.dart';
@@ -78,6 +78,12 @@ void main() async {
       engine?.initialize().catchError((e) => debugPrint('Engine init error: $e'));
     } catch (_) {}
   }
+
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'org.rozario.christiantube.mobile.channel.audio',
+    androidNotificationChannelName: 'Audio playback',
+    androidNotificationOngoing: true,
+  );
 
   runApp(const PrivateTubeApp());
 }
@@ -252,13 +258,6 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             GoRoute(
               path: '/search',
               builder: (context, state) => const SearchScreen(),
-            ),
-            GoRoute(
-              path: '/teachings',
-              builder: (context, state) => WftwTeachingsScreen(
-                langController:
-                    LibraryLanguagesController.fromRouteExtra(state.extra),
-              ),
             ),
             GoRoute(
               path: '/articles',

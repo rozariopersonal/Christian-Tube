@@ -53,8 +53,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<WftwIndexEntry> _allArticles = const [];
   List<Song> _songs = const [];
   List<Song> _allSongs = const [];
-  Map<String, String> _langNameByCode = const {};
-  List<String> _articleLangChips = const [];
   bool _loading = true;
 
   static const int _recentBookLimit = 10;
@@ -124,13 +122,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
       }
 
       final List<WftwIndexEntry> allArticles = [];
-      Map<String, String> langNames = const {};
       try {
         allArticles.addAll(await _articlesLoader());
         final languages = await _languagesLoader();
-        langNames = {
-          for (final l in languages) l.code: l.name,
-        };
         for (final l in languages) {
           if (l.code.isNotEmpty) {
             // Teach the shared language registry about catalog languages it
@@ -139,7 +133,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
             LanguageMeta.registerLanguage(l.code, englishName: l.name);
           }
         }
-        _articleLangChips = languages.map((l) => l.name).take(6).toList();
       } catch (e) {
         debugPrint('Articles shelf unavailable: $e');
       }
@@ -167,7 +160,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _progressMap = progressMap;
         _articlesRecent = articles;
         _songs = songs;
-        _langNameByCode = langNames;
         _loading = false;
       });
     } catch (e) {
@@ -293,8 +285,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           entries: _filteredArticles,
                           title: 'Articles',
                           icon: Icons.article_outlined,
-                          langNames: _articleLangChips,
-                          langLabelOf: _articleLangLabel,
                           onViewAll: _openArticles,
                           onTapArticle: _openArticle,
                         ),
@@ -584,17 +574,5 @@ class _LibraryScreenState extends State<LibraryScreen> {
       '/article/${entry.id}',
       extra: {'title': entry.title, if (lang != null) 'lang': lang},
     );
-  }
-
-  String? _articleLangLabel(WftwIndexEntry entry) {
-    if (entry.lang == 'en') return null;
-    final name = _langNameByCode[entry.lang];
-    if (name != null && name.isNotEmpty) return name;
-    final meta = LanguageMeta.fromCode(entry.lang);
-    if (meta.englishName.isNotEmpty &&
-        meta.englishName.toLowerCase() != entry.lang.toLowerCase()) {
-      return meta.englishName;
-    }
-    return entry.lang.length <= 3 ? entry.lang.toUpperCase() : entry.lang;
   }
 }

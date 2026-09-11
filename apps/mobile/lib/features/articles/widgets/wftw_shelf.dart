@@ -6,21 +6,13 @@ import '../models/wftw_index_entry.dart';
 /// Horizontal "Word for the Week" teaching shelf for the Books library.
 /// Renders the newest [entries] as tappable cards plus a "View all" entry
 /// point into the full teaching browser. Reused for the multi-language
-/// Articles section (custom [title], [icon], and [langNames] chips).
+/// Articles section (custom [title] and [icon]).
 class WftwShelf extends StatelessWidget {
   final List<WftwIndexEntry> entries;
   final VoidCallback onViewAll;
   final ValueChanged<WftwIndexEntry> onTapArticle;
   final String title;
   final IconData icon;
-
-  /// Optional language name chips shown under the header (e.g. the seeded
-  /// article languages offered by the Library Articles section).
-  final List<String> langNames;
-
-  /// Short label for a tile's language badge, e.g. `bold` of the article's
-  /// language. Return `null` for entries with no badge.
-  final String? Function(WftwIndexEntry entry)? langLabelOf;
 
   const WftwShelf({
     super.key,
@@ -29,8 +21,6 @@ class WftwShelf extends StatelessWidget {
     required this.onTapArticle,
     this.title = 'Word for the Week',
     this.icon = Icons.auto_stories_rounded,
-    this.langNames = const [],
-    this.langLabelOf,
   });
 
   @override
@@ -75,32 +65,6 @@ class WftwShelf extends StatelessWidget {
             ],
           ),
         ),
-        if (langNames.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final name in langNames)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: tokens.accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Text(
-                      name,
-                      style: TextStyle(
-                        color: tokens.accent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
         SizedBox(
           height: 150,
           child: ListView.builder(
@@ -109,7 +73,6 @@ class WftwShelf extends StatelessWidget {
             itemCount: entries.length,
             itemBuilder: (context, index) {
               final entry = entries[index];
-              final langLabel = langLabelOf?.call(entry);
               return Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: SizedBox(
@@ -117,7 +80,6 @@ class WftwShelf extends StatelessWidget {
                   child: _WftwShelfTile(
                     entry: entry,
                     tokens: tokens,
-                    langLabel: langLabel,
                     onTap: () => onTapArticle(entry),
                   ),
                 ),
@@ -134,13 +96,11 @@ class _WftwShelfTile extends StatelessWidget {
   final WftwIndexEntry entry;
   final AppTokens tokens;
   final VoidCallback onTap;
-  final String? langLabel;
 
   const _WftwShelfTile({
     required this.entry,
     required this.tokens,
     required this.onTap,
-    this.langLabel,
   });
 
   @override
@@ -171,24 +131,6 @@ class _WftwShelfTile extends StatelessWidget {
                     child: Icon(Icons.menu_book_rounded, color: tokens.accent, size: 16),
                   ),
                   const Spacer(),
-                  if (langLabel != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: tokens.accent.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      child: Text(
-                        langLabel!,
-                        style: TextStyle(
-                          color: tokens.accent,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                  ],
                   Icon(Icons.arrow_outward_rounded, color: tokens.onSurfaceMuted, size: 16),
                 ],
               ),

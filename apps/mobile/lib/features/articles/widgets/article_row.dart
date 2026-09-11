@@ -3,19 +3,15 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../models/wftw_index_entry.dart';
 
-/// One tappable article row in a teaching/articles browser list. When
-/// [langLabel] is provided, a small language badge is shown next to the title
-/// (used by the multi-language articles browser and the Library shelf).
+/// One tappable article row in a teaching/articles browser list.
 class ArticleRow extends StatelessWidget {
   final WftwIndexEntry entry;
   final VoidCallback onTap;
-  final String? langLabel;
 
   const ArticleRow({
     super.key,
     required this.entry,
     required this.onTap,
-    this.langLabel,
   });
 
   @override
@@ -48,42 +44,15 @@ class ArticleRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            entry.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: tokens.onSurface,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (langLabel != null) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            margin: const EdgeInsets.only(top: 2),
-                            decoration: BoxDecoration(
-                              color: tokens.accent.withValues(alpha: 0.16),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              langLabel!,
-                              style: TextStyle(
-                                color: tokens.accent,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      entry.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tokens.onSurface,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 3),
                     Text(
