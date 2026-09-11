@@ -196,7 +196,7 @@ class Database:
             params.append(cfg.max_retries)
 
         query = f"""
-            SELECT v.id, v.title, v."channelName", v."publishedAt", v.description, v.tags
+            SELECT v.id, v.title, v."channelName", v."publishedAt", v.description
             FROM "Video" v
             JOIN "Channel" c ON c.id = v."channelId"
             WHERE v.type = 'VIDEO'
@@ -212,7 +212,7 @@ class Database:
 
     def fetch_one(self, video_id: str) -> tuple | None:
         self.cur.execute(
-            """SELECT v.id, v.title, v."channelName", v."publishedAt", v.description, v.tags
+            """SELECT v.id, v.title, v."channelName", v."publishedAt", v.description
                FROM "Video" v
                WHERE v.id=%s""",
             (video_id,),
@@ -273,33 +273,51 @@ class AudioComClient:
 
     def upload_audio(self, audio_file: Path, metadata: dict) -> str:
         title = metadata.get("title", "Untitled Sermon")[:100]
-        log.info("  requesting presigned upload URL from Audio.com...")
+        file_size = audio_file.stat().st_size
+        mime = "audio/mpeg" if audio_file.suffix.lower() == ".mp3" else "audio/wav"
+
+        log.info("  requesting presigned upload URL from Audio.com (%d bytes, %s)...", file_size, mime)
 
         # 1. Create audio entity & presigned URL
         resp = self._requests.post(
             f"{self.api}/audio/create",
             headers=self.headers,
-            json={"title": title},
+            json={
+                "title": title,
+                "category": "podcast",
+                "mime": mime,
+                "size": file_size,
+            },
             timeout=30,
         )
-        if resp.status_code != 200:
+        if resp.status_code not in (200, 201):
             raise RuntimeError(f"Audio.com create failed: {resp.status_code} {resp.text[:300]}")
 
         create_data = resp.json()
-        audio_id = create_data.get("id")
-        upload_url = create_data.get("uploadUrl")
-        if not audio_id or not upload_url:
-            raise RuntimeError("Audio.com response missing id or uploadUrl")
+        upload_url = create_data.get("url")
+        success_hook = create_data.get("success")
+        audio_info = create_data.get("audio") or {}
+        audio_id = audio_info.get("id")
 
-        # 2. Upload raw audio bytes
-        file_size_mb = audio_file.stat().st_size / (1024 * 1024)
+        if not upload_url or not audio_id:
+            raise RuntimeError(f"Audio.com response missing url or audio id: {create_data}")
+
+        # 2. Upload raw audio bytes to presigned URL
+        file_size_mb = file_size / (1024 * 1024)
         log.info("  uploading %.2f MB to Audio.com storage...", file_size_mb)
         with open(audio_file, "rb") as f:
             upload_resp = self._requests.put(upload_url, data=f, timeout=600)
             if upload_resp.status_code not in (200, 201, 204):
                 raise RuntimeError(f"Audio.com storage PUT failed: {upload_resp.status_code} {upload_resp.text[:300]}")
 
-        # 3. Update track metadata
+        # 3. Report success hook
+        if success_hook:
+            try:
+                self._requests.post(success_hook, timeout=30)
+            except Exception as e:
+                log.warning("  success hook warning: %s", e)
+
+        # 4. Update track metadata
         log.info("  updating track metadata on Audio.com...")
         desc = (metadata.get("description") or "")[:2000]
         tags = (metadata.get("tags") or [])[:5]
@@ -505,7 +523,7 @@ def extract_audio(video_id: str, out_dir: Path) -> tuple[Path, dict]:
 # Processing Orchestration
 # --------------------------------------------------------------------------- #
 def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg: Config, row: tuple) -> None:
-    video_id, title, channel, published_at, db_desc, db_tags = row
+    video_id, title, channel, published_at, db_desc = row
     log.info(">> Processing video: %s | %s (%s)", video_id, title, channel)
 
     db.mark_processing(video_id)
@@ -516,7 +534,7 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
 
             final_title = meta.get("title") or title or "Untitled Audio"
             final_desc = meta.get("description") or db_desc or ""
-            final_tags = meta.get("tags") or db_tags or []
+            final_tags = meta.get("tags") or []
             speaker = meta.get("uploader") or channel or "Unknown"
             duration = meta.get("duration") or 0
             thumbnail = meta.get("thumbnail") or f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
