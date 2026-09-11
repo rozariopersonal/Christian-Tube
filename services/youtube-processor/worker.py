@@ -22,7 +22,7 @@ import sys
 import tempfile
 import time
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -769,6 +769,8 @@ def update_channel_audio_catalog(
     under a series/collection named after the channel.
     - Updates audio/series/{channel_slug}.json
     - Updates audio/catalog.json
+    - Updates manifest.json with a bumped dataset revision (busts app & CDN cache)
+    - Purges jsDelivr edge CDN cache for affected files
     """
     series_id = slugify(channel_name)
     series_title = channel_name.strip() or "General Sermons"
@@ -792,7 +794,7 @@ def update_channel_audio_catalog(
             "speaker": track.get("speaker") or series_title,
             "coverUrl": track.get("thumbnailUrl"),
             "trackCount": 0,
-            "category": "Sermons",
+            "category": "General Sermons",
             "language": series_lang,
             "tracks": [],
         }
@@ -836,6 +838,7 @@ def update_channel_audio_catalog(
         existing_entry["title"] = series_data["title"]
         existing_entry["speaker"] = series_data["speaker"]
         existing_entry["language"] = series_data["language"]
+        existing_entry["category"] = series_data.get("category", "General Sermons")
         if not existing_entry.get("coverUrl") and series_data.get("coverUrl"):
             existing_entry["coverUrl"] = series_data["coverUrl"]
     else:
@@ -845,7 +848,7 @@ def update_channel_audio_catalog(
             "description": series_data["description"],
             "speaker": series_data["speaker"],
             "trackCount": series_data["trackCount"],
-            "category": series_data["category"],
+            "category": series_data.get("category", "General Sermons"),
             "language": series_data["language"],
             "coverUrl": series_data.get("coverUrl"),
         })
@@ -856,6 +859,37 @@ def update_channel_audio_catalog(
         f"audio catalog: sync series {series_id} ({series_data['trackCount']} tracks)",
     )
     log.info("  synced track with GitHub releases audio catalog (series: %s)", series_id)
+
+    # Bump manifest.json dataset revision so clients and CDNs get fresh data
+    manifest_path = "manifest.json"
+    raw_manifest = repo.read_text_or_none(manifest_path)
+    if raw_manifest:
+        try:
+            manifest_data = json.loads(raw_manifest)
+        except json.JSONDecodeError:
+            manifest_data = {}
+    else:
+        manifest_data = {}
+
+    new_rev = hex(int(time.time()))[2:]
+    manifest_data["revision"] = new_rev
+    manifest_data["updatedAt"] = datetime.now(timezone.utc).isoformat()
+
+    repo.upsert(
+        manifest_path,
+        json.dumps(manifest_data, indent=2, ensure_ascii=False),
+        f"manifest: bump revision to {new_rev}",
+    )
+    log.info("  bumped dataset revision to %s in manifest.json", new_rev)
+
+    # Best-effort jsDelivr purge so changes are immediately live on edge CDN
+    try:
+        import requests
+        repo_slug = repo.repo
+        for p in [catalog_path, series_path, manifest_path]:
+            requests.get(f"https://purge.jsdelivr.net/gh/{repo_slug}@main/{p}", timeout=5)
+    except Exception as e:
+        log.debug("  jsDelivr purge skipped: %s", e)
 
 
 def is_short_content(title: str, desc: str, duration: int, width: int = 0, height: int = 0) -> bool:

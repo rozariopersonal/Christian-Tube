@@ -139,6 +139,11 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertIn("zac_poonen_sermons", cat_ids)
         self.assertIn("through_the_bible", cat_ids)
 
+        # Verify manifest.json bumped
+        self.assertIn("manifest.json", storage)
+        manifest_data = json.loads(storage["manifest.json"])
+        self.assertTrue(bool(manifest_data.get("revision")))
+
 
 if __name__ == "__main__":
     unittest.main()
