@@ -26,61 +26,67 @@ class MyCreationsGrid extends StatelessWidget {
       backgroundColor: context.tokens.surface,
       onRefresh: onRefresh,
       child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 75, 16, 14),
-                sliver: SliverToBoxAdapter(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${items.length} ${items.length == 1 ? 'Creation' : 'Creations'}',
-                        style: TextStyle(
-                          color: context.tokens.onSurfaceMuted,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: onRefresh,
-                        icon: Icon(Icons.sync, size: 16, color: context.accent),
-                        label: Text(
-                          'Refresh',
-                          style: TextStyle(color: context.accent, fontSize: 13, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 75, 16, 14),
+            sliver: SliverToBoxAdapter(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${items.length} ${items.length == 1 ? 'Creation' : 'Creations'}',
+                    style: TextStyle(
+                      color: context.tokens.onSurfaceMuted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
+                  TextButton.icon(
+                    onPressed: onRefresh,
+                    icon: Icon(Icons.sync, size: 16, color: context.accent),
+                    label: Text(
+                      'Refresh',
+                      style: TextStyle(
+                          color: context.accent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
               ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 150,
-                    childAspectRatio: 9 / 16,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = items[index];
-                      return CreationGridCard(
-                        item: item,
-                        index: index,
-                        onTap: () => onShortTap(index),
-                        onDeleteTap: () => onDeleteTap(item),
-                      );
-                    },
-                    childCount: items.length,
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 80)),
-            ],
+            ),
           ),
-        );
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverConstrainedCrossAxis(
+              maxExtent: 1080,
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 150,
+                  childAspectRatio: 9 / 16,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = items[index];
+                    return CreationGridCard(
+                      item: item,
+                      index: index,
+                      onTap: () => onShortTap(index),
+                      onDeleteTap: () => onDeleteTap(item),
+                    );
+                  },
+                  childCount: items.length,
+                ),
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        ],
+      ),
+    );
   }
 }
 
@@ -117,7 +123,7 @@ class CreationGridCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
+              color: context.tokens.scrim.withValues(alpha: 0.25),
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
@@ -128,20 +134,26 @@ class CreationGridCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             // Thumbnail
-            if (item.sourceVideoThumbnail != null && item.sourceVideoThumbnail!.isNotEmpty)
+            if (item.sourceVideoThumbnail != null &&
+                item.sourceVideoThumbnail!.isNotEmpty)
               CachedNetworkImage(
                 imageUrl: item.sourceVideoThumbnail!,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: context.tokens.background),
+                placeholder: (_, __) =>
+                    Container(color: context.tokens.background),
                 errorWidget: (_, __, ___) => Container(
                   color: context.tokens.background,
-                  child: Center(child: Icon(Icons.movie, color: context.tokens.onSurfaceDisabled, size: 36)),
+                  child: Center(
+                      child: Icon(Icons.movie,
+                          color: context.tokens.onSurfaceDisabled, size: 36)),
                 ),
               )
             else
               Container(
                 color: context.tokens.background,
-                child: Center(child: Icon(Icons.movie, color: context.tokens.onSurfaceDisabled, size: 36)),
+                child: Center(
+                    child: Icon(Icons.movie,
+                        color: context.tokens.onSurfaceDisabled, size: 36)),
               ),
 
             // Subtle Gradient Overlay
@@ -175,14 +187,19 @@ class CreationGridCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: context.tokens.scrim,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      Formatters.formatDuration(Duration(seconds: durSec > 0 ? durSec : 60)),
-                      style: TextStyle(color: context.tokens.onScrim, fontSize: 10, fontWeight: FontWeight.bold),
+                      Formatters.formatDuration(
+                          Duration(seconds: durSec > 0 ? durSec : 60)),
+                      style: TextStyle(
+                          color: context.tokens.onScrim,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -194,7 +211,8 @@ class CreationGridCard extends StatelessWidget {
                         color: context.tokens.scrim.withValues(alpha: 0.6),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.delete_outline, size: 14, color: context.tokens.onScrimMuted),
+                      child: Icon(Icons.delete_outline,
+                          size: 14, color: context.tokens.onScrimMuted),
                     ),
                   ),
                 ],
@@ -227,7 +245,9 @@ class CreationGridCard extends StatelessWidget {
                       color: context.tokens.onScrim,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      shadows: [Shadow(color: context.tokens.scrim, blurRadius: 4)],
+                      shadows: [
+                        Shadow(color: context.tokens.scrim, blurRadius: 4)
+                      ],
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -290,8 +310,8 @@ class CreationGridBadge extends StatelessWidget {
             blurRadius: 6,
             spreadRadius: 0.5,
           ),
-          const BoxShadow(
-            color: Colors.black54,
+          BoxShadow(
+            color: context.tokens.scrim.withValues(alpha: 0.4),
             blurRadius: 4,
             offset: Offset(0, 1),
           ),
@@ -306,7 +326,8 @@ class CreationGridBadge extends StatelessWidget {
               height: 10,
               child: CircularProgressIndicator(
                 strokeWidth: 1.8,
-                value: (item.progress > 0 && item.status == ShortCreationStatus.uploading)
+                value: (item.progress > 0 &&
+                        item.status == ShortCreationStatus.uploading)
                     ? item.progress
                     : null,
                 color: color,
@@ -338,7 +359,8 @@ class CreationStatusChip extends StatelessWidget {
   final LocalShortItem item;
   final VoidCallback onRetry;
 
-  const CreationStatusChip({super.key, required this.item, required this.onRetry});
+  const CreationStatusChip(
+      {super.key, required this.item, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -363,7 +385,11 @@ class CreationStatusChip extends StatelessWidget {
             spreadRadius: 1,
             offset: const Offset(0, 2),
           ),
-          const BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2)),
+          BoxShadow(
+            color: context.tokens.scrim.withValues(alpha: 0.4),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
@@ -375,7 +401,8 @@ class CreationStatusChip extends StatelessWidget {
               height: 12,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                value: (item.progress > 0 && item.status == ShortCreationStatus.uploading)
+                value: (item.progress > 0 &&
+                        item.status == ShortCreationStatus.uploading)
                     ? item.progress
                     : null,
                 color: color,
@@ -398,7 +425,9 @@ class CreationStatusChip extends StatelessWidget {
           ),
           if (isActionable) ...[
             const SizedBox(width: 6),
-            Text('•', style: TextStyle(color: context.tokens.onSurfaceDisabled, fontSize: 12)),
+            Text('•',
+                style: TextStyle(
+                    color: context.tokens.onSurfaceDisabled, fontSize: 12)),
             const SizedBox(width: 6),
             GestureDetector(
               onTap: onRetry,
@@ -445,12 +474,14 @@ class NonPlayableShortCard extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // Background thumbnail with blur
-        if (item.sourceVideoThumbnail != null && item.sourceVideoThumbnail!.isNotEmpty)
+        if (item.sourceVideoThumbnail != null &&
+            item.sourceVideoThumbnail!.isNotEmpty)
           CachedNetworkImage(
             imageUrl: item.sourceVideoThumbnail!,
             fit: BoxFit.cover,
             placeholder: (_, __) => Container(color: context.tokens.background),
-            errorWidget: (_, __, ___) => Container(color: context.tokens.background),
+            errorWidget: (_, __, ___) =>
+                Container(color: context.tokens.background),
           )
         else
           Container(color: context.tokens.background),
@@ -493,7 +524,9 @@ class NonPlayableShortCard extends StatelessWidget {
                           width: 56,
                           height: 56,
                           child: CircularProgressIndicator(
-                            value: (item.progress > 0 && item.status == ShortCreationStatus.uploading)
+                            value: (item.progress > 0 &&
+                                    item.status ==
+                                        ShortCreationStatus.uploading)
                                 ? item.progress
                                 : null,
                             strokeWidth: 3.5,
@@ -547,18 +580,24 @@ class NonPlayableShortCard extends StatelessWidget {
                     item.statusDisplay,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: isFailed ? Theme.of(context).colorScheme.error : context.tokens.onSurfaceMuted,
+                      color: isFailed
+                          ? Theme.of(context).colorScheme.error
+                          : context.tokens.onSurfaceMuted,
                       fontSize: 13,
                       height: 1.3,
                     ),
                   ),
 
-                  if (isFailed && item.errorMessage != null && item.errorMessage!.isNotEmpty) ...[
+                  if (isFailed &&
+                      item.errorMessage != null &&
+                      item.errorMessage!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: context.tokens.surfaceElevated.withValues(alpha: 0.8),
+                        color: context.tokens.surfaceElevated
+                            .withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -588,7 +627,8 @@ class NonPlayableShortCard extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                           ),
                           onPressed: () {
                             HapticFeedback.mediumImpact();
@@ -597,21 +637,25 @@ class NonPlayableShortCard extends StatelessWidget {
                           icon: const Icon(Icons.refresh_rounded, size: 18),
                           label: const Text(
                             'Retry Now',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                         ),
                         const SizedBox(width: 10),
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: context.tokens.onSurfaceMuted,
-                            side: BorderSide(color: context.tokens.surfaceBorder),
+                            side:
+                                BorderSide(color: context.tokens.surfaceBorder),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
                           ),
                           onPressed: onClose,
-                          child: const Text('Back to Grid', style: TextStyle(fontSize: 13)),
+                          child: const Text('Back to Grid',
+                              style: TextStyle(fontSize: 13)),
                         ),
                       ],
                     )

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,7 +46,8 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
   late double _clipStartTime;
 
   ShortsFramingMode _framingMode = ShortsFramingMode.portrait9x16;
-  double _cropOffsetX = 0.0; // -1.0 (Left Stage) to +1.0 (Right Stage), 0.0 (Center)
+  double _cropOffsetX =
+      0.0; // -1.0 (Left Stage) to +1.0 (Right Stage), 0.0 (Center)
   bool _isLooping = true;
 
   Timer? _seekThrottleTimer;
@@ -60,9 +62,8 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
     // Pause main background video when trimmer opens
     pausePlatformMainVideo();
 
-    _totalDuration = widget.totalDurationSeconds > 0
-        ? widget.totalDurationSeconds
-        : 1800.0;
+    _totalDuration =
+        widget.totalDurationSeconds > 0 ? widget.totalDurationSeconds : 1800.0;
 
     // Auto-capture preceding 60 seconds up to current playhead
     final playhead = widget.currentPlayheadSeconds.clamp(0.0, _totalDuration);
@@ -79,7 +80,8 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
 
     final currentUser = _authService.currentUser;
     _creatorNameController = TextEditingController(
-      text: (currentUser?.displayName != null && currentUser!.displayName.isNotEmpty)
+      text: (currentUser?.displayName != null &&
+              currentUser!.displayName.isNotEmpty)
           ? currentUser.displayName
           : 'Believer in Christ',
     );
@@ -232,12 +234,12 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final is9x16 = _framingMode == ShortsFramingMode.portrait9x16;
     final tokens = context.tokens;
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.94,
+      height: min(MediaQuery.sizeOf(context).height * 0.94, 900.0),
       padding: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
         color: tokens.background,
@@ -330,7 +332,8 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                             },
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: tokens.surface,
                                 borderRadius: BorderRadius.circular(20),
@@ -370,12 +373,15 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                             },
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: tokens.surface,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: _isLooping ? tokens.accent : tokens.surfaceBorder,
+                                  color: _isLooping
+                                      ? tokens.accent
+                                      : tokens.surfaceBorder,
                                 ),
                               ),
                               child: Row(
@@ -384,13 +390,17 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                   Icon(
                                     Icons.repeat,
                                     size: 12,
-                                    color: _isLooping ? tokens.accent : tokens.onSurfaceMuted,
+                                    color: _isLooping
+                                        ? tokens.accent
+                                        : tokens.onSurfaceMuted,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     _isLooping ? 'Loop On' : 'Loop Off',
                                     style: TextStyle(
-                                      color: _isLooping ? tokens.accent : tokens.onSurfaceMuted,
+                                      color: _isLooping
+                                          ? tokens.accent
+                                          : tokens.onSurfaceMuted,
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -408,7 +418,8 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.touch_app_outlined, color: tokens.accent, size: 13),
+                        Icon(Icons.touch_app_outlined,
+                            color: tokens.accent, size: 13),
                         const SizedBox(width: 5),
                         Text(
                           'Drag on the preview to move the 9:16 crop window across the stage',
@@ -494,7 +505,7 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                       decoration: BoxDecoration(
                                         border: Border(
                                           right: BorderSide(
-                                             color: tokens.scrim
+                                            color: tokens.scrim
                                                 .withValues(alpha: 0.45),
                                             width: 1.0,
                                           ),
@@ -504,7 +515,7 @@ class _ShortsTrimmerSheetState extends State<ShortsTrimmerSheet> {
                                         imageUrl: _getTimelineThumbnailUrl(
                                             i, thumbnailCount),
                                         fit: BoxFit.cover,
-placeholder: (context, url) =>
+                                        placeholder: (context, url) =>
                                             Container(
                                           color: tokens.surface,
                                           child: Center(
@@ -515,7 +526,7 @@ placeholder: (context, url) =>
                                                 strokeWidth: 1.5,
                                                 valueColor:
                                                     AlwaysStoppedAnimation<
-                                                        Color>(
+                                                            Color>(
                                                         tokens.onScrimMuted),
                                               ),
                                             ),
@@ -539,28 +550,28 @@ placeholder: (context, url) =>
 
                             // 2. Inactive Region Dimming Overlays
                             // Left unselected region
-                             if (startPct > 0)
-                               Positioned(
-                                 left: 0,
-                                 top: 0,
-                                 bottom: 0,
-                                 width: startPct * trackWidth,
-                                 child: Container(
-                                   color: tokens.scrim.withValues(alpha: 0.65),
-                                 ),
-                               ),
+                            if (startPct > 0)
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: startPct * trackWidth,
+                                child: Container(
+                                  color: tokens.scrim.withValues(alpha: 0.65),
+                                ),
+                              ),
 
-                             // Right unselected region
-                             if (endPct < 1.0)
-                               Positioned(
-                                 left: endPct * trackWidth,
-                                 right: 0,
-                                 top: 0,
-                                 bottom: 0,
-                                 child: Container(
-                                   color: tokens.scrim.withValues(alpha: 0.65),
-                                 ),
-                               ),
+                            // Right unselected region
+                            if (endPct < 1.0)
+                              Positioned(
+                                left: endPct * trackWidth,
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                                child: Container(
+                                  color: tokens.scrim.withValues(alpha: 0.65),
+                                ),
+                              ),
 
                             // 3. Highlight Window (Selected Clip Box with Tactile Handles)
                             Positioned(
@@ -571,8 +582,7 @@ placeholder: (context, url) =>
                               bottom: 0,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: tokens.accent
-                                      .withValues(alpha: 0.12),
+                                  color: tokens.accent.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
                                     color: tokens.accent,
@@ -580,8 +590,8 @@ placeholder: (context, url) =>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: tokens.accent
-                                          .withValues(alpha: 0.35),
+                                      color:
+                                          tokens.accent.withValues(alpha: 0.35),
                                       blurRadius: 6,
                                       spreadRadius: 0.5,
                                     ),
@@ -598,7 +608,7 @@ placeholder: (context, url) =>
                                       child: Container(
                                         width: 3.5,
                                         decoration: BoxDecoration(
-                                           color: tokens.onScrim,
+                                          color: tokens.onScrim,
                                           borderRadius:
                                               BorderRadius.circular(2),
                                         ),
@@ -613,8 +623,7 @@ placeholder: (context, url) =>
                                       decoration: BoxDecoration(
                                         color: tokens.scrim
                                             .withValues(alpha: 0.75),
-                                        borderRadius:
-                                            BorderRadius.circular(4),
+                                        borderRadius: BorderRadius.circular(4),
                                         border: Border.all(
                                           color: tokens.accent,
                                           width: 1,
@@ -638,7 +647,7 @@ placeholder: (context, url) =>
                                       child: Container(
                                         width: 3.5,
                                         decoration: BoxDecoration(
-                                           color: tokens.onScrim,
+                                          color: tokens.onScrim,
                                           borderRadius:
                                               BorderRadius.circular(2),
                                         ),
@@ -704,8 +713,7 @@ placeholder: (context, url) =>
                                   final tapSec = tapPct * _totalDuration;
                                   setState(() {
                                     _clipStartTime =
-                                        (tapSec - (_clipDuration / 2))
-                                            .clamp(
+                                        (tapSec - (_clipDuration / 2)).clamp(
                                       0.0,
                                       _totalDuration - _clipDuration,
                                     );
@@ -723,11 +731,12 @@ placeholder: (context, url) =>
                   const SizedBox(height: 8),
 
                   // Precision Nudge Buttons Bar: [-5s], [-1s], Snap Playhead, [+1s], [+5s]
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // Start Nudge (-5s, -1s, +1s, +5s)
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text('Start: ',
                               style: TextStyle(
@@ -741,6 +750,7 @@ placeholder: (context, url) =>
                           _buildNudgeBtn('+5s', () => _nudgeStartTime(5.0)),
                         ],
                       ),
+                      const SizedBox(height: 8),
                       // Snap to video playhead
                       InkWell(
                         onTap: _snapToPlayhead,
@@ -771,8 +781,10 @@ placeholder: (context, url) =>
                           ),
                         ),
                       ),
+                      const SizedBox(height: 8),
                       // End Nudge (-5s, -1s, +1s, +5s)
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text('End: ',
                               style: TextStyle(
@@ -996,7 +1008,9 @@ placeholder: (context, url) =>
               : context.tokens.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? context.tokens.accent : context.tokens.surfaceBorder,
+            color: isSelected
+                ? context.tokens.accent
+                : context.tokens.surfaceBorder,
           ),
         ),
         child: Row(
@@ -1005,13 +1019,17 @@ placeholder: (context, url) =>
             Icon(
               icon,
               size: 13,
-              color: isSelected ? context.tokens.accent : context.tokens.onSurfaceMuted,
+              color: isSelected
+                  ? context.tokens.accent
+                  : context.tokens.onSurfaceMuted,
             ),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? context.tokens.accent : context.tokens.onSurfaceMuted,
+                color: isSelected
+                    ? context.tokens.accent
+                    : context.tokens.onSurfaceMuted,
                 fontSize: 11.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
@@ -1058,13 +1076,17 @@ placeholder: (context, url) =>
               : context.tokens.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? context.tokens.accent : context.tokens.surfaceBorder,
+            color: isSelected
+                ? context.tokens.accent
+                : context.tokens.surfaceBorder,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? context.tokens.accent : context.tokens.onSurfaceMuted,
+            color: isSelected
+                ? context.tokens.accent
+                : context.tokens.onSurfaceMuted,
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),

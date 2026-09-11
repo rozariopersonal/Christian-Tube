@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/models/playlist.dart';
 import '../../shared/ui/video_card.dart';
 
@@ -14,7 +15,8 @@ class PlaylistDetailScreen extends StatelessWidget {
       appBar: AppBar(title: Text(playlist.title)),
       body: playlist.videos.isEmpty
           ? const Center(child: Text('No videos in this playlist yet.'))
-          : ListView.builder(
+          : MaxWidthBox(
+              child: ListView.builder(
               itemCount: playlist.videos.length,
               itemBuilder: (context, index) {
                 final video = playlist.videos[index];
@@ -30,6 +32,7 @@ class PlaylistDetailScreen extends StatelessWidget {
                   },
                 );
               },
+            ),
             ),
     );
   }

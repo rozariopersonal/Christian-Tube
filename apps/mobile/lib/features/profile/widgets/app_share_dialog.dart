@@ -150,7 +150,7 @@ class _AppShareDialogState extends State<AppShareDialog> {
         left: 20,
         right: 20,
         top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 20,
+        bottom: MediaQuery.paddingOf(context).bottom + 20,
       ),
       child: SingleChildScrollView(
         child: Column(

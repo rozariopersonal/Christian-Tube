@@ -5,33 +5,33 @@ import 'adaptivity.dart';
 
 /// Preferred readable measure for scrollable list/grid content.
 ///
-/// Screens fill the full viewport up to this width, then content grows
-/// proportionally (see [adaptiveContentMaxWidth]) on wide and ultra-wide
-/// displays instead of leaving large side gutters.
-const double kContentMaxWidth = 1600;
+/// Lists and card grids are constrained to this width, centered, per the
+/// Responsive & Adaptive UI Standard (max content width 1080px).
+const double kContentMaxWidth = 1080;
 
-/// Absolute ceiling for content width on ultra-wide monitors (e.g. 3440px).
-const double kUltraContentMaxWidth = 3200;
+/// Absolute ceiling for exempt wide surfaces (video players, shorts grids)
+/// that explicitly opt into wide fill on ultra-wide monitors (e.g. 3440px).
+const double kUltraContentMaxWidth = 1600;
 
 /// How fast content width grows beyond [kContentMaxWidth] as the viewport
 /// grows. 1.0 fills the viewport edge-to-edge; lower values keep side air.
-const double kUltraWidthSlope = 0.8;
+const double kUltraWidthSlope = 0.5;
 
 /// Max width for pure text-reading surfaces (Bible reader, book reader)
 /// where very long line lengths hurt readability.
 const double kReadingMaxWidth = 1080;
 
-/// Resolves the content max-width for a given viewport width so screens
-/// adapt to the window:
+/// Resolves an optional wide-fill content width for exempt surfaces
+/// (video players, shorts grids) that explicitly opt into filling wide/ultra-
+/// wide monitors instead of the [kContentMaxWidth] readable cap.
 ///
-/// - `compact`/`medium` and any width up to [kContentMaxWidth]: fills the
-///   viewport (no artificial cap).
+/// - Widths up to [kContentMaxWidth]: fills the viewport (no artificial cap).
 /// - Beyond that, content grows at [kUltraWidthSlope] the rate of the
 ///   viewport so ultra-wide monitors stay filled with breathing room, capped
 ///   at [kUltraContentMaxWidth].
 ///
-/// Example widths (viewport → content): 1920 → 1856, 2560 → 2368,
-/// 3440 → 3072, 3840 → 3200.
+/// Example widths (viewport → content): 1920 → 1500, 2560 → 1600 (capped),
+/// 3440 → 1600 (capped), 3840 → 1600 (capped).
 double adaptiveContentMaxWidth(double viewportWidth) {
   if (viewportWidth <= kContentMaxWidth) return viewportWidth;
   final grown =
@@ -39,13 +39,13 @@ double adaptiveContentMaxWidth(double viewportWidth) {
   return math.min(grown, kUltraContentMaxWidth);
 }
 
-/// Centered, viewport-adaptive width constraint for content lists so
-/// cards/text fill the screen comfortably on phones, tablets, web windows,
-/// and ultra-wide displays (see [adaptiveContentMaxWidth]).
+/// Centered, [kContentMaxWidth]-capped width constraint for content lists so
+/// cards/text fill the screen on phones and tablets while staying readable on
+/// wide/ultra-wide displays.
 ///
-/// When [maxWidth] is omitted it is resolved from the incoming layout
-/// constraints via [adaptiveContentMaxWidth]. Pass an explicit value to
-/// override (e.g. [kReadingMaxWidth] for text readers). Exempt surfaces
+/// When [maxWidth] is omitted the readable cap [kContentMaxWidth] applies.
+/// Pass an explicit value to override (e.g. [kReadingMaxWidth] for text
+/// readers, [adaptiveContentMaxWidth] for exempt surfaces). Exempt surfaces
 /// (video players, shorts grids, scripture cards) must use their own grid
 /// rules; this is for text/card lists.
 class MaxWidthBox extends StatelessWidget {
@@ -68,8 +68,7 @@ class MaxWidthBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final resolved =
-            maxWidth ?? adaptiveContentMaxWidth(constraints.maxWidth);
+        final resolved = maxWidth ?? kContentMaxWidth;
         return Align(
           alignment: alignment,
           heightFactor: heightFactor,

@@ -49,7 +49,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 400) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 400) {
       _videoService.fetchVideos();
     }
   }
@@ -70,7 +71,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         final videos = _videoService.videos;
         final channels = _channelService.channels;
         final subscribedIds = _channelService.subscribedChannelIds;
-        final subscribedChannels = channels.where((c) => subscribedIds.contains(c.id)).toList();
+        final subscribedChannels =
+            channels.where((c) => subscribedIds.contains(c.id)).toList();
+
+        final collapseActions =
+            needsCollapsedActions(MediaQuery.sizeOf(context).width);
 
         return Scaffold(
           appBar: AppBar(
@@ -83,7 +88,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   'assets/logo.png',
                   height: 28,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Icon(Icons.menu_book_rounded, color: context.primary),
+                  errorBuilder: (_, __, ___) =>
+                      Icon(Icons.menu_book_rounded, color: context.primary),
                 ),
                 const SizedBox(width: 10),
                 Flexible(
@@ -91,47 +97,86 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                     AppConfig.appName,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19, letterSpacing: -0.5),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 19,
+                        letterSpacing: -0.5),
                   ),
                 ),
               ],
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.cast_outlined),
-                tooltip: 'Cast',
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.notifications_none_outlined),
-                tooltip: 'Notifications',
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.search),
-                tooltip: 'Search',
-                onPressed: () => context.push('/search'),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 12, left: 4),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => context.go('/profile'),
-                  child: const CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Colors.transparent,
-                    child: Icon(Icons.account_circle, size: 28),
-                  ),
-                ),
-              ),
-            ],
+            actions: collapseActions
+                ? [
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: 'More',
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'search':
+                            context.push('/search');
+                            break;
+                          case 'profile':
+                            context.go('/profile');
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'search',
+                          child: ListTile(
+                            leading: Icon(Icons.search),
+                            title: Text('Search'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'profile',
+                          child: ListTile(
+                            leading: Icon(Icons.account_circle),
+                            title: Text('Profile'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ]
+                : [
+                    IconButton(
+                      icon: const Icon(Icons.cast_outlined),
+                      tooltip: 'Cast',
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.notifications_none_outlined),
+                      tooltip: 'Notifications',
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.search),
+                      tooltip: 'Search',
+                      onPressed: () => context.push('/search'),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12, left: 4),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => context.go('/profile'),
+                        child: const CircleAvatar(
+                          radius: 14,
+                          backgroundColor: Colors.transparent,
+                          child: Icon(Icons.account_circle, size: 28),
+                        ),
+                      ),
+                    ),
+                  ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(46),
               child: SizedBox(
                 height: 46,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   children: [
                     // "All" / "All Subscriptions" Pill
                     InkWell(
@@ -144,7 +189,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       },
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
                           color: _selectedCategory == 'All'
                               ? tokens.onSurface
@@ -153,10 +199,14 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            subscribedChannels.isNotEmpty ? 'All Subscriptions' : 'All',
+                            subscribedChannels.isNotEmpty
+                                ? 'All Subscriptions'
+                                : 'All',
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: _selectedCategory == 'All' ? FontWeight.bold : FontWeight.w500,
+                              fontWeight: _selectedCategory == 'All'
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
                               color: _selectedCategory == 'All'
                                   ? tokens.surface
                                   : tokens.onSurfaceMuted,
@@ -173,15 +223,18 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         padding: const EdgeInsets.only(left: 8),
                         child: InkWell(
                           onTap: () {
-                            setState(() => _selectedCategory = isSelected ? 'All' : ch.id);
+                            setState(() =>
+                                _selectedCategory = isSelected ? 'All' : ch.id);
                             _videoService.setFilter(
                               channelId: isSelected ? null : ch.id,
-                              onlySubscribed: isSelected ? subscribedIds.isNotEmpty : false,
+                              onlySubscribed:
+                                  isSelected ? subscribedIds.isNotEmpty : false,
                             );
                           },
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? tokens.onSurface
@@ -198,22 +251,26 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                       width: 18,
                                       height: 18,
                                       fit: BoxFit.cover,
-                                      errorWidget: (_, __, ___) => const Icon(Icons.account_circle, size: 18),
+                                      errorWidget: (_, __, ___) => const Icon(
+                                          Icons.account_circle,
+                                          size: 18),
                                     ),
                                   )
                                 else
                                   const Icon(Icons.account_circle, size: 18),
                                 const SizedBox(width: 6),
                                 Text(
-                                    ch.name,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                      color: isSelected
-                                          ? tokens.surface
-                                          : tokens.onSurfaceMuted,
-                                    ),
+                                  ch.name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    color: isSelected
+                                        ? tokens.surface
+                                        : tokens.onSurfaceMuted,
                                   ),
+                                ),
                               ],
                             ),
                           ),
@@ -228,7 +285,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         onTap: () => context.go('/channels'),
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: tokens.surfaceVariant,
                             borderRadius: BorderRadius.circular(8),
@@ -236,7 +294,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.add, size: 16, color: tokens.onSurfaceMuted),
+                              Icon(Icons.add,
+                                  size: 16, color: tokens.onSurfaceMuted),
                               const SizedBox(width: 4),
                               Text(
                                 'Explore Channels',
@@ -310,12 +369,15 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: context.primary,
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () => context.go('/channels'),
                 icon: const Icon(Icons.explore_outlined, size: 18),
-                label: const Text('Explore Channels', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text('Explore Channels',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -330,7 +392,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.video_library_outlined, size: 56, color: context.tokens.onSurfaceMuted),
+              Icon(Icons.video_library_outlined,
+                  size: 56, color: context.tokens.onSurfaceMuted),
               const SizedBox(height: 16),
               const Text(
                 'No videos found for selected filter',
@@ -340,7 +403,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               ElevatedButton(
                 onPressed: () {
                   setState(() => _selectedCategory = 'All');
-                  _videoService.setFilter(channelId: null, onlySubscribed: true);
+                  _videoService.setFilter(
+                      channelId: null, onlySubscribed: true);
                 },
                 child: const Text('Show All Subscriptions'),
               ),
@@ -354,7 +418,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       color: context.primary,
       onRefresh: () async {
         await _channelService.loadSubscriptions();
-        _videoService.updateSubscribedChannelIds(_channelService.subscribedChannelIds);
+        _videoService
+            .updateSubscribedChannelIds(_channelService.subscribedChannelIds);
         await _videoService.refreshVideos();
       },
       child: ScreenClass.of(context).isCompact
@@ -488,16 +553,17 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             style: OutlinedButton.styleFrom(
               foregroundColor: tokens.onSurfaceMuted,
               side: BorderSide(color: tokens.surfaceBorder),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
             onPressed: () => context.go('/channels'),
             icon: const Icon(Icons.explore_outlined, size: 16),
-            label: const Text('Discover More Channels', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            label: const Text('Discover More Channels',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
     );
   }
 }
-

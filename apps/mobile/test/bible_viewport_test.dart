@@ -136,7 +136,8 @@ void main() {
       expect(find.byTooltip('Next chapter'), findsOneWidget);
     });
 
-    testWidgets('renders without overflow at 1400dp (large desktop)', (tester) async {
+    testWidgets('renders without overflow at 1400dp (large desktop)',
+        (tester) async {
       tester.view.physicalSize = const Size(1400 * 2, 900 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -166,11 +167,18 @@ void main() {
       await _pumpAndWaitForLoad(tester);
 
       expect(tester.takeException(), isNull);
+      // At 320dp the trailing actions (Search, Appearance) intentionally
+      // collapse into the overflow More menu to avoid AppBar overflow.
       expect(find.byTooltip('More'), findsOneWidget);
-      expect(find.byTooltip('Search Bible'), findsOneWidget);
+      expect(find.byTooltip('Search Bible'), findsNothing);
+
+      await tester.tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
+      expect(find.text('Search'), findsOneWidget);
     });
 
-    testWidgets('Prev/Next navigation reachable at 320dp landscape', (tester) async {
+    testWidgets('Prev/Next navigation reachable at 320dp landscape',
+        (tester) async {
       tester.view.physicalSize = const Size(640 * 2, 320 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {

@@ -142,7 +142,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: MediaQuery.of(context).size.width.clamp(320.0, 420.0),
+          width: MediaQuery.sizeOf(context).width.clamp(320.0, 420.0),
           margin: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
             color: context.tokens.surface,

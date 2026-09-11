@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/layout/adaptivity.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../books/models/book_language_meta.dart';
 import '../controllers/audio_library_controller.dart';
@@ -95,17 +94,12 @@ class AudioSeriesGrid extends StatelessWidget {
           else
             LayoutBuilder(
               builder: (context, constraints) {
-                final screenClass = ScreenClass.of(context);
-                final crossAxisCount = screenClass.isCompact
-                    ? 2
-                    : (screenClass == ScreenClass.medium ? 3 : 4);
-
                 return GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: filtered.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 200,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 16,
                     childAspectRatio: 0.72,

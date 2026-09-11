@@ -13,6 +13,7 @@ import 'widgets/empty_community_shorts.dart';
 import 'widgets/empty_my_creations.dart';
 import 'widgets/fullscreen_shorts_player.dart';
 import 'widgets/shorts_tab_chip.dart';
+import 'widgets/shorts_chrome.dart';
 import 'services/shorts_dialog_service.dart';
 import 'services/community_shorts_controller.dart';
 
@@ -37,7 +38,8 @@ class ShortsFeedScreen extends StatefulWidget {
 
 class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   final ShortsOrchestratorService _orchestrator = ShortsOrchestratorService();
-  final CommunityShortsController _communityController = CommunityShortsController();
+  final CommunityShortsController _communityController =
+      CommunityShortsController();
   final ScrollController _communityScrollController = ScrollController();
 
   ShortsViewTab _activeTab = ShortsViewTab.community;
@@ -58,16 +60,17 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     _communityScrollController.addListener(_onCommunityScroll);
 
     // Reset to grid when the Shorts bottom-nav tab is re-tapped
-    _shortsResetSub = BottomBarVisibilityService.instance
-        .onShortsResetRequested
+    _shortsResetSub = BottomBarVisibilityService.instance.onShortsResetRequested
         .listen((_) => _handleTabReset());
   }
 
   @override
   void didUpdateWidget(ShortsFeedScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((widget.initialShortId != null && widget.initialShortId != oldWidget.initialShortId) ||
-        (widget.initialIndex != null && widget.initialIndex != oldWidget.initialIndex)) {
+    if ((widget.initialShortId != null &&
+            widget.initialShortId != oldWidget.initialShortId) ||
+        (widget.initialIndex != null &&
+            widget.initialIndex != oldWidget.initialIndex)) {
       _applyInitialTarget();
     }
   }
@@ -103,11 +106,16 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     int target = -1;
     if (widget.initialShortId != null && widget.initialShortId!.isNotEmpty) {
       final idx = _communityController.shorts.indexWhere(
-        (s) => s.id == widget.initialShortId || s.sourceVideoId == widget.initialShortId,
+        (s) =>
+            s.id == widget.initialShortId ||
+            s.sourceVideoId == widget.initialShortId,
       );
       if (idx != -1) target = idx;
     }
-    if (target == -1 && widget.initialIndex != null && widget.initialIndex! >= 0 && widget.initialIndex! < _communityController.shorts.length) {
+    if (target == -1 &&
+        widget.initialIndex != null &&
+        widget.initialIndex! >= 0 &&
+        widget.initialIndex! < _communityController.shorts.length) {
       target = widget.initialIndex!;
     }
     if (target >= 0) {
@@ -160,7 +168,8 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       stopAllPlatformShorts();
     }
 
-    final bool isPlayerOpen = _selectedCommunityIndex != null || _selectedCreationIndex != null;
+    final bool isPlayerOpen =
+        _selectedCommunityIndex != null || _selectedCreationIndex != null;
 
     return PopScope(
       canPop: !isPlayerOpen,
@@ -171,7 +180,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: context.tokens.scrim,
+        backgroundColor: context.tokens.background,
         body: Stack(
           children: [
             // 1. Main Feed Viewport
@@ -188,7 +197,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
               right: 0,
               child: Container(
                 padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + 8,
+                  top: MediaQuery.paddingOf(context).top + 8,
                   left: 16,
                   right: 16,
                   bottom: 32,
@@ -198,10 +207,10 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      context.tokens.scrim,
-                      context.tokens.scrim,
-                      context.tokens.scrim.withValues(alpha: 0.8),
-                      context.tokens.scrim.withValues(alpha: 0.0),
+                      context.shortsChromeBg,
+                      context.shortsChromeBg,
+                      context.shortsChromeBg.withValues(alpha: 0.8),
+                      context.shortsChromeBg.withValues(alpha: 0.0),
                     ],
                     stops: const [0.0, 0.55, 0.80, 1.0],
                   ),
@@ -214,7 +223,8 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: Icon(Icons.search, color: context.tokens.onScrim, size: 22),
+                          icon: Icon(Icons.search,
+                              color: context.shortsChromeFg, size: 22),
                           tooltip: 'Search Shorts',
                           onPressed: () async {
                             final selectedShort = await showSearch<Short?>(
@@ -222,18 +232,21 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                               delegate: ShortsSearchDelegate(),
                             );
                             if (selectedShort != null && mounted) {
-                              final idx = _communityController.shorts.indexWhere((s) => s.id == selectedShort.id);
+                              final idx = _communityController.shorts
+                                  .indexWhere((s) => s.id == selectedShort.id);
                               if (idx != -1) {
                                 _openCommunityShortAt(idx);
                               } else {
-                                _communityController.insertShortAtBeginning(selectedShort);
+                                _communityController
+                                    .insertShortAtBeginning(selectedShort);
                                 _openCommunityShortAt(0);
                               }
                             }
                           },
                         ),
                         IconButton(
-                          icon: Icon(Icons.refresh, color: context.tokens.onScrim, size: 22),
+                          icon: Icon(Icons.refresh,
+                              color: context.shortsChromeFg, size: 22),
                           tooltip: 'Refresh',
                           onPressed: () {
                             _communityController.fetchShorts();
@@ -248,15 +261,17 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
             // 2b. Back button
             Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
+              top: MediaQuery.paddingOf(context).top + 8,
               left: 4,
               child: IconButton(
-                icon: Icon(Icons.arrow_back_ios_new, color: context.tokens.onScrim, size: 20),
+                icon: Icon(Icons.arrow_back_ios_new,
+                    color: context.shortsChromeFg, size: 20),
                 tooltip: 'Back',
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 onPressed: () {
-                  if (_selectedCommunityIndex != null || _selectedCreationIndex != null) {
+                  if (_selectedCommunityIndex != null ||
+                      _selectedCreationIndex != null) {
                     _closeShortPlayer();
                   } else {
                     stopAllPlatformShorts();
@@ -273,7 +288,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
             // 2c. Tab chips
             Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
+              top: MediaQuery.paddingOf(context).top + 8,
               left: 44,
               right: 84,
               child: SingleChildScrollView(
@@ -281,38 +296,38 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  ShortsTabChip(
-                    label: '🌐 Community',
-                    isSelected: _activeTab == ShortsViewTab.community,
-                    onTap: () {
-                      _closeShortPlayer();
-                      setState(() {
-                        _activeTab = ShortsViewTab.community;
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  ListenableBuilder(
-                    listenable: _orchestrator,
-                    builder: (context, _) {
-                      final activeCount = _orchestrator.activeJobsCount;
-                      return ShortsTabChip(
-                        label: '🎬 My Creations',
-                        isSelected: _activeTab == ShortsViewTab.myCreations,
-                        count: _orchestrator.localShorts.length,
-                        activeJobs: activeCount,
-                        onTap: () {
-                          _closeShortPlayer();
-                          setState(() {
-                            _activeTab = ShortsViewTab.myCreations;
-                          });
-                          _orchestrator.fetchCloudCreations();
-                        },
-                      );
-                    },
-                  ),
-                ],
-              ),
+                    ShortsTabChip(
+                      label: '🌐 Community',
+                      isSelected: _activeTab == ShortsViewTab.community,
+                      onTap: () {
+                        _closeShortPlayer();
+                        setState(() {
+                          _activeTab = ShortsViewTab.community;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ListenableBuilder(
+                      listenable: _orchestrator,
+                      builder: (context, _) {
+                        final activeCount = _orchestrator.activeJobsCount;
+                        return ShortsTabChip(
+                          label: '🎬 My Creations',
+                          isSelected: _activeTab == ShortsViewTab.myCreations,
+                          count: _orchestrator.localShorts.length,
+                          activeJobs: activeCount,
+                          onTap: () {
+                            _closeShortPlayer();
+                            setState(() {
+                              _activeTab = ShortsViewTab.myCreations;
+                            });
+                            _orchestrator.fetchCloudCreations();
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -388,7 +403,8 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
               await Future.delayed(const Duration(milliseconds: 800));
             },
             onShortTap: _openCreationShortAt,
-            onDeleteTap: (item) => ShortsDialogService.confirmDeleteCreation(context, item, _orchestrator),
+            onDeleteTap: (item) => ShortsDialogService.confirmDeleteCreation(
+                context, item, _orchestrator),
           );
         } else {
           currentView = FullscreenShortsPlayer(

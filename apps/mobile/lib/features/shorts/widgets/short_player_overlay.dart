@@ -145,7 +145,7 @@ class ShortPlayerOverlay extends StatelessWidget {
         if (!isNonPlayableLocalShort)
           Positioned(
             right: 2,
-            top: MediaQuery.of(context).padding.top + 60,
+            top: MediaQuery.paddingOf(context).top + 60,
             bottom: 250,
             child: IgnorePointer(
               ignoring: !areControlsVisible,

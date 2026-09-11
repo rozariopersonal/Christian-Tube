@@ -64,15 +64,18 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: context.tokens.scrim,
+        backgroundColor: context.tokens.background,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: context.tokens.scrim,
+      backgroundColor: context.tokens.background,
       appBar: AppBar(title: const Text('Explore Shorts')),
-      body: GridView.builder(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1080),
+          child: GridView.builder(
         padding: const EdgeInsets.all(8),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 150,
@@ -155,6 +158,8 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
           );
         },
       ),
+    ),
+  ),
     );
   }
 }

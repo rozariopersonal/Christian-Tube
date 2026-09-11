@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/layout/adaptivity.dart';
 import '../../../core/theme/app_tokens.dart';
 
 /// "Explore Topics" grid on the Audio Library home view. Selecting a topic
@@ -14,10 +13,26 @@ class AudioTopicsGrid extends StatelessWidget {
   });
 
   static const _topics = [
-    {'title': 'Overcoming Sin', 'category': 'Christian Living', 'icon': Icons.shield_outlined},
-    {'title': 'Holy Spirit', 'category': 'Christian Living', 'icon': Icons.local_fire_department_outlined},
-    {'title': 'Family & Home', 'category': 'Family & Home', 'icon': Icons.home_outlined},
-    {'title': 'Faith & Victory', 'category': 'Foundations', 'icon': Icons.emoji_events_outlined},
+    {
+      'title': 'Overcoming Sin',
+      'category': 'Christian Living',
+      'icon': Icons.shield_outlined
+    },
+    {
+      'title': 'Holy Spirit',
+      'category': 'Christian Living',
+      'icon': Icons.local_fire_department_outlined
+    },
+    {
+      'title': 'Family & Home',
+      'category': 'Family & Home',
+      'icon': Icons.home_outlined
+    },
+    {
+      'title': 'Faith & Victory',
+      'category': 'Foundations',
+      'icon': Icons.emoji_events_outlined
+    },
   ];
 
   @override
@@ -43,17 +58,12 @@ class AudioTopicsGrid extends StatelessWidget {
           const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
-              final screenClass = ScreenClass.of(context);
-              final crossAxisCount = screenClass.isCompact
-                  ? 2
-                  : (screenClass == ScreenClass.medium ? 3 : 4);
-
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _topics.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 340,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
                   childAspectRatio: 2.2,
@@ -65,8 +75,7 @@ class AudioTopicsGrid extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
-                      onTap: () =>
-                          onTopicSelected(topic['category'] as String),
+                      onTap: () => onTopicSelected(topic['category'] as String),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         child: Row(

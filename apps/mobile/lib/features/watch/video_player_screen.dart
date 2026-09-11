@@ -200,8 +200,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
       dynamic response;
       try {
-        response =
-            await _apiClient.dio.get('/api/videos', queryParameters: queryParams);
+        response = await _apiClient.dio
+            .get('/api/videos', queryParameters: queryParams);
       } catch (_) {
         response =
             await _apiClient.dio.get('/videos', queryParameters: queryParams);
@@ -311,8 +311,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
     // Auto-enter fullscreen on phone landscape ONLY when the user hasn't
     // explicitly exited fullscreen during the current landscape session.
-    final isFullscreen =
-        _isFullScreen || (!kIsWeb && isPhoneLandscape && !_userExitedFullscreen);
+    final isFullscreen = _isFullScreen ||
+        (!kIsWeb && isPhoneLandscape && !_userExitedFullscreen);
 
     if (_lastBuiltFullscreen != null && _lastBuiltFullscreen != isFullscreen) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -354,7 +354,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _positionSaveTimer?.cancel();
         _positionSaveTimer = Timer(const Duration(seconds: 4), () {
           if (_currentPositionSeconds > 0) {
-            UserService().saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+            UserService()
+                .saveVideoPosition(_activeVideoId, _currentPositionSeconds);
           }
         });
       },
@@ -376,7 +377,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ]);
                 Future.delayed(const Duration(milliseconds: 500), () {
                   if (mounted) {
-                    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+                    SystemChrome.setPreferredOrientations(
+                        DeviceOrientation.values);
                   }
                 });
                 _resumeVideoAfterFullscreenToggle();
@@ -428,7 +430,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           const SizedBox(width: 8),
           Flexible(
             child: Text(
-              AppConfig.appName.isNotEmpty ? AppConfig.appName : 'ChristianTube',
+              AppConfig.appName.isNotEmpty
+                  ? AppConfig.appName
+                  : 'ChristianTube',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -436,22 +440,59 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           ),
         ],
       ),
-      actions: [
-        if (_video != null)
-          IconButton(
-            icon: const Icon(Icons.share_outlined),
-            tooltip: 'Share',
-            onPressed: () {
-              Share.share(DeepLinkService.video(_activeVideoId));
-            },
-          ),
-        IconButton(
-          icon: const Icon(Icons.open_in_new_rounded),
-          tooltip: 'Watch on YouTube',
-          onPressed: _openInYouTubeApp,
-        ),
-        const SizedBox(width: 8),
-      ],
+      actions: needsCollapsedActions(MediaQuery.sizeOf(context).width)
+          ? [
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                tooltip: 'More',
+                onSelected: (value) {
+                  switch (value) {
+                    case 'share':
+                      if (_video != null) {
+                        Share.share(DeepLinkService.video(_activeVideoId));
+                      }
+                      break;
+                    case 'youtube':
+                      _openInYouTubeApp();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (_video != null)
+                    const PopupMenuItem(
+                      value: 'share',
+                      child: ListTile(
+                        leading: Icon(Icons.share_outlined),
+                        title: Text('Share'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  const PopupMenuItem(
+                    value: 'youtube',
+                    child: ListTile(
+                      leading: Icon(Icons.open_in_new_rounded),
+                      title: Text('Watch on YouTube'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ]
+          : [
+              if (_video != null)
+                IconButton(
+                  icon: const Icon(Icons.share_outlined),
+                  tooltip: 'Share',
+                  onPressed: () {
+                    Share.share(DeepLinkService.video(_activeVideoId));
+                  },
+                ),
+              IconButton(
+                icon: const Icon(Icons.open_in_new_rounded),
+                tooltip: 'Watch on YouTube',
+                onPressed: _openInYouTubeApp,
+              ),
+            ],
     );
   }
 
@@ -543,16 +584,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1280),
-                        child: AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              color: tokens.scrim,
-                              child: player,
-                            ),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            color: tokens.scrim,
+                            child: player,
                           ),
                         ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -696,7 +737,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     _video?.channelTitle ?? 'Channel',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   if (_video?.subscriberCount != null)
                     Text(
@@ -716,17 +758,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             // Subscribe Button
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: isSubscribed
-                    ? tokens.surfaceVariant
-                    : tokens.onSurface,
-                foregroundColor: isSubscribed
-                    ? tokens.onSurfaceMuted
-                    : tokens.surface,
+                backgroundColor:
+                    isSubscribed ? tokens.surfaceVariant : tokens.onSurface,
+                foregroundColor:
+                    isSubscribed ? tokens.onSurfaceMuted : tokens.surface,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 minimumSize: const Size(0, 40),
                 tapTargetSize: MaterialTapTargetSize.padded,
               ),
@@ -745,7 +786,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   const SizedBox(width: 4),
                   Text(
                     isSubscribed ? 'Subscribed' : 'Subscribe',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -772,7 +814,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               InkWell(
-                borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+                borderRadius:
+                    const BorderRadius.horizontal(left: Radius.circular(20)),
                 onTap: () {
                   setState(() {
                     _isLiked = !_isLiked;
@@ -780,18 +823,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   });
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   child: Row(
                     children: [
                       Icon(
                         _isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
                         size: 16,
-                        color: _isLiked ? Theme.of(context).colorScheme.primary : null,
+                        color: _isLiked
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
                       ),
                       const SizedBox(width: 5),
                       Text(
                         _isLiked ? '1' : 'Like',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -803,7 +850,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 color: tokens.surfaceBorder,
               ),
               InkWell(
-                borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+                borderRadius:
+                    const BorderRadius.horizontal(right: Radius.circular(20)),
                 onTap: () {
                   setState(() {
                     _isDisliked = !_isDisliked;
@@ -811,11 +859,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   });
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   child: Icon(
                     _isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined,
                     size: 16,
-                    color: _isDisliked ? Theme.of(context).colorScheme.error : null,
+                    color: _isDisliked
+                        ? Theme.of(context).colorScheme.error
+                        : null,
                   ),
                 ),
               ),
@@ -875,7 +926,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     return InkWell(
       onTap: hasDescription
-          ? () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded)
+          ? () =>
+              setState(() => _isDescriptionExpanded = !_isDescriptionExpanded)
           : null,
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -895,12 +947,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               children: [
                 Text(
                   '${Formatters.formatViews(_video?.viewCount ?? 0)} views',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 if (_video?.publishedAt != null)
                   Text(
                     '•  ${Formatters.formatTimeAgo(_video!.publishedAt)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 if (_video?.category != null && _video!.category!.isNotEmpty)
                   Text(
@@ -928,7 +982,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               const SizedBox(height: 6),
               Text(
                 _isDescriptionExpanded ? 'Show less' : '...more',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ],
           ],
@@ -971,7 +1026,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ),
       ),
       const SizedBox(height: 4),
-
       if (_relatedVideos.isEmpty)
         const Padding(
           padding: EdgeInsets.all(16),
@@ -1005,7 +1059,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             Icon(icon, size: 16),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ],
         ),
       ),

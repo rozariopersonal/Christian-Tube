@@ -69,7 +69,7 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
         ),
         child: Column(
         children: [

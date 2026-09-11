@@ -49,9 +49,12 @@ class AudioSeriesCarousel extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
               final series = featured[index];
-              return AudioSeriesCard(
-                series: series,
-                onTap: () => onTapSeries(series),
+              return SizedBox(
+                width: 150,
+                child: AudioSeriesCard(
+                  series: series,
+                  onTap: () => onTapSeries(series),
+                ),
               );
             },
           ),

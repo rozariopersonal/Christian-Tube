@@ -25,7 +25,7 @@ class WftwFilterSheet extends StatelessWidget {
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: screen.isCompact ? MediaQuery.of(context).size.height * 0.8 : 560,
+        maxHeight: screen.isCompact ? MediaQuery.sizeOf(context).height * 0.8 : 560,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(

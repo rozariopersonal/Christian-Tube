@@ -30,112 +30,120 @@ class CommunityShortsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-          color: context.accent,
-          backgroundColor: context.tokens.surface,
-          onRefresh: onRefresh,
-          child: CustomScrollView(
-            controller: scrollController,
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 75, 16, 14),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      color: context.accent,
+      backgroundColor: context.tokens.surface,
+      onRefresh: onRefresh,
+      child: CustomScrollView(
+        controller: scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 75, 16, 14),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${allShorts.length} Shorts',
-                            style: TextStyle(
-                              color: context.tokens.onSurfaceMuted,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: onRefresh,
-                            icon: Icon(Icons.refresh, size: 16, color: context.accent),
-                            label: Text(
-                              'Refresh',
-                              style: TextStyle(color: context.accent, fontSize: 13, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        '${allShorts.length} Shorts',
+                        style: TextStyle(
+                          color: context.tokens.onSurfaceMuted,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      const SizedBox(height: 10),
-                      // Quick Filter Chips Row
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            CommunityFilterChip(
-                              label: 'All Shorts',
-                              filterKey: 'all',
-                              icon: Icons.auto_awesome,
-                              currentFilter: currentFilter,
-                              onSelected: onFilterSelected,
-                            ),
-                            const SizedBox(width: 8),
-                            CommunityFilterChip(
-                              label: '🔥 Popular',
-                              filterKey: 'popular',
-                              icon: Icons.local_fire_department_rounded,
-                              currentFilter: currentFilter,
-                              onSelected: onFilterSelected,
-                            ),
-                            const SizedBox(width: 8),
-                            CommunityFilterChip(
-                              label: '✨ Recent',
-                              filterKey: 'recent',
-                              icon: Icons.schedule_rounded,
-                              currentFilter: currentFilter,
-                              onSelected: onFilterSelected,
-                            ),
-                          ],
+                      TextButton.icon(
+                        onPressed: onRefresh,
+                        icon: Icon(Icons.refresh,
+                            size: 16, color: context.accent),
+                        label: Text(
+                          'Refresh',
+                          style: TextStyle(
+                              color: context.accent,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 150,
-                    childAspectRatio: 9 / 16,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final short = filteredShorts[index];
-                      return CommunityGridCard(
-                        short: short,
-                        onTap: () {
-                          final realIndex = allShorts.indexWhere((s) => s.id == short.id);
-                          onShortTap(realIndex != -1 ? realIndex : index);
-                        },
-                      );
-                    },
-                    childCount: filteredShorts.length,
-                  ),
-                ),
-              ),
-              if (isLoadingMore)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: CircularProgressIndicator(color: context.accent),
+                  const SizedBox(height: 10),
+                  // Quick Filter Chips Row
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        CommunityFilterChip(
+                          label: 'All Shorts',
+                          filterKey: 'all',
+                          icon: Icons.auto_awesome,
+                          currentFilter: currentFilter,
+                          onSelected: onFilterSelected,
+                        ),
+                        const SizedBox(width: 8),
+                        CommunityFilterChip(
+                          label: '🔥 Popular',
+                          filterKey: 'popular',
+                          icon: Icons.local_fire_department_rounded,
+                          currentFilter: currentFilter,
+                          onSelected: onFilterSelected,
+                        ),
+                        const SizedBox(width: 8),
+                        CommunityFilterChip(
+                          label: '✨ Recent',
+                          filterKey: 'recent',
+                          icon: Icons.schedule_rounded,
+                          currentFilter: currentFilter,
+                          onSelected: onFilterSelected,
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 80)),
-            ],
+                ],
+              ),
+            ),
           ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverConstrainedCrossAxis(
+              maxExtent: 1080,
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 150,
+                  childAspectRatio: 9 / 16,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final short = filteredShorts[index];
+                    return CommunityGridCard(
+                      short: short,
+                      onTap: () {
+                        final realIndex =
+                            allShorts.indexWhere((s) => s.id == short.id);
+                        onShortTap(realIndex != -1 ? realIndex : index);
+                      },
+                    );
+                  },
+                  childCount: filteredShorts.length,
+                ),
+              ),
+            ),
+          ),
+          if (isLoadingMore)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: CircularProgressIndicator(color: context.accent),
+                ),
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        ],
+      ),
     );
   }
 }
@@ -226,7 +234,7 @@ class CommunityGridCard extends StatelessWidget {
           border: Border.all(color: context.tokens.surfaceBorder),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
+              color: context.tokens.scrim.withValues(alpha: 0.25),
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
@@ -241,16 +249,21 @@ class CommunityGridCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: short.thumbnailUrl,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: context.tokens.background),
+                placeholder: (_, __) =>
+                    Container(color: context.tokens.background),
                 errorWidget: (_, __, ___) => Container(
                   color: context.tokens.background,
-                  child: Center(child: Icon(Icons.movie, color: context.tokens.onSurfaceDisabled, size: 36)),
+                  child: Center(
+                      child: Icon(Icons.movie,
+                          color: context.tokens.onSurfaceDisabled, size: 36)),
                 ),
               )
             else
               Container(
                 color: context.tokens.background,
-                child: Center(child: Icon(Icons.movie, color: context.tokens.onSurfaceDisabled, size: 36)),
+                child: Center(
+                    child: Icon(Icons.movie,
+                        color: context.tokens.onSurfaceDisabled, size: 36)),
               ),
 
             // 2. Gradient Overlay
@@ -278,7 +291,8 @@ class CommunityGridCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: context.tokens.scrim.withValues(alpha: 0.87),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: context.tokens.surfaceBorder, width: 0.8),
+                  border: Border.all(
+                      color: context.tokens.surfaceBorder, width: 0.8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -286,8 +300,13 @@ class CommunityGridCard extends StatelessWidget {
                     Icon(Icons.remove_red_eye, size: 10, color: context.accent),
                     const SizedBox(width: 4),
                     Text(
-                      short.viewCount > 0 ? Formatters.formatViews(short.viewCount) : 'Short',
-                      style: TextStyle(color: context.tokens.onScrim, fontSize: 10, fontWeight: FontWeight.bold),
+                      short.viewCount > 0
+                          ? Formatters.formatViews(short.viewCount)
+                          : 'Short',
+                      style: TextStyle(
+                          color: context.tokens.onScrim,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -300,14 +319,18 @@ class CommunityGridCard extends StatelessWidget {
                 top: 8,
                 right: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
                     color: context.tokens.scrim,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     Formatters.formatDuration(Duration(seconds: durSec)),
-                    style: TextStyle(color: context.tokens.onScrim, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        color: context.tokens.onScrim,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -338,13 +361,16 @@ class CommunityGridCard extends StatelessWidget {
                       color: context.tokens.onScrim,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      shadows: [Shadow(color: context.tokens.scrim, blurRadius: 4)],
+                      shadows: [
+                        Shadow(color: context.tokens.scrim, blurRadius: 4)
+                      ],
                     ),
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      if (short.channelAvatarUrl != null && short.channelAvatarUrl!.isNotEmpty)
+                      if (short.channelAvatarUrl != null &&
+                          short.channelAvatarUrl!.isNotEmpty)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: CachedNetworkImage(
@@ -352,11 +378,13 @@ class CommunityGridCard extends StatelessWidget {
                             width: 16,
                             height: 16,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => Icon(Icons.person, size: 16, color: context.tokens.onScrimMuted),
+                            errorWidget: (_, __, ___) => Icon(Icons.person,
+                                size: 16, color: context.tokens.onScrimMuted),
                           ),
                         )
                       else
-                        Icon(Icons.account_circle, size: 16, color: context.tokens.onScrimMuted),
+                        Icon(Icons.account_circle,
+                            size: 16, color: context.tokens.onScrimMuted),
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(

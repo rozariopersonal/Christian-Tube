@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api/github_data_service.dart';
+import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../shared/services/library_languages_controller.dart';
@@ -57,9 +58,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   void initState() {
     super.initState();
     _ownsLangController = widget.langController == null;
-    _langController =
-        (widget.langController ?? LibraryLanguagesController())
-          ..addListener(_onLanguagesChanged);
+    _langController = (widget.langController ?? LibraryLanguagesController())
+      ..addListener(_onLanguagesChanged);
     _bookService.addListener(_onServiceUpdate);
     _loadSavedPrefs();
   }
@@ -123,9 +123,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     // Filter books by selected language(s) for subject grouping and subjects list
     final langFilteredBooks = isAllLanguages
         ? allBooks
-        : allBooks
-            .where((b) => langState.includes(b.language))
-            .toList();
+        : allBooks.where((b) => langState.includes(b.language)).toList();
 
     // Subjects derived only from books in the selected languages
     final subjectSet = <String>{};
@@ -229,7 +227,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                       color: tokens.surfaceVariant,
                       child: book.coverFile.isNotEmpty
                           ? CachedNetworkImage(
-                              imageUrl: GitHubDataService.bookCoverUrl(book.coverFile),
+                              imageUrl: GitHubDataService.bookCoverUrl(
+                                  book.coverFile),
                               fit: BoxFit.cover,
                               placeholder: (_, __) => Container(
                                 color: tokens.surfaceVariant,
@@ -239,12 +238,14 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: tokens.accent.withValues(alpha: 0.6),
+                                      color:
+                                          tokens.accent.withValues(alpha: 0.6),
                                     ),
                                   ),
                                 ),
                               ),
-                              errorWidget: (_, __, ___) => Icon(Icons.menu_book, color: tokens.accent),
+                              errorWidget: (_, __, ___) =>
+                                  Icon(Icons.menu_book, color: tokens.accent),
                             )
                           : Icon(Icons.menu_book, color: tokens.accent),
                     ),
@@ -267,12 +268,16 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                         const SizedBox(height: 3),
                         Text(
                           '${book.author} • ${book.subject}',
-                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                          style: TextStyle(
+                              color: tokens.onSurfaceMuted, fontSize: 12),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           '${book.totalPages} pages • $sizeText',
-                          style: TextStyle(color: tokens.accent, fontSize: 11.5, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: tokens.accent,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -291,7 +296,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: tokens.accent,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () => Navigator.of(ctx).pop(true),
                   icon: const Icon(Icons.download_rounded, size: 18),
@@ -315,13 +321,15 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                           : langState.selectedLanguages.first,
                     );
                   },
-                  icon: Icon(Icons.all_inclusive_rounded, color: tokens.onSurfaceMuted, size: 16),
+                  icon: Icon(Icons.all_inclusive_rounded,
+                      color: tokens.onSurfaceMuted, size: 16),
                   label: Text(
                     (_langController.state.isAllLanguages ||
                             _langController.state.selectedLanguages.length > 1)
                         ? 'Download All 181 Books (~13.4 MB)'
                         : 'Download All ${BookLanguageMeta.fromCode(_langController.state.selectedLanguages.first).englishName} Books',
-                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5),
+                    style:
+                        TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5),
                   ),
                 ),
               ),
@@ -332,7 +340,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     );
 
     if (confirmed == true && mounted) {
-      final success = await _bookService.downloadSingleBook(book.id, language: book.language);
+      final success = await _bookService.downloadSingleBook(book.id,
+          language: book.language);
       if (success && mounted) {
         setState(() {
           _installedBookIds.add(book.id);
@@ -340,7 +349,9 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
         _openReader(book);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to download "${book.title}". Please check internet connection.')),
+          SnackBar(
+              content: Text(
+                  'Failed to download "${book.title}". Please check internet connection.')),
         );
       }
     }
@@ -353,7 +364,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
       if (mounted) {
         final count = _installedBookIds.length;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Books library installed offline ($count books)!')),
+          SnackBar(
+              content: Text('Books library installed offline ($count books)!')),
         );
       }
     } else if (mounted && _bookService.lastError != null) {
@@ -409,11 +421,15 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                 if (isInstalled)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.delete_outline_rounded, color: Theme.of(context).colorScheme.error),
-                    title: Text('Remove Download', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    leading: Icon(Icons.delete_outline_rounded,
+                        color: Theme.of(context).colorScheme.error),
+                    title: Text('Remove Download',
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error)),
                     subtitle: Text(
                       'Frees storage. Notes and reading progress are preserved.',
-                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                      style: TextStyle(
+                          color: tokens.onSurfaceMuted, fontSize: 11.5),
                     ),
                     onTap: () async {
                       Navigator.of(ctx).pop();
@@ -423,7 +439,9 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                       });
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Removed "${book.title}" from storage.')),
+                          SnackBar(
+                              content: Text(
+                                  'Removed "${book.title}" from storage.')),
                         );
                       }
                     },
@@ -432,7 +450,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.download_rounded, color: tokens.accent),
-                    title: Text('Download Book (${book.downloadSizeFormatted})', style: TextStyle(color: tokens.onSurface)),
+                    title: Text('Download Book (${book.downloadSizeFormatted})',
+                        style: TextStyle(color: tokens.onSurface)),
                     onTap: () {
                       Navigator.of(ctx).pop();
                       _promptDownloadSingleBook(book);
@@ -458,7 +477,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: tokens.surface,
-          title: Text('Resume Reading?', style: TextStyle(color: tokens.onSurface)),
+          title: Text('Resume Reading?',
+              style: TextStyle(color: tokens.onSurface)),
           content: Text(
             'You were previously on page ${progress.currentPage}. Would you like to resume from where you left off or start over from the beginning?',
             style: TextStyle(color: tokens.onSurfaceMuted),
@@ -466,7 +486,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text('Start Over', style: TextStyle(color: tokens.onSurfaceMuted)),
+              child: Text('Start Over',
+                  style: TextStyle(color: tokens.onSurfaceMuted)),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
@@ -517,7 +538,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   }
 
   void _onLanguagesSelected(Set<String> newSelection) {
-    setState(() => _selectedSubject = 'All'); // Reset subject when languages change
+    setState(
+        () => _selectedSubject = 'All'); // Reset subject when languages change
     _langController.selectLanguages(newSelection);
     _loadCatalog();
   }
@@ -549,11 +571,14 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
               backgroundColor: tokens.surfaceVariant,
               selectedColor: tokens.accent,
               labelStyle: TextStyle(
-                color: isSelected ? Theme.of(context).colorScheme.onPrimary : tokens.onSurface,
+                color: isSelected
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : tokens.onSurface,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 12.5,
               ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18)),
               side: BorderSide(
                 color: isSelected ? tokens.accent : tokens.surfaceBorder,
                 width: 0.8,
@@ -582,10 +607,12 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
               ? 'Search $_totalBooksCount books by title, author, or subject...'
               : 'Search books by title, author, or subject...',
           hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-          prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 19),
+          prefixIcon:
+              Icon(Icons.search, color: tokens.onSurfaceMuted, size: 19),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 17),
+                  icon:
+                      Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 17),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
@@ -661,12 +688,18 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                           color: tokens.surface,
                           child: book.coverFile.isNotEmpty
                               ? CachedNetworkImage(
-                                  imageUrl: GitHubDataService.bookCoverUrl(book.coverFile),
+                                  imageUrl: GitHubDataService.bookCoverUrl(
+                                      book.coverFile),
                                   fit: BoxFit.cover,
-                                  placeholder: (_, __) => Container(color: tokens.surface),
-                                  errorWidget: (context, url, error) => Icon(Icons.menu_book, color: tokens.accent, size: 22),
+                                  placeholder: (_, __) =>
+                                      Container(color: tokens.surface),
+                                  errorWidget: (context, url, error) => Icon(
+                                      Icons.menu_book,
+                                      color: tokens.accent,
+                                      size: 22),
                                 )
-                              : Icon(Icons.menu_book, color: tokens.accent, size: 22),
+                              : Icon(Icons.menu_book,
+                                  color: tokens.accent, size: 22),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -702,7 +735,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                                 value: percent,
                                 minHeight: 3.5,
                                 backgroundColor: tokens.surface,
-                                valueColor: AlwaysStoppedAnimation<Color>(tokens.accent),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    tokens.accent),
                               ),
                             ),
                           ],
@@ -720,7 +754,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     );
   }
 
-  Widget _buildSubjectShelf(String subject, List<Book> books, AppTokens tokens) {
+  Widget _buildSubjectShelf(
+      String subject, List<Book> books, AppTokens tokens) {
     if (books.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -740,7 +775,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
               ),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                 decoration: BoxDecoration(
                   color: tokens.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -818,38 +854,95 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.download_for_offline_rounded,
-              color: tokens.onSurfaceMuted,
-              size: 21,
-            ),
-            tooltip: 'Offline Downloads & Commentaries',
-            onPressed: () {
-              context.push('/downloads?tab=3').then((_) => _loadCatalog());
-            },
-          ),
-          IconButton(
-            icon: Icon(
-              _viewBySubjects ? Icons.grid_view_rounded : Icons.view_agenda_rounded,
-              color: tokens.onSurfaceMuted,
-              size: 21,
-            ),
-            tooltip: _viewBySubjects ? 'Show flat grid' : 'Group by subjects',
-            onPressed: () {
-              final newVal = !_viewBySubjects;
-              setState(() => _viewBySubjects = newVal);
-              SharedPreferences.getInstance()
-                  .then((p) => p.setBool(_prefKeyViewBySubjects, newVal));
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.refresh, color: tokens.onSurfaceMuted, size: 21),
-            tooltip: 'Refresh library',
-            onPressed: _loadCatalog,
-          ),
-        ],
+        actions: needsCollapsedActions(MediaQuery.sizeOf(context).width)
+            ? [
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: tokens.onSurfaceMuted),
+                  tooltip: 'More',
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'downloads':
+                        context
+                            .push('/downloads?tab=3')
+                            .then((_) => _loadCatalog());
+                        break;
+                      case 'view':
+                        final newVal = !_viewBySubjects;
+                        setState(() => _viewBySubjects = newVal);
+                        SharedPreferences.getInstance().then(
+                            (p) => p.setBool(_prefKeyViewBySubjects, newVal));
+                        break;
+                      case 'refresh':
+                        _loadCatalog();
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: 'downloads',
+                      child: ListTile(
+                        leading: Icon(Icons.download_for_offline_rounded),
+                        title: Text('Offline Downloads'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'view',
+                      child: ListTile(
+                        leading: Icon(Icons.grid_view_rounded),
+                        title: Text('Toggle Layout'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'refresh',
+                      child: ListTile(
+                        leading: Icon(Icons.refresh),
+                        title: Text('Refresh'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
+              ]
+            : [
+                IconButton(
+                  icon: Icon(
+                    Icons.download_for_offline_rounded,
+                    color: tokens.onSurfaceMuted,
+                    size: 21,
+                  ),
+                  tooltip: 'Offline Downloads & Commentaries',
+                  onPressed: () {
+                    context
+                        .push('/downloads?tab=3')
+                        .then((_) => _loadCatalog());
+                  },
+                ),
+                IconButton(
+                  icon: Icon(
+                    _viewBySubjects
+                        ? Icons.grid_view_rounded
+                        : Icons.view_agenda_rounded,
+                    color: tokens.onSurfaceMuted,
+                    size: 21,
+                  ),
+                  tooltip:
+                      _viewBySubjects ? 'Show flat grid' : 'Group by subjects',
+                  onPressed: () {
+                    final newVal = !_viewBySubjects;
+                    setState(() => _viewBySubjects = newVal);
+                    SharedPreferences.getInstance()
+                        .then((p) => p.setBool(_prefKeyViewBySubjects, newVal));
+                  },
+                ),
+                IconButton(
+                  icon: Icon(Icons.refresh,
+                      color: tokens.onSurfaceMuted, size: 21),
+                  tooltip: 'Refresh library',
+                  onPressed: _loadCatalog,
+                ),
+              ],
       ),
       body: MaxWidthBox(
         maxWidth: 1080,
@@ -862,7 +955,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                     const SizedBox(height: 16),
                     Text(
                       'Loading books catalog...',
-                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
+                      style:
+                          TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
                     ),
                   ],
                 ),
@@ -889,10 +983,13 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   ),
 
                   // If browsing all books with subjects view enabled:
-                  if (_viewBySubjects && _selectedSubject == 'All' && _searchQuery.isEmpty) ...[
+                  if (_viewBySubjects &&
+                      _selectedSubject == 'All' &&
+                      _searchQuery.isEmpty) ...[
                     for (final entry in _booksBySubject.entries)
                       SliverToBoxAdapter(
-                        child: _buildSubjectShelf(entry.key, entry.value, tokens),
+                        child:
+                            _buildSubjectShelf(entry.key, entry.value, tokens),
                       ),
                     const SliverToBoxAdapter(
                       child: SizedBox(height: 40),
@@ -902,7 +999,8 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
                       sliver: SliverGrid(
-                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
                           maxCrossAxisExtent: 170,
                           mainAxisSpacing: 16,
                           crossAxisSpacing: 14,
@@ -911,8 +1009,10 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
                             final book = _books[index];
-                            final isInstalled = _installedBookIds.contains(book.id);
-                            final isDownloading = _bookService.isBookDownloading(book.id);
+                            final isInstalled =
+                                _installedBookIds.contains(book.id);
+                            final isDownloading =
+                                _bookService.isBookDownloading(book.id);
 
                             return GestureDetector(
                               onLongPress: () => _showBookOptions(book),

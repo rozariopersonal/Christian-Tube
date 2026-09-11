@@ -14,6 +14,7 @@ import '../players/shorts_player.dart';
 import '../players/local_short_player.dart';
 import '../native_shorts_player.dart';
 import 'short_player_overlay.dart';
+import 'shorts_chrome.dart';
 import 'my_creations_grid.dart'; // For NonPlayableShortCard
 
 class FullscreenShortsPlayer extends StatefulWidget {
@@ -32,7 +33,8 @@ class FullscreenShortsPlayer extends StatefulWidget {
     required this.onClose,
     this.onLoadMore,
     this.orchestrator,
-  }) : assert(shorts != null || localItems != null, 'Must provide either shorts or localItems');
+  }) : assert(shorts != null || localItems != null,
+            'Must provide either shorts or localItems');
 
   @override
   State<FullscreenShortsPlayer> createState() => _FullscreenShortsPlayerState();
@@ -52,7 +54,7 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
   bool _showPlayPauseOverlay = false;
   bool _playPauseOverlayPlaying = true;
   Timer? _overlayTimer;
-  
+
   int get _itemCount => widget.shorts?.length ?? widget.localItems?.length ?? 0;
 
   @override
@@ -124,8 +126,11 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
     final isCurrentActive = index == _currentPage;
     final slotIndex = index % 3;
 
-    final short = widget.shorts != null ? widget.shorts![index] : widget.localItems![index].toShort();
-    final localItem = widget.localItems != null ? widget.localItems![index] : null;
+    final short = widget.shorts != null
+        ? widget.shorts![index]
+        : widget.localItems![index].toShort();
+    final localItem =
+        widget.localItems != null ? widget.localItems![index] : null;
 
     final hasLocalVideo = localItem != null &&
         localItem.localVideoPath != null &&
@@ -191,7 +196,6 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
             placeholder: (_, __) => Container(color: context.tokens.scrim),
             errorWidget: (_, __, ___) => Container(color: context.tokens.scrim),
           ),
-
         ShortPlayerOverlay(
           isNonPlayableLocalShort: isNonPlayableLocalShort,
           showPlayPauseOverlay: _showPlayPauseOverlay,
@@ -201,13 +205,15 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
           areControlsVisible: _areControlsVisible,
           short: short,
           localItem: localItem,
-          onShare: () => ShortsDialogService.shareShort(context, short, localItem: localItem),
+          onShare: () => ShortsDialogService.shareShort(context, short,
+              localItem: localItem),
           isScrubbing: _isScrubbing,
           currentPosition: _currentPosition,
           totalDuration: _totalDuration,
           onStopAllPlatformShorts: stopAllPlatformShorts,
           onPushRoute: (route) => context.push(route),
-          onShowDetailsSheet: () => ShortsDialogService.showShortDetailsSheet(context, short, stopAllPlatformShorts),
+          onShowDetailsSheet: () => ShortsDialogService.showShortDetailsSheet(
+              context, short, stopAllPlatformShorts),
           onPanStart: (pos) {
             setState(() {
               _isScrubbing = true;
@@ -235,73 +241,98 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        GestureDetector(
-          onHorizontalDragEnd: (details) {
-            if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
-              widget.onClose();
-            }
-          },
-          child: PageView.builder(
-            controller: _pageController,
-            scrollDirection: Axis.vertical,
-            allowImplicitScrolling: true,
-            itemCount: _itemCount,
-            onPageChanged: (index) {
-              HapticFeedback.lightImpact();
-              setState(() {
-                _currentPage = index;
-                _isPlaying = true;
-                _areControlsVisible = true;
-                _currentPosition = 0.0;
-                _totalDuration = 0.0;
-              });
-              _startAutoHideTimer();
-              if (widget.onLoadMore != null && index >= _itemCount - 4) {
-                widget.onLoadMore!();
-              }
-            },
-            itemBuilder: (context, index) {
-              return _ShortPageItem(
-                key: ValueKey('short_page_$index'),
-                index: index,
-                currentPage: _currentPage,
-                child: _buildShortPlayerStack(index),
-              );
-            },
-          ),
-        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Phone-like column on wide windows: cap the player (and its chrome)
+        // to ~480dp, centered, so the 9:16 video isn't pillarboxed tiny and the
+        // floating action bar stays anchored to the player column.
+        final playerWidth =
+            constraints.maxWidth > 560.0 ? 480.0 : constraints.maxWidth;
 
-        // Top-Left Back Button to Return to Grid
-        Positioned(
-          top: 54,
-          left: 12,
-          child: GestureDetector(
-            onTap: widget.onClose,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: context.tokens.scrim.withValues(alpha: 0.87),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: context.tokens.onSurfaceMuted),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back_ios_new, size: 13, color: context.tokens.onScrim),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Back to Grid',
-                    style: TextStyle(color: context.tokens.onScrim, fontSize: 12, fontWeight: FontWeight.bold),
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: playerWidth,
+            height: constraints.maxHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                GestureDetector(
+                  onHorizontalDragEnd: (details) {
+                    if (details.primaryVelocity != null &&
+                        details.primaryVelocity! > 300) {
+                      widget.onClose();
+                    }
+                  },
+                  child: PageView.builder(
+                    controller: _pageController,
+                    scrollDirection: Axis.vertical,
+                    allowImplicitScrolling: true,
+                    itemCount: _itemCount,
+                    onPageChanged: (index) {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        _currentPage = index;
+                        _isPlaying = true;
+                        _areControlsVisible = true;
+                        _currentPosition = 0.0;
+                        _totalDuration = 0.0;
+                      });
+                      _startAutoHideTimer();
+                      if (widget.onLoadMore != null &&
+                          index >= _itemCount - 4) {
+                        widget.onLoadMore!();
+                      }
+                    },
+                    itemBuilder: (context, index) {
+                      return _ShortPageItem(
+                        key: ValueKey('short_page_$index'),
+                        index: index,
+                        currentPage: _currentPage,
+                        child: _buildShortPlayerStack(index),
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+
+                // Top-Left Back Button to Return to Grid
+                Positioned(
+                  top: 54,
+                  left: 12,
+                  child: GestureDetector(
+                    onTap: widget.onClose,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: context.tokens.scrim.withValues(alpha: 0.87),
+                        borderRadius: BorderRadius.circular(20),
+                        border:
+                            Border.all(color: context.tokens.onSurfaceMuted),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.arrow_back_ios_new,
+                              size: 13, color: context.tokens.onScrim),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Back to Grid',
+                            style: TextStyle(
+                                color: context.tokens.onScrim,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -322,7 +353,8 @@ class _ShortPageItem extends StatefulWidget {
   State<_ShortPageItem> createState() => _ShortPageItemState();
 }
 
-class _ShortPageItemState extends State<_ShortPageItem> with AutomaticKeepAliveClientMixin {
+class _ShortPageItemState extends State<_ShortPageItem>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => (widget.index - widget.currentPage).abs() <= 1;
 

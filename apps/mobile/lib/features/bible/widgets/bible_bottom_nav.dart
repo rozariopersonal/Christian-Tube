@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
+import '../../../shared/services/reader_appearance.dart';
 import '../widgets/verse_action_bar.dart';
 import '../controllers/bible_controller.dart';
 
@@ -53,8 +54,7 @@ class BibleBottomNav extends StatelessWidget {
       onPrev: controller.fetchPrevChapter,
       onNext: controller.fetchNextChapter,
       onShowBookChapterSelector: onShowBookChapterSelector,
-      currentBookLabel:
-          '${controller.displayBookName(controller.currentBook)} '
+      currentBookLabel: '${controller.displayBookName(controller.currentBook)} '
           '${controller.currentChapter}',
     );
   }
@@ -71,7 +71,7 @@ class _ChapterNav extends StatelessWidget {
     required this.currentBookLabel,
   });
 
-  final dynamic appearance;
+  final ReaderAppearance appearance;
   final bool canFetchPrev;
   final bool canFetchNext;
   final VoidCallback onPrev;
@@ -112,9 +112,8 @@ class _ChapterNav extends StatelessWidget {
                   onPressed: canFetchPrev ? onPrev : null,
                   tooltip: 'Previous chapter',
                   icon: const Icon(Icons.chevron_left_rounded, size: 30),
-                  color: canFetchPrev
-                      ? textCol
-                      : mutedCol.withValues(alpha: 0.35),
+                  color:
+                      canFetchPrev ? textCol : mutedCol.withValues(alpha: 0.35),
                 ),
               ),
               Expanded(
@@ -148,7 +147,8 @@ class _ChapterNav extends StatelessWidget {
                             ),
                             Padding(
                               padding: const EdgeInsets.only(left: 2),
-                              child: Icon(Icons.arrow_drop_down, size: 20, color: mutedCol),
+                              child: Icon(Icons.arrow_drop_down,
+                                  size: 20, color: mutedCol),
                             ),
                           ],
                         ),
@@ -164,9 +164,8 @@ class _ChapterNav extends StatelessWidget {
                   onPressed: canFetchNext ? onNext : null,
                   tooltip: 'Next chapter',
                   icon: const Icon(Icons.chevron_right_rounded, size: 30),
-                  color: canFetchNext
-                      ? textCol
-                      : mutedCol.withValues(alpha: 0.35),
+                  color:
+                      canFetchNext ? textCol : mutedCol.withValues(alpha: 0.35),
                 ),
               ),
             ],

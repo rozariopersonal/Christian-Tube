@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/layout/adaptivity.dart';
+import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../models/bible_background_note.dart';
 
@@ -29,22 +29,14 @@ class BibleBackgroundSheet extends StatelessWidget {
     required String verseText,
     required List<BibleBackgroundNote> notes,
   }) {
-    final screen = ScreenClass.of(context);
-    return showModalBottomSheet(
+    return showAdaptiveBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: screen.isCompact ? double.infinity : 640,
-          ),
-          child: BibleBackgroundSheet(
-            verseLabel: verseLabel,
-            verseText: verseText,
-            notes: notes,
-          ),
-        ),
+      builder: (ctx) => BibleBackgroundSheet(
+        verseLabel: verseLabel,
+        verseText: verseText,
+        notes: notes,
       ),
     );
   }
@@ -210,7 +202,8 @@ class BibleBackgroundSheet extends StatelessWidget {
                 Expanded(
                   child: Text(
                     note.topic,
-                    style: (textTheme.titleMedium ?? const TextStyle()).copyWith(
+                    style:
+                        (textTheme.titleMedium ?? const TextStyle()).copyWith(
                       color: tokens.onSurface,
                       fontWeight: FontWeight.bold,
                       fontSize: 15.5,
@@ -219,7 +212,8 @@ class BibleBackgroundSheet extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
                     color: tokens.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -227,7 +221,8 @@ class BibleBackgroundSheet extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.history_edu_rounded, size: 12, color: tokens.accent),
+                      Icon(Icons.history_edu_rounded,
+                          size: 12, color: tokens.accent),
                       const SizedBox(width: 4),
                       Text(
                         note.isChapterOverview ? 'Overview' : 'Context',
@@ -246,11 +241,13 @@ class BibleBackgroundSheet extends StatelessWidget {
             if (note.quote != null && note.quote!.isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: tokens.accent.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: tokens.accent.withValues(alpha: 0.22)),
+                  border:
+                      Border.all(color: tokens.accent.withValues(alpha: 0.22)),
                 ),
                 child: Text(
                   '“${note.quote}”',
@@ -312,15 +309,18 @@ class BibleBackgroundSheet extends StatelessWidget {
                   },
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.content_copy_outlined, size: 12, color: tokens.onSurfaceMuted),
+                        Icon(Icons.content_copy_outlined,
+                            size: 12, color: tokens.onSurfaceMuted),
                         const SizedBox(width: 4),
                         Text(
                           'Copy',
-                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11),
+                          style: TextStyle(
+                              color: tokens.onSurfaceMuted, fontSize: 11),
                         ),
                       ],
                     ),

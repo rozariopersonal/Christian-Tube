@@ -18,8 +18,12 @@ class DualPageSpreadView extends StatelessWidget {
   final VoidCallback onToggleChrome;
   final void Function(int pageNum) onTriggerFetch;
   final void Function(int pageNum) onRetry;
-  final Widget Function(BuildContext context, SelectableRegionState state, int pageNum) buildSelectionToolbar;
-  final Widget Function(BookRenderBlock block, int pageNum, Color textColor, AppTokens tokens) buildBlock;
+  final Widget Function(
+          BuildContext context, SelectableRegionState state, int pageNum)
+      buildSelectionToolbar;
+  final Widget Function(
+          BookRenderBlock block, int pageNum, Color textColor, AppTokens tokens)
+      buildBlock;
 
   const DualPageSpreadView({
     super.key,
@@ -45,70 +49,80 @@ class DualPageSpreadView extends StatelessWidget {
     return GestureDetector(
       onTap: onToggleChrome,
       behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left_rounded, size: 36),
-              color: leftPage > 1 ? tokens.onSurface : tokens.onSurfaceDisabled.withValues(alpha: 0.3),
-              onPressed: leftPage > 1 ? () => onTurnSpread(-2) : null,
-              tooltip: 'Previous pages',
-            ),
-            Expanded(
-              child: ReaderPageColumn(
-                pageNum: leftPage,
-                tokens: tokens,
-                textColor: textColor,
-                isRightPage: false,
-                controller: controller,
-                appearance: appearance,
-                onTriggerFetch: onTriggerFetch,
-                onRetry: onRetry,
-                buildSelectionToolbar: buildSelectionToolbar,
-                buildBlock: buildBlock,
-              ),
-            ),
-            Container(
-              width: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              color: tokens.surfaceBorder.withValues(alpha: 0.6),
-            ),
-            Expanded(
-              child: rightPage != null
-                  ? ReaderPageColumn(
-                      pageNum: rightPage,
-                      tokens: tokens,
-                      textColor: textColor,
-                      isRightPage: true,
-                      controller: controller,
-                      appearance: appearance,
-                      onTriggerFetch: onTriggerFetch,
-                      onRetry: onRetry,
-                      buildSelectionToolbar: buildSelectionToolbar,
-                      buildBlock: buildBlock,
-                    )
-                  : Center(
-                      child: Text(
-                        'End of Book',
-                        style: TextStyle(
-                          color: tokens.onSurfaceMuted,
-                          fontSize: 14,
-                          fontStyle: FontStyle.italic,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1080),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded, size: 36),
+                  color: leftPage > 1
+                      ? tokens.onSurface
+                      : tokens.onSurfaceDisabled.withValues(alpha: 0.3),
+                  onPressed: leftPage > 1 ? () => onTurnSpread(-2) : null,
+                  tooltip: 'Previous pages',
+                ),
+                Expanded(
+                  child: ReaderPageColumn(
+                    pageNum: leftPage,
+                    tokens: tokens,
+                    textColor: textColor,
+                    isRightPage: false,
+                    controller: controller,
+                    appearance: appearance,
+                    onTriggerFetch: onTriggerFetch,
+                    onRetry: onRetry,
+                    buildSelectionToolbar: buildSelectionToolbar,
+                    buildBlock: buildBlock,
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  color: tokens.surfaceBorder.withValues(alpha: 0.6),
+                ),
+                Expanded(
+                  child: rightPage != null
+                      ? ReaderPageColumn(
+                          pageNum: rightPage,
+                          tokens: tokens,
+                          textColor: textColor,
+                          isRightPage: true,
+                          controller: controller,
+                          appearance: appearance,
+                          onTriggerFetch: onTriggerFetch,
+                          onRetry: onRetry,
+                          buildSelectionToolbar: buildSelectionToolbar,
+                          buildBlock: buildBlock,
+                        )
+                      : Center(
+                          child: Text(
+                            'End of Book',
+                            style: TextStyle(
+                              color: tokens.onSurfaceMuted,
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right_rounded, size: 36),
+                  color: rightPage != null && rightPage < totalPages
+                      ? tokens.onSurface
+                      : tokens.onSurfaceDisabled.withValues(alpha: 0.3),
+                  onPressed: rightPage != null && rightPage < totalPages
+                      ? () => onTurnSpread(2)
+                      : null,
+                  tooltip: 'Next pages',
+                ),
+              ],
             ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right_rounded, size: 36),
-              color: rightPage != null && rightPage < totalPages
-                  ? tokens.onSurface
-                  : tokens.onSurfaceDisabled.withValues(alpha: 0.3),
-              onPressed: rightPage != null && rightPage < totalPages ? () => onTurnSpread(2) : null,
-              tooltip: 'Next pages',
-            ),
-          ],
+          ),
         ),
       ),
     );

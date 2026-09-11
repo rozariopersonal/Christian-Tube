@@ -82,20 +82,21 @@ void main() {
   });
 
   group('adaptiveContentMaxWidth', () {
-    test('fills up to the preferred ceiling', () {
+    test('fills the viewport up to the content ceiling', () {
       expect(adaptiveContentMaxWidth(320), 320);
       expect(adaptiveContentMaxWidth(600), 600);
       expect(adaptiveContentMaxWidth(840), 840);
-      expect(adaptiveContentMaxWidth(1600), 1600);
+      expect(adaptiveContentMaxWidth(kContentMaxWidth), kContentMaxWidth);
     });
 
     test('grows proportionally on wide displays', () {
-      expect(adaptiveContentMaxWidth(1920), closeTo(1856, 1));
-      expect(adaptiveContentMaxWidth(2560), closeTo(2368, 1));
+      expect(adaptiveContentMaxWidth(1080), closeTo(1080, 1));
+      expect(adaptiveContentMaxWidth(1920), closeTo(1500, 1));
+      expect(adaptiveContentMaxWidth(2000), closeTo(1540, 1));
     });
 
     test('caps on ultra-wide displays', () {
-      expect(adaptiveContentMaxWidth(3440), closeTo(3072, 1));
+      expect(adaptiveContentMaxWidth(3440), kUltraContentMaxWidth);
       expect(adaptiveContentMaxWidth(3840), kUltraContentMaxWidth);
       expect(adaptiveContentMaxWidth(5120), kUltraContentMaxWidth);
     });
@@ -138,16 +139,16 @@ void main() {
       expect(size.width, 320);
     });
 
-    testWidgets('adapts to an ultra-wide viewport', (tester) async {
+    testWidgets('caps an ultra-wide viewport at the readable measure',
+        (tester) async {
       setSurfaceSize(tester, 3440, 1440);
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: subject())));
 
       final size = tester.getSize(find.byKey(childKey));
-      // With a 3440px viewport the resolved cap is ~3072, so a 2000px child
-      // passes through untouched. A fixed 1600px cap would have clamped it.
-      expect(size.width, lessThanOrEqualTo(adaptiveContentMaxWidth(3440)));
-      expect(size.width, greaterThan(kContentMaxWidth));
-      expect(size.width, 2000);
+      // MaxWidthBox (without an explicit override) caps content at the
+      // readable 1080px measure regardless of how wide the window is.
+      expect(size.width, lessThanOrEqualTo(kContentMaxWidth));
+      expect(size.width, 1080);
     });
   });
 

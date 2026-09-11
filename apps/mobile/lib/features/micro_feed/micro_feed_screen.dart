@@ -43,7 +43,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
     super.initState();
     _filterState = widget.engine.initialFilterState;
     _initializeAndLoad();
-    _resetSubscription = BottomBarVisibilityService.instance.onWordsResetRequested.listen((_) {
+    _resetSubscription =
+        BottomBarVisibilityService.instance.onWordsResetRequested.listen((_) {
       // Reset brings a brand-new random session: return all seen cards to the pool
       if (widget.engine is ScriptureEngine) {
         (widget.engine as ScriptureEngine).resetRandomDeck();
@@ -128,7 +129,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
       // If structural feed filters changed, we must clear and reload the feed
       if (oldScriptureState.bookFilter != newScriptureState.bookFilter ||
-          oldScriptureState.testamentFilter != newScriptureState.testamentFilter) {
+          oldScriptureState.testamentFilter !=
+              newScriptureState.testamentFilter) {
         // Drop the seen-cards history so cards from the previous filter can return
         scriptureEngine.resetRandomDeck();
         _initializeAndLoad();
@@ -137,8 +139,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
       // Otherwise, it's a cosmetic/version change, so update in place
       final newVersionId = newScriptureState.activeVersionId;
-      final activeChanged =
-          oldScriptureState.activeVersionId != newVersionId;
+      final activeChanged = oldScriptureState.activeVersionId != newVersionId;
       final comparisonChanged = oldScriptureState.comparisonVersionId !=
           newScriptureState.comparisonVersionId;
       for (final item in _items) {
@@ -229,9 +230,12 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                         letterSpacing: 0.5,
                       ),
                     ),
-                    if (OfflineFeedDatabase().isInitializing && progress > 0 && progress < 1.0)
+                    if (OfflineFeedDatabase().isInitializing &&
+                        progress > 0 &&
+                        progress < 1.0)
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 48, vertical: 12),
                         child: LinearProgressIndicator(
                           value: progress,
                           backgroundColor: context.tokens.surfaceBorder,
@@ -275,7 +279,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                 const SizedBox(height: 16),
                 Text(
                   _errorMessage!,
-                  style: TextStyle(color: context.tokens.onScrimMuted, fontSize: 16),
+                  style: TextStyle(
+                      color: context.tokens.onScrimMuted, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -312,7 +317,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                 const SizedBox(height: 16),
                 Text(
                   'No verses matched your filters yet.',
-                  style: TextStyle(color: context.tokens.onScrimMuted, fontSize: 16),
+                  style: TextStyle(
+                      color: context.tokens.onScrimMuted, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -396,18 +402,24 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
           // 3. Fixed Stationary Right Side Action Column (Doesn't slide on swipe)
           if (currentItem != null && currentBoundaryKey != null)
             Positioned(
+              top: 120,
               right: 14,
               bottom: 36,
               child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: widget.engine.buildSideActions(
-                    context,
-                    currentItem,
-                    _filterState,
-                    currentBoundaryKey,
-                    () => setState(() {}),
-                    _onFilterChanged,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: widget.engine.buildSideActions(
+                        context,
+                        currentItem,
+                        _filterState,
+                        currentBoundaryKey,
+                        () => setState(() {}),
+                        _onFilterChanged,
+                      ),
+                    ),
                   ),
                 ),
               ),

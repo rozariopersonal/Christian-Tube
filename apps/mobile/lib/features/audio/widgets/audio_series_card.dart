@@ -27,46 +27,45 @@ class AudioSeriesCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
-      child: SizedBox(
-        width: 150,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: AspectRatio(
+              aspectRatio: 1,
               child: Container(
-                width: 150,
-                height: 150,
                 color: tokens.surfaceVariant,
                 child: series.coverUrl != null && series.coverUrl!.isNotEmpty
                     ? CachedNetworkImage(
                         imageUrl: series.coverUrl!,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _FallbackIcon(theme: theme),
+                        errorWidget: (_, __, ___) =>
+                            _FallbackIcon(theme: theme),
                       )
                     : _FallbackIcon(theme: theme),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              series.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: tokens.onSurface,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            series.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: tokens.onSurface,
             ),
-            Text(
-              '${series.trackCount} Tracks • ${series.category}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: tokens.onSurfaceMuted,
-              ),
+          ),
+          Text(
+            '${series.trackCount} Tracks • ${series.category}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: tokens.onSurfaceMuted,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -61,7 +61,8 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
         final prefs = await SharedPreferences.getInstance();
         final savedVersion = prefs.getString('pref_bible_version') ?? 'TAOBVSI';
         final savedScale = prefs.getDouble('pref_wftw_font_scale') ?? 1.0;
-        final savedPreset = prefs.getString('pref_wftw_bg_preset') ?? 'mountain_dawn';
+        final savedPreset =
+            prefs.getString('pref_wftw_bg_preset') ?? 'mountain_dawn';
         final savedSort = prefs.getString('pref_wftw_sort_by') ?? 'date';
 
         _cachedFilterState = WftwFilterState(
@@ -138,109 +139,112 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
         filterState.bookFilter != null ||
         filterState.sortBy != 'date';
 
-    return Row(
-      children: [
-        // 1. Version Picker Pill
-        GestureDetector(
-          onTap: () {
-            showAdaptiveBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              isScrollControlled: true,
-              builder: (ctx) => BibleVersionPickerModal(
-                activeVersionId: filterState.activeVersionId,
-                onSelectVersion: (newVersionId) {
-                  final newState =
-                      filterState.copyWith(activeVersionId: newVersionId);
-                  _cachedFilterState = newState;
-                  onFilterChanged(newState);
-                },
-                onOpenManager: onOpenManager,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          // 1. Version Picker Pill
+          GestureDetector(
+            onTap: () {
+              showAdaptiveBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                isScrollControlled: true,
+                builder: (ctx) => BibleVersionPickerModal(
+                  activeVersionId: filterState.activeVersionId,
+                  onSelectVersion: (newVersionId) {
+                    final newState =
+                        filterState.copyWith(activeVersionId: newVersionId);
+                    _cachedFilterState = newState;
+                    onFilterChanged(newState);
+                  },
+                  onOpenManager: onOpenManager,
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: tokens.scrim.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: tokens.surfaceBorder, width: 1.0),
               ),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              color: tokens.scrim.withValues(alpha: 0.45),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: tokens.surfaceBorder, width: 1.0),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  filterState.activeVersionId,
-                  style: TextStyle(
-                    color: onScrim,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    filterState.activeVersionId,
+                    style: TextStyle(
+                      color: onScrim,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 16,
-                  color: onScrimMuted,
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 16,
+                    color: onScrimMuted,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        const Spacer(),
+          const Spacer(),
 
-        // 2. Filter & Sort Pill
-        GestureDetector(
-          onTap: () {
-            showAdaptiveBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              isScrollControlled: true,
-              builder: (_) => WftwFilterSheet(
-                currentState: filterState,
-                availableYears: _availableYears,
-                availableBooks: _availableBooks,
-                onApply: (newState) {
-                  _cachedFilterState = newState;
-                  onFilterChanged(newState);
-                },
-              ),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              color: tokens.scrim.withValues(alpha: 0.45),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: hasActiveFilter ? tokens.accent : tokens.surfaceBorder,
-                width: 1.0,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.tune_rounded,
-                  size: 16,
-                  color: hasActiveFilter ? tokens.accent : onScrimMuted,
+          // 2. Filter & Sort Pill
+          GestureDetector(
+            onTap: () {
+              showAdaptiveBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                isScrollControlled: true,
+                builder: (_) => WftwFilterSheet(
+                  currentState: filterState,
+                  availableYears: _availableYears,
+                  availableBooks: _availableBooks,
+                  onApply: (newState) {
+                    _cachedFilterState = newState;
+                    onFilterChanged(newState);
+                  },
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  filterState.yearFilter != null
-                      ? '${filterState.yearFilter}'
-                      : (filterState.sortBy == 'book' ? 'By Book' : 'Filter'),
-                  style: TextStyle(
-                    color: hasActiveFilter ? tokens.accent : onScrim,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: tokens.scrim.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: hasActiveFilter ? tokens.accent : tokens.surfaceBorder,
+                  width: 1.0,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    size: 16,
+                    color: hasActiveFilter ? tokens.accent : onScrimMuted,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    filterState.yearFilter != null
+                        ? '${filterState.yearFilter}'
+                        : (filterState.sortBy == 'book' ? 'By Book' : 'Filter'),
+                    style: TextStyle(
+                      color: hasActiveFilter ? tokens.accent : onScrim,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -268,14 +272,15 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
                   bookNumber: item.bookNumber!,
                   chapter: item.chapter!,
                   verse: item.startVerse!,
-                  versionId: item.resolvedVersion ?? filterState.activeVersionId,
+                  versionId:
+                      item.resolvedVersion ?? filterState.activeVersionId,
                 ),
                 context: context,
               );
             }
           : null,
-      onReadArticleTap: () =>
-          context.push('/article/${item.articleId}', extra: {'title': item.articleTitle}),
+      onReadArticleTap: () => context.push('/article/${item.articleId}',
+          extra: {'title': item.articleTitle}),
     );
   }
 
@@ -358,8 +363,11 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
   @override
   Widget? buildBottomBar(BuildContext context, WftwCard item) {
     final tokens = context.tokens;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
       children: [
         // "📝 Read Article" button
         ElevatedButton.icon(
@@ -373,13 +381,13 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
           style: ElevatedButton.styleFrom(
             backgroundColor: tokens.surface.withValues(alpha: 0.92),
             foregroundColor: tokens.onSurface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             elevation: 4,
           ),
         ),
-        if (item.hasPrimaryVerse) ...[
-          const SizedBox(width: 8),
+        if (item.hasPrimaryVerse)
           OutlinedButton.icon(
             onPressed: () {
               BiblePassageNavigator.instance.navigateTo(
@@ -387,7 +395,8 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
                   bookNumber: item.bookNumber!,
                   chapter: item.chapter!,
                   verse: item.startVerse!,
-                  versionId: item.resolvedVersion ?? _cachedFilterState.activeVersionId,
+                  versionId: item.resolvedVersion ??
+                      _cachedFilterState.activeVersionId,
                 ),
                 context: context,
               );
@@ -401,11 +410,11 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
               backgroundColor: tokens.scrim.withValues(alpha: 0.5),
               foregroundColor: tokens.onScrim,
               side: BorderSide(color: tokens.surfaceBorder),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
           ),
-        ],
       ],
     );
   }

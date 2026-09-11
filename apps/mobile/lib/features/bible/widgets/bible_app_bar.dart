@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
@@ -56,33 +57,46 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),
-      actions: [
-        IconButton(
-          tooltip: 'Search Bible',
-          icon: Icon(Icons.search, color: appearance.textColor(tokens)),
-          onPressed: onShowSearch,
-        ),
-        IconButton(
-          tooltip: 'Appearance Settings',
-          icon: Text(
-            'Aa',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-              color: appearance.textColor(tokens),
-            ),
-          ),
-          onPressed: onShowReadingSettings,
-        ),
-        _MoreMenu(
-          appearance: appearance,
-          tokens: tokens,
-          onDownloads: onPushManager,
-          onBooks: () => context.push('/books'),
-          onBookmarks: onOpenBookmarks,
-          onSettings: onShowReadingSettings,
-        ),
-      ],
+      actions: needsCollapsedActions(MediaQuery.sizeOf(context).width)
+          ? [
+              _MoreMenu(
+                appearance: appearance,
+                tokens: tokens,
+                onSearch: onShowSearch,
+                onAppearance: onShowReadingSettings,
+                onDownloads: onPushManager,
+                onBooks: () => context.push('/books'),
+                onBookmarks: onOpenBookmarks,
+                onSettings: onShowReadingSettings,
+              ),
+            ]
+          : [
+              IconButton(
+                tooltip: 'Search Bible',
+                icon: Icon(Icons.search, color: appearance.textColor(tokens)),
+                onPressed: onShowSearch,
+              ),
+              IconButton(
+                tooltip: 'Appearance Settings',
+                icon: Text(
+                  'Aa',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: appearance.textColor(tokens),
+                  ),
+                ),
+                onPressed: onShowReadingSettings,
+              ),
+              _MoreMenu(
+                appearance: appearance,
+                tokens: tokens,
+                onDownloads: onPushManager,
+                onBooks: () => context.push('/books'),
+                onBookmarks: onOpenBookmarks,
+                onSettings: onShowReadingSettings,
+              ),
+            ],
     );
   }
 }
@@ -163,7 +177,8 @@ class _VersionPicker extends StatelessWidget {
                   maxLines: 1,
                 ),
               ),
-              Icon(Icons.arrow_drop_down, size: 20, color: appearance.mutedTextColor(tokens)),
+              Icon(Icons.arrow_drop_down,
+                  size: 20, color: appearance.mutedTextColor(tokens)),
             ],
           ),
         ),
@@ -180,6 +195,8 @@ class _MoreMenu extends StatelessWidget {
     required this.onBooks,
     required this.onBookmarks,
     required this.onSettings,
+    this.onSearch,
+    this.onAppearance,
   });
 
   final ReaderAppearance appearance;
@@ -188,6 +205,8 @@ class _MoreMenu extends StatelessWidget {
   final VoidCallback onBooks;
   final VoidCallback onBookmarks;
   final VoidCallback onSettings;
+  final VoidCallback? onSearch;
+  final VoidCallback? onAppearance;
 
   @override
   Widget build(BuildContext context) {
@@ -197,24 +216,80 @@ class _MoreMenu extends StatelessWidget {
       color: appearance.surface(tokens),
       onSelected: (value) {
         switch (value) {
+          case 'search':
+            onSearch?.call();
+            break;
+          case 'appearance':
+            onAppearance?.call();
+            break;
           case 'books':
             onBooks();
+            break;
           case 'downloads':
             onDownloads();
+            break;
           case 'bookmarks':
             onBookmarks();
+            break;
           case 'settings':
             onSettings();
+            break;
         }
       },
       itemBuilder: (ctx) => [
+        if (onSearch != null)
+          PopupMenuItem(
+            value: 'search',
+            child: Row(
+              children: [
+                Icon(Icons.search,
+                    size: 18, color: appearance.textColor(tokens)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('Search',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: appearance.textColor(tokens))),
+                ),
+              ],
+            ),
+          ),
+        if (onAppearance != null)
+          PopupMenuItem(
+            value: 'appearance',
+            child: Row(
+              children: [
+                Text(
+                  'Aa',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: appearance.textColor(tokens),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('Appearance',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: appearance.textColor(tokens))),
+                ),
+              ],
+            ),
+          ),
         PopupMenuItem(
           value: 'downloads',
           child: Row(
             children: [
-              Icon(Icons.download_for_offline_rounded, size: 18, color: appearance.textColor(tokens)),
+              Icon(Icons.download_for_offline_rounded,
+                  size: 18, color: appearance.textColor(tokens)),
               const SizedBox(width: 10),
-              Text('Offline Library & Downloads', style: TextStyle(color: appearance.textColor(tokens))),
+              Expanded(
+                child: Text('Offline Library & Downloads',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: appearance.textColor(tokens))),
+              ),
             ],
           ),
         ),
@@ -222,19 +297,31 @@ class _MoreMenu extends StatelessWidget {
           value: 'books',
           child: Row(
             children: [
-              Icon(Icons.library_books_rounded, size: 18, color: appearance.textColor(tokens)),
+              Icon(Icons.library_books_rounded,
+                  size: 18, color: appearance.textColor(tokens)),
               const SizedBox(width: 10),
-              Text('Books Library', style: TextStyle(color: appearance.textColor(tokens))),
+              Expanded(
+                child: Text('Books Library',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: appearance.textColor(tokens))),
+              ),
             ],
           ),
         ),
         PopupMenuItem(
           value: 'bookmarks',
-          child: Text('Bookmarks', style: TextStyle(color: appearance.textColor(tokens))),
+          child: Text('Bookmarks',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: appearance.textColor(tokens))),
         ),
         PopupMenuItem(
           value: 'settings',
-          child: Text('Reading settings', style: TextStyle(color: appearance.textColor(tokens))),
+          child: Text('Reading settings',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: appearance.textColor(tokens))),
         ),
       ],
     );

@@ -56,7 +56,7 @@ class _WftwStyleSheetState extends State<WftwStyleSheet> {
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.7,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
