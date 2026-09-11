@@ -70,4 +70,12 @@ class RemoteSongCatalogAdapter implements SongCatalogAdapter {
     await fetchSongs(forceRefresh: forceRefresh);
     return _cachedById[songId];
   }
+
+  @override
+  Future<List<Song>> search(String query, {int limit = 50}) async {
+    final term = query.trim();
+    if (term.isEmpty) return const [];
+    final songs = await fetchSongs();
+    return songs.where((s) => s.matchesQuery(term)).take(limit).toList();
+  }
 }

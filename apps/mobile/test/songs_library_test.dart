@@ -26,6 +26,13 @@ class _FakeCatalogAdapter implements SongCatalogAdapter {
     }
     return null;
   }
+
+  @override
+  Future<List<Song>> search(String query, {int limit = 50}) async {
+    final term = query.trim();
+    if (term.isEmpty) return const [];
+    return songs.where((s) => s.matchesQuery(term)).take(limit).toList();
+  }
 }
 
 Song _song({
@@ -194,6 +201,97 @@ void main() {
       controller.dispose();
     });
 
+    test('search query filters results across titles, authors, and lyrics',
+        () async {
+      final controller = SongsLibraryController(
+        service: SongsCatalogService(
+          adapter: _FakeCatalogAdapter([
+            const Song(
+              id: 'a',
+              title: 'Amazing Grace',
+              author: 'John Newton',
+              album: 'Hymns',
+              language: 'en',
+              verses: ['Amazing grace how sweet the sound'],
+            ),
+            _song(id: 'b', title: 'Rejoice', author: 'Mary', album: 'Hymns'),
+            _song(id: 'c', title: 'Full of Grace', author: 'Amy', album: 'Two'),
+            _song(id: 'd', title: 'Walk On', author: 'John', album: 'Two'),
+          ]),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      controller.setSearchQuery('grace');
+      expect(controller.searchResults.length, 2);
+      expect(controller.searchResults.map((s) => s.id).toSet(),
+          {'a', 'c'});
+
+      // Author and title-substring matches count too.
+      controller.setSearchQuery('john');
+      expect(controller.searchResults.length, 2);
+      controller.setSearchQuery('rejoice');
+      expect(controller.searchResults.length, 1);
+
+      // Whitespace-only and empty queries disable the search filter.
+      controller.setSearchQuery('   ');
+      expect(controller.searchResults.length, 4);
+      controller.setSearchQuery('');
+      expect(controller.searchResults.length, 4);
+      controller.dispose();
+    });
+
+    test('search query filters grouped songs before grouping', () async {
+      final controller = SongsLibraryController(
+        service: SongsCatalogService(
+          adapter: _FakeCatalogAdapter([
+            _song(id: 'a', title: 'Grace', album: 'One'),
+            _song(id: 'b', title: 'Hope', album: 'One'),
+            _song(id: 'c', title: 'Grace Forever', album: 'Two'),
+          ]),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      controller.setSearchQuery('grace');
+      final groups = controller.groupedSongs;
+      expect(groups.map((g) => g.label), containsAll(['One', 'Two']));
+      final one = groups.firstWhere((g) => g.label == 'One');
+      expect(one.songs.length, 1);
+      expect(one.songs.first.id, 'a');
+      controller.dispose();
+    });
+
+    test('search matches transliterated titles and lyrics', () async {
+      final controller = SongsLibraryController(
+        service: SongsCatalogService(
+          adapter: _FakeCatalogAdapter([
+            const Song(
+              id: 'ta-1',
+              title: 'எனக்காய் ஜீவன் விட்டவரே',
+              titleRoman: 'Enakkaai Jeevan Vittavarae',
+              language: 'ta',
+              verses: ['தமிழ் வரி'],
+              versesRoman: ['Tamil line'],
+            ),
+            _song(id: 'ta-2', title: 'வேறு', language: 'ta'),
+          ]),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      controller.setSearchQuery('enakkaai');
+      expect(controller.searchResults.length, 1);
+      expect(controller.searchResults.first.id, 'ta-1');
+
+      controller.setSearchQuery('tamil line');
+      expect(controller.searchResults.length, 1);
+      controller.dispose();
+    });
+
     test('filters songs by the global language selection', () async {
       final lang = LibraryLanguagesController();
       lang.announceLanguages(['en', 'ta']);
@@ -265,6 +363,25 @@ void main() {
       expect(controller.filteredSongs.length, 1);
       expect(controller.filteredSongs.first.id, 'b');
       controller.dispose();
+    });
+  });
+
+  group('SongsCatalogService', () {
+    test('search delegates to the underlying adapter', () async {
+      final service = SongsCatalogService(
+        adapter: _FakeCatalogAdapter([
+          _song(id: 'a', title: 'Amazing Grace', author: 'John'),
+          _song(id: 'b', title: 'Rejoice', author: 'John'),
+        ]),
+      );
+
+      final results = await service.search('grace');
+      expect(results.map((s) => s.id), ['a']);
+
+      final authors = await service.search('John');
+      expect(authors.map((s) => s.id).toSet(), {'a', 'b'});
+
+      expect(await service.search('   '), isEmpty);
     });
   });
 }

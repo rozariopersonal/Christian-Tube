@@ -49,6 +49,28 @@ class Song {
 
   String get languageCode => language.toLowerCase();
 
+  /// Case-insensitive substring search over every searchable field: title
+  /// (native and Roman), author, album, collection, category, and all lyrics
+  /// (native and Roman transliteration). Used by the Songs browser search.
+  bool matchesQuery(String rawQuery) {
+    final query = rawQuery.trim().toLowerCase();
+    if (query.isEmpty) return false;
+
+    bool hit(String? value) => (value ?? '').toLowerCase().contains(query);
+
+    if (hit(title) || hit(titleRoman)) return true;
+    if (hit(author) || hit(album) || hit(collection) || hit(category)) {
+      return true;
+    }
+    for (final verse in verses) {
+      if (verse.toLowerCase().contains(query)) return true;
+    }
+    for (final verse in versesRoman) {
+      if (verse.toLowerCase().contains(query)) return true;
+    }
+    return false;
+  }
+
   const Song.empty({String language = 'en'})
       : this(id: '', title: '', language: language);
 

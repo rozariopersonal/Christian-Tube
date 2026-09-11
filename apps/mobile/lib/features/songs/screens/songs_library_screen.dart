@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,10 +11,12 @@ import '../../../shared/ui/language_dropdown.dart';
 import '../controllers/songs_library_controller.dart';
 import '../models/song_collection.dart';
 import '../services/songs_catalog_service.dart';
+import '../services/songs_download_manager.dart';
 import '../widgets/song_card.dart';
 
 /// The unified songs browser: browse by album, author, or collection, filtered
-/// by the shared library language selection.
+/// by the shared library language selection. On native platforms an optional
+/// offline SQLite package can be downloaded via the AppBar action.
 class SongsLibraryScreen extends StatefulWidget {
   final SongsCatalogService? service;
   final LibraryLanguagesController? langController;
@@ -28,6 +33,8 @@ class SongsLibraryScreen extends StatefulWidget {
 
 class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
   late final SongsLibraryController _controller;
+  final TextEditingController _searchController = TextEditingController();
+  final SongsDownloadManager _downloadManager = SongsDownloadManager();
 
   @override
   void initState() {
@@ -36,10 +43,12 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
       service: widget.service,
       langController: widget.langController,
     );
+    unawaited(_downloadManager.initialize());
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -47,6 +56,95 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
   void _openSong(SongCollection collection, int index) {
     final song = collection.songs[index];
     context.push('/song/${song.id}', extra: song);
+  }
+
+  /// AppBar control for the optional offline songs package: shows a progress
+  /// spinner while downloading, an offline-ready badge once installed, and a
+  /// download button otherwise. Hidden on web (no sqflite there).
+  Widget _buildOfflineAction() {
+    return ListenableBuilder(
+      listenable: _downloadManager,
+      builder: (context, _) {
+        final tokens = context.tokens;
+        if (_downloadManager.isDownloading) {
+          return Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                value: _downloadManager.downloadProgress > 0
+                    ? _downloadManager.downloadProgress
+                    : null,
+                color: tokens.accent,
+              ),
+            ),
+          );
+        }
+        if (_downloadManager.isInstalled) {
+          return IconButton(
+            icon: Icon(Icons.offline_pin_rounded, color: tokens.accent),
+            tooltip: 'Songs saved for offline — tap to remove',
+            onPressed: () => _onRemoveOffline(context),
+          );
+        }
+        return IconButton(
+          icon: Icon(Icons.download_outlined, color: tokens.onSurfaceMuted),
+          tooltip: 'Download songs for offline use',
+          onPressed: () => _onDownloadOffline(context),
+        );
+      },
+    );
+  }
+
+  Future<void> _onDownloadOffline(BuildContext context) async {
+    final ok = await _downloadManager.download();
+    if (!mounted) return;
+    if (ok) {
+      await _controller.load(forceRefresh: false);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not download songs. Check your connection and try again.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _onRemoveOffline(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: context.tokens.surface,
+        title: Text(
+          'Remove offline songs?',
+          style: TextStyle(color: context.tokens.onSurface),
+        ),
+        content: Text(
+          'Songs will stream from the internet again.',
+          style: TextStyle(color: context.tokens.onSurfaceMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: context.tokens.onSurface),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: context.tokens.accent),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _downloadManager.delete();
+    await _controller.load(forceRefresh: true);
   }
 
   @override
@@ -71,6 +169,7 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
                 tooltip: 'Refresh songs',
                 onPressed: () => _controller.load(forceRefresh: true),
               ),
+              if (!kIsWeb) _buildOfflineAction(),
             ],
           ),
           body: MaxWidthBox(
@@ -85,6 +184,9 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
                     child: CustomScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       slivers: [
+                        SliverToBoxAdapter(
+                          child: _buildSearchField(tokens),
+                        ),
                         SliverToBoxAdapter(
                           child: _buildLanguageFilter(tokens),
                         ),
@@ -102,6 +204,45 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSearchField(AppTokens tokens) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _controller.setSearchQuery,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Search songs, authors, lyrics…',
+          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+            color: tokens.onSurfaceMuted,
+          ),
+          prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted),
+          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _searchController,
+            builder: (context, value, _) {
+              if (value.text.isEmpty) return const SizedBox.shrink();
+              return IconButton(
+                icon: Icon(Icons.clear, color: tokens.onSurfaceMuted),
+                tooltip: 'Clear search',
+                onPressed: () {
+                  _searchController.clear();
+                  _controller.setSearchQuery('');
+                },
+              );
+            },
+          ),
+          filled: true,
+          fillColor: tokens.surfaceVariant,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
     );
   }
 
@@ -162,12 +303,16 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
   Widget _buildGroupList(AppTokens tokens) {
     final groups = _controller.groupedSongs;
     if (groups.isEmpty) {
+      final query = _controller.state.query;
       return SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 48),
           child: Center(
             child: Text(
-              'No songs found for the selected language.',
+              query.isNotEmpty
+                  ? 'No songs found for "$query".'
+                  : 'No songs found for the selected language.',
+              textAlign: TextAlign.center,
               style: TextStyle(color: tokens.onSurfaceMuted),
             ),
           ),
@@ -180,20 +325,15 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
         for (final group in groups) ...[
           _buildGroupHeader(tokens, group),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 320,
-                mainAxisExtent: 72,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, i) => SongCard(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            sliver: SliverList.builder(
+              itemCount: group.songs.length,
+              itemBuilder: (context, i) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SongCard(
                   song: group.songs[i],
                   onTap: () => _openSong(group, i),
                 ),
-                childCount: group.songs.length,
               ),
             ),
           ),

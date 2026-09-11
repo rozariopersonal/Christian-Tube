@@ -29,6 +29,9 @@ import 'release_assets.dart';
 /// │       └── chapters/b{bb}_c{ccc}.json    # live per-chapter
 /// ├── dictionaries/
 /// │   └── dict_{id}.sqlite.gz
+/// ├── songs/
+/// │   ├── catalog.json            # live JSON catalog (streaming default)
+/// │   └── songs.sqlite.gz         # offline searchable SQLite (optional download)
 /// ├── words_feed/
 /// │   ├── manifest.json
 /// │   ├── daily.json
@@ -302,6 +305,11 @@ static List<String> wftwManifestUrls() =>
   /// Song catalog manifest listing all songs across collections/languages.
   static List<String> songsCatalogUrls() =>
       ReleaseAssets.urlsFor('songs/catalog.json');
+
+  /// Prebuilt SQLite catalog for offline browsing and rich FTS5 search
+  /// (optional download, mirroring the dictionaries/books sqlite packages).
+  static List<String> songsSqliteUrls() =>
+      ReleaseAssets.urlsFor('songs/songs.sqlite.gz');
 
   // ── Reader fonts ──────────────────────────────────────────────────────────
 

@@ -7,6 +7,7 @@ import 'package:mobile/features/songs/screens/song_reader_screen.dart';
 import 'package:mobile/features/songs/screens/songs_library_screen.dart';
 import 'package:mobile/features/songs/adapters/song_catalog_adapter.dart';
 import 'package:mobile/features/songs/services/songs_catalog_service.dart';
+import 'package:mobile/features/songs/widgets/song_card.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
   tester.view.physicalSize = Size(width, height);
@@ -48,6 +49,13 @@ class _FakeAdapter implements SongCatalogAdapter {
   @override
   Future<Song?> fetchSong(String songId, {bool forceRefresh = false}) async =>
       songs.where((s) => s.id == songId).firstOrNull;
+
+  @override
+  Future<List<Song>> search(String query, {int limit = 50}) async {
+    final term = query.trim();
+    if (term.isEmpty) return const [];
+    return songs.where((s) => s.matchesQuery(term)).take(limit).toList();
+  }
 }
 
 const List<double> kBreakpoints = [320, 600, 840, 1400];
@@ -184,6 +192,93 @@ void main() {
 
       expect(find.text('Author1'), findsOneWidget);
       expect(find.text('Author2'), findsOneWidget);
+    });
+
+    testWidgets('search field filters the list', (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: SongsLibraryScreen(service: fakeService()),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Song A');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SongCard), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SongCard),
+          matching: find.text('Song A'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Song B'), findsNothing);
+      expect(find.text('Song C'), findsNothing);
+    });
+
+    testWidgets('search matches an author and clears back to full list',
+        (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: SongsLibraryScreen(service: fakeService()),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Author2');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Song B'), findsOneWidget);
+      expect(find.text('Song A'), findsNothing);
+
+      // Clear via the suffix button restores the full grouped list.
+      await tester.tap(find.byIcon(Icons.clear));
+      await tester.pumpAndSettle();
+      expect(find.text('Song A'), findsOneWidget);
+      expect(find.text('Song B'), findsOneWidget);
+      expect(find.text('Song C'), findsOneWidget);
+    });
+
+    testWidgets('search shows an empty state when nothing matches',
+        (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: SongsLibraryScreen(service: fakeService()),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'zzzz');
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('No songs found'), findsOneWidget);
+      expect(find.text('Song A'), findsNothing);
+    });
+
+    testWidgets('songs render as list rows, not grid tiles', (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: SongsLibraryScreen(service: fakeService()),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SliverGrid), findsNothing);
+      expect(find.byType(SliverList), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('shows the offline download action on native', (tester) async {
+      setSurfaceSize(tester, 400, 800);
+      await tester.pumpWidget(MaterialApp(
+        theme: testTheme(),
+        home: SongsLibraryScreen(service: fakeService()),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.download_outlined), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

@@ -16,6 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { DatabaseSync } = require('node:sqlite');
 
 // ── Paths ───────────────────────────────────────────────────────────────────
@@ -452,6 +453,107 @@ async function importEnglishSongs() {
   return songs;
 }
 
+// ── Songs SQLite (offline package) ──────────────────────────────────────────
+
+/// Builds `releases/songs/songs.sqlite.gz` from the finalized song list.
+///
+/// Schema mirrors the `Song` model: a normalized `songs` table, a
+/// `song_verses` table (one row per verse block), and two FTS5 virtual tables
+/// (`songs_fts`, `lyrics_fts`) so the app can run rich full-text search
+/// directly against the local database (metadata + lyrics, native + Roman).
+function buildSongsSqlite(songs) {
+  const dbPath = path.join(SONGS_DIR, 'songs.sqlite');
+  const gzPath = path.join(SONGS_DIR, 'songs.sqlite.gz');
+  if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+
+  const db = new DatabaseSync(dbPath);
+  db.exec(`
+    PRAGMA journal_mode = OFF;
+    CREATE TABLE songs (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      title_roman TEXT,
+      author TEXT,
+      album TEXT,
+      collection TEXT,
+      language TEXT NOT NULL,
+      category TEXT,
+      audio_url TEXT
+    );
+    CREATE TABLE song_verses (
+      song_id TEXT NOT NULL,
+      idx INTEGER NOT NULL,
+      text TEXT,
+      text_roman TEXT,
+      PRIMARY KEY (song_id, idx)
+    );
+    CREATE INDEX idx_song_verses_song ON song_verses(song_id);
+    CREATE VIRTUAL TABLE songs_fts USING fts5(
+      song_id UNINDEXED, title, title_roman, author, album, collection, category
+    );
+    CREATE VIRTUAL TABLE lyrics_fts USING fts5(
+      song_id UNINDEXED, verse_idx UNINDEXED, text, text_roman
+    );
+  `);
+
+  const insertSong = db.prepare(
+    'INSERT INTO songs (id, title, title_roman, author, album, collection, language, category, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  );
+  const insertVerse = db.prepare(
+    'INSERT INTO song_verses (song_id, idx, text, text_roman) VALUES (?, ?, ?, ?)'
+  );
+  const insertSongFts = db.prepare(
+    'INSERT INTO songs_fts (song_id, title, title_roman, author, album, collection, category) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+  const insertLyricsFts = db.prepare(
+    'INSERT INTO lyrics_fts (song_id, verse_idx, text, text_roman) VALUES (?, ?, ?, ?)'
+  );
+
+  db.exec('BEGIN');
+  try {
+    for (const s of songs) {
+      const title = s.title ?? '';
+      const titleRoman = s.titleRoman ?? '';
+      const author = s.author ?? '';
+      const album = s.album ?? '';
+      const collection = s.collection ?? '';
+      const category = s.category ?? '';
+      const verses = Array.isArray(s.verses) ? s.verses : [];
+      const versesRoman = Array.isArray(s.versesRoman) ? s.versesRoman : [];
+
+      insertSong.run(
+        s.id, title, titleRoman || null, author || null, album || null,
+        collection || null, s.language || 'en', category || null,
+        s.audioUrl || null
+      );
+      insertSongFts.run(s.id, title, titleRoman, author, album, collection, category);
+
+      for (let i = 0; i < verses.length; i++) {
+        const text = verses[i] ?? '';
+        const textRoman = versesRoman[i] ?? '';
+        insertVerse.run(s.id, i, text, textRoman || null);
+        insertLyricsFts.run(s.id, i, text, textRoman || '');
+      }
+    }
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+
+  db.exec('ANALYZE');
+  db.close();
+
+  const raw = fs.readFileSync(dbPath);
+  const gz = zlib.gzipSync(raw, { level: 9 });
+  fs.writeFileSync(gzPath, gz);
+  fs.unlinkSync(dbPath);
+  console.log(
+    `  ✓ Wrote releases/songs/songs.sqlite.gz ` +
+      `(${(gz.length / 1024 / 1024).toFixed(2)} MB gz from ${songs.length} songs)`
+  );
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -486,6 +588,8 @@ async function main() {
   ensureDir(SONGS_DIR);
   writeJson(path.join(SONGS_DIR, 'catalog.json'), catalog);
   console.log(`  ✓ Wrote releases/songs/catalog.json`);
+
+  buildSongsSqlite(deduped);
 
   bumpRevision();
 

@@ -16,21 +16,27 @@ class SongsViewState {
   final List<Song> songs;
   final SongGroupMode groupMode;
 
+  /// Trimmed search text. Empty means no search filter is active.
+  final String query;
+
   const SongsViewState({
     this.isLoading = true,
     this.songs = const [],
     this.groupMode = SongGroupMode.albums,
+    this.query = '',
   });
 
   SongsViewState copyWith({
     bool? isLoading,
     List<Song>? songs,
     SongGroupMode? groupMode,
+    String? query,
   }) {
     return SongsViewState(
       isLoading: isLoading ?? this.isLoading,
       songs: songs ?? this.songs,
       groupMode: groupMode ?? this.groupMode,
+      query: query ?? this.query,
     );
   }
 }
@@ -100,6 +106,13 @@ class SongsLibraryController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setSearchQuery(String query) {
+    final q = query.trim();
+    if (_state.query == q) return;
+    _state = _state.copyWith(query: q);
+    notifyListeners();
+  }
+
   void _announceLanguages(List<Song> songs) {
     final codes = <String>{};
     for (final s in songs) {
@@ -129,8 +142,16 @@ class SongsLibraryController extends ChangeNotifier {
     return _state.songs.where((s) => langState.includes(s.language)).toList();
   }
 
-  List<SongCollection> get groupedSongs {
+  /// Language-filtered songs further narrowed by the active search query.
+  List<Song> get searchResults {
     final songs = filteredSongs;
+    final query = _state.query;
+    if (query.isEmpty) return songs;
+    return songs.where((s) => s.matchesQuery(query)).toList();
+  }
+
+  List<SongCollection> get groupedSongs {
+    final songs = searchResults;
     final Map<String, List<Song>> groups = {};
     final Map<String, String?> subtitles = {};
 
