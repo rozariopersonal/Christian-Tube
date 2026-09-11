@@ -140,8 +140,21 @@ if (fs.existsSync(webIndexPath)) {
     /<meta name="apple-mobile-web-app-title" content="[^"]*">/,
     `<meta name="apple-mobile-web-app-title" content="${config.appName}">`
   );
+  if (config.googleClientId) {
+    if (webIndex.includes('google-signin-client_id')) {
+      webIndex = webIndex.replace(
+        /<meta name="google-signin-client_id" content="[^"]*">/,
+        `<meta name="google-signin-client_id" content="${config.googleClientId}">`
+      );
+    } else {
+      webIndex = webIndex.replace(
+        '</head>',
+        `  <meta name="google-signin-client_id" content="${config.googleClientId}">\n</head>`
+      );
+    }
+  }
   fs.writeFileSync(webIndexPath, webIndex, 'utf8');
-  console.log(`✅ Updated web/index.html title to: ${config.appName}`);
+  console.log(`✅ Updated web/index.html for: ${config.appName}`);
 }
 
 // 8. Update web/manifest.json with instance branding

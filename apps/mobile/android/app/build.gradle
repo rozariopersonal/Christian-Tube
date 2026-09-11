@@ -75,6 +75,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (file("release.keystore").exists()) {
+                signingConfig signingConfigs.release
+            }
+        }
         release {
             if ((System.getenv("KEYSTORE_BASE64") != null && !System.getenv("KEYSTORE_BASE64").isEmpty()) || file("release.keystore").exists()) {
                 signingConfig signingConfigs.release
