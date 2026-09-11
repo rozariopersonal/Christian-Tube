@@ -67,6 +67,7 @@ services:
       WORK_DIR: /work
       POLL_INTERVAL: "300"
       BATCH_LIMIT: "5"
+      CHANNELS: "CFC Songs & Hymns"
     volumes:
       - processor-work:/work
 
