@@ -9,7 +9,8 @@ class ChannelService extends ChangeNotifier {
   static final ChannelService _instance = ChannelService._internal();
   factory ChannelService() => _instance;
 
-  late AuthService _authService;
+  AuthService? _authService;
+  AuthService? get authService => _authService;
 
   ChannelService._internal() {
     loadSubscriptions();
@@ -18,7 +19,6 @@ class ChannelService extends ChangeNotifier {
   void attachToAuth(AuthService authService) {
     _authService = authService;
     authService.addListener(_onAuthChanged);
-    _onAuthChanged();
   }
 
   void _onAuthChanged() {
@@ -41,29 +41,7 @@ class ChannelService extends ChangeNotifier {
   bool isSubscribed(String channelId) => _subscribedIds.contains(channelId);
 
   Future<void> loadSubscriptions() async {
-    final isAuth = _authService.isAuthenticated;
-
-    if (isAuth) {
-      await _loadFromServer();
-    } else {
-      await _loadFromPrefs();
-    }
-  }
-
-  Future<void> _loadFromServer() async {
-    try {
-      final response = await _apiClient.dio.get('/user/subscriptions');
-      if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> list = response.data['channelIds'] ?? [];
-        _subscribedIds = list.cast<String>().toSet();
-        await _saveToPrefs();
-        _syncSubscriptionStatus();
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Error loading subscriptions from server: $e');
-      await _loadFromPrefs();
-    }
+    await _loadFromPrefs();
   }
 
   Future<void> _loadFromPrefs() async {
@@ -81,20 +59,6 @@ class ChannelService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('subscribed_channel_ids', _subscribedIds.toList());
     } catch (_) {}
-  }
-
-  Future<void> _saveToServer() async {
-    final isAuth = _authService.isAuthenticated;
-    if (!isAuth) return;
-
-    try {
-      await _apiClient.dio.post(
-        '/user/subscriptions/sync',
-        data: {'channelIds': _subscribedIds.toList()},
-      );
-    } catch (e) {
-      debugPrint('Error saving subscriptions to server: $e');
-    }
   }
 
   void _syncSubscriptionStatus() {
@@ -236,7 +200,6 @@ class ChannelService extends ChangeNotifier {
         _channels.removeWhere((c) => c.id == channelId);
         _subscribedIds.remove(channelId);
         await _saveToPrefs();
-        await _saveToServer();
         notifyListeners();
         return true;
       }
@@ -311,7 +274,6 @@ class ChannelService extends ChangeNotifier {
     }
 
     _saveToPrefs();
-    _saveToServer();
     notifyListeners();
   }
 }

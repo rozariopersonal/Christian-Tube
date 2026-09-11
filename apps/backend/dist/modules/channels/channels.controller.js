@@ -23,11 +23,18 @@ let ChannelsController = class ChannelsController {
     async getChannels() {
         return this.channelsService.findAll();
     }
-    async getChannel(id) {
-        return this.channelsService.findOne(id);
+    async checkAdmin(email) {
+        const isAdmin = this.channelsService.isAdmin(email);
+        return { email, isAdmin };
     }
     async searchYouTube(q) {
         return this.channelsService.searchYouTube(q);
+    }
+    async listChannelRequests() {
+        return this.channelsService.listRequests();
+    }
+    async getChannel(id) {
+        return this.channelsService.findOne(id);
     }
     async addChannel(body) {
         return this.channelsService.addChannel(body);
@@ -37,9 +44,6 @@ let ChannelsController = class ChannelsController {
     }
     async syncChannel(id) {
         return this.channelsService.syncChannel(id);
-    }
-    async listChannelRequests() {
-        return this.channelsService.listRequests();
     }
     async submitChannelRequest(body) {
         return this.channelsService.createRequest(body);
@@ -59,12 +63,12 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ChannelsController.prototype, "getChannels", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)('check-admin'),
+    __param(0, (0, common_1.Query)('email')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
-], ChannelsController.prototype, "getChannel", null);
+], ChannelsController.prototype, "checkAdmin", null);
 __decorate([
     (0, common_1.Get)('search-youtube'),
     __param(0, (0, common_1.Query)('q')),
@@ -72,6 +76,20 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ChannelsController.prototype, "searchYouTube", null);
+__decorate([
+    (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
+    (0, common_1.Get)('requests'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], ChannelsController.prototype, "listChannelRequests", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ChannelsController.prototype, "getChannel", null);
 __decorate([
     (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     (0, common_1.Post)(),
@@ -96,13 +114,6 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ChannelsController.prototype, "syncChannel", null);
-__decorate([
-    (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
-    (0, common_1.Get)('requests'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], ChannelsController.prototype, "listChannelRequests", null);
 __decorate([
     (0, common_1.Post)('request'),
     __param(0, (0, common_1.Body)()),

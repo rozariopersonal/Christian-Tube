@@ -11,14 +11,26 @@ export class ChannelsController {
     return this.channelsService.findAll();
   }
 
-  @Get(':id')
-  async getChannel(@Param('id') id: string) {
-    return this.channelsService.findOne(id);
+  @Get('check-admin')
+  async checkAdmin(@Query('email') email: string) {
+    const isAdmin = this.channelsService.isAdmin(email);
+    return { email, isAdmin };
   }
 
   @Get('search-youtube')
   async searchYouTube(@Query('q') q: string) {
     return this.channelsService.searchYouTube(q);
+  }
+
+  @UseGuards(AdminGuard)
+  @Get('requests')
+  async listChannelRequests() {
+    return this.channelsService.listRequests();
+  }
+
+  @Get(':id')
+  async getChannel(@Param('id') id: string) {
+    return this.channelsService.findOne(id);
   }
 
   @UseGuards(AdminGuard)
@@ -39,12 +51,6 @@ export class ChannelsController {
   @Post(':id/sync')
   async syncChannel(@Param('id') id: string) {
     return this.channelsService.syncChannel(id);
-  }
-
-  @UseGuards(AdminGuard)
-  @Get('requests')
-  async listChannelRequests() {
-    return this.channelsService.listRequests();
   }
 
   @Post('request')

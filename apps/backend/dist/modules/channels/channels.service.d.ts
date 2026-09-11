@@ -7,6 +7,7 @@ export declare class ChannelsService {
     private readonly syncService;
     private readonly logger;
     constructor(prisma: PrismaService, configService: ConfigService, syncService: SyncService);
+    isAdmin(email?: string): boolean;
     findAll(): Promise<{
         videoCount: number;
         _count: {

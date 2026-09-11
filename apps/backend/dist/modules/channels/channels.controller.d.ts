@@ -21,6 +21,20 @@ export declare class ChannelsController {
         createdAt: Date;
         updatedAt: Date;
     }[]>;
+    checkAdmin(email: string): Promise<{
+        email: string;
+        isAdmin: boolean;
+    }>;
+    searchYouTube(q: string): Promise<any[]>;
+    listChannelRequests(): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        channelUrl: string;
+        notes: string | null;
+        status: string;
+        submittedBy: string | null;
+    }[]>;
     getChannel(id: string): Promise<{
         videoCount: number;
         _count: {
@@ -40,7 +54,6 @@ export declare class ChannelsController {
         createdAt: Date;
         updatedAt: Date;
     }>;
-    searchYouTube(q: string): Promise<any[]>;
     addChannel(body: {
         channelUrl: string;
         name?: string;
@@ -88,15 +101,6 @@ export declare class ChannelsController {
         status: string;
         message: string;
     }>;
-    listChannelRequests(): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        channelUrl: string;
-        notes: string | null;
-        status: string;
-        submittedBy: string | null;
-    }[]>;
     submitChannelRequest(body: {
         channelUrl: string;
         notes?: string;

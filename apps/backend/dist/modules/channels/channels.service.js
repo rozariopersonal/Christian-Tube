@@ -26,6 +26,12 @@ let ChannelsService = ChannelsService_1 = class ChannelsService {
         this.syncService = syncService;
         this.logger = new common_1.Logger(ChannelsService_1.name);
     }
+    isAdmin(email) {
+        if (!email)
+            return false;
+        const adminEmails = this.configService.get('adminEmails') || [];
+        return adminEmails.includes(email.trim().toLowerCase());
+    }
     async findAll() {
         const channels = await this.prisma.channel.findMany({
             where: { isActive: true },

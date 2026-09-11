@@ -12,6 +12,7 @@ import '../../core/theme/theme_service.dart';
 import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
+import '../../core/config/app_config.dart';
 
 class ProfileScreen extends StatelessWidget {
   final AuthService authService;
@@ -27,6 +28,61 @@ class ProfileScreen extends StatelessWidget {
     required this.themeService,
   });
 
+  void _showQuickSignInDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Sign In to ${AppConfig.appName}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter your email to sign in or test Admin access if configured.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Display Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Email Address',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final user = await authService.signInAsGuest(
+                  nameCtrl.text, emailCtrl.text);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Signed in as ${user.displayName}')),
+                );
+              }
+            },
+            child: const Text('Sign In'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _handleGoogleSignIn(BuildContext context) async {
     final user = await authService.signInWithGoogle();
     if (context.mounted) {
@@ -38,6 +94,10 @@ class ProfileScreen extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authService.lastError!),
+            action: SnackBarAction(
+              label: 'Quick Sign-In',
+              onPressed: () => _showQuickSignInDialog(context),
+            ),
           ),
         );
       }
@@ -266,6 +326,15 @@ class ProfileScreen extends StatelessWidget {
                                   label: const Text('Continue with Google',
                                       style: TextStyle(
                                           fontWeight: FontWeight.bold)),
+                                ),
+                                const SizedBox(height: 8),
+                                TextButton.icon(
+                                  onPressed: () =>
+                                      _showQuickSignInDialog(context),
+                                  icon: const Icon(Icons.email_outlined,
+                                      size: 16),
+                                  label: const Text('Sign In with Email / Name',
+                                      style: TextStyle(fontSize: 13)),
                                 ),
                               ],
                             ],

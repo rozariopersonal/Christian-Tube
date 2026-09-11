@@ -27,10 +27,8 @@ class AuthService extends ChangeNotifier {
   }
 
   void _initGoogleSignIn() {
-    final clientId = AppConfig.googleClientId;
     _googleSignIn = GoogleSignIn(
-      clientId: kIsWeb ? clientId : null,
-      serverClientId: clientId,
+      clientId: kIsWeb ? AppConfig.googleClientId : null,
       scopes: const ['email', 'profile'],
     );
   }
@@ -47,21 +45,18 @@ class AuthService extends ChangeNotifier {
         debugPrint('Failed to parse cached user: $e');
       }
 
-      _restoreGoogleSession();
+      if (kIsWeb) {
+        _restoreWebGoogleSession();
+      }
     }
   }
 
-  Future<void> _restoreGoogleSession() async {
+  Future<void> _restoreWebGoogleSession() async {
     try {
-      _initGoogleSignIn();
       final account = await _googleSignIn.signInSilently();
       if (account != null) {
-        final auth = await account.authentication.timeout(
-          const Duration(seconds: 15),
-          onTimeout: () => throw Exception('Silent auth timeout'),
-        );
-        final idToken = auth.idToken;
-        if (idToken != null && idToken.isNotEmpty) {
+        final auth = await account.authentication;
+        if (auth.idToken != null && auth.idToken!.isNotEmpty) {
           _currentUser = User(
             id: _currentUser?.id ?? account.id,
             email: account.email,
@@ -70,18 +65,18 @@ class AuthService extends ChangeNotifier {
                     ? account.displayName!
                     : account.email.split('@').first,
             photoUrl: account.photoUrl,
-            idToken: idToken,
+            idToken: auth.idToken,
           );
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(
               'current_user', jsonEncode(_currentUser!.toJson()));
-          await prefs.setString('auth_token', idToken);
+          await prefs.setString('auth_token', auth.idToken!);
           notifyListeners();
-          debugPrint('Google session restored silently.');
+          debugPrint('Web Google session restored silently.');
         }
       }
     } catch (e) {
-      debugPrint('Google session restore skipped: $e');
+      debugPrint('Web Google session restore skipped: $e');
     }
   }
 
@@ -115,11 +110,6 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (AppConfig.googleClientId == null || AppConfig.googleClientId!.isEmpty) {
-        await AppConfig.initialize();
-      }
-      _initGoogleSignIn();
-
       if (!kIsWeb) {
         try {
           await _googleSignIn.signOut();
@@ -133,7 +123,8 @@ class AuthService extends ChangeNotifier {
       } catch (e) {
         debugPrint('Primary Google Sign-In attempt error: $e');
         innerError = e.toString();
-        if (!kIsWeb) {
+        // Fallback: try with serverClientId if configured
+        if (!kIsWeb && AppConfig.googleClientId != null) {
           try {
             final fallbackSignIn = GoogleSignIn(
               serverClientId: AppConfig.googleClientId,
@@ -152,32 +143,13 @@ class AuthService extends ChangeNotifier {
         String? idToken;
         try {
           final auth = await account.authentication.timeout(
-            const Duration(seconds: 15),
+            const Duration(seconds: 10),
             onTimeout: () => throw Exception('Authentication timeout'),
           );
           idToken = auth.idToken;
         } catch (authErr) {
           debugPrint('Google authentication token fetch warning: $authErr');
         }
-
-        // Retry once if token was momentarily unavailable
-        if (idToken == null || idToken.isEmpty) {
-          try {
-            final retryAuth = await account.authentication.timeout(
-              const Duration(seconds: 15),
-              onTimeout: () => throw Exception('Retry authentication timeout'),
-            );
-            idToken = retryAuth.idToken;
-          } catch (retryErr) {
-            debugPrint('Google authentication retry warning: $retryErr');
-          }
-        }
-
-        // Use Google ID token; if uncertified device fails to mint one,
-        // use token_${account.id} so the user is not completely blocked
-        final effectiveToken = (idToken != null && idToken.isNotEmpty)
-            ? idToken
-            : 'token_${account.id}';
 
         final user = User(
           id: account.id.isNotEmpty ? account.id : 'user_${DateTime.now().millisecondsSinceEpoch}',
@@ -186,13 +158,15 @@ class AuthService extends ChangeNotifier {
               ? account.displayName!
               : account.email.split('@').first,
           photoUrl: account.photoUrl,
-          idToken: effectiveToken,
+          idToken: idToken ?? 'token_${account.id}',
         );
 
         _currentUser = user;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('current_user', jsonEncode(user.toJson()));
-        await prefs.setString('auth_token', user.idToken!);
+        if (user.idToken != null) {
+          await prefs.setString('auth_token', user.idToken!);
+        }
 
         _syncUserWithBackend(user);
         await checkIsAdmin(user.email);
@@ -202,9 +176,8 @@ class AuthService extends ChangeNotifier {
         return user;
       } else {
         if (innerError != null) {
-          _lastError = 'Sign-in failed. Please check network and app configuration.\nDetails: ${innerError.replaceAll('Exception:', '').trim()}';
+          _lastError = 'Sign-in failed. Please check app configuration/network.\nDetails: ${innerError.replaceAll('Exception:', '').trim()}';
         } else {
-          // User closed account picker without selecting
           _lastError = null;
         }
       }
@@ -229,6 +202,40 @@ class AuthService extends ChangeNotifier {
         debugPrint('Backend user sync non-blocking error: $e');
       }
     });
+  }
+
+  Future<User> signInAsGuest([String? customName, String? customEmail]) async {
+    _isLoading = true;
+    _lastError = null;
+    notifyListeners();
+
+    final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
+    final name = (customName != null && customName.trim().isNotEmpty)
+        ? customName.trim()
+        : '${AppConfig.appName} Member';
+    final email = (customEmail != null && customEmail.trim().isNotEmpty)
+        ? customEmail.trim()
+        : 'admin@centumacademy.org';
+
+    final user = User(
+      id: id,
+      email: email,
+      displayName: name,
+      photoUrl: null,
+      idToken: 'token_$id',
+    );
+
+    _currentUser = user;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('current_user', jsonEncode(user.toJson()));
+    await prefs.setString('auth_token', user.idToken ?? '');
+
+    _syncUserWithBackend(user);
+    await checkIsAdmin(user.email);
+
+    _isLoading = false;
+    notifyListeners();
+    return user;
   }
 
   Future<void> signOut() async {

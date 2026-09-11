@@ -14,6 +14,12 @@ export class ChannelsService {
     private readonly syncService: SyncService,
   ) {}
 
+  isAdmin(email?: string): boolean {
+    if (!email) return false;
+    const adminEmails = this.configService.get<string[]>('adminEmails') || [];
+    return adminEmails.includes(email.trim().toLowerCase());
+  }
+
   async findAll() {
     const channels = await this.prisma.channel.findMany({
       where: { isActive: true },
