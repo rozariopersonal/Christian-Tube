@@ -41,7 +41,7 @@ function Invoke-Processor {
     $docker = Resolve-Docker
     if (-not $docker) { Write-Error "docker.exe not found." }
     switch ($Action) {
-        "up"      { & $docker compose -f $Compose up -d --build youtube-processor; break }
+        "up"      { & $docker compose -f $Compose up -d --remove-orphans youtube-processor; break }
         "down"    { & $docker compose -f $Compose stop youtube-processor; break }
         "restart" { & $docker compose -f $Compose restart youtube-processor; break }
         "build"   { & $docker compose -f $Compose build youtube-processor; break }
