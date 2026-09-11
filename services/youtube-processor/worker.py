@@ -55,6 +55,8 @@ class Config:
         retry_failed: bool = False,
         once: bool = False,
         video_id: str | None = None,
+        channel_filters: list[str] | None = None,
+        purge_audiocom: bool = False,
     ):
         self.database_url = database_url
         self.github_repo = github_repo
@@ -68,6 +70,8 @@ class Config:
         self.retry_failed = retry_failed
         self.once = once
         self.video_id = video_id
+        self.channel_filters = channel_filters
+        self.purge_audiocom = purge_audiocom
 
 
 def load_config(args: argparse.Namespace) -> Config:
@@ -107,6 +111,11 @@ def load_config(args: argparse.Namespace) -> Config:
     work_dir = Path(_env("WORK_DIR", "/work" if os.path.exists("/work") else "./scratch_work"))
     work_dir.mkdir(parents=True, exist_ok=True)
 
+    # Parse channel filters (comma-separated)
+    channel_filters = None
+    if getattr(args, 'channels', None):
+        channel_filters = [c.strip() for c in args.channels.split(',') if c.strip()]
+
     return Config(
         database_url=db_url,
         github_repo=_env("GITHUB_REPO", "rozariopersonal/Christian-Tube-Releases"),
@@ -120,6 +129,8 @@ def load_config(args: argparse.Namespace) -> Config:
         retry_failed=args.retry_failed,
         once=args.once,
         video_id=args.video_id or None,
+        channel_filters=channel_filters,
+        purge_audiocom=getattr(args, 'purge_audiocom', False),
     )
 
 
@@ -196,6 +207,13 @@ class Database:
             retry_clause = ' AND ("audioRetryCount" IS NULL OR "audioRetryCount" < %s)'
             params.append(cfg.max_retries)
 
+        # Channel name filter (--channels flag)
+        channel_clause = ""
+        if cfg.channel_filters:
+            channel_or = " OR ".join(["c.name ILIKE %s" for _ in cfg.channel_filters])
+            channel_clause = f" AND ({channel_or})"
+            params.extend([f"%{f}%" for f in cfg.channel_filters])
+
         query = f"""
             SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
             FROM "Video" v
@@ -209,6 +227,7 @@ class Database:
               AND (v."duration" IS NULL OR (v."duration" != '0:00' AND v."duration" NOT LIKE '0:0%%'))
               AND (v."audioUploadStatus" IS NULL OR v."audioUploadStatus" IN ({ph}))
               {retry_clause}
+              {channel_clause}
             ORDER BY v."publishedAt" DESC
             LIMIT %s
         """
@@ -531,6 +550,89 @@ class AudioComClient:
 
         log.warning("  could not resolve stream URL after %d attempts (transcoding may still be in progress)", max_attempts)
         return None
+
+    def purge_all(self) -> int:
+        """
+        Deletes ALL audio uploads and collections from the Audio.com account.
+        Returns the total number of audio tracks deleted.
+        """
+        deleted = 0
+
+        # 1. Delete all audio tracks
+        log.info("Fetching all Audio.com uploads for deletion...")
+        try:
+            # List all audio
+            page = 1
+            audio_ids: list[str] = []
+            while True:
+                resp = self._requests.get(
+                    f"{self.api}/audio/list",
+                    headers=self.headers,
+                    params={"page": page, "limit": 100},
+                    timeout=20,
+                )
+                if resp.status_code != 200:
+                    log.warning("  audio/list returned %s, stopping enumeration", resp.status_code)
+                    break
+                items = resp.json()
+                if not items:
+                    break
+                if isinstance(items, dict):
+                    items = items.get("data") or items.get("audios") or items.get("items") or []
+                for item in items:
+                    aid = str(item.get("id", ""))
+                    if aid:
+                        audio_ids.append(aid)
+                if len(items) < 100:
+                    break
+                page += 1
+
+            log.info("  found %d audio track(s) to delete", len(audio_ids))
+            for aid in audio_ids:
+                try:
+                    dr = self._requests.delete(
+                        f"{self.api}/audio/{aid}",
+                        headers=self.headers,
+                        timeout=15,
+                    )
+                    if dr.status_code in (200, 204):
+                        deleted += 1
+                        log.info("  deleted audio %s (%d/%d)", aid, deleted, len(audio_ids))
+                    else:
+                        log.warning("  failed to delete audio %s: %s", aid, dr.status_code)
+                except Exception as e:
+                    log.warning("  error deleting audio %s: %s", aid, e)
+
+        except Exception as e:
+            log.error("  error listing Audio.com uploads: %s", e)
+
+        # 2. Delete all collections
+        try:
+            resp = self._requests.get(f"{self.api}/collection/list", headers=self.headers, timeout=20)
+            if resp.status_code == 200:
+                collections = resp.json() or []
+                log.info("  found %d collection(s) to delete", len(collections))
+                for col in collections:
+                    cid = str(col.get("id", ""))
+                    if cid:
+                        try:
+                            dr = self._requests.delete(
+                                f"{self.api}/collection/{cid}",
+                                headers=self.headers,
+                                timeout=15,
+                            )
+                            if dr.status_code in (200, 204):
+                                log.info("  deleted collection %s", cid)
+                            else:
+                                log.warning("  failed to delete collection %s: %s", cid, dr.status_code)
+                        except Exception as e:
+                            log.warning("  error deleting collection %s: %s", cid, e)
+        except Exception as e:
+            log.error("  error listing Audio.com collections: %s", e)
+
+        self._collection_cache.clear()
+        log.info("Audio.com purge complete: %d audio track(s) deleted", deleted)
+        return deleted
 
 
 # --------------------------------------------------------------------------- #
@@ -874,17 +976,29 @@ def main():
     parser.add_argument("--redo", action="store_true", help="Re-process completed videos")
     parser.add_argument("--retry-failed", action="store_true", help="Include failed videos")
     parser.add_argument("--limit", type=int, help="Override batch limit")
+    parser.add_argument("--channels", type=str, help="Comma-separated channel name filter (ILIKE match, e.g. 'CFC,NCCF')")
+    parser.add_argument("--purge-audiocom", action="store_true", help="Delete ALL existing Audio.com uploads before processing")
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
     cfg = load_config(args)
-    log.info("Starting YouTube Video Processor service (repo: %s)...", cfg.github_repo)
+
+    if cfg.channel_filters:
+        log.info("Starting YouTube Video Processor (repo: %s, channels: %s)...", cfg.github_repo, cfg.channel_filters)
+    else:
+        log.info("Starting YouTube Video Processor service (repo: %s)...", cfg.github_repo)
 
     db = Database(cfg.database_url)
     audiocom = AudioComClient(cfg.audio_com_token)
     repo = GitHubRepo(cfg.github_repo, cfg.github_token)
+
+    # Purge all Audio.com uploads if requested
+    if cfg.purge_audiocom:
+        log.info("=== PURGING ALL AUDIO.COM UPLOADS ===")
+        audiocom.purge_all()
+        log.info("=== PURGE COMPLETE ===")
 
     db.release_stale_processing()
 
