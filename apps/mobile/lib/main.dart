@@ -79,11 +79,15 @@ void main() async {
     } catch (_) {}
   }
 
-  await JustAudioBackground.init(
+  // Android: initialize background audio playback WITHOUT blocking the first
+  // frame. AudioService.init spins up an isolate-based handler and can hang
+  // or throw on some devices; awaiting it here leaves a permanent white
+  // screen because runApp below never runs. Errors are non-fatal.
+  JustAudioBackground.init(
     androidNotificationChannelId: 'org.rozario.christiantube.mobile.channel.audio',
     androidNotificationChannelName: 'Audio playback',
     androidNotificationOngoing: true,
-  );
+  ).catchError((Object e) => debugPrint('JustAudioBackground init error: $e'));
 
   runApp(const PrivateTubeApp());
 }
