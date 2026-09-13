@@ -25,6 +25,7 @@ import '../../../shared/services/reader_fonts_service.dart';
 import '../../../shared/services/note_service.dart';
 import '../../../shared/models/note.dart';
 import '../../../core/theme/highlight_palette.dart';
+import 'package:uuid/uuid.dart';
 
 /// Immutable snapshot of every field the Bible reader UI needs.
 ///
@@ -1242,7 +1243,9 @@ class BibleController extends ChangeNotifier {
       targetId,
     );
     final note = Note(
-      id: existing?.id ?? '',
+      id: (existing?.id != null && existing!.id.isNotEmpty)
+          ? existing.id
+          : const Uuid().v4(),
       feature: _bibleFeatureName,
       targetId: targetId,
       text: trimmed,

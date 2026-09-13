@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
+import 'package:flutter_quill/flutter_quill.dart';
+import 'dart:convert';
 
 /// What the user did in the [NoteEditorSheet].
 ///
@@ -112,18 +114,43 @@ class NoteEditorSheet extends StatefulWidget {
 }
 
 class _NoteEditorSheetState extends State<NoteEditorSheet> {
-  late final TextEditingController _controller;
+  late final QuillController _controller;
   late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialText);
+    _controller = _initController(widget.initialText);
+    _controller.addListener(_onChanged);
     _focusNode = FocusNode()..requestFocus();
+  }
+
+  QuillController _initController(String text) {
+    if (text.isEmpty) return QuillController.basic();
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is List) {
+        return QuillController(
+          document: Document.fromJson(decoded),
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+      }
+    } catch (_) {}
+    
+    final doc = Document()..insert(0, text);
+    return QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+  }
+
+  void _onChanged() {
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -138,7 +165,7 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
     final mutedCol = tokens.onSurfaceMuted;
     final borderCol = tokens.surfaceBorder;
 
-    final canSave = _controller.text.trim().isNotEmpty;
+    final canSave = !_controller.document.isEmpty();
 
     return Material(
       color: tokens.surface,
@@ -221,36 +248,42 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                TextField(
+                QuillSimpleToolbar(
                   controller: _controller,
-                  focusNode: _focusNode,
-                  minLines: 5,
-                  maxLines: 10,
-                  textInputAction: TextInputAction.newline,
-                  keyboardType: TextInputType.multiline,
-                  onChanged: (_) => setState(() {}),
-                  style: TextStyle(color: textCol, fontSize: 15, height: 1.5),
-                  cursorColor: context.primary,
-                  decoration: InputDecoration(
-                    hintText: 'Write your note here…',
-                    hintStyle: TextStyle(color: mutedCol),
-                    filled: true,
-                    fillColor: tokens.surfaceVariant,
-                    contentPadding: const EdgeInsets.all(14),
-                    border: OutlineInputBorder(
+                  config: const QuillSimpleToolbarConfig(
+                    showFontFamily: false,
+                    showFontSize: false,
+                    showSearchButton: false,
+                    showInlineCode: false,
+                    showCodeBlock: false,
+                    showIndent: false,
+                    showColorButton: true,
+                    showBackgroundColorButton: true,
+                    showClearFormat: true,
+                    showAlignmentButtons: false,
+                    showDirection: false,
+                    showHeaderStyle: true,
+                    showListCheck: false,
+                    showQuote: false,
+                    showLink: false,
+                    showSubscript: false,
+                    showSuperscript: false,
+                    showStrikeThrough: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: tokens.surfaceVariant,
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: borderCol),
+                      border: Border.all(color: borderCol),
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: borderCol),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: context.primary,
-                        width: 1.5,
-                      ),
+                    child: QuillEditor.basic(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      config: const QuillEditorConfig(),
                     ),
                   ),
                 ),
@@ -275,7 +308,11 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
                     const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: canSave
-                          ? () => _pop(NoteEditorSave(_controller.text.trim()))
+                          ? () {
+                              final text = jsonEncode(
+                                  _controller.document.toDelta().toJson());
+                              _pop(NoteEditorSave(text));
+                            }
                           : null,
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Save'),
