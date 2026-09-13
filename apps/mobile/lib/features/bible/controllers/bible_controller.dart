@@ -677,14 +677,13 @@ class BibleController extends ChangeNotifier {
     final rows = await stream.ensureChapter(bn, chapter);
     if (epoch != _loadEpoch || _disposed) return;
     _fillChapterRows(rows, bn, chapter);
+    final indexEmpty = _state.index != null && _state.index!.chapterRowCount(
+          bookNumber: bn,
+          chapter: chapter,
+        ) == 0;
     _update((s) => s.copyWith(
           isLoading: false,
-          chapterEmpty: s.index == null
-              ? rows.isEmpty
-              : s.index!.chapterRowCount(
-                  bookNumber: bn,
-                  chapter: chapter,
-                ) == 0,
+          chapterEmpty: rows.isEmpty || indexEmpty,
           clearHighlighted: true,
         ));
     stream.preloadAround(bn, chapter, radius: 2);
@@ -868,14 +867,19 @@ class BibleController extends ChangeNotifier {
     }
   }
 
-  /// Loads persisted highlights for [book]/[chapter] into the state map. Merged
-  /// with any highlights already loaded for other chapters.
+  /// Loads persisted highlights for [book]/[chapter] into the state map. The
+  /// chapter's previous entries are discarded first so externally-removed
+  /// highlights (e.g. sync or another device) never linger in memory; other
+  /// chapters keep their existing entries.
   Future<void> _loadHighlightsForChapter(String book, int chapter) async {
     final epoch = _loadEpoch;
     try {
       final found = await _highlightService.getForChapter(book, chapter);
       if (epoch != _loadEpoch || _disposed) return; // stale
-      final merged = Map<String, int>.from(_state.verseHighlights);
+      final prefix = BibleControllerState.verseHighlightKey(book, chapter, 1)
+          .substring(0, BibleControllerState.verseHighlightKey(book, chapter, 1).length - 1);
+      final merged = Map<String, int>.from(_state.verseHighlights)
+        ..removeWhere((key, _) => key.startsWith(prefix));
       for (final h in found) {
         for (final v in h.verses) {
           merged[BibleControllerState.verseHighlightKey(book, chapter, v)] =
