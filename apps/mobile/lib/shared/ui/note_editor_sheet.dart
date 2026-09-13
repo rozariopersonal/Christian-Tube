@@ -272,19 +272,18 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: tokens.surfaceVariant,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: borderCol),
-                    ),
-                    child: QuillEditor.basic(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      config: const QuillEditorConfig(),
-                    ),
+                Container(
+                  height: 240,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: tokens.surfaceVariant,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderCol),
+                  ),
+                  child: QuillEditor.basic(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    config: const QuillEditorConfig(),
                   ),
                 ),
                 const SizedBox(height: 14),
