@@ -137,7 +137,8 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
       }
     } catch (_) {}
     
-    final doc = Document()..insert(0, text);
+    final safeText = text.endsWith('\n') ? text : '$text\n';
+    final doc = Document()..insert(0, safeText);
     return QuillController(
       document: doc,
       selection: const TextSelection.collapsed(offset: 0),
