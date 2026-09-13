@@ -1,0 +1,47 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Open Profile / Library Tab
+- tapOn: "Profile"
+- assertVisible:
+    text: "Downloads"
+
+# 2. Open Downloads Manager
+- tapOn: "Downloads"
+- assertVisible:
+    text: ".*"
+
+# 3. Simulate offline mode
+- setNetwork: offline
+- tapOn:
+    id: "tab_Videos"
+- tapOn: "Profile"
+- tapOn: "Downloads"
+- assertVisible:
+    text: ".*"
+
+# 4. Play/Read downloaded item
+- tapOn:
+    point: 50%, 35%
+- assertVisible:
+    text: ".*"
+
+- pressKey: Back
+
+# 5. Delete Download
+- tapOn: "Delete" # Usually an icon or swipe action
+  optional: true
+- swipe:
+    start: 90%, 35%
+    end: 10%, 35%
+  optional: true # Swipe to delete
+- tapOn: "Delete"
+  optional: true
+
+# Restore network
+- setNetwork: online

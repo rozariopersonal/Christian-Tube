@@ -760,7 +760,11 @@ def map_language(lang_code: str | None) -> str:
 
 def detect_category(channel_name: str) -> str:
     combined = channel_name.lower()
-    keywords = ["song", "music", "hymn", "worship", "choir", "praise", "paadalgal", "padalgal", "geethangal", "keerthanai", "sangeet"]
+    keywords = [
+        "song", "music", "hymn", "worship", "choir", "praise",
+        "paadalgal", "padalgal", "geethangal", "keerthanai", "sangeet",
+        "valibam", "மாசில்லா",
+    ]
     for kw in keywords:
         if kw in combined:
             return "Songs"
@@ -1238,15 +1242,22 @@ def update_channel_audio_catalog(
         log.debug("  jsDelivr purge skipped: %s", e)
 
 
-def is_short_content(title: str, desc: str, duration: int, width: int = 0, height: int = 0) -> bool:
+def is_short_content(
+    title: str,
+    desc: str,
+    duration: int,
+    width: int = 0,
+    height: int = 0,
+    is_song_channel: bool = False,
+) -> bool:
     """
     Returns True if the video is detected as a YouTube Short.
     Criteria:
-    - Duration <= 90 seconds (standard YouTube Short limit)
+    - Duration <= 90 seconds (standard YouTube Short limit) - skipped for song channels
     - Vertical aspect ratio (height > width > 0)
     - Explicit hashtag (#short or #shorts)
     """
-    if 0 < duration <= 90:
+    if not is_song_channel and 0 < duration <= 90:
         return True
     if height > 0 and width > 0 and height > width:
         return True
@@ -1340,7 +1351,8 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
             height = meta.get("height", 0)
 
             # Skip YouTube Shorts
-            if is_short_content(final_title, final_desc, duration, width, height):
+            is_song = detect_category(channel) == "Songs"
+            if is_short_content(final_title, final_desc, duration, width, height, is_song_channel=is_song):
                 log.info("  >> Skipping %s: detected as YouTube Short (duration: %ss, %sx%s)", video_id, duration, width, height)
                 db.mark_short(video_id)
                 return

@@ -30,3 +30,4 @@ export interface MetadataExtractorInput {
 }
 export declare function romanToDecimal(roman: string): number;
 export declare function extractVideoMetadata(input: MetadataExtractorInput): ExtractedVideoMetadata;
+export declare function isSongChannel(channelName?: string | null, category?: string | null): boolean;

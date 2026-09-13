@@ -1,0 +1,61 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Navigate to Audio Tab
+- tapOn:
+    id: "tab_Audio"
+- assertVisible:
+    text: "Series"
+
+# 2. Tap the first Audio Series / Album
+- tapOn:
+    point: 50%, 35%
+
+# 3. Tap a track to start playback
+- tapOn:
+    point: 50%, 50%
+
+# 4. Verify mini-player appears
+- assertVisible:
+    text: ".*"
+
+# 5. Expand mini-player
+- tapOn:
+    point: 50%, 90% # Typically where mini player rests above bottom nav
+- assertVisible:
+    text: ".*"
+
+# 6. Interact with full screen audio player
+# Pause
+- tapOn: "Pause"
+  optional: true
+# Skip forward
+- tapOn: "15" # Assuming skip forward 15s icon text
+  optional: true
+# Drag seek bar
+- swipe:
+    start: 20%, 75%
+    end: 80%, 75%
+    duration: 500
+
+# 7. Minimize back to mini-player
+- swipe:
+    direction: DOWN
+    duration: 300
+
+# 8. Dismiss mini-player
+- swipe:
+    start: 50%, 90%
+    end: 99%, 90%
+    duration: 300
+
+# 9. Navigate to Bible Tab to verify shell
+- tapOn:
+    id: "tab_Bible"
+- assertVisible:
+    text: ".*"

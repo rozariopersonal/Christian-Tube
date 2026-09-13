@@ -1,0 +1,50 @@
+appId: org.rozario.christiantube.mobile
+---
+# Pre-authenticated snapshot
+- launchApp:
+- tapOn:
+    text: "Later"
+    optional: true
+    clearState: false
+
+# 1. Tap a video
+- tapOn:
+    point: 50%, 35%
+- assertVisible:
+    text: ".*"
+
+# 2. Save to Watch Later
+- tapOn: "Save"
+- tapOn: "Watch Later"
+- pressKey: Back # Close sheet if it stays open
+
+# 3. Create New Playlist
+- tapOn: "Save"
+- tapOn: "New Playlist"
+  optional: true
+- inputText: "My Test Playlist"
+  optional: true
+- tapOn: "Create"
+  optional: true
+
+# 4. Verify in Library -> Watch History
+- tapOn: "Back"
+- tapOn: "Profile"
+- tapOn: "History"
+- assertVisible:
+    text: ".*"
+
+- tapOn: "Back"
+
+# 5. Verify in Library -> Watch Later
+- tapOn: "Watch Later"
+- assertVisible:
+    text: ".*"
+
+# 6. Remove from Watch Later
+- swipe:
+    start: 90%, 35%
+    end: 10%, 35%
+  optional: true
+- tapOn: "Remove"
+  optional: true

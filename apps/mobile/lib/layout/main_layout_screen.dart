@@ -12,6 +12,7 @@ import '../features/shorts/players/shorts_player.dart';
 import '../features/update/update_service.dart';
 import '../features/audio/controllers/audio_player_controller.dart';
 import '../features/audio/widgets/mini_audio_player.dart';
+import '../features/feedback/widgets/floating_feedback_button.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   final Widget child;
@@ -54,7 +55,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
   }
 
   Future<void> _checkAutoUpdate() async {
-    if (kIsWeb) return;
+    if (kIsWeb || kDebugMode) return;
     // Wait for the root navigator and initial frame to settle
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
@@ -195,7 +196,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
         switch (navMode) {
           case AppNavMode.bottomBar:
             return Scaffold(
-              body: widget.child,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  widget.child,
+                  const FloatingFeedbackButton(),
+                ],
+              ),
               bottomNavigationBar: _buildBottomBar(isDark, selectedIndex),
             );
           case AppNavMode.rail:
@@ -212,7 +219,15 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
                   Expanded(
                     child: Column(
                       children: [
-                        Expanded(child: widget.child),
+                        Expanded(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              widget.child,
+                              const FloatingFeedbackButton(),
+                            ],
+                          ),
+                        ),
                         if (_isAudioTabEnabled)
                           ListenableBuilder(
                             listenable: AudioPlayerController.instance,
@@ -276,8 +291,14 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
                 destinations: _destinations(context)
                     .map(
                       (d) => NavigationDestination(
-                        icon: Icon(d.icon),
-                        selectedIcon: Icon(d.selectedIcon),
+                        icon: Semantics(
+                          identifier: 'tab_${d.label}',
+                          child: Icon(d.icon),
+                        ),
+                        selectedIcon: Semantics(
+                          identifier: 'tab_${d.label}',
+                          child: Icon(d.selectedIcon),
+                        ),
                         label: d.label,
                       ),
                     )
@@ -317,8 +338,14 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
       destinations: _destinations(context)
           .map(
             (d) => NavigationRailDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
+              icon: Semantics(
+                identifier: 'tab_${d.label}',
+                child: Icon(d.icon),
+              ),
+              selectedIcon: Semantics(
+                identifier: 'tab_${d.label}',
+                child: Icon(d.selectedIcon),
+              ),
               label: Text(d.label),
             ),
           )

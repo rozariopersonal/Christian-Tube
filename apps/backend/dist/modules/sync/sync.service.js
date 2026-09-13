@@ -153,8 +153,10 @@ let SyncService = SyncService_1 = class SyncService {
                 const description = snippet?.description || '';
                 const descLower = description.toLowerCase();
                 const hasShortsTag = titleLower.includes('#short') || descLower.includes('#short');
-                const isShort = (durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag;
+                const isSong = (0, metadata_extractor_1.isSongChannel)(channel.name, channel.category);
+                const isShort = isSong ? hasShortsTag : ((durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag);
                 const videoType = isShort ? 'SHORT' : 'VIDEO';
+                const videoCategory = isSong ? 'Songs' : (defaultCategory || channel.category || 'General');
                 const viewCount = stats?.viewCount ? parseInt(stats.viewCount, 10) : 0;
                 const thumb = snippet?.thumbnails?.maxres?.url ||
                     snippet?.thumbnails?.high?.url ||
@@ -193,7 +195,7 @@ let SyncService = SyncService_1 = class SyncService {
                         duration,
                         viewCount,
                         tags,
-                        category: defaultCategory || channel.category || 'General',
+                        category: videoCategory,
                         metadata: videoMetadata,
                         creatorName: parsedMeta?.creatorName || undefined,
                         creatorEmail: parsedMeta?.creatorEmail || undefined,
@@ -215,7 +217,7 @@ let SyncService = SyncService_1 = class SyncService {
                         duration,
                         viewCount,
                         tags,
-                        category: defaultCategory || channel.category || 'General',
+                        category: videoCategory,
                         metadata: videoMetadata,
                         transcriptionStatus: 'pending',
                         creatorName: parsedMeta?.creatorName || null,
@@ -283,9 +285,10 @@ let SyncService = SyncService_1 = class SyncService {
             await this.upsertScrapedVideo(v, channel, defaultCategory);
             syncedCount++;
         }
+        const isSong = (0, metadata_extractor_1.isSongChannel)(channel.name, channel.category);
         const scrapedShortsResult = await this.youtubeService.scrapeChannelShortsTab(channelId, 25);
         for (const v of scrapedShortsResult.videos) {
-            await this.upsertScrapedVideo({ ...v, videoType: 'SHORT' }, channel, defaultCategory);
+            await this.upsertScrapedVideo({ ...v, videoType: isSong ? 'VIDEO' : 'SHORT' }, channel, defaultCategory);
             syncedCount++;
         }
         await this.prisma.channel.update({
@@ -299,6 +302,10 @@ let SyncService = SyncService_1 = class SyncService {
         this.logger.log(`✅ Synced total ${syncedCount} videos and shorts via web scraper for ${channel.name} (${channelId})`);
     }
     async upsertScrapedVideo(v, channel, defaultCategory) {
+        const isSong = (0, metadata_extractor_1.isSongChannel)(channel.name, channel.category);
+        const hasShortsTag = v.title.toLowerCase().includes('#short');
+        const finalType = isSong ? (hasShortsTag ? 'SHORT' : 'VIDEO') : v.videoType;
+        const finalCategory = isSong ? 'Songs' : (defaultCategory || channel.category || 'General');
         const videoMetadata = (0, metadata_extractor_1.extractVideoMetadata)({
             title: v.title,
             description: '',
@@ -307,7 +314,7 @@ let SyncService = SyncService_1 = class SyncService {
         await this.prisma.video.upsert({
             where: { id: v.videoId },
             update: {
-                type: v.videoType,
+                type: finalType,
                 title: v.title,
                 thumbnail: v.thumbnail,
                 duration: v.duration && v.duration !== '0:00' ? v.duration : undefined,
@@ -316,12 +323,12 @@ let SyncService = SyncService_1 = class SyncService {
                 channelName: channel.name,
                 channelThumbnail: channel.thumbnail,
                 channelSubscriberCount: channel.subscriberCount,
-                category: defaultCategory || channel.category || 'General',
+                category: finalCategory,
                 metadata: videoMetadata,
             },
             create: {
                 id: v.videoId,
-                type: v.videoType,
+                type: finalType,
                 title: v.title,
                 description: '',
                 thumbnail: v.thumbnail,
@@ -332,7 +339,7 @@ let SyncService = SyncService_1 = class SyncService {
                 publishedAt: v.publishedAt || new Date(),
                 duration: v.duration || '0:00',
                 viewCount: v.viewCount || 0,
-                category: defaultCategory || channel.category || 'General',
+                category: finalCategory,
                 metadata: videoMetadata,
                 transcriptionStatus: 'pending',
             },
@@ -396,8 +403,10 @@ let SyncService = SyncService_1 = class SyncService {
                         const durationSeconds = this.youtubeService.parseIsoDurationSeconds(contentDetails?.duration || '');
                         const hasShortsTag = (snippet?.title || '').toLowerCase().includes('#short') ||
                             (snippet?.description || '').toLowerCase().includes('#short');
-                        const isShort = (durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag;
+                        const isSong = (0, metadata_extractor_1.isSongChannel)(channel.name, channel.category);
+                        const isShort = isSong ? hasShortsTag : ((durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag);
                         const videoType = isShort ? 'SHORT' : 'VIDEO';
+                        const finalCategory = isSong ? 'Songs' : (channel.category || 'General');
                         const thumb = snippet?.thumbnails?.maxres?.url ||
                             snippet?.thumbnails?.high?.url ||
                             snippet?.thumbnails?.medium?.url ||
@@ -419,7 +428,7 @@ let SyncService = SyncService_1 = class SyncService {
                                 viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
                                 channelName: snippet?.channelTitle || channelName,
                                 channelThumbnail: channelThumb,
-                                category,
+                                category: finalCategory,
                                 metadata: videoMetadata,
                             },
                             create: {
@@ -494,7 +503,7 @@ let SyncService = SyncService_1 = class SyncService {
                     OR: [{ duration: '0:00' }, { duration: '' }],
                 },
                 take: batchSize,
-                select: { id: true },
+                select: { id: true, channelName: true },
             });
             if (!videos.length)
                 return;
@@ -504,17 +513,22 @@ let SyncService = SyncService_1 = class SyncService {
                 const chunk = videoIds.slice(i, i + 50);
                 const detailMap = await this.youtubeService.fetchVideosDetails(chunk);
                 for (const [id, item] of detailMap.entries()) {
+                    const vObj = videos.find((v) => v.id === id);
+                    const isSong = (0, metadata_extractor_1.isSongChannel)(vObj?.channelName);
                     const contentDetails = item.contentDetails;
                     const stats = item.statistics;
                     const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || '');
                     const durationSeconds = this.youtubeService.parseIsoDurationSeconds(contentDetails?.duration || '');
-                    const isShort = durationSeconds > 0 && durationSeconds <= 180;
+                    const hasShortsTag = (item.snippet?.title || '').toLowerCase().includes('#short') ||
+                        (item.snippet?.description || '').toLowerCase().includes('#short');
+                    const isShort = isSong ? hasShortsTag : (durationSeconds > 0 && durationSeconds <= 180 || hasShortsTag);
                     await this.prisma.video.update({
                         where: { id },
                         data: {
                             duration: duration !== '0:00' ? duration : undefined,
                             viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : undefined,
-                            type: isShort ? 'SHORT' : undefined,
+                            type: isShort ? 'SHORT' : (isSong ? 'VIDEO' : undefined),
+                            category: isSong ? 'Songs' : undefined,
                         },
                     });
                 }
@@ -541,10 +555,13 @@ let SyncService = SyncService_1 = class SyncService {
         const description = snippet?.description || '';
         const channelId = snippet?.channelId || 'UCSaJppP4zb2vivjxYfTqOKw';
         const channelName = snippet?.channelTitle || 'Christian Tube';
+        const isSong = (0, metadata_extractor_1.isSongChannel)(channelName);
         const publishedAt = snippet?.publishedAt ? new Date(snippet.publishedAt) : new Date();
         const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || 'PT60S');
         const durationSeconds = this.youtubeService.parseIsoDurationSeconds(contentDetails?.duration || 'PT60S');
-        const isShort = (durationSeconds > 0 && durationSeconds <= 180) || title.toLowerCase().includes('#short') || description.toLowerCase().includes('#short');
+        const hasShortsTag = title.toLowerCase().includes('#short') || description.toLowerCase().includes('#short');
+        const isShort = isSong ? hasShortsTag : ((durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag);
+        const finalCategory = isSong ? 'Songs' : 'General';
         const thumb = snippet?.thumbnails?.maxres?.url || snippet?.thumbnails?.high?.url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
         let parsedMeta = null;
         if (description) {
@@ -570,6 +587,7 @@ let SyncService = SyncService_1 = class SyncService {
                 thumbnail: thumb,
                 channelId,
                 channelName,
+                category: finalCategory,
                 publishedAt,
                 duration,
                 viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,

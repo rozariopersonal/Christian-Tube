@@ -4,6 +4,7 @@ import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/theme/theme_service.dart';
 import '../update/update_service.dart';
+import '../feedback/widgets/voice_feedback_sheet.dart';
 import 'widgets/app_share_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -339,6 +340,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             );
                           }
                         },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.feedback_outlined),
+                        title: const Text('Send Feedback & Bug Report'),
+                        subtitle: const Text('Voice or text feedback submitted directly'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => VoiceFeedbackSheet.show(context),
                       ),
                     ],
                   ),

@@ -1,0 +1,36 @@
+{
+  "name": "spek-analyzer",
+  "version": "1.0.0",
+  "description": "AI Bible Study Generator — SPECK verse analysis, study concepts, and meditation feed via local Ollama with web research",
+  "main": "src/cli.ts",
+  "type": "module",
+  "scripts": {
+    "inspect": "tsx src/cli.ts inspect",
+    "status": "tsx src/cli.ts status",
+    "test": "tsx src/cli.ts test",
+    "test:dry": "tsx src/cli.ts test --dry-run",
+    "test:unit": "tsx --test tests/*.test.ts",
+    "book": "tsx src/cli.ts book",
+    "books": "tsx src/cli.ts books",
+    "run": "tsx src/cli.ts run",
+    "resume": "tsx src/cli.ts resume",
+    "feed": "tsx src/cli.ts feed",
+    "feed:all": "tsx src/cli.ts feed --all",
+    "chunk": "tsx src/cli.ts chunk",
+    "compile": "tsx src/cli.ts compile",
+    "review": "tsx src/cli.ts review",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "undici": "^7.2.0",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

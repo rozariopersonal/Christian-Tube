@@ -7,6 +7,7 @@ import '../channels/channel_service.dart';
 import '../engines/scripture/services/saved_scripture_service.dart';
 import 'user_service.dart';
 import 'widgets/app_share_dialog.dart';
+import '../feedback/widgets/voice_feedback_sheet.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/theme/theme_service.dart';
 import '../../core/layout/adaptivity.dart';
@@ -623,6 +624,19 @@ class ProfileScreen extends StatelessWidget {
                       style: TextStyle(fontSize: 13)),
                   trailing: const Icon(Icons.chevron_right, size: 20),
                   onTap: () => AppShareDialog.show(context),
+                ),
+
+                // Feedback & Bug Report Section
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  leading: const Icon(Icons.feedback_outlined),
+                  title: const Text('Send Feedback & Report Issue',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  subtitle: const Text('Speak or type feedback with automatic screen context',
+                      style: TextStyle(fontSize: 13)),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => VoiceFeedbackSheet.show(context),
                 ),
               ],
             ),

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.romanToDecimal = romanToDecimal;
 exports.extractVideoMetadata = extractVideoMetadata;
+exports.isSongChannel = isSongChannel;
 const KNOWN_SPEAKERS = [
     'Zac Poonen',
     'Ian Poonen',
@@ -441,5 +442,29 @@ function extractVideoMetadata(input) {
         scripture,
         chapters: chapters.length > 0 ? chapters : undefined,
     };
+}
+function isSongChannel(channelName, category) {
+    if (category && (category.toLowerCase() === 'songs' || category.toLowerCase() === 'music')) {
+        return true;
+    }
+    if (!channelName)
+        return false;
+    const lower = channelName.toLowerCase();
+    const songKeywords = [
+        'song',
+        'music',
+        'hymn',
+        'worship',
+        'choir',
+        'praise',
+        'paadalgal',
+        'padalgal',
+        'geethangal',
+        'keerthanai',
+        'sangeet',
+        'valibam',
+        'மாசில்லா',
+    ];
+    return songKeywords.some((kw) => lower.includes(kw));
 }
 //# sourceMappingURL=metadata-extractor.js.map

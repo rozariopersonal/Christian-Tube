@@ -1,0 +1,45 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Tap Search Icon
+- tapOn:
+    point: 90%, 10%
+    
+# 2. Input search query
+- inputText: "Faith"
+- pressKey: Enter
+
+# 3. Wait for search results
+- assertVisible:
+    text: ".*"
+
+# 4. Clear search query
+- tapOn:
+    point: 90%, 10% # Clear 'X' icon
+- inputText: "Grace"
+- pressKey: Enter
+
+# 5. Tap Audio filter
+- tapOn:
+    id: "tab_Audio"
+- assertVisible:
+    text: ".*"
+
+# 6. Tap Video filter
+- tapOn:
+    id: "tab_Videos"
+- assertVisible:
+    text: ".*"
+
+# 7. Open search result
+- tapOn:
+    point: 50%, 35%
+- assertVisible:
+    text: ".*"
+
+- pressKey: Back

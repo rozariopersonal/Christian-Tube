@@ -62,6 +62,7 @@ class TestWorkerCollections(unittest.TestCase):
     def test_detect_category(self):
         self.assertEqual(detect_category("CFC Songs & Hymns"), "Songs")
         self.assertEqual(detect_category("Tamil Padalgal"), "Songs")
+        self.assertEqual(detect_category("மாசில்லா வாலிபம் Maasilla Valibam"), "Songs")
         self.assertEqual(detect_category("CFC India - Zac Poonen"), "General Sermons")
         self.assertEqual(detect_category("CHENNAI CFC"), "General Sermons")
     def test_is_short_content(self):
@@ -77,6 +78,13 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertTrue(is_short_content("Great message #shorts", "desc", duration=120, width=1920, height=1080))
         self.assertTrue(is_short_content("Great message", "Check this out #short", duration=120, width=1920, height=1080))
         self.assertFalse(is_short_content("Shortest Path in Grace", "Full description", duration=3600, width=1920, height=1080))
+
+        # Song channels: bypass short duration check if horizontal
+        self.assertFalse(is_short_content("Altogether lovely", "Hymn", duration=84, width=1920, height=1080, is_song_channel=True))
+        self.assertFalse(is_short_content("King of kings, Majesty", "Song", duration=45, width=1920, height=1080, is_song_channel=True))
+        # Song channels: still catch vertical or explicit #shorts
+        self.assertTrue(is_short_content("Song clip #shorts", "Hymn", duration=45, width=1920, height=1080, is_song_channel=True))
+        self.assertTrue(is_short_content("Song clip", "Hymn", duration=45, width=1080, height=1920, is_song_channel=True))
 
     def test_slugify(self):
         self.assertEqual(slugify("Zac Poonen Sermons"), "zac_poonen_sermons")

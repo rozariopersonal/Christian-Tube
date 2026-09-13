@@ -1,0 +1,75 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Wait for Home Feed to load
+- assertVisible:
+    text: "ChristianApp"
+
+- assertVisible:
+    text: "All"
+
+# 2. Tap on the first video card
+- tapOn:
+    point: 50%, 40%
+
+# 3. Assert Video Player Screen opens
+- scrollUntilVisible:
+    direction: DOWN
+    element:
+      text: ".*"
+
+# 4. Interact with Player
+# Tap middle of player to bring up controls, then pause
+- tapOn:
+    point: 50%, 25% 
+- tapOn:
+    id: "pause_button" # Assuming standard accessibility ids or semantic labels
+    optional: true
+# Wait, then play
+- tapOn:
+    point: 50%, 25%
+- tapOn:
+    id: "play_button"
+    optional: true
+
+# 5. Interact with Metadata & Actions
+# Tap Like
+- tapOn: "Like"
+- assertVisible: "Liked"
+  optional: true
+
+# Tap Share
+- tapOn: "Share"
+- assertVisible:
+    text: ".*"
+
+- pressKey: Back # Close share sheet
+
+# Tap Subscribe
+- tapOn: "Subscribe"
+- assertVisible:
+    text: "Subscribed"
+
+  optional: true
+
+# 6. Expand description
+- tapOn: "Description"
+  optional: true
+- pressKey: Back
+
+# 7. Scroll down to related videos and tap one
+- swipe:
+    direction: UP
+    duration: 1000
+- tapOn:
+    point: 50%, 80%
+
+# 8. Return to feed
+- pressKey: Back
+- pressKey: Back
+- assertVisible: "ChristianApp"

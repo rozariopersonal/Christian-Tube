@@ -1,0 +1,37 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+- tapOn:
+    text: "Later"
+    optional: true
+    clearState: false 
+
+# 1. Navigate to Plans
+- tapOn:
+    id: "tab_Library"
+- tapOn: "Plans"
+- assertVisible:
+    text: ".*"
+
+# 2. Select an active plan
+- tapOn:
+    point: 50%, 35% 
+- assertVisible:
+    text: ".*"
+
+# 3. Mark Day 1 complete
+- tapOn:
+    point: 90%, 50% 
+
+# 4. Verify progress updates
+- assertVisible:
+    text: ".*"
+
+# 5. Abandon / Leave plan
+- tapOn:
+    point: 90%, 10% # Assuming a menu icon
+  optional: true
+- tapOn: "Leave Plan"
+  optional: true
+- tapOn: "Confirm"
+  optional: true

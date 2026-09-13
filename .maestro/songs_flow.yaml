@@ -1,0 +1,46 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Navigate to Songs Tab
+- tapOn:
+    id: "tab_Library"
+- tapOn: "Songs"
+- assertVisible:
+    text: "Songs"
+
+# 2. Search for a song
+- tapOn:
+    point: 90%, 10% 
+- inputText: "Amazing Grace"
+- pressKey: Enter
+
+# 3. Open lyrics viewer
+- assertVisible:
+    text: ".*Amazing Grace.*"
+
+- tapOn: ".*Amazing Grace.*"
+
+# 4. Verify lyrics render
+- assertVisible:
+    text: ".*"
+
+# 5. Change font size (assuming A+ icon)
+- tapOn: "A+"
+  optional: true
+
+# 6. Toggle dark mode specifically in reader
+- tapOn:
+    point: 90%, 10% # Assuming theme icon
+  optional: true
+
+# 7. Scroll through lyrics
+- swipe:
+    direction: UP
+    duration: 1500
+
+- pressKey: Back

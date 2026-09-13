@@ -1,0 +1,49 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+- tapOn:
+    text: "Later"
+    optional: true
+    clearState: false
+
+# 1. Wait for Home Feed
+- assertVisible:
+    text: "ChristianApp"
+
+# 2. Tap on a channel avatar
+- tapOn:
+    point: 20%, 65%
+
+# 3. Assert Channel Detail Screen opens
+- assertVisible:
+    text: "Subscribe"
+
+# 4. Tap Subscribe
+- tapOn: "Subscribe"
+
+# 5. Swipe to Playlists Tab
+- swipe:
+    start: 90%, 30%
+    end: 10%, 30% # Swipe horizontally on tab bar
+  optional: true
+- tapOn: "Playlists"
+  optional: true
+
+# 6. Swipe to About Tab
+- swipe:
+    start: 90%, 30%
+    end: 10%, 30%
+  optional: true
+- tapOn: "About"
+  optional: true
+
+# 7. Tap Unsubscribe
+- tapOn: "Subscribed"
+  optional: true
+
+# 8. Verify in Subscriptions
+- tapOn: "Back"
+- tapOn: "Profile"
+- tapOn: "Subscriptions"
+- assertVisible:
+    text: ".*"

@@ -435,6 +435,43 @@ not grow `screens/` files into monoliths.
 
 ---
 
+## Testing & Quality Gate Standard
+
+Every change to the Flutter mobile client is subject to a 3-tier quality gate locally and in GitHub Actions CI. Violating these rules will fail the CI release gate.
+
+### 1. Tiered Quality Gate Architecture & Testing Philosophy
+
+**Testing Philosophy**:
+- **Must** use E2E Maestro tests (`.maestro/`) exclusively for **important user actions** and critical path journeys (e.g. video playback, Bible navigation, auth).
+- **Must** use Flutter unit and integration tests (`apps/mobile/test/`) for all **minor behaviors, edge cases, state management, and utility functions**.
+
+1. **Gate 1 (Code & Unit Quality Gate)**:
+   - **Must** pass `flutter analyze --no-fatal-infos` with zero errors or fatal issues.
+   - **Must** pass all unit, widget, and adaptivity tests (`flutter test`) in `apps/mobile/test/`.
+   - **Must** keep the entire test suite green after every change.
+
+2. **Gate 2 (APK Compilation)**:
+   - Obfuscated release builds must compile cleanly for all active instances (`christian_tube`, `centum_academy`).
+
+3. **Gate 3 (E2E Smoke & APK Verification Gate)**:
+   - Core flows and navigation shell changes must pass Maestro E2E tests on the compiled APK (`.maestro/smoke_flow.yaml`).
+   - Run tests locally using `.\scripts\test-e2e.ps1` (Windows) or `./scripts/test-e2e.sh` (macOS/Linux).
+   - E2E tests run against a running emulator or connected device via `adb`.
+
+### 2. E2E Test Flows in `.maestro/`
+
+- Declarative YAML flows live in `.maestro/`.
+- `smoke_flow.yaml` validates cold-boot, main shell navigation (Words, Audio, Bible, Profile), content feed loading, and in-app update checking.
+- `google_auth_flow.yaml` validates native Google Sign-In interaction using a pre-authenticated emulator snapshot without 2FA/CAPTCHA blockage.
+- When adding a new primary user flow, add or update a corresponding flow in `.maestro/`.
+
+### 3. Agent Self-Healing Workflow
+
+- Agents editing mobile code **must** run `scripts/test-e2e.ps1` (or `flutter test`) to verify fixes before concluding their turn.
+- If an E2E test fails, agents must inspect the output and screenshots under `~/.maestro/tests/`, correct the underlying code, and re-run.
+
+---
+
 ## General repository rules
 
 - Run `flutter analyze` and `flutter test` in `apps/mobile` after any UI change;

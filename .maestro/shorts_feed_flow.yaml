@@ -1,0 +1,59 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Navigate to Shorts/Reels feed
+- tapOn:
+    id: "tab_Shorts"
+- assertVisible:
+    text: ".*"
+
+# 2. Swipe up to load the next short
+- swipe:
+    direction: UP
+    duration: 400
+- assertVisible:
+    text: ".*"
+
+# 3. Swipe back down
+- swipe:
+    direction: DOWN
+    duration: 400
+
+# 4. Pause and play
+- tapOn:
+    point: 50%, 50%
+- tapOn:
+    point: 50%, 50%
+
+# 5. Like
+- tapOn: "Like"
+  optional: true
+
+# 6. Open Comments sheet
+- tapOn:
+    point: 90%, 70% # Usually comments icon
+- assertVisible:
+    text: ".*"
+
+- tapOn: "Add a comment..."
+  optional: true
+- inputText: "Great short!"
+- pressKey: Back
+- pressKey: Back # Close comments
+
+# 7. Share
+- tapOn: "Share"
+  optional: true
+- pressKey: Back
+
+# 8. Go to Creator Channel
+- tapOn:
+    point: 10%, 80% # Usually creator avatar location
+- assertVisible: "Subscribe"
+  optional: true
+- pressKey: Back

@@ -1,0 +1,81 @@
+# AI Bible Study Generator Configuration
+# Three analysis passes per chapter, all driven by the local Ollama LLM:
+#
+#   pass 1  feed   — meditation-worthy verse ranges (scriptures.json + words_feed)
+#   pass 2  study  — key concepts/terms with classical TAOVBSI Tamil definitions
+#   pass 3  spek   — per-verse SPECK (S/P/E/C/K) + bilingual glossary + contexts
+#
+# Outputs go DIRECTLY to the canonical locations:
+#   releases/scriptures.json                (feed records)
+#   releases/study/<version>/               (study concepts + compiled sqlite)
+#   releases/spek/<version>/                (verse-level SPECK + compiled sqlite)
+
+version_id: "ta_ovbsi"
+language: "ta"
+
+# ---------------------------------------------------------------------------
+# Local LLM (Ollama)
+# ---------------------------------------------------------------------------
+llm:
+  ollama:
+    base_url: "http://localhost:11434"
+    model: "qwen2.5:7b"
+    temperature: 0.1
+    max_retries: 4
+    retry_base_delay_ms: 2000
+    timeout_ms: 900000
+    num_ctx: 16384
+
+# ---------------------------------------------------------------------------
+# Bible sources (per-pass source version)
+# ---------------------------------------------------------------------------
+bible_source_dirs:
+  web: "../../releases/bibles/web"
+  ta_ovbsi: "../../releases/bibles/taobvsi"
+
+# Optional Strong's dictionary for offline validation/joins (study pass)
+strongs_source: "../../releases/dictionaries/dict_strongs.sqlite.gz"
+
+# ---------------------------------------------------------------------------
+# Canonical outputs (relative to tools/spek)
+# ---------------------------------------------------------------------------
+releases_dir: "../../releases"
+backend_data_dir: "../../apps/backend/data"
+
+# ---------------------------------------------------------------------------
+# Research (web-search grounding for the spek pass)
+#   provider: none | duckduckgo | opencode
+#   opencode requires a registered local model provider in opencode config.
+# ---------------------------------------------------------------------------
+research:
+  provider: "none"
+  queries_per_chapter: 3
+  max_snippets_per_query: 5
+
+opencode:
+  model_id: "ollama/qwen2.5:7b"
+  run_path: ""   # leave empty to auto-resolve from the user profile
+
+# ---------------------------------------------------------------------------
+# Pass-specific settings
+# ---------------------------------------------------------------------------
+passes:
+  feed:
+    enabled: true
+    source_version: "web"
+    batch_units: 10
+    max_retries: 3
+    num_ctx: 8192
+  study:
+    enabled: true
+    source_version: "ta_ovbsi"
+  spek:
+    enabled: true
+    source_version: "web"
+
+# ---------------------------------------------------------------------------
+# Processing
+# ---------------------------------------------------------------------------
+processing:
+  pause_between_requests_ms: 800
+  dry_run: false

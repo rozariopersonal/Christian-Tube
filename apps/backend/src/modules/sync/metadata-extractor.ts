@@ -519,3 +519,30 @@ export function extractVideoMetadata(input: MetadataExtractorInput): ExtractedVi
     chapters: chapters.length > 0 ? chapters : undefined,
   };
 }
+
+/**
+ * Detects whether a channel is dedicated to songs, hymns, and music.
+ */
+export function isSongChannel(channelName?: string | null, category?: string | null): boolean {
+  if (category && (category.toLowerCase() === 'songs' || category.toLowerCase() === 'music')) {
+    return true;
+  }
+  if (!channelName) return false;
+  const lower = channelName.toLowerCase();
+  const songKeywords = [
+    'song',
+    'music',
+    'hymn',
+    'worship',
+    'choir',
+    'praise',
+    'paadalgal',
+    'padalgal',
+    'geethangal',
+    'keerthanai',
+    'sangeet',
+    'valibam',
+    'மாசில்லா',
+  ];
+  return songKeywords.some((kw) => lower.includes(kw));
+}

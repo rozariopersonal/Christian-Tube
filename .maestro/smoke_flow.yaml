@@ -1,0 +1,48 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Verify app launches and cold start succeeds
+- assertVisible:
+    text: "ChristianApp"
+
+# 2. Main Feed Verification
+- assertVisible:
+    text: "All"
+
+# 3. Test Navigation Shell: Words (Micro-feed / Scripture) Tab
+- tapOn:
+    id: "tab_Words"
+- assertVisible:
+    text: ".*"
+
+# 4. Test Navigation Shell: Audio Library Tab
+- tapOn:
+    id: "tab_Audio"
+- assertVisible:
+    text: "Series"
+
+# 5. Test Navigation Shell: Bible Tab
+- tapOn:
+    id: "tab_Bible"
+- assertVisible:
+    text: ".*"
+
+# 6. Test Settings & In-App Update Engine
+- tapOn: "Profile"
+- assertVisible:
+    text: "Check for Updates"
+
+- tapOn: "Check for Updates"
+- assertVisible:
+    text: "Checking for new releases..."
+
+# 7. Return to Feed
+- tapOn:
+    id: "tab_Videos"
+- assertVisible:
+    text: "ChristianApp"

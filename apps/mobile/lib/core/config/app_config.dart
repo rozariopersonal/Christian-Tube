@@ -12,6 +12,8 @@ class AppConfig {
   static String apiBaseUrl = 'https://christianapp-zjdh.onrender.com';
   static String webAppUrl = 'https://christianapp.vercel.app';
   static String releasesRepo = 'rozariopersonal/Christian-Tube-Releases';
+  static String feedbackRepo = 'rozariopersonal/Christian-Tube';
+  static String? githubFeedbackToken = const String.fromEnvironment('GITHUB_FEEDBACK_TOKEN');
 
   static String get shareBaseUrl {
     if (kIsWeb) {
@@ -74,6 +76,8 @@ class AppConfig {
       apiBaseUrl = json['apiBaseUrl'] ?? apiBaseUrl;
       webAppUrl = json['webAppUrl'] ?? webAppUrl;
       releasesRepo = json['releasesRepo'] ?? releasesRepo;
+      feedbackRepo = json['feedbackRepo'] ?? feedbackRepo;
+      githubFeedbackToken = json['githubFeedbackToken'] ?? githubFeedbackToken;
       apkFileName = json['apkFileName'] ?? apkFileName;
       googleClientId = json['googleClientId'];
 

@@ -13,6 +13,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { HealthModule } from './modules/health/health.module';
 import { WordsModule } from './modules/words/words.module';
 import { ShortsModule } from './modules/shorts/shorts.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ShortsModule } from './modules/shorts/shorts.module';
     TranscriptionModule,
     WordsModule,
     ShortsModule,
+    FeedbackModule,
   ],
 })
 export class AppModule {}

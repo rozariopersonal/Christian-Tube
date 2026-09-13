@@ -1,0 +1,63 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Navigate to Bible Tab
+- tapOn:
+    id: "tab_Bible"
+- assertVisible:
+    text: ".*"
+
+# 2. Change Bible Version
+- tapOn:
+    point: 90%, 10% # Assuming version selector is in app bar right
+- tapOn: "KJV" # Pick a common version
+
+# 3. Open Book/Chapter Picker
+- tapOn:
+    point: 50%, 10%
+
+# 4. Select a book and chapter
+- tapOn: "Genesis"
+- tapOn: "1"
+
+# 5. Verify verse renders
+- assertVisible:
+    text: "1"
+
+# 6. Tap verse 1 to open Study/Context Menu
+- tapOn: "1"
+- assertVisible:
+    text: ".*"
+
+# 7. Apply Highlight
+- tapOn: "Highlight"
+  optional: true
+# Pick color
+- tapOn:
+    point: 20%, 80% 
+
+# 8. Add Note
+- tapOn: "Note"
+  optional: true
+- inputText: "This is a test note."
+- tapOn: "Save"
+  optional: true
+
+# 9. Read Cross References
+- tapOn: "Cross References"
+  optional: true
+- swipe:
+    direction: UP
+
+# 10. Read Dictionary
+- tapOn: "Dictionary"
+  optional: true
+- swipe:
+    direction: UP
+
+- pressKey: Back # Close study sheet

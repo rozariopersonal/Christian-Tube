@@ -1,0 +1,33 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+- tapOn:
+    text: "Later"
+    optional: true
+    clearState: false
+
+# 1. Open Profile Screen
+- tapOn: "Profile"
+- assertVisible:
+    text: "Profile"
+
+# 2. Trigger Google Sign-In Flow
+# If already signed in, verify profile state
+- runFlow:
+    when:
+      visible: "Sign In with Google"
+    commands:
+      - tapOn: "Sign In with Google"
+      
+      # 3. Assert the native Android Account Chooser pops up
+      - assertVisible:
+          text: "Choose an account"
+
+      # 4. Tap the pre-authenticated Google test account
+      # Taps any email matching @gmail.com or the dedicated test account
+      - tapOn:
+          text: ".*@gmail.com"
+
+      # 5. Verify successful authentication on Profile screen
+      - assertVisible:
+          text: "Sign Out"

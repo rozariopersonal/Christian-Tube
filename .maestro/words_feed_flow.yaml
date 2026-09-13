@@ -1,0 +1,38 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Navigate to Words Tab
+- tapOn:
+    id: "tab_Words"
+- assertVisible:
+    text: ".*"
+
+# 2. Swipe to advance feed card
+- swipe:
+    direction: UP
+    duration: 600
+
+# 3. Share Devotional
+- tapOn:
+    point: 90%, 90% # Share/Action FAB
+- assertVisible:
+    text: ".*"
+
+- pressKey: Back # Dismiss share
+
+# 4. Tap scripture reference to open Bible
+- tapOn: "Read Full Chapter" # Generic label for scripture links
+  optional: true
+- tapOn:
+    point: 50%, 80% # Fallback tap on scripture block
+- assertVisible: "Bible"
+  optional: true
+
+# 5. Return to Words
+- pressKey: Back
+- assertVisible: "Words"

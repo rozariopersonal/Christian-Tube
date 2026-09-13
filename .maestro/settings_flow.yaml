@@ -1,0 +1,45 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Navigate to Profile -> Settings
+- tapOn: "Profile"
+- tapOn: "Settings"
+- assertVisible:
+    text: "Settings"
+
+# 2. Toggle Theme
+- tapOn: "Appearance"
+- tapOn: "Dark" 
+- tapOn: "AMOLED"
+  optional: true
+
+# 3. Change Language
+- tapOn: "Language"
+  optional: true
+- tapOn: "English"
+  optional: true
+
+# 4. Toggle Offline Mode / Video Quality
+- tapOn: "Video Quality"
+  optional: true
+- tapOn: "720p"
+  optional: true
+
+# 5. Clear Cache
+- tapOn: "Clear Cache"
+  optional: true
+- tapOn: "Confirm"
+  optional: true
+
+# 6. Navigate back to Home and verify UI responds
+- tapOn: "Back"
+- tapOn: "Back"
+- tapOn:
+    id: "tab_Videos"
+- assertVisible:
+    text: "ChristianApp"
