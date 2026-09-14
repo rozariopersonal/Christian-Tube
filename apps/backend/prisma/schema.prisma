@@ -95,6 +95,8 @@ model VideoEmbedding {
   @@index([version])
   @@map("VideoEmbedding")
 }
+
+model Channel {
   id              String         @id // YouTube Channel ID
   name            String
   description     String?        @db.Text
