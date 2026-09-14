@@ -24,7 +24,7 @@ appId: org.rozario.christiantube.mobile
 - tapOn:
     id: "tab_Audio"
 - assertVisible:
-    text: "Series"
+    text: "Audio Library"
 
 # 5. Test Navigation Shell: Bible Tab
 - tapOn:
@@ -33,15 +33,22 @@ appId: org.rozario.christiantube.mobile
     text: ".*"
 
 # 6. Test Settings & In-App Update Engine
+- tapOn:
+    id: "tab_Videos"
+- assertVisible:
+    text: "ChristianApp"
 - tapOn: "Profile"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      text: ".*Check for Updates.*"
+    direction: DOWN
+- tapOn: ".*Check for Updates.*"
 - assertVisible:
-    text: "Check for Updates"
-
-- tapOn: "Check for Updates"
-- assertVisible:
-    text: "Checking for new releases..."
+    text: ".*Checking for new releases.*"
 
 # 7. Return to Feed
+- pressKey: Back
 - tapOn:
     id: "tab_Videos"
 - assertVisible:

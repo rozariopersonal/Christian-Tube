@@ -87,8 +87,15 @@ if (-not (Get-Command "maestro" -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-# Check for active Android device or emulator
-$devices = & adb devices | Select-String -Pattern "\bdevice\b"
+# Check for active Android device or emulator (with retry for daemon handshake)
+$retry = 0
+$devices = @()
+while ($retry -lt 6) {
+    $devices = & adb devices | Select-String -Pattern "\bdevice\b"
+    if ($devices.Count -gt 0) { break }
+    Start-Sleep -Milliseconds 1000
+    $retry++
+}
 if ($devices.Count -eq 0) {
     Write-Host "No active Android device or emulator detected via adb!" -ForegroundColor Red
     Write-Host "Please start an Android emulator or connect a device with USB debugging enabled." -ForegroundColor Yellow

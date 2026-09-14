@@ -3,4 +3,4 @@ $env:ANDROID_HOME = "d:\Projects\Christian-Tube\.android-sdk"
 $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 
 Write-Host "Starting Android Emulator (test_device)..."
-& "$env:ANDROID_HOME\emulator\emulator.exe" -avd test_device -no-audio -gpu swiftshader_indirect
+& "$env:ANDROID_HOME\emulator\emulator.exe" -avd test_device -no-audio -gpu host

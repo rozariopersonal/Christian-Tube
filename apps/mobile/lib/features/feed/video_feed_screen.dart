@@ -157,15 +157,16 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       onPressed: () => context.push('/search'),
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(right: 12, left: 4),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        onTap: () => context.go('/profile'),
-                        child: const CircleAvatar(
+                      padding: const EdgeInsets.only(right: 8, left: 2),
+                      child: IconButton(
+                        key: const ValueKey('btn_profile'),
+                        icon: const CircleAvatar(
                           radius: 14,
                           backgroundColor: Colors.transparent,
                           child: Icon(Icons.account_circle, size: 28),
                         ),
+                        tooltip: 'Profile',
+                        onPressed: () => context.go('/profile'),
                       ),
                     ),
                   ],
