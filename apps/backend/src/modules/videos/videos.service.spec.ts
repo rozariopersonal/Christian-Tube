@@ -95,7 +95,7 @@ describe('VideosService', () => {
       // Default type filter is $1, then model/version/query vector follow
       expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
       const [sql, type, model, version, vec] = prisma.$queryRawUnsafe.mock.calls[0];
-      expect(sql).toContain(' AND v.type = $1');
+      expect(sql).toContain(' AND v.type = $1::"VideoType"');
       expect(sql).toContain('ve."model" = $2');
       expect(sql).toContain('ve."version" = $3');
       expect(sql).toContain('ve.embedding <=> $4::vector');
@@ -181,7 +181,7 @@ describe('VideosService', () => {
         channelId: 'c1',
       });
       expect(sql.clause).toBe(
-        ' AND v.type = $1 AND v.category = $2 AND v."channelId" = $3',
+        ' AND v.type = $1::"VideoType" AND v.category = $2 AND v."channelId" = $3',
       );
       expect(sql.params).toEqual(['SHORT', 'Worship', 'c1']);
     });
