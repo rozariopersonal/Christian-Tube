@@ -30,6 +30,11 @@ export class EmbeddingService {
   private readonly timeoutMs: number;
   private readonly maxCacheEntries = 256;
 
+  private lastError: string | null = null;
+  private lastSuccessAt: number | null = null;
+  private lastAttemptAt: number | null = null;
+  private lastCallMs: number | null = null;
+
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
@@ -63,6 +68,32 @@ export class EmbeddingService {
 
   get embeddingDim(): number {
     return this.dim;
+  }
+
+  /**
+   * Live diagnostics for the query-embedding upstream. Zero secrets.
+   */
+  getStatus() {
+    return {
+      enabled: this.enabled,
+      isEnabled: this.isEnabled,
+      provider: this.provider,
+      serviceUrl: this.serviceUrl,
+      authTokenSet: this.authToken.length > 0,
+      model: this.model,
+      dim: this.dim,
+      version: this.version,
+      timeoutMs: this.timeoutMs,
+      cacheSize: this.cache.size,
+      lastError: this.lastError,
+      lastAttemptAt: this.lastAttemptAt
+        ? new Date(this.lastAttemptAt).toISOString()
+        : null,
+      lastSuccessAt: this.lastSuccessAt
+        ? new Date(this.lastSuccessAt).toISOString()
+        : null,
+      lastCallMs: this.lastCallMs,
+    };
   }
 
   get isEnabled(): boolean {
@@ -128,6 +159,8 @@ export class EmbeddingService {
       return cached.vector;
 
     const text = this.queryText(raw);
+    const started = Date.now();
+    this.lastAttemptAt = started;
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -149,15 +182,19 @@ export class EmbeddingService {
       }
 
       if (!res.ok) {
-        this.logger.warn(`Embedding service returned ${res.status}`);
+        this.recordError(
+          `Embedding service returned ${res.status}`,
+          started,
+        );
         return null;
       }
 
       const data: any = await res.json();
       const vector = this.parseEmbeddingResult(data);
       if (!vector || vector.length !== this.dim) {
-        this.logger.warn(
+        this.recordError(
           `Embedding service returned malformed vector (provider=${this.provider})`,
+          started,
         );
         return null;
       }
@@ -167,11 +204,21 @@ export class EmbeddingService {
         if (oldest) this.cache.delete(oldest);
       }
       this.cache.set(key, { vector, at: Date.now() });
+      this.lastError = null;
+      this.lastSuccessAt = Date.now();
+      this.lastCallMs = Date.now() - started;
       return vector;
     } catch (e: any) {
-      this.logger.warn(`Query embedding failed: ${e?.message ?? "timeout"}`);
+      const message = e?.message ?? "timeout";
+      this.logger.warn(`Query embedding failed: ${message}`);
+      this.recordError(message, started);
       return null;
     }
+  }
+
+  private recordError(message: string, startedAt: number) {
+    this.lastError = message;
+    this.lastCallMs = Date.now() - startedAt;
   }
 
   /**
