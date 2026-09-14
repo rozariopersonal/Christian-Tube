@@ -16,6 +16,9 @@ class ChannelService extends ChangeNotifier {
     loadSubscriptions();
   }
 
+  @visibleForTesting
+  ChannelService.test();
+
   void attachToAuth(AuthService authService) {
     _authService = authService;
     authService.addListener(_onAuthChanged);

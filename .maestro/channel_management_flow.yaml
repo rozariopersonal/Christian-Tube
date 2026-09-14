@@ -1,0 +1,31 @@
+appId: org.rozario.christiantube.mobile.dev
+---
+- clearState
+- launchApp
+- runFlow:
+    when:
+      visible: "Allow"
+    file: _grant_permissions.yaml
+
+# 1. Start from main feed
+- assertVisible: "Feed"
+
+# 2. Navigate to Profile
+- tapOn: "Profile"
+- assertVisible: "Settings"
+
+# 3. Navigate to Subscriptions (Assuming this exists from profile)
+- tapOn: "Subscriptions"
+- assertVisible: "Subscriptions"
+
+# 4. Interact with the new UI (User)
+- tapOn: "Request Channel"
+- assertVisible: "Find a YouTube channel"
+- tapOn: "Search YouTube channel or paste URL..."
+- inputText: "Test Channel"
+- pressKey: Enter
+
+# Wait for search results and tap request
+- assertVisible: "Request"
+- tapOn: "Request"
+- assertVisible: "Channel request submitted to admin!"

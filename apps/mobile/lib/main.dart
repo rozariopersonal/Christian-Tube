@@ -16,7 +16,8 @@ import 'core/web/url_strategy.dart'
     if (dart.library.html) 'core/web/url_strategy_web.dart';
 import 'features/auth/auth_service.dart';
 import 'features/channels/channel_service.dart';
-import 'features/channels/channels_screen.dart';
+import 'features/channels/screens/user_subscriptions_screen.dart';
+import 'features/channels/screens/admin_channels_screen.dart';
 import 'features/engines/scripture/services/bible_download_manager.dart';
 import 'features/engines/scripture/screens/saved_scriptures_screen.dart';
 import 'features/feed/video_feed_screen.dart';
@@ -194,7 +195,12 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               ),
             GoRoute(
               path: '/channels',
-              builder: (context, state) => const ChannelsScreen(),
+              builder: (context, state) {
+                if (_authService.isAdmin) {
+                  return const AdminChannelsScreen();
+                }
+                return const UserSubscriptionsScreen();
+              },
             ),
             GoRoute(
               path: '/library',
