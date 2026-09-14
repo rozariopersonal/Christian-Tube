@@ -181,6 +181,22 @@ class Database:
         except Exception:
             pass
 
+    def requeue_orphaned_completed(self):
+        """Videos claiming 'completed' without a VideoEmbedding row (e.g. after
+        a table wipe) are re-queued so the backfill repairs coverage."""
+        try:
+            self.cur.execute(
+                """UPDATE "Video" SET "embeddingStatus"='pending',
+                        "embeddingError"=NULL, "embeddingHash"=NULL
+                   WHERE "embeddingStatus"='completed'
+                     AND NOT EXISTS (
+                       SELECT 1 FROM "VideoEmbedding" ve
+                       WHERE ve."videoId" = "Video"."id"
+                     )"""
+            )
+        except Exception as e:
+            log.warning("Orphaned-completed requeue note: %s", e)
+
     def fetch_eligible(self, cfg: Config):
         statuses = ["pending"]
         if cfg.retry_failed:
@@ -302,6 +318,7 @@ def main():
              MODEL_ID, EMBEDDING_VERSION, cfg.once, cfg.redo, cfg.retry_failed)
 
     while _running:
+        db.requeue_orphaned_completed()
         rows = db.fetch_eligible(cfg)
         if not rows:
             if cfg.once:
