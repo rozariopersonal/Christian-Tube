@@ -15,6 +15,7 @@ import { HealthModule } from './modules/health/health.module';
 import { WordsModule } from './modules/words/words.module';
 import { ShortsModule } from './modules/shorts/shorts.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
+import { AdminReleaseModule } from './modules/admin-release/admin-release.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { FeedbackModule } from './modules/feedback/feedback.module';
     WordsModule,
     ShortsModule,
     FeedbackModule,
+    AdminReleaseModule,
   ],
 })
 export class AppModule {}
