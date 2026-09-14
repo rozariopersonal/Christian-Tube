@@ -110,7 +110,7 @@ export class VideosService {
 
     if (query.type !== "ALL") {
       params.push(query.type === "SHORT" ? "SHORT" : "VIDEO");
-      parts.push(`v.type = $${params.length}`);
+      parts.push(`v.type = $${params.length}::"VideoType"`);
     }
 
     if (query.category && query.category !== "All") {
