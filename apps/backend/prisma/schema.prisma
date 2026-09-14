@@ -69,6 +69,7 @@ model Video {
   updatedAt              DateTime            @updatedAt
 
   channel                Channel?            @relation(fields: [channelId], references: [id])
+  videoEmbedding         VideoEmbedding?
   // shortCreations back-relation removed; ShortCreation now tracks by youtubeVideoId only
 
   @@index([channelId])
@@ -81,7 +82,19 @@ model Video {
   @@index([embeddingStatus])
 }
 
-model Channel {
+model VideoEmbedding {
+  videoId   String   @id
+  embedding Unsupported("vector(384)")?
+  model     String
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([version])
+  @@map("VideoEmbedding")
+}
   id              String         @id // YouTube Channel ID
   name            String
   description     String?        @db.Text
