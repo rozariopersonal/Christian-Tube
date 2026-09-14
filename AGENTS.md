@@ -488,13 +488,21 @@ Every change to the Flutter mobile client is subject to a 3-tier quality gate lo
   - `perf(<scope>): <optimization>` for speed/rendering improvements.
   - Vague commits like `wip`, `update`, `fix`, or `changes` **must not** be used.
   - If a task involves complex multi-commit changes, the agent may include a root `RELEASE_NOTES.md` file summarizing highlights for the release notes generator.
-- **Push, PR & Auto-Merge Workflow**:
+- **Push, PR & Mandatory Auto-Merge Ownership**:
   - Once local verification passes, agents **push their branch** and **raise a Pull Request** targeting `develop`:
     ```bash
     git push -u origin agent/<short-task-name>
     gh pr create --base develop --title "<type>(<scope>): <summary>" --body "<details>"
     ```
-  - **Automated Merge**: The PR Quality Gate workflow (`pr_validation.yml`) automatically tests the PR. **When all static analysis and unit tests pass, the PR is automatically merged into `develop` without manual intervention.**
+  - **Ownership Until Auto-Merged (CRITICAL)**:
+    An agent **must not** declare a task done merely by raising a PR. Agents have full end-to-end ownership of their PR:
+    1. The agent **must** monitor PR quality checks (`gh pr checks <pr_number>`).
+    2. If any check fails (static analysis, unit tests, widget tests, workflow actions, or environment configuration):
+       - The agent **must** inspect the failure logs (`gh run view <run_id> --log-failed`).
+       - The agent **must** fix the root cause inside its worktree branch (even if the fix requires updating GitHub Actions workflows or test lifecycles).
+       - Commit, push, and monitor until all checks pass green.
+    3. **Definition of Done**: A task is strictly considered **DONE** only when the PR Quality Gate passes green and the PR is successfully **auto-merged into `develop`**.
+  - **Automated Merge**: The PR Quality Gate workflow (`pr_validation.yml`) automatically tests the PR. When all static analysis and unit tests pass, the PR is automatically merged into `develop` without human intervention.
   - **Automated Beta Release**: Merging into `develop` automatically triggers the Beta pipeline (`release.yml`), creating a badged Beta APK, running Maestro smoke tests, and publishing a GitHub pre-release (`vX.Y.Z-beta.N`).
   - Only vetted release promotions merge from `develop` into `main`.
 
@@ -582,8 +590,12 @@ All worktrees reside under `.worktrees/<task-name>/` (which is git-ignored along
    ```bash
    gh pr create --base develop --title "<type>(<scope>): <message>" --body "<details>"
    ```
-5. **Clean Up**:
-   Return to main directory and remove the temporary worktree once PR is auto-merged:
+5. **Monitor Checks & Fix Issues until Auto-Merged**:
+   - Track PR checks: `gh pr checks <pr-number>`.
+   - If any check fails, inspect logs (`gh run view <run-id> --log-failed`), resolve the root cause inside the worktree, commit, and push.
+   - Repeat until the PR Quality Gate passes green and auto-merges into `develop`.
+6. **Clean Up**:
+   Return to the main repository root and remove the temporary worktree only after the PR is successfully merged into `develop`:
    ```bash
    cd ..\..
    .\scripts\worktree.bat remove <short-task-name>
