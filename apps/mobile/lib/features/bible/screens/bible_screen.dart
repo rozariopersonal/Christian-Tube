@@ -532,55 +532,64 @@ class _BibleScreenState extends State<BibleScreen> {
     final s = _controller.state;
     if (s.selectedVerses.isEmpty && verseNumber == null) return;
     final targetVerse = verseNumber ?? s.selectedVerses.first;
-    final existing = await _controller.getNoteForVerse(targetVerse);
+    final book = _controller.currentBook;
+    final chapter = _controller.currentChapter;
+    final existing = await _controller.getNoteForVerse(targetVerse, book: book, chapter: chapter);
     if (!mounted) return;
 
     final verseLabel =
-        '${_controller.displayBookName(_controller.currentBook)} '
-        '${_controller.currentChapter}:$targetVerse';
+        '${_controller.displayBookName(book)} '
+        '$chapter:$targetVerse';
 
     final result = await NoteEditorSheet.show(
       context,
       initialText: existing?.text ?? '',
-      contextText: _controller.verseTextFor(targetVerse),
+      contextText: _controller.verseTextFor(targetVerse, book: book, chapter: chapter),
       title: verseLabel,
       hasExistingNote: existing != null && existing.text.trim().isNotEmpty,
     );
     if (!mounted || result == null) return;
 
-    switch (result) {
-      case NoteEditorSave(:final text):
-        await _controller.saveNoteForVerse(targetVerse, text);
-      case NoteEditorDelete():
-        await _controller.deleteNoteForVerse(targetVerse);
-      case NoteEditorDismiss():
-        break;
+    try {
+      switch (result) {
+        case NoteEditorSave(:final text):
+          await _controller.saveNoteForVerse(targetVerse, text, book: book, chapter: chapter);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Note saved'),
+                duration: Duration(seconds: 1),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        case NoteEditorDelete():
+          await _controller.deleteNoteForVerse(targetVerse, book: book, chapter: chapter);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Note deleted'),
+                duration: Duration(seconds: 1),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        case NoteEditorDismiss():
+          break;
+      }
+    } catch (e) {
+      debugPrint('Error saving/deleting note: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Note could not be saved'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
     _controller.clearSelection();
-    switch (result) {
-      case NoteEditorSave():
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Note saved'),
-              duration: Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      case NoteEditorDelete():
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Note deleted'),
-              duration: Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      case NoteEditorDismiss():
-        break;
-    }
   }
 
   @override

@@ -900,7 +900,8 @@ class BibleController extends ChangeNotifier {
       final notes = await _noteService.getNotesForFeature(_bibleFeatureName);
       if (epoch != _loadEpoch || _disposed) return; // stale
       final prefix = '$book:$chapter:';
-      final merged = Set<String>.from(_state.verseNotes);
+      final merged = Set<String>.from(_state.verseNotes)
+        ..removeWhere((key) => key.startsWith(prefix));
       for (final n in notes) {
         if (n.targetId.startsWith(prefix)) {
           final versePart = n.targetId.substring(prefix.length);
@@ -1221,27 +1222,41 @@ class BibleController extends ChangeNotifier {
 
   String? _lastBookmarkMessage;
 
-  /// The saved note for [verseNumber] in the current book/chapter, or null
-  /// when none exists.
-  Future<Note?> getNoteForVerse(int verseNumber) =>
-      _noteService.getNoteForTarget(
-        _bibleFeatureName,
-        verseNoteTargetId(_currentBook, _currentChapter, verseNumber),
-      );
+  /// The saved note for [verseNumber] in the current book/chapter (or optional
+  /// [book]/[chapter]), or null when none exists.
+  Future<Note?> getNoteForVerse(int verseNumber, {String? book, int? chapter}) {
+    final b = book ?? _currentBook;
+    final c = chapter ?? _currentChapter;
+    return _noteService.getNoteForTarget(
+      _bibleFeatureName,
+      verseNoteTargetId(b, c, verseNumber),
+    );
+  }
 
   /// Resolves the verse text for [verseNumber] (used as read-only context in
   /// the note editor).
-  String verseTextFor(int verseNumber) {
+  String verseTextFor(int verseNumber, {String? book, int? chapter}) {
+    final b = book ?? _currentBook;
+    final c = chapter ?? _currentChapter;
+    final bn = bookNumber(b);
+    final rows = _state.loadedChapters[bibleChapterId(bn, c)];
+    if (rows != null) {
+      final v = rows.where((v) => v.number == verseNumber).firstOrNull;
+      if (v != null) return v.text;
+    }
     final v = _state.verses.where((v) => v.number == verseNumber).firstOrNull;
     return v?.text ?? '';
   }
 
-  /// Saves the user note [text] for [verseNumber] in the current book/chapter
+  /// Saves the user note [text] for [verseNumber] in [book]/[chapter]
   /// and refreshes the state's note-key set.
-  Future<void> saveNoteForVerse(int verseNumber, String text) async {
+  Future<void> saveNoteForVerse(int verseNumber, String text,
+      {String? book, int? chapter}) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
-    final targetId = verseNoteTargetId(_currentBook, _currentChapter, verseNumber);
+    final b = book ?? _currentBook;
+    final c = chapter ?? _currentChapter;
+    final targetId = verseNoteTargetId(b, c, verseNumber);
     final existing = await _noteService.getNoteForTarget(
       _bibleFeatureName,
       targetId,
@@ -1253,23 +1268,24 @@ class BibleController extends ChangeNotifier {
       feature: _bibleFeatureName,
       targetId: targetId,
       text: trimmed,
-      contextText: verseTextFor(verseNumber),
+      contextText: verseTextFor(verseNumber, book: b, chapter: c),
       createdAt: existing?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
     await _noteService.saveNote(note);
-    final key =
-        verseNoteKey(_currentBook, _currentChapter, verseNumber);
+    final key = verseNoteKey(b, c, verseNumber);
     _update((s) => s.copyWith(verseNotes: {...s.verseNotes, key}));
   }
 
-  /// Deletes the note for [verseNumber] in the current book/chapter, if any,
+  /// Deletes the note for [verseNumber] in [book]/[chapter], if any,
   /// and refreshes the state's note-key set.
-  Future<void> deleteNoteForVerse(int verseNumber) async {
-    final targetId = verseNoteTargetId(_currentBook, _currentChapter, verseNumber);
+  Future<void> deleteNoteForVerse(int verseNumber,
+      {String? book, int? chapter}) async {
+    final b = book ?? _currentBook;
+    final c = chapter ?? _currentChapter;
+    final targetId = verseNoteTargetId(b, c, verseNumber);
     await _noteService.deleteNote(_bibleFeatureName, targetId);
-    final key =
-        verseNoteKey(_currentBook, _currentChapter, verseNumber);
+    final key = verseNoteKey(b, c, verseNumber);
     _update((s) {
       final updated = Set<String>.from(s.verseNotes)..remove(key);
       return s.copyWith(verseNotes: updated);

@@ -114,6 +114,8 @@ class BibleContent extends StatelessWidget {
                 final verse = s.verses[index];
                 final verseWidget = _VerseRow(
                   verse: verse,
+                  book: controller.currentBook,
+                  chapter: controller.currentChapter,
                   controller: controller,
                   onVerseTap: onVerseTap,
                   onCopy: onCopy,
@@ -176,10 +178,23 @@ class BibleContent extends StatelessWidget {
                   appearance: controller.appearance,
                 );
               }
+              final bookName = BookNameService.englishNameFor(ref.bookNumber);
               final verseWidget = _VerseRow(
                 verse: rows[ref.verse - 1],
+                book: bookName,
+                chapter: ref.chapter,
                 controller: controller,
-                onVerseTap: onVerseTap,
+                onVerseTap: (v) {
+                  if (controller.currentBook != bookName ||
+                      controller.currentChapter != ref.chapter) {
+                    controller.updateVisibleChapter(
+                      ref.bookNumber,
+                      ref.chapter,
+                      verse: v,
+                    );
+                  }
+                  onVerseTap(v);
+                },
                 onCopy: onCopy,
                 onShare: onShare,
                 onBookmark: onBookmark,
@@ -187,7 +202,6 @@ class BibleContent extends StatelessWidget {
                 onOpenStudyPage: onOpenStudyPage,
               );
               if (ref.verse == 1) {
-                final bookName = BookNameService.englishNameFor(ref.bookNumber);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -216,6 +230,8 @@ class BibleContent extends StatelessWidget {
 class _VerseRow extends StatelessWidget {
   const _VerseRow({
     required this.verse,
+    required this.book,
+    required this.chapter,
     required this.controller,
     required this.onVerseTap,
     required this.onCopy,
@@ -226,6 +242,8 @@ class _VerseRow extends StatelessWidget {
   });
 
   final BibleVerse verse;
+  final String book;
+  final int chapter;
   final BibleController controller;
   final ValueChanged<int> onVerseTap;
   final VoidCallback onCopy;
@@ -239,22 +257,26 @@ class _VerseRow extends StatelessWidget {
     final s = controller.state;
     final highlightKey =
         BibleControllerState.verseHighlightKey(
-      controller.currentBook,
-      controller.currentChapter,
+      book,
+      chapter,
       verse.number,
     );
+    final isCurrentCh =
+        book == controller.currentBook && chapter == controller.currentChapter;
     return VerseItem(
       verse: verse,
-      isSelected: s.selectedVerses.contains(verse.number),
-      isHighlighted: s.highlightedVerse == verse.number,
+      isSelected: isCurrentCh && s.selectedVerses.contains(verse.number),
+      isHighlighted: isCurrentCh && s.highlightedVerse == verse.number,
       highlightColorIndex: s.verseHighlights[highlightKey],
       hasNote: s.verseNotes.contains(highlightKey),
       appearance: controller.appearance,
       onVerseTap: () => onVerseTap(verse.number),
-      crossReferences: s.chapterCrossRefs[verse.number] ?? const [],
-      backgroundNotes: s.chapterBackgrounds[verse.number] ?? const [],
-      resolvedTexts: s.crossRefTexts,
-      selectedCount: s.selectedVerses.length,
+      crossReferences:
+          isCurrentCh ? (s.chapterCrossRefs[verse.number] ?? const []) : const [],
+      backgroundNotes:
+          isCurrentCh ? (s.chapterBackgrounds[verse.number] ?? const []) : const [],
+      resolvedTexts: isCurrentCh ? s.crossRefTexts : const {},
+      selectedCount: isCurrentCh ? s.selectedVerses.length : 0,
       onCopy: onCopy,
       onShare: onShare,
       onBookmark: onBookmark,

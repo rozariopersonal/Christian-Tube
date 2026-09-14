@@ -143,4 +143,32 @@ void main() {
     final noteAfter = await controller.getNoteForVerse(3);
     expect(noteAfter?.text, 'Actual note on verse 3');
   });
+
+  test('Save and retrieve notes across different chapters and delete note', () async {
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: null,
+      saveProgress: false,
+    );
+
+    await controller.init();
+
+    // Save note on John 4:5 explicitly
+    await controller.saveNoteForVerse(5, 'Living Water Note', book: 'John', chapter: 4);
+
+    final key = BibleController.verseNoteKey('John', 4, 5);
+    expect(controller.state.verseNotes.contains(key), isTrue);
+
+    final note = await controller.getNoteForVerse(5, book: 'John', chapter: 4);
+    expect(note?.text, 'Living Water Note');
+
+    // Delete note
+    await controller.deleteNoteForVerse(5, book: 'John', chapter: 4);
+    expect(controller.state.verseNotes.contains(key), isFalse);
+
+    final deleted = await controller.getNoteForVerse(5, book: 'John', chapter: 4);
+    expect(deleted, isNull);
+  });
 }
