@@ -49,18 +49,18 @@ export declare class SyncService implements OnModuleInit {
     private upsertScrapedVideo;
     refreshChannelMetadata(channelId: string): Promise<{
         id: string;
-        name: string;
         description: string | null;
         thumbnail: string | null;
-        subscriberCount: string | null;
         category: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        subscriberCount: string | null;
         language: string | null;
         isActive: boolean;
         syncCursor: string | null;
         syncStatus: string;
         lastSyncedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     subscribeChannelToWebSub(channelId: string, mode?: 'subscribe' | 'unsubscribe'): Promise<boolean>;
     renewAllWebSubSubscriptions(): Promise<void>;
@@ -68,13 +68,10 @@ export declare class SyncService implements OnModuleInit {
     backfillVideoMetadata(batchSize?: number): Promise<void>;
     syncSingleVideo(videoId: string): Promise<{
         id: string;
-        description: string;
-        thumbnail: string;
-        category: string | null;
-        createdAt: Date;
-        updatedAt: Date;
         type: import(".prisma/client").$Enums.VideoType;
         title: string;
+        description: string;
+        thumbnail: string;
         channelId: string;
         channelName: string;
         channelThumbnail: string | null;
@@ -83,6 +80,7 @@ export declare class SyncService implements OnModuleInit {
         duration: string;
         viewCount: number;
         tags: string[];
+        category: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         transcriptionStatus: import(".prisma/client").$Enums.TranscriptionStatus;
         transcriptionProgress: number | null;
@@ -102,5 +100,7 @@ export declare class SyncService implements OnModuleInit {
         audioUploadStatus: string | null;
         audioRetryCount: number | null;
         audioLastError: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
 }

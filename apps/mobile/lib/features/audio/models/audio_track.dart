@@ -1,3 +1,5 @@
+import 'package:christian_tube/core/config/app_config.dart';
+
 /// Represents a single audio sermon or teaching track.
 class AudioTrack {
   final String id;
@@ -62,6 +64,17 @@ class AudioTrack {
   }
 
   factory AudioTrack.fromJson(Map<String, dynamic> json) {
+    final parsedAudioUrl = json['audioUrl'] as String? ?? '';
+    String? resolvedStreamUrl = json['streamUrl'] as String?;
+
+    // Override the static expiring S3 stream URL with our backend resolver for Audio.com tracks
+    if (parsedAudioUrl.contains('audio.com/')) {
+      final audioId = parsedAudioUrl.split('audio.com/').last.split('?').first.replaceAll(RegExp(r'[^0-9]'), '');
+      if (audioId.isNotEmpty) {
+        resolvedStreamUrl = '${AppConfig.apiBaseUrl}/audio/stream/$audioId';
+      }
+    }
+
     return AudioTrack(
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? '',
@@ -74,8 +87,8 @@ class AudioTrack {
       thumbnailUrl: json['thumbnailUrl'] as String?,
       publishedAt: json['publishedAt'] as String?,
       durationSeconds: json['durationSeconds'] as int? ?? 0,
-      audioUrl: json['audioUrl'] as String? ?? '',
-      streamUrl: json['streamUrl'] as String?,
+      audioUrl: parsedAudioUrl,
+      streamUrl: resolvedStreamUrl,
       fallbackUrl: json['fallbackUrl'] as String?,
       coverUrl: json['coverUrl'] as String?,
       language: json['language'] as String?,

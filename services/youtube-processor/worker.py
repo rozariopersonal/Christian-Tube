@@ -202,39 +202,75 @@ class Database:
             include_failed = True
 
         ph = ",".join(["%s"] * len(statuses))
-        params: list[Any] = list(statuses)
+        base_params: list[Any] = list(statuses)
         retry_clause = ""
         if include_failed:
             retry_clause = ' AND ("audioRetryCount" IS NULL OR "audioRetryCount" < %s)'
-            params.append(cfg.max_retries)
+            base_params.append(cfg.max_retries)
 
-        # Channel name filter (--channels flag)
-        channel_clause = ""
         if cfg.channel_filters:
-            channel_or = " OR ".join(["c.name ILIKE %s" for _ in cfg.channel_filters])
-            channel_clause = f" AND ({channel_or})"
-            params.extend([f"%{f}%" for f in cfg.channel_filters])
-
-        query = f"""
-            SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
-            FROM "Video" v
-            JOIN "Channel" c ON c.id = v."channelId"
-            WHERE v.type = 'VIDEO'
-              AND (c."isActive" = true OR c."isActive" IS NULL)
-              AND c.name NOT ILIKE '%%short%%'
-              AND c.id != 'UC_ChristianTubeOfficial'
-              AND v.title NOT ILIKE '%%#short%%'
-              AND (v.description IS NULL OR v.description NOT ILIKE '%%#short%%')
-              AND (v."duration" IS NULL OR (v."duration" != '0:00' AND v."duration" NOT LIKE '0:0%%'))
-              AND (v."audioUploadStatus" IS NULL OR v."audioUploadStatus" IN ({ph}))
-              {retry_clause}
-              {channel_clause}
-            ORDER BY v."publishedAt" DESC
-            LIMIT %s
-        """
-        params.append(cfg.batch_limit)
-        self.cur.execute(query, params)
-        return self.cur.fetchall()
+            for channel_name in cfg.channel_filters:
+                params = list(base_params)
+                channel_clause = " AND c.name ILIKE %s"
+                params.append(f"%{channel_name}%")
+                
+                query = f"""
+                    SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
+                    FROM "Video" v
+                    JOIN "Channel" c ON c.id = v."channelId"
+                    WHERE v.type = 'VIDEO'
+                      AND (c."isActive" = true OR c."isActive" IS NULL)
+                      AND c.name NOT ILIKE '%%short%%'
+                      AND c.id != 'UC_ChristianTubeOfficial'
+                      AND v.title NOT ILIKE '%%#short%%'
+                      AND (v.description IS NULL OR v.description NOT ILIKE '%%#short%%')
+                      AND (v."duration" IS NULL OR (v."duration" != '0:00' AND v."duration" NOT LIKE '0:0%%'))
+                      AND (v."audioUploadStatus" IS NULL OR v."audioUploadStatus" IN ({ph}))
+                      {retry_clause}
+                      {channel_clause}
+                    ORDER BY v."publishedAt" DESC
+                    LIMIT %s
+                """
+                params.append(cfg.batch_limit)
+                self.cur.execute(query, params)
+                results = self.cur.fetchall()
+                if results:
+                    return results
+            return []
+        else:
+            params = list(base_params)
+            query = f"""
+                WITH ChannelStats AS (
+                    SELECT "channelId", COUNT(id) as total_videos
+                    FROM "Video"
+                    GROUP BY "channelId"
+                )
+                SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
+                FROM "Video" v
+                JOIN "Channel" c ON c.id = v."channelId"
+                LEFT JOIN ChannelStats cs ON cs."channelId" = c.id
+                WHERE v.type = 'VIDEO'
+                  AND (c."isActive" = true OR c."isActive" IS NULL)
+                  AND c.name NOT ILIKE '%%short%%'
+                  AND c.id != 'UC_ChristianTubeOfficial'
+                  AND v.title NOT ILIKE '%%#short%%'
+                  AND (v.description IS NULL OR v.description NOT ILIKE '%%#short%%')
+                  AND (v."duration" IS NULL OR (v."duration" != '0:00' AND v."duration" NOT LIKE '0:0%%'))
+                  AND (v."audioUploadStatus" IS NULL OR v."audioUploadStatus" IN ({ph}))
+                  {retry_clause}
+                ORDER BY 
+                    CASE 
+                        WHEN c.name = 'CFC India - Zac Poonen' THEN 1
+                        WHEN c.language = 'Tamil' THEN 2
+                        ELSE 3
+                    END ASC,
+                    cs.total_videos DESC,
+                    v."publishedAt" DESC
+                LIMIT %s
+            """
+            params.append(cfg.batch_limit)
+            self.cur.execute(query, params)
+            return self.cur.fetchall()
 
     def fetch_one(self, video_id: str) -> tuple | None:
         self.cur.execute(
