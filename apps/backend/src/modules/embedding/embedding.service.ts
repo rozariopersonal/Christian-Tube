@@ -71,7 +71,7 @@ export class EmbeddingService {
 
   private get embedUrl(): string {
     if (this.provider === "huggingface") {
-      return `${this.serviceUrl}/pipeline/feature-extraction/${this.model}`;
+      return `${this.serviceUrl}/models/${this.model}/pipeline/feature-extraction`;
     }
     return `${this.serviceUrl}/embed`;
   }

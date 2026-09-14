@@ -221,14 +221,14 @@ describe('EmbeddingService', () => {
       (globalThis as any).fetch = fetchMock;
       const { service } = makeService({
         provider: 'huggingface',
-        serviceUrl: 'https://api-inference.huggingface.co',
+        serviceUrl: 'https://router.huggingface.co/hf-inference',
         authToken: 'hf-secret',
       });
 
       const result = await service.embedQuery('faith');
       expect(result).toEqual(vector());
       expect(fetchMock).toHaveBeenCalledWith(
-        'https://api-inference.huggingface.co/pipeline/feature-extraction/intfloat/multilingual-e5-small',
+        'https://router.huggingface.co/hf-inference/models/intfloat/multilingual-e5-small/pipeline/feature-extraction',
         expect.objectContaining({
           method: 'POST',
           headers: {

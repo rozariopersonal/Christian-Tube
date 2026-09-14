@@ -29,7 +29,7 @@ services:
       - key: CLOUDFLARE_R2_BUCKET_NAME
         sync: false
       - key: EMBEDDING_SERVICE_URL
-        value: https://api-inference.huggingface.co
+        value: https://router.huggingface.co/hf-inference
       - key: EMBEDDING_AUTH_TOKEN
         sync: false
       - key: EMBEDDING_MODEL
@@ -77,7 +77,7 @@ services:
       - key: SHORTS_PRIVACY_STATUS
         value: public
       - key: EMBEDDING_SERVICE_URL
-        value: https://api-inference.huggingface.co
+        value: https://router.huggingface.co/hf-inference
       - key: EMBEDDING_AUTH_TOKEN
         sync: false
       - key: EMBEDDING_MODEL
