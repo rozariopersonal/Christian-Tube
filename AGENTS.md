@@ -526,6 +526,69 @@ Beta and Production builds are completely isolated applications on Android:
 - Users and developers may have **both** Beta and Production installed concurrently on the same physical device without database, preference, or cache collisions.
 - The in-app update service (`UpdateService`) queries `/releases` for Beta installations to find newer pre-releases (`vX.Y.Z-beta.N`) and `/releases/latest` for Production installations.
 
+### 3. Scope & Path Filtering for Mobile CI/CD
+To prevent unnecessary CI load and false releases when working on backend or background services, mobile CI/CD pipelines are strictly path-filtered:
+- **Filtered Paths**:
+  - `apps/mobile/**`
+  - `scripts/**`
+  - `.github/workflows/release.yml` and `.github/workflows/pr_validation.yml`
+  - `releases/**` (remote assets submodule)
+  - `package.json`
+- **Behavior**:
+  - `release.yml` and `pr_validation.yml` only trigger when files under the above paths are touched.
+  - Changes strictly inside `apps/backend/**`, `services/**`, documentation, or database schemas do not invoke mobile test or APK compilation workflows.
+
+---
+
+## Parallel Agent Execution & Git Worktree Standard
+
+When multiple autonomous or human agents work concurrently on the repository, they **must not** share or switch branches in the primary workspace root (to prevent unstaged file collisions, submodule checkout race conditions, and interrupted runs).
+
+### 1. Worktree Helper Scripts
+The repository provides cross-platform worktree management scripts:
+- Windows (CMD / PowerShell): `.\scripts\worktree.bat <command>`
+- macOS / Linux: `./scripts/worktree.sh <command>`
+
+All worktrees reside under `.worktrees/<task-name>/` (which is git-ignored along with `.codex/`).
+
+### 2. Available Commands
+| Command | Action |
+| :--- | :--- |
+| `.\scripts\worktree.bat create <task-name>` | Fetches latest `origin/develop`, creates an isolated worktree at `.worktrees/<task-name>/`, checks out a fresh tracking branch `agent/<task-name>`, initializes submodules, and runs `flutter pub get`. |
+| `.\scripts\worktree.bat list` | Lists all active git worktrees and their associated branches across the repository. |
+| `.\scripts\worktree.bat remove <task-name>` | Deletes the worktree directory, unregisters it from git, and deletes the local branch `agent/<task-name>`. |
+| `.\scripts\worktree.bat prune` | Prunes any stale or orphaned worktree references. |
+
+### 3. Agent Lifecycle in Worktrees
+1. **Initialize**:
+   ```bash
+   .\scripts\worktree.bat create <short-task-name>
+   cd .worktrees\<short-task-name>
+   ```
+2. **Develop & Test**:
+   Make edits, implement unit tests, and verify locally inside the worktree directory:
+   ```bash
+   cd apps/mobile
+   flutter analyze --no-fatal-infos
+   flutter test
+   ```
+3. **Commit & Push**:
+   ```bash
+   git add <files>
+   git commit -m "<type>(<scope>): <message>"
+   git push -u origin agent/<short-task-name>
+   ```
+4. **Raise PR**:
+   ```bash
+   gh pr create --base develop --title "<type>(<scope>): <message>" --body "<details>"
+   ```
+5. **Clean Up**:
+   Return to main directory and remove the temporary worktree once PR is auto-merged:
+   ```bash
+   cd ..\..
+   .\scripts\worktree.bat remove <short-task-name>
+   ```
+
 ---
 
 ## General repository rules
