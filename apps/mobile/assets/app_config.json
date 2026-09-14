@@ -43,5 +43,7 @@
     "maxDurationSeconds": 180,
     "defaultPrivacyStatus": "unlisted",
     "selfDeclaredMadeForKids": true
-  }
+  },
+  "isBeta": false,
+  "channel": "prod"
 }

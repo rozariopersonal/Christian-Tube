@@ -26,6 +26,7 @@ const health_module_1 = require("./modules/health/health.module");
 const words_module_1 = require("./modules/words/words.module");
 const shorts_module_1 = require("./modules/shorts/shorts.module");
 const feedback_module_1 = require("./modules/feedback/feedback.module");
+const audio_module_1 = require("./modules/audio/audio.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -49,6 +50,7 @@ exports.AppModule = AppModule = __decorate([
             words_module_1.WordsModule,
             shorts_module_1.ShortsModule,
             feedback_module_1.FeedbackModule,
+            audio_module_1.AudioModule,
         ],
     })
 ], AppModule);
