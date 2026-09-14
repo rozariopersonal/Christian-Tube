@@ -290,6 +290,43 @@ describe('EmbeddingService', () => {
     });
   });
 
+  describe('getStatus', () => {
+    it('reports config and clears lastError after a success', async () => {
+      (globalThis as any).fetch = jest
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => vector() });
+      const { service } = makeService({ provider: 'huggingface' });
+      await service.embedQuery('grace');
+
+      const status = service.getStatus();
+      expect(status.provider).toBe('huggingface');
+      expect(status.authTokenSet).toBe(true);
+      expect(status.isEnabled).toBe(true);
+      expect(status.lastError).toBeNull();
+      expect(status.lastSuccessAt).not.toBeNull();
+      expect(status.lastCallMs).toBeGreaterThanOrEqual(0);
+      expect(status.cacheSize).toBe(1);
+    });
+
+    it('captures the last error message and duration on failure', async () => {
+      (globalThis as any).fetch = jest
+        .fn()
+        .mockRejectedValue(new Error('ECONNREFUSED'));
+      const { service } = makeService();
+      await service.embedQuery('x');
+
+      const status = service.getStatus();
+      expect(status.lastError).toBe('ECONNREFUSED');
+      expect(status.lastSuccessAt).toBeNull();
+      expect(status.lastCallMs).not.toBeNull();
+    });
+
+    it('never exposes the auth token', async () => {
+      const { service } = makeService({ authToken: 'super-secret' });
+      expect(JSON.stringify(service.getStatus())).not.toContain('super-secret');
+    });
+  });
+
   describe('reconcilePendingEmbeddings', () => {
     it('re-queues completed embeddings whose version does not match', async () => {
       const { service, prisma } = makeService();

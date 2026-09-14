@@ -1,4 +1,4 @@
-# ─── Stage 1: Build ────────────────────────────────────────────────────────────
+﻿# ─── Stage 1: Build ────────────────────────────────────────────────────────────
 FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
@@ -33,4 +33,4 @@ COPY --from=builder /app/apps/backend/dist ./dist
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss --skip-generate || true; node dist/main.js || node dist/src/main.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate || true; node dist/main.js || node dist/src/main.js"]
