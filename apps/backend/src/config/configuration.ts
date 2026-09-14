@@ -63,6 +63,10 @@ export default () => {
         : undefined,
       enabled: process.env.EMBEDDING_ENABLED !== 'false',
     },
+    contentSearch: {
+      enabled: process.env.CONTENT_SEARCH_ENABLED !== 'false',
+      maxChunks: parseInt(process.env.CONTENT_SEARCH_MAX_CHUNKS || '60', 10),
+    },
     internalJobSecret: process.env.INTERNAL_JOB_SECRET,
     githubToken: process.env.GITHUB_TOKEN || process.env.GITHUB_FEEDBACK_TOKEN,
     githubRepo: process.env.GITHUB_REPO || 'rozariopersonal/Christian-Tube',

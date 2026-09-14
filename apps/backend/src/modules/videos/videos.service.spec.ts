@@ -13,13 +13,16 @@ function row(id: string) {
   };
 }
 
-function makeService(embedQuery: number[] | null = null) {
+function makeService(
+  embedQuery: number[] | null = null,
+  config: Record<string, unknown> = {},
+) {
   const prisma = {
     video: { findMany: jest.fn(), findUnique: jest.fn(), upsert: jest.fn() },
     channel: { upsert: jest.fn() },
     $queryRawUnsafe: jest.fn(),
   };
-  const configService = { get: jest.fn(() => undefined) };
+  const configService = { get: jest.fn((key: string) => config[key]) };
   const embeddingService = {
     modelName: 'intfloat/multilingual-e5-small',
     modelVersion: 1,
@@ -146,6 +149,86 @@ describe('VideosService', () => {
       const out = await service.findAll({ search: 'grace' });
 
       expect(out.map((v: any) => v.id)).toEqual(['v1', 'v2']);
+    });
+
+    it('fuses transcript idea-chunks into the ranking and attaches contentMatch', async () => {
+      const { service, prisma } = makeService(new Array(DIM).fill(0.1), {
+        'contentSearch.enabled': true,
+        'contentSearch.maxChunks': 60,
+      });
+      // Call 1 = title/description vector query; call 2 = content chunk query
+      prisma.$queryRawUnsafe
+        .mockResolvedValueOnce([{ id: 'v3' }])
+        .mockResolvedValueOnce([
+          {
+            videoId: 'v3',
+            title: 'Grace is a Person',
+            content: 'Grace is a person, not a principle.',
+            quoteText: '“Grace is a person…”',
+            startSec: 120,
+            endSec: 132,
+            dist: 0.01,
+          },
+          {
+            videoId: 'v9',
+            title: 'Saved by grace',
+            content: 'We are saved by grace through faith.',
+            quoteText: '“We are saved by grace…”',
+            startSec: 45,
+            endSec: 58,
+            dist: 0.05,
+          },
+        ]);
+      prisma.video.findMany.mockImplementation((args: any) => {
+        if (args.where?.id?.in) {
+          return Promise.resolve(args.where.id.in.map((id: string) => row(id)));
+        }
+        if (args.where?.OR) {
+          return Promise.resolve([{ id: 'v1' }, { id: 'v3' }]);
+        }
+        return Promise.resolve([]);
+      });
+
+      const out = await service.findAll({ search: 'grace is a person', limit: 5 });
+
+      // Content query ran with model/version/vector and the max-chunks limit
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(2);
+      const contentCall = prisma.$queryRawUnsafe.mock.calls[1];
+      const [csql, ctype, cmodel, cversion, cvec, climit] = contentCall;
+      expect(csql).toContain('FROM "VideoChunk" vc');
+      expect(csql).toContain('vc.embedding <=> $4::vector');
+      expect(ctype).toBe('VIDEO');
+      expect(cmodel).toBe('intfloat/multilingual-e5-small');
+      expect(cversion).toBe(1);
+      expect(cvec).toEqual(`[${new Array(DIM).fill(0.1).join(",")}]`);
+      expect(climit).toBe(60);
+
+      const byId = new Map(out.map((v: any) => [v.id, v]));
+      expect(out[0].id).toBe('v3');
+      expect(byId.get('v3')?.contentMatch).toMatchObject({
+        title: 'Grace is a Person',
+        statement: 'Grace is a person, not a principle.',
+        quote: '“Grace is a person…”',
+        startSec: 120,
+        endSec: 132,
+      });
+      expect(byId.get('v9')?.contentMatch?.statement).toBe(
+        'We are saved by grace through faith.',
+      );
+    });
+
+    it('skips content search when the feature is disabled', async () => {
+      const { service, prisma } = makeService(new Array(DIM).fill(0.1), {
+        'contentSearch.enabled': false,
+      });
+      prisma.$queryRawUnsafe.mockResolvedValueOnce([{ id: 'v1' }]);
+      prisma.video.findMany.mockResolvedValue([{ id: 'v1' }]);
+
+      const out = await service.findAll({ search: 'grace' });
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+      expect(out.map((v: any) => v.id)).toEqual(['v1']);
+      expect(out[0].contentMatch).toBeUndefined();
     });
   });
 
