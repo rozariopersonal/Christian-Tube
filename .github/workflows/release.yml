@@ -7,6 +7,12 @@ on:
       - develop
     tags:
       - 'v*'
+    paths:
+      - 'apps/mobile/**'
+      - 'scripts/**'
+      - '.github/workflows/release.yml'
+      - 'releases/**'
+      - 'package.json'
   workflow_dispatch:
     inputs:
       tag:

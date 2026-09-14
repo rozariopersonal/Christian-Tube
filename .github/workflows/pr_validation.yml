@@ -6,6 +6,12 @@ on:
     branches:
       - develop
       - main
+    paths:
+      - 'apps/mobile/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'releases/**'
+      - 'package.json'
 
 permissions:
   contents: write
