@@ -14,6 +14,7 @@ import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
 import '../../core/config/app_config.dart';
+import '../admin/widgets/promotion_sheet.dart';
 
 class ProfileScreen extends StatelessWidget {
   final AuthService authService;
@@ -386,6 +387,24 @@ class ProfileScreen extends StatelessWidget {
                               context.push('/admin-users');
                             },
                           ),
+                          if (AppConfig.isBeta) ...[
+                            const Divider(height: 16),
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.rocket_launch_outlined,
+                                  color: context.tokens.accent),
+                              title: const Text('Promote to Production',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold, fontSize: 13)),
+                              subtitle: const Text(
+                                  'Release tested beta changes to production users',
+                                  style: TextStyle(fontSize: 13)),
+                              trailing: const Icon(Icons.chevron_right, size: 20),
+                              onTap: () {
+                                PromotionSheet.show(context);
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),

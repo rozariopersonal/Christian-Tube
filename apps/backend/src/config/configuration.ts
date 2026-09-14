@@ -64,6 +64,8 @@ export default () => {
       enabled: process.env.EMBEDDING_ENABLED !== 'false',
     },
     internalJobSecret: process.env.INTERNAL_JOB_SECRET,
+    githubToken: process.env.GITHUB_TOKEN || process.env.GITHUB_FEEDBACK_TOKEN,
+    githubRepo: process.env.GITHUB_REPO || 'rozariopersonal/Christian-Tube',
     adminEmails,
     instanceConfig,
     seedChannels: [],
