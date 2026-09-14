@@ -128,6 +128,7 @@ jobs:
     name: 'Auto-Merge to Develop Branch'
     needs: [paths, pr_quality_check, backend_quality_check]
     if: |
+      always() &&
       github.event.pull_request.base.ref == 'develop' &&
       (needs.pr_quality_check.result == 'success' || needs.pr_quality_check.result == 'skipped') &&
       (needs.backend_quality_check.result == 'success' || needs.backend_quality_check.result == 'skipped') &&
