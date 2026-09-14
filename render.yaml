@@ -29,7 +29,7 @@ services:
       - key: CLOUDFLARE_R2_BUCKET_NAME
         sync: false
       - key: EMBEDDING_SERVICE_URL
-        value: https://christiantube-embeddings.onrender.com
+        value: https://api-inference.huggingface.co
       - key: EMBEDDING_AUTH_TOKEN
         sync: false
       - key: EMBEDDING_MODEL
@@ -38,6 +38,10 @@ services:
         value: "384"
       - key: EMBEDDING_VERSION
         value: "1"
+      - key: EMBEDDING_PROVIDER
+        value: huggingface
+      - key: EMBEDDING_TIMEOUT_MS
+        value: "8000"
 
   # ─── achristianapp Backend API ────────────────────────────────────────────
   - type: web
@@ -73,7 +77,7 @@ services:
       - key: SHORTS_PRIVACY_STATUS
         value: public
       - key: EMBEDDING_SERVICE_URL
-        value: https://christiantube-embeddings.onrender.com
+        value: https://api-inference.huggingface.co
       - key: EMBEDDING_AUTH_TOKEN
         sync: false
       - key: EMBEDDING_MODEL
@@ -82,24 +86,7 @@ services:
         value: "384"
       - key: EMBEDDING_VERSION
         value: "1"
-
-  # ─── Embedding inference (free web service, self-hosted int8 ONNX e5-small) ──
-  - type: web
-    name: christiantube-embeddings
-    runtime: docker
-    dockerfilePath: services/embedder/Dockerfile
-    plan: free
-    region: oregon
-    port: 8000
-    healthCheckPath: /health
-    envVars:
-      - key: EMBEDDING_AUTH_TOKEN
-        sync: false
-      - key: EMBEDDING_MODEL
-        value: intfloat/multilingual-e5-small
-      - key: EMBEDDING_DIM
-        value: "384"
-      - key: EMBEDDING_VERSION
-        value: "1"
-      - key: ONNX_DIR
-        value: /model
+      - key: EMBEDDING_PROVIDER
+        value: huggingface
+      - key: EMBEDDING_TIMEOUT_MS
+        value: "8000"
