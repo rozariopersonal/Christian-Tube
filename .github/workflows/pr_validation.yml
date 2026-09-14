@@ -1,0 +1,78 @@
+name: Pull Request Quality Gate & Auto-Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # ============================================================================
+  # GATE 1: CODE & UNIT QUALITY GATE
+  # ============================================================================
+  pr_quality_check:
+    name: 'PR Quality Gate (Flutter Analyze & Tests)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: |
+          cd apps/mobile
+          flutter pub get
+
+      - name: Flutter Static Analysis
+        run: |
+          cd apps/mobile
+          flutter analyze --no-fatal-infos
+
+      - name: Flutter Unit & Widget Tests
+        run: |
+          cd apps/mobile
+          flutter test
+
+  # ============================================================================
+  # AUTOMATED MERGE TO DEVELOP BRANCH
+  # ============================================================================
+  auto_merge:
+    name: 'Auto-Merge to Develop Branch'
+    needs: pr_quality_check
+    if: |
+      github.event.pull_request.base.ref == 'develop' &&
+      needs.pr_quality_check.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Automatically Merge PR into develop
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "PR #${PR_NUMBER} passed quality checks. Auto-merging into develop..."
+          gh pr merge "$PR_NUMBER" --merge --auto || \
+          gh pr merge "$PR_NUMBER" --merge --admin || \
+          gh pr merge "$PR_NUMBER" --merge
+          echo "🎉 Successfully merged PR #${PR_NUMBER} into develop!"

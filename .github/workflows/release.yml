@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - beta
+      - develop
     tags:
       - 'v*'
   workflow_dispatch:
@@ -12,7 +12,14 @@ on:
       tag:
         description: 'Release Tag (e.g., v1.28.0 or v1.28.0-beta.1)'
         required: false
-        default: 'v1.28.0'
+        default: ''
+      channel:
+        description: 'Release Channel (prod or beta)'
+        type: choice
+        options:
+          - prod
+          - beta
+        default: 'prod'
       is_prerelease:
         description: 'Mark as Pre-release / Beta'
         type: boolean
@@ -63,12 +70,12 @@ jobs:
           flutter test
 
   # ============================================================================
-  # AUTO-TAG (MAIN BRANCH ONLY)
+  # AUTO-TAG (MAIN OR DEVELOP BRANCH)
   # ============================================================================
   auto_tag:
     name: Auto Tag Release
     needs: code_quality_gate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
     outputs:
       new_tag: ${{ steps.tagger.outputs.new_tag }}
@@ -77,13 +84,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Bump version and push tag
         id: tagger
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: patch
+          release_branches: main
+          pre_release_branches: develop
+          append_to_pre_release_tag: beta
 
   # ============================================================================
   # GATE 2 & 3: BUILD APK & E2E QUALITY GATE
@@ -95,7 +105,7 @@ jobs:
       always() && 
       (needs.code_quality_gate.result == 'success') &&
       (needs.auto_tag.result == 'success' || needs.auto_tag.result == 'skipped') &&
-      (github.event_name != 'push' || github.ref != 'refs/heads/main' || needs.auto_tag.outputs.new_tag != '')
+      (github.event_name != 'push' || (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop') || needs.auto_tag.outputs.new_tag != '')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -105,10 +115,12 @@ jobs:
           - instance: christian_tube
             appName: ChristianApp
             apkName: christian-app.apk
+            betaApkName: christian-app-beta.apk
             releaseRepo: rozariopersonal/Christian-Tube-Releases
           - instance: centum_academy
             appName: CentumAcademy
             apkName: centum-academy.apk
+            betaApkName: centum-academy-beta.apk
             releaseRepo: rozariopersonal/Centum-Academy-Releases
 
     steps:
@@ -117,25 +129,45 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Determine Release Tag
+      - name: Determine Release Tag and Channel
         id: tag_info
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag }}" ]; then
             RAW_TAG="${{ github.event.inputs.tag }}"
-          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          elif [ "${{ github.event_name }}" = "push" ] && [ -n "${{ needs.auto_tag.outputs.new_tag }}" ]; then
             RAW_TAG="${{ needs.auto_tag.outputs.new_tag }}"
           else
             RAW_TAG="${GITHUB_REF#refs/tags/}"
           fi
-          
+
           # Standardize tag formatting
           RAW_TAG="${RAW_TAG#refs/tags/}"
           CLEAN_VERSION="${RAW_TAG#v}"
           FINAL_TAG="v${CLEAN_VERSION}"
-          
+
+          # Determine Channel (beta vs prod)
+          CHANNEL="prod"
+          IS_PRERELEASE="false"
+          if [ "${{ github.ref }}" = "refs/heads/develop" ] || [[ "$FINAL_TAG" == *"beta"* ]] || [ "${{ github.event.inputs.channel }}" = "beta" ] || [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
+            CHANNEL="beta"
+            IS_PRERELEASE="true"
+          fi
+
+          if [ "$CHANNEL" = "beta" ]; then
+            TARGET_APK_NAME="${{ matrix.betaApkName }}"
+            TARGET_APP_NAME="${{ matrix.appName }} Beta"
+          else
+            TARGET_APK_NAME="${{ matrix.apkName }}"
+            TARGET_APP_NAME="${{ matrix.appName }}"
+          fi
+
           echo "TAG=$FINAL_TAG" >> $GITHUB_ENV
           echo "VERSION_NAME=$CLEAN_VERSION" >> $GITHUB_ENV
-          echo "Resolved Release Tag: $FINAL_TAG (Version: $CLEAN_VERSION)"
+          echo "CHANNEL=$CHANNEL" >> $GITHUB_ENV
+          echo "IS_PRERELEASE=$IS_PRERELEASE" >> $GITHUB_ENV
+          echo "TARGET_APK_NAME=$TARGET_APK_NAME" >> $GITHUB_ENV
+          echo "TARGET_APP_NAME=$TARGET_APP_NAME" >> $GITHUB_ENV
+          echo "Resolved Tag: $FINAL_TAG | Channel: $CHANNEL | Prerelease: $IS_PRERELEASE | Target APK: $TARGET_APK_NAME"
 
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
@@ -143,6 +175,15 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
           cache: 'gradle'
+
+      - name: Set up Python 3.11 & Pillow
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Pillow for Icon Processing
+        run: |
+          python -m pip install --upgrade pip pillow
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -157,7 +198,7 @@ jobs:
 
       - name: Prepare Instance Configuration & Assets
         run: |
-          node scripts/prepare-instance.js ${{ matrix.instance }}
+          node scripts/prepare-instance.js ${{ matrix.instance }} ${{ env.CHANNEL }}
 
       - name: Ensure Gradle Permissions
         run: |
@@ -189,7 +230,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           cd apps/mobile
-          echo "Building Release APK for ${{ matrix.appName }} version ${{ env.VERSION_NAME }}..."
+          echo "Building Release APK for ${{ env.TARGET_APP_NAME }} version ${{ env.VERSION_NAME }}..."
           mkdir -p build/app/outputs/symbols
           flutter build apk --release --obfuscate --split-debug-info=./build/app/outputs/symbols --build-name="${{ env.VERSION_NAME }}" --android-skip-build-dependency-validation
 
@@ -205,15 +246,15 @@ jobs:
           else
             APK_PATH=$(find apps/mobile/build -name "*.apk" | head -n 1)
           fi
-          
+
           if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
             echo "::error::Release APK was not generated!"
             exit 1
           fi
-          
-          cp "$APK_PATH" ./${{ matrix.apkName }}
-          APK_SIZE=$(ls -lh ./${{ matrix.apkName }} | awk '{print $5}')
-          echo "✅ ${{ matrix.apkName }} successfully built and staged (Size: $APK_SIZE)"
+
+          cp "$APK_PATH" ./${{ env.TARGET_APK_NAME }}
+          APK_SIZE=$(ls -lh ./${{ env.TARGET_APK_NAME }} | awk '{print $5}')
+          echo "✅ ${{ env.TARGET_APK_NAME }} successfully built and staged (Size: $APK_SIZE)"
 
       # ========================================================================
       # GATE 3: E2E QUALITY GATE (MAESTRO EMULATOR SMOKE TEST)
@@ -232,8 +273,8 @@ jobs:
             export PATH="$PATH:$HOME/.maestro/bin"
 
             # Install staged APK onto emulator
-            echo "Installing ${{ matrix.apkName }} on emulator..."
-            adb install ./${{ matrix.apkName }}
+            echo "Installing ${{ env.TARGET_APK_NAME }} on emulator..."
+            adb install ./${{ env.TARGET_APK_NAME }}
 
             # Run Maestro E2E smoke test
             echo "Running Maestro smoke flow..."
@@ -249,25 +290,20 @@ jobs:
       - name: Generate Companion QR Code
         run: |
           sudo apt-get update && sudo apt-get install -y qrencode
-          DOWNLOAD_URL="https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/${{ matrix.apkName }}"
+          DOWNLOAD_URL="https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/${{ env.TARGET_APK_NAME }}"
           echo "Generating QR code for: $DOWNLOAD_URL"
           qrencode -o download-qrcode.png -s 10 -m 2 -l M "$DOWNLOAD_URL"
-          ls -la ${{ matrix.apkName }} download-qrcode.png
+          ls -la ${{ env.TARGET_APK_NAME }} download-qrcode.png
 
-      - name: Prepare Release Notes
+      - name: Prepare Dynamic Release Notes
         run: |
-          cat << 'EOF' > release_body.md
-          ### 🚀 What's New in ${{ matrix.appName }} ${{ env.TAG }}
-          - Multi-instance PrivateTube white-label engine
-          - Modernized interactive update popup modal with in-place download progress
-          - High-speed video feed streaming and YouTube sync
-          - Performance optimizations and stability improvements
-
-          ---
-          **Direct Download**: [${{ matrix.apkName }}](https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/${{ matrix.apkName }})
-
-          <img src="https://github.com/${{ matrix.releaseRepo }}/releases/download/${{ env.TAG }}/download-qrcode.png" width="220" alt="Scan to Download APK" />
-          EOF
+          node scripts/generate-release-notes.js \
+            "${{ env.TARGET_APP_NAME }}" \
+            "${{ env.TAG }}" \
+            "${{ env.CHANNEL }}" \
+            "${{ matrix.releaseRepo }}" \
+            "${{ env.TARGET_APK_NAME }}" \
+            "release_body.md"
 
       # ========================================================================
       # GATE 4: PUBLISH RELEASE TO DEDICATED REPOSITORY
@@ -276,16 +312,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
         run: |
-          echo "Publishing ${{ matrix.appName }} release ${{ env.TAG }} to ${{ matrix.releaseRepo }}..."
-          
-          # Detect if release is a pre-release / beta
-          IS_BETA="false"
-          if [[ "${{ env.TAG }}" == *"beta"* ]] || [ "${{ github.event.inputs.is_prerelease }}" = "true" ]; then
-            IS_BETA="true"
-          fi
+          echo "Publishing ${{ env.TARGET_APP_NAME }} release ${{ env.TAG }} to ${{ matrix.releaseRepo }}..."
 
           PRERELEASE_FLAG=""
-          if [ "$IS_BETA" = "true" ]; then
+          if [ "${{ env.IS_PRERELEASE }}" = "true" ]; then
             echo "Marking release as PRE-RELEASE (Beta)"
             PRERELEASE_FLAG="--prerelease"
           fi
@@ -296,17 +326,17 @@ jobs:
             gh release upload "${{ env.TAG }}" \
               --repo "${{ matrix.releaseRepo }}" \
               --clobber \
-              ./${{ matrix.apkName }} \
+              ./${{ env.TARGET_APK_NAME }} \
               ./download-qrcode.png
           else
             echo "Creating new release ${{ env.TAG }}..."
             gh release create "${{ env.TAG }}" \
-              ./${{ matrix.apkName }} \
+              ./${{ env.TARGET_APK_NAME }} \
               ./download-qrcode.png \
               --repo "${{ matrix.releaseRepo }}" \
-              --title "${{ matrix.appName }} ${{ env.TAG }}" \
+              --title "${{ env.TARGET_APP_NAME }} ${{ env.TAG }}" \
               --notes-file release_body.md \
               $PRERELEASE_FLAG
           fi
-          
-          echo "🎉 Successfully published ${{ matrix.appName }} ${{ env.TAG }} to ${{ matrix.releaseRepo }}!"
+
+          echo "🎉 Successfully published ${{ env.TARGET_APP_NAME }} ${{ env.TAG }} to ${{ matrix.releaseRepo }}!"
