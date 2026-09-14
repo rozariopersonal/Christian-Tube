@@ -4,22 +4,40 @@ from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
-from onnxruntime import InferenceSession, SessionOptions
+from onnxruntime import GraphOptimizationLevel, InferenceSession, SessionOptions
 from transformers import AutoTokenizer
 
 from model_contract import MAX_TOKENS, ONNX_DIR
 
 
 @lru_cache(maxsize=1)
-def load_model(onnx_dir=ONNX_DIR):
+def _load_tokenizer(onnx_dir=ONNX_DIR):
+    return AutoTokenizer.from_pretrained(onnx_dir)
+
+
+@lru_cache(maxsize=1)
+def _load_session(onnx_dir=ONNX_DIR):
     quantized = Path(onnx_dir) / "model_quantized.onnx"
     onnx_file = quantized if quantized.exists() else Path(onnx_dir) / "model.onnx"
     if not onnx_file.exists():
         raise FileNotFoundError(f"No ONNX model found under {onnx_dir}")
-    tokenizer = AutoTokenizer.from_pretrained(onnx_dir)
     options = SessionOptions()
-    session = InferenceSession(str(onnx_file), options, providers=["CPUExecutionProvider"])
-    return session, tokenizer
+    options.intra_op_num_threads = 2
+    options.inter_op_num_threads = 1
+    options.graph_optimization_level = GraphOptimizationLevel.ORT_ENABLE_ALL
+    options.add_session_config_entry("session.memory_percent", "60")
+    return InferenceSession(str(onnx_file), options, providers=["CPUExecutionProvider"])
+
+
+@lru_cache(maxsize=1)
+def load_model(onnx_dir=ONNX_DIR):
+    return _load_session(onnx_dir), _load_tokenizer(onnx_dir)
+
+
+def warmup(onnx_dir=ONNX_DIR):
+    """Cheap startup warmup: tokenizer only. The ONNX session is loaded lazily on
+    the first embed request so deploy-time memory stays within free-tier limits."""
+    _load_tokenizer(onnx_dir)
 
 
 def _mean_pool(last_hidden_state, attention_mask):

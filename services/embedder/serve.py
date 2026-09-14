@@ -6,7 +6,7 @@ import time
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from model import embed_texts
+from model import embed_texts, warmup
 from model_contract import EMBEDDING_DIM, EMBEDDING_VERSION, MODEL_ID
 
 app = FastAPI(title="ChristianTube Embeddings")
@@ -32,7 +32,7 @@ def _check_auth(authorization: str | None):
 
 @app.on_event("startup")
 def _warmup():
-    embed_texts(["warmup"])
+    warmup()
 
 
 @app.get("/health")
