@@ -27,6 +27,8 @@ class AppConfig {
   }
   static String apkFileName = 'christian-app.apk';
   static String? googleClientId;
+  static bool isBeta = false;
+  static String channel = 'prod';
 
   static Color primaryColor = const Color(0xFF2563EB);
   static Color accentColor = const Color(0xFFF59E0B);
@@ -80,6 +82,8 @@ class AppConfig {
       githubFeedbackToken = json['githubFeedbackToken'] ?? githubFeedbackToken;
       apkFileName = json['apkFileName'] ?? apkFileName;
       googleClientId = json['googleClientId'];
+      isBeta = json['isBeta'] == true;
+      channel = json['channel'] ?? (isBeta ? 'beta' : 'prod');
 
       if (json['microFeed'] != null && json['microFeed'] is Map) {
         final mf = json['microFeed'] as Map<String, dynamic>;

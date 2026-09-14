@@ -14,8 +14,9 @@ import '../../core/config/app_config.dart';
 import 'widgets/update_dialog.dart';
 
 class UpdateService {
-  static String get releasesApiUrl =>
-      'https://api.github.com/repos/${AppConfig.releasesRepo}/releases/latest';
+  static String get releasesApiUrl => AppConfig.isBeta
+      ? 'https://api.github.com/repos/${AppConfig.releasesRepo}/releases?per_page=10'
+      : 'https://api.github.com/repos/${AppConfig.releasesRepo}/releases/latest';
 
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
@@ -68,37 +69,34 @@ class UpdateService {
     }
   }
 
-  /// Compares two semver strings (e.g. 'v1.58.0' or '1.58.0' vs 'v1.28.0' or '1.28.0').
+  /// Compares two semver strings (e.g. 'v1.28.1-beta.2' vs 'v1.28.1-beta.1' or '1.29.0' vs '1.29.0-beta.5').
+  /// Complies with SemVer 2.0.0 precedence rules including pre-releases.
   /// Returns true if [latestVersion] is strictly newer than [currentVersion].
   static bool isNewerVersion(String latestVersion, String currentVersion) {
     try {
-      final cleanLatest = latestVersion
-          .trim()
-          .replaceAll(RegExp(r'^[vV]'), '')
-          .split('+')
-          .first
-          .split('-')
-          .first
-          .trim();
-      final cleanCurrent = currentVersion
-          .trim()
-          .replaceAll(RegExp(r'^[vV]'), '')
-          .split('+')
-          .first
-          .split('-')
-          .first
-          .trim();
+      final cleanLatest = latestVersion.trim().replaceAll(RegExp(r'^[vV]'), '');
+      final cleanCurrent = currentVersion.trim().replaceAll(RegExp(r'^[vV]'), '');
 
-      if (cleanLatest.isEmpty || cleanCurrent.isEmpty) {
-        return false;
-      }
+      if (cleanLatest.isEmpty || cleanCurrent.isEmpty) return false;
 
-      final latestParts = cleanLatest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      final currentParts = cleanCurrent.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      // Strip build metadata (+...)
+      final latestNoBuild = cleanLatest.split('+').first.trim();
+      final currentNoBuild = cleanCurrent.split('+').first.trim();
 
-      final maxLen = latestParts.length > currentParts.length
-          ? latestParts.length
-          : currentParts.length;
+      // Split base (MAJOR.MINOR.PATCH) from prerelease (-beta.1)
+      final latestDash = latestNoBuild.indexOf('-');
+      final currentDash = currentNoBuild.indexOf('-');
+
+      final latestBase = latestDash != -1 ? latestNoBuild.substring(0, latestDash) : latestNoBuild;
+      final latestPre = latestDash != -1 ? latestNoBuild.substring(latestDash + 1) : null;
+
+      final currentBase = currentDash != -1 ? currentNoBuild.substring(0, currentDash) : currentNoBuild;
+      final currentPre = currentDash != -1 ? currentNoBuild.substring(currentDash + 1) : null;
+
+      final latestParts = latestBase.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final currentParts = currentBase.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+
+      final maxLen = latestParts.length > currentParts.length ? latestParts.length : currentParts.length;
 
       for (int i = 0; i < maxLen; i++) {
         final l = i < latestParts.length ? latestParts[i] : 0;
@@ -107,7 +105,48 @@ class UpdateService {
         if (l < c) return false;
       }
 
-      // If base semver is identical, check build numbers if available
+      // Base versions are equal.
+      // SemVer Rule: A normal version has higher precedence than a pre-release version.
+      if (latestPre == null && currentPre != null) {
+        // e.g. latest is 1.29.0 (stable), current is 1.29.0-beta.2 -> latest is newer!
+        return true;
+      }
+      if (latestPre != null && currentPre == null) {
+        // e.g. latest is 1.29.0-beta.2, current is 1.29.0 (stable) -> latest is older.
+        return false;
+      }
+      if (latestPre != null && currentPre != null) {
+        // Both are prereleases. Compare prerelease dot-separated identifiers.
+        final lSegments = latestPre.split('.');
+        final cSegments = currentPre.split('.');
+        final minLen = lSegments.length < cSegments.length ? lSegments.length : cSegments.length;
+
+        for (int i = 0; i < minLen; i++) {
+          final lSeg = lSegments[i];
+          final cSeg = cSegments[i];
+          if (lSeg == cSeg) continue;
+
+          final lNum = int.tryParse(lSeg);
+          final cNum = int.tryParse(cSeg);
+
+          if (lNum != null && cNum != null) {
+            return lNum > cNum;
+          }
+          if (lNum != null && cNum == null) {
+            return false;
+          }
+          if (lNum == null && cNum != null) {
+            return true;
+          }
+          return lSeg.compareTo(cSeg) > 0;
+        }
+
+        if (lSegments.length != cSegments.length) {
+          return lSegments.length > cSegments.length;
+        }
+      }
+
+      // If both base and prerelease are identical, check build numbers
       final latestBuild = _extractBuildNumber(latestVersion);
       final currentBuild = _extractBuildNumber(currentVersion);
       if (latestBuild != null && currentBuild != null) {
@@ -155,52 +194,72 @@ class UpdateService {
       final response = await dio.get(releasesApiUrl);
 
       if (response.statusCode == 200 && response.data != null) {
-        final data = response.data is String
+        final rawData = response.data is String
             ? jsonDecode(response.data as String)
             : response.data;
 
-        if (data is Map) {
-          final latestTag = data['tag_name'] as String?;
-          if (latestTag != null && isNewerVersion(latestTag, currentVersion)) {
-            // Find APK asset
-            final assets = data['assets'] as List<dynamic>? ?? [];
-            dynamic apkAsset;
+        final List<dynamic> releaseCandidates = rawData is List
+            ? rawData
+            : (rawData is Map ? [rawData] : []);
 
-            // 1. Look for instance-configured APK name (e.g. christian-tube.apk)
+        for (final item in releaseCandidates) {
+          if (item is! Map) continue;
+          if (item['draft'] == true) continue;
+
+          // If in production mode, skip pre-releases
+          if (!AppConfig.isBeta && item['prerelease'] == true) {
+            continue;
+          }
+
+          final latestTag = item['tag_name'] as String?;
+          if (latestTag == null || !isNewerVersion(latestTag, currentVersion)) {
+            continue;
+          }
+
+          final assets = item['assets'] as List<dynamic>? ?? [];
+          dynamic apkAsset;
+
+          // 1. Look for instance-configured APK name (e.g. christian-app-beta.apk or christian-app.apk)
+          for (final a in assets) {
+            if (a is Map) {
+              final name = a['name']?.toString().toLowerCase() ?? '';
+              if (name == AppConfig.apkFileName.toLowerCase()) {
+                apkAsset = a;
+                break;
+              }
+            }
+          }
+
+          // 2. Fallback matching channel:
+          // If beta, look for asset containing 'beta' and ending with '.apk'
+          // If prod, look for asset ending with '.apk' that does NOT contain 'beta'
+          if (apkAsset == null) {
             for (final a in assets) {
               if (a is Map) {
                 final name = a['name']?.toString().toLowerCase() ?? '';
-                if (name == AppConfig.apkFileName.toLowerCase()) {
-                  apkAsset = a;
-                  break;
-                }
-              }
-            }
-
-            // 2. Fallback to any asset ending with .apk
-            if (apkAsset == null) {
-              for (final a in assets) {
-                if (a is Map) {
-                  final name = a['name']?.toString().toLowerCase() ?? '';
-                  if (name.endsWith('.apk')) {
+                if (name.endsWith('.apk')) {
+                  if (AppConfig.isBeta && name.contains('beta')) {
+                    apkAsset = a;
+                    break;
+                  } else if (!AppConfig.isBeta && !name.contains('beta')) {
                     apkAsset = a;
                     break;
                   }
                 }
               }
             }
+          }
 
-            if (apkAsset != null && apkAsset is Map) {
-              return {
-                'hasUpdate': true,
-                'currentVersion': currentVersion.startsWith('v') ? currentVersion : 'v$currentVersion',
-                'latestVersion': latestTag.startsWith('v') ? latestTag : 'v$latestTag',
-                'title': data['name'] ?? '${AppConfig.appName} $latestTag',
-                'downloadUrl': apkAsset['browser_download_url'] ?? '',
-                'sizeBytes': apkAsset['size'] ?? 0,
-                'releaseNotes': data['body'] ?? '',
-              };
-            }
+          if (apkAsset != null && apkAsset is Map) {
+            return {
+              'hasUpdate': true,
+              'currentVersion': currentVersion.startsWith('v') ? currentVersion : 'v$currentVersion',
+              'latestVersion': latestTag.startsWith('v') ? latestTag : 'v$latestTag',
+              'title': item['name'] ?? '${AppConfig.appName} $latestTag',
+              'downloadUrl': apkAsset['browser_download_url'] ?? '',
+              'sizeBytes': apkAsset['size'] ?? 0,
+              'releaseNotes': item['body'] ?? '',
+            };
           }
         }
       }

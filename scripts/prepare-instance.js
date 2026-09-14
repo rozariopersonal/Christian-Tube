@@ -2,7 +2,24 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const instanceId = process.argv[2] || 'christian_tube';
+const args = process.argv.slice(2);
+let instanceId = 'christian_tube';
+let channel = 'prod';
+
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i];
+  if (arg === '--channel' && args[i + 1]) {
+    channel = args[++i].toLowerCase();
+  } else if (arg.startsWith('--channel=')) {
+    channel = arg.split('=')[1].toLowerCase();
+  } else if (arg === 'beta' || arg === 'prod') {
+    channel = arg;
+  } else if (!arg.startsWith('--')) {
+    instanceId = arg;
+  }
+}
+
+const isBeta = channel === 'beta';
 const rootDir = path.resolve(__dirname, '..');
 const instanceDir = path.join(rootDir, 'instances', instanceId);
 
@@ -18,29 +35,39 @@ if (!fs.existsSync(configPath)) {
 }
 
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-console.log(`🚀 Preparing PrivateTube engine for instance: ${config.appName} (${config.instanceId})...`);
+if (isBeta) {
+  config.isBeta = true;
+  config.channel = 'beta';
+  config.applicationId = `${config.applicationId}.beta`;
+  config.appName = `${config.appName} Beta`;
+  config.apkFileName = config.apkFileName.replace(/\.apk$/, '-beta.apk');
+} else {
+  config.isBeta = false;
+  config.channel = 'prod';
+}
 
-// 1. Copy config to mobile assets
+console.log(`🚀 Preparing PrivateTube engine for instance: ${config.appName} (${config.instanceId}) [Channel: ${channel.toUpperCase()}]...`);
+
+// 1. Write instance config to mobile assets
 const mobileAssetsDir = path.join(rootDir, 'apps', 'mobile', 'assets');
 fs.mkdirSync(mobileAssetsDir, { recursive: true });
-fs.copyFileSync(configPath, path.join(mobileAssetsDir, 'app_config.json'));
-console.log(`✅ Synced app_config.json to mobile assets`);
+fs.writeFileSync(path.join(mobileAssetsDir, 'app_config.json'), JSON.stringify(config, null, 2), 'utf8');
+console.log(`✅ Synced app_config.json to mobile assets (${isBeta ? 'Beta' : 'Production'})`);
 
-// 2. Copy instance icon to logo.png
+// 2. Prepare instance icons (with dynamic BETA badge overlay if in beta channel)
 const iconSrc = path.join(instanceDir, 'assets', 'icon.png');
 if (fs.existsSync(iconSrc)) {
-  fs.copyFileSync(iconSrc, path.join(mobileAssetsDir, 'logo.png'));
-  console.log(`✅ Synced logo.png to mobile assets`);
-
-  // 3. Generate Android mipmaps with exact densities using python if available, else copy
   const resDir = path.join(rootDir, 'apps', 'mobile', 'android', 'app', 'src', 'main', 'res');
+  const logoTarget = path.join(mobileAssetsDir, 'logo.png');
+  const iconScript = path.join(rootDir, 'scripts', 'generate-icons.py');
   try {
     const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-    const pythonCode = `import os, sys; from PIL import Image; src = sys.argv[1]; res = sys.argv[2]; img = Image.open(src).convert('RGBA'); sizes = {'mipmap-mdpi': 48, 'mipmap-hdpi': 72, 'mipmap-xhdpi': 96, 'mipmap-xxhdpi': 144, 'mipmap-xxxhdpi': 192}; [os.makedirs(os.path.join(res, f), exist_ok=True) or (lambda s: (lambda c, r, x, y: (c.paste(r, (x, y), r), c.save(os.path.join(res, f, 'ic_launcher.png'), 'PNG')))(Image.new('RGBA', (s, s), (0,0,0,0)), img.resize((max(1, int(img.width * min(s*0.84/img.width, s*0.84/img.height))), max(1, int(img.height * min(s*0.84/img.width, s*0.84/img.height)))), Image.Resampling.LANCZOS), (s - max(1, int(img.width * min(s*0.84/img.width, s*0.84/img.height))))//2, (s - max(1, int(img.height * min(s*0.84/img.width, s*0.84/img.height))))//2))(sz) for f, sz in sizes.items()]`;
-    execSync(`${pythonCmd} -c "${pythonCode}" "${iconSrc}" "${resDir}"`, { stdio: 'inherit' });
-    console.log(`✅ Generated resized Android launcher icons (48x48 to 192x192)`);
+    execSync(`"${pythonCmd}" "${iconScript}" "${iconSrc}" "${resDir}" "${logoTarget}" "${isBeta ? 'true' : 'false'}"`, { stdio: 'inherit' });
+    console.log(`✅ Generated resized Android launcher icons (48x48 to 192x192)${isBeta ? ' with BETA badge' : ''}`);
+    console.log(`✅ Synced logo.png to mobile assets${isBeta ? ' with BETA badge' : ''}`);
   } catch (err) {
     console.log(`⚠️ Python icon resize fallback: ${err.message}`);
+    fs.copyFileSync(iconSrc, logoTarget);
     const mipmaps = ['mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi'];
     for (const mm of mipmaps) {
       const targetDir = path.join(resDir, mm);
