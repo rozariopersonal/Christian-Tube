@@ -15,17 +15,19 @@ void main() {
   });
 
   setUp(() async {
-    LocalBibleService.resetForTest();
     tempDir = await Directory.systemTemp.createTemp('crossref_test_');
     LocalBibleService.overrideDbPath = p.join(tempDir.path, 'bible.db');
+    await LocalBibleService.resetForTest();
   });
 
   tearDown(() async {
-    LocalBibleService.resetForTest();
     LocalBibleService.overrideDbPath = null;
-    if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
-    }
+    await LocalBibleService.resetForTest();
+    try {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    } catch (_) {}
   });
 
   test('CrossReferenceService exposes on-demand status and clears cache', () async {
