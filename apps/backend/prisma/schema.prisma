@@ -42,6 +42,7 @@ model Video {
   transcriptionDetail    Json?
   lastTranscriptionError String?
   content                String?             @db.Text
+  contentVersion         Int?                @default(0)
 
   embeddingStatus        String?             @default("pending")
   embeddingVersion       Int?                @default(0)
@@ -69,6 +70,8 @@ model Video {
   updatedAt              DateTime            @updatedAt
 
   channel                Channel?            @relation(fields: [channelId], references: [id])
+  videoEmbedding         VideoEmbedding?
+  videoChunks            VideoChunk[]
   // shortCreations back-relation removed; ShortCreation now tracks by youtubeVideoId only
 
   @@index([channelId])
@@ -79,6 +82,46 @@ model Video {
   @@index([type, publishedAt(sort: Desc)])
   @@index([channelId, type, publishedAt(sort: Desc)])
   @@index([embeddingStatus])
+  @@index([transcriptionStatus])
+}
+
+model VideoEmbedding {
+  videoId   String   @id
+  embedding Unsupported("vector(384)")?
+  model     String
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([version])
+  @@map("VideoEmbedding")
+}
+
+model VideoChunk {
+  id        Int      @id @default(autoincrement())
+  videoId   String
+  seq       Int
+  kind      String   @default("idea") // idea | quote
+  title     String? // short statement describing the idea
+  content   String   @db.Text // idea summary / embedded text
+  quoteText String?  @db.Text // verbatim transcript quote
+  startSec  Float?
+  endSec    Float?
+  source    String   @default("caption") // caption | parakeet
+  embedding Unsupported("vector(384)")?
+  model     String
+  version   Int      @default(0)
+  digest    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([videoId, seq])
+  @@index([model, version])
+  @@map("VideoChunk")
 }
 
 model Channel {

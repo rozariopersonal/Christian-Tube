@@ -48,7 +48,7 @@ export class VideosService {
 
     const vector = await this.embeddingService.embedQuery(query.search);
     if (vector) {
-      return this.hybridSearch(query, vector, limit, offset);
+      return this.hybridSearchWithContent(query, vector, limit, offset);
     }
 
     where.OR = this.searchTermClauses(query.search);
@@ -110,7 +110,7 @@ export class VideosService {
 
     if (query.type !== "ALL") {
       params.push(query.type === "SHORT" ? "SHORT" : "VIDEO");
-      parts.push(`v.type = $${params.length}`);
+      parts.push(`v.type = $${params.length}::"VideoType"`);
     }
 
     if (query.category && query.category !== "All") {
@@ -179,26 +179,92 @@ export class VideosService {
   }
 
   /**
-   * Ranks candidates by dense vector similarity and fuses them with keyword
-   * (ILIKE) matches. Falls back to keyword ordering implicitly when no vector
-   * can be produced (caller handles that before reaching here).
+   * Fuses dense title/description vectors, keyword matches, and transcript
+   * idea-chunk vectors. Returns videos (enriched with their best content
+   * match, when one exists) after a 3-way Reciprocal Rank Fusion.
    */
-  private async hybridSearch(
+  private async hybridSearchWithContent(
     query: VideoQuery,
     vector: number[],
     limit: number,
     offset: number,
   ) {
+    const [vectorIds, keywordIds] = await Promise.all([
+      this.vectorTitleSearch(query, vector),
+      this.keywordSearch(query),
+    ]);
+
+    const contentIds: string[] = [];
+    const contentMatches = new Map<
+      string,
+      {
+        title?: string;
+        statement: string;
+        quote?: string;
+        startSec?: number | null;
+        endSec?: number | null;
+        score: number;
+      }
+    >();
+
+    const contentSearchEnabled = this.configService.get<boolean>(
+      'contentSearch.enabled',
+      true,
+    );
+    if (contentSearchEnabled) {
+      const maxChunks = this.configService.get<number>(
+        'contentSearch.maxChunks',
+        60,
+      );
+      const rows = await this.contentChunkSearch(
+        query,
+        vector,
+        maxChunks,
+      ).catch((e: any) => {
+        this.logger.warn(`Content search failed, skipping: ${e.message}`);
+        return [];
+      });
+      for (const r of rows) {
+        if (!contentMatches.has(r.videoId)) {
+          contentMatches.set(r.videoId, r);
+          contentIds.push(r.videoId);
+        }
+      }
+    }
+
+    const fusedIds = this.fuseRanks([vectorIds, keywordIds, contentIds]);
+    const pageIds = fusedIds
+      .filter(
+        (id) =>
+          vectorIds.includes(id) ||
+          keywordIds.includes(id) ||
+          contentIds.includes(id),
+      )
+      .slice(offset, offset + limit);
+
+    const videos = this.fetchEnrichedByIds(pageIds);
+    return (await videos).map((v: any) => {
+      const m = contentMatches.get(v.id);
+      if (m) v.contentMatch = { ...m, quote: m.quote ?? m.statement };
+      return v;
+    });
+  }
+
+  private async vectorTitleSearch(
+    query: VideoQuery,
+    vector: number[],
+  ): Promise<string[]> {
     const filters = this.buildBaseFilterSql(query);
 
     const modelIdx = filters.params.length + 1;
     const versionIdx = modelIdx + 1;
     const vecIdx = versionIdx + 1;
+    const vectorLiteral = `[${vector.join(",")}]`;
     const rawParams = [
       ...filters.params,
       this.embeddingService.modelName,
       this.embeddingService.modelVersion,
-      vector,
+      vectorLiteral,
     ];
 
     const vectorSql = `
@@ -214,19 +280,21 @@ export class VideosService {
       LIMIT 100
     `;
 
-    let vectorIds: string[] = [];
     try {
       const rows: { id: string }[] = await this.prisma.$queryRawUnsafe(
         vectorSql,
         ...rawParams,
       );
-      vectorIds = rows.map((r) => r.id);
+      return rows.map((r) => r.id);
     } catch (e: any) {
       this.logger.warn(
         `Vector search failed, using keyword only: ${e.message}`,
       );
+      return [];
     }
+  }
 
+  private async keywordSearch(query: VideoQuery): Promise<string[]> {
     const keywordWhere: any = {
       channel: { isActive: true },
     };
@@ -235,16 +303,103 @@ export class VideosService {
     this.applyChannelFilter(keywordWhere, query.channelId, query.channelIds);
     keywordWhere.OR = this.searchTermClauses(query.search);
 
-    const keywordRows = await this.prisma.video.findMany({
+    const rows = await this.prisma.video.findMany({
       where: keywordWhere,
       select: { id: true },
       orderBy: { publishedAt: "desc" },
       take: 100,
     });
-    const keywordIds = keywordRows.map((r) => r.id);
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Discourse idea-chunk vector search. Returns the closest chunk per video
+   * (best match only) so one video occupies one rank slot.
+   */
+  private async contentChunkSearch(
+    query: VideoQuery,
+    vector: number[],
+    maxChunks: number,
+  ) {
+    const filters = this.buildBaseFilterSql(query);
+
+    const modelIdx = filters.params.length + 1;
+    const versionIdx = modelIdx + 1;
+    const vecIdx = versionIdx + 1;
+    const vectorLiteral = `[${vector.join(",")}]`;
+    const rawParams = [
+      ...filters.params,
+      this.embeddingService.modelName,
+      this.embeddingService.modelVersion,
+      vectorLiteral,
+    ];
+
+    const sql = `
+      WITH ranked AS (
+        SELECT
+          vc."videoId",
+          vc.title,
+          vc.content,
+          vc."quoteText",
+          vc."startSec",
+          vc."endSec",
+          vc.embedding <=> $${vecIdx}::vector AS dist,
+          ROW_NUMBER() OVER (
+            PARTITION BY vc."videoId" ORDER BY vc.embedding <=> $${vecIdx}::vector
+          ) AS rn
+        FROM "VideoChunk" vc
+        JOIN "Video" v ON v.id = vc."videoId"
+        JOIN "Channel" c ON c.id = v."channelId"
+        WHERE c."isActive" = true
+          ${filters.clause}
+          AND vc."model" = $${modelIdx}
+          AND vc."version" = $${versionIdx}
+      )
+      SELECT "videoId", title, content, "quoteText", "startSec", "endSec", dist
+      FROM ranked
+      WHERE rn = 1
+      ORDER BY dist
+      LIMIT $${vecIdx + 1}
+    `;
+
+    const rows: {
+      videoId: string;
+      title: string | null;
+      content: string;
+      quoteText: string | null;
+      startSec: number | null;
+      endSec: number | null;
+      dist: number;
+    }[] = await this.prisma.$queryRawUnsafe(sql, ...rawParams, maxChunks);
+
+    return rows.map((r) => ({
+      videoId: r.videoId,
+      title: r.title ?? undefined,
+      statement: r.content,
+      quote: r.quoteText ?? undefined,
+      startSec: r.startSec,
+      endSec: r.endSec,
+      score: -r.dist, // higher = closer (cosine distance is [0,2])
+    }));
+  }
+
+  /**
+   * Legacy hybrid search (title/description dense + keyword only). Kept for
+   * backward compatibility with tests; production goes through
+   * hybridSearchWithContent.
+   */
+  private async hybridSearch(
+    query: VideoQuery,
+    vector: number[],
+    limit: number,
+    offset: number,
+  ) {
+    const [vectorIds, keywordIds] = await Promise.all([
+      this.vectorTitleSearch(query, vector),
+      this.keywordSearch(query),
+    ]);
 
     const fusedIds = this.fuseRanks([vectorIds, keywordIds]);
-
     const pageIds = fusedIds
       .filter((id) => vectorIds.includes(id) || keywordIds.includes(id))
       .slice(offset, offset + limit);

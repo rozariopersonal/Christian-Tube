@@ -13,13 +13,16 @@ function row(id: string) {
   };
 }
 
-function makeService(embedQuery: number[] | null = null) {
+function makeService(
+  embedQuery: number[] | null = null,
+  config: Record<string, unknown> = {},
+) {
   const prisma = {
     video: { findMany: jest.fn(), findUnique: jest.fn(), upsert: jest.fn() },
     channel: { upsert: jest.fn() },
     $queryRawUnsafe: jest.fn(),
   };
-  const configService = { get: jest.fn(() => undefined) };
+  const configService = { get: jest.fn((key: string) => config[key]) };
   const embeddingService = {
     modelName: 'intfloat/multilingual-e5-small',
     modelVersion: 1,
@@ -95,14 +98,14 @@ describe('VideosService', () => {
       // Default type filter is $1, then model/version/query vector follow
       expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
       const [sql, type, model, version, vec] = prisma.$queryRawUnsafe.mock.calls[0];
-      expect(sql).toContain(' AND v.type = $1');
+      expect(sql).toContain(' AND v.type = $1::"VideoType"');
       expect(sql).toContain('ve."model" = $2');
       expect(sql).toContain('ve."version" = $3');
       expect(sql).toContain('ve.embedding <=> $4::vector');
       expect(type).toBe('VIDEO');
       expect(model).toBe('intfloat/multilingual-e5-small');
       expect(version).toBe(1);
-      expect(vec).toEqual(new Array(DIM).fill(0.1));
+      expect(vec).toEqual(`[${new Array(DIM).fill(0.1).join(",")}]`);
       // RRF: v1 ranks above both v2 and v3
       expect(out.map((v: any) => v.id)).toEqual(['v1', 'v2', 'v3']);
     });
@@ -147,6 +150,86 @@ describe('VideosService', () => {
 
       expect(out.map((v: any) => v.id)).toEqual(['v1', 'v2']);
     });
+
+    it('fuses transcript idea-chunks into the ranking and attaches contentMatch', async () => {
+      const { service, prisma } = makeService(new Array(DIM).fill(0.1), {
+        'contentSearch.enabled': true,
+        'contentSearch.maxChunks': 60,
+      });
+      // Call 1 = title/description vector query; call 2 = content chunk query
+      prisma.$queryRawUnsafe
+        .mockResolvedValueOnce([{ id: 'v3' }])
+        .mockResolvedValueOnce([
+          {
+            videoId: 'v3',
+            title: 'Grace is a Person',
+            content: 'Grace is a person, not a principle.',
+            quoteText: '“Grace is a person…”',
+            startSec: 120,
+            endSec: 132,
+            dist: 0.01,
+          },
+          {
+            videoId: 'v9',
+            title: 'Saved by grace',
+            content: 'We are saved by grace through faith.',
+            quoteText: '“We are saved by grace…”',
+            startSec: 45,
+            endSec: 58,
+            dist: 0.05,
+          },
+        ]);
+      prisma.video.findMany.mockImplementation((args: any) => {
+        if (args.where?.id?.in) {
+          return Promise.resolve(args.where.id.in.map((id: string) => row(id)));
+        }
+        if (args.where?.OR) {
+          return Promise.resolve([{ id: 'v1' }, { id: 'v3' }]);
+        }
+        return Promise.resolve([]);
+      });
+
+      const out = await service.findAll({ search: 'grace is a person', limit: 5 });
+
+      // Content query ran with model/version/vector and the max-chunks limit
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(2);
+      const contentCall = prisma.$queryRawUnsafe.mock.calls[1];
+      const [csql, ctype, cmodel, cversion, cvec, climit] = contentCall;
+      expect(csql).toContain('FROM "VideoChunk" vc');
+      expect(csql).toContain('vc.embedding <=> $4::vector');
+      expect(ctype).toBe('VIDEO');
+      expect(cmodel).toBe('intfloat/multilingual-e5-small');
+      expect(cversion).toBe(1);
+      expect(cvec).toEqual(`[${new Array(DIM).fill(0.1).join(",")}]`);
+      expect(climit).toBe(60);
+
+      const byId = new Map(out.map((v: any) => [v.id, v]));
+      expect(out[0].id).toBe('v3');
+      expect(byId.get('v3')?.contentMatch).toMatchObject({
+        title: 'Grace is a Person',
+        statement: 'Grace is a person, not a principle.',
+        quote: '“Grace is a person…”',
+        startSec: 120,
+        endSec: 132,
+      });
+      expect(byId.get('v9')?.contentMatch?.statement).toBe(
+        'We are saved by grace through faith.',
+      );
+    });
+
+    it('skips content search when the feature is disabled', async () => {
+      const { service, prisma } = makeService(new Array(DIM).fill(0.1), {
+        'contentSearch.enabled': false,
+      });
+      prisma.$queryRawUnsafe.mockResolvedValueOnce([{ id: 'v1' }]);
+      prisma.video.findMany.mockResolvedValue([{ id: 'v1' }]);
+
+      const out = await service.findAll({ search: 'grace' });
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+      expect(out.map((v: any) => v.id)).toEqual(['v1']);
+      expect(out[0].contentMatch).toBeUndefined();
+    });
   });
 
   describe('fuseRanks (RRF over vector + keyword lists)', () => {
@@ -181,7 +264,7 @@ describe('VideosService', () => {
         channelId: 'c1',
       });
       expect(sql.clause).toBe(
-        ' AND v.type = $1 AND v.category = $2 AND v."channelId" = $3',
+        ' AND v.type = $1::"VideoType" AND v.category = $2 AND v."channelId" = $3',
       );
       expect(sql.params).toEqual(['SHORT', 'Worship', 'c1']);
     });

@@ -115,14 +115,26 @@ class Database:
         self._ensure_schema()
 
     def _ensure_schema(self):
+        # Run the bootstrap in isolated steps so one failure (e.g. a Neon
+        # extension/DDL quirk) cannot silently skip the table/index creation.
+        try:
+            self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+        except Exception as e:
+            log.warning("Ensure pgvector extension note: %s", e)
+
         try:
             self.cur.execute("""
-                CREATE EXTENSION IF NOT EXISTS vector;
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingStatus" TEXT DEFAULT 'pending';
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingVersion" INTEGER DEFAULT 0;
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingHash" TEXT;
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingError" TEXT;
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingRetryCount" INTEGER DEFAULT 0;
+            """)
+        except Exception as e:
+            log.warning("Ensure Video embedding columns note: %s", e)
+
+        try:
+            self.cur.execute("""
                 CREATE TABLE IF NOT EXISTS "VideoEmbedding" (
                     "videoId" TEXT NOT NULL PRIMARY KEY,
                     "embedding" vector(384) NOT NULL,
@@ -134,13 +146,31 @@ class Database:
                         FOREIGN KEY ("videoId") REFERENCES "Video"("id")
                         ON DELETE CASCADE ON UPDATE CASCADE
                 );
-                CREATE INDEX IF NOT EXISTS "VideoEmbedding_version_idx" ON "VideoEmbedding"("version");
-                CREATE INDEX IF NOT EXISTS "VideoEmbedding_embedding_hnsw_idx"
-                    ON "VideoEmbedding" USING hnsw ("embedding" vector_cosine_ops)
-                    WITH (m = 16, ef_construction = 64);
             """)
         except Exception as e:
-            log.warning("Schema check note: %s", e)
+            log.error("Could not create VideoEmbedding table: %s", e)
+            raise
+
+        try:
+            self.cur.execute(
+                'CREATE INDEX IF NOT EXISTS "VideoEmbedding_version_idx" '
+                'ON "VideoEmbedding"("version");'
+            )
+            self.cur.execute(
+                'CREATE INDEX IF NOT EXISTS "VideoEmbedding_embedding_hnsw_idx" '
+                'ON "VideoEmbedding" USING hnsw ("embedding" vector_cosine_ops) '
+                'WITH (m = 16, ef_construction = 64);'
+            )
+        except Exception as e:
+            log.warning("Ensure VideoEmbedding indexes note: %s", e)
+
+        self.cur.execute(
+            """SELECT to_regclass('public."VideoEmbedding"') AS tbl"""
+        )
+        if self.cur.fetchone()[0] is None:
+            raise RuntimeError(
+                'VideoEmbedding table is missing after schema bootstrap'
+            )
 
     def release_stale_processing(self):
         try:
@@ -150,6 +180,22 @@ class Database:
             )
         except Exception:
             pass
+
+    def requeue_orphaned_completed(self):
+        """Videos claiming 'completed' without a VideoEmbedding row (e.g. after
+        a table wipe) are re-queued so the backfill repairs coverage."""
+        try:
+            self.cur.execute(
+                """UPDATE "Video" SET "embeddingStatus"='pending',
+                        "embeddingError"=NULL, "embeddingHash"=NULL
+                   WHERE "embeddingStatus"='completed'
+                     AND NOT EXISTS (
+                       SELECT 1 FROM "VideoEmbedding" ve
+                       WHERE ve."videoId" = "Video"."id"
+                     )"""
+            )
+        except Exception as e:
+            log.warning("Orphaned-completed requeue note: %s", e)
 
     def fetch_eligible(self, cfg: Config):
         statuses = ["pending"]
@@ -272,6 +318,7 @@ def main():
              MODEL_ID, EMBEDDING_VERSION, cfg.once, cfg.redo, cfg.retry_failed)
 
     while _running:
+        db.requeue_orphaned_completed()
         rows = db.fetch_eligible(cfg)
         if not rows:
             if cfg.once:

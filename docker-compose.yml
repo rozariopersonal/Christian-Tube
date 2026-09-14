@@ -87,8 +87,30 @@ services:
       EMBEDDING_VERSION: "1"
     command: ["python", "-u", "worker.py"]
 
+  content-worker:
+    build:
+      context: .
+      dockerfile: services/content-worker/Dockerfile
+    container_name: christiantube-content-worker
+    restart: always
+    env_file:
+      - .contentworker.env
+    environment:
+      OLLAMA_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: qwen3:14b
+      ONNX_DIR: /model
+      EMBEDDER_SRC: /opt/embedder
+      POLL_INTERVAL: "300"
+      BATCH_LIMIT: "5"
+      MAX_RETRIES: "3"
+      CONTENT_VERSION: "2"
+      USE_CAPTIONS: "true"
+    volumes:
+      - content-work:/work
+
 volumes:
   pgdata:
   processor-work:
+  content-work:
 
 
