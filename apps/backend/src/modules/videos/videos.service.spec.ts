@@ -102,7 +102,7 @@ describe('VideosService', () => {
       expect(type).toBe('VIDEO');
       expect(model).toBe('intfloat/multilingual-e5-small');
       expect(version).toBe(1);
-      expect(vec).toEqual(new Array(DIM).fill(0.1));
+      expect(vec).toEqual(`[${new Array(DIM).fill(0.1).join(",")}]`);
       // RRF: v1 ranks above both v2 and v3
       expect(out.map((v: any) => v.id)).toEqual(['v1', 'v2', 'v3']);
     });
