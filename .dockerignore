@@ -1,0 +1,34 @@
+# Root-level .dockerignore — applies to Docker builds whose context is the repo
+# root (backend API via deployment/prod/Dockerfile.backend, embedding service via
+# services/embedder/Dockerfile — Render builds both from the repo root).
+# Keep apps/backend/ and instances/ (both dockerfiles COPY them).
+
+.git
+.gitignore
+**/.git
+
+releases/
+
+apps/mobile
+apps/web
+**/node_modules
+**/*.tsbuildinfo
+**/__pycache__
+**/.venv
+**/dist
+
+tools
+scripts
+.maestro
+dependencies
+deployment
+
+*.md
+*.log
+
+.env
+.embedder.env
+.processor.env
+**/.env
+**/.env.*
+!.env.example

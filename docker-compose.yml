@@ -71,6 +71,23 @@ services:
     volumes:
       - processor-work:/work
 
+  embedder:
+    build:
+      context: .
+      dockerfile: services/embedder/Dockerfile
+    container_name: christiantube-embedder
+    restart: always
+    env_file:
+      - .embedder.env
+    environment:
+      ONNX_DIR: /model
+      POLL_INTERVAL: "300"
+      BATCH_LIMIT: "32"
+      EMBEDDING_MODEL: intfloat/multilingual-e5-small
+      EMBEDDING_DIM: "384"
+      EMBEDDING_VERSION: "1"
+    command: ["python", "-u", "worker.py"]
+
 volumes:
   pgdata:
   processor-work:

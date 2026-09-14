@@ -43,6 +43,12 @@ model Video {
   lastTranscriptionError String?
   content                String?             @db.Text
 
+  embeddingStatus        String?             @default("pending")
+  embeddingVersion       Int?                @default(0)
+  embeddingHash          String?
+  embeddingError         String?
+  embeddingRetryCount    Int?                @default(0)
+
   // Creator & Clipping Metadata
   creatorUserId          String?
   creatorName            String?
@@ -72,6 +78,7 @@ model Video {
   @@index([sourceVideoId])
   @@index([type, publishedAt(sort: Desc)])
   @@index([channelId, type, publishedAt(sort: Desc)])
+  @@index([embeddingStatus])
 }
 
 model Channel {
