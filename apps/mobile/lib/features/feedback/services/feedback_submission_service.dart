@@ -135,10 +135,14 @@ class FeedbackSubmissionService {
         final data = response.data is Map<String, dynamic>
             ? response.data as Map<String, dynamic>
             : (response.data is String ? jsonDecode(response.data) : {});
+            
+        final isSuccess = data['success'] == true || data['isSuccess'] == true;
+        
         return FeedbackSubmissionResult(
-          isSuccess: true,
+          isSuccess: isSuccess,
           issueNumber: data['issueNumber']?.toString(),
           issueUrl: data['issueUrl'] as String?,
+          errorMessage: isSuccess ? null : (data['message']?.toString() ?? 'Server reported failure'),
         );
       } else {
         return FeedbackSubmissionResult(
