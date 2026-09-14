@@ -52,11 +52,15 @@ export default () => {
       publicUrl: process.env.STORAGE_PUBLIC_URL,
     },
     embedding: {
+      provider: process.env.EMBEDDING_PROVIDER || 'self-hosted',
       serviceUrl: process.env.EMBEDDING_SERVICE_URL,
       authToken: process.env.EMBEDDING_AUTH_TOKEN,
       model: process.env.EMBEDDING_MODEL || 'intfloat/multilingual-e5-small',
       dim: parseInt(process.env.EMBEDDING_DIM || '384', 10),
       version: parseInt(process.env.EMBEDDING_VERSION || '1', 10),
+      timeoutMs: process.env.EMBEDDING_TIMEOUT_MS
+        ? parseInt(process.env.EMBEDDING_TIMEOUT_MS, 10)
+        : undefined,
       enabled: process.env.EMBEDDING_ENABLED !== 'false',
     },
     internalJobSecret: process.env.INTERNAL_JOB_SECRET,

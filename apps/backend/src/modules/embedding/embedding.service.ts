@@ -9,11 +9,14 @@ interface CachedEmbedding {
   at: number;
 }
 
+export type EmbeddingProvider = 'self-hosted' | 'huggingface';
+
 @Injectable()
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
 
   private readonly enabled: boolean;
+  private readonly provider: EmbeddingProvider;
   private readonly serviceUrl: string | null;
   private readonly authToken: string;
   private readonly model: string;
@@ -24,7 +27,7 @@ export class EmbeddingService {
 
   private readonly cache = new Map<string, CachedEmbedding>();
   private readonly cacheTtlMs = 5 * 60 * 1000;
-  private readonly queryTimeoutMs = 1500;
+  private readonly timeoutMs: number;
   private readonly maxCacheEntries = 256;
 
   constructor(
@@ -33,6 +36,9 @@ export class EmbeddingService {
   ) {
     this.enabled =
       this.configService.get<boolean>("embedding.enabled") ?? false;
+    this.provider =
+      this.configService.get<EmbeddingProvider>("embedding.provider") ||
+      "self-hosted";
     this.serviceUrl =
       this.configService.get<string>("embedding.serviceUrl") || null;
     this.authToken =
@@ -42,6 +48,9 @@ export class EmbeddingService {
       "intfloat/multilingual-e5-small";
     this.dim = this.configService.get<number>("embedding.dim") || 384;
     this.version = this.configService.get<number>("embedding.version") || 1;
+    this.timeoutMs =
+      this.configService.get<number>("embedding.timeoutMs") ??
+      (this.provider === "huggingface" ? 8000 : 1500);
   }
 
   get modelName(): string {
@@ -58,6 +67,35 @@ export class EmbeddingService {
 
   get isEnabled(): boolean {
     return this.enabled && !!this.serviceUrl;
+  }
+
+  private get embedUrl(): string {
+    if (this.provider === "huggingface") {
+      return `${this.serviceUrl}/pipeline/feature-extraction/${this.model}`;
+    }
+    return `${this.serviceUrl}/embed`;
+  }
+
+  private embedBody(text: string): unknown {
+    if (this.provider === "huggingface") {
+      return { inputs: text };
+    }
+    return { text };
+  }
+
+  /**
+   * Signaling pipelines may return `[[…]]` (batch) or `[…]` (single) shapes.
+   * Dim verification is deferred to callers via parseEmbeddingResult.
+   */
+  private parseEmbeddingResult(data: any): number[] | null {
+    if (this.provider === "huggingface") {
+      if (!Array.isArray(data)) return null;
+      const first: unknown = data[0];
+      const vector: unknown = Array.isArray(first) ? first : data;
+      return Array.isArray(vector) ? vector : null;
+    }
+    const vector: unknown = data?.embedding;
+    return Array.isArray(vector) ? vector : null;
   }
 
   passageText(title: string, description?: string | null): string {
@@ -92,10 +130,10 @@ export class EmbeddingService {
     const text = this.queryText(raw);
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), this.queryTimeoutMs);
+      const timer = setTimeout(() => controller.abort(), this.timeoutMs);
       let res: Response;
       try {
-        res = await fetch(`${this.serviceUrl}/embed`, {
+        res = await fetch(this.embedUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -103,7 +141,7 @@ export class EmbeddingService {
               ? { Authorization: `Bearer ${this.authToken}` }
               : {}),
           },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify(this.embedBody(text)),
           signal: controller.signal,
         });
       } finally {
@@ -116,10 +154,10 @@ export class EmbeddingService {
       }
 
       const data: any = await res.json();
-      const vector: number[] = data?.embedding;
-      if (!Array.isArray(vector) || vector.length !== this.dim) {
+      const vector = this.parseEmbeddingResult(data);
+      if (!vector || vector.length !== this.dim) {
         this.logger.warn(
-          `Embedding service returned malformed vector (dim=${data?.dim ?? "?"})`,
+          `Embedding service returned malformed vector (provider=${this.provider})`,
         );
         return null;
       }

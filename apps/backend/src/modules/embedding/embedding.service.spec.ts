@@ -10,6 +10,8 @@ function makeService(
     authToken?: string;
     dim?: number;
     version?: number;
+    provider?: string;
+    timeoutMs?: number;
   } = {},
 ) {
   const values: Record<string, any> = {
@@ -19,6 +21,8 @@ function makeService(
     'embedding.model': 'intfloat/multilingual-e5-small',
     'embedding.dim': overrides.dim ?? DIM,
     'embedding.version': overrides.version ?? 1,
+    'embedding.provider': overrides.provider ?? 'self-hosted',
+    'embedding.timeoutMs': overrides.timeoutMs,
   };
   const configService = { get: jest.fn((key: string) => values[key]) };
   const prisma = { $executeRawUnsafe: jest.fn().mockResolvedValue(0) };
@@ -204,6 +208,85 @@ describe('EmbeddingService', () => {
       const pending = service.embedQuery('slow');
       await jest.advanceTimersByTimeAsync(1600);
       await expect(pending).resolves.toBeNull();
+    });
+  });
+
+  describe('embedQuery (huggingface provider)', () => {
+    function hfResponse(rows: number[][]) {
+      return { ok: true, json: async () => rows };
+    }
+
+    it('calls the feature-extraction pipeline with Bearer auth and {inputs}', async () => {
+      const fetchMock = jest.fn().mockResolvedValue(hfResponse([vector()]));
+      (globalThis as any).fetch = fetchMock;
+      const { service } = makeService({
+        provider: 'huggingface',
+        serviceUrl: 'https://api-inference.huggingface.co',
+        authToken: 'hf-secret',
+      });
+
+      const result = await service.embedQuery('faith');
+      expect(result).toEqual(vector());
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api-inference.huggingface.co/pipeline/feature-extraction/intfloat/multilingual-e5-small',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer hf-secret',
+          },
+          body: JSON.stringify({ inputs: 'query: faith' }),
+        }),
+      );
+    });
+
+    it('accepts both nested ([[…]]) and flat ([…]) response shapes', async () => {
+      (globalThis as any).fetch = jest.fn().mockResolvedValue(hfResponse([vector()]));
+      const { service: nested } = makeService({ provider: 'huggingface' });
+      await expect(nested.embedQuery('a')).resolves.toEqual(vector());
+
+      const { service: flat } = makeService({ provider: 'huggingface' });
+      const fetchFlat = jest.fn().mockResolvedValue({ ok: true, json: async () => vector() });
+      (globalThis as any).fetch = fetchFlat;
+      await expect(flat.embedQuery('a')).resolves.toEqual(vector());
+    });
+
+    it('rejects a batch-shaped response with a wrong dimension', async () => {
+      const fetchMock = jest.fn().mockResolvedValue(hfResponse([[1, 2, 3]]));
+      (globalThis as any).fetch = fetchMock;
+      const { service } = makeService({ provider: 'huggingface' });
+      await expect(service.embedQuery('x')).resolves.toBeNull();
+    });
+
+    it('defaults to an 8s timeout instead of 1.5s for cold serverless starts', async () => {
+      jest.useFakeTimers();
+      const fetchMock = jest.fn(
+        (_url: string, init: any) =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener('abort', () =>
+              reject(new Error('The operation was aborted')),
+            );
+          }),
+      );
+      (globalThis as any).fetch = fetchMock;
+      const { service } = makeService({ provider: 'huggingface' });
+
+      const pending = service.embedQuery('cold');
+      await jest.advanceTimersByTimeAsync(7000);
+      await expect(Promise.race([pending, Promise.resolve('still-pending')])).resolves.toBe('still-pending');
+      await jest.advanceTimersByTimeAsync(1100);
+      await expect(pending).resolves.toBeNull();
+    });
+
+    it('keeps using the self-hosted /embed contract by default', async () => {
+      const fetchMock = jest.fn().mockResolvedValue(okResponse());
+      (globalThis as any).fetch = fetchMock;
+      const { service } = makeService();
+      await service.embedQuery('love');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://embed.test/embed',
+        expect.objectContaining({ body: JSON.stringify({ text: 'query: love' }) }),
+      );
     });
   });
 
