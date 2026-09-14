@@ -28,6 +28,20 @@ services:
         sync: false
       - key: CLOUDFLARE_R2_BUCKET_NAME
         sync: false
+      - key: EMBEDDING_SERVICE_URL
+        value: https://router.huggingface.co/hf-inference
+      - key: EMBEDDING_AUTH_TOKEN
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: intfloat/multilingual-e5-small
+      - key: EMBEDDING_DIM
+        value: "384"
+      - key: EMBEDDING_VERSION
+        value: "1"
+      - key: EMBEDDING_PROVIDER
+        value: huggingface
+      - key: EMBEDDING_TIMEOUT_MS
+        value: "8000"
 
   # ─── achristianapp Backend API ────────────────────────────────────────────
   - type: web
@@ -62,3 +76,17 @@ services:
         value: UCSaJppP4zb2vivjxYfTqOKw
       - key: SHORTS_PRIVACY_STATUS
         value: public
+      - key: EMBEDDING_SERVICE_URL
+        value: https://router.huggingface.co/hf-inference
+      - key: EMBEDDING_AUTH_TOKEN
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: intfloat/multilingual-e5-small
+      - key: EMBEDDING_DIM
+        value: "384"
+      - key: EMBEDDING_VERSION
+        value: "1"
+      - key: EMBEDDING_PROVIDER
+        value: huggingface
+      - key: EMBEDDING_TIMEOUT_MS
+        value: "8000"

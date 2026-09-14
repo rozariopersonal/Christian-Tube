@@ -82,5 +82,6 @@ apps/mobile/test/scratch_*.dart
 .opencode/
 .processor.env
 .transcriber.env
+.embedder.env
 .android-sdk/
 query*.sql
