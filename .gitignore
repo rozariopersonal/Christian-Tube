@@ -85,3 +85,4 @@ apps/mobile/test/scratch_*.dart
 .embedder.env
 .android-sdk/
 query*.sql
+.contentworker.env
