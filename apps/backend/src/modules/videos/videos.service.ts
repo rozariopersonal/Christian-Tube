@@ -194,11 +194,12 @@ export class VideosService {
     const modelIdx = filters.params.length + 1;
     const versionIdx = modelIdx + 1;
     const vecIdx = versionIdx + 1;
+    const vectorLiteral = `[${vector.join(",")}]`;
     const rawParams = [
       ...filters.params,
       this.embeddingService.modelName,
       this.embeddingService.modelVersion,
-      vector,
+      vectorLiteral,
     ];
 
     const vectorSql = `
