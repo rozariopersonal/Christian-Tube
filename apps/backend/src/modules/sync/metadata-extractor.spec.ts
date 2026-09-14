@@ -31,7 +31,7 @@ describe('Video Metadata Extractor', () => {
       expect(meta.language).toBe('Tamil');
       expect(meta.secondaryLanguage).toBe('English');
       expect(meta.scripture).toEqual({ book: 'MAT', chapter: 5, verse: 3 });
-      expect(meta.topics).toContain('Discipleship');
+      expect(meta.topics).toContain('Prayer & Fasting');
       expect(meta.cleanTitle).toBe('All That Jesus Taught | Part 37');
       expect(meta.chapters).toHaveLength(3);
       expect(meta.chapters?.[0]).toEqual({

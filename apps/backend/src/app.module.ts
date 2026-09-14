@@ -9,6 +9,7 @@ import { ChannelsModule } from './modules/channels/channels.module';
 import { YoutubeModule } from './modules/youtube/youtube.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { TranscriptionModule } from './modules/transcription/transcription.module';
+import { EmbeddingModule } from './modules/embedding/embedding.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { HealthModule } from './modules/health/health.module';
 import { WordsModule } from './modules/words/words.module';
@@ -31,6 +32,7 @@ import { FeedbackModule } from './modules/feedback/feedback.module';
     YoutubeModule,
     SyncModule,
     TranscriptionModule,
+    EmbeddingModule,
     WordsModule,
     ShortsModule,
     FeedbackModule,

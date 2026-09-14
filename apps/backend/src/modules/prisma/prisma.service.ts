@@ -111,9 +111,48 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         CREATE INDEX IF NOT EXISTS "MicroFeedItem_category_idx" ON "MicroFeedItem"("category");
         CREATE INDEX IF NOT EXISTS "MicroFeedItem_isFeatured_idx" ON "MicroFeedItem"("isFeatured");
       `);
+
+      await this.ensureEmbeddingSchema();
       this.logger.log('✅ PostgreSQL database tables verified and created.');
     } catch (e: any) {
       this.logger.error(`⚠️ Prisma connection or table init error: ${e.message}`);
+    }
+  }
+
+  /**
+   * Creates the pgvector extension, Video embedding metadata columns, the
+   * VideoEmbedding table, and the HNSW index. Idempotent; safe to run every boot.
+   */
+  private async ensureEmbeddingSchema() {
+    try {
+      await this.$executeRawUnsafe(`
+        CREATE EXTENSION IF NOT EXISTS vector;
+
+        ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingStatus" TEXT DEFAULT 'pending';
+        ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingVersion" INTEGER DEFAULT 0;
+        ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingHash" TEXT;
+        ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingError" TEXT;
+        ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingRetryCount" INTEGER DEFAULT 0;
+
+        CREATE TABLE IF NOT EXISTS "VideoEmbedding" (
+          "videoId" TEXT NOT NULL PRIMARY KEY,
+          "embedding" vector(384) NOT NULL,
+          "model" TEXT NOT NULL,
+          "version" INTEGER NOT NULL DEFAULT 0,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "VideoEmbedding_videoId_fkey"
+            FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+            ON DELETE CASCADE ON UPDATE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS "VideoEmbedding_version_idx" ON "VideoEmbedding"("version");
+        CREATE INDEX IF NOT EXISTS "VideoEmbedding_embedding_hnsw_idx"
+          ON "VideoEmbedding" USING hnsw ("embedding" vector_cosine_ops)
+          WITH (m = 16, ef_construction = 64);
+      `);
+    } catch (e: any) {
+      this.logger.warn(`Embedding schema bootstrap note: ${e.message}`);
     }
   }
 
