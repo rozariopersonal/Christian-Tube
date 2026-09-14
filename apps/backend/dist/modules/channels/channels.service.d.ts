@@ -14,18 +14,18 @@ export declare class ChannelsService {
             videos: number;
         };
         id: string;
-        name: string;
         description: string | null;
         thumbnail: string | null;
-        subscriberCount: string | null;
         category: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        subscriberCount: string | null;
         language: string | null;
         isActive: boolean;
         syncCursor: string | null;
         syncStatus: string;
         lastSyncedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }[]>;
     findOne(id: string): Promise<{
         videoCount: number;
@@ -33,18 +33,18 @@ export declare class ChannelsService {
             videos: number;
         };
         id: string;
-        name: string;
         description: string | null;
         thumbnail: string | null;
-        subscriberCount: string | null;
         category: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        subscriberCount: string | null;
         language: string | null;
         isActive: boolean;
         syncCursor: string | null;
         syncStatus: string;
         lastSyncedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     resolveChannelInfo(input: string): Promise<{
         id: string;
@@ -66,18 +66,18 @@ export declare class ChannelsService {
         message: string;
         channel: {
             id: string;
-            name: string;
             description: string | null;
             thumbnail: string | null;
-            subscriberCount: string | null;
             category: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            subscriberCount: string | null;
             language: string | null;
             isActive: boolean;
             syncCursor: string | null;
             syncStatus: string;
             lastSyncedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     }>;
     syncChannel(id: string): Promise<{
@@ -89,27 +89,27 @@ export declare class ChannelsService {
         message: string;
         channel: {
             id: string;
-            name: string;
             description: string | null;
             thumbnail: string | null;
-            subscriberCount: string | null;
             category: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            subscriberCount: string | null;
             language: string | null;
             isActive: boolean;
             syncCursor: string | null;
             syncStatus: string;
             lastSyncedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     }>;
     listRequests(): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        status: string;
         channelUrl: string;
         notes: string | null;
-        status: string;
         submittedBy: string | null;
     }[]>;
     createRequest(data: {
@@ -120,9 +120,9 @@ export declare class ChannelsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        status: string;
         channelUrl: string;
         notes: string | null;
-        status: string;
         submittedBy: string | null;
     }>;
     approveRequest(id: string, adminEmail?: string): Promise<{
@@ -132,25 +132,25 @@ export declare class ChannelsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            status: string;
             channelUrl: string;
             notes: string | null;
-            status: string;
             submittedBy: string | null;
         };
         channel: {
             id: string;
-            name: string;
             description: string | null;
             thumbnail: string | null;
-            subscriberCount: string | null;
             category: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            subscriberCount: string | null;
             language: string | null;
             isActive: boolean;
             syncCursor: string | null;
             syncStatus: string;
             lastSyncedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     }>;
     rejectRequest(id: string, reason?: string): Promise<{
@@ -160,9 +160,9 @@ export declare class ChannelsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            status: string;
             channelUrl: string;
             notes: string | null;
-            status: string;
             submittedBy: string | null;
         };
     }>;

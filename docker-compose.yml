@@ -67,7 +67,6 @@ services:
       WORK_DIR: /work
       POLL_INTERVAL: "300"
       BATCH_LIMIT: "5"
-      CHANNELS: "CFC Songs & Hymns,Maasilla Valibam"
     volumes:
       - processor-work:/work
 

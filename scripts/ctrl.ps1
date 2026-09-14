@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("processor", "stack", "run", "status", "stop-retired-transcriber")]
+    [ValidateSet("processor", "embedder", "stack", "run", "status", "stop-retired-transcriber")]
     [string]$Command,
     [Parameter(Position = 1)]
     [ValidateSet("start", "stop", "status", "up", "down", "logs", "restart", "build")]
@@ -19,6 +19,7 @@ param(
 
     Commands:
       ctrl.ps1 processor up|down|logs|restart|build
+      ctrl.ps1 embedder up|down|logs|restart|build
       ctrl.ps1 run -VideoId <YouTubeID> [-Redo]
       ctrl.ps1 status
       ctrl.ps1 stop-retired-transcriber
@@ -47,6 +48,20 @@ function Invoke-Processor {
         "build"   { & $docker compose -f $Compose build youtube-processor; break }
         "logs"    { & $docker compose -f $Compose logs -f --tail=200 youtube-processor; break }
         default   { Write-Error "processor action must be up|down|restart|build|logs" }
+    }
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+function Invoke-Embedder {
+    $docker = Resolve-Docker
+    if (-not $docker) { Write-Error "docker.exe not found." }
+    switch ($Action) {
+        "up"      { & $docker compose -f $Compose up -d --remove-orphans embedder; break }
+        "down"    { & $docker compose -f $Compose stop embedder; break }
+        "restart" { & $docker compose -f $Compose restart embedder; break }
+        "build"   { & $docker compose -f $Compose build embedder; break }
+        "logs"    { & $docker compose -f $Compose logs -f --tail=200 embedder; break }
+        default   { Write-Error "embedder action must be up|down|restart|build|logs" }
     }
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
@@ -83,6 +98,8 @@ function Show-Status {
     $docker = Resolve-Docker
     if ($docker) {
         & $docker compose -f $Compose ps youtube-processor
+        Write-Host "`n== ChristianTube Embedding Worker ==" -ForegroundColor Cyan
+        & $docker compose -f $Compose ps embedder
     } else {
         Write-Host "  docker not found"
     }
@@ -90,6 +107,7 @@ function Show-Status {
 
 switch ($Command) {
     "processor"                { Invoke-Processor }
+    "embedder"                 { Invoke-Embedder }
     "stack"                    { Invoke-Processor }
     "run"                      { Invoke-Run }
     "status"                   { Show-Status }
