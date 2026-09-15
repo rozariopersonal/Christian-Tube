@@ -330,6 +330,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
 
     // Priority ordering for category rails
     final railOrder = [
+      'Bible Survey',
       'Verse By Verse',
       'Foundations',
       'Discipleship',
@@ -338,6 +339,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       'Family & Home',
       'The Church',
       'Conferences',
+      'Multilingual',
       'General Sermons',
     ];
 
