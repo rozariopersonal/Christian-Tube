@@ -28,7 +28,23 @@ declare const _default: () => {
         secretKey: string;
         publicUrl: string;
     };
+    embedding: {
+        provider: string;
+        serviceUrl: string;
+        authToken: string;
+        model: string;
+        dim: number;
+        version: number;
+        timeoutMs: number;
+        enabled: boolean;
+    };
+    contentSearch: {
+        enabled: boolean;
+        maxChunks: number;
+    };
     internalJobSecret: string;
+    githubToken: string;
+    githubRepo: string;
     adminEmails: string[];
     instanceConfig: any;
     seedChannels: any[];

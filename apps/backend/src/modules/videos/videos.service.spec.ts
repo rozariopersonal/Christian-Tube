@@ -165,6 +165,7 @@ describe('VideosService', () => {
             title: 'Grace is a Person',
             content: 'Grace is a person, not a principle.',
             quoteText: '“Grace is a person…”',
+            scriptureRefs: ['John 1:17'],
             startSec: 120,
             endSec: 132,
             dist: 0.01,
@@ -174,6 +175,7 @@ describe('VideosService', () => {
             title: 'Saved by grace',
             content: 'We are saved by grace through faith.',
             quoteText: '“We are saved by grace…”',
+            scriptureRefs: ['Ephesians 2:8'],
             startSec: 45,
             endSec: 58,
             dist: 0.05,
@@ -209,6 +211,7 @@ describe('VideosService', () => {
         title: 'Grace is a Person',
         statement: 'Grace is a person, not a principle.',
         quote: '“Grace is a person…”',
+        scriptureRefs: ['John 1:17'],
         startSec: 120,
         endSec: 132,
       });

@@ -119,10 +119,89 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
         CREATE INDEX IF NOT EXISTS "MicroFeedItem_category_idx" ON "MicroFeedItem"("category");
         CREATE INDEX IF NOT EXISTS "MicroFeedItem_isFeatured_idx" ON "MicroFeedItem"("isFeatured");
       `);
+            await this.ensureEmbeddingSchema();
             this.logger.log('✅ PostgreSQL database tables verified and created.');
         }
         catch (e) {
             this.logger.error(`⚠️ Prisma connection or table init error: ${e.message}`);
+        }
+    }
+    async ensureEmbeddingSchema() {
+        const steps = [
+            ["extension", `CREATE EXTENSION IF NOT EXISTS vector`],
+            [
+                "embedding columns",
+                `ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingStatus" TEXT DEFAULT 'pending';
+         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingVersion" INTEGER DEFAULT 0;
+         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingHash" TEXT;
+         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingError" TEXT;
+         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingRetryCount" INTEGER DEFAULT 0;`,
+            ],
+            [
+                "content columns",
+                `ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0;`,
+            ],
+            [
+                "VideoEmbedding table",
+                `CREATE TABLE IF NOT EXISTS "VideoEmbedding" (
+           "videoId" TEXT NOT NULL PRIMARY KEY,
+           "embedding" vector(384) NOT NULL,
+           "model" TEXT NOT NULL,
+           "version" INTEGER NOT NULL DEFAULT 0,
+           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           CONSTRAINT "VideoEmbedding_videoId_fkey"
+             FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+             ON DELETE CASCADE ON UPDATE CASCADE
+         );`,
+            ],
+            [
+                "VideoEmbedding indexes",
+                `CREATE INDEX IF NOT EXISTS "VideoEmbedding_version_idx" ON "VideoEmbedding"("version");
+         CREATE INDEX IF NOT EXISTS "VideoEmbedding_embedding_hnsw_idx"
+           ON "VideoEmbedding" USING hnsw ("embedding" vector_cosine_ops)
+           WITH (m = 16, ef_construction = 64);`,
+            ],
+            [
+                "VideoChunk table",
+                `CREATE TABLE IF NOT EXISTS "VideoChunk" (
+           "id" SERIAL PRIMARY KEY,
+           "videoId" TEXT NOT NULL,
+           "seq" INTEGER NOT NULL,
+           "kind" TEXT NOT NULL DEFAULT 'idea',
+           "title" TEXT,
+           "content" TEXT NOT NULL,
+           "quoteText" TEXT,
+           "startSec" DOUBLE PRECISION,
+           "endSec" DOUBLE PRECISION,
+           "source" TEXT NOT NULL DEFAULT 'caption',
+           "embedding" vector(384) NOT NULL,
+           "model" TEXT NOT NULL,
+           "version" INTEGER NOT NULL DEFAULT 0,
+           "digest" TEXT,
+           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           CONSTRAINT "VideoChunk_videoId_fkey"
+             FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+             ON DELETE CASCADE ON UPDATE CASCADE
+         );`,
+            ],
+            [
+                "VideoChunk indexes",
+                `CREATE UNIQUE INDEX IF NOT EXISTS "VideoChunk_videoId_seq_key" ON "VideoChunk"("videoId", "seq");
+         CREATE INDEX IF NOT EXISTS "VideoChunk_model_version_idx" ON "VideoChunk"("model", "version");
+         CREATE INDEX IF NOT EXISTS "VideoChunk_embedding_hnsw_idx"
+           ON "VideoChunk" USING hnsw ("embedding" vector_cosine_ops)
+           WITH (m = 16, ef_construction = 64);`,
+            ],
+        ];
+        for (const [name, sql] of steps) {
+            try {
+                await this.$executeRawUnsafe(sql);
+            }
+            catch (e) {
+                this.logger.warn(`Embedding schema step '${name}' failed: ${e.message}`);
+            }
         }
     }
     async onModuleDestroy() {

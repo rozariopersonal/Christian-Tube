@@ -81,6 +81,7 @@ class Database:
                      "title" TEXT,
                      "content" TEXT NOT NULL,
                      "quoteText" TEXT,
+                     "scriptureRefs" JSONB,
                      "startSec" DOUBLE PRECISION,
                      "endSec" DOUBLE PRECISION,
                      "source" TEXT NOT NULL DEFAULT 'caption',
@@ -104,6 +105,12 @@ class Database:
             )
         except Exception as e:  # noqa: BLE001
             log.warning("VideoChunk table step failed: %s", e)
+        try:
+            self.cur.execute(
+                'ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "scriptureRefs" JSONB'
+            )
+        except Exception as e:  # noqa: BLE001
+            log.warning("VideoChunk scriptureRefs step failed: %s", e)
 
     def release_stale_processing(self):
         try:
@@ -214,13 +221,14 @@ class Database:
             self.cur.execute(
                 """INSERT INTO "VideoChunk"
                       ("videoId","seq","kind","title","content","quoteText",
-                       "startSec","endSec","source","embedding","model","version","digest",
+                       "scriptureRefs","startSec","endSec","source","embedding","model","version","digest",
                        "createdAt","updatedAt")
-                   VALUES (%s,%s,'idea',%s,%s,%s,%s,%s,%s,%s::vector,%s,%s,%s,now(),now())
+                   VALUES (%s,%s,'idea',%s,%s,%s,%s,%s,%s,%s,%s::vector,%s,%s,%s,now(),now())
                    ON CONFLICT ("videoId","seq") DO UPDATE SET
                      "title"=EXCLUDED."title",
                      "content"=EXCLUDED."content",
                      "quoteText"=EXCLUDED."quoteText",
+                     "scriptureRefs"=EXCLUDED."scriptureRefs",
                      "startSec"=EXCLUDED."startSec",
                      "endSec"=EXCLUDED."endSec",
                      "source"=EXCLUDED."source",
@@ -235,6 +243,7 @@ class Database:
                     idea["title"],
                     idea["statement"],
                     idea["quote"] or None,
+                    json.dumps(idea.get("scriptures") or []),
                     idea["start_sec"],
                     idea["end_sec"],
                     source,

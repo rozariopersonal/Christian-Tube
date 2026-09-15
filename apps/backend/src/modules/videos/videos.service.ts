@@ -201,6 +201,7 @@ export class VideosService {
         title?: string;
         statement: string;
         quote?: string;
+        scriptureRefs?: string[] | null;
         startSec?: number | null;
         endSec?: number | null;
         score: number;
@@ -341,6 +342,7 @@ export class VideosService {
           vc.title,
           vc.content,
           vc."quoteText",
+          vc."scriptureRefs",
           vc."startSec",
           vc."endSec",
           vc.embedding <=> $${vecIdx}::vector AS dist,
@@ -355,7 +357,7 @@ export class VideosService {
           AND vc."model" = $${modelIdx}
           AND vc."version" = $${versionIdx}
       )
-      SELECT "videoId", title, content, "quoteText", "startSec", "endSec", dist
+      SELECT "videoId", title, content, "quoteText", "scriptureRefs", "startSec", "endSec", dist
       FROM ranked
       WHERE rn = 1
       ORDER BY dist
@@ -367,6 +369,7 @@ export class VideosService {
       title: string | null;
       content: string;
       quoteText: string | null;
+      scriptureRefs: string[] | null;
       startSec: number | null;
       endSec: number | null;
       dist: number;
@@ -377,6 +380,7 @@ export class VideosService {
       title: r.title ?? undefined,
       statement: r.content,
       quote: r.quoteText ?? undefined,
+      scriptureRefs: r.scriptureRefs ?? undefined,
       startSec: r.startSec,
       endSec: r.endSec,
       score: -r.dist, // higher = closer (cosine distance is [0,2])

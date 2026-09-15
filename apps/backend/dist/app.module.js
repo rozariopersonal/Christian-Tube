@@ -21,11 +21,13 @@ const channels_module_1 = require("./modules/channels/channels.module");
 const youtube_module_1 = require("./modules/youtube/youtube.module");
 const sync_module_1 = require("./modules/sync/sync.module");
 const transcription_module_1 = require("./modules/transcription/transcription.module");
+const embedding_module_1 = require("./modules/embedding/embedding.module");
 const storage_module_1 = require("./modules/storage/storage.module");
 const health_module_1 = require("./modules/health/health.module");
 const words_module_1 = require("./modules/words/words.module");
 const shorts_module_1 = require("./modules/shorts/shorts.module");
 const feedback_module_1 = require("./modules/feedback/feedback.module");
+const admin_release_module_1 = require("./modules/admin-release/admin-release.module");
 const audio_module_1 = require("./modules/audio/audio.module");
 let AppModule = class AppModule {
 };
@@ -47,9 +49,11 @@ exports.AppModule = AppModule = __decorate([
             youtube_module_1.YoutubeModule,
             sync_module_1.SyncModule,
             transcription_module_1.TranscriptionModule,
+            embedding_module_1.EmbeddingModule,
             words_module_1.WordsModule,
             shorts_module_1.ShortsModule,
             feedback_module_1.FeedbackModule,
+            admin_release_module_1.AdminReleaseModule,
             audio_module_1.AudioModule,
         ],
     })

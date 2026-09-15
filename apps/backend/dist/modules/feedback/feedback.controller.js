@@ -20,7 +20,11 @@ let FeedbackController = class FeedbackController {
         this.feedbackService = feedbackService;
     }
     async submitFeedback(dto) {
-        return this.feedbackService.submitFeedback(dto);
+        const result = await this.feedbackService.submitFeedback(dto);
+        if (!result.success) {
+            throw new common_1.HttpException(result.message || 'Failed to submit feedback', common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return result;
     }
 };
 exports.FeedbackController = FeedbackController;
