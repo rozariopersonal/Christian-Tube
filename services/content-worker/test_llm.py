@@ -83,5 +83,29 @@ class ScriptureFilterTest(unittest.TestCase):
         self.assertEqual(out, [])
 
 
+class RobustJsonLoadsTest(unittest.TestCase):
+    def test_plain_json(self):
+        self.assertEqual(llm._robust_json_loads('{"ideas":[{"title":"a"}]}'),
+                         {"ideas": [{"title": "a"}]})
+
+    def test_markdown_fence_stripped(self):
+        out = llm._robust_json_loads('```json\n{"ideas":[{"title":"a"}]}\n```')
+        self.assertEqual(out["ideas"][0]["title"], "a")
+
+    def test_prose_before_and_after(self):
+        out = llm._robust_json_loads(
+            'Here you go.\nSome{"ideas":[{"title":"a"}]}\nHope that helps.'
+        )
+        self.assertEqual(out["ideas"][0]["title"], "a")
+
+    def test_trailing_comma_tolerated(self):
+        out = llm._robust_json_loads('{"ideas":[{"title":"a",},]}')
+        self.assertEqual(out["ideas"][0]["title"], "a")
+
+    def test_bare_prose_raises(self):
+        with self.assertRaises(ValueError):
+            llm._robust_json_loads("Sure, here are the ideas you asked for.")
+
+
 if __name__ == "__main__":
     unittest.main()
