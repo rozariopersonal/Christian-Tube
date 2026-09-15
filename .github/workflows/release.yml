@@ -270,6 +270,13 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
+      - name: Enable KVM (hardware acceleration for emulator)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || echo "::warning::KVM not available on this runner; emulator will use software emulation"
+
       - name: 'Gate 3: E2E Quality Gate (Android Emulator Smoke Test)'
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
@@ -278,6 +285,9 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-boot-timeout: 900
           disable-animations: true
           script: |
             export PATH="$PATH:$HOME/.maestro/bin"
