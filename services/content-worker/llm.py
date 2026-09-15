@@ -18,6 +18,9 @@ log = logging.getLogger("content-worker.llm")
 WINDOW_CHARS = int(os.environ.get("OLLAMA_WINDOW_CHARS", "6000"))
 WINDOW_OVERLAP = int(os.environ.get("OLLAMA_WINDOW_OVERLAP", "800"))
 OLLAMA_TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "900"))
+# Minimum duration an idea may claim; snap end_sec up so end_sec > start_sec
+# (LLM boundary estimates routinely round to equal seconds otherwise).
+MIN_IDEA_SECS = float(os.environ.get("MIN_IDEA_SECS", "2"))
 
 SYSTEM_PROMPT = (
     "You are an expert sermon analyst. You receive a timestamped transcript of a "
@@ -32,7 +35,8 @@ SYSTEM_PROMPT = (
     "- scriptures: ONLY bible references the speaker explicitly names in the "
     "transcript, normalized (e.g. \"1 Corinthians 3:7\", \"John 17:23\"). Empty "
     "array when the speaker cites none. NEVER list a reference that does not "
-    "appear in the transcript.\n"
+    "appear in the transcript, and NEVER list a translation/version name "
+    "(e.g. \"Living Bible\", \"NASB\") in place of a book reference.\n"
     "- Include the scripture references and people mentioned in the keywords.\n"
     '- JSON shape: {"ideas":[{"title":"...","statement":"...","quote":"...","start_sec":123,"end_sec":144,"scriptures":["John 17:23"],"keywords":["..."]}]}\n'
     "Return 4 to 8 ideas."
@@ -133,6 +137,8 @@ def _norm_idea(idea: dict, max_sec: float) -> dict | None:
     end = max(0.0, min(end, max_sec)) if end is not None else None
     if start is not None and end is not None and end < start:
         start, end = end, start
+    if start is not None and end is not None and end - start < MIN_IDEA_SECS:
+        end = start + MIN_IDEA_SECS
     keywords = [str(k).strip() for k in (idea.get("keywords") or []) if str(k).strip()]
     scriptures: list[str] = []
     for raw in idea.get("scriptures") or []:
@@ -151,6 +157,14 @@ def _norm_idea(idea: dict, max_sec: float) -> dict | None:
 
 
 _BOOK_STOP = frozenset({"the", "and", "of", "in", "a", "an", "pt", "bk"})
+
+# Bible translation/version names are NOT scripture references, even though
+# they are often "grounded" (the speaker says "the Living Bible"). Drop them.
+_TRANSLATION_RE = re.compile(
+    r"\b(?:living bible|amplified(?: bible)?|new american standard(?: bible)?|"
+    r"kjv|nkjv|nasb|esv|niv|nlt|csb|hcsb|nrsv|rsv|asv|cev|msg|tlb|nbt|gnt)\b",
+    re.IGNORECASE,
+)
 
 
 def _book_tokens(ref: str) -> list[str]:
@@ -179,7 +193,9 @@ def extract_ideas(llm: LLM, transcript: str, max_sec: float) -> list[dict]:
             norm["scriptures"] = [
                 s
                 for s in (norm.get("scriptures") or [])
-                if _book_tokens(s)
+                if re.search(r"\d", s)
+                and not _TRANSLATION_RE.search(s)
+                and _book_tokens(s)
                 and all(bt in transcript_lower for bt in _book_tokens(s))
             ]
             key = (norm["quote"] or norm["statement"])[:120]
