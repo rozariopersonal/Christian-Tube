@@ -19,5 +19,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY worker.py .
+COPY eligible_videos.sql .
 
 CMD ["python", "-u", "worker.py"]

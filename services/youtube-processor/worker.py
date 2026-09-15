@@ -3,9 +3,9 @@
 YouTube Video Processor for ChristianApp.
 
 Monitors the ChristianApp PostgreSQL database, extracts audio from
-active ChristianApp channel videos (strictly excluding shorts), uploads
-them to Audio.com with rich metadata, and registers them in the public
-GitHub Releases audio catalog.
+active ChristianApp channel videos (eligibility per the SQL in
+eligible_videos.sql), uploads them to Audio.com with rich metadata, and
+registers them in the public GitHub Releases audio catalog.
 """
 
 from __future__ import annotations
@@ -56,6 +56,7 @@ class Config:
         once: bool = False,
         video_id: str | None = None,
         channel_filters: list[str] | None = None,
+        priority_channel_ids: list[str] | None = None,
         purge_audiocom: bool = False,
     ):
         self.database_url = database_url
@@ -71,6 +72,7 @@ class Config:
         self.once = once
         self.video_id = video_id
         self.channel_filters = channel_filters
+        self.priority_channel_ids = priority_channel_ids
         self.purge_audiocom = purge_audiocom
 
 
@@ -117,6 +119,12 @@ def load_config(args: argparse.Namespace) -> Config:
     if raw_channels:
         channel_filters = [c.strip() for c in raw_channels.split(',') if c.strip()]
 
+    # Parse priority channel IDs (comma-separated PRIORITY_CHANNEL_IDS env var)
+    priority_channel_ids = None
+    raw_priority = _env("PRIORITY_CHANNEL_IDS")
+    if raw_priority:
+        priority_channel_ids = [c.strip() for c in raw_priority.split(",") if c.strip()]
+
     return Config(
         database_url=db_url,
         github_repo=_env("GITHUB_REPO", "rozariopersonal/Christian-Tube-Releases"),
@@ -131,6 +139,7 @@ def load_config(args: argparse.Namespace) -> Config:
         once=args.once,
         video_id=args.video_id or None,
         channel_filters=channel_filters,
+        priority_channel_ids=priority_channel_ids,
         purge_audiocom=getattr(args, 'purge_audiocom', False),
     )
 
@@ -169,6 +178,15 @@ class Database:
         self.cur = self.conn.cursor()
         self._ensure_schema()
 
+    def _eligible_sql(self) -> str:
+        """Reads the eligible-videos query from disk so it can be edited at any time."""
+        env_path = os.environ.get("ELIGIBLE_SQL_PATH", "").strip()
+        path = Path(env_path) if env_path else Path(__file__).resolve().parent / "eligible_videos.sql"
+        try:
+            return path.read_text(encoding="utf-8")
+        except OSError as e:
+            raise RuntimeError(f"Could not read eligible-videos SQL from {path}: {e}")
+
     def _ensure_schema(self) -> None:
         """Ensure audioUrl and audioUploadStatus columns exist on Video."""
         try:
@@ -202,75 +220,49 @@ class Database:
             include_failed = True
 
         ph = ",".join(["%s"] * len(statuses))
-        base_params: list[Any] = list(statuses)
+        params: list[Any] = list(statuses)
         retry_clause = ""
         if include_failed:
             retry_clause = ' AND ("audioRetryCount" IS NULL OR "audioRetryCount" < %s)'
-            base_params.append(cfg.max_retries)
+            params.append(cfg.max_retries)
 
+        # Channel name filter (--channels flag)
+        channel_clause = ""
         if cfg.channel_filters:
-            for channel_name in cfg.channel_filters:
-                params = list(base_params)
-                channel_clause = " AND c.name ILIKE %s"
-                params.append(f"%{channel_name}%")
-                
-                query = f"""
-                    SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
-                    FROM "Video" v
-                    JOIN "Channel" c ON c.id = v."channelId"
-                    WHERE v.type = 'VIDEO'
-                      AND (c."isActive" = true OR c."isActive" IS NULL)
-                      AND c.name NOT ILIKE '%%short%%'
-                      AND c.id != 'UC_ChristianTubeOfficial'
-                      AND v.title NOT ILIKE '%%#short%%'
-                      AND (v.description IS NULL OR v.description NOT ILIKE '%%#short%%')
-                      AND (v."duration" IS NULL OR (v."duration" != '0:00' AND v."duration" NOT LIKE '0:0%%'))
-                      AND (v."audioUploadStatus" IS NULL OR v."audioUploadStatus" IN ({ph}))
-                      {retry_clause}
-                      {channel_clause}
-                    ORDER BY v."publishedAt" DESC
-                    LIMIT %s
-                """
-                params.append(cfg.batch_limit)
-                self.cur.execute(query, params)
-                results = self.cur.fetchall()
-                if results:
-                    return results
-            return []
-        else:
-            params = list(base_params)
-            query = f"""
-                WITH ChannelStats AS (
-                    SELECT "channelId", COUNT(id) as total_videos
-                    FROM "Video"
-                    GROUP BY "channelId"
-                )
-                SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
-                FROM "Video" v
-                JOIN "Channel" c ON c.id = v."channelId"
-                LEFT JOIN ChannelStats cs ON cs."channelId" = c.id
-                WHERE v.type = 'VIDEO'
-                  AND (c."isActive" = true OR c."isActive" IS NULL)
-                  AND c.name NOT ILIKE '%%short%%'
-                  AND c.id != 'UC_ChristianTubeOfficial'
-                  AND v.title NOT ILIKE '%%#short%%'
-                  AND (v.description IS NULL OR v.description NOT ILIKE '%%#short%%')
-                  AND (v."duration" IS NULL OR (v."duration" != '0:00' AND v."duration" NOT LIKE '0:0%%'))
-                  AND (v."audioUploadStatus" IS NULL OR v."audioUploadStatus" IN ({ph}))
-                  {retry_clause}
-                ORDER BY 
-                    CASE 
-                        WHEN c.name = 'CFC India - Zac Poonen' THEN 1
-                        WHEN c.language = 'Tamil' THEN 2
-                        ELSE 3
-                    END ASC,
-                    cs.total_videos DESC,
-                    v."publishedAt" DESC
-                LIMIT %s
-            """
-            params.append(cfg.batch_limit)
-            self.cur.execute(query, params)
-            return self.cur.fetchall()
+            channel_or = " OR ".join(["c.name ILIKE %s" for _ in cfg.channel_filters])
+            channel_clause = f" AND ({channel_or})"
+            params.extend([f"%{f}%" for f in cfg.channel_filters])
+
+        # Channel ordering:
+        #   1. Priority channels first (CFC India by default).
+        #   2. Tamil channels, then English channels; each largest video-count first.
+        #   3. Within a channel, most recently uploaded first.
+        priority_clause = ""
+        if cfg.priority_channel_ids:
+            priority_clause = ' CASE WHEN v."channelId" = ANY(%s::text[]) THEN 0 ELSE 1 END,'
+            params.append(cfg.priority_channel_ids)
+
+        # Query lives in eligible_videos.sql (hot-reloadable) so it can be
+        # edited at any time without a code change.
+        query = (
+            self._eligible_sql()
+            .replace("{status_ph}", ph)
+            .replace("{retry_clause}", retry_clause)
+            .replace("{channel_clause}", channel_clause)
+            .replace("{priority_clause}", priority_clause)
+        )
+        params.append(cfg.batch_limit)
+        # Guard against a mismatch so a bad edit fails loudly instead of with a
+        # cryptic IndexError from psycopg2. Counts single-placeholder markers
+        # while ignoring doubled percents (literal "%").
+        if len(re.findall(r"(?<!%)%s", query)) != len(params):
+            raise RuntimeError(
+                f"eligible_videos.sql: expected {len(params)} parameter marker(s), "
+                f"found {len(re.findall(r'(?<!%)%s', query))} in the query. "
+                "Check the SQL for stray markers in comment lines, or a token mismatch."
+            )
+        self.cur.execute(query, params)
+        return self.cur.fetchall()
 
     def fetch_one(self, video_id: str) -> tuple | None:
         self.cur.execute(
@@ -332,6 +324,26 @@ class Database:
 # --------------------------------------------------------------------------- #
 # Audio.com Client
 # --------------------------------------------------------------------------- #
+def clean_audiocom_tags(tags, limit: int = 5, max_len: int = 40) -> list[str]:
+    """Audio.com accepts at most ``limit`` tags, each at most ``max_len`` chars.
+
+    YouTube channel names and descriptions often exceed that length (or are
+    empty), so tags are truncated/deduplicated here before the create call.
+    """
+    cleaned: list[str] = []
+    for t in tags or []:
+        s = str(t).strip()
+        if not s:
+            continue
+        if len(s) > max_len:
+            s = s[:max_len].rstrip()
+        if s and s not in cleaned:
+            cleaned.append(s)
+        if len(cleaned) >= limit:
+            break
+    return cleaned
+
+
 class AudioComClient:
     def __init__(self, token: str):
         import requests
@@ -524,7 +536,11 @@ class AudioComClient:
 
         log.info("  requesting presigned upload URL from Audio.com (%d bytes, %s)...", file_size, mime)
 
-        # 1. Create audio entity & presigned URL
+        # 1. Create audio entity & presigned URL. Audio.com has no post-create
+        # metadata route (audio/{id} 404s), so all track metadata must be sent
+        # here at creation time.
+        desc = (metadata.get("description") or "")[:2000]
+        tags = clean_audiocom_tags(metadata.get("tags"))
         resp = self._requests.post(
             f"{self.api}/audio/create",
             headers=self.headers,
@@ -533,6 +549,9 @@ class AudioComClient:
                 "category": "podcast",
                 "mime": mime,
                 "size": file_size,
+                "description": desc,
+                "tags": tags,
+                "is_listed": True,
             },
             timeout=30,
         )
@@ -575,24 +594,8 @@ class AudioComClient:
                 if image_bytes:
                     self.upload_collection_image(col_id, image_bytes)
 
-        # 6. Update track metadata
-        log.info("  updating track metadata on Audio.com...")
-        desc = (metadata.get("description") or "")[:2000]
-        tags = (metadata.get("tags") or [])[:5]
-
-        update_resp = self._requests.put(
-            f"{self.api}/audio/{audio_id}",
-            headers=self.headers,
-            json={
-                "title": title,
-                "description": desc,
-                "tags": tags,
-                "isPublic": True,
-            },
-            timeout=30,
-        )
-        if update_resp.status_code not in (200, 204):
-            log.warning("Audio.com metadata update warning: %s %s", update_resp.status_code, update_resp.text[:300])
+        # 6. Track metadata is set at create time (see step 1); there is no
+        #    Audio.com update route, so no follow-up metadata call is made.
 
         audio_url = f"https://audio.com/{audio_id}"
 
