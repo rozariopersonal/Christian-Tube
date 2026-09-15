@@ -67,8 +67,10 @@ services:
       WORK_DIR: /work
       POLL_INTERVAL: "300"
       BATCH_LIMIT: "5"
+      PRIORITY_CHANNEL_IDS: "UCpZG4Vl2tqg5cIfGMocI2Ag"
     volumes:
       - processor-work:/work
+      - ./services/youtube-processor/eligible_videos.sql:/app/eligible_videos.sql:ro
 
   embedder:
     build:
