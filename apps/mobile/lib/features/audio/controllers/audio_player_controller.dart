@@ -31,6 +31,7 @@ class AudioPlayerController extends ChangeNotifier {
   StreamSubscription<Duration>? _bufSub;
   StreamSubscription<PlayerState>? _stateSub;
   StreamSubscription<double>? _speedSub;
+  StreamSubscription<PlayerException>? _errorSub;
 
   Timer? _positionSaveDebounce;
   Timer? _sleepTimer;
@@ -93,6 +94,19 @@ class AudioPlayerController extends ChangeNotifier {
 
       if (newStatus != _state.status) {
         _state = _state.copyWith(status: newStatus);
+        notifyListeners();
+      }
+    });
+
+    _errorSub = _playbackService.errorStream.listen((error) {
+      // Async playback failures (mid-stream 403s, dropped connections) surface
+      // here rather than through the load future; surface them in the UI.
+      if (_state.currentTrack != null &&
+          _state.status != AudioPlaybackStatus.error) {
+        _state = _state.copyWith(
+          status: AudioPlaybackStatus.error,
+          errorMessage: errorMessageFrom(error),
+        );
         notifyListeners();
       }
     });
@@ -210,29 +224,50 @@ class AudioPlayerController extends ChangeNotifier {
         updatedAt: now,
       );
     } catch (e) {
-      String errorMessage;
-      final errorStr = e.toString().toLowerCase();
-      if (errorStr.contains('http 403') || errorStr.contains('403 forbidden')) {
-        errorMessage = 'Access denied (403). This audio source may not allow direct streaming.';
-      } else if (errorStr.contains('html') || errorStr.contains('text/html') || errorStr.contains('unsupported') || errorStr.contains('not a valid audio')) {
-        errorMessage = 'Received a webpage instead of audio. The source URL may be a player page, not a direct audio file.';
-      } else if (errorStr.contains('cors') || errorStr.contains('cross-origin') || errorStr.contains('access-control-allow-origin')) {
-        errorMessage = 'Blocked by CORS policy. This audio source does not allow playback from this app.';
-      } else if (errorStr.contains('network') || errorStr.contains('connection') || errorStr.contains('timeout') || errorStr.contains('socket') || errorStr.contains('dns') || errorStr.contains('http 0')) {
-        errorMessage = 'Network error. Please check your internet connection and try again.';
-      } else if (errorStr.contains('404') || errorStr.contains('not found')) {
-        errorMessage = 'Audio file not found (404). The source may have been moved or removed.';
-      } else if (errorStr.contains('401') || errorStr.contains('unauthorized') || errorStr.contains('403')) {
-        errorMessage = 'Authentication required. This audio source needs valid credentials.';
-      } else {
-        errorMessage = 'Unable to stream audio: ${e.toString().split('\n').first}';
-      }
       _state = _state.copyWith(
         status: AudioPlaybackStatus.error,
-        errorMessage: errorMessage,
+        errorMessage: errorMessageFrom(e),
       );
       notifyListeners();
     }
+  }
+
+  /// Maps a playback [exception] to a user-facing message, distinguishing
+  /// access denials, webpages-instead-of-audio, CORS, network and 404 cases.
+  @visibleForTesting
+  static String errorMessageFrom(Object exception) {
+    final errorStr = exception.toString().toLowerCase();
+    if (errorStr.contains('http 403') || errorStr.contains('403 forbidden')) {
+      return 'Access denied (403). This audio source may not allow direct streaming.';
+    }
+    if (errorStr.contains('html') ||
+        errorStr.contains('text/html') ||
+        errorStr.contains('unsupported') ||
+        errorStr.contains('not a valid audio') ||
+        errorStr.contains('parser') ||
+        errorStr.contains('source error')) {
+      return 'Received a webpage instead of audio. The source URL may be a player page, not a direct audio file.';
+    }
+    if (errorStr.contains('cors') ||
+        errorStr.contains('cross-origin') ||
+        errorStr.contains('access-control-allow-origin')) {
+      return 'Blocked by CORS policy. This audio source does not allow playback from this app.';
+    }
+    if (errorStr.contains('network') ||
+        errorStr.contains('connection') ||
+        errorStr.contains('timeout') ||
+        errorStr.contains('socket') ||
+        errorStr.contains('dns') ||
+        errorStr.contains('http 0')) {
+      return 'Network error. Please check your internet connection and try again.';
+    }
+    if (errorStr.contains('404') || errorStr.contains('not found')) {
+      return 'Audio file not found (404). The source may have been moved or removed.';
+    }
+    if (errorStr.contains('401') || errorStr.contains('unauthorized')) {
+      return 'Authentication required. This audio source needs valid credentials.';
+    }
+    return 'Unable to stream audio: ${exception.toString().split('\n').first}';
   }
 
   /// Toggles between play and pause.
@@ -428,6 +463,7 @@ class AudioPlayerController extends ChangeNotifier {
     _bufSub?.cancel();
     _stateSub?.cancel();
     _speedSub?.cancel();
+    _errorSub?.cancel();
     _positionSaveDebounce?.cancel();
     _sleepTimer?.cancel();
     _playbackService.dispose();

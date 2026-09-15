@@ -100,6 +100,7 @@ class AudioSyncService {
           'speaker': track.speaker,
           'coverUrl': track.coverUrl,
           'audioUrl': track.audioUrl,
+          if (track.streamUrl != null) 'streamUrl': track.streamUrl,
           'positionSeconds': positionSeconds,
           'durationSeconds': durationSeconds,
           'payloadJson': jsonEncode(track.toJson()),
@@ -151,6 +152,7 @@ class AudioSyncService {
           speaker: data['speaker'] as String? ?? 'Zac Poonen',
           durationSeconds: (data['durationSeconds'] as num?)?.toInt() ?? 0,
           audioUrl: data['audioUrl'] as String? ?? '',
+          streamUrl: data['streamUrl'] as String?,
           coverUrl: data['coverUrl'] as String?,
         );
 

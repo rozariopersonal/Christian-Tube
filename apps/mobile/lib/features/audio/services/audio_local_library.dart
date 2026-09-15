@@ -40,16 +40,23 @@ class AudioLocalLibrary {
     return dir;
   }
 
-  /// Extension derived from the track's audio URL path (defaults to `mp3`).
+  /// Extension derived from the track's stream/audio URL path (defaults to `mp3`).
   String _extensionFor(AudioTrack track) {
-    try {
-      final path = Uri.parse(track.audioUrl).path;
-      final lastSegment = path.split('/').last;
-      final dot = lastSegment.lastIndexOf('.');
-      if (dot > 0 && dot < lastSegment.length - 1) {
-        return lastSegment.substring(dot + 1).toLowerCase();
-      }
-    } catch (_) {}
+    final candidates = [
+      if (track.streamUrl != null && track.streamUrl!.isNotEmpty)
+        track.streamUrl!,
+      track.audioUrl,
+    ];
+    for (final candidate in candidates) {
+      try {
+        final path = Uri.parse(candidate).path;
+        final lastSegment = path.split('/').last;
+        final dot = lastSegment.lastIndexOf('.');
+        if (dot > 0 && dot < lastSegment.length - 1) {
+          return lastSegment.substring(dot + 1).toLowerCase();
+        }
+      } catch (_) {}
+    }
     return 'mp3';
   }
 
