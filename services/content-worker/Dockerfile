@@ -17,12 +17,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# NeMo first so Python resolution stays inside its pinned range; then move
-# torch to the newest CPU build (matches services/embedder, which needs
-# torch.int4 present for optimum's ONNX export helper).
+# CPU-only torch first: pre-installing from the CPU index prevents nemo_toolkit
+# from pulling the GPU variant + 3.2 GB nvidia-* + 897 MB triton transitives.
 COPY services/content-worker/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch torchaudio
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch torchaudio \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Shared embedding model (e5-small) -> int8 ONNX in /model
 COPY services/embedder/model_contract.py /opt/embedder/
