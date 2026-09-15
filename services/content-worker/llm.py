@@ -29,8 +29,12 @@ SYSTEM_PROMPT = (
     "- The quote must be the EXACT verbatim text from the transcript.\n"
     "- start_sec/end_sec are the SECOND offsets where the idea begins and ends, "
     "derived from the [MM:SS] markers in the transcript.\n"
+    "- scriptures: ONLY bible references the speaker explicitly names in the "
+    "transcript, normalized (e.g. \"1 Corinthians 3:7\", \"John 17:23\"). Empty "
+    "array when the speaker cites none. NEVER list a reference that does not "
+    "appear in the transcript.\n"
     "- Include the scripture references and people mentioned in the keywords.\n"
-    '- JSON shape: {"ideas":[{"title":"...","statement":"...","quote":"...","start_sec":123,"end_sec":144,"keywords":["..."]}]}\n'
+    '- JSON shape: {"ideas":[{"title":"...","statement":"...","quote":"...","start_sec":123,"end_sec":144,"scriptures":["John 17:23"],"keywords":["..."]}]}\n'
     "Return 4 to 8 ideas."
 )
 
@@ -130,19 +134,37 @@ def _norm_idea(idea: dict, max_sec: float) -> dict | None:
     if start is not None and end is not None and end < start:
         start, end = end, start
     keywords = [str(k).strip() for k in (idea.get("keywords") or []) if str(k).strip()]
+    scriptures: list[str] = []
+    for raw in idea.get("scriptures") or []:
+        s = re.sub(r"\s+", " ", str(raw)).strip().strip(".,;: ")[:80]
+        if s:
+            scriptures.append(s)
     return {
         "title": title,
         "statement": statement,
         "quote": quote,
         "start_sec": start,
         "end_sec": end,
+        "scriptures": scriptures,
         "keywords": keywords,
     }
+
+
+_BOOK_STOP = frozenset({"the", "and", "of", "in", "a", "an", "pt", "bk"})
+
+
+def _book_tokens(ref: str) -> list[str]:
+    return [
+        w.lower()
+        for w in re.split(r"[^A-Za-z]+", str(ref))
+        if len(w) > 2 and w.lower() not in _BOOK_STOP
+    ]
 
 
 def extract_ideas(llm: LLM, transcript: str, max_sec: float) -> list[dict]:
     ideas: list[dict] = []
     seen_quotes: set[str] = set()
+    transcript_lower = transcript.lower()
     for window in _windowize(transcript):
         user = (
             f"Transcript (timestamps in seconds markers):\n\n{window}\n\n"
@@ -154,6 +176,12 @@ def extract_ideas(llm: LLM, transcript: str, max_sec: float) -> list[dict]:
             norm = _norm_idea(idea, max_sec)
             if not norm:
                 continue
+            norm["scriptures"] = [
+                s
+                for s in (norm.get("scriptures") or [])
+                if _book_tokens(s)
+                and all(bt in transcript_lower for bt in _book_tokens(s))
+            ]
             key = (norm["quote"] or norm["statement"])[:120]
             if key in seen_quotes:
                 continue

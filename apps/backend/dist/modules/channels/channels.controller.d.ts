@@ -10,10 +10,10 @@ export declare class ChannelsController {
         id: string;
         description: string | null;
         thumbnail: string | null;
-        category: string | null;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        category: string | null;
         subscriberCount: string | null;
         language: string | null;
         isActive: boolean;
@@ -27,10 +27,10 @@ export declare class ChannelsController {
     }>;
     searchYouTube(q: string): Promise<any[]>;
     listChannelRequests(): Promise<{
+        status: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        status: string;
         channelUrl: string;
         notes: string | null;
         submittedBy: string | null;
@@ -43,10 +43,10 @@ export declare class ChannelsController {
         id: string;
         description: string | null;
         thumbnail: string | null;
-        category: string | null;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        category: string | null;
         subscriberCount: string | null;
         language: string | null;
         isActive: boolean;
@@ -66,10 +66,10 @@ export declare class ChannelsController {
             id: string;
             description: string | null;
             thumbnail: string | null;
-            category: string | null;
             createdAt: Date;
             updatedAt: Date;
             name: string;
+            category: string | null;
             subscriberCount: string | null;
             language: string | null;
             isActive: boolean;
@@ -85,10 +85,10 @@ export declare class ChannelsController {
             id: string;
             description: string | null;
             thumbnail: string | null;
-            category: string | null;
             createdAt: Date;
             updatedAt: Date;
             name: string;
+            category: string | null;
             subscriberCount: string | null;
             language: string | null;
             isActive: boolean;
@@ -106,10 +106,10 @@ export declare class ChannelsController {
         notes?: string;
         submittedBy?: string;
     }): Promise<{
+        status: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        status: string;
         channelUrl: string;
         notes: string | null;
         submittedBy: string | null;
@@ -120,10 +120,10 @@ export declare class ChannelsController {
         status: string;
         message: string;
         request: {
+            status: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            status: string;
             channelUrl: string;
             notes: string | null;
             submittedBy: string | null;
@@ -132,10 +132,10 @@ export declare class ChannelsController {
             id: string;
             description: string | null;
             thumbnail: string | null;
-            category: string | null;
             createdAt: Date;
             updatedAt: Date;
             name: string;
+            category: string | null;
             subscriberCount: string | null;
             language: string | null;
             isActive: boolean;
@@ -150,10 +150,10 @@ export declare class ChannelsController {
         status: string;
         message: string;
         request: {
+            status: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            status: string;
             channelUrl: string;
             notes: string | null;
             submittedBy: string | null;

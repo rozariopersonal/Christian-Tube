@@ -14,10 +14,12 @@ exports.VideosService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const prisma_service_1 = require("../prisma/prisma.service");
+const embedding_service_1 = require("../embedding/embedding.service");
 let VideosService = VideosService_1 = class VideosService {
-    constructor(prisma, configService) {
+    constructor(prisma, configService, embeddingService) {
         this.prisma = prisma;
         this.configService = configService;
+        this.embeddingService = embeddingService;
         this.logger = new common_1.Logger(VideosService_1.name);
     }
     async findAll(query) {
@@ -26,37 +28,270 @@ let VideosService = VideosService_1 = class VideosService {
                 isActive: true,
             },
         };
-        if (query.type === 'ALL') {
+        this.applyVideoTypeFilter(where, query.type);
+        this.applyCategoryFilter(where, query.category);
+        this.applyChannelFilter(where, query.channelId, query.channelIds);
+        const limit = query.limit ? Number(query.limit) : 50;
+        const offset = query.offset ? Number(query.offset) : 0;
+        if (!query.search) {
+            return this.fetchKeywords(where, limit, offset);
         }
-        else if (query.type === 'SHORT') {
-            where.type = 'SHORT';
+        const vector = await this.embeddingService.embedQuery(query.search);
+        if (vector) {
+            return this.hybridSearchWithContent(query, vector, limit, offset);
+        }
+        where.OR = this.searchTermClauses(query.search);
+        return this.fetchKeywords(where, limit, offset);
+    }
+    searchTermClauses(term) {
+        return [
+            { title: { contains: term, mode: "insensitive" } },
+            { description: { contains: term, mode: "insensitive" } },
+            { channelName: { contains: term, mode: "insensitive" } },
+        ];
+    }
+    applyVideoTypeFilter(where, type) {
+        if (type === "ALL") {
+        }
+        else if (type === "SHORT") {
+            where.type = "SHORT";
         }
         else {
-            where.type = 'VIDEO';
+            where.type = "VIDEO";
         }
-        if (query.category && query.category !== 'All') {
-            where.category = query.category;
+    }
+    applyCategoryFilter(where, category) {
+        if (category && category !== "All") {
+            where.category = category;
         }
-        if (query.channelId) {
-            where.channelId = query.channelId;
+    }
+    applyChannelFilter(where, channelId, channelIds) {
+        if (channelId) {
+            where.channelId = channelId;
         }
-        else if (query.channelIds) {
-            const ids = Array.isArray(query.channelIds)
-                ? query.channelIds
-                : query.channelIds.split(',').map((id) => id.trim()).filter(Boolean);
+        else if (channelIds) {
+            const ids = Array.isArray(channelIds)
+                ? channelIds
+                : channelIds
+                    .split(",")
+                    .map((id) => id.trim())
+                    .filter(Boolean);
             if (ids.length > 0) {
                 where.channelId = { in: ids };
             }
         }
-        if (query.search) {
-            where.OR = [
-                { title: { contains: query.search, mode: 'insensitive' } },
-                { description: { contains: query.search, mode: 'insensitive' } },
-                { channelName: { contains: query.search, mode: 'insensitive' } },
-            ];
+    }
+    buildBaseFilterSql(query) {
+        const params = [];
+        const parts = [];
+        if (query.type !== "ALL") {
+            params.push(query.type === "SHORT" ? "SHORT" : "VIDEO");
+            parts.push(`v.type = $${params.length}::"VideoType"`);
         }
-        const limit = query.limit ? Number(query.limit) : 50;
-        const offset = query.offset ? Number(query.offset) : 0;
+        if (query.category && query.category !== "All") {
+            params.push(query.category);
+            parts.push(`v.category = $${params.length}`);
+        }
+        if (query.channelId) {
+            params.push(query.channelId);
+            parts.push(`v."channelId" = $${params.length}`);
+        }
+        else if (query.channelIds) {
+            const ids = Array.isArray(query.channelIds)
+                ? query.channelIds
+                : query.channelIds
+                    .split(",")
+                    .map((id) => id.trim())
+                    .filter(Boolean);
+            if (ids.length > 0) {
+                params.push(ids);
+                parts.push(`v."channelId" = ANY($${params.length}::text[])`);
+            }
+        }
+        return {
+            clause: parts.length ? ` AND ${parts.join(" AND ")}` : "",
+            params,
+        };
+    }
+    async fetchEnrichedByIds(ids) {
+        if (!ids.length)
+            return [];
+        const videos = await this.prisma.video.findMany({
+            where: { id: { in: ids } },
+            include: {
+                channel: {
+                    select: {
+                        id: true,
+                        name: true,
+                        thumbnail: true,
+                        subscriberCount: true,
+                    },
+                },
+            },
+        });
+        const byId = new Map(videos.map((v) => [v.id, v]));
+        return ids
+            .map((id) => byId.get(id))
+            .filter(Boolean)
+            .map((v) => this.enrich(v));
+    }
+    fuseRanks(lists, k = 60) {
+        const scores = new Map();
+        for (const list of lists) {
+            list.forEach((id, i) => {
+                scores.set(id, (scores.get(id) || 0) + 1 / (k + i + 1));
+            });
+        }
+        return [...scores.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+    }
+    async hybridSearchWithContent(query, vector, limit, offset) {
+        const [vectorIds, keywordIds] = await Promise.all([
+            this.vectorTitleSearch(query, vector),
+            this.keywordSearch(query),
+        ]);
+        const contentIds = [];
+        const contentMatches = new Map();
+        const contentSearchEnabled = this.configService.get('contentSearch.enabled', true);
+        if (contentSearchEnabled) {
+            const maxChunks = this.configService.get('contentSearch.maxChunks', 60);
+            const rows = await this.contentChunkSearch(query, vector, maxChunks).catch((e) => {
+                this.logger.warn(`Content search failed, skipping: ${e.message}`);
+                return [];
+            });
+            for (const r of rows) {
+                if (!contentMatches.has(r.videoId)) {
+                    contentMatches.set(r.videoId, r);
+                    contentIds.push(r.videoId);
+                }
+            }
+        }
+        const fusedIds = this.fuseRanks([vectorIds, keywordIds, contentIds]);
+        const pageIds = fusedIds
+            .filter((id) => vectorIds.includes(id) ||
+            keywordIds.includes(id) ||
+            contentIds.includes(id))
+            .slice(offset, offset + limit);
+        const videos = this.fetchEnrichedByIds(pageIds);
+        return (await videos).map((v) => {
+            const m = contentMatches.get(v.id);
+            if (m)
+                v.contentMatch = { ...m, quote: m.quote ?? m.statement };
+            return v;
+        });
+    }
+    async vectorTitleSearch(query, vector) {
+        const filters = this.buildBaseFilterSql(query);
+        const modelIdx = filters.params.length + 1;
+        const versionIdx = modelIdx + 1;
+        const vecIdx = versionIdx + 1;
+        const vectorLiteral = `[${vector.join(",")}]`;
+        const rawParams = [
+            ...filters.params,
+            this.embeddingService.modelName,
+            this.embeddingService.modelVersion,
+            vectorLiteral,
+        ];
+        const vectorSql = `
+      SELECT ve."videoId" AS id
+      FROM "VideoEmbedding" ve
+      JOIN "Video" v ON v.id = ve."videoId"
+      JOIN "Channel" c ON c.id = v."channelId"
+      WHERE c."isActive" = true
+        ${filters.clause}
+        AND ve."model" = $${modelIdx}
+        AND ve."version" = $${versionIdx}
+      ORDER BY ve.embedding <=> $${vecIdx}::vector
+      LIMIT 100
+    `;
+        try {
+            const rows = await this.prisma.$queryRawUnsafe(vectorSql, ...rawParams);
+            return rows.map((r) => r.id);
+        }
+        catch (e) {
+            this.logger.warn(`Vector search failed, using keyword only: ${e.message}`);
+            return [];
+        }
+    }
+    async keywordSearch(query) {
+        const keywordWhere = {
+            channel: { isActive: true },
+        };
+        this.applyVideoTypeFilter(keywordWhere, query.type);
+        this.applyCategoryFilter(keywordWhere, query.category);
+        this.applyChannelFilter(keywordWhere, query.channelId, query.channelIds);
+        keywordWhere.OR = this.searchTermClauses(query.search);
+        const rows = await this.prisma.video.findMany({
+            where: keywordWhere,
+            select: { id: true },
+            orderBy: { publishedAt: "desc" },
+            take: 100,
+        });
+        return rows.map((r) => r.id);
+    }
+    async contentChunkSearch(query, vector, maxChunks) {
+        const filters = this.buildBaseFilterSql(query);
+        const modelIdx = filters.params.length + 1;
+        const versionIdx = modelIdx + 1;
+        const vecIdx = versionIdx + 1;
+        const vectorLiteral = `[${vector.join(",")}]`;
+        const rawParams = [
+            ...filters.params,
+            this.embeddingService.modelName,
+            this.embeddingService.modelVersion,
+            vectorLiteral,
+        ];
+        const sql = `
+      WITH ranked AS (
+        SELECT
+          vc."videoId",
+          vc.title,
+          vc.content,
+          vc."quoteText",
+          vc."scriptureRefs",
+          vc."startSec",
+          vc."endSec",
+          vc.embedding <=> $${vecIdx}::vector AS dist,
+          ROW_NUMBER() OVER (
+            PARTITION BY vc."videoId" ORDER BY vc.embedding <=> $${vecIdx}::vector
+          ) AS rn
+        FROM "VideoChunk" vc
+        JOIN "Video" v ON v.id = vc."videoId"
+        JOIN "Channel" c ON c.id = v."channelId"
+        WHERE c."isActive" = true
+          ${filters.clause}
+          AND vc."model" = $${modelIdx}
+          AND vc."version" = $${versionIdx}
+      )
+      SELECT "videoId", title, content, "quoteText", "scriptureRefs", "startSec", "endSec", dist
+      FROM ranked
+      WHERE rn = 1
+      ORDER BY dist
+      LIMIT $${vecIdx + 1}
+    `;
+        const rows = await this.prisma.$queryRawUnsafe(sql, ...rawParams, maxChunks);
+        return rows.map((r) => ({
+            videoId: r.videoId,
+            title: r.title ?? undefined,
+            statement: r.content,
+            quote: r.quoteText ?? undefined,
+            scriptureRefs: r.scriptureRefs ?? undefined,
+            startSec: r.startSec,
+            endSec: r.endSec,
+            score: -r.dist,
+        }));
+    }
+    async hybridSearch(query, vector, limit, offset) {
+        const [vectorIds, keywordIds] = await Promise.all([
+            this.vectorTitleSearch(query, vector),
+            this.keywordSearch(query),
+        ]);
+        const fusedIds = this.fuseRanks([vectorIds, keywordIds]);
+        const pageIds = fusedIds
+            .filter((id) => vectorIds.includes(id) || keywordIds.includes(id))
+            .slice(offset, offset + limit);
+        return this.fetchEnrichedByIds(pageIds);
+    }
+    async fetchKeywords(where, limit, offset) {
         const videos = await this.prisma.video.findMany({
             where,
             include: {
@@ -69,16 +304,19 @@ let VideosService = VideosService_1 = class VideosService {
                     },
                 },
             },
-            orderBy: { publishedAt: 'desc' },
+            orderBy: { publishedAt: "desc" },
             take: limit,
             skip: offset,
         });
-        return videos.map((v) => ({
+        return videos.map((v) => this.enrich(v));
+    }
+    enrich(v) {
+        return {
             ...v,
-            channelName: v.channelName || v.channel?.name || 'Channel',
+            channelName: v.channelName || v.channel?.name || "Channel",
             channelAvatarUrl: v.channelThumbnail || v.channel?.thumbnail || null,
-            channelTitle: v.channelName || v.channel?.name || 'Channel',
-        }));
+            channelTitle: v.channelName || v.channel?.name || "Channel",
+        };
     }
     async findOne(id) {
         const video = await this.prisma.video.findUnique({
@@ -89,29 +327,25 @@ let VideosService = VideosService_1 = class VideosService {
         });
         if (!video) {
             throw new common_1.NotFoundException({
-                message: 'Video not found',
-                error: 'Not Found',
+                message: "Video not found",
+                error: "Not Found",
                 statusCode: 404,
             });
         }
-        return {
-            ...video,
-            channelName: video.channelName || video.channel?.name || 'Channel',
-            channelAvatarUrl: video.channelThumbnail || video.channel?.thumbnail || null,
-            channelTitle: video.channelName || video.channel?.name || 'Channel',
-        };
+        return this.enrich(video);
     }
     async importShortVideo(body) {
         const videoId = body.youtubeVideoId.trim();
-        const apiKey = this.configService.get('youtubeApiKey');
-        let title = body.title || 'Inspirational Short';
-        let description = body.description || '';
+        const apiKey = this.configService.get("youtubeApiKey");
+        let title = body.title || "Inspirational Short";
+        let description = body.description || "";
         let thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-        let channelId = this.configService.get('shorts.customChannelId') || 'UCSaJppP4zb2vivjxYfTqOKw';
-        let channelName = 'Christian-Tube';
+        let channelId = this.configService.get("shorts.customChannelId") ||
+            "UCSaJppP4zb2vivjxYfTqOKw";
+        let channelName = "Christian-Tube";
         let channelThumbnail = null;
         let publishedAt = new Date();
-        let duration = 'PT60S';
+        let duration = "PT60S";
         let parsedMeta = {
             creatorName: body.creatorName,
             creatorEmail: body.creatorEmail,
@@ -146,16 +380,22 @@ let VideosService = VideosService_1 = class VideosService {
                             snippet.thumbnails?.high?.url ||
                             snippet.thumbnails?.medium?.url ||
                             thumbnail;
-                    publishedAt = snippet.publishedAt ? new Date(snippet.publishedAt) : publishedAt;
+                    publishedAt = snippet.publishedAt
+                        ? new Date(snippet.publishedAt)
+                        : publishedAt;
                     duration = item.contentDetails?.duration || duration;
                     const jsonMatch = description.match(/<!--\s*CT_META:\s*(\{.*?\})\s*-->/s);
                     if (jsonMatch) {
                         try {
                             const meta = JSON.parse(jsonMatch[1]);
-                            parsedMeta.creatorName = meta.creatorName || parsedMeta.creatorName;
-                            parsedMeta.creatorEmail = meta.creatorEmail || parsedMeta.creatorEmail;
-                            parsedMeta.sourceVideoId = meta.sourceVideoId || parsedMeta.sourceVideoId;
-                            parsedMeta.clipStartTime = meta.startTime ?? parsedMeta.clipStartTime;
+                            parsedMeta.creatorName =
+                                meta.creatorName || parsedMeta.creatorName;
+                            parsedMeta.creatorEmail =
+                                meta.creatorEmail || parsedMeta.creatorEmail;
+                            parsedMeta.sourceVideoId =
+                                meta.sourceVideoId || parsedMeta.sourceVideoId;
+                            parsedMeta.clipStartTime =
+                                meta.startTime ?? parsedMeta.clipStartTime;
                             parsedMeta.clipEndTime = meta.endTime ?? parsedMeta.clipEndTime;
                         }
                         catch (_) { }
@@ -174,28 +414,34 @@ let VideosService = VideosService_1 = class VideosService {
                 name: channelName,
                 thumbnail: channelThumbnail,
                 isActive: true,
-                category: body.category || 'General',
+                category: body.category || "General",
             },
         });
         const savedVideo = await this.prisma.video.upsert({
             where: { id: videoId },
             update: {
-                type: 'SHORT',
+                type: "SHORT",
                 title,
                 description,
                 thumbnail,
                 creatorName: parsedMeta.creatorName || null,
                 creatorEmail: parsedMeta.creatorEmail || null,
                 sourceVideoId: parsedMeta.sourceVideoId || null,
-                clipStartTime: parsedMeta.clipStartTime != null ? Number(parsedMeta.clipStartTime) : null,
-                clipEndTime: parsedMeta.clipEndTime != null ? Number(parsedMeta.clipEndTime) : null,
+                clipStartTime: parsedMeta.clipStartTime != null
+                    ? Number(parsedMeta.clipStartTime)
+                    : null,
+                clipEndTime: parsedMeta.clipEndTime != null
+                    ? Number(parsedMeta.clipEndTime)
+                    : null,
                 cropOffsetX: parsedMeta.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : 0.0,
                 clippedAt: new Date(),
-                category: body.category || 'General',
+                category: body.category || "General",
+                embeddingStatus: "pending",
+                embeddingHash: null,
             },
             create: {
                 id: videoId,
-                type: 'SHORT',
+                type: "SHORT",
                 title,
                 description,
                 thumbnail,
@@ -205,15 +451,19 @@ let VideosService = VideosService_1 = class VideosService {
                 publishedAt,
                 duration,
                 viewCount: 0,
-                tags: ['#Shorts'],
+                tags: ["#Shorts"],
                 creatorName: parsedMeta.creatorName || null,
                 creatorEmail: parsedMeta.creatorEmail || null,
                 sourceVideoId: parsedMeta.sourceVideoId || null,
-                clipStartTime: parsedMeta.clipStartTime != null ? Number(parsedMeta.clipStartTime) : null,
-                clipEndTime: parsedMeta.clipEndTime != null ? Number(parsedMeta.clipEndTime) : null,
+                clipStartTime: parsedMeta.clipStartTime != null
+                    ? Number(parsedMeta.clipStartTime)
+                    : null,
+                clipEndTime: parsedMeta.clipEndTime != null
+                    ? Number(parsedMeta.clipEndTime)
+                    : null,
                 cropOffsetX: parsedMeta.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : 0.0,
                 clippedAt: new Date(),
-                category: body.category || 'General',
+                category: body.category || "General",
             },
         });
         this.logger.log(`Short imported and published: ${savedVideo.id} - "${savedVideo.title}"`);
@@ -224,6 +474,7 @@ exports.VideosService = VideosService;
 exports.VideosService = VideosService = VideosService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        embedding_service_1.EmbeddingService])
 ], VideosService);
 //# sourceMappingURL=videos.service.js.map
