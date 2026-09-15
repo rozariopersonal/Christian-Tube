@@ -282,6 +282,8 @@ class AudioDownloadService extends ChangeNotifier {
     notifyListeners();
 
     final urls = [
+      if (track.streamUrl != null && track.streamUrl!.isNotEmpty)
+        track.streamUrl!,
       track.audioUrl,
       if (track.fallbackUrl != null && track.fallbackUrl!.isNotEmpty)
         track.fallbackUrl!,

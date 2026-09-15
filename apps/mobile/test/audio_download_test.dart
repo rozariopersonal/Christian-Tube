@@ -176,5 +176,24 @@ void main() {
       expect(entry!.status, AudioDownloadStatus.failed);
       expect(entry.error, isNotNull);
     });
+
+    test('streamUrl is requested before audioUrl', () async {
+      final track = AudioTrack(
+        id: 'prefer_stream',
+        title: 'Prefer stream',
+        seriesId: 'series_a',
+        seriesTitle: 'Series',
+        speaker: 'Zac Poonen',
+        durationSeconds: 300,
+        audioUrl: serverUrl('page.mp3'),
+        streamUrl: serverUrl('stream.mp3'),
+      );
+      final service = AudioDownloadService(library: library);
+      await service.downloadTracks([track]);
+      await _waitFor(() => servedPaths.contains('/stream.mp3'));
+
+      expect(servedPaths, contains('/stream.mp3'));
+      expect(servedPaths, isNot(contains('/page.mp3')));
+    });
   });
 }

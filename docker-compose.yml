@@ -67,8 +67,10 @@ services:
       WORK_DIR: /work
       POLL_INTERVAL: "300"
       BATCH_LIMIT: "5"
+      PRIORITY_CHANNEL_IDS: "UCpZG4Vl2tqg5cIfGMocI2Ag"
     volumes:
       - processor-work:/work
+      - ./services/youtube-processor/eligible_videos.sql:/app/eligible_videos.sql:ro
 
   embedder:
     build:
@@ -97,7 +99,7 @@ services:
       - .contentworker.env
     environment:
       OLLAMA_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: qwen3:14b
+      OLLAMA_MODEL: gemma3:4b
       ONNX_DIR: /model
       EMBEDDER_SRC: /opt/embedder
       POLL_INTERVAL: "300"

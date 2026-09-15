@@ -1,5 +1,7 @@
 import json
+import os
 import sys
+import tempfile
 from pathlib import Path
 import unittest
 from unittest.mock import MagicMock, patch
@@ -13,9 +15,13 @@ from worker import (
     detect_category,
     extract_speaker,
     detect_languages,
+    clean_audiocom_tags,
     AudioComClient,
     GitHubRepo,
     update_channel_audio_catalog,
+    Config,
+    Database,
+    load_config,
 )
 
 
@@ -99,6 +105,27 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertEqual(map_language(None), "English")
         self.assertEqual(map_language("italian"), "Italian")
 
+    def test_clean_audiocom_tags(self):
+        # Long YouTube tags are truncated to the Audio.com 40-char limit.
+        self.assertEqual(
+            clean_audiocom_tags([
+                "zac poonen cfc Christian Fellowship Church Church Fellowship Christian Zac Poonen",
+                "  ",
+                "sermon",
+            ]),
+            [
+                "zac poonen cfc Christian Fellowship Chur",
+                "sermon",
+            ],
+        )
+        # Deduplicates and caps at the limit.
+        self.assertEqual(
+            clean_audiocom_tags(["a", "a", "b", "c", "d", "e", "f"]),
+            ["a", "b", "c", "d", "e"],
+        )
+        self.assertEqual(clean_audiocom_tags([]), [])
+        self.assertEqual(clean_audiocom_tags(None), [])
+
     def test_audiocom_collection_resolution(self):
         client = AudioComClient("test_token")
         
@@ -139,6 +166,44 @@ class TestWorkerCollections(unittest.TestCase):
             json={"audio": "audio_999"},
             timeout=20,
         )
+
+    def test_upload_audio_sends_metadata_at_create(self):
+        client = AudioComClient("test_token")
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.close()
+        try:
+            create_resp = MagicMock()
+            create_resp.status_code = 201
+            create_resp.json.return_value = {
+                "url": "https://presigned/put",
+                "success": "https://api.audio.com/v1/audio/upload/success?id=1&token=t",
+                "audio": {"id": "1876", "title": "My Title"},
+            }
+            ok = MagicMock(status_code=204)
+            client.find_existing_track_id = MagicMock(return_value=None)
+            client._resolve_stream_url = MagicMock(return_value="https://stream/1")
+            client._requests.post = MagicMock(side_effect=[create_resp, ok])
+            client._requests.put = MagicMock(return_value=ok)
+
+            url, stream = client.upload_audio(
+                Path(tmp.name),
+                {"title": "My Title", "description": "Big desc", "tags": ["a", "b"]},
+            )
+
+            create_call = client._requests.post.call_args_list[0]
+            create_payload = create_call.kwargs["json"]
+            self.assertEqual(create_payload["title"], "My Title")
+            self.assertEqual(create_payload["description"], "Big desc")
+            self.assertEqual(create_payload["tags"], ["a", "b"])
+            self.assertIs(create_payload["is_listed"], True)
+            self.assertEqual(create_payload["category"], "podcast")
+            # No metadata PUT attempt to /v1/audio/{id} (missing route)
+            for call in client._requests.put.call_args_list:
+                self.assertNotIn("api.audio.com/v1/audio/", call[0][0])
+            self.assertIn("1876", url)
+            self.assertEqual(stream, "https://stream/1")
+        finally:
+            os.unlink(tmp.name)
 
     def test_update_channel_audio_catalog(self):
         storage = {}
@@ -198,6 +263,155 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertIn("manifest.json", storage)
         manifest_data = json.loads(storage["manifest.json"])
         self.assertTrue(bool(manifest_data.get("revision")))
+
+
+class TestFetchEligiblePriority(unittest.TestCase):
+    """Channel-priority ordering in the eligible-videos query (mirrors content-worker)."""
+
+    def _make_db(self):
+        with patch("psycopg2.connect") as mock_connect:
+            conn = MagicMock()
+            cur = MagicMock()
+            mock_connect.return_value = conn
+            conn.cursor.return_value = cur
+            conn.autocommit = True
+            return Database("postgresql://user:pass@host/db?sslmode=require"), cur
+
+    def test_priority_order_clause_included(self):
+        db, cur = self._make_db()
+        cfg = Config(
+            database_url="x",
+            github_repo="x",
+            github_token="x",
+            audio_com_token="x",
+            work_dir=Path("."),
+            priority_channel_ids=["UCpZG4Vl2tqg5cIfGMocI2Ag"],
+        )
+        db.fetch_eligible_videos(cfg)
+        sql = cur.execute.call_args[0][0]
+        self.assertIn(
+            'CASE WHEN v."channelId" = ANY(%s::text[]) THEN 0 ELSE 1 END',
+            sql,
+        )
+        self.assertIn(["UCpZG4Vl2tqg5cIfGMocI2Ag"], cur.execute.call_args[0][1])
+
+    def test_language_tier_and_video_count_ordering(self):
+        db, cur = self._make_db()
+        cfg = Config(
+            database_url="x",
+            github_repo="x",
+            github_token="x",
+            audio_com_token="x",
+            work_dir=Path("."),
+        )
+        db.fetch_eligible_videos(cfg)
+        sql = cur.execute.call_args[0][0]
+        self.assertIn('CASE c.language', sql)
+        self.assertIn("WHEN 'Tamil' THEN 0", sql)
+        self.assertIn("WHEN 'English' THEN 1", sql)
+        self.assertIn('vc.video_count DESC', sql)
+        self.assertIn('LEFT JOIN (', sql)
+        # Shorts are eligible: no type restriction and no #short filters.
+        self.assertNotIn("v.type = 'VIDEO'", sql)
+        self.assertNotIn('#short', sql)
+
+    def test_priority_order_clause_omitted_when_unset(self):
+        db, cur = self._make_db()
+        cfg = Config(
+            database_url="x",
+            github_repo="x",
+            github_token="x",
+            audio_com_token="x",
+            work_dir=Path("."),
+        )
+        db.fetch_eligible_videos(cfg)
+        sql = cur.execute.call_args[0][0]
+        self.assertNotIn("ANY(%s::text[])", sql)
+
+    def test_tokens_substituted_from_sql_file(self):
+        db, cur = self._make_db()
+        cfg = Config(
+            database_url="x",
+            github_repo="x",
+            github_token="x",
+            audio_com_token="x",
+            work_dir=Path("."),
+            priority_channel_ids=["UCpZG4Vl2tqg5cIfGMocI2Ag"],
+        )
+        db.fetch_eligible_videos(cfg)
+        sql = cur.execute.call_args[0][0]
+        for token in ["{status_ph}", "{retry_clause}", "{channel_clause}", "{priority_clause}"]:
+            self.assertNotIn(token, sql)
+        # LIMIT stays as a psycopg2 %s parameter.
+        self.assertIn("LIMIT %s", sql)
+
+    def test_eligible_sql_env_override(self):
+        custom = Path(__file__).parent / "custom_eligible.sql"
+        custom.write_text(
+            'SELECT 1 FROM "Video" WHERE y = %s LIMIT %s',
+            encoding="utf-8",
+        )
+        try:
+            with patch.dict(os.environ, {"ELIGIBLE_SQL_PATH": str(custom.resolve())}):
+                db, cur = self._make_db()
+                cfg = Config(
+                    database_url="x",
+                    github_repo="x",
+                    github_token="x",
+                    audio_com_token="x",
+                    work_dir=Path("."),
+                )
+                db.fetch_eligible_videos(cfg)
+                sql = cur.execute.call_args[0][0]
+                self.assertIn("SELECT 1 FROM", sql)
+                self.assertNotIn("CASE c.language", sql)
+        finally:
+            custom.unlink(missing_ok=True)
+
+    def test_marker_guard_catches_bad_sql(self):
+        custom = Path(__file__).parent / "custom_eligible.sql"
+        custom.write_text(
+            "SELECT 1 FROM \"Video\" WHERE x = %s AND y = %s LIMIT %s",
+            encoding="utf-8",
+        )
+        try:
+            with patch.dict(os.environ, {"ELIGIBLE_SQL_PATH": str(custom.resolve())}):
+                db, cur = self._make_db()
+                cfg = Config(
+                    database_url="x",
+                    github_repo="x",
+                    github_token="x",
+                    audio_com_token="x",
+                    work_dir=Path("."),
+                )
+                with self.assertRaisesRegex(RuntimeError, "parameter marker"):
+                    db.fetch_eligible_videos(cfg)
+        finally:
+            custom.unlink(missing_ok=True)
+
+    def test_load_config_parses_priority_ids(self):
+        args = MagicMock()
+        args.channels = None
+        args.limit = None
+        args.redo = False
+        args.retry_failed = False
+        args.once = False
+        args.video_id = None
+        args.purge_audiocom = False
+        with patch(
+            "os.environ",
+            {
+                "DATABASE_URL": "postgresql://user:pass@host/db",
+                "GITHUB_TOKEN": "tok",
+                "AUDIO_COM_TOKEN": "aud",
+                "PRIORITY_CHANNEL_IDS": "UCpZG4Vl2tqg5cIfGMocI2Ag,UC_OTHER",
+            },
+        ):
+            cfg = load_config(args)
+        self.assertEqual(
+            cfg.priority_channel_ids,
+            ["UCpZG4Vl2tqg5cIfGMocI2Ag", "UC_OTHER"],
+        )
 
 
 if __name__ == "__main__":

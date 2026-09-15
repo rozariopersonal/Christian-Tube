@@ -24,6 +24,7 @@ class AudioPlaybackService {
   Stream<Duration> get bufferedPositionStream => _player.bufferedPositionStream;
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
   Stream<double> get speedStream => _player.speedStream;
+  Stream<PlayerException> get errorStream => _player.errorStream;
 
   Duration get position => _player.position;
   Duration get duration => _player.duration ?? Duration.zero;

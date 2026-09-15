@@ -107,6 +107,7 @@ model VideoChunk {
   title     String? // short statement describing the idea
   content   String   @db.Text // idea summary / embedded text
   quoteText String?  @db.Text // verbatim transcript quote
+  scriptureRefs Json? // ["John 17:23"] grounded refs
   startSec  Float?
   endSec    Float?
   source    String   @default("caption") // caption | parakeet
