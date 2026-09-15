@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/api/release_revision.dart';
 import '../../../shared/services/library_languages_controller.dart';
 import '../../../shared/ui/language_meta.dart';
 import '../models/audio_series.dart';
@@ -234,6 +235,10 @@ class AudioLibraryController extends ChangeNotifier {
   Future<void> loadData({bool forceRefresh = false}) async {
     // Check cloud for playback updates across devices in background
     AudioPlayerController.instance.syncWithCloud();
+
+    if (forceRefresh) {
+      await ReleaseRevision.load();
+    }
 
     final catalog = await _catalogService.getCatalog(forceRefresh: forceRefresh);
     final lastTrack = await _storageService.getLastTrack();
