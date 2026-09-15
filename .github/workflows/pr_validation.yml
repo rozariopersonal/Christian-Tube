@@ -13,7 +13,6 @@ on:
       - '.github/workflows/**'
       - 'releases/**'
       - 'package.json'
-      - 'docker-compose.yml'
 
 permissions:
   contents: write
@@ -41,7 +40,6 @@ jobs:
             backend:
               - 'apps/backend/**'
               - '.github/workflows/**'
-              - 'docker-compose.yml'
 
   # ============================================================================
   # GATE 1: CODE & UNIT QUALITY GATE
