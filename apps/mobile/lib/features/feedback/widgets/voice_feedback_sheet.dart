@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../controllers/feedback_controller.dart';
@@ -32,18 +33,21 @@ class VoiceFeedbackSheet extends StatefulWidget {
       diagnostics: diagnostics,
     );
 
-    // Auto-start listening on open
     controller.startListening();
 
     isSheetOpen.value = true;
     bool? result;
+    String? issueUrl;
+    String? issueNumber;
     try {
-      result = await showModalBottomSheet<bool>(
+      result = await showAdaptiveBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (ctx) => VoiceFeedbackSheet(controller: controller),
       );
+      issueUrl = controller.submittedIssueUrl;
+      issueNumber = controller.submittedIssueNumber;
     } finally {
       isSheetOpen.value = false;
       controller.dispose();
@@ -52,18 +56,40 @@ class VoiceFeedbackSheet extends StatefulWidget {
     if (result == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
-              Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Expanded(child: Text('Thank you! Your feedback has been submitted.')),
+              const Icon(Icons.check_circle_outline,
+                  color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  issueUrl != null
+                      ? 'Feedback submitted as issue #$issueNumber'
+                      : 'Thank you! Your feedback has been submitted.',
+                ),
+              ),
             ],
           ),
           backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          action: issueUrl != null
+              ? SnackBarAction(
+                  label: 'View',
+                  textColor: Colors.white,
+                  onPressed: () => launchGitHubIssue(issueUrl!),
+                )
+              : null,
         ),
       );
+    }
+  }
+
+  static Future<void> launchGitHubIssue(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -102,7 +128,7 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final editorHeight = screenHeight * 0.70;
+    final editorHeight = screenHeight * 0.60;
 
     return AnimatedBuilder(
       animation: widget.controller,
@@ -110,13 +136,16 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
         final isListening = widget.controller.isListening;
         final isSubmitting =
             widget.controller.submitState == FeedbackSubmitState.submitting;
+        final isError =
+            widget.controller.submitState == FeedbackSubmitState.error;
 
         return MaxWidthBox(
           maxWidth: 640,
           child: Container(
             decoration: BoxDecoration(
               color: tokens.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
               border: Border.all(color: tokens.surfaceBorder, width: 1),
               boxShadow: [
                 BoxShadow(
@@ -138,20 +167,21 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Top Drag Handle
+                    // Drag Handle
                     Center(
                       child: Container(
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: tokens.onSurfaceDisabled.withValues(alpha: 0.4),
+                          color: tokens.onSurfaceDisabled
+                              .withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
 
-                    // Context Chip & Listening Indicator Header
+                    // Context Chip & Listening Indicator
                     Row(
                       children: [
                         Expanded(
@@ -188,9 +218,10 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
                         ),
                         const SizedBox(width: 8),
 
-                        // Interactive Mic Status / Toggle Button
                         InkWell(
-                          onTap: () => widget.controller.toggleListening(),
+                          onTap: isSubmitting
+                              ? null
+                              : () => widget.controller.toggleListening(),
                           borderRadius: BorderRadius.circular(20),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 250),
@@ -236,7 +267,7 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Editor Input Box (fills exactly 70% of screen height)
+                    // Editor
                     Container(
                       height: editorHeight,
                       decoration: BoxDecoration(
@@ -252,7 +283,9 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
                       padding: const EdgeInsets.all(14),
                       child: TextField(
                         controller: _textController,
-                        onChanged: (val) => widget.controller.updateText(val),
+                        onChanged: (val) =>
+                            widget.controller.updateText(val),
+                        enabled: !isSubmitting,
                         maxLines: null,
                         expands: true,
                         textAlignVertical: TextAlignVertical.top,
@@ -275,20 +308,50 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
                       ),
                     ),
 
-                    if (widget.controller.errorMessage != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.controller.errorMessage!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.error,
+                    // Error Banner
+                    if (isError && widget.controller.errorMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .error
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .error
+                                .withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline,
+                                size: 18,
+                                color:
+                                    Theme.of(context).colorScheme.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                widget.controller.errorMessage!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
 
                     const SizedBox(height: 14),
 
-                    // Bottom Action Buttons: Cancel and Submit
+                    // Action Buttons
                     Row(
                       children: [
                         TextButton(
@@ -307,42 +370,62 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
                           ),
                         ),
                         const Spacer(),
-                        ElevatedButton(
-                          onPressed: (widget.controller.canSubmit && !isSubmitting)
-                              ? () async {
-                                  final ok = await widget.controller.submit();
-                                  if (ok && context.mounted) {
-                                    Navigator.pop(context, true);
-                                  }
-                                }
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: tokens.accent,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 28, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
+                        if (isError)
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              widget.controller.resetToIdle();
+                            },
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Retry'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: tokens.onSurface,
+                              side: BorderSide(color: tokens.surfaceBorder),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
                             ),
-                            elevation: 0,
+                          )
+                        else
+                          ElevatedButton(
+                            onPressed:
+                                (widget.controller.canSubmit && !isSubmitting)
+                                    ? () async {
+                                        final ok =
+                                            await widget.controller.submit();
+                                        if (ok && context.mounted) {
+                                          Navigator.pop(context, true);
+                                        }
+                                      }
+                                    : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: tokens.accent,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 28, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: isSubmitting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.black,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Submit',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
                           ),
-                          child: isSubmitting
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.black,
-                                  ),
-                                )
-                              : const Text(
-                                  'Submit',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                        ),
                       ],
                     ),
                   ],

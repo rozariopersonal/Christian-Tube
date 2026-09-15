@@ -1,0 +1,47 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+
+# 1. Navigate to Profile
+- tapOn: "Profile"
+
+# 2. Open the Feedback bottom sheet from the profile list
+- scrollUntilVisible:
+    element:
+      text: ".*Send Feedback.*"
+    direction: DOWN
+- tapOn: ".*Send Feedback.*"
+
+# 3. Feedback bottom sheet appears (not a routed screen)
+- assertVisible:
+    text: "Tap to speak"
+- assertVisible:
+    text: "Cancel"
+- assertVisible:
+    text: "Submit"
+
+# 4. Type feedback
+- tapOn:
+    text: ".*Speak or type your feedback here.*"
+- inputText: "Voice feedback sheet E2E verification"
+- hideKeyboard
+
+# 5. Submit becomes enabled once text is present
+- assertVisible:
+    text: "Submit"
+
+# 6. Close without submitting (keeps the issues tab clean on CI runs)
+- tapOn:
+    text: "Cancel"
+- assertVisible:
+    text: ".*Send Feedback.*"
+
+# 7. Return home
+- tapOn:
+    id: "tab_Videos"
+- assertVisible:
+    text: "ChristianApp"
