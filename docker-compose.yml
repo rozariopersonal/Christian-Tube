@@ -97,7 +97,7 @@ services:
       - .contentworker.env
     environment:
       OLLAMA_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: qwen3:14b
+      OLLAMA_MODEL: gemma3:4b
       ONNX_DIR: /model
       EMBEDDER_SRC: /opt/embedder
       POLL_INTERVAL: "300"
