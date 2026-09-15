@@ -57,55 +57,69 @@ void main() {
     late FakeSubmissionService submissionService;
     late FeedbackController controller;
 
-  setUp(() {
-    speechService = FakeSpeechService();
-    submissionService = FakeSubmissionService();
-    controller = FeedbackController(
-      speechService: speechService,
-      submissionService: submissionService,
-    );
-  });
+    setUp(() {
+      speechService = FakeSpeechService();
+      submissionService = FakeSubmissionService();
+      controller = FeedbackController(
+        speechService: speechService,
+        submissionService: submissionService,
+      );
+    });
 
-  tearDown(() {
-    controller.dispose();
-  });
+    tearDown(() {
+      controller.dispose();
+    });
 
-  test('cannot submit when text is empty', () {
-    expect(controller.canSubmit, isFalse);
-    controller.updateText('   ');
-    expect(controller.canSubmit, isFalse);
-    controller.updateText('Hello world');
-    expect(controller.canSubmit, isTrue);
-  });
+    test('cannot submit when text is empty', () {
+      expect(controller.canSubmit, isFalse);
+      controller.updateText('   ');
+      expect(controller.canSubmit, isFalse);
+      controller.updateText('Hello world');
+      expect(controller.canSubmit, isTrue);
+    });
 
-  test('startListening captures recognized text', () async {
-    await controller.startListening();
-    expect(controller.text, 'Sample voice text');
-    expect(controller.canSubmit, isTrue);
-  });
+    test('startListening captures recognized text', () async {
+      await controller.startListening();
+      expect(controller.text, 'Sample voice text');
+      expect(controller.canSubmit, isTrue);
+    });
 
-  test('submit successfully updates submitState to success', () async {
-    controller.updateText('Great app feedback');
-    controller.initializeContext(
-      screenContext: 'Bible • John 3',
-      route: '/bible',
-      diagnostics: {},
-    );
+    test('submit success returns issue details', () async {
+      controller.updateText('Great app feedback');
+      controller.initializeContext(
+        screenContext: 'Bible • John 3',
+        route: '/bible',
+        diagnostics: {},
+      );
 
-    final ok = await controller.submit();
-    expect(ok, isTrue);
-    expect(controller.submitState, FeedbackSubmitState.success);
-    expect(controller.submittedIssueNumber, '42');
-  });
+      final ok = await controller.submit();
+      expect(ok, isTrue);
+      expect(controller.submitState, FeedbackSubmitState.success);
+      expect(controller.submittedIssueNumber, '42');
+      expect(controller.submittedIssueUrl,
+          'https://github.com/rozariopersonal/Christian-Tube/issues/42');
+    });
 
-  test('submit failure updates submitState to error', () async {
-    submissionService.shouldSucceed = false;
-    controller.updateText('Bug report');
+    test('submit failure updates submitState to error', () async {
+      submissionService.shouldSucceed = false;
+      controller.updateText('Bug report');
 
-    final ok = await controller.submit();
-    expect(ok, isFalse);
-    expect(controller.submitState, FeedbackSubmitState.error);
-    expect(controller.errorMessage, 'Network timeout');
-  });
+      final ok = await controller.submit();
+      expect(ok, isFalse);
+      expect(controller.submitState, FeedbackSubmitState.error);
+      expect(controller.errorMessage, 'Network timeout');
+    });
+
+    test('resetToIdle clears error state', () async {
+      submissionService.shouldSucceed = false;
+      controller.updateText('Bug report');
+      await controller.submit();
+      expect(controller.submitState, FeedbackSubmitState.error);
+
+      controller.resetToIdle();
+      expect(controller.submitState, FeedbackSubmitState.idle);
+      expect(controller.errorMessage, isNull);
+      expect(controller.canSubmit, isTrue);
+    });
   });
 }

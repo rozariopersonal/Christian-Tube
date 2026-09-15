@@ -1,6 +1,48 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/config/app_config.dart';
 import 'package:mobile/features/feedback/models/feedback_report.dart';
 import 'package:mobile/features/feedback/services/feedback_submission_service.dart';
+
+class SequenceAdapter implements HttpClientAdapter {
+  final List<RequestOptions> requests = [];
+  final List<(int, String)> responses;
+
+  SequenceAdapter(this.responses);
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add(options);
+    if (!options.uri.path.contains('/repos/') ||
+        !options.uri.path.endsWith('/issues')) {
+      return ResponseBody.fromString(
+        '{"message":"not found"}',
+        404,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      );
+    }
+    final (status, body) = responses.removeAt(0);
+    return ResponseBody.fromString(
+      body,
+      status,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
 
 void main() {
   final service = FeedbackSubmissionService();
@@ -24,7 +66,7 @@ void main() {
       expect(title, '[Feedback] User report on Bible');
     });
 
-    test('formatMarkdownBody formats structured markdown with context and diagnostics', () {
+    test('formatMarkdownBody formats structured markdown', () {
       final report = FeedbackReport(
         text: 'The scripture font is too small on my tablet.',
         screenContext: 'Bible • Matthew 5',
@@ -43,6 +85,69 @@ void main() {
       expect(markdown, contains('Bible • Matthew 5'));
       expect(markdown, contains('### 📱 Diagnostics'));
       expect(markdown, contains('| **appName** | `ChristianApp` |'));
+    });
+  });
+
+  group('FeedbackSubmissionService retry logic', () {
+    setUp(() {
+      AppConfig.feedbackRepo = 'test/repo';
+      AppConfig.githubFeedbackToken = 'ghp_test_token';
+    });
+
+    tearDown(() {
+      AppConfig.githubFeedbackToken = null;
+    });
+
+    test('retries on 5xx and eventually succeeds', () async {
+      final adapter = SequenceAdapter([
+        (500, '{"message":"server error"}'),
+        (500, '{"message":"server error"}'),
+        (
+          201,
+          jsonEncode({
+            'number': 100,
+            'html_url': 'https://github.com/test/issues/100',
+          }),
+        ),
+      ]);
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.github.com'))
+        ..httpClientAdapter = adapter;
+
+      final svc = FeedbackSubmissionService(dio: dio);
+      final result = await svc.submitFeedback(FeedbackReport(
+        text: 'Test retry',
+        screenContext: 'Home',
+        route: '/',
+        diagnostics: {},
+      ));
+
+      expect(result.isSuccess, isTrue);
+      expect(result.issueNumber, '100');
+      // Two 5xx failures were retried before a third attempt succeeded.
+      expect(adapter.requests, hasLength(3));
+    });
+
+    test('returns error on non-retryable 403', () async {
+      final adapter = SequenceAdapter([
+        (
+          403,
+          jsonEncode({'message': 'API rate limit exceeded'}),
+        ),
+      ]);
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.github.com'))
+        ..httpClientAdapter = adapter;
+
+      final svc = FeedbackSubmissionService(dio: dio);
+      final result = await svc.submitFeedback(FeedbackReport(
+        text: 'Test 403',
+        screenContext: 'Home',
+        route: '/',
+        diagnostics: {},
+      ));
+
+      expect(result.isSuccess, isFalse);
+      expect(result.errorMessage, contains('403'));
+      expect(adapter.requests, hasLength(1));
     });
   });
 }

@@ -23,6 +23,7 @@ class FeedbackController extends ChangeNotifier {
   FeedbackSubmitState _submitState = FeedbackSubmitState.idle;
   String? _errorMessage;
   String? _submittedIssueNumber;
+  String? _submittedIssueUrl;
 
   FeedbackController({
     SpeechRecognitionService? speechService,
@@ -37,8 +38,11 @@ class FeedbackController extends ChangeNotifier {
   FeedbackSubmitState get submitState => _submitState;
   String? get errorMessage => _errorMessage;
   String? get submittedIssueNumber => _submittedIssueNumber;
+  String? get submittedIssueUrl => _submittedIssueUrl;
 
-  bool get canSubmit => _text.trim().isNotEmpty && _submitState != FeedbackSubmitState.submitting;
+  bool get canSubmit =>
+      _text.trim().isNotEmpty &&
+      _submitState != FeedbackSubmitState.submitting;
 
   void initializeContext({
     required String screenContext,
@@ -53,6 +57,12 @@ class FeedbackController extends ChangeNotifier {
 
   void updateText(String newText) {
     _text = newText;
+    notifyListeners();
+  }
+
+  void resetToIdle() {
+    _submitState = FeedbackSubmitState.idle;
+    _errorMessage = null;
     notifyListeners();
   }
 
@@ -118,6 +128,7 @@ class FeedbackController extends ChangeNotifier {
     if (result.isSuccess) {
       _submitState = FeedbackSubmitState.success;
       _submittedIssueNumber = result.issueNumber;
+      _submittedIssueUrl = result.issueUrl;
       notifyListeners();
       return true;
     } else {
