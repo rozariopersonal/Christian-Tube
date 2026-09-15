@@ -316,9 +316,16 @@ jobs:
       # ========================================================================
       - name: Publish Release to Dedicated Repository
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
+          set -euo pipefail
+
           echo "Publishing ${{ env.TARGET_APP_NAME }} release ${{ env.TAG }} to ${{ matrix.releaseRepo }}..."
+
+          if [ -z "${{ secrets.RELEASE_PAT }}" ]; then
+            echo "::error::RELEASE_PAT secret is not configured. GITHUB_TOKEN cannot write to ${{ matrix.releaseRepo }}. Publish aborted."
+            exit 1
+          fi
 
           PRERELEASE_FLAG=""
           if [ "${{ env.IS_PRERELEASE }}" = "true" ]; then
@@ -326,23 +333,62 @@ jobs:
             PRERELEASE_FLAG="--prerelease"
           fi
 
-          # Check if release already exists in target repo
+          # Detect existing release (including leaked drafts left by a failed create)
+          RELEASE_EXISTS="false"
           if gh release view "${{ env.TAG }}" --repo "${{ matrix.releaseRepo }}" > /dev/null 2>&1; then
-            echo "Release ${{ env.TAG }} already exists. Updating release assets..."
-            gh release upload "${{ env.TAG }}" \
-              --repo "${{ matrix.releaseRepo }}" \
-              --clobber \
-              ./${{ env.TARGET_APK_NAME }} \
-              ./download-qrcode.png
+            echo "Release ${{ env.TAG }} already exists. Uploading assets and finalizing..."
+            RELEASE_EXISTS="true"
           else
             echo "Creating new release ${{ env.TAG }}..."
-            gh release create "${{ env.TAG }}" \
-              ./${{ env.TARGET_APK_NAME }} \
-              ./download-qrcode.png \
-              --repo "${{ matrix.releaseRepo }}" \
-              --title "${{ env.TARGET_APP_NAME }} ${{ env.TAG }}" \
-              --notes-file release_body.md \
-              $PRERELEASE_FLAG
           fi
 
-          echo "🎉 Successfully published ${{ env.TARGET_APP_NAME }} ${{ env.TAG }} to ${{ matrix.releaseRepo }}!"
+          publish_once() {
+            if [ "$RELEASE_EXISTS" = "true" ]; then
+              gh release upload "${{ env.TAG }}" \
+                --repo "${{ matrix.releaseRepo }}" \
+                --clobber \
+                ./${{ env.TARGET_APK_NAME }} \
+                ./download-qrcode.png
+              gh release edit "${{ env.TAG }}" \
+                --repo "${{ matrix.releaseRepo }}" \
+                --title "${{ env.TARGET_APP_NAME }} ${{ env.TAG }}" \
+                --notes-file release_body.md \
+                --draft=false \
+                $PRERELEASE_FLAG
+            else
+              gh release create "${{ env.TAG }}" \
+                ./${{ env.TARGET_APK_NAME }} \
+                ./download-qrcode.png \
+                --repo "${{ matrix.releaseRepo }}" \
+                --title "${{ env.TARGET_APP_NAME }} ${{ env.TAG }}" \
+                --notes-file release_body.md \
+                $PRERELEASE_FLAG
+            fi
+          }
+
+          verify_release() {
+            local names
+            names=$(gh release view "${{ env.TAG }}" --repo "${{ matrix.releaseRepo }}" --json assets --jq '[.assets[].name]')
+            echo "$names" | grep -q "${{ env.TARGET_APK_NAME }}" && echo "$names" | grep -q "download-qrcode.png"
+          }
+
+          SUCCESS=0
+          for attempt in 1 2 3 4 5; do
+            echo "Publish attempt $attempt (retry on transient GitHub 5xx)..."
+            set +e
+            publish_once && verify_release
+            rc=$?
+            set -e
+            if [ $rc -eq 0 ]; then
+              SUCCESS=1
+              echo "✅ Successfully published ${{ env.TARGET_APP_NAME }} ${{ env.TAG }} to ${{ matrix.releaseRepo }}!"
+              break
+            fi
+            echo "Attempt $attempt failed (exit $rc). Retrying in $((attempt * 15))s..."
+            sleep $((attempt * 15))
+          done
+
+          if [ $SUCCESS -ne 1 ]; then
+            echo "::error::Failed to publish ${{ env.TAG }} to ${{ matrix.releaseRepo }} after 5 attempts."
+            exit 1
+          fi
