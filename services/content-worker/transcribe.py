@@ -208,7 +208,20 @@ class ParakeetTranscriber:
     WINDOW_SEC = 20.0
 
     def __init__(self, model_id: str = PARAKEET_MODEL):
+        import logging as _logging
+
         from nemo.collections.asr.models import ASRModel  # noqa: E402
+
+        # NeMo logs through loguru sinks plus stdlib loggers; quiet both so
+        # CPU boot doesn't spam runtime logs with framework chatter.
+        try:
+            from loguru import logger as _luru
+            _luru.disable("nemo_logger")
+        except Exception:  # noqa: BLE001
+            pass
+        for _quiet in ("nemo_logger", "nemo", "pytorch_lightning", "lightning",
+                       "fabric", "absl", "onnx", "onnxruntime"):
+            _logging.getLogger(_quiet).setLevel(_logging.CRITICAL)
 
         started = time.time()
         self.model = ASRModel.from_pretrained(model_id)
