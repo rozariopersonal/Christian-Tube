@@ -35,6 +35,7 @@ class Config:
     batch_limit: int = int(os.environ.get("BATCH_LIMIT", "5"))
     max_retries: int = int(os.environ.get("MAX_RETRIES", "3"))
     max_transcript_chars: int = int(os.environ.get("MAX_TRANSCRIPT_CHARS", "0"))
+    log_ideas: bool = os.environ.get("LOG_IDEAS", "false").lower() in ("1", "true", "yes")
     work_dir: str = os.environ.get("WORK_DIR", "/work")
     onnx_dir: str = os.environ.get("ONNX_DIR", "/model")
     priority_channel_ids: list[str] = field(
@@ -281,6 +282,8 @@ def process_video(db: Database, cfg: Config, row: dict, llm, transcriber, work_d
         db.clear_chunks(video_id)
         db.save_chunks(video_id, ideas, vectors, result.source, cfg, content_hash)
         db.mark_completed(video_id, result.transcript, result.source, len(ideas), max_sec, cfg)
+        if cfg.log_ideas:
+            log.info("  ideas:\n%s", json.dumps(ideas, indent=2, ensure_ascii=False))
         log.info(
             "  completed: %d ideas (%d chars, %s)",
             len(ideas),
