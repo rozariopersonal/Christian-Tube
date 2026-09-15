@@ -1,4 +1,4 @@
-import 'package:christian_tube/core/config/app_config.dart';
+import 'package:mobile/core/config/app_config.dart';
 
 /// Represents a single audio sermon or teaching track.
 class AudioTrack {
