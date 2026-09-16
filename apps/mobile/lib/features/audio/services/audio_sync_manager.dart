@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/config/app_config.dart';
 import '../models/audio_series.dart';
@@ -75,6 +76,8 @@ class AudioSyncManager {
         await _sqliteAdapter.upsertSeries(series, updatedAtMs: currentMs);
       }
       
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(SqliteAudioCatalogAdapter.syncedPrefKey, true);
       debugPrint('AudioSyncManager: Sync complete.');
     } catch (e) {
       debugPrint('AudioSyncManager Error: $e');

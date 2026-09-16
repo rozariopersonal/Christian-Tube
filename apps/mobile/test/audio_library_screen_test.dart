@@ -4,6 +4,7 @@ import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/audio/screens/audio_library_screen.dart';
 import 'package:mobile/features/audio/widgets/audio_search_bar.dart';
 import 'package:mobile/features/audio/widgets/audio_view_mode_segmented_bar.dart';
+import 'package:mobile/features/audio/adapters/remote_audio_catalog_adapter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
@@ -15,6 +16,7 @@ void setSurfaceSize(WidgetTester tester, double width, double height) {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    RemoteAudioCatalogAdapter.seedCacheForTesting();
   });
 
   Widget buildAudioLibraryTestHarness() {

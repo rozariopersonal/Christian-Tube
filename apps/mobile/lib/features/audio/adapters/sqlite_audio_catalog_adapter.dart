@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/audio_series.dart';
@@ -10,10 +12,12 @@ import 'audio_catalog_adapter.dart';
 
 class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
   static const String defaultFileName = 'audio_sync.sqlite';
+  static const String syncedPrefKey = 'audio_sqlite_synced';
   static const int schemaVersion = 1;
 
   final String? dbPathOverride;
   Database? _db;
+  Completer<Database>? _dbOpenCompleter;
 
   SqliteAudioCatalogAdapter({this.dbPathOverride});
 
@@ -25,20 +29,34 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
 
   Future<bool> get isInitialized async {
     if (kIsWeb) return false;
-    final path = await _resolveDbPath();
-    if (!await File(path).exists()) return false;
-    
-    // Check if we have synced any data
-    final db = await _getDb();
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM series'));
-    return (count ?? 0) > 0;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(syncedPrefKey) != true) {
+        return false;
+      }
+      final path = await _resolveDbPath();
+      if (!await File(path).exists()) return false;
+      
+      // Check if we have synced any data
+      final db = await _getDb();
+      final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM series'));
+      return (count ?? 0) > 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<Database> _getDb() async {
-    if (_db != null) return _db!;
-    final path = await _resolveDbPath();
-    
-    _db = await openDatabase(
+    if (_db != null && _db!.isOpen) return _db!;
+    if (_dbOpenCompleter != null) {
+      return _dbOpenCompleter!.future;
+    }
+
+    final completer = Completer<Database>();
+    _dbOpenCompleter = completer;
+    try {
+      final path = await _resolveDbPath();
+      final db = await openDatabase(
       path,
       version: schemaVersion,
       onCreate: (db, version) async {
@@ -108,7 +126,15 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
         ''');
       },
     );
-    return _db!;
+    _db = db;
+    completer.complete(db);
+    return db;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      rethrow;
+    } finally {
+      _dbOpenCompleter = null;
+    }
   }
 
   Future<void> upsertSeries(AudioSeries series, {int? updatedAtMs}) async {
@@ -152,11 +178,17 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
   }
 
   Future<int> getLastSyncTimestamp() async {
-    final db = await _getDb();
-    final result = await db.rawQuery('SELECT MAX(updatedAt) as max_time FROM series');
-    if (result.isNotEmpty && result.first['max_time'] != null) {
-      return result.first['max_time'] as int;
-    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(syncedPrefKey) != true) return 0;
+      final path = await _resolveDbPath();
+      if (!await File(path).exists()) return 0;
+      final db = await _getDb();
+      final result = await db.rawQuery('SELECT MAX(updatedAt) as max_time FROM series');
+      if (result.isNotEmpty && result.first['max_time'] != null) {
+        return result.first['max_time'] as int;
+      }
+    } catch (_) {}
     return 0;
   }
 
