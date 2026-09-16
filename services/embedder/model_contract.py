@@ -7,14 +7,14 @@ index vectors and query vectors live in the same space.
 import hashlib
 import os
 
-MODEL_ID = os.environ.get("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-EMBEDDING_DIM = int(os.environ.get("EMBEDDING_DIM", "384"))
-EMBEDDING_VERSION = int(os.environ.get("EMBEDDING_VERSION", "2"))
-MAX_TOKENS = int(os.environ.get("EMBEDDING_MAX_TOKENS", "256"))
+MODEL_ID = os.environ.get("EMBEDDING_MODEL", "onnx-community/embeddinggemma-300m-ONNX")
+EMBEDDING_DIM = int(os.environ.get("EMBEDDING_DIM", "768"))
+EMBEDDING_VERSION = int(os.environ.get("EMBEDDING_VERSION", "3"))
+MAX_TOKENS = int(os.environ.get("EMBEDDING_MAX_TOKENS", "512"))
 ONNX_DIR = os.environ.get("ONNX_DIR", "/model")
 
-PASSAGE_PREFIX = "passage: "
-QUERY_PREFIX = "query: "
+PASSAGE_PREFIX = "title: none | text: "
+QUERY_PREFIX = "task: search result | query: "
 
 
 def passage_text(title, description=None):

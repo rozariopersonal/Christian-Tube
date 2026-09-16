@@ -1,46 +1,60 @@
-"""Export + int8-dynamic-quantize the embedding model at image build time."""
+"""Download + stage the embedding model from the releases repo at Docker build time.
+
+Unlike the MiniLM path (which exported via optimum + quantized), Gemma-300M
+ships as a pre-quantized ONNX in the Christian-Tube-Releases repo.  This
+script downloads the three required files into ONNX_DIR so model.py can
+load them at runtime.
+"""
 
 import os
 import shutil
+import sys
+import urllib.request
+from pathlib import Path
 
-from optimum.onnxruntime import ORTModelForFeatureExtraction, ORTQuantizer
-from optimum.onnxruntime.configuration import AutoQuantizationConfig
-from transformers import AutoTokenizer
+from model_contract import ONNX_DIR
 
-from model_contract import MODEL_ID, ONNX_DIR
+# Releases repo layout: all ML assets live under ml/embeddinggemma/
+_RELEASES_RAW = "https://raw.githubusercontent.com/{repo}/main/ml/embeddinggemma/{name}"
+_RELEASES_CDN = "https://cdn.jsdelivr.net/gh/{repo}@main/ml/embeddinggemma/{name}"
 
-_onnx_dir = os.environ.get("ONNX_BUILD_DIR", ONNX_DIR)
+_REPO = os.environ.get(
+    "RELEASES_REPO",
+    "rozariopersonal/Christian-Tube-Releases",
+)
+
+_FILES = [
+    "model_quantized.onnx",
+    "model_quantized.onnx_data",
+    "tokenizer.json",
+]
+
+
+def _download(name: str, dest: Path):
+    """Download a single file from the releases repo (CDN first, raw fallback)."""
+    url_cdn = _RELEASES_CDN.format(repo=_REPO, name=name)
+    url_raw = _RELEASES_RAW.format(repo=_REPO, name=name)
+    for url in (url_cdn, url_raw):
+        try:
+            print(f"  Downloading {name} from {url}")
+            urllib.request.urlretrieve(url, str(dest))
+            print(f"  Saved {dest} ({dest.stat().st_size / 1e6:.1f} MB)")
+            return
+        except Exception as exc:
+            print(f"  Failed ({exc}), trying fallback")
+    raise RuntimeError(f"Could not download {name} from any source")
 
 
 def main():
-    staged = "/tmp/staged"
-    shutil.rmtree(staged, ignore_errors=True)
-    shutil.rmtree(_onnx_dir, ignore_errors=True)
-    os.makedirs(_onnx_dir, exist_ok=True)
+    onnx_dir = Path(os.environ.get("ONNX_BUILD_DIR", ONNX_DIR))
+    if onnx_dir.exists():
+        shutil.rmtree(onnx_dir)
+    onnx_dir.mkdir(parents=True, exist_ok=True)
 
-    model = ORTModelForFeatureExtraction.from_pretrained(
-        MODEL_ID,
-        export=True,
-        provider="CPUExecutionProvider",
-    )
-    model.save_pretrained(staged)
-    AutoTokenizer.from_pretrained(MODEL_ID).save_pretrained(staged)
+    for name in _FILES:
+        _download(name, onnx_dir / name)
 
-    quantizer = ORTQuantizer.from_pretrained(staged, file_name="model.onnx")
-    quantization_config = AutoQuantizationConfig.avx512(is_static=False)
-    quantizer.quantize(
-        save_dir=_onnx_dir,
-        quantization_config=quantization_config,
-        use_external_data_format=False,
-    )
-
-    for name in ("tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.txt"):
-        src = os.path.join(staged, name)
-        if os.path.exists(src):
-            shutil.copy2(src, os.path.join(_onnx_dir, name))
-
-    shutil.rmtree(staged, ignore_errors=True)
-    print(f"Model exported and int8-quantized into {_onnx_dir}: {sorted(os.listdir(_onnx_dir))}")
+    print(f"Model staged into {onnx_dir}: {sorted(p.name for p in onnx_dir.iterdir())}")
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ import psycopg2
 
 from model import embed_texts
 from model_contract import (
+    EMBEDDING_DIM,
     EMBEDDING_VERSION,
     MODEL_ID,
     ONNX_DIR,
@@ -140,10 +141,10 @@ class Database:
             log.warning("Ensure Video embedding columns note: %s", e)
 
         try:
-            self.cur.execute("""
+            self.cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS "VideoEmbedding" (
                     "videoId" TEXT NOT NULL PRIMARY KEY,
-                    "embedding" vector(384) NOT NULL,
+                    "embedding" vector({EMBEDDING_DIM}) NOT NULL,
                     "model" TEXT NOT NULL,
                     "version" INTEGER NOT NULL DEFAULT 0,
                     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
