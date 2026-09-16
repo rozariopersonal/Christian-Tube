@@ -111,9 +111,9 @@ model VideoChunk {
   startSec  Float?
   endSec    Float?
   source    String   @default("caption") // caption | parakeet
-  embedding Unsupported("vector(384)")?
-  model     String
-  version   Int      @default(0)
+  embedding Unsupported("vector(384)")? // filled asynchronously by the embedding service
+  model     String? // null until embedded
+  version   Int      @default(0) // embedding model snapshot version
   digest    String?
   embeddingStatus String   @default("pending") // pending | processing | completed | failed
   embeddingError   String?  @db.Text

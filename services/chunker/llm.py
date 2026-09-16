@@ -71,6 +71,51 @@ def _windowize(text: str) -> list[str]:
     return windows
 
 
+def _robust_json_loads(text: str) -> dict:
+    """Parse an LLM JSON reply tolerating common gemma quirks.
+
+    Strips markdown fences, extracts the first balanced {...} object, and
+    removes trailing commas so a slightly-off reply parses on the first
+    attempt instead of burning a retry.
+    """
+    text = (text or "").strip()
+    fenced = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+    if fenced:
+        text = fenced.group(1).strip()
+    start = text.find("{")
+    if start == -1:
+        raise ValueError("no JSON object found in model reply")
+    depth = 0
+    in_str = False
+    esc = False
+    end = -1
+    for i in range(start, len(text)):
+        ch = text[i]
+        if esc:
+            esc = False
+            continue
+        if in_str and ch == "\\":
+            esc = True
+            continue
+        if ch == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+    if end == -1:
+        raise ValueError("unbalanced JSON braces in model reply")
+    block = text[start : end + 1]
+    block = re.sub(r",\s*([}\]])", r"\1", block)
+    return json.loads(block)
+
+
 class LLM:
     def __init__(self, url: str, model: str, timeout: int = OLLAMA_TIMEOUT):
         import requests  # noqa: E402
@@ -102,7 +147,7 @@ class LLM:
                 )
                 resp.raise_for_status()
                 content = resp.json()["choices"][0]["message"]["content"]
-                return json.loads(content)
+                return _robust_json_loads(content)
             except Exception as e:  # noqa: BLE001
                 last_err = e
                 log.warning("  Ollama call attempt %d/3 failed: %s", attempt, e)

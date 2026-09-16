@@ -24,6 +24,7 @@ from model_contract import (
     EMBEDDING_VERSION,
     MODEL_ID,
     ONNX_DIR,
+    PASSAGE_PREFIX,
     content_hash,
     passage_text,
 )
@@ -67,7 +68,8 @@ def sanitize_db_url(url: str) -> str:
 
 class Config:
     def __init__(self, database_url, poll_interval=300, batch_limit=32, max_retries=3,
-                 redo=False, retry_failed=False, once=False):
+                 redo=False, retry_failed=False, once=False, embed_chunks=False,
+                 chunk_batch_limit=32):
         self.database_url = database_url
         self.poll_interval = poll_interval
         self.batch_limit = batch_limit
@@ -75,6 +77,8 @@ class Config:
         self.redo = redo
         self.retry_failed = retry_failed
         self.once = once
+        self.embed_chunks = embed_chunks
+        self.chunk_batch_limit = chunk_batch_limit
 
 
 def load_config(args: argparse.Namespace) -> Config:
@@ -104,6 +108,8 @@ def load_config(args: argparse.Namespace) -> Config:
         redo=args.redo,
         retry_failed=args.retry_failed,
         once=args.once,
+        embed_chunks=args.embed_chunks,
+        chunk_batch_limit=int(os.environ.get("EMBED_CHUNK_BATCH", args.embed_chunk_batch)),
     )
 
 
@@ -171,6 +177,35 @@ class Database:
             raise RuntimeError(
                 'VideoEmbedding table is missing after schema bootstrap'
             )
+
+        self._ensure_chunk_queue_columns()
+
+    def _ensure_chunk_queue_columns(self):
+        """VideoChunk is created by the transcriber/chunker/backend bootstrap;
+        the embedder only guarantees the queue columns it writes to."""
+        try:
+            self.cur.execute(
+                'ALTER TABLE "VideoChunk" ALTER COLUMN "embedding" DROP NOT NULL'
+            )
+            self.cur.execute(
+                'ALTER TABLE "VideoChunk" ALTER COLUMN "model" DROP NOT NULL'
+            )
+            self.cur.execute(
+                'ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingStatus" TEXT DEFAULT \'pending\''
+            )
+            self.cur.execute(
+                'ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingError" TEXT'
+            )
+            self.cur.execute(
+                'ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingRetryCount" INTEGER DEFAULT 0'
+            )
+            self.cur.execute(
+                'CREATE INDEX IF NOT EXISTS "VideoChunk_embedding_status_idx" '
+                'ON "VideoChunk"("embeddingStatus") '
+                'WHERE "embeddingStatus" IS DISTINCT FROM \'completed\''
+            )
+        except Exception as e:
+            log.warning("Ensure VideoChunk embedding queue note: %s", e)
 
     def release_stale_processing(self):
         try:
@@ -266,6 +301,74 @@ class Database:
             (error[:500], video_id),
         )
 
+    # ------------------------------------------------------------------ #
+    # VideoChunk embedding queue
+    # ------------------------------------------------------------------ #
+    def release_stale_chunk_processing(self):
+        try:
+            self.cur.execute(
+                """UPDATE "VideoChunk" SET "embeddingStatus"='pending'
+                   WHERE "embeddingStatus"='processing'"""
+            )
+        except Exception:
+            pass
+
+    def fetch_eligible_chunks(self, cfg: Config):
+        statuses = ["pending", "failed"]
+        if cfg.redo:
+            statuses.append("completed")
+        ph = ",".join(["%s"] * len(statuses))
+        params: list = list(statuses)
+        retry_clause = ' AND (vc."embeddingRetryCount" IS NULL OR vc."embeddingRetryCount" < %s)'
+        params.append(cfg.max_retries)
+        self.cur.execute(
+            f"""
+            SELECT vc.id, vc."videoId", vc.content
+            FROM "VideoChunk" vc
+            JOIN "Video" v ON v.id = vc."videoId"
+            JOIN "Channel" c ON c.id = v."channelId"
+            WHERE c."isActive" = true
+              AND (vc."embeddingStatus" IS NULL OR vc."embeddingStatus" IN ({ph}))
+              {retry_clause}
+            ORDER BY vc.id ASC
+            LIMIT %s
+            """,
+            (*params, cfg.chunk_batch_limit),
+        )
+        return self.cur.fetchall()
+
+    def mark_chunk_processing(self, chunk_id: int):
+        self.cur.execute(
+            """UPDATE "VideoChunk" SET "embeddingStatus"='processing', "embeddingError"=NULL
+               WHERE "id"=%s""",
+            (chunk_id,),
+        )
+
+    def mark_chunk_completed(self, chunk_id: int, vector: list, model: str, version: int):
+        vector_literal = f"[{','.join(str(round(float(x), 6)) for x in vector)}]"
+        self.cur.execute(
+            """UPDATE "VideoChunk"
+               SET "embeddingStatus"='completed',
+                   "embedding"=%s::vector,
+                   "model"=%s,
+                   "version"=%s,
+                   "embeddingRetryCount"=0,
+                   "embeddingError"=NULL,
+                   "updatedAt"=now()
+               WHERE "id"=%s""",
+            (vector_literal, model, version, chunk_id),
+        )
+
+    def mark_chunk_failed(self, chunk_id: int, error: str):
+        self.cur.execute(
+            """UPDATE "VideoChunk"
+               SET "embeddingStatus"='failed',
+                   "embeddingError"=%s,
+                   "embeddingRetryCount"=COALESCE("embeddingRetryCount",0)+1
+               WHERE "id"=%s""",
+            (error[:500], chunk_id),
+        )
+
     def close(self):
         try:
             self.cur.close()
@@ -296,15 +399,40 @@ def process_video(db: Database, cfg: Config, row) -> None:
         db.mark_failed(video_id, str(e))
 
 
+def chunk_passage(content: str) -> str:
+    """Text embedded for a VideoChunk: the shared 'passage:' prefix over the statement."""
+    return PASSAGE_PREFIX + (content or "").strip()
+
+
+def process_chunk(db: Database, cfg: Config, row) -> None:
+    chunk_id, video_id, content = row
+    try:
+        db.mark_chunk_processing(chunk_id)
+        [vector] = embed_texts([chunk_passage(content)], onnx_dir=ONNX_DIR)
+        db.mark_chunk_completed(chunk_id, vector, MODEL_ID, EMBEDDING_VERSION)
+        log.info("Embedded chunk %s (video %s, %d dims)", chunk_id, video_id, len(vector))
+    except Exception as e:
+        log.error("Failed to embed chunk %s (%s): %s", chunk_id, video_id, e)
+        try:
+            db.mark_chunk_failed(chunk_id, str(e))
+        except Exception as mark_err:  # noqa: BLE001
+            log.error("Could not mark chunk %s failed: %s", chunk_id, mark_err)
+
+
 def main():
     parser = argparse.ArgumentParser(description="ChristianTube video embedding worker")
     parser.add_argument("--once", action="store_true", help="Process one batch and exit")
     parser.add_argument("--redo", action="store_true", help="Re-embed completed videos when content changed")
     parser.add_argument("--retry-failed", action="store_true", help="Include previously failed videos")
+    parser.add_argument("--embed-chunks", action="store_true",
+                        help="Also embed pending VideoChunk rows (env EMBED_CHUNKS=1)")
+    parser.add_argument("--embed-chunk-batch", type=int, default=32)
     parser.add_argument("--poll-interval", type=int, default=300)
     parser.add_argument("--batch-limit", type=int, default=32)
     parser.add_argument("--max-retries", type=int, default=3)
     args = parser.parse_args()
+
+    args.embed_chunks = args.embed_chunks or os.environ.get("EMBED_CHUNKS", "").lower() in ("1", "true", "yes")
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
@@ -314,28 +442,42 @@ def main():
     db.release_stale_processing()
     db._ensure_schema()
 
-    log.info("Embedder started (model=%s, version=%d, once=%s, redo=%s, retry_failed=%s)",
-             MODEL_ID, EMBEDDING_VERSION, cfg.once, cfg.redo, cfg.retry_failed)
+    log.info("Embedder started (model=%s, version=%d, once=%s, redo=%s, retry_failed=%s, embed_chunks=%s)",
+             MODEL_ID, EMBEDDING_VERSION, cfg.once, cfg.redo, cfg.retry_failed, cfg.embed_chunks)
 
     while _running:
+        worked = False
+
         db.requeue_orphaned_completed()
         rows = db.fetch_eligible(cfg)
-        if not rows:
+        if rows:
+            log.info("Found %d eligible video(s).", len(rows))
+            worked = True
+            for row in rows:
+                if not _running:
+                    break
+                process_video(db, cfg, row)
+
+        if cfg.embed_chunks:
+            db.release_stale_chunk_processing()
+            chunks = db.fetch_eligible_chunks(cfg)
+            if chunks:
+                log.info("Found %d eligible chunk(s).", len(chunks))
+                worked = True
+                for chunk in chunks:
+                    if not _running:
+                        break
+                    process_chunk(db, cfg, chunk)
+
+        if not worked:
             if cfg.once:
-                log.info("No eligible videos, exiting (--once).")
+                log.info("No eligible items, exiting (--once).")
                 break
-            log.info("No pending videos. Sleeping %ds...", cfg.poll_interval)
+            log.info("No pending items. Sleeping %ds...", cfg.poll_interval)
             for _ in range(cfg.poll_interval):
                 if not _running:
                     break
                 time.sleep(1)
-            continue
-
-        log.info("Found %d eligible video(s).", len(rows))
-        for row in rows:
-            if not _running:
-                break
-            process_video(db, cfg, row)
 
         if cfg.once:
             break

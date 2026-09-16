@@ -18,7 +18,7 @@
 
 services:
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: christiantube-db
     restart: always
     environment:
@@ -53,6 +53,17 @@ services:
       DIRECT_URL: postgresql://postgres:postgres@db:5432/christiantube?schema=public
       ADMIN_EMAILS: arul.rozario4@gmail.com,admin@privatetube.org
       SHORTS_CUSTOM_CHANNEL_ID: UCSaJppP4zb2vivjxYfTqOKw
+      CHAT_ENABLED: ${CHAT_ENABLED:-false}
+      CHAT_MODEL: ${CHAT_MODEL:-gemini-3.1-flash}
+      CHAT_FALLBACK_MODELS: ${CHAT_FALLBACK_MODELS:-gemini-3.1-flash-lite,gemini-2.5-flash}
+      CHAT_TIMEOUT_MS: ${CHAT_TIMEOUT_MS:-60000}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      EMBEDDING_ENABLED: ${EMBEDDING_ENABLED:-false}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-self-hosted}
+      EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-}
+      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_DIM: "384"
+      EMBEDDING_VERSION: "2"
     ports:
       - "3000:3000"
 
@@ -76,6 +87,11 @@ services:
     build:
       context: .
       dockerfile: services/embedder/Dockerfile
+      args:
+        EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+        EMBEDDING_DIM: ${EMBEDDING_DIM:-384}
+        EMBEDDING_VERSION: ${EMBEDDING_VERSION:-2}
+        EMBEDDING_MAX_TOKENS: ${EMBEDDING_MAX_TOKENS:-256}
     container_name: christiantube-embedder
     restart: always
     env_file:
@@ -84,31 +100,50 @@ services:
       ONNX_DIR: /model
       POLL_INTERVAL: "300"
       BATCH_LIMIT: "32"
-      EMBEDDING_MODEL: intfloat/multilingual-e5-small
+      EMBED_CHUNKS: "1"
+      EMBED_CHUNK_BATCH: "32"
+      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
       EMBEDDING_DIM: "384"
-      EMBEDDING_VERSION: "1"
+      EMBEDDING_VERSION: "2"
+      EMBEDDING_MAX_TOKENS: "256"
     command: ["python", "-u", "worker.py"]
 
-  content-worker:
+  transcriber:
     build:
       context: .
-      dockerfile: services/content-worker/Dockerfile
-    container_name: christiantube-content-worker
+      dockerfile: services/transcriber/Dockerfile
+    container_name: christiantube-transcriber
+    restart: always
+    env_file:
+      - .contentworker.env
+    environment:
+      POLL_INTERVAL: "300"
+      BATCH_LIMIT: "5"
+      MAX_RETRIES: "3"
+      CONTENT_VERSION: "2"
+      USE_CAPTIONS: "true"
+      PRIORITY_CHANNEL_IDS: "UCpZG4Vl2tqg5cIfGMocI2Ag"
+    volumes:
+      - content-work:/work
+
+  chunker:
+    build:
+      context: .
+      dockerfile: services/chunker/Dockerfile
+    container_name: christiantube-chunker
     restart: always
     env_file:
       - .contentworker.env
     environment:
       OLLAMA_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: gemma3:4b
-      ONNX_DIR: /model
-      EMBEDDER_SRC: /opt/embedder
+      OLLAMA_TIMEOUT: "2700"
       POLL_INTERVAL: "300"
       BATCH_LIMIT: "5"
       MAX_RETRIES: "3"
-      CONTENT_VERSION: "2"
-      USE_CAPTIONS: "true"
-    volumes:
-      - content-work:/work
+      CHUNK_VERSION: "2"
+      LOG_IDEAS: "true"
+      PRIORITY_CHANNEL_IDS: "UCpZG4Vl2tqg5cIfGMocI2Ag"
 
 volumes:
   pgdata:
