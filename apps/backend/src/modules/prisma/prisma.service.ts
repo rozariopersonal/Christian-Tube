@@ -138,7 +138,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       ],
       [
         "content columns",
-        `ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0;`,
+        `ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0;
+         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "chunkStatus" TEXT DEFAULT 'pending';
+         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "chunkError" TEXT;
+         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "chunkRetryCount" INTEGER DEFAULT 0;`,
       ],
       [
         "VideoEmbedding table",
@@ -171,13 +174,17 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
            "title" TEXT,
            "content" TEXT NOT NULL,
            "quoteText" TEXT,
+           "scriptureRefs" JSONB,
            "startSec" DOUBLE PRECISION,
            "endSec" DOUBLE PRECISION,
            "source" TEXT NOT NULL DEFAULT 'caption',
-           "embedding" vector(384) NOT NULL,
-           "model" TEXT NOT NULL,
+           "embedding" vector(384),
+           "model" TEXT,
            "version" INTEGER NOT NULL DEFAULT 0,
            "digest" TEXT,
+           "embeddingStatus" TEXT NOT NULL DEFAULT 'pending',
+           "embeddingError" TEXT,
+           "embeddingRetryCount" INTEGER NOT NULL DEFAULT 0,
            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
            CONSTRAINT "VideoChunk_videoId_fkey"
@@ -186,9 +193,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
          );`,
       ],
       [
+        "VideoChunk split columns",
+        `ALTER TABLE "VideoChunk" ALTER COLUMN "embedding" DROP NOT NULL;
+         ALTER TABLE "VideoChunk" ALTER COLUMN "model" DROP NOT NULL;
+         ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingStatus" TEXT DEFAULT 'pending';
+         ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingError" TEXT;
+         ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingRetryCount" INTEGER DEFAULT 0;`,
+      ],
+      [
         "VideoChunk indexes",
         `CREATE UNIQUE INDEX IF NOT EXISTS "VideoChunk_videoId_seq_key" ON "VideoChunk"("videoId", "seq");
          CREATE INDEX IF NOT EXISTS "VideoChunk_model_version_idx" ON "VideoChunk"("model", "version");
+         CREATE INDEX IF NOT EXISTS "VideoChunk_embedding_status_idx"
+           ON "VideoChunk"("embeddingStatus")
+           WHERE "embeddingStatus" IS DISTINCT FROM 'completed';
          CREATE INDEX IF NOT EXISTS "VideoChunk_embedding_hnsw_idx"
            ON "VideoChunk" USING hnsw ("embedding" vector_cosine_ops)
            WITH (m = 16, ef_construction = 64);`,

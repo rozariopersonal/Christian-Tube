@@ -9,7 +9,7 @@ from tokenizers import Tokenizer
 
 from model_contract import MAX_TOKENS, ONNX_DIR
 
-_PAD_TOKEN_ID = 1  # XLM-Roberta special ids: <s>=0, <pad>=1, </s>=2, <unk>=3
+_PAD_TOKEN_ID = 0  # BERT/WordPiece (all-MiniLM-L6-v2) special ids: [PAD]=0, [CLS]=101, [SEP]=102
 
 
 @lru_cache(maxsize=1)
