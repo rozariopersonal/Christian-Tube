@@ -14,6 +14,7 @@ import '../widgets/audio_grouped_sections.dart';
 import '../widgets/audio_search_bar.dart';
 import '../widgets/audio_series_carousel.dart';
 import '../widgets/audio_series_grid.dart';
+import '../widgets/audio_channel_grid.dart';
 import '../widgets/audio_view_mode_segmented_bar.dart';
 
 /// Main Audio tab screen — browse sermon series with real-time inline search,
@@ -88,84 +89,100 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
           ),
           body: state.isLoading
               ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: () => _controller.loadData(forceRefresh: true),
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: MaxWidthBox(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 1. Search Bar
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: AudioSearchBar(
-                              controller: _searchController,
-                              onChanged: _controller.setSearchQuery,
-                              onClear: () {
-                                _controller.clearSearch();
-                                FocusScope.of(context).unfocus();
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // 2. Language Selector
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: LanguageDropdown(
-                              selectedLanguages:
-                                  _controller.languageController.state.selectedLanguages,
-                              availableLanguages: state.availableLanguages,
-                              itemCounts: state.languageTrackCounts,
-                              onLanguagesSelected:
-                                  _controller.languageController.selectLanguages,
-                              itemNoun: 'tracks',
-                              headerTitle: 'Audio by Language',
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // 3. Format and View Mode Selectors (Hidden while searching to focus on search results)
-                          if (!state.isSearching) ...[
+              : Column(
+                  children: [
+                    // Sticky Header Controls
+                    Container(
+                      color: tokens.background,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: MaxWidthBox(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 1. Search Bar
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: SegmentedButton<AudioFormat>(
-                                      segments: const [
-                                        ButtonSegment(value: AudioFormat.sermons, label: Text('Sermons')),
-                                        ButtonSegment(value: AudioFormat.songs, label: Text('Songs')),
-                                      ],
-                                      selected: {state.selectedFormat},
-                                      onSelectionChanged: (set) => _controller.selectFormat(set.first),
+                              child: AudioSearchBar(
+                                controller: _searchController,
+                                onChanged: _controller.setSearchQuery,
+                                onClear: () {
+                                  _controller.clearSearch();
+                                  FocusScope.of(context).unfocus();
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 2. Language Selector
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: LanguageDropdown(
+                                selectedLanguages:
+                                    _controller.languageController.state.selectedLanguages,
+                                availableLanguages: state.availableLanguages,
+                                itemCounts: state.languageTrackCounts,
+                                onLanguagesSelected:
+                                    _controller.languageController.selectLanguages,
+                                itemNoun: 'tracks',
+                                headerTitle: 'Audio by Language',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 3. Format and View Mode Selectors
+                            if (!state.isSearching) ...[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: SegmentedButton<AudioFormat>(
+                                        segments: const [
+                                          ButtonSegment(value: AudioFormat.archive, label: Text('Archive')),
+                                          ButtonSegment(value: AudioFormat.songs, label: Text('Songs')),
+                                          ButtonSegment(value: AudioFormat.youtube, label: Text('YouTube')),
+                                        ],
+                                        selected: {state.selectedFormat},
+                                        onSelectionChanged: (set) => _controller.selectFormat(set.first),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 14),
-                            
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: AudioViewModeSegmentedBar(
-                                currentMode: state.viewMode,
-                                onModeChanged: _controller.setViewMode,
+                              const SizedBox(height: 14),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: AudioViewModeSegmentedBar(
+                                  currentMode: state.viewMode,
+                                  onModeChanged: _controller.setViewMode,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 14),
+                            ],
                           ],
-
-                          // 4. Dynamic Body Content
-                          _buildContent(context, theme, tokens, state),
-
-                          const SizedBox(height: 100),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+
+                    // Scrollable Body Content
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: () => _controller.loadData(forceRefresh: true),
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: MaxWidthBox(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildContent(context, theme, tokens, state),
+                                const SizedBox(height: 100),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
         );
       },
@@ -274,8 +291,8 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Category Filter Chips
-        if (state.selectedFormat == AudioFormat.sermons) ...[
+        // Category Filter Chips (Only for Archive mode)
+        if (state.selectedFormat == AudioFormat.archive) ...[
           AudioCategoryChips(
             categories: AudioLibraryController.categories,
             selected: state.selectedCategory,
@@ -302,7 +319,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
           ],
 
           // Featured Carousel
-          if (state.isAllLanguagesSelected && state.filteredSeries.isNotEmpty) ...[
+          if (state.isAllLanguagesSelected && state.filteredSeries.isNotEmpty && state.selectedFormat != AudioFormat.youtube) ...[
             AudioSeriesCarousel(
               seriesList: state.filteredSeries,
               onTapSeries: _openSeries,
@@ -311,8 +328,10 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
           ],
 
           // Horizontal Rails per Category (Eliminates massive vertical scroll)
-          if (state.selectedFormat == AudioFormat.sermons)
+          if (state.selectedFormat == AudioFormat.archive)
             ..._buildCategoryRails(state)
+          else if (state.selectedFormat == AudioFormat.youtube)
+            ..._buildYouTubeRails(state)
           else
             AudioSeriesGrid(
               state: state,
@@ -340,7 +359,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       'The Church',
       'Conferences',
       'Multilingual',
-      'General Sermons',
+      'Archive',
     ];
 
     for (final cat in railOrder) {
@@ -387,6 +406,23 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       );
     }
 
+    return rails;
+  }
+
+  List<Widget> _buildYouTubeRails(AudioLibraryViewState state) {
+    final rails = <Widget>[];
+    
+    // Group all YouTube channels into a single grid
+    if (state.filteredSeries.isNotEmpty) {
+      rails.add(
+        AudioChannelGrid(
+          state: state,
+          onReset: _controller.resetFilters,
+          onOpenSeries: _openSeries,
+        ),
+      );
+    }
+    
     return rails;
   }
 }
