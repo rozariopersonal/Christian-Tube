@@ -13,7 +13,7 @@ import 'audio_catalog_adapter.dart';
 class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
   static const String defaultFileName = 'audio_sync.sqlite';
   static const String syncedPrefKey = 'audio_sqlite_synced';
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
 
   final String? dbPathOverride;
   Database? _db;
@@ -108,6 +108,17 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
             content_rowid='rowid'
           )
         ''');
+
+        await db.execute('''
+          CREATE VIRTUAL TABLE tracks_fts USING fts5(
+            id UNINDEXED,
+            title,
+            speaker,
+            seriesTitle,
+            content='tracks',
+            content_rowid='rowid'
+          )
+        ''');
         
         await db.execute('''
           CREATE TRIGGER series_ai AFTER INSERT ON series BEGIN
@@ -122,6 +133,29 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
             VALUES('delete', old.rowid, old.id, old.title, old.description, old.speaker, old.category, old.language);
             INSERT INTO series_fts(rowid, id, title, description, speaker, category, language) 
             VALUES (new.rowid, new.id, new.title, new.description, new.speaker, new.category, new.language);
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER tracks_ai AFTER INSERT ON tracks BEGIN
+            INSERT INTO tracks_fts(rowid, id, title, speaker, seriesTitle) 
+            VALUES (new.rowid, new.id, new.title, new.speaker, new.seriesTitle);
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER tracks_au AFTER UPDATE ON tracks BEGIN
+            INSERT INTO tracks_fts(tracks_fts, rowid, id, title, speaker, seriesTitle) 
+            VALUES('delete', old.rowid, old.id, old.title, old.speaker, old.seriesTitle);
+            INSERT INTO tracks_fts(rowid, id, title, speaker, seriesTitle) 
+            VALUES (new.rowid, new.id, new.title, new.speaker, new.seriesTitle);
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER tracks_ad AFTER DELETE ON tracks BEGIN
+            INSERT INTO tracks_fts(tracks_fts, rowid, id, title, speaker, seriesTitle) 
+            VALUES('delete', old.rowid, old.id, old.title, old.speaker, old.seriesTitle);
           END;
         ''');
       },
@@ -261,11 +295,15 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
     final results = await db.rawQuery('''
       SELECT s.* 
       FROM series s
-      JOIN series_fts fts ON s.id = fts.id
-      WHERE series_fts MATCH ?
-      ORDER BY rank
+      WHERE s.id IN (
+        SELECT id FROM series_fts WHERE series_fts MATCH ?
+        UNION
+        SELECT t.seriesId FROM tracks_fts tf 
+        JOIN tracks t ON t.id = tf.id 
+        WHERE tracks_fts MATCH ?
+      )
       LIMIT ?
-    ''', [ftsQuery, limit]);
+    ''', [ftsQuery, ftsQuery, limit]);
 
     return results.map((row) => AudioSeries(
       id: row['id'] as String,

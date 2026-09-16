@@ -303,7 +303,11 @@ model AudioTrack {
   speaker          String?
   durationSeconds  Int          @default(0)
   audioUrl         String
+  streamUrl        String?
+  fallbackUrl      String?
   ifCoverUrl       String?
+  thumbnailUrl     String?
+  youtubeVideoId   String?
   scriptureBook    String?
   scriptureChapter Int?
   scriptureVerse   Int?
