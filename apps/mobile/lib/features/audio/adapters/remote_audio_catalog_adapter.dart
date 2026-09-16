@@ -1,8 +1,9 @@
 import 'dart:convert';
-
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/api/github_data_service.dart';
+import '../../../core/config/app_config.dart';
 import '../models/audio_series.dart';
 import 'audio_catalog_adapter.dart';
 import 'seed_audio_catalog.dart';
@@ -15,6 +16,11 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
   final http.Client _client;
   static List<AudioSeries>? _cachedCatalog;
   static final Map<String, AudioSeries> _cachedSeries = {};
+
+  @visibleForTesting
+  static void seedCacheForTesting([List<AudioSeries>? catalog]) {
+    _cachedCatalog = catalog ?? SeedAudioCatalog.catalog;
+  }
 
   RemoteAudioCatalogAdapter({http.Client? client})
       : _client = client ?? http.Client();
@@ -81,5 +87,22 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
       _cachedSeries[seriesId] = fallback;
     }
     return fallback;
+  }
+  
+  @override
+  Future<List<AudioSeries>> search(String query) async {
+    try {
+      final url = Uri.parse('${AppConfig.apiBaseUrl}/api/audio/search?q=$query&limit=20');
+      final res = await _client.get(url).timeout(const Duration(seconds: 5));
+      
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final list = data['data'] as List<dynamic>? ?? [];
+        return list.map((e) => AudioSeries.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      // Ignore network errors for search
+    }
+    return [];
   }
 }

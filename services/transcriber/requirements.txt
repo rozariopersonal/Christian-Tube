@@ -1,3 +1,5 @@
-yt-dlp
+nemo_toolkit[asr]
+onnxruntime
 psycopg2-binary
 requests
+yt-dlp

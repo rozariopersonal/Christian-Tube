@@ -111,10 +111,13 @@ model VideoChunk {
   startSec  Float?
   endSec    Float?
   source    String   @default("caption") // caption | parakeet
-  embedding Unsupported("vector(384)")?
-  model     String
-  version   Int      @default(0)
+  embedding Unsupported("vector(384)")? // filled asynchronously by the embedding service
+  model     String? // null until embedded
+  version   Int      @default(0) // embedding model snapshot version
   digest    String?
+  embeddingStatus String   @default("pending") // pending | processing | completed | failed
+  embeddingError   String?  @db.Text
+  embeddingRetryCount Int?  @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -122,6 +125,7 @@ model VideoChunk {
 
   @@unique([videoId, seq])
   @@index([model, version])
+  @@index([embeddingStatus])
   @@map("VideoChunk")
 }
 
@@ -273,3 +277,42 @@ model UserPlayback {
   @@index([updatedAt])
 }
 
+model AudioSeries {
+  id          String       @id
+  title       String
+  description String?      @db.Text
+  speaker     String?
+  category    String?
+  language    String?
+  coverUrl    String?
+  trackCount  Int          @default(0)
+  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime     @default(now())
+
+  tracks      AudioTrack[]
+
+  @@index([category])
+  @@index([speaker])
+  @@index([updatedAt])
+}
+
+model AudioTrack {
+  id               String       @id
+  seriesId         String
+  title            String
+  speaker          String?
+  durationSeconds  Int          @default(0)
+  audioUrl         String
+  ifCoverUrl       String?
+  scriptureBook    String?
+  scriptureChapter Int?
+  scriptureVerse   Int?
+  updatedAt        DateTime     @updatedAt
+  createdAt        DateTime     @default(now())
+
+  series           AudioSeries  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@index([seriesId])
+  @@index([speaker])
+  @@index([updatedAt])
+}
