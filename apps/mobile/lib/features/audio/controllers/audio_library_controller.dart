@@ -8,7 +8,6 @@ import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
 import '../services/audio_storage_service.dart';
 import '../services/audio_sync_manager.dart';
-import '../adapters/sqlite_audio_catalog_adapter.dart';
 import 'audio_player_controller.dart';
 
 enum AudioFormat { archive, songs, youtube }
@@ -248,7 +247,7 @@ class AudioLibraryController extends ChangeNotifier {
     AudioPlayerController.instance.syncWithCloud();
     
     // Fire off background catalog sync from NestJS to Local SQLite
-    AudioSyncManager(SqliteAudioCatalogAdapter()).syncCatalog().catchError((e) {
+    AudioSyncManager(_catalogService.localAdapter).syncCatalog().catchError((e) {
       debugPrint('Background sync failed: $e');
     });
 

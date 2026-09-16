@@ -16,13 +16,23 @@ class AudioCatalogService {
   static final Map<String, AudioTrack> _youtubeIdCache = {};
   static bool _isCacheLoaded = false;
 
-  AudioCatalogService({http.Client? client})
-      : _localAdapter = SqliteAudioCatalogAdapter(),
-        _remoteAdapter = RemoteAudioCatalogAdapter(client: client);
+  AudioCatalogService({
+    http.Client? client,
+    SqliteAudioCatalogAdapter? localAdapter,
+    RemoteAudioCatalogAdapter? remoteAdapter,
+  })  : _localAdapter = localAdapter ?? SqliteAudioCatalogAdapter(),
+        _remoteAdapter = remoteAdapter ?? RemoteAudioCatalogAdapter(client: client);
+
+  SqliteAudioCatalogAdapter get localAdapter => _localAdapter;
+  RemoteAudioCatalogAdapter get remoteAdapter => _remoteAdapter;
 
   Future<AudioCatalogAdapter> _getAdapter() async {
-    if (await _localAdapter.isInitialized) {
-      return _localAdapter;
+    try {
+      if (await _localAdapter.isInitialized) {
+        return _localAdapter;
+      }
+    } catch (_) {
+      // Gracefully fall back to remote adapter if SQLite check fails
     }
     return _remoteAdapter;
   }

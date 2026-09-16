@@ -9,6 +9,7 @@ import 'package:mobile/features/audio/screens/audio_series_screen.dart';
 import 'package:mobile/features/audio/widgets/full_audio_player_sheet.dart';
 import 'package:mobile/features/audio/widgets/mini_audio_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
   tester.view.physicalSize = Size(width, height);
@@ -17,6 +18,11 @@ void setSurfaceSize(WidgetTester tester, double width, double height) {
 }
 
 void main() {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });

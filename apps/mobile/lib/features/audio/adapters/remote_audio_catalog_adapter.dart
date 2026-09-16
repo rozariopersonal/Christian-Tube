@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/api/github_data_service.dart';
@@ -15,6 +16,11 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
   final http.Client _client;
   static List<AudioSeries>? _cachedCatalog;
   static final Map<String, AudioSeries> _cachedSeries = {};
+
+  @visibleForTesting
+  static void seedCacheForTesting([List<AudioSeries>? catalog]) {
+    _cachedCatalog = catalog ?? SeedAudioCatalog.catalog;
+  }
 
   RemoteAudioCatalogAdapter({http.Client? client})
       : _client = client ?? http.Client();
