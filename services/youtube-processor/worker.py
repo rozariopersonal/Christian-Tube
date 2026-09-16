@@ -807,7 +807,7 @@ def detect_category(channel_name: str) -> str:
     for kw in keywords:
         if kw in combined:
             return "Songs"
-    return "General Sermons"
+    return "YouTube"
 
 
 def detect_languages(title: str, description: str, default_lang: str = "English") -> tuple[str, str | None]:
@@ -1181,12 +1181,9 @@ def update_channel_audio_catalog(
             "tracks": [],
         }
     else:
-        # Update category if it was missing or default
-        if series_data.get("category", "General Sermons") == "General Sermons":
+        # Update category if it was missing or legacy default
+        if series_data.get("category") in ("General Sermons", "Sermons", None):
             series_data["category"] = series_category
-
-    if series_data.get("category") == "Sermons":
-        series_data["category"] = "General Sermons"
 
     # Ensure track fields reflect the series
     track["seriesId"] = series_id
