@@ -7,9 +7,11 @@ import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
 import '../services/audio_storage_service.dart';
+import '../services/audio_sync_manager.dart';
+import '../adapters/sqlite_audio_catalog_adapter.dart';
 import 'audio_player_controller.dart';
 
-enum AudioFormat { sermons, songs }
+enum AudioFormat { archive, songs, youtube }
 
 enum AudioViewMode {
   featured,
@@ -38,13 +40,15 @@ class AudioLibraryViewState {
 
   final String searchQuery;
   final AudioViewMode viewMode;
+  final List<AudioSeries>? asyncSearchResults;
 
   const AudioLibraryViewState({
     this.isLoading = true,
     this.seriesList = const [],
+    this.asyncSearchResults,
     this.lastPlayedTrack,
     this.lastPlayedSeconds = 0,
-    this.selectedFormat = AudioFormat.sermons,
+    this.selectedFormat = AudioFormat.archive,
     this.selectedCategory = 'All',
     this.selectedLanguages = const {'All'},
     this.availableLanguages = const ['All'],
@@ -62,6 +66,8 @@ class AudioLibraryViewState {
   AudioLibraryViewState copyWith({
     bool? isLoading,
     List<AudioSeries>? seriesList,
+    List<AudioSeries>? asyncSearchResults,
+    bool clearAsyncSearchResults = false,
     AudioTrack? lastPlayedTrack,
     bool clearLastPlayed = false,
     int? lastPlayedSeconds,
@@ -76,6 +82,7 @@ class AudioLibraryViewState {
     return AudioLibraryViewState(
       isLoading: isLoading ?? this.isLoading,
       seriesList: seriesList ?? this.seriesList,
+      asyncSearchResults: clearAsyncSearchResults ? null : (asyncSearchResults ?? this.asyncSearchResults),
       lastPlayedTrack:
           clearLastPlayed ? null : (lastPlayedTrack ?? this.lastPlayedTrack),
       lastPlayedSeconds: lastPlayedSeconds ?? this.lastPlayedSeconds,
@@ -89,20 +96,21 @@ class AudioLibraryViewState {
     );
   }
 
-  /// Series matching the active category and language filters. Language values
-  /// are canonicalized (names like `English` become `en`) so they line up with
-  /// the shared controller's code-based selection.
+  /// Series matching the active category and language filters.
   List<AudioSeries> get filteredSeries {
     final isAll = isAllLanguagesSelected;
 
     return seriesList.where((s) {
       final isSong = s.category.toLowerCase() == 'songs';
+      final isYouTube = s.category.toLowerCase() == 'youtube';
+
       if (selectedFormat == AudioFormat.songs && !isSong) return false;
-      if (selectedFormat == AudioFormat.sermons && isSong) return false;
+      if (selectedFormat == AudioFormat.youtube && !isYouTube) return false;
+      if (selectedFormat == AudioFormat.archive && (isSong || isYouTube)) return false;
 
       final matchesCategory =
           selectedCategory == 'All' || s.category == selectedCategory;
-      if (selectedFormat == AudioFormat.sermons && !matchesCategory) return false;
+      if (selectedFormat == AudioFormat.archive && !matchesCategory) return false;
 
       if (isAll) return true;
 
@@ -113,10 +121,12 @@ class AudioLibraryViewState {
   }
 
   /// Instant search results matching the active query against titles,
-  /// speakers, categories, and descriptions.
+  /// speakers, categories, and descriptions. Uses deep async results if available.
   List<AudioSeries> get searchResults {
     final clean = searchQuery.trim().toLowerCase();
     if (clean.isEmpty) return filteredSeries;
+
+    if (asyncSearchResults != null) return asyncSearchResults!;
 
     return filteredSeries.where((s) {
       return s.title.toLowerCase().contains(clean) ||
@@ -130,7 +140,7 @@ class AudioLibraryViewState {
   Map<String, List<AudioSeries>> get seriesByCategory {
     final map = <String, List<AudioSeries>>{};
     for (final s in filteredSeries) {
-      final cat = s.category.isNotEmpty ? s.category : 'General Sermons';
+      final cat = s.category.isNotEmpty ? s.category : 'Archive';
       map.putIfAbsent(cat, () => []).add(s);
     }
     return map;
@@ -178,7 +188,8 @@ class AudioLibraryController extends ChangeNotifier {
     'Family & Home',
     'The Church',
     'Conferences',
-    'General Sermons',
+    'Archive',
+    'YouTube',
   ];
 
   final AudioCatalogService _catalogService;
@@ -235,6 +246,11 @@ class AudioLibraryController extends ChangeNotifier {
   Future<void> loadData({bool forceRefresh = false}) async {
     // Check cloud for playback updates across devices in background
     AudioPlayerController.instance.syncWithCloud();
+    
+    // Fire off background catalog sync from NestJS to Local SQLite
+    AudioSyncManager(SqliteAudioCatalogAdapter()).syncCatalog().catchError((e) {
+      debugPrint('Background sync failed: $e');
+    });
 
     if (forceRefresh) {
       await ReleaseRevision.load();
@@ -296,11 +312,26 @@ class AudioLibraryController extends ChangeNotifier {
     if (_state.searchQuery == query) return;
     _state = _state.copyWith(searchQuery: query);
     notifyListeners();
+    
+    if (query.trim().isNotEmpty) {
+      _performAsyncSearch(query.trim());
+    }
+  }
+  
+  Future<void> _performAsyncSearch(String query) async {
+    try {
+      final results = await _catalogService.search(query);
+      if (_disposed || _state.searchQuery != query) return;
+      _state = _state.copyWith(asyncSearchResults: results);
+      notifyListeners();
+    } catch (_) {
+      // Fallback to in-memory filter if error
+    }
   }
 
   void clearSearch() {
     if (_state.searchQuery.isEmpty) return;
-    _state = _state.copyWith(searchQuery: '');
+    _state = _state.copyWith(searchQuery: '', clearAsyncSearchResults: true);
     notifyListeners();
   }
 
@@ -312,7 +343,7 @@ class AudioLibraryController extends ChangeNotifier {
 
   void resetFilters() {
     _state = _state.copyWith(
-      selectedFormat: AudioFormat.sermons,
+      selectedFormat: AudioFormat.archive,
       selectedCategory: 'All',
       searchQuery: '',
       viewMode: AudioViewMode.featured,

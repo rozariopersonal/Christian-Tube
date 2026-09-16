@@ -7,4 +7,6 @@ abstract class AudioCatalogAdapter {
   Future<List<AudioSeries>> fetchCatalog({bool forceRefresh = false});
 
   Future<AudioSeries?> fetchSeries(String seriesId, {bool forceRefresh = false});
+  
+  Future<List<AudioSeries>> search(String query);
 }
