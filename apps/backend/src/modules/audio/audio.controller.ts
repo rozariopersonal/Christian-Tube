@@ -1,10 +1,14 @@
-import { Controller, Get, Param, Res, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Param, Res, HttpException, HttpStatus, Query, Post } from '@nestjs/common';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
+import { AudioService } from './audio.service';
 
 @Controller('audio')
 export class AudioController {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly audioService: AudioService,
+  ) {}
 
   @Get('stream/:id')
   async getAudioStream(@Param('id') id: string, @Res() res: Response) {
@@ -43,5 +47,28 @@ export class AudioController {
       }
       throw new HttpException('Failed to resolve audio stream', HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+  @Get('sync')
+  async getSyncData(@Query('since') since?: string) {
+    const timestamp = since ? parseInt(since, 10) : undefined;
+    const data = await this.audioService.getSyncData(timestamp);
+    return { data };
+  }
+
+  @Get('search')
+  async search(@Query('q') q: string, @Query('limit') limit?: string) {
+    if (!q) return { data: [] };
+    const max = limit ? parseInt(limit, 10) : 20;
+    const results = await this.audioService.searchCatalog(q, max);
+    return { data: results };
+  }
+
+  @Post('trigger-sync')
+  async triggerSync() {
+    // In production, secure this endpoint
+    this.audioService.syncCatalogFromGitHub().catch(err => {
+      console.error('Background sync failed:', err);
+    });
+    return { status: 'accepted', message: 'Audio catalog sync initiated' };
   }
 }

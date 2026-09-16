@@ -8,8 +8,14 @@ import 'package:mobile/features/audio/models/playback_state.dart';
 import 'package:mobile/features/audio/services/audio_catalog_service.dart';
 import 'package:mobile/features/audio/widgets/mini_audio_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
