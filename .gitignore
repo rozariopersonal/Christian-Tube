@@ -88,3 +88,9 @@ apps/mobile/test/scratch_*.dart
 .android-sdk/
 query*.sql
 .contentworker.env
+envs/*.env
+!envs/example.env
+!envs/*.example
+scratch_work/
+.render_token
+

@@ -1,0 +1,24 @@
+{
+  "name": "transcriber-tool",
+  "version": "1.0.0",
+  "description": "Fault-tolerant audio transcription tool with silence-based slicing, sentence windows, and NVIDIA Parakeet ASR",
+  "main": "src/cli.ts",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "transcribe": "tsx src/cli.ts",
+    "test": "tsx --test tests/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "@types/pg": "^8.11.11",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
