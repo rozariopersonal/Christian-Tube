@@ -58,14 +58,16 @@ def load_token(arg_token: str | None) -> str:
     if not token:
         token = os.environ.get("AUDIO_COM_TOKEN")
     if not token:
-        env_file = REPO_ROOT / ".processor.env"
-        if env_file.exists():
-            for line in env_file.read_text(encoding="utf-8").splitlines():
-                if line.startswith("AUDIO_COM_TOKEN="):
-                    token = line.split("=", 1)[1].strip()
-                    break
+        for candidate in [REPO_ROOT / "envs" / "common.env", REPO_ROOT / ".processor.env"]:
+            if candidate.exists():
+                for line in candidate.read_text(encoding="utf-8").splitlines():
+                    if line.startswith("AUDIO_COM_TOKEN="):
+                        token = line.split("=", 1)[1].strip()
+                        break
+            if token:
+                break
     if not token:
-        raise SystemExit("AUDIO_COM_TOKEN is required (--token, env, or .processor.env).")
+        raise SystemExit("AUDIO_COM_TOKEN is required (--token, env, or envs/common.env).")
     return token[7:].strip() if token.lower().startswith("bearer ") else token.strip()
 
 

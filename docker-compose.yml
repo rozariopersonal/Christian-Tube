@@ -45,25 +45,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-      INSTANCE_ID: christian_tube
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/christiantube?schema=public
-      DIRECT_URL: postgresql://postgres:postgres@db:5432/christiantube?schema=public
-      ADMIN_EMAILS: arul.rozario4@gmail.com,admin@privatetube.org
-      SHORTS_CUSTOM_CHANNEL_ID: UCSaJppP4zb2vivjxYfTqOKw
-      CHAT_ENABLED: ${CHAT_ENABLED:-false}
-      CHAT_MODEL: ${CHAT_MODEL:-gemini-3.1-flash}
-      CHAT_FALLBACK_MODELS: ${CHAT_FALLBACK_MODELS:-gemini-3.1-flash-lite,gemini-2.5-flash}
-      CHAT_TIMEOUT_MS: ${CHAT_TIMEOUT_MS:-60000}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      EMBEDDING_ENABLED: ${EMBEDDING_ENABLED:-false}
-      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-self-hosted}
-      EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-}
-      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
-      EMBEDDING_DIM: "384"
-      EMBEDDING_VERSION: "2"
+    env_file:
+      - envs/common.env
+      - ${ENV_FILE:-envs/neon.env}
     ports:
       - "3000:3000"
 
@@ -73,58 +57,45 @@ services:
     container_name: christiantube-youtube-processor
     restart: always
     env_file:
-      - .processor.env
-    environment:
-      WORK_DIR: /work
-      POLL_INTERVAL: "300"
-      BATCH_LIMIT: "5"
-      PRIORITY_CHANNEL_IDS: "UCpZG4Vl2tqg5cIfGMocI2Ag"
+      - envs/common.env
+      - ${ENV_FILE:-envs/neon.env}
     volumes:
       - processor-work:/work
+      - ./services/youtube-processor/worker.py:/app/worker.py
       - ./services/youtube-processor/eligible_videos.sql:/app/eligible_videos.sql:ro
+      - ./releases:/app/releases
+      - ./.git/modules/releases:/app/.git/modules/releases
 
   embedder:
     build:
       context: .
       dockerfile: services/embedder/Dockerfile
-      args:
-        EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
-        EMBEDDING_DIM: ${EMBEDDING_DIM:-384}
-        EMBEDDING_VERSION: ${EMBEDDING_VERSION:-2}
-        EMBEDDING_MAX_TOKENS: ${EMBEDDING_MAX_TOKENS:-256}
     container_name: christiantube-embedder
     restart: always
+    depends_on:
+      db:
+        condition: service_healthy
     env_file:
-      - .embedder.env
-    environment:
-      ONNX_DIR: /model
-      POLL_INTERVAL: "300"
-      BATCH_LIMIT: "32"
-      EMBED_CHUNKS: "1"
-      EMBED_CHUNK_BATCH: "32"
-      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
-      EMBEDDING_DIM: "384"
-      EMBEDDING_VERSION: "2"
-      EMBEDDING_MAX_TOKENS: "256"
+      - envs/common.env
+      - ${ENV_FILE:-envs/neon.env}
+    volumes:
+      - ./services/embedder:/app
     command: ["python", "-u", "worker.py"]
 
   transcriber:
     build:
       context: .
-      dockerfile: services/transcriber/Dockerfile
+      dockerfile: tools/transcriber/Dockerfile
     container_name: christiantube-transcriber
     restart: always
     env_file:
-      - .contentworker.env
-    environment:
-      POLL_INTERVAL: "300"
-      BATCH_LIMIT: "5"
-      MAX_RETRIES: "3"
-      CONTENT_VERSION: "2"
-      USE_CAPTIONS: "true"
-      PRIORITY_CHANNEL_IDS: "UCpZG4Vl2tqg5cIfGMocI2Ag"
+      - envs/common.env
+      - ${ENV_FILE:-envs/neon.env}
     volumes:
       - content-work:/work
+      - ./releases:/app/releases
+      - ./.git/modules/releases:/app/.git/modules/releases
+      - ./tools/transcriber/src:/app/src
 
   chunker:
     build:
@@ -132,18 +103,15 @@ services:
       dockerfile: services/chunker/Dockerfile
     container_name: christiantube-chunker
     restart: always
+    depends_on:
+      db:
+        condition: service_healthy
     env_file:
-      - .contentworker.env
-    environment:
-      OLLAMA_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: gemma3:4b
-      OLLAMA_TIMEOUT: "2700"
-      POLL_INTERVAL: "300"
-      BATCH_LIMIT: "5"
-      MAX_RETRIES: "3"
-      CHUNK_VERSION: "2"
-      LOG_IDEAS: "true"
-      PRIORITY_CHANNEL_IDS: "UCpZG4Vl2tqg5cIfGMocI2Ag"
+      - envs/common.env
+      - ${ENV_FILE:-envs/neon.env}
+    volumes:
+      - ./services/chunker:/app
+    command: ["python", "-u", "worker.py"]
 
 volumes:
   pgdata:

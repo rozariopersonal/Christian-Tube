@@ -15,7 +15,9 @@ import base64
 import json
 import logging
 import os
+import random
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -77,19 +79,21 @@ class Config:
 
 
 def load_config(args: argparse.Namespace) -> Config:
-    # Auto-load .processor.env if present
-    for candidate in [Path(".processor.env"), Path("../.processor.env"), Path("../../.processor.env")]:
-        if candidate.exists():
-            try:
-                with open(candidate, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith("#") and "=" in line:
-                            k, v = line.split("=", 1)
-                            os.environ.setdefault(k.strip(), v.strip())
-                break
-            except Exception:
-                pass
+    # Auto-load env files if present
+    env_dirs = [Path("envs"), Path("../envs"), Path("../../envs"), Path(".")]
+    for ed in env_dirs:
+        for fname in ["common.env", "neon.env", "local.env", ".processor.env"]:
+            candidate = ed / fname
+            if candidate.exists():
+                try:
+                    with open(candidate, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith("#") and "=" in line:
+                                k, v = line.split("=", 1)
+                                os.environ.setdefault(k.strip(), v.strip())
+                except Exception:
+                    pass
 
     def _env(name: str, default: str = "") -> str:
         return os.environ.get(name, default).strip()
@@ -288,6 +292,22 @@ class Database:
                SET "audioUploadStatus"='completed', "audioUrl"=%s, "audioLastError"=NULL
                WHERE "id"=%s""",
             (audio_url, video_id),
+        )
+
+    def batch_mark_completed(self, items: list[tuple[str, str]]) -> None:
+        if not items:
+            return
+        from psycopg2.extras import execute_values
+        execute_values(
+            self.cur,
+            """UPDATE "Video" AS v
+               SET "audioUploadStatus"='completed',
+                   "audioUrl"=data.audio_url,
+                   "audioLastError"=NULL,
+                   "audioRetryCount"=0
+               FROM (VALUES %s) AS data(video_id, audio_url)
+               WHERE v."id" = data.video_id""",
+            items,
         )
 
     def mark_failed(self, video_id: str, error: str) -> None:
@@ -768,6 +788,76 @@ class GitHubRepo:
             put_resp.raise_for_status()
 
 
+class LocalGitRepo:
+    def __init__(self, repo_dir: Path, seed_dir: Path | None, github_repo: str, github_token: str | None):
+        self.repo_dir = repo_dir
+        self.seed_dir = seed_dir
+        self.github_repo = github_repo
+        self.github_token = github_token
+        self._init()
+
+    def _run_git(self, cmd: list[str], check: bool = True) -> str:
+        res = subprocess.run(cmd, cwd=str(self.repo_dir), capture_output=True, text=True)
+        if check and res.returncode != 0:
+            raise RuntimeError(f"git command failed: {' '.join(cmd)}\n{res.stderr}")
+        return res.stdout.strip()
+
+    def _init(self) -> None:
+        if not (self.repo_dir / ".git").exists():
+            if self.seed_dir and (self.seed_dir / ".git").exists():
+                log.info("Seeding releases repo from %s to %s...", self.seed_dir, self.repo_dir)
+                shutil.copytree(str(self.seed_dir), str(self.repo_dir), dirs_exist_ok=True)
+            else:
+                clone_url = f"https://{self.github_token}@github.com/{self.github_repo}.git" if self.github_token else f"https://github.com/{self.github_repo}.git"
+                subprocess.run(["git", "clone", clone_url, str(self.repo_dir)], check=True)
+
+        self._run_git(["git", "config", "user.name", "Christian-Tube YouTube Processor"])
+        self._run_git(["git", "config", "user.email", "bot@privatetube.org"])
+        if self.github_token:
+            auth_url = f"https://{self.github_token}@github.com/{self.github_repo}.git"
+            self._run_git(["git", "remote", "set-url", "origin", auth_url])
+        log.info("LocalGitRepo initialized at %s", self.repo_dir)
+
+    def read_text_or_none(self, rel_path: str) -> str | None:
+        target = self.repo_dir / rel_path
+        if not target.exists():
+            return None
+        return target.read_text(encoding="utf-8")
+
+    def upsert(self, rel_path: str, content: str, message: str) -> None:
+        target = self.repo_dir / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        self._run_git(["git", "add", rel_path])
+        self._run_git(["git", "commit", "-m", message])
+        log.info("Committed %s locally in Git WAL", rel_path)
+
+    def push_batch(self, max_retries: int = 5) -> bool:
+        for attempt in range(1, max_retries + 1):
+            try:
+                log.info("Pulling latest releases with rebase before push (attempt %d/%d)...", attempt, max_retries)
+                self._run_git(["git", "pull", "--rebase", "origin", "main"])
+                self._run_git(["git", "push", "origin", "main"])
+                log.info("Releases pushed successfully to GitHub.")
+                return True
+            except Exception as e:
+                log.warning("Push attempt %d failed: %s", attempt, e)
+                status = self._run_git(["git", "status", "--porcelain"], check=False)
+                if "UU manifest.json" in status:
+                    manifest_path = self.repo_dir / "manifest.json"
+                    manifest_path.write_text(json.dumps({"revision": str(int(time.time() * 1000))}, indent=2), encoding="utf-8")
+                    self._run_git(["git", "add", "manifest.json"])
+                    self._run_git(["git", "rebase", "--continue"], check=False)
+                elif "UU" in status:
+                    self._run_git(["git", "rebase", "--abort"], check=False)
+
+                if attempt == max_retries:
+                    log.error("All push attempts failed.")
+                    return False
+                time.sleep(2 * attempt + random.uniform(0.5, 2.0))
+        return False
+
+
 def slugify(text: str) -> str:
     """Creates a clean URL-safe slug for series IDs."""
     cleaned = re.sub(r"[^a-zA-Z0-9]+", "_", text.strip().lower()).strip("_")
@@ -807,7 +897,7 @@ def detect_category(channel_name: str) -> str:
     for kw in keywords:
         if kw in combined:
             return "Songs"
-    return "General Sermons"
+    return "YouTube"
 
 
 def detect_languages(title: str, description: str, default_lang: str = "English") -> tuple[str, str | None]:
@@ -1181,12 +1271,9 @@ def update_channel_audio_catalog(
             "tracks": [],
         }
     else:
-        # Update category if it was missing or default
-        if series_data.get("category", "General Sermons") == "General Sermons":
+        # Update category if it was missing or legacy default
+        if series_data.get("category") in ("General Sermons", "Sermons", None):
             series_data["category"] = series_category
-
-    if series_data.get("category") == "Sermons":
-        series_data["category"] = "General Sermons"
 
     # Ensure track fields reflect the series
     track["seriesId"] = series_id
@@ -1409,6 +1496,25 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
             desc_header = f"Speaker: {speaker} | Language: {lang_str} | Channel: {channel}"
             rich_desc = f"{desc_header}\n\n{final_desc}" if final_desc else desc_header
 
+            # Check if track is already uploaded in local Git catalog
+            series_id = slugify(channel)
+            series_path = f"audio/series/{series_id}.json"
+            raw_series = repo.read_text_or_none(series_path)
+            existing_track = None
+            if raw_series:
+                try:
+                    sdata = json.loads(raw_series)
+                    for t in sdata.get("tracks", []):
+                        if t.get("youtubeVideoId") == video_id and t.get("audioUrl"):
+                            existing_track = t
+                            break
+                except Exception:
+                    pass
+
+            if existing_track:
+                log.info("  >> Track %s already uploaded in Git releases catalog (%s). Reusing.", video_id, existing_track["audioUrl"])
+                return (video_id, existing_track["audioUrl"])
+
             # 1. Upload to Audio.com (and link to channel collection)
             audio_url, stream_url = audiocom.upload_audio(
                 audio_file,
@@ -1422,7 +1528,6 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
 
             # 2. Update GitHub Releases Audio Catalog under channel collection/series
             pub_date = published_at.isoformat() if hasattr(published_at, "isoformat") else str(published_at)
-            series_id = slugify(channel)
             update_channel_audio_catalog(
                 repo,
                 channel_name=channel,
@@ -1446,13 +1551,13 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
                 },
             )
 
-            # 3. Mark completed in DB
-            db.mark_completed(video_id, audio_url)
             log.info(">> Successfully completed: %s", video_id)
+            return (video_id, audio_url)
 
     except Exception as e:
         log.error(">> Failed processing %s: %s", video_id, e)
         db.mark_failed(video_id, str(e))
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -1490,7 +1595,10 @@ def main():
 
     db = Database(cfg.database_url)
     audiocom = AudioComClient(cfg.audio_com_token)
-    repo = GitHubRepo(cfg.github_repo, cfg.github_token)
+
+    releases_dir = Path(os.environ.get("RELEASES_DIR", str(cfg.work_dir / "releases")))
+    seed_dir = Path(os.environ.get("RELEASES_SEED_DIR", "/app/releases-seed"))
+    repo = LocalGitRepo(releases_dir, seed_dir, cfg.github_repo, cfg.github_token)
 
     # Purge all Audio.com uploads if requested
     if cfg.purge_audiocom:
@@ -1500,40 +1608,62 @@ def main():
 
     db.release_stale_processing()
 
+    completed_buffer: list[tuple[str, str]] = []
+
+    def flush_batch():
+        if not completed_buffer:
+            return
+        log.info("Flushing batch: %d video(s) to GitHub remote and Neon DB...", len(completed_buffer))
+        repo.push_batch()
+        db.batch_mark_completed(completed_buffer)
+        log.info("Batch of %d video(s) successfully marked completed in DB.", len(completed_buffer))
+        completed_buffer.clear()
+
     # Single video mode
     if cfg.video_id:
         row = db.fetch_one(cfg.video_id)
         if not row:
             log.error("Video ID %s not found in database.", cfg.video_id)
             sys.exit(1)
-        process_video(db, audiocom, repo, cfg, row)
+        res = process_video(db, audiocom, repo, cfg, row)
+        if res:
+            repo.push_batch()
+            db.mark_completed(res[0], res[1])
         return
 
     # Continuous polling loop
-    while _running:
-        videos = db.fetch_eligible_videos(cfg)
-        if not videos:
-            if cfg.once:
-                log.info("No eligible videos found, exiting (--once).")
-                break
-            log.info("No pending videos from ChristianApp channels. Sleeping %ds...", cfg.poll_interval)
-            for _ in range(cfg.poll_interval):
+    try:
+        while _running:
+            videos = db.fetch_eligible_videos(cfg)
+            if not videos:
+                flush_batch()
+                if cfg.once:
+                    log.info("No eligible videos found, exiting (--once).")
+                    break
+                log.info("No pending videos from ChristianApp channels. Sleeping %ds...", cfg.poll_interval)
+                for _ in range(cfg.poll_interval):
+                    if not _running:
+                        break
+                    time.sleep(1)
+                continue
+
+            log.info("Found %d video(s) to process.", len(videos))
+            for row in videos:
                 if not _running:
                     break
-                time.sleep(1)
-            continue
+                res = process_video(db, audiocom, repo, cfg, row)
+                if res:
+                    completed_buffer.append(res)
+                    if len(completed_buffer) >= cfg.batch_limit:
+                        flush_batch()
 
-        log.info("Found %d video(s) to process.", len(videos))
-        for row in videos:
-            if not _running:
+            flush_batch()
+            if cfg.once:
                 break
-            process_video(db, audiocom, repo, cfg, row)
-
-        if cfg.once:
-            break
-
-    db.close()
-    log.info("YouTube Video Processor stopped.")
+    finally:
+        flush_batch()
+        db.close()
+        log.info("YouTube Video Processor stopped.")
 
 
 if __name__ == "__main__":

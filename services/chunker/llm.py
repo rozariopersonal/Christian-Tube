@@ -1,9 +1,8 @@
-"""Ollama (Qwen) idea extraction for video transcripts.
+"""Semantic idea segmentation and Ollama concept summarization.
 
-The transcript is split into overlapping windows so long sermons fit the
-model context. Each window yields JSON ideas; windows are merged and
-near-duplicate quotes are dropped. No API keys are involved - the model runs
-locally (Docker reaches the host via OLLAMA_URL).
+Segments transcript sentences into contiguous idea blocks using cosine similarity
+valleys between consecutive sentence embeddings (from Local Postgres).
+Each segmented idea block is then summarized by Ollama (gemma3:4b).
 """
 
 import json
@@ -12,72 +11,23 @@ import os
 import re
 import time
 
-log = logging.getLogger("content-worker.llm")
+log = logging.getLogger("chunker.llm")
 
-# Transcript windows of ~6000 chars with ~800 chars of overlap.
-WINDOW_CHARS = int(os.environ.get("OLLAMA_WINDOW_CHARS", "6000"))
-WINDOW_OVERLAP = int(os.environ.get("OLLAMA_WINDOW_OVERLAP", "800"))
-OLLAMA_TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "900"))
-# Minimum duration an idea may claim; snap end_sec up so end_sec > start_sec
-# (LLM boundary estimates routinely round to equal seconds otherwise).
-MIN_IDEA_SECS = float(os.environ.get("MIN_IDEA_SECS", "2"))
+OLLAMA_TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "90"))
 
-SYSTEM_PROMPT = (
-    "You are an expert sermon analyst. You receive a timestamped transcript of a "
-    "Christian sermon. Extract the ideas, thoughts and concepts the speaker "
-    "communicated. Rules:\n"
-    "- Return ONLY valid JSON, no markdown, no commentary.\n"
-    "- Each idea is one self-contained thought or concept (3-8 sentences max).\n"
-    "- The statement must be readable standalone without the transcript.\n"
-    "- The quote must be the EXACT verbatim text from the transcript.\n"
-    "- start_sec/end_sec are the SECOND offsets where the idea begins and ends, "
-    "derived from the [MM:SS] markers in the transcript.\n"
-    "- scriptures: ONLY bible references the speaker explicitly names in the "
-    "transcript, normalized (e.g. \"1 Corinthians 3:7\", \"John 17:23\"). Empty "
-    "array when the speaker cites none. NEVER list a reference that does not "
-    "appear in the transcript, and NEVER list a translation/version name "
-    "(e.g. \"Living Bible\", \"NASB\") in place of a book reference.\n"
-    "- Include the scripture references and people mentioned in the keywords.\n"
-    '- JSON shape: {"ideas":[{"title":"...","statement":"...","quote":"...","start_sec":123,"end_sec":144,"scriptures":["John 17:23"],"keywords":["..."]}]}\n'
-    "Return 4 to 8 ideas."
+SUMMARIZE_PROMPT = (
+    "You are an expert sermon analyst. You receive a contiguous block of sentences "
+    "from a Christian sermon. Summarize the core teaching and thought expressed.\n"
+    "Rules:\n"
+    "- Return ONLY valid JSON, no markdown fences, no conversational text.\n"
+    "- title: A clear, descriptive 4-7 word concept title.\n"
+    "- summary: A 1-2 sentence concise standalone summary of what the speaker is teaching.\n"
+    '- JSON shape: {"title": "...", "summary": "..."}\n'
 )
 
 
-def parse_timestamps_markers(transcript: str) -> float:
-    """Largest end timestamp seen in [MM:SS -> MM:SS] markers (seconds)."""
-    max_sec = 0.0
-    for m in re.finditer(r"\[(\d{1,2}):(\d{2})\s*->\s*(\d{1,2}):(\d{2})\]", transcript):
-        end = int(m.group(3)) * 60 + int(m.group(4))
-        max_sec = max(max_sec, float(end))
-    return max_sec
-
-
-def _windowize(text: str) -> list[str]:
-    if len(text) <= WINDOW_CHARS:
-        return [text]
-    windows: list[str] = []
-    start = 0
-    while start < len(text):
-        end = min(start + WINDOW_CHARS, len(text))
-        if end < len(text):
-            # extend to the next line so we do not cut mid-sentence
-            nl = text.find("\n", max(end - 200, start))
-            if nl != -1:
-                end = nl
-        windows.append(text[start:end])
-        if end >= len(text):
-            break
-        start = max(end - WINDOW_OVERLAP, start + 1)
-    return windows
-
-
 def _robust_json_loads(text: str) -> dict:
-    """Parse an LLM JSON reply tolerating common gemma quirks.
-
-    Strips markdown fences, extracts the first balanced {...} object, and
-    removes trailing commas so a slightly-off reply parses on the first
-    attempt instead of burning a retry.
-    """
+    """Parse an LLM JSON reply tolerating markdown fences and trailing commas."""
     text = (text or "").strip()
     fenced = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
     if fenced:
@@ -118,7 +68,7 @@ def _robust_json_loads(text: str) -> dict:
 
 class LLM:
     def __init__(self, url: str, model: str, timeout: int = OLLAMA_TIMEOUT):
-        import requests  # noqa: E402
+        import requests
 
         self._requests = requests
         self.url = url.rstrip("/")
@@ -137,8 +87,7 @@ class LLM:
             ],
             "response_format": {"type": "json_object"},
         }
-        last_err: Exception | None = None
-        for attempt in range(1, 4):
+        for attempt in range(1, 3):
             try:
                 resp = self._requests.post(
                     self.base,
@@ -148,105 +97,108 @@ class LLM:
                 resp.raise_for_status()
                 content = resp.json()["choices"][0]["message"]["content"]
                 return _robust_json_loads(content)
-            except Exception as e:  # noqa: BLE001
-                last_err = e
-                log.warning("  Ollama call attempt %d/3 failed: %s", attempt, e)
-                if attempt < 3:
-                    time.sleep(min(10 * attempt, 30))
-        raise last_err or RuntimeError("Ollama call failed after retries")
+            except Exception as e:
+                log.warning("  Ollama call attempt %d/2 failed: %s", attempt, e)
+                if attempt < 2:
+                    time.sleep(2)
+        raise RuntimeError("Ollama call failed after retries")
 
 
-def _norm_idea(idea: dict, max_sec: float) -> dict | None:
-    statement = (idea.get("statement") or "").strip()
-    if not statement:
-        statement = (idea.get("title") or "").strip()
-    if not statement:
-        return None
-    title = (idea.get("title") or statement[:80]).strip()
-    quote = (idea.get("quote") or "").strip()
-    start = idea.get("start_sec")
-    end = idea.get("end_sec")
-    try:
-        start = float(start)
-    except (TypeError, ValueError):
-        start = None
-    try:
-        end = float(end)
-    except (TypeError, ValueError):
-        end = None
-    if end is None:
-        end = start + 60 if start is not None else None
-    if start is None or end is None:
-        start = end = None
-    start = max(0.0, min(start, max_sec)) if start is not None else None
-    end = max(0.0, min(end, max_sec)) if end is not None else None
-    if start is not None and end is not None and end < start:
-        start, end = end, start
-    if start is not None and end is not None and end - start < MIN_IDEA_SECS:
-        end = start + MIN_IDEA_SECS
-    keywords = [str(k).strip() for k in (idea.get("keywords") or []) if str(k).strip()]
-    scriptures: list[str] = []
-    for raw in idea.get("scriptures") or []:
-        s = re.sub(r"\s+", " ", str(raw)).strip().strip(".,;: ")[:80]
-        if s:
-            scriptures.append(s)
-    return {
-        "title": title,
-        "statement": statement,
-        "quote": quote,
-        "start_sec": start,
-        "end_sec": end,
-        "scriptures": scriptures,
-        "keywords": keywords,
+def cosine_similarity(v1: list[float], v2: list[float]) -> float:
+    """Cosine similarity between two vectors (vectors are already L2 normalized)."""
+    if not v1 or not v2 or len(v1) != len(v2):
+        return 0.0
+    return float(sum(a * b for a, b in zip(v1, v2)))
+
+
+def segment_sentences_by_similarity(
+    sentences: list[dict],
+    embeddings: list[list[float]],
+    min_sentences: int = 5,
+    max_sentences: int = 25,
+) -> list[list[dict]]:
+    """Segment a sequence of sentences into contiguous idea blocks using similarity valleys."""
+    n = len(sentences)
+    if n <= min_sentences:
+        return [sentences]
+
+    # Calculate consecutive pairwise cosine similarity
+    sims = [cosine_similarity(embeddings[i], embeddings[i + 1]) for i in range(n - 1)]
+
+    # 3-window moving average smoothing to avoid spurious 1-sentence noise
+    smoothed: list[float] = []
+    for i in range(len(sims)):
+        window = sims[max(0, i - 1) : min(len(sims), i + 2)]
+        smoothed.append(sum(window) / len(window))
+
+    # Identify candidate split points
+    splits: list[int] = []
+    last_split = 0
+
+    for i in range(len(smoothed)):
+        current_len = (i + 1) - last_split
+        # Must have at least min_sentences
+        if current_len < min_sentences:
+            continue
+
+        # Force split if reached max_sentences
+        if current_len >= max_sentences:
+            splits.append(i + 1)
+            last_split = i + 1
+            continue
+
+        # Check for valley (local minimum)
+        is_valley = True
+        if i > 0 and sims[i] > sims[i - 1]:
+            is_valley = False
+        if i < len(sims) - 1 and sims[i] >= sims[i + 1]:
+            is_valley = False
+
+        # If it is a valley and below similarity threshold
+        if is_valley and sims[i] < 0.75:
+            splits.append(i + 1)
+            last_split = i + 1
+
+    # Ensure tail is captured
+    if not splits or splits[-1] < n:
+        splits.append(n)
+
+    # Assemble groups
+    groups: list[list[dict]] = []
+    prev = 0
+    for s_idx in splits:
+        group = sentences[prev:s_idx]
+        if group:
+            groups.append(group)
+        prev = s_idx
+
+    # If the last group is too small (< min_sentences) and there are prior groups, merge it
+    if len(groups) > 1 and len(groups[-1]) < min_sentences:
+        small_tail = groups.pop()
+        groups[-1].extend(small_tail)
+
+    return groups
+
+
+def summarize_idea(llm: LLM | None, sentences: list[dict]) -> dict:
+    """Summarize an idea group using Ollama with a fast heuristic fallback."""
+    passage = " ".join(s.get("text", "") for s in sentences).strip()
+    first_sentence = sentences[0].get("text", "").strip() if sentences else "Sermon Segment"
+
+    fallback = {
+        "title": first_sentence[:60].strip(),
+        "summary": passage[:200].strip(),
     }
 
+    if not llm or len(passage) < 20:
+        return fallback
 
-_BOOK_STOP = frozenset({"the", "and", "of", "in", "a", "an", "pt", "bk"})
-
-# Bible translation/version names are NOT scripture references, even though
-# they are often "grounded" (the speaker says "the Living Bible"). Drop them.
-_TRANSLATION_RE = re.compile(
-    r"\b(?:living bible|amplified(?: bible)?|new american standard(?: bible)?|"
-    r"kjv|nkjv|nasb|esv|niv|nlt|csb|hcsb|nrsv|rsv|asv|cev|msg|tlb|nbt|gnt)\b",
-    re.IGNORECASE,
-)
-
-
-def _book_tokens(ref: str) -> list[str]:
-    return [
-        w.lower()
-        for w in re.split(r"[^A-Za-z]+", str(ref))
-        if len(w) > 2 and w.lower() not in _BOOK_STOP
-    ]
-
-
-def extract_ideas(llm: LLM, transcript: str, max_sec: float) -> list[dict]:
-    ideas: list[dict] = []
-    seen_quotes: set[str] = set()
-    transcript_lower = transcript.lower()
-    for window in _windowize(transcript):
-        user = (
-            f"Transcript (timestamps in seconds markers):\n\n{window}\n\n"
-            "Extract the ideas as JSON."
-        )
-        data = llm.chat_json(SYSTEM_PROMPT, user)
-        raw = data.get("ideas") or []
-        for idea in raw:
-            norm = _norm_idea(idea, max_sec)
-            if not norm:
-                continue
-            norm["scriptures"] = [
-                s
-                for s in (norm.get("scriptures") or [])
-                if re.search(r"\d", s)
-                and not _TRANSLATION_RE.search(s)
-                and _book_tokens(s)
-                and all(bt in transcript_lower for bt in _book_tokens(s))
-            ]
-            key = (norm["quote"] or norm["statement"])[:120]
-            if key in seen_quotes:
-                continue
-            seen_quotes.add(key)
-            ideas.append(norm)
-    # Prefer idea order from transcript windows; cap to a sane maximum
-    return ideas[:50]
+    user_prompt = f"Passage to summarize:\n\n{passage[:2000]}\n\nReturn JSON title and summary."
+    try:
+        data = llm.chat_json(SUMMARIZE_PROMPT, user_prompt)
+        title = (data.get("title") or fallback["title"]).strip().strip('"')
+        summary = (data.get("summary") or fallback["summary"]).strip().strip('"')
+        return {"title": title[:100], "summary": summary[:500]}
+    except Exception as e:
+        log.warning("  Ollama summarization fallback used: %s", e)
+        return fallback
