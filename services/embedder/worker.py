@@ -389,7 +389,7 @@ class Database:
     def fetch_eligible_sentences(self, limit: int = 128):
         self.cur.execute(
             """
-            SELECT id, "videoId", seq, text
+            SELECT id, "videoId", seq, text, "startSec", "endSec"
             FROM "VideoSentence"
             WHERE "embeddingStatus" = 'pending'
             ORDER BY "videoId", seq
@@ -443,36 +443,91 @@ class LocalVectorDatabase:
             self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
         except Exception as e:
             log.warning("Local pgvector extension note: %s", e)
+
         try:
             self.cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS "SentenceEmbedding" (
                     "sentenceId" TEXT PRIMARY KEY,
                     "videoId" TEXT NOT NULL,
                     "seq" INTEGER NOT NULL,
-                    "embedding" vector({EMBEDDING_DIM}) NOT NULL,
+                    "embedding_half" halfvec({EMBEDDING_DIM}),
+                    "startSec" FLOAT,
+                    "endSec" FLOAT,
+                    "text" TEXT,
                     "model" TEXT NOT NULL,
                     "version" INTEGER NOT NULL DEFAULT {EMBEDDING_VERSION},
                     "createdAt" TIMESTAMPTZ DEFAULT now()
                 );
-                CREATE INDEX IF NOT EXISTS "SentenceEmbedding_videoId_idx" ON "SentenceEmbedding"("videoId");
-                CREATE INDEX IF NOT EXISTS "SentenceEmbedding_hnsw_idx" ON "SentenceEmbedding" USING hnsw ("embedding" vector_cosine_ops);
+                CREATE INDEX IF NOT EXISTS "SentenceEmbedding_videoId_idx"
+                    ON "SentenceEmbedding"("videoId");
             """)
         except Exception as e:
             log.warning("Local SentenceEmbedding table schema note: %s", e)
+
+        # Bring a pre-halfvec schema forward (idempotent).
+        try:
+            self.cur.execute(
+                f'ALTER TABLE "SentenceEmbedding" ADD COLUMN IF NOT EXISTS '
+                f'"embedding_half" halfvec({EMBEDDING_DIM})'
+            )
+            self.cur.execute(
+                'ALTER TABLE "SentenceEmbedding" ADD COLUMN IF NOT EXISTS "startSec" FLOAT'
+            )
+            self.cur.execute(
+                'ALTER TABLE "SentenceEmbedding" ADD COLUMN IF NOT EXISTS "endSec" FLOAT'
+            )
+            self.cur.execute(
+                'ALTER TABLE "SentenceEmbedding" ADD COLUMN IF NOT EXISTS "text" TEXT'
+            )
+        except Exception as e:
+            log.warning("Local SentenceEmbedding migration note: %s", e)
+
+        # Backfill halfvec from any legacy float32 vectors before dropping them.
+        try:
+            self.cur.execute(
+                f"""UPDATE "SentenceEmbedding"
+                       SET "embedding_half" = "embedding"::halfvec
+                     WHERE "embedding_half" IS NULL AND "embedding" IS NOT NULL"""
+            )
+        except Exception as e:
+            log.warning("Local SentenceEmbedding halfvec backfill note: %s", e)
+
+        # HNSW index for global ANN semantic search ("exact moments").
+        try:
+            self.cur.execute(
+                f"""CREATE INDEX IF NOT EXISTS "SentenceEmbedding_hnsw_half_idx"
+                    ON "SentenceEmbedding" USING hnsw ("embedding_half" halfvec_cosine_ops)
+                    WITH (m = 16, ef_construction = 64)"""
+            )
+        except Exception as e:
+            log.warning("Local SentenceEmbedding halfvec HNSW note: %s", e)
+
+        # Legacy float32 column + index are retired: same int8 values live in
+        # embedding_half (fp16 exactly represents int8), at half the size.
+        try:
+            self.cur.execute('DROP INDEX IF EXISTS "SentenceEmbedding_hnsw_idx"')
+            self.cur.execute('ALTER TABLE "SentenceEmbedding" DROP COLUMN IF EXISTS "embedding"')
+        except Exception as e:
+            log.warning("Local SentenceEmbedding legacy cleanup note: %s", e)
 
     def save_sentence_embeddings(self, items: list[tuple]):
         if not items:
             return
         from psycopg2.extras import execute_values
         query = """
-            INSERT INTO "SentenceEmbedding" ("sentenceId", "videoId", "seq", "embedding", "model", "version")
+            INSERT INTO "SentenceEmbedding"
+                ("sentenceId", "videoId", "seq", "embedding_half",
+                 "startSec", "endSec", "text", "model", "version")
             VALUES %s
             ON CONFLICT ("sentenceId") DO UPDATE SET
-                "embedding" = EXCLUDED."embedding",
+                "embedding_half" = EXCLUDED."embedding_half",
+                "startSec" = EXCLUDED."startSec",
+                "endSec" = EXCLUDED."endSec",
+                "text" = EXCLUDED."text",
                 "model" = EXCLUDED."model",
                 "version" = EXCLUDED."version"
         """
-        template = "(%s, %s, %s, %s::vector, %s, %s)"
+        template = "(%s, %s, %s, %s::halfvec, %s, %s, %s, %s, %s)"
         execute_values(self.cur, query, items, template=template)
 
     def close(self):
@@ -536,9 +591,12 @@ def process_sentences_batch(neon_db: Database, local_db: LocalVectorDatabase, ro
 
         items = []
         for row, vec in zip(rows, vectors):
-            sentence_id, video_id, seq, _ = row
+            sentence_id, video_id, seq, sentence_text, start_sec, end_sec = row
             vec_str = f"[{','.join(str(round(float(x), 6)) for x in vec)}]"
-            items.append((sentence_id, video_id, seq, vec_str, MODEL_ID, EMBEDDING_VERSION))
+            items.append(
+                (sentence_id, video_id, seq, vec_str, start_sec, end_sec,
+                 (sentence_text or "").strip(), MODEL_ID, EMBEDDING_VERSION)
+            )
 
         local_db.save_sentence_embeddings(items)
         neon_db.mark_sentences_completed(sentence_ids)

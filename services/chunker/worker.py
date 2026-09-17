@@ -198,7 +198,7 @@ class LocalDatabase:
     def fetch_embeddings(self, video_id: str) -> dict[str, list[float]]:
         self.cur.execute(
             """
-            SELECT "sentenceId", "embedding"::text
+            SELECT "sentenceId", "embedding_half"::text
             FROM "SentenceEmbedding"
             WHERE "videoId" = %s
             ORDER BY seq ASC
