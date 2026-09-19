@@ -1,46 +1,55 @@
-"""Export + int8-dynamic-quantize the embedding model at image build time."""
+"""Download the pre-quantized Gemma-300M int8 ONNX + tokenizer at image build time.
+
+The onnx-community export is fetched directly from its Hugging Face repo (the
+weights alone are ~294 MB — above GitHub's per-file cap, so they are not mirrored
+in the releases repo). Candidates try the HF CDN first (rapid.usa.hf.co edge),
+then the canonical huggingface.co resolve endpoint.
+
+Files: model_quantized.onnx (graph), model_quantized.onnx_data (weights),
+tokenizer.json (BPE).
+"""
 
 import os
 import shutil
-
-from optimum.onnxruntime import ORTModelForFeatureExtraction, ORTQuantizer
-from optimum.onnxruntime.configuration import AutoQuantizationConfig
-from transformers import AutoTokenizer
+import urllib.request
 
 from model_contract import MODEL_ID, ONNX_DIR
 
-_onnx_dir = os.environ.get("ONNX_BUILD_DIR", ONNX_DIR)
+# HF path (inside the model repo) -> local filename
+FILES = {
+    "onnx/model_quantized.onnx": ("model_quantized.onnx", 500_000),            # ~568 KB graph
+    "onnx/model_quantized.onnx_data": ("model_quantized.onnx_data", 300_000_000),  # ~294 MB weights
+    "tokenizer.json": ("tokenizer.json", 15_000_000),                          # ~20 MB BPE tokenizer
+}
+
+DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 600
+
+
+def _download(hf_path: str, dest: str, min_bytes: int):
+    if os.path.exists(dest) and os.path.getsize(dest) >= min_bytes:
+        print(f"Reusing existing {dest} ({os.path.getsize(dest):,} bytes)")
+        return
+
+    url = f"https://huggingface.co/{MODEL_ID}/resolve/main/{hf_path}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "christiantube-embedder/builder"})
+        with urllib.request.urlopen(req, timeout=DEFAULT_DOWNLOAD_TIMEOUT_SECONDS) as resp, \
+                open(dest, "wb") as out:
+            shutil.copyfileobj(resp, out)
+        size = os.path.getsize(dest)
+        if size < min_bytes:
+            raise IOError(f"payload too small ({size:,} bytes)")
+        print(f"Downloaded {hf_path} ({size:,} bytes)")
+        return
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(f"Download failed for {url}: {e}") from e
 
 
 def main():
-    staged = "/tmp/staged"
-    shutil.rmtree(staged, ignore_errors=True)
-    shutil.rmtree(_onnx_dir, ignore_errors=True)
-    os.makedirs(_onnx_dir, exist_ok=True)
-
-    model = ORTModelForFeatureExtraction.from_pretrained(
-        MODEL_ID,
-        export=True,
-        provider="CPUExecutionProvider",
-    )
-    model.save_pretrained(staged)
-    AutoTokenizer.from_pretrained(MODEL_ID).save_pretrained(staged)
-
-    quantizer = ORTQuantizer.from_pretrained(staged, file_name="model.onnx")
-    quantization_config = AutoQuantizationConfig.avx512(is_static=False)
-    quantizer.quantize(
-        save_dir=_onnx_dir,
-        quantization_config=quantization_config,
-        use_external_data_format=False,
-    )
-
-    for name in ("tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.txt"):
-        src = os.path.join(staged, name)
-        if os.path.exists(src):
-            shutil.copy2(src, os.path.join(_onnx_dir, name))
-
-    shutil.rmtree(staged, ignore_errors=True)
-    print(f"Model exported and int8-quantized into {_onnx_dir}: {sorted(os.listdir(_onnx_dir))}")
+    os.makedirs(ONNX_DIR, exist_ok=True)
+    for hf_path, (local_name, min_bytes) in FILES.items():
+        _download(hf_path, os.path.join(ONNX_DIR, local_name), min_bytes)
+    print(f"Gemma ONNX assets staged in {ONNX_DIR}: {sorted(os.listdir(ONNX_DIR))}")
 
 
 if __name__ == "__main__":

@@ -72,6 +72,8 @@ model Video {
   channel                Channel?            @relation(fields: [channelId], references: [id])
   videoEmbedding         VideoEmbedding?
   videoChunks            VideoChunk[]
+  videoIdeas             VideoIdea[]
+  videoSentences         VideoSentence[]
   // shortCreations back-relation removed; ShortCreation now tracks by youtubeVideoId only
 
   @@index([channelId])
@@ -97,6 +99,47 @@ model VideoEmbedding {
 
   @@index([version])
   @@map("VideoEmbedding")
+}
+
+model VideoIdea {
+  id            String          @id @default(uuid())
+  videoId       String
+  seq           Int
+  title         String?
+  summary       String?         @db.Text
+  startSec      Float
+  endSec        Float
+  sentenceCount Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  video         Video           @relation(fields: [videoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sentences     VideoSentence[]
+
+  @@unique([videoId, seq])
+  @@index([videoId, startSec])
+  @@map("VideoIdea")
+}
+
+model VideoSentence {
+  id              String      @id @default(uuid())
+  videoId         String
+  ideaId          String?
+  seq             Int
+  text            String      @db.Text
+  startSec        Float
+  endSec          Float
+  embeddingStatus String      @default("pending") // pending | completed | failed
+  createdAt       DateTime    @default(now())
+
+  video           Video       @relation(fields: [videoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  idea            VideoIdea?  @relation(fields: [ideaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([videoId, seq])
+  @@index([videoId, startSec])
+  @@index([ideaId])
+  @@index([embeddingStatus])
+  @@map("VideoSentence")
 }
 
 model VideoChunk {
@@ -303,7 +346,11 @@ model AudioTrack {
   speaker          String?
   durationSeconds  Int          @default(0)
   audioUrl         String
+  streamUrl        String?
+  fallbackUrl      String?
   ifCoverUrl       String?
+  thumbnailUrl     String?
+  youtubeVideoId   String?
   scriptureBook    String?
   scriptureChapter Int?
   scriptureVerse   Int?

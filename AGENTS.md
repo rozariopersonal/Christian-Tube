@@ -603,6 +603,30 @@ All worktrees reside under `.worktrees/<task-name>/` (which is git-ignored along
 
 ---
 
+## Docker Compose & Environment Standard
+
+All backend and pipeline daemon services (`backend`, `youtube-processor`, `transcriber`, `chunker`, `embedder`) share a single unified environment configuration per target environment.
+
+### 1. Environment Folder (`envs/`)
+- All environment files live exclusively under `envs/`.
+- Never create individual `.processor.env`, `.embedder.env`, or `.transcriber.env` files scattered across the root.
+- `envs/example.env`: Canonical template documenting all shared and service-specific variables.
+- `envs/local.env`: Pre-configured for local Docker PostgreSQL (`db:5432`).
+- `envs/neon.env`: Pre-configured for cloud Neon database.
+
+### 2. Testing via Docker Compose
+Agents testing services via Docker Compose **must** supply the target environment file via `--env-file`:
+
+```bash
+# Test against local Docker stack:
+docker compose --env-file envs/local.env up -d <service>
+
+# Test against cloud Neon stack:
+docker compose --env-file envs/neon.env up -d <service>
+```
+
+---
+
 ## General repository rules
 
 - Run `flutter analyze` and `flutter test` in `apps/mobile` after any UI change;

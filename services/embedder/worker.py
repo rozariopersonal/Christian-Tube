@@ -21,6 +21,7 @@ import psycopg2
 
 from model import embed_texts
 from model_contract import (
+    EMBEDDING_DIM,
     EMBEDDING_VERSION,
     MODEL_ID,
     ONNX_DIR,
@@ -67,10 +68,11 @@ def sanitize_db_url(url: str) -> str:
 
 
 class Config:
-    def __init__(self, database_url, poll_interval=300, batch_limit=32, max_retries=3,
+    def __init__(self, database_url, local_database_url="", poll_interval=300, batch_limit=32, max_retries=3,
                  redo=False, retry_failed=False, once=False, embed_chunks=False,
                  chunk_batch_limit=32):
         self.database_url = database_url
+        self.local_database_url = local_database_url
         self.poll_interval = poll_interval
         self.batch_limit = batch_limit
         self.max_retries = max_retries
@@ -100,8 +102,11 @@ def load_config(args: argparse.Namespace) -> Config:
         log.error("DATABASE_URL (or DIRECT_URL) is required in environment.")
         sys.exit(1)
 
+    local_db_url = os.environ.get("LOCAL_DATABASE_URL", "postgresql://postgres:postgres@db:5432/christiantube?schema=public").strip()
+
     return Config(
         database_url=db_url,
+        local_database_url=local_db_url,
         poll_interval=int(os.environ.get("POLL_INTERVAL", args.poll_interval)),
         batch_limit=int(os.environ.get("BATCH_LIMIT", args.batch_limit)),
         max_retries=int(os.environ.get("MAX_RETRIES", args.max_retries)),
@@ -140,10 +145,10 @@ class Database:
             log.warning("Ensure Video embedding columns note: %s", e)
 
         try:
-            self.cur.execute("""
+            self.cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS "VideoEmbedding" (
                     "videoId" TEXT NOT NULL PRIMARY KEY,
-                    "embedding" vector(384) NOT NULL,
+                    "embedding" vector({EMBEDDING_DIM}) NOT NULL,
                     "model" TEXT NOT NULL,
                     "version" INTEGER NOT NULL DEFAULT 0,
                     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -369,6 +374,107 @@ class Database:
             (error[:500], chunk_id),
         )
 
+    # ------------------------------------------------------------------ #
+    # VideoSentence embedding queue
+    # ------------------------------------------------------------------ #
+    def release_stale_sentence_processing(self):
+        try:
+            self.cur.execute(
+                """UPDATE "VideoSentence" SET "embeddingStatus"='pending'
+                   WHERE "embeddingStatus"='processing'"""
+            )
+        except Exception:
+            pass
+
+    def fetch_eligible_sentences(self, limit: int = 128):
+        self.cur.execute(
+            """
+            SELECT id, "videoId", seq, text
+            FROM "VideoSentence"
+            WHERE "embeddingStatus" = 'pending'
+            ORDER BY "videoId", seq
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        return self.cur.fetchall()
+
+    def mark_sentences_processing(self, sentence_ids: list[str]):
+        if not sentence_ids:
+            return
+        self.cur.execute(
+            """UPDATE "VideoSentence" SET "embeddingStatus"='processing' WHERE id = ANY(%s)""",
+            (sentence_ids,),
+        )
+
+    def mark_sentences_completed(self, sentence_ids: list[str]):
+        if not sentence_ids:
+            return
+        self.cur.execute(
+            """UPDATE "VideoSentence" SET "embeddingStatus"='completed' WHERE id = ANY(%s)""",
+            (sentence_ids,),
+        )
+
+    def mark_sentences_failed(self, sentence_ids: list[str]):
+        if not sentence_ids:
+            return
+        self.cur.execute(
+            """UPDATE "VideoSentence" SET "embeddingStatus"='failed' WHERE id = ANY(%s)""",
+            (sentence_ids,),
+        )
+
+    def close(self):
+        try:
+            self.cur.close()
+            self.conn.close()
+        except Exception:
+            pass
+
+
+class LocalVectorDatabase:
+    def __init__(self, url: str):
+        self.conn = psycopg2.connect(sanitize_db_url(url), connect_timeout=30)
+        self.conn.autocommit = True
+        self.cur = self.conn.cursor()
+        self._ensure_schema()
+
+    def _ensure_schema(self):
+        try:
+            self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+        except Exception as e:
+            log.warning("Local pgvector extension note: %s", e)
+        try:
+            self.cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS "SentenceEmbedding" (
+                    "sentenceId" TEXT PRIMARY KEY,
+                    "videoId" TEXT NOT NULL,
+                    "seq" INTEGER NOT NULL,
+                    "embedding" vector({EMBEDDING_DIM}) NOT NULL,
+                    "model" TEXT NOT NULL,
+                    "version" INTEGER NOT NULL DEFAULT {EMBEDDING_VERSION},
+                    "createdAt" TIMESTAMPTZ DEFAULT now()
+                );
+                CREATE INDEX IF NOT EXISTS "SentenceEmbedding_videoId_idx" ON "SentenceEmbedding"("videoId");
+                CREATE INDEX IF NOT EXISTS "SentenceEmbedding_hnsw_idx" ON "SentenceEmbedding" USING hnsw ("embedding" vector_cosine_ops);
+            """)
+        except Exception as e:
+            log.warning("Local SentenceEmbedding table schema note: %s", e)
+
+    def save_sentence_embeddings(self, items: list[tuple]):
+        if not items:
+            return
+        from psycopg2.extras import execute_values
+        query = """
+            INSERT INTO "SentenceEmbedding" ("sentenceId", "videoId", "seq", "embedding", "model", "version")
+            VALUES %s
+            ON CONFLICT ("sentenceId") DO UPDATE SET
+                "embedding" = EXCLUDED."embedding",
+                "model" = EXCLUDED."model",
+                "version" = EXCLUDED."version"
+        """
+        template = "(%s, %s, %s, %s::vector, %s, %s)"
+        execute_values(self.cur, query, items, template=template)
+
     def close(self):
         try:
             self.cur.close()
@@ -419,6 +525,31 @@ def process_chunk(db: Database, cfg: Config, row) -> None:
             log.error("Could not mark chunk %s failed: %s", chunk_id, mark_err)
 
 
+def process_sentences_batch(neon_db: Database, local_db: LocalVectorDatabase, rows: list) -> int:
+    if not rows:
+        return 0
+    sentence_ids = [r[0] for r in rows]
+    neon_db.mark_sentences_processing(sentence_ids)
+    try:
+        texts = [PASSAGE_PREFIX + (r[3] or "").strip() for r in rows]
+        vectors = embed_texts(texts, onnx_dir=ONNX_DIR)
+
+        items = []
+        for row, vec in zip(rows, vectors):
+            sentence_id, video_id, seq, _ = row
+            vec_str = f"[{','.join(str(round(float(x), 6)) for x in vec)}]"
+            items.append((sentence_id, video_id, seq, vec_str, MODEL_ID, EMBEDDING_VERSION))
+
+        local_db.save_sentence_embeddings(items)
+        neon_db.mark_sentences_completed(sentence_ids)
+        log.info("Embedded %d sentences into local DB (Video %s)", len(items), rows[0][1])
+        return len(items)
+    except Exception as e:
+        log.error("Failed to embed sentences batch: %s", e)
+        neon_db.mark_sentences_failed(sentence_ids)
+        raise
+
+
 def main():
     parser = argparse.ArgumentParser(description="ChristianTube video embedding worker")
     parser.add_argument("--once", action="store_true", help="Process one batch and exit")
@@ -442,12 +573,26 @@ def main():
     db.release_stale_processing()
     db._ensure_schema()
 
-    log.info("Embedder started (model=%s, version=%d, once=%s, redo=%s, retry_failed=%s, embed_chunks=%s)",
-             MODEL_ID, EMBEDDING_VERSION, cfg.once, cfg.redo, cfg.retry_failed, cfg.embed_chunks)
+    local_db = LocalVectorDatabase(cfg.local_database_url)
+
+    log.info("Embedder started (model=%s, version=%d, local_db=%s, once=%s, redo=%s)",
+             MODEL_ID, EMBEDDING_VERSION, cfg.local_database_url.split("@")[-1], cfg.once, cfg.redo)
 
     while _running:
         worked = False
 
+        # 1. High-priority: Embed pending sentences into Local DB
+        db.release_stale_sentence_processing()
+        sentence_batch = db.fetch_eligible_sentences(limit=128)
+        if sentence_batch:
+            log.info("Found %d pending sentence(s) to embed.", len(sentence_batch))
+            worked = True
+            try:
+                process_sentences_batch(db, local_db, sentence_batch)
+            except Exception as e:
+                log.error("Sentence batch processing failed: %s", e)
+
+        # 2. Embed videos (title + description)
         db.requeue_orphaned_completed()
         rows = db.fetch_eligible(cfg)
         if rows:
@@ -458,6 +603,7 @@ def main():
                     break
                 process_video(db, cfg, row)
 
+        # 3. Optional: Embed legacy chunks if enabled
         if cfg.embed_chunks:
             db.release_stale_chunk_processing()
             chunks = db.fetch_eligible_chunks(cfg)
@@ -483,6 +629,7 @@ def main():
             break
 
     db.close()
+    local_db.close()
     log.info("Embedder stopped.")
 
 

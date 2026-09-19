@@ -69,8 +69,8 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertEqual(detect_category("CFC Songs & Hymns"), "Songs")
         self.assertEqual(detect_category("Tamil Padalgal"), "Songs")
         self.assertEqual(detect_category("மாசில்லா வாலிபம் Maasilla Valibam"), "Songs")
-        self.assertEqual(detect_category("CFC India - Zac Poonen"), "General Sermons")
-        self.assertEqual(detect_category("CHENNAI CFC"), "General Sermons")
+        self.assertEqual(detect_category("CFC India - Zac Poonen"), "YouTube")
+        self.assertEqual(detect_category("CHENNAI CFC"), "YouTube")
     def test_is_short_content(self):
         # By duration
         self.assertTrue(is_short_content("Regular Title", "desc", duration=45, width=1920, height=1080))

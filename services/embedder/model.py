@@ -1,4 +1,10 @@
-"""ONNX runtime wrapper shared by serve.py and worker.py."""
+"""ONNX runtime wrapper shared by serve.py and worker.py (EmbeddingGemma-300M).
+
+The onnx-community int8 export exposes two outputs: `last_hidden_state`
+(batch, seq, 768) and `sentence_embedding` (batch, 768) — the latter is already
+mean-pooled, projected and L2-normalized inside the graph, so no manual pooling
+is required. `last_hidden_state` mean-pooling is kept only as a fallback.
+"""
 
 from functools import lru_cache
 from pathlib import Path
@@ -9,7 +15,7 @@ from tokenizers import Tokenizer
 
 from model_contract import MAX_TOKENS, ONNX_DIR
 
-_PAD_TOKEN_ID = 0  # BERT/WordPiece (all-MiniLM-L6-v2) special ids: [PAD]=0, [CLS]=101, [SEP]=102
+_PAD_TOKEN_ID = 0  # gemma: pad=0, bos=2, eos=1 (tokenizer adds <bos>/<eos> via special tokens)
 
 
 @lru_cache(maxsize=1)
@@ -67,17 +73,23 @@ def _mean_pool(last_hidden_state, attention_mask):
     return summed / counts
 
 
+def _l2_normalize(vectors):
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    return vectors / norms
+
+
 def embed_texts(texts, onnx_dir=ONNX_DIR):
     session, tokenizer = load_model(onnx_dir)
     input_ids, attention_mask = _tokenize(texts, tokenizer)
-    input_names = {inp.name for inp in session.get_inputs()}
-    feed = {"input_ids": input_ids, "attention_mask": attention_mask}
-    for name in input_names:
-        if name == "token_type_ids":
-            feed[name] = np.zeros_like(input_ids)
-    outputs = session.run(None, feed)
-    pooled = _mean_pool(outputs[0], attention_mask)
-    norms = np.linalg.norm(pooled, axis=1, keepdims=True)
-    norms[norms == 0] = 1.0
-    vectors = pooled / norms
-    return [v.astype("float32").tolist() for v in vectors]
+    outputs = session.run(None, {"input_ids": input_ids, "attention_mask": attention_mask})
+
+    out_index = {o.name: i for i, o in enumerate(session.get_outputs())}
+    if "sentence_embedding" in out_index:
+        pooled = outputs[out_index["sentence_embedding"]]
+    elif len(outputs) > 1:
+        pooled = outputs[1]
+    else:
+        pooled = _mean_pool(outputs[0], attention_mask)
+
+    return [v.astype("float32").tolist() for v in _l2_normalize(pooled)]

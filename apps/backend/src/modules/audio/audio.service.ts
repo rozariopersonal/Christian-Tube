@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AudioService {
   private readonly logger = new Logger(AudioService.name);
   private readonly githubBaseUrl = 'https://cdn.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main';
+  private isSyncing = false;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -12,14 +13,29 @@ export class AudioService {
    * Syncs the audio catalog from the GitHub releases repo into PostgreSQL.
    */
   async syncCatalogFromGitHub() {
+    if (this.isSyncing) {
+      this.logger.warn('Sync is already in progress. Skipping...');
+      throw new Error('Sync already in progress');
+    }
+    this.isSyncing = true;
     this.logger.log('Starting sync of Audio Catalog from GitHub...');
     
     try {
-      // 1. Fetch manifest.json to get the latest revision (optional optimization)
-      // We will skip strict manifest revision checking for now to ensure it always runs when triggered.
+      // 1. Fetch manifest.json to get the latest revision
+      let revision = 'latest';
+      try {
+        const manifestRes = await fetch(`${this.githubBaseUrl}/manifest.json`);
+        if (manifestRes.ok) {
+          const manifest = await manifestRes.json();
+          revision = manifest.revision || 'latest';
+          this.logger.log(`Using dataset revision: ${revision}`);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to fetch manifest.json: ${err.message}`);
+      }
       
       // 2. Fetch the top-level catalog.json
-      const catalogRes = await fetch(`${this.githubBaseUrl}/audio/catalog.json`);
+      const catalogRes = await fetch(`${this.githubBaseUrl}/audio/catalog.json?rv=${revision}`);
       if (!catalogRes.ok) {
         throw new Error(`Failed to fetch catalog.json: ${catalogRes.statusText}`);
       }
@@ -62,7 +78,7 @@ export class AudioService {
         // 4. Delta Sync tracks: Only fetch the series JSON if trackCount increased
         if (!existingSeries || existingSeries.trackCount < (seriesData.trackCount || 0)) {
           this.logger.log(`Syncing new tracks for series: ${seriesData.id} (${existingSeries?.trackCount || 0} -> ${seriesData.trackCount || 0})`);
-          await this.syncSeriesTracks(seriesData.id);
+          await this.syncSeriesTracks(seriesData.id, revision);
         }
       }
 
@@ -71,12 +87,14 @@ export class AudioService {
     } catch (error) {
       this.logger.error(`Error syncing audio catalog: ${error.message}`);
       throw error;
+    } finally {
+      this.isSyncing = false;
     }
   }
 
-  private async syncSeriesTracks(seriesId: string) {
+  private async syncSeriesTracks(seriesId: string, revision: string = 'latest') {
     try {
-      const seriesRes = await fetch(`${this.githubBaseUrl}/audio/series/${seriesId}.json`);
+      const seriesRes = await fetch(`${this.githubBaseUrl}/audio/series/${seriesId}.json?rv=${revision}`);
       if (!seriesRes.ok) {
         this.logger.warn(`Failed to fetch series JSON for ${seriesId}`);
         return;
@@ -85,34 +103,33 @@ export class AudioService {
       const seriesJson: any = await seriesRes.json();
       const tracks: any[] = seriesJson.tracks || [];
 
-      // Upsert each track (this naturally ignores duplicates)
-      for (const track of tracks) {
-        await this.prisma.audioTrack.upsert({
-          where: { id: track.id },
-          create: {
-            id: track.id,
-            seriesId: seriesId,
-            title: track.title,
-            speaker: track.speaker,
-            durationSeconds: track.durationSeconds || 0,
-            audioUrl: track.audioUrl,
-            ifCoverUrl: track.ifCoverUrl,
-            scriptureBook: track.scriptureBook,
-            scriptureChapter: track.scriptureChapter,
-            scriptureVerse: track.scriptureVerse,
-          },
-          update: {
-            title: track.title,
-            speaker: track.speaker,
-            durationSeconds: track.durationSeconds || 0,
-            audioUrl: track.audioUrl,
-            ifCoverUrl: track.ifCoverUrl,
-            scriptureBook: track.scriptureBook,
-            scriptureChapter: track.scriptureChapter,
-            scriptureVerse: track.scriptureVerse,
-            updatedAt: new Date(),
-          },
-        });
+      // Batch replace tracks for the series
+      if (tracks.length > 0) {
+        await this.prisma.$transaction([
+          this.prisma.audioTrack.deleteMany({
+            where: { seriesId: seriesId }
+          }),
+          this.prisma.audioTrack.createMany({
+            data: tracks.map((track) => ({
+              id: track.id,
+              seriesId: seriesId,
+              title: track.title,
+              speaker: track.speaker,
+              durationSeconds: track.durationSeconds || 0,
+              audioUrl: track.audioUrl,
+              streamUrl: track.streamUrl,
+              fallbackUrl: track.fallbackUrl,
+              ifCoverUrl: track.ifCoverUrl,
+              thumbnailUrl: track.thumbnailUrl,
+              youtubeVideoId: track.youtubeVideoId,
+              scriptureBook: track.scriptureBook,
+              scriptureChapter: track.scriptureChapter,
+              scriptureVerse: track.scriptureVerse,
+              updatedAt: new Date(),
+            })),
+          })
+        ]);
+        this.logger.log(`Replaced ${tracks.length} tracks for series ${seriesId}`);
       }
     } catch (error) {
       this.logger.error(`Error syncing tracks for ${seriesId}: ${error.message}`);

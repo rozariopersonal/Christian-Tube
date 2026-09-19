@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res, HttpException, HttpStatus, Query, Post } from '@nestjs/common';
+import { Controller, Get, Param, Res, HttpException, HttpStatus, Query, Post, Headers, UnauthorizedException } from '@nestjs/common';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AudioService } from './audio.service';
@@ -64,8 +64,12 @@ export class AudioController {
   }
 
   @Post('trigger-sync')
-  async triggerSync() {
-    // In production, secure this endpoint
+  async triggerSync(@Headers('x-api-key') apiKey?: string) {
+    const expectedKey = this.configService.get<string>('ADMIN_API_KEY');
+    if (!expectedKey || apiKey !== expectedKey) {
+      throw new UnauthorizedException('Invalid or missing API key');
+    }
+
     this.audioService.syncCatalogFromGitHub().catch(err => {
       console.error('Background sync failed:', err);
     });

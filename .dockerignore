@@ -18,6 +18,7 @@ apps/web
 **/dist
 
 tools
+!tools/transcriber/**
 scripts
 .maestro
 dependencies
