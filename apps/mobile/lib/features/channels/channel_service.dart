@@ -172,16 +172,20 @@ class ChannelService extends ChangeNotifier {
     String? adminEmail,
   }) async {
     try {
-      final response = await _apiClient.dio.post(
-        '/channels',
-        data: {
-          'channelUrl': channelUrl,
-          'name': name,
-          'category': category,
-          'language': language,
-          'adminEmail': adminEmail,
-        },
-      );
+      final data = {
+        'channelUrl': channelUrl,
+        'name': name,
+        'category': category,
+        'language': language,
+        'adminEmail': adminEmail,
+      };
+
+      dynamic response;
+      try {
+        response = await _apiClient.dio.post('/api/channels', data: data);
+      } catch (_) {
+        response = await _apiClient.dio.post('/channels', data: data);
+      }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await fetchChannels();
