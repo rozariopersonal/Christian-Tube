@@ -59,10 +59,10 @@ class _StubClipPreviewWidget extends StatefulWidget {
   });
 
   @override
-  State<_StubClipPreviewWidget> createState() => StubClipPreviewWidgetState();
+  State<_StubClipPreviewWidget> createState() => _StubClipPreviewWidgetState();
 }
 
-class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
+class _StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
   double _currentPosition = 0.0;
   double _localCropOffset = 0.0;
   bool _isDraggingCrop = false;
@@ -189,9 +189,9 @@ class StubClipPreviewWidgetState extends State<_StubClipPreviewWidget> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double canvasHeight = 220.0;
+        const double canvasHeight = 220.0;
         final double canvasWidth = constraints.maxWidth;
-        final double cropBoxHeight = canvasHeight;
+        const double cropBoxHeight = canvasHeight;
         final double cropBoxWidth = (cropBoxHeight * (9 / 16)).clamp(80.0, canvasWidth);
         final double travelDistance = (canvasWidth - cropBoxWidth).clamp(0.0, canvasWidth);
         final double cropBoxLeft = (travelDistance / 2) + (_localCropOffset * (travelDistance / 2));

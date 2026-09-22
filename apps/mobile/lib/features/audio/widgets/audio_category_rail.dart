@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_tokens.dart';
 import '../models/audio_series.dart';
@@ -35,8 +35,18 @@ class AudioCategoryRail extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Accent bar
+              Container(
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Row(
                   children: [
@@ -51,36 +61,33 @@ class AudioCategoryRail extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: tokens.surfaceVariant,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${seriesList.length}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: tokens.onSurfaceMuted,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '(${seriesList.length})',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: tokens.onSurfaceMuted,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              InkWell(
-                borderRadius: BorderRadius.circular(12),
+              // Tonal pill "See All"
+              GestureDetector(
                 onTap: onSeeAll,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'See All',
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
@@ -88,7 +95,7 @@ class AudioCategoryRail extends StatelessWidget {
                       const SizedBox(width: 2),
                       Icon(
                         Icons.chevron_right_rounded,
-                        size: 16,
+                        size: 14,
                         color: theme.colorScheme.primary,
                       ),
                     ],
@@ -100,16 +107,16 @@ class AudioCategoryRail extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 195,
+          height: 210,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: seriesList.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final series = seriesList[index];
               return SizedBox(
-                width: 135,
+                width: 148,
                 child: AudioSeriesCard(
                   series: series,
                   onTap: () => onTapSeries(series),

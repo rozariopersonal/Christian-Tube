@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_tokens.dart';
 import '../../books/models/book_language_meta.dart';
@@ -35,9 +35,9 @@ class AudioSeriesGrid extends StatelessWidget {
       langSuffix = '';
     } else if (state.selectedLanguages.length == 1) {
       final meta = BookLanguageMeta.fromCode(state.selectedLanguages.first);
-      langSuffix = ' • ${meta.englishName}';
+      langSuffix = ' ΓÇó ${meta.englishName}';
     } else {
-      langSuffix = ' • ${state.selectedLanguages.length} Languages';
+      langSuffix = ' ΓÇó ${state.selectedLanguages.length} Languages';
     }
 
     final headerTitle = state.selectedCategory == 'All'
@@ -51,33 +51,50 @@ class AudioSeriesGrid extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showReset)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    headerTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: tokens.onSurface,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Accent bar
+              Container(
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  headerTitle,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: tokens.onSurface,
+                  ),
+                ),
+              ),
+              if (showReset)
+                GestureDetector(
+                  onTap: onReset,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Reset',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-                TextButton(
-                  onPressed: onReset,
-                  child: const Text('Reset'),
-                ),
-              ],
-            )
-          else
-            Text(
-              headerTitle,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: tokens.onSurface,
-              ),
-            ),
+            ],
+          ),
           const SizedBox(height: 14),
           if (filtered.isEmpty)
             Center(
@@ -99,10 +116,10 @@ class AudioSeriesGrid extends StatelessWidget {
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: filtered.length,
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 200,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 0.72,
+                    maxCrossAxisExtent: 175,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.0,
                   ),
                   itemBuilder: (context, index) {
                     final series = filtered[index];
