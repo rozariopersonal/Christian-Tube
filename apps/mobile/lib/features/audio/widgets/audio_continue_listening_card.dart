@@ -1,4 +1,4 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_tokens.dart';
@@ -37,7 +37,6 @@ class AudioContinueListeningCard extends StatelessWidget {
         final progress = track.durationSeconds > 0
             ? (currentSeconds / track.durationSeconds).clamp(0.0, 1.0)
             : 0.0;
-        final percent = (progress * 100).round();
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),

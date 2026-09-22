@@ -1,4 +1,4 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_tokens.dart';
@@ -36,16 +36,6 @@ class AudioTrackListTile extends StatelessWidget {
         final state = AudioPlayerController.instance.state;
         final isCurrentTrack = state.currentTrack?.id == track.id;
         final savedPos = savedPositionSeconds;
-
-        String subtitleText = track.formattedDuration;
-        if (!isCurrentTrack && savedPos > 5) {
-          final m = savedPos ~/ 60;
-          final s = (savedPos % 60).toString().padLeft(2, '0');
-          subtitleText += ' ΓÇó Resumes at $m:$s';
-        }
-        if (track.hasScripture) {
-          subtitleText += ' ΓÇó ${track.scriptureRefText}';
-        }
 
         void playFromHere() {
           if (isCurrentTrack) {
