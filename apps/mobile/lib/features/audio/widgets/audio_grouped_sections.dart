@@ -1,3 +1,4 @@
+﻿import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_tokens.dart';
@@ -5,7 +6,8 @@ import '../models/audio_series.dart';
 import 'audio_series_card.dart';
 
 /// Renders grouped collections (by Category, by Speaker, or Alphabetical)
-/// with expandable / collapsible headers and responsive grids.
+/// with expandable / collapsible headers, cover-art previews in the collapsed
+/// state, a smooth [AnimatedCrossFade] transition, and an accent strip.
 class AudioGroupedSections extends StatefulWidget {
   final Map<String, List<AudioSeries>> groups;
   final ValueChanged<AudioSeries> onOpenSeries;
@@ -23,15 +25,14 @@ class AudioGroupedSections extends StatefulWidget {
 }
 
 class _AudioGroupedSectionsState extends State<AudioGroupedSections> {
-  // Store collapsed states; default first 3 open
-  final Set<String> _collapsedGroups = {};
+  final Set<String> _expandedGroups = {};
 
   void _toggleGroup(String key) {
     setState(() {
-      if (_collapsedGroups.contains(key)) {
-        _collapsedGroups.remove(key);
+      if (_expandedGroups.contains(key)) {
+        _expandedGroups.remove(key);
       } else {
-        _collapsedGroups.add(key);
+        _expandedGroups.add(key);
       }
     });
   }
@@ -39,20 +40,23 @@ class _AudioGroupedSectionsState extends State<AudioGroupedSections> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tokens = theme.extension<AppTokens>() ??
-        (theme.brightness == Brightness.dark
-            ? AppTokens.dark
-            : AppTokens.light);
+    final tokens = context.tokens;
 
     if (widget.groups.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(40),
-          child: Text(
-            widget.emptyMessage,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: tokens.onSurfaceMuted,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.headphones_outlined, size: 48, color: tokens.onSurfaceDisabled),
+              const SizedBox(height: 12),
+              Text(
+                widget.emptyMessage,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: tokens.onSurfaceMuted),
+              ),
+            ],
           ),
         ),
       );
@@ -63,107 +67,243 @@ class _AudioGroupedSectionsState extends State<AudioGroupedSections> {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: groupKeys.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final key = groupKeys[index];
         final seriesList = widget.groups[key] ?? [];
-        final isCollapsed = _collapsedGroups.contains(key);
+        final isExpanded = _expandedGroups.contains(key);
+        return _GroupSection(
+          groupKey: key,
+          seriesList: seriesList,
+          isExpanded: isExpanded,
+          onToggle: () => _toggleGroup(key),
+          onOpenSeries: widget.onOpenSeries,
+          theme: theme,
+          tokens: tokens,
+        );
+      },
+    );
+  }
+}
 
-        return Container(
-          decoration: BoxDecoration(
-            color: tokens.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: tokens.surfaceBorder.withValues(alpha: 0.5),
-              width: 1,
-            ),
+class _GroupSection extends StatelessWidget {
+  final String groupKey;
+  final List<AudioSeries> seriesList;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final ValueChanged<AudioSeries> onOpenSeries;
+  final ThemeData theme;
+  final AppTokens tokens;
+
+  const _GroupSection({
+    required this.groupKey,
+    required this.seriesList,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.onOpenSeries,
+    required this.theme,
+    required this.tokens,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: tokens.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: tokens.isDark ? 0.25 : 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              InkWell(
-                borderRadius: isCollapsed
-                    ? BorderRadius.circular(16)
-                    : const BorderRadius.vertical(top: Radius.circular(16)),
-                onTap: () => _toggleGroup(key),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Row(
-                    children: [
-                      Expanded(
+              // Left accent strip
+              Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                  ),
+                ),
+              ),
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      onTap: onToggle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         child: Row(
                           children: [
-                            Flexible(
-                              child: Text(
-                                key,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: tokens.onSurface,
-                                ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          groupKey,
+                                          style: theme.textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: tokens.onSurface,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          '${seriesList.length}',
+                                          style: theme.textTheme.labelSmall?.copyWith(
+                                            color: theme.colorScheme.primary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (!isExpanded && seriesList.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    _CoverPreviewRow(
+                                      series: seriesList.take(5).toList(),
+                                      tokens: tokens,
+                                      theme: theme,
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: tokens.surfaceVariant,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${seriesList.length}',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: tokens.onSurfaceMuted,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                            AnimatedRotation(
+                              turns: isExpanded ? 0.5 : 0.0,
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeInOut,
+                              child: Icon(Icons.keyboard_arrow_down_rounded, color: tokens.onSurfaceMuted),
                             ),
                           ],
                         ),
                       ),
-                      Icon(
-                        isCollapsed
-                            ? Icons.keyboard_arrow_down_rounded
-                            : Icons.keyboard_arrow_up_rounded,
-                        color: tokens.onSurfaceMuted,
+                    ),
+                    AnimatedCrossFade(
+                      duration: const Duration(milliseconds: 280),
+                      sizeCurve: Curves.easeInOut,
+                      firstChild: const SizedBox.shrink(),
+                      secondChild: Column(
+                        children: [
+                          Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: tokens.surfaceBorder.withValues(alpha: 0.5),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: seriesList.length,
+                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 160,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                                childAspectRatio: 1.0,
+                              ),
+                              itemBuilder: (context, idx) {
+                                final series = seriesList[idx];
+                                return AudioSeriesCard(
+                                  series: series,
+                                  onTap: () => onOpenSeries(series),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                      crossFadeState: isExpanded
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                    ),
+                  ],
                 ),
               ),
-              if (!isCollapsed) ...[
-                const Divider(height: 1, thickness: 1),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: seriesList.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 180,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.72,
-                    ),
-                    itemBuilder: (context, idx) {
-                      final series = seriesList[idx];
-                      return AudioSeriesCard(
-                        series: series,
-                        onTap: () => widget.onOpenSeries(series),
-                      );
-                    },
-                  ),
-                ),
-              ],
             ],
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+}
+
+class _CoverPreviewRow extends StatelessWidget {
+  final List<AudioSeries> series;
+  final AppTokens tokens;
+  final ThemeData theme;
+
+  const _CoverPreviewRow({
+    required this.series,
+    required this.tokens,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const thumbSize = 32.0;
+    const overlap = 10.0;
+
+    return SizedBox(
+      height: thumbSize,
+      child: Stack(
+        children: [
+          for (var i = 0; i < series.length; i++)
+            Positioned(
+              left: i * (thumbSize - overlap),
+              child: Container(
+                width: thumbSize,
+                height: thumbSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: tokens.surface, width: 1.5),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(7),
+                  child: series[i].coverUrl != null && series[i].coverUrl!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: series[i].coverUrl!,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            color: tokens.surfaceVariant,
+                            child: Icon(Icons.headphones_rounded, size: 14,
+                                color: theme.colorScheme.primary.withValues(alpha: 0.6)),
+                          ),
+                        )
+                      : Container(
+                          color: tokens.surfaceVariant,
+                          child: Icon(Icons.headphones_rounded, size: 14,
+                              color: theme.colorScheme.primary.withValues(alpha: 0.6)),
+                        ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

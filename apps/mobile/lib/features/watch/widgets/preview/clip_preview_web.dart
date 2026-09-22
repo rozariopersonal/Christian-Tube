@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
@@ -64,10 +65,10 @@ class _WebClipPreviewWidget extends StatefulWidget {
   });
 
   @override
-  State<_WebClipPreviewWidget> createState() => WebClipPreviewWidgetState();
+  State<_WebClipPreviewWidget> createState() => _WebClipPreviewWidgetState();
 }
 
-class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
+class _WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
   late String _viewId;
   html.IFrameElement? _iframeElement;
   StreamSubscription? _msgSub;
@@ -316,9 +317,9 @@ class WebClipPreviewWidgetState extends State<_WebClipPreviewWidget> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double canvasHeight = 220.0;
+        const double canvasHeight = 220.0;
         final double canvasWidth = constraints.maxWidth;
-        final double cropBoxHeight = canvasHeight;
+        const double cropBoxHeight = canvasHeight;
         final double cropBoxWidth = (cropBoxHeight * (9 / 16)).clamp(80.0, canvasWidth);
         final double travelDistance = (canvasWidth - cropBoxWidth).clamp(0.0, canvasWidth);
         final double cropBoxLeft = (travelDistance / 2) + (_localCropOffset * (travelDistance / 2));
