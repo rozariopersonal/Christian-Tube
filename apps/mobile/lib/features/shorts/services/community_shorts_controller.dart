@@ -1,13 +1,16 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/models/channel.dart';
 import '../../../core/models/short.dart';
+import 'shorts_language_filter.dart';
 
 class CommunityShortsController extends ChangeNotifier {
-  static const String _cacheKey = 'ct_cached_community_shorts';
+  static const String _cacheKeyAll = 'ct_cached_community_shorts';
 
-  final ApiClient _apiClient = ApiClient();
+  /// Injectable for tests; defaults to the real API client.
+  final ApiClient apiClient;
 
   List<Short> _shorts = [];
   List<Short> get shorts => _shorts;
@@ -15,8 +18,99 @@ class CommunityShortsController extends ChangeNotifier {
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
-  CommunityShortsController() {
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  bool _isAuthenticated = false;
+  Set<String> _subscribedChannelIds = const {};
+  List<Channel> _allChannels = const [];
+  Set<String>? _candidateChannelIds;
+
+  CommunityShortsController({ApiClient? apiClient})
+      : apiClient = apiClient ?? ApiClient() {
     _loadCachedShorts();
+  }
+
+  /// Active channel filter: `null` means show every short.
+  Set<String>? get _effectiveChannelIds {
+    if (!_isAuthenticated || _subscribedChannelIds.isEmpty) return null;
+    final ids = _candidateChannelIds;
+    if (ids == null || ids.isEmpty) return null;
+    return ids;
+  }
+
+  /// Cache key scoped to the active filter so a signed-out user (or a user
+  /// with no subscriptions) never sees a stale language-filtered snapshot, and
+  /// vice versa. Exposed for test assertions.
+  String get activeCacheKey {
+    final ids = _effectiveChannelIds;
+    if (ids == null) return _cacheKeyAll;
+    return '${_cacheKeyAll}_sub_${_stableHash(_joinedSortedIds(ids))}';
+  }
+
+  static String _joinedSortedIds(Set<String> ids) {
+    final list = ids.toList()..sort();
+    return list.join(',');
+  }
+
+  static bool _filtersEqual(Set<String>? a, Set<String>? b) {
+    if (a == null || b == null) return a == b;
+    if (a.length != b.length) return false;
+    return a.containsAll(b);
+  }
+
+  /// Stable length-bounded hash (31-bit) so the filter-scoped cache key is
+  /// identical across runs and platforms. All arithmetic stays well within the
+  /// 53-bit safe-integer range even on web, so the result never varies.
+  static String _stableHash(String input) {
+    var hash = 0;
+    for (final unit in input.codeUnits) {
+      hash = ((hash * 0x10CD5) + unit) & 0x7FFFFFFF;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
+  }
+
+  /// Recomputes the language-of-subscriptions filter from the current auth +
+  /// subscription + channel-catalog state. Refetches (and resets the feed)
+  /// only when the resolved candidate set actually changed.
+  Future<void> updateSubscriptionContext({
+    required bool isAuthenticated,
+    required Set<String> subscribedChannelIds,
+    required List<Channel> channels,
+  }) async {
+    final previous = _effectiveChannelIds;
+    _isAuthenticated = isAuthenticated;
+    _subscribedChannelIds = subscribedChannelIds;
+    _allChannels = List.unmodifiable(channels);
+    _candidateChannelIds = resolveCandidateChannelIds(
+      isAuthenticated: isAuthenticated,
+      subscribedChannelIds: subscribedChannelIds,
+      allChannels: _allChannels,
+    );
+
+    if (_filtersEqual(previous, _effectiveChannelIds)) {
+      _safeNotify();
+      return;
+    }
+
+    // Filter mode changed: reset pagination, swap to the matching cache, and
+    // refetch from the network.
+    _page = 1;
+    _hasMore = true;
+    _shorts = [];
+    _isLoading = true;
+    await _loadCachedShorts();
+    _safeNotify();
+    return fetchShorts();
   }
 
   /// Loads the last-fetched shorts from disk immediately so the feed can
@@ -25,7 +119,7 @@ class CommunityShortsController extends ChangeNotifier {
   Future<void> _loadCachedShorts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final cachedJson = prefs.getString(_cacheKey);
+      final cachedJson = prefs.getString(activeCacheKey);
       if (cachedJson == null || cachedJson.isEmpty) return;
       final List<dynamic> list = jsonDecode(cachedJson);
       final cached = list
@@ -35,7 +129,7 @@ class CommunityShortsController extends ChangeNotifier {
       if (cached.isEmpty) return;
       _shorts = cached;
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     } catch (_) {
       // Corrupt/old cache is non-fatal; fall through to the network.
     }
@@ -45,12 +139,11 @@ class CommunityShortsController extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        _cacheKey,
+        activeCacheKey,
         jsonEncode(shorts.take(50).map((s) => s.toJson()).toList()),
       );
     } catch (_) {}
   }
-
 
   bool _isLoadingMore = false;
   bool get isLoadingMore => _isLoadingMore;
@@ -78,23 +171,33 @@ class CommunityShortsController extends ChangeNotifier {
   void setFilter(String newFilter) {
     if (_filter != newFilter) {
       _filter = newFilter;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   Future<void> fetchShorts() async {
+    final filterSnapshot = _effectiveChannelIds == null
+        ? null
+        : Set<String>.of(_effectiveChannelIds!);
     _page = 1;
     _hasMore = true;
     // Only block the whole feed on the network when we have nothing to show yet.
     _isLoading = _shorts.isEmpty;
-    notifyListeners();
+    _safeNotify();
 
     try {
-      final response = await _apiClient.dio.get(
+      final response = await apiClient.dio.get(
         '/videos',
-        queryParameters: {'type': 'SHORT', 'limit': 30, 'offset': 0},
+        queryParameters: {
+          'type': 'SHORT',
+          'limit': 30,
+          'offset': 0,
+          if (filterSnapshot != null) 'channelIds': filterSnapshot.join(','),
+        },
       );
       if (response.statusCode == 200 && response.data != null) {
+        // Ignore a response that resolved under a now-stale filter mode.
+        if (!_filtersEqual(filterSnapshot, _effectiveChannelIds)) return;
         final dynamic raw = response.data;
         final List<dynamic> list =
             raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
@@ -122,7 +225,7 @@ class CommunityShortsController extends ChangeNotifier {
 
           _shorts = shortsOnly;
           _isLoading = false;
-          notifyListeners();
+          _safeNotify();
           await _saveCachedShorts(shortsOnly);
           return;
         }
@@ -130,29 +233,40 @@ class CommunityShortsController extends ChangeNotifier {
 
       _shorts = [];
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     } catch (e) {
       debugPrint('Error fetching shorts: $e');
-      _shorts = [];
-      _isLoading = false;
-      notifyListeners();
+      if (_filtersEqual(filterSnapshot, _effectiveChannelIds)) {
+        _shorts = [];
+        _isLoading = false;
+        _safeNotify();
+      }
     }
   }
 
   Future<void> loadMoreShorts() async {
     if (_isLoadingMore || !_hasMore) return;
-    
+
+    final filterSnapshot = _effectiveChannelIds == null
+        ? null
+        : Set<String>.of(_effectiveChannelIds!);
     _isLoadingMore = true;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final nextPage = _page + 1;
       final offset = (nextPage - 1) * 30;
-      final response = await _apiClient.dio.get(
+      final response = await apiClient.dio.get(
         '/videos',
-        queryParameters: {'type': 'SHORT', 'limit': 30, 'offset': offset},
+        queryParameters: {
+          'type': 'SHORT',
+          'limit': 30,
+          'offset': offset,
+          if (filterSnapshot != null) 'channelIds': filterSnapshot.join(','),
+        },
       );
       if (response.statusCode == 200 && response.data != null) {
+        if (!_filtersEqual(filterSnapshot, _effectiveChannelIds)) return;
         final dynamic raw = response.data;
         final List<dynamic> list =
             raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
@@ -176,12 +290,12 @@ class CommunityShortsController extends ChangeNotifier {
       debugPrint('Load more shorts error: $e');
     } finally {
       _isLoadingMore = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   void insertShortAtBeginning(Short short) {
     _shorts.insert(0, short);
-    notifyListeners();
+    _safeNotify();
   }
 }

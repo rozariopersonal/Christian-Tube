@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/models/short.dart';
 import '../../core/theme/app_tokens.dart';
+import '../auth/auth_service.dart';
+import '../channels/channel_service.dart';
 import 'players/shorts_player.dart';
 import '../search/shorts_search_delegate.dart';
 import '../../core/services/bottom_bar_visibility_service.dart';
@@ -25,11 +27,13 @@ enum ShortsViewTab {
 class ShortsFeedScreen extends StatefulWidget {
   final String? initialShortId;
   final int? initialIndex;
+  final AuthService? authService;
 
   const ShortsFeedScreen({
     super.key,
     this.initialShortId,
     this.initialIndex,
+    this.authService,
   });
 
   @override
@@ -40,7 +44,9 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   final ShortsOrchestratorService _orchestrator = ShortsOrchestratorService();
   final CommunityShortsController _communityController =
       CommunityShortsController();
+  final ChannelService _channelService = ChannelService();
   final ScrollController _communityScrollController = ScrollController();
+  late final AuthService _authService = widget.authService ?? AuthService();
 
   ShortsViewTab _activeTab = ShortsViewTab.community;
 
@@ -56,12 +62,40 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     _communityController.fetchShorts().then((_) {
       if (mounted) _applyInitialTarget();
     });
+    _loadChannelContext();
+    _channelService.addListener(_onChannelContextChanged);
+    _authService.addListener(_onAuthContextChanged);
     _orchestrator.fetchCloudCreations();
     _communityScrollController.addListener(_onCommunityScroll);
 
     // Reset to grid when the Shorts bottom-nav tab is re-tapped
     _shortsResetSub = BottomBarVisibilityService.instance.onShortsResetRequested
         .listen((_) => _handleTabReset());
+  }
+
+  Future<void> _loadChannelContext() async {
+    await _channelService.loadSubscriptions();
+    if (!mounted) return;
+    await _channelService.fetchChannels();
+    if (!mounted) return;
+    await _pushSubscriptionContext();
+  }
+
+  void _onChannelContextChanged() {
+    _pushSubscriptionContext();
+  }
+
+  void _onAuthContextChanged() {
+    _pushSubscriptionContext();
+  }
+
+  Future<void> _pushSubscriptionContext() async {
+    if (!mounted) return;
+    await _communityController.updateSubscriptionContext(
+      isAuthenticated: _authService.isAuthenticated,
+      subscribedChannelIds: _channelService.subscribedChannelIds,
+      channels: _channelService.channels,
+    );
   }
 
   @override
@@ -126,6 +160,8 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   @override
   void dispose() {
     _shortsResetSub?.cancel();
+    _channelService.removeListener(_onChannelContextChanged);
+    _authService.removeListener(_onAuthContextChanged);
     stopAllPlatformShorts();
     BottomBarVisibilityService.instance.setShortPlaying(false);
     _communityScrollController.removeListener(_onCommunityScroll);

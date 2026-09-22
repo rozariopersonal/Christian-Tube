@@ -58,37 +58,68 @@ class AudioTrackListTile extends StatelessWidget {
           }
         }
 
-        return ListTile(
-          leading: Container(
-            width: 36,
-            height: 36,
+        Widget buildFallbackBox() {
+          return Container(
+            width: 48,
+            height: 48,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isCurrentTrack
-                  ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                  : tokens.surfaceVariant,
-              shape: BoxShape.circle,
+              color: tokens.surfaceVariant,
+              borderRadius: BorderRadius.circular(4),
             ),
-            child: isCurrentTrack && state.isPlaying
-                ? Icon(
-                    Icons.equalizer,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  )
-                : Text(
-                    '${index + 1}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isCurrentTrack
-                          ? theme.colorScheme.primary
-                          : tokens.onSurfaceMuted,
+            child: Text(
+              '${index + 1}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: tokens.onSurfaceMuted,
+              ),
+            ),
+          );
+        }
+
+        return ListTile(
+          leading: SizedBox(
+            width: 48,
+            height: 48,
+            child: Stack(
+              children: [
+                if (track.thumbnailUrl != null || track.coverUrl != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.network(
+                      track.thumbnailUrl ?? track.coverUrl!,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => buildFallbackBox(),
                     ),
+                  )
+                else
+                  buildFallbackBox(),
+                if (isCurrentTrack)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: tokens.scrim.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(track.thumbnailUrl != null || track.coverUrl != null ? 4 : 8),
+                    ),
+                    alignment: Alignment.center,
+                    child: state.isPlaying
+                        ? Icon(
+                            Icons.equalizer,
+                            size: 24,
+                            color: theme.colorScheme.primary,
+                          )
+                        : Icon(
+                            Icons.pause,
+                            size: 24,
+                            color: theme.colorScheme.primary,
+                          ),
                   ),
+              ],
+            ),
           ),
           title: Text(
             track.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: isCurrentTrack ? FontWeight.bold : FontWeight.normal,
               color: isCurrentTrack
