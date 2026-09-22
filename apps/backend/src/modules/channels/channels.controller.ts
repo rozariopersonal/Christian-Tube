@@ -1,5 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../../guards/admin.guard';
+import { AuthGuard } from '../../guards/auth.guard';
+import { CurrentUser, CurrentUser as CurrentUserType } from '../../guards/current-user.decorator';
 import { ChannelsService } from './channels.service';
 
 @Controller(['channels', 'api/channels'])
@@ -26,6 +28,24 @@ export class ChannelsController {
   @Get('requests')
   async listChannelRequests() {
     return this.channelsService.listRequests();
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('subscriptions')
+  async getSubscriptions(@CurrentUser() user: CurrentUserType) {
+    return this.channelsService.listSubscriptions(user.userId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':id/subscribe')
+  async subscribe(@CurrentUser() user: CurrentUserType, @Param('id') id: string) {
+    return this.channelsService.subscribe(user, id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id/subscribe')
+  async unsubscribe(@CurrentUser() user: CurrentUserType, @Param('id') id: string) {
+    return this.channelsService.unsubscribe(user.userId, id);
   }
 
   @Get(':id')
