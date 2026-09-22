@@ -433,6 +433,80 @@ export class ChannelsService {
     }
   }
 
+  // --- User Channel Subscriptions ---
+
+  private async ensureUser(user: { userId: string; email?: string | null }) {
+    const email = (user.email || '').trim().toLowerCase();
+    await this.prisma.user.upsert({
+      where: { id: user.userId },
+      update: {
+        email: email || undefined,
+        role: 'USER',
+        lastLoginAt: new Date(),
+      },
+      create: {
+        id: user.userId,
+        email: email || `guest:${user.userId}`,
+        role: 'USER',
+        displayName: 'User',
+        isBlocked: false,
+        lastLoginAt: new Date(),
+      },
+    });
+  }
+
+  async listSubscriptions(userId: string) {
+    const rows = await this.prisma.channelSubscription.findMany({
+      where: { userId },
+      include: {
+        channel: {
+          include: { _count: { select: { videos: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      channelIds: rows.map((r) => r.channelId),
+      channels: rows.map((r) => ({
+        ...r.channel,
+        videoCount: r.channel._count.videos,
+        isSubscribed: true,
+      })),
+    };
+  }
+
+  async subscribe(user: { userId: string; email?: string | null }, channelId: string) {
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+    });
+    if (!channel) {
+      throw new NotFoundException(`Channel ${channelId} not found`);
+    }
+
+    await this.ensureUser(user);
+
+    await this.prisma.channelSubscription.upsert({
+      where: {
+        userId_channelId: { userId: user.userId, channelId },
+      },
+      update: {},
+      create: {
+        userId: user.userId,
+        channelId,
+      },
+    });
+
+    return { status: 'subscribed', channelId };
+  }
+
+  async unsubscribe(userId: string, channelId: string) {
+    await this.prisma.channelSubscription.deleteMany({
+      where: { userId, channelId },
+    });
+    return { status: 'unsubscribed', channelId };
+  }
+
   // --- Channel Requests Workflow ---
 
   async listRequests() {
