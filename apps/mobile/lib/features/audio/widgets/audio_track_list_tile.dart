@@ -1,3 +1,4 @@
+﻿import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_tokens.dart';
@@ -40,10 +41,10 @@ class AudioTrackListTile extends StatelessWidget {
         if (!isCurrentTrack && savedPos > 5) {
           final m = savedPos ~/ 60;
           final s = (savedPos % 60).toString().padLeft(2, '0');
-          subtitleText += ' • Resumes at $m:$s';
+          subtitleText += ' ΓÇó Resumes at $m:$s';
         }
         if (track.hasScripture) {
-          subtitleText += ' • ${track.scriptureRefText}';
+          subtitleText += ' ΓÇó ${track.scriptureRefText}';
         }
 
         void playFromHere() {
@@ -58,104 +59,216 @@ class AudioTrackListTile extends StatelessWidget {
           }
         }
 
-        Widget buildFallbackBox() {
-          return Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: tokens.surfaceVariant,
-              borderRadius: BorderRadius.circular(4),
+        // Scripture ref becomes a chip tag
+        final scriptureChip = track.hasScripture
+            ? Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Text(
+                  track.scriptureRefText,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            : null;
+
+        return Material(
+          color: isCurrentTrack
+              ? theme.colorScheme.primary.withValues(alpha: 0.06)
+              : Colors.transparent,
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            leading: _TrackLeading(
+              track: track,
+              index: index,
+              isCurrentTrack: isCurrentTrack,
+              isPlaying: state.isPlaying,
+              theme: theme,
+              tokens: tokens,
             ),
-            child: Text(
+            title: Text(
+              track.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: isCurrentTrack ? FontWeight.bold : FontWeight.normal,
+                color: isCurrentTrack
+                    ? theme.colorScheme.primary
+                    : tokens.onSurface,
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  // Duration + resume hint (no scripture here ΓÇö moved to chip)
+                  () {
+                    String s = track.formattedDuration;
+                    if (!isCurrentTrack && savedPos > 5) {
+                      final m = savedPos ~/ 60;
+                      final sec = (savedPos % 60).toString().padLeft(2, '0');
+                      s += ' ΓÇó Resumes at $m:$sec';
+                    }
+                    return s;
+                  }(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: tokens.onSurfaceMuted,
+                  ),
+                ),
+                if (scriptureChip != null) scriptureChip,
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AudioTrackDownloadControl(track: track),
+                IconButton(
+                  icon: Icon(
+                    isCurrentTrack && state.isPlaying
+                        ? Icons.pause_circle_rounded
+                        : Icons.play_circle_rounded,
+                    size: 30,
+                    color: isCurrentTrack
+                        ? theme.colorScheme.primary
+                        : tokens.onSurfaceMuted,
+                  ),
+                  tooltip: isCurrentTrack && state.isPlaying ? 'Pause' : 'Play',
+                  onPressed: playFromHere,
+                ),
+              ],
+            ),
+            onTap: playFromHere,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Leading widget for a track list tile: cover art thumbnail (or number badge
+/// / equalizer indicator as fallback).
+class _TrackLeading extends StatelessWidget {
+  final AudioTrack track;
+  final int index;
+  final bool isCurrentTrack;
+  final bool isPlaying;
+  final ThemeData theme;
+  final AppTokens tokens;
+
+  const _TrackLeading({
+    required this.track,
+    required this.index,
+    required this.isCurrentTrack,
+    required this.isPlaying,
+    required this.theme,
+    required this.tokens,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasCover = track.coverUrl != null && track.coverUrl!.isNotEmpty;
+
+    if (hasCover) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CachedNetworkImage(
+              imageUrl: track.coverUrl!,
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) => _NumberBadge(
+                index: index,
+                isCurrentTrack: isCurrentTrack,
+                isPlaying: isPlaying,
+                theme: theme,
+                tokens: tokens,
+              ),
+            ),
+          ),
+          if (isCurrentTrack)
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  child: Center(
+                    child: Icon(
+                      isPlaying
+                          ? Icons.equalizer_rounded
+                          : Icons.pause_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return _NumberBadge(
+      index: index,
+      isCurrentTrack: isCurrentTrack,
+      isPlaying: isPlaying,
+      theme: theme,
+      tokens: tokens,
+    );
+  }
+}
+
+class _NumberBadge extends StatelessWidget {
+  final int index;
+  final bool isCurrentTrack;
+  final bool isPlaying;
+  final ThemeData theme;
+  final AppTokens tokens;
+
+  const _NumberBadge({
+    required this.index,
+    required this.isCurrentTrack,
+    required this.isPlaying,
+    required this.theme,
+    required this.tokens,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isCurrentTrack
+            ? theme.colorScheme.primary.withValues(alpha: 0.15)
+            : tokens.surfaceVariant,
+        shape: BoxShape.circle,
+      ),
+      child: isCurrentTrack && isPlaying
+          ? Icon(Icons.equalizer_rounded, size: 18, color: theme.colorScheme.primary)
+          : Text(
               '${index + 1}',
               style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: tokens.onSurfaceMuted,
+                color: isCurrentTrack
+                    ? theme.colorScheme.primary
+                    : tokens.onSurfaceMuted,
               ),
             ),
-          );
-        }
-
-        return ListTile(
-          leading: SizedBox(
-            width: 48,
-            height: 48,
-            child: Stack(
-              children: [
-                if (track.thumbnailUrl != null || track.coverUrl != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: Image.network(
-                      track.thumbnailUrl ?? track.coverUrl!,
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => buildFallbackBox(),
-                    ),
-                  )
-                else
-                  buildFallbackBox(),
-                if (isCurrentTrack)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: tokens.scrim.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(track.thumbnailUrl != null || track.coverUrl != null ? 4 : 8),
-                    ),
-                    alignment: Alignment.center,
-                    child: state.isPlaying
-                        ? Icon(
-                            Icons.equalizer,
-                            size: 24,
-                            color: theme.colorScheme.primary,
-                          )
-                        : Icon(
-                            Icons.pause,
-                            size: 24,
-                            color: theme.colorScheme.primary,
-                          ),
-                  ),
-              ],
-            ),
-          ),
-          title: Text(
-            track.title,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: isCurrentTrack ? FontWeight.bold : FontWeight.normal,
-              color: isCurrentTrack
-                  ? theme.colorScheme.primary
-                  : tokens.onSurface,
-            ),
-          ),
-          subtitle: Text(
-            subtitleText,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: tokens.onSurfaceMuted,
-            ),
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AudioTrackDownloadControl(track: track),
-              IconButton(
-                icon: Icon(
-                  isCurrentTrack && state.isPlaying
-                      ? Icons.pause_circle_outline
-                      : Icons.play_circle_outline,
-                  color: isCurrentTrack
-                      ? theme.colorScheme.primary
-                      : tokens.onSurfaceMuted,
-                ),
-                tooltip: isCurrentTrack && state.isPlaying ? 'Pause' : 'Play',
-                onPressed: playFromHere,
-              ),
-            ],
-          ),
-          onTap: playFromHere,
-        );
-      },
     );
   }
 }
