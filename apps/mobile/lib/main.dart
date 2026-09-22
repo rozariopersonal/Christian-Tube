@@ -152,6 +152,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                     extraMap?['shortId'] as String?;
                 final initialIndex = extraMap?['initialIndex'] as int?;
                 return ShortsFeedScreen(
+                  authService: _authService,
                   initialShortId: shortId,
                   initialIndex: initialIndex,
                 );
