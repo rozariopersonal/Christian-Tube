@@ -7,6 +7,7 @@ class Channel {
   final int subscriberCount;
   final int videoCount;
   final bool isSubscribed;
+  final String? language;
 
   String get name => title;
   String get thumbnail => avatarUrl;
@@ -20,6 +21,7 @@ class Channel {
     this.subscriberCount = 0,
     this.videoCount = 0,
     this.isSubscribed = false,
+    this.language,
   });
 
   Channel copyWith({
@@ -31,6 +33,7 @@ class Channel {
     int? subscriberCount,
     int? videoCount,
     bool? isSubscribed,
+    String? language,
   }) {
     return Channel(
       id: id ?? this.id,
@@ -41,6 +44,7 @@ class Channel {
       subscriberCount: subscriberCount ?? this.subscriberCount,
       videoCount: videoCount ?? this.videoCount,
       isSubscribed: isSubscribed ?? this.isSubscribed,
+      language: language ?? this.language,
     );
   }
 
@@ -72,6 +76,7 @@ class Channel {
       subscriberCount: parsedSubs,
       videoCount: parsedVideos,
       isSubscribed: json['isSubscribed'] ?? json['is_subscribed'] ?? false,
+      language: json['language'],
     );
   }
 
@@ -85,6 +90,7 @@ class Channel {
       'subscriberCount': subscriberCount,
       'videoCount': videoCount,
       'isSubscribed': isSubscribed,
+      'language': language,
     };
   }
 }
