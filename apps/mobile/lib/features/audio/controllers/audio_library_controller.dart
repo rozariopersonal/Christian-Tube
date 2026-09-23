@@ -26,6 +26,9 @@ enum AudioChannelSort {
 
   /// Alphabetical by channel name (A–Z).
   name,
+
+  /// Channels with the most recently published track first.
+  newest,
 }
 
 /// Immutable snapshot of the Audio Library browse state.
@@ -142,6 +145,16 @@ class AudioLibraryViewState {
         final sorted = List<AudioSeries>.from(list)
           ..sort((a, b) =>
               a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        return sorted;
+      case AudioChannelSort.newest:
+        final sorted = List<AudioSeries>.from(list)
+          ..sort((a, b) {
+            final at = a.latestPublishedAt?.millisecondsSinceEpoch ?? -1;
+            final bt = b.latestPublishedAt?.millisecondsSinceEpoch ?? -1;
+            final recency = bt.compareTo(at);
+            if (recency != 0) return recency;
+            return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+          });
         return sorted;
       case AudioChannelSort.mostTracks:
         return List<AudioSeries>.from(list)

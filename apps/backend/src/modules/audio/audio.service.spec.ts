@@ -161,6 +161,77 @@ describe('AudioService', () => {
         data: { trackCount: 0 },
       });
     });
+
+    it('stores track publishedAt and derives series latestPublishedAt', async () => {
+      const { service, prisma } = makeService();
+      const tracks = [
+        { id: 't1', publishedAt: '2026-09-01T00:00:00Z' },
+        { id: 't2', publishedAt: '2026-09-20T06:30:00Z' },
+        { id: 't3', publishedAt: '2026-09-10T12:00:00Z' },
+      ];
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(jsonResponse({ revision: 'abc123' }))
+        .mockResolvedValueOnce(jsonResponse([
+          { id: 's1', title: 'S1', speaker: 'ZP', category: 'X', trackCount: 3 },
+        ]))
+        .mockResolvedValueOnce(jsonResponse({ id: 's1', tracks }));
+
+      prisma.audioSeries.findUnique.mockResolvedValue({
+        id: 's1',
+        trackCount: 1,
+      });
+      prisma.audioSeries.upsert.mockResolvedValue({ id: 's1' });
+      prisma.audioTrack.createMany.mockResolvedValue({ count: 3 });
+      prisma.audioSeries.update.mockResolvedValue({ id: 's1', trackCount: 3 });
+
+      await service.syncCatalogFromGitHub();
+
+      const createData = prisma.audioTrack.createMany.mock.calls[0][0].data;
+      expect(createData[0].publishedAt).toEqual(new Date('2026-09-01T00:00:00Z'));
+      expect(prisma.audioSeries.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: {
+          trackCount: 3,
+          latestPublishedAt: new Date('2026-09-20T06:30:00Z'),
+        },
+      });
+    });
+
+    it('backfills latestPublishedAt for legacy series without wiping newer values', async () => {
+      const { service, prisma } = makeService();
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(jsonResponse({ revision: 'abc123' }))
+        .mockResolvedValueOnce(jsonResponse([
+          { id: 's1', title: 'S1', speaker: 'ZP', category: 'X', trackCount: 7 },
+        ]))
+        // backfill fetch for the legacy series (no catalog recency field)
+        .mockResolvedValueOnce(jsonResponse({
+          id: 's1',
+          tracks: [
+            { id: 't1', publishedAt: '2025-01-01T00:00:00Z' },
+            { id: 't2', publishedAt: '2026-03-15T09:00:00Z' },
+          ],
+        }));
+
+      prisma.audioSeries.findUnique.mockResolvedValue({
+        id: 's1',
+        trackCount: 7,
+        latestPublishedAt: null,
+      });
+      prisma.audioSeries.upsert.mockResolvedValue({ id: 's1' });
+      // No track re-sync needed: count matches. findMany drives the backfill.
+      prisma.audioSeries.findMany.mockResolvedValue([{ id: 's1' }]);
+
+      await service.syncCatalogFromGitHub();
+
+      expect(prisma.audioTrack.deleteMany).not.toHaveBeenCalled();
+      // Only one series update: the backfill (count matched, so no track sync).
+      expect(prisma.audioSeries.update).toHaveBeenCalledTimes(1);
+      expect(prisma.audioSeries.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: { latestPublishedAt: new Date('2026-03-15T09:00:00Z') },
+      });
+    });
   });
 
   describe('getSyncData', () => {

@@ -79,6 +79,10 @@ class AudioChannelGrid extends StatelessWidget {
                     child: Text('Most tracks'),
                   ),
                   PopupMenuItem(
+                    value: AudioChannelSort.newest,
+                    child: Text('Newest first'),
+                  ),
+                  PopupMenuItem(
                     value: AudioChannelSort.name,
                     child: Text('A–Z'),
                   ),
