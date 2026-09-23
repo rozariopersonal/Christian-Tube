@@ -170,7 +170,7 @@ class _AudioSeriesHeaderState extends State<AudioSeriesHeader> {
             AnimatedCrossFade(
               duration: const Duration(milliseconds: 200),
               firstChild: Text(
-                series!.description,
+                series.description,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -179,7 +179,7 @@ class _AudioSeriesHeaderState extends State<AudioSeriesHeader> {
                 ),
               ),
               secondChild: Text(
-                series!.description,
+                series.description,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: tokens.onSurfaceMuted,
                   height: 1.5,
