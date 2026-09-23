@@ -17,6 +17,13 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
   static List<AudioSeries>? _cachedCatalog;
   static final Map<String, AudioSeries> _cachedSeries = {};
 
+  /// Clears the in-memory catalog and series caches so the next fetch honors a
+  /// fresh network pull (used on force-refresh after a new dataset revision).
+  static void invalidateCache() {
+    _cachedCatalog = null;
+    _cachedSeries.clear();
+  }
+
   @visibleForTesting
   static void seedCacheForTesting([List<AudioSeries>? catalog]) {
     _cachedCatalog = catalog ?? SeedAudioCatalog.catalog;
@@ -27,7 +34,10 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
 
   @override
   Future<List<AudioSeries>> fetchCatalog({bool forceRefresh = false}) async {
-    if (!forceRefresh && _cachedCatalog != null && _cachedCatalog!.isNotEmpty) {
+    if (forceRefresh) {
+      RemoteAudioCatalogAdapter.invalidateCache();
+    }
+    if (_cachedCatalog != null && _cachedCatalog!.isNotEmpty) {
       return _cachedCatalog!;
     }
 

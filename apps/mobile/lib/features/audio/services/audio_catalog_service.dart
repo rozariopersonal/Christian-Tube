@@ -26,6 +26,14 @@ class AudioCatalogService {
   SqliteAudioCatalogAdapter get localAdapter => _localAdapter;
   RemoteAudioCatalogAdapter get remoteAdapter => _remoteAdapter;
 
+  /// Clears in-memory caches (remote catalog/series + YouTube-id lookups) so
+  /// the next read performs a fresh fetch. Used on force-refresh.
+  void invalidateCaches() {
+    RemoteAudioCatalogAdapter.invalidateCache();
+    _youtubeIdCache.clear();
+    _isCacheLoaded = false;
+  }
+
   Future<AudioCatalogAdapter> _getAdapter() async {
     try {
       if (await _localAdapter.isInitialized) {

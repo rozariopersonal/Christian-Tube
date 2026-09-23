@@ -216,21 +216,33 @@ class _GroupSection extends StatelessWidget {
                           ),
                           Padding(
                             padding: const EdgeInsets.all(14),
-                            child: GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: seriesList.length,
-                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 160,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                                childAspectRatio: 1.0,
-                              ),
-                              itemBuilder: (context, idx) {
-                                final series = seriesList[idx];
-                                return AudioSeriesCard(
-                                  series: series,
-                                  onTap: () => onOpenSeries(series),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                // During the AnimatedCrossFade layout pass the
+                                // incoming child can be given a zero width.
+                                // SliverGridDelegateWithMaxCrossAxisExtent
+                                // asserts on crossAxisExtent <= 0, so only
+                                // build the grid when there is real room.
+                                if (constraints.maxWidth <= 0) {
+                                  return const SizedBox.shrink();
+                                }
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: seriesList.length,
+                                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 160,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 10,
+                                    childAspectRatio: 1.0,
+                                  ),
+                                  itemBuilder: (context, idx) {
+                                    final series = seriesList[idx];
+                                    return AudioSeriesCard(
+                                      series: series,
+                                      onTap: () => onOpenSeries(series),
+                                    );
+                                  },
                                 );
                               },
                             ),

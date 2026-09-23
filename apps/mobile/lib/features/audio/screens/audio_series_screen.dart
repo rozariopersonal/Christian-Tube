@@ -7,13 +7,14 @@ import '../../../core/theme/app_tokens.dart';
 import '../controllers/audio_player_controller.dart';
 import '../controllers/audio_series_controller.dart';
 import '../models/audio_series.dart';
+import '../widgets/audio_search_bar.dart';
 import '../widgets/audio_series_header.dart';
 import '../widgets/audio_track_list_tile.dart';
 
 /// Displays the tracks of an audio series with "Play All", individual track
-/// resume badges, live equalizers, and responsive layout constraints. Thin
-/// assembler: all behavior lives in [AudioSeriesController], the sub-views are
-/// presentational widgets.
+/// resume badges, live equalizers, responsive layout constraints, and an
+/// in-channel real-time search. Thin assembler: all behavior lives in
+/// [AudioSeriesController], the sub-views are presentational widgets.
 class AudioSeriesScreen extends StatefulWidget {
   final String seriesId;
   final AudioSeries? initialSeries;
@@ -30,6 +31,7 @@ class AudioSeriesScreen extends StatefulWidget {
 
 class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
   late final AudioSeriesController _controller;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -43,6 +45,7 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -105,10 +108,38 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
                       ),
 
                       if (series != null)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                            child: AudioSearchBar(
+                              controller: _searchController,
+                              hintText: 'Search this series...',
+                              onChanged: _controller.setSearchQuery,
+                              onClear: _controller.clearSearch,
+                            ),
+                          ),
+                        ),
+
+                      if (series != null && state.isSearching)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Text(
+                              state.filteredTracks.isEmpty
+                                  ? 'No tracks match "${_searchController.text}".'
+                                  : '${state.filteredTracks.length} of ${series.tracks.length} tracks',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: tokens.onSurfaceMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      if (series != null)
                         SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {
-                              final track = series.tracks[index];
+                              final track = state.filteredTracks[index];
                               return AudioTrackListTile(
                                 track: track,
                                 index: index,
@@ -117,7 +148,7 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
                                 queue: series.tracks,
                               );
                             },
-                            childCount: series.tracks.length,
+                            childCount: state.filteredTracks.length,
                           ),
                         ),
                       const SliverToBoxAdapter(

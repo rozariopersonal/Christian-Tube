@@ -245,14 +245,26 @@ class AudioLibraryController extends ChangeNotifier {
   Future<void> loadData({bool forceRefresh = false}) async {
     // Check cloud for playback updates across devices in background
     AudioPlayerController.instance.syncWithCloud();
-    
-    // Fire off background catalog sync from NestJS to Local SQLite
-    AudioSyncManager(_catalogService.localAdapter).syncCatalog().catchError((e) {
-      debugPrint('Background sync failed: $e');
-    });
+
+    final syncManager = AudioSyncManager(_catalogService.localAdapter);
 
     if (forceRefresh) {
+      // On explicit refresh: refresh the dataset revision FIRST so CDN URLs
+      // pick up the new cache-busting query, clear in-memory caches, then
+      // re-sync the local SQLite mirror and only THEN read the catalog. This
+      // removes the stale-count race for both the CDN and SQLite paths.
       await ReleaseRevision.load();
+      _catalogService.invalidateCaches();
+      try {
+        await syncManager.syncCatalog();
+      } catch (e) {
+        debugPrint('Audio sync failed during force refresh: $e');
+      }
+    } else {
+      // Background catalog sync from NestJS to Local SQLite (best effort).
+      syncManager.syncCatalog().catchError((e) {
+        debugPrint('Background sync failed: $e');
+      });
     }
 
     final catalog = await _catalogService.getCatalog(forceRefresh: forceRefresh);
