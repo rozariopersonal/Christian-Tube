@@ -5,6 +5,7 @@ import 'package:mobile/features/audio/screens/audio_library_screen.dart';
 import 'package:mobile/features/audio/widgets/audio_search_bar.dart';
 import 'package:mobile/features/audio/widgets/audio_view_mode_segmented_bar.dart';
 import 'package:mobile/features/audio/adapters/remote_audio_catalog_adapter.dart';
+import 'package:mobile/features/audio/models/audio_series.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
@@ -110,6 +111,44 @@ void main() {
         await tester.pumpWidget(buildAudioLibraryTestHarness());
         await tester.pump(const Duration(seconds: 4));
 
+        expect(tester.takeException(), isNull,
+            reason: 'Failed at width $width');
+      }
+    });
+
+    testWidgets('renders the YouTube tab across breakpoints without overflow',
+        (tester) async {
+      RemoteAudioCatalogAdapter.seedCacheForTesting([
+        const AudioSeries(
+          id: 'cfc_india',
+          title: 'CFC India - Zac Poonen',
+          description: 'Weekly sermons',
+          speaker: 'Zac Poonen',
+          trackCount: 320,
+          category: 'YouTube',
+          language: 'English',
+        ),
+        const AudioSeries(
+          id: 'chennai_cfc',
+          title: 'Chennai CFC',
+          description: 'Church messages',
+          speaker: 'CFC Elders',
+          trackCount: 84,
+          category: 'YouTube',
+          language: 'Tamil',
+        ),
+      ]);
+
+      for (final width in [320.0, 600.0, 840.0, 1400.0]) {
+        setSurfaceSize(tester, width, 1600);
+        await tester.pumpWidget(buildAudioLibraryTestHarness());
+        await tester.pump(const Duration(seconds: 4));
+
+        await tester.tap(find.text('YouTube'));
+        await tester.pump(const Duration(seconds: 2));
+
+        expect(find.textContaining('YouTube Channels'), findsOneWidget,
+            reason: 'YouTube tab header missing at width $width');
         expect(tester.takeException(), isNull,
             reason: 'Failed at width $width');
       }

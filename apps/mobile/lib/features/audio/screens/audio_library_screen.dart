@@ -419,6 +419,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
           state: state,
           onReset: _controller.resetFilters,
           onOpenSeries: _openSeries,
+          onChannelSortChanged: _controller.setChannelSort,
         ),
       );
     }
