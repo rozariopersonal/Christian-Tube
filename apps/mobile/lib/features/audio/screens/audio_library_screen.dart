@@ -149,14 +149,19 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 14),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: AudioViewModeSegmentedBar(
-                                  currentMode: state.viewMode,
-                                  onModeChanged: _controller.setViewMode,
+                              // The view-mode selector only applies to
+                              // Archive/Songs; the YouTube tab is a single
+                              // subscribed-channel surface with its own sort.
+                              if (state.selectedFormat != AudioFormat.youtube) ...[
+                                const SizedBox(height: 14),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: AudioViewModeSegmentedBar(
+                                    currentMode: state.viewMode,
+                                    onModeChanged: _controller.setViewMode,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ],
                         ),
@@ -260,7 +265,14 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       );
     }
 
-    // B. BY CATEGORY (ACCORDION / GROUPED SECTIONS)
+    // B. YOUTUBE — dedicated subscribed-channel grid. Category chips and the
+    // view-mode selector only apply to Archive/Songs; the grid owns its own
+    // empty state (including the subscribe call to action).
+    if (state.selectedFormat == AudioFormat.youtube) {
+      return _buildYouTubeContent(state);
+    }
+
+    // C. BY CATEGORY (ACCORDION / GROUPED SECTIONS)
     if (state.viewMode == AudioViewMode.byCategory) {
       return AudioGroupedSections(
         groups: state.seriesByCategory,
@@ -269,7 +281,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       );
     }
 
-    // C. BY SPEAKER (ACCORDION / GROUPED SECTIONS)
+    // D. BY SPEAKER (ACCORDION / GROUPED SECTIONS)
     if (state.viewMode == AudioViewMode.bySpeaker) {
       return AudioGroupedSections(
         groups: state.seriesBySpeaker,
@@ -278,7 +290,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       );
     }
 
-    // D. ALPHABETICAL (A–Z)
+    // E. ALPHABETICAL (A–Z)
     if (state.viewMode == AudioViewMode.alphabetical) {
       return AudioGroupedSections(
         groups: state.seriesAlphabetical,
@@ -287,7 +299,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
       );
     }
 
-    // E. FEATURED (DEFAULT)
+    // F. FEATURED (DEFAULT)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -330,8 +342,6 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
           // Horizontal Rails per Category (Eliminates massive vertical scroll)
           if (state.selectedFormat == AudioFormat.archive)
             ..._buildCategoryRails(state)
-          else if (state.selectedFormat == AudioFormat.youtube)
-            ..._buildYouTubeRails(state)
           else
             AudioSeriesGrid(
               state: state,
@@ -409,21 +419,28 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
     return rails;
   }
 
-  List<Widget> _buildYouTubeRails(AudioLibraryViewState state) {
-    final rails = <Widget>[];
-    
-    // Group all YouTube channels into a single grid
-    if (state.filteredSeries.isNotEmpty) {
-      rails.add(
+  Widget _buildYouTubeContent(AudioLibraryViewState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Keep the "resume playing" card visible on this tab too.
+        if (state.lastPlayedTrack != null) ...[
+          AudioContinueListeningCard(
+            track: state.lastPlayedTrack!,
+            savedSeconds: state.lastPlayedSeconds,
+          ),
+          const SizedBox(height: 20),
+        ],
+        // Always rendered: the grid owns its empty state, including the
+        // subscribe call to action when there are no subscriptions.
         AudioChannelGrid(
           state: state,
           onReset: _controller.resetFilters,
+          onSubscribe: () => context.go('/channels'),
           onOpenSeries: _openSeries,
           onChannelSortChanged: _controller.setChannelSort,
         ),
-      );
-    }
-    
-    return rails;
+      ],
+    );
   }
 }

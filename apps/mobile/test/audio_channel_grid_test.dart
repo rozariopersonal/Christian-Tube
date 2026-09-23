@@ -43,10 +43,16 @@ void main() {
     selectedFormat: AudioFormat.youtube,
     selectedLanguages: const {'All'},
     availableLanguages: const ['All'],
+    subscribedChannelNames: const {
+      'Alpha Channel',
+      'Beta Channel',
+      'Gamma Channel',
+    },
   );
 
   Widget buildHarness(AudioLibraryViewState state,
-      ValueChanged<AudioChannelSort> onChannelSortChanged) {
+      ValueChanged<AudioChannelSort> onChannelSortChanged,
+      {VoidCallback? onSubscribe}) {
     return MaterialApp(
       theme: ThemeData.light(useMaterial3: true).copyWith(
         extensions: [AppTokens.light],
@@ -56,6 +62,7 @@ void main() {
           child: AudioChannelGrid(
             state: state,
             onReset: () {},
+            onSubscribe: onSubscribe ?? () {},
             onOpenSeries: (_) {},
             onChannelSortChanged: onChannelSortChanged,
           ),
@@ -159,5 +166,62 @@ void main() {
     expect(find.text('No channels found for the selected filter.'),
         findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('filters out channels the user is not subscribed to',
+      (tester) async {
+    setSurfaceSize(tester, 700, 1200);
+    await tester.pumpWidget(buildHarness(
+      baseState.copyWith(
+        subscribedChannelNames: const {'Alpha Channel'},
+      ),
+      (_) {},
+    ));
+    await tester.pump();
+
+    expect(find.text('YouTube Channels (1)'), findsOneWidget);
+    expect(find.text('Alpha Channel'), findsOneWidget);
+    expect(find.text('Beta Channel'), findsNothing);
+    expect(find.text('Gamma Channel'), findsNothing);
+  });
+
+  testWidgets('shows the subscribe call to action without subscriptions',
+      (tester) async {
+    setSurfaceSize(tester, 700, 1200);
+
+    var subscribed = false;
+    await tester.pumpWidget(buildHarness(
+      baseState.copyWith(subscribedChannelNames: const {}),
+      (_) {},
+      onSubscribe: () => subscribed = true,
+    ));
+    await tester.pump();
+
+    expect(find.text('YouTube Channels (0)'), findsOneWidget);
+    expect(find.text('No subscribed channels yet'), findsOneWidget);
+    expect(find.text('Channels you subscribe to will show up here.'),
+        findsOneWidget);
+
+    await tester.tap(find.text('Subscribe to channels'));
+    await tester.pump();
+    expect(subscribed, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('renders the subscribe call to action across breakpoints without overflow',
+      (tester) async {
+    for (final width in [320.0, 600.0, 840.0, 1400.0]) {
+      setSurfaceSize(tester, width, 900);
+      await tester.pumpWidget(buildHarness(
+        baseState.copyWith(subscribedChannelNames: const {}),
+        (_) {},
+      ));
+      await tester.pump();
+
+      expect(find.text('No subscribed channels yet'), findsOneWidget,
+          reason: 'CTA missing at width $width');
+      expect(tester.takeException(), isNull,
+          reason: 'Failed at width $width');
+    }
   });
 }

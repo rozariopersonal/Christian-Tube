@@ -149,6 +149,12 @@ void main() {
 
         expect(find.textContaining('YouTube Channels'), findsOneWidget,
             reason: 'YouTube tab header missing at width $width');
+        // The test user has no channel subscriptions, so the tab shows the
+        // subscribe call to action instead of the channel grid.
+        expect(find.text('No subscribed channels yet'), findsOneWidget,
+            reason: 'Subscribe CTA missing at width $width');
+        expect(find.text('Subscribe to channels'), findsOneWidget,
+            reason: 'Subscribe button missing at width $width');
         expect(tester.takeException(), isNull,
             reason: 'Failed at width $width');
       }

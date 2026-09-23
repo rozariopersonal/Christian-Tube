@@ -148,16 +148,20 @@ void main() {
     await service.loadSubscriptions();
 
     expect(service.subscribedChannelIds, {'c1', 'c2'});
+    expect(service.subscribedChannelNames, {'Channel One', 'Channel Two'});
     expect(adapter.requests, hasLength(1));
     expect(adapter.requests.first.path, '/api/channels/subscriptions');
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getStringList('subscribed_channel_ids'), containsAll(['c1', 'c2']));
+    expect(prefs.getString('subscribed_channel_names'), contains('Channel One'));
   });
 
   test('signed-out loadSubscriptions falls back to local preferences', () async {
     SharedPreferences.setMockInitialValues({
       'subscribed_channel_ids': ['c1'],
+      'subscribed_channel_names':
+          '{"c1":"Channel One","c2":"Stale Channel"}',
     });
     final adapter = StubAdapter();
     final service = ChannelService.forTesting(dio: testDio(adapter));
@@ -165,7 +169,44 @@ void main() {
     await service.loadSubscriptions();
 
     expect(service.subscribedChannelIds, {'c1'});
+    // Only the subscribed id's name surfaces; the stale entry is ignored.
+    expect(service.subscribedChannelNames, {'Channel One'});
     expect(adapter.requests, isEmpty);
+  });
+
+  test('guest subscriptions persist channel names across reloads', () async {
+    final adapter = StubAdapter(
+      onFetch: (_) => ResponseBody.fromString(
+        jsonEncode([
+          {'id': 'c1', 'name': 'Channel One'},
+        ]),
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      ),
+    );
+    final service = ChannelService.forTesting(dio: testDio(adapter));
+
+    await service.fetchChannels();
+    expect(service.channels, hasLength(1));
+
+    service.toggleSubscribe('c1');
+    await settle();
+    expect(service.subscribedChannelNames, {'Channel One'});
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('subscribed_channel_names'), contains('Channel One'));
+
+    // A fresh service reads the persisted names back without any network call.
+    final second = ChannelService.forTesting(dio: testDio(StubAdapter()));
+    await second.loadSubscriptions();
+    expect(second.subscribedChannelNames, {'Channel One'});
+
+    // Unsubscribing drops the name too.
+    second.toggleSubscribe('c1');
+    await settle();
+    expect(second.subscribedChannelNames, isEmpty);
   });
 
   group('addChannel', () {

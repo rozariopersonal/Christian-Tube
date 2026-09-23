@@ -5,7 +5,33 @@ import 'package:mobile/features/audio/models/audio_series.dart';
 import 'package:mobile/features/audio/models/audio_track.dart';
 import 'package:mobile/features/audio/services/audio_catalog_service.dart';
 import 'package:mobile/features/audio/services/audio_storage_service.dart';
+import 'package:mobile/features/channels/channel_service.dart';
 import 'package:mobile/shared/services/library_languages_controller.dart';
+
+class _FakeChannelService extends ChannelService {
+  _FakeChannelService(Set<String> initialNames)
+      : names = Set.of(initialNames),
+        ids = Set.of(initialNames),
+        super.forTesting();
+
+  Set<String> names;
+  Set<String> ids;
+
+  @override
+  Set<String> get subscribedChannelNames => names;
+
+  @override
+  Set<String> get subscribedChannelIds => ids;
+
+  @override
+  Future<void> fetchChannels() async {}
+
+  void setSubscription(Set<String> next) {
+    names = Set.of(next);
+    ids = Set.of(next);
+    notifyListeners();
+  }
+}
 
 class _FakeCatalogService extends AudioCatalogService {
   final List<AudioSeries> series;
@@ -231,6 +257,7 @@ void main() {
         ),
         storageService: _FakeStorageService(),
         langController: LibraryLanguagesController(),
+        channelService: _FakeChannelService({'CFC India Sermons'}),
       );
 
       await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -282,6 +309,11 @@ void main() {
         catalogService: _FakeCatalogService([a, c, d]),
         storageService: _FakeStorageService(),
         langController: LibraryLanguagesController(),
+        channelService: _FakeChannelService({
+          'Alpha Channel',
+          'Beta Channel',
+          'Gamma Channel',
+        }),
       );
 
       await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -311,6 +343,11 @@ void main() {
         catalogService: _FakeCatalogService([ta, enBig, taBig]),
         storageService: _FakeStorageService(),
         langController: lang,
+        channelService: _FakeChannelService({
+          'Tamil Channel',
+          'English Channel',
+          'Another Tamil Channel',
+        }),
       );
 
       await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -329,7 +366,7 @@ void main() {
       controller.dispose();
     });
 
-    test('newest sort orders by recency, placing series without a date last',
+test('newest sort orders by recency, placing series without a date last',
         () async {
       final older = _youtubeSeries(
         'old',
@@ -349,6 +386,11 @@ void main() {
         catalogService: _FakeCatalogService([older, newer, unknown]),
         storageService: _FakeStorageService(),
         langController: LibraryLanguagesController(),
+        channelService: _FakeChannelService({
+          'Older Channel',
+          'Newer Channel',
+          'No Date Channel',
+        }),
       );
 
       await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -357,6 +399,96 @@ void main() {
       controller.setChannelSort(AudioChannelSort.newest);
       expect(controller.state.channelSortedSeries.map((s) => s.id),
           ['new', 'old', 'na']); // recency desc, undated pushed last
+
+      controller.dispose();
+    });
+
+    test('YouTube tab hides channels the user is not subscribed to', () async {
+      final subscribed = _youtubeSeries('c', 'Alpha Channel', 50);
+      final unsubscribed = _youtubeSeries('b', 'Beta Channel', 3);
+
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService([subscribed, unsubscribed]),
+        storageService: _FakeStorageService(),
+        langController: LibraryLanguagesController(),
+        channelService: _FakeChannelService({'Alpha Channel'}),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      controller.selectFormat(AudioFormat.youtube);
+
+      expect(controller.state.filteredSeries.map((s) => s.id), ['c']);
+      expect(controller.state.hasChannelSubscriptions, isTrue);
+      expect(controller.state.shouldShowSubscribedCta, isFalse);
+
+      controller.dispose();
+    });
+
+    test('YouTube tab without subscriptions shows the subscribe call to action',
+        () async {
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService([
+          _youtubeSeries('c', 'Alpha Channel', 50),
+        ]),
+        storageService: _FakeStorageService(),
+        langController: LibraryLanguagesController(),
+        channelService: _FakeChannelService(const {}),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      controller.selectFormat(AudioFormat.youtube);
+
+      expect(controller.state.filteredSeries, isEmpty);
+      expect(controller.state.hasChannelSubscriptions, isFalse);
+      expect(controller.state.shouldShowSubscribedCta, isTrue);
+
+      controller.dispose();
+    });
+
+    test('archive format ignores channel subscriptions', () async {
+      final archive = _series('a1', 'Romans Exposition');
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService([archive]),
+        storageService: _FakeStorageService(),
+        langController: LibraryLanguagesController(),
+        channelService: _FakeChannelService(const {}),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Default format is archive: no subscriptions yet, but archive content
+      // must still be reachable and the CTA must not appear.
+      expect(controller.state.filteredSeries.map((s) => s.id), ['a1']);
+      expect(controller.state.shouldShowSubscribedCta, isFalse);
+
+      controller.dispose();
+    });
+
+    test('subscription changes propagate from ChannelService into state',
+        () async {
+      final series = _youtubeSeries('c', 'Alpha Channel', 50);
+      final channelService = _FakeChannelService(const {});
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService([series]),
+        storageService: _FakeStorageService(),
+        langController: LibraryLanguagesController(),
+        channelService: channelService,
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      controller.selectFormat(AudioFormat.youtube);
+      expect(controller.state.shouldShowSubscribedCta, isTrue);
+
+      // User subscribes elsewhere (e.g. ChannelsScreen): state reacts live.
+      channelService.setSubscription({'Alpha Channel'});
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(controller.state.filteredSeries.map((s) => s.id), ['c']);
+      expect(controller.state.shouldShowSubscribedCta, isFalse);
+
+      // Unsubscribing brings the call to action back.
+      channelService.setSubscription(const {});
+      expect(controller.state.filteredSeries, isEmpty);
+      expect(controller.state.shouldShowSubscribedCta, isTrue);
 
       controller.dispose();
     });
