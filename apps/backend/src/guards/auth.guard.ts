@@ -37,6 +37,7 @@ export class AuthGuard implements CanActivate {
         userId,
         email: this.googleJwksService.parseGuestEmail(token),
         role: 'USER',
+        isGuest: true,
       };
       return true;
     }
