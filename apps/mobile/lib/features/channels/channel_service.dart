@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,6 +42,7 @@ class ChannelService extends ChangeNotifier {
   bool _isLoading = false;
   bool _isLoadingRequests = false;
   Set<String> _subscribedIds = {};
+  final Map<String, String> _channelNamesById = {};
 
   List<Channel> get channels => _channels;
   List<Map<String, dynamic>> get channelRequests => _channelRequests;
@@ -48,6 +51,26 @@ class ChannelService extends ChangeNotifier {
   Set<String> get subscribedChannelIds => _subscribedIds;
 
   bool isSubscribed(String channelId) => _subscribedIds.contains(channelId);
+
+  /// Names of the currently subscribed channels (trimmed). Other features
+  /// (audio YouTube tab) bridge channel subscriptions to their own data by
+  /// name, so names are remembered whenever they are learned — from the
+  /// backend subscription payload, the channel list, or persisted prefs.
+  Set<String> get subscribedChannelNames {
+    final names = <String>{};
+    for (final id in _subscribedIds) {
+      final name = _channelNamesById[id];
+      if (name != null && name.isNotEmpty) names.add(name);
+    }
+    return names;
+  }
+
+  void _rememberChannelName(String? id, String? name) {
+    if (id == null || id.isEmpty) return;
+    final clean = (name ?? '').trim();
+    if (clean.isEmpty) return;
+    _channelNamesById[id] = clean;
+  }
 
   Future<void> loadSubscriptions() async {
     if (_isAuthenticated) {
@@ -73,6 +96,17 @@ class ChannelService extends ChangeNotifier {
                 .toSet() ??
             const <String>{};
         _subscribedIds = channelIds;
+
+        final subscribedChannels = response.data['channels'];
+        if (subscribedChannels is List) {
+          for (final entry in subscribedChannels.whereType<Map>()) {
+            final id = entry['id'];
+            if (id is String && channelIds.contains(id)) {
+              _rememberChannelName(id, entry['name'] as String?);
+            }
+          }
+        }
+
         await _saveToPrefs();
         _syncSubscriptionStatus();
       }
@@ -87,6 +121,18 @@ class ChannelService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final list = prefs.getStringList('subscribed_channel_ids') ?? [];
       _subscribedIds = list.toSet();
+
+      final namesJson = prefs.getString('subscribed_channel_names');
+      if (namesJson != null && namesJson.isNotEmpty) {
+        final decoded = jsonDecode(namesJson);
+        if (decoded is Map) {
+          for (final entry in decoded.entries) {
+            if (entry.key is String) {
+              _rememberChannelName(entry.key as String, entry.value as String?);
+            }
+          }
+        }
+      }
       _syncSubscriptionStatus();
       notifyListeners();
     } catch (_) {}
@@ -96,6 +142,14 @@ class ChannelService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('subscribed_channel_ids', _subscribedIds.toList());
+
+      // Persist names only for the currently subscribed ids so the map does
+      // not retain stale entries across accounts or sign-outs.
+      final subscribedNamesJson = jsonEncode({
+        for (final id in _subscribedIds)
+          if (_channelNamesById[id] != null) id: _channelNamesById[id],
+      });
+      await prefs.setString('subscribed_channel_names', subscribedNamesJson);
     } catch (_) {}
   }
 
@@ -127,6 +181,10 @@ class ChannelService extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .map((c) => Channel.fromJson(c))
             .toList();
+
+        for (final ch in _channels) {
+          _rememberChannelName(ch.id, ch.name);
+        }
 
         _syncSubscriptionStatus();
       }
@@ -167,6 +225,7 @@ class ChannelService extends ChangeNotifier {
 
       if (response.statusCode == 200 && response.data != null) {
         final ch = Channel.fromJson(response.data);
+        _rememberChannelName(ch.id, ch.name);
         return ch.copyWith(isSubscribed: _subscribedIds.contains(ch.id));
       }
     } catch (e) {
@@ -241,6 +300,7 @@ class ChannelService extends ChangeNotifier {
       if (response.statusCode == 200 || response.statusCode == 204) {
         _channels.removeWhere((c) => c.id == channelId);
         _subscribedIds.remove(channelId);
+        _channelNamesById.remove(channelId);
         await _saveToPrefs();
         notifyListeners();
         return true;

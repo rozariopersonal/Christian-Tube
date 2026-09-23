@@ -11,6 +11,7 @@ import '../models/audio_series.dart';
 class AudioChannelGrid extends StatelessWidget {
   final AudioLibraryViewState state;
   final VoidCallback onReset;
+  final VoidCallback onSubscribe;
   final ValueChanged<AudioSeries> onOpenSeries;
   final ValueChanged<AudioChannelSort> onChannelSortChanged;
 
@@ -18,6 +19,7 @@ class AudioChannelGrid extends StatelessWidget {
     super.key,
     required this.state,
     required this.onReset,
+    required this.onSubscribe,
     required this.onOpenSeries,
     required this.onChannelSortChanged,
   });
@@ -92,17 +94,19 @@ class AudioChannelGrid extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           if (sorted.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(40),
-                child: Text(
-                  'No channels found for the selected filter.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: tokens.onSurfaceMuted,
-                  ),
-                ),
-              ),
-            )
+            state.shouldShowSubscribedCta
+                ? _buildSubscribeCta(context, theme, tokens)
+                : Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Text(
+                        'No channels found for the selected filter.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: tokens.onSurfaceMuted,
+                        ),
+                      ),
+                    ),
+                  )
           else
             LayoutBuilder(
               builder: (context, constraints) {
@@ -127,6 +131,51 @@ class AudioChannelGrid extends StatelessWidget {
               },
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSubscribeCta(
+    BuildContext context,
+    ThemeData theme,
+    AppTokens tokens,
+  ) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.person_add_alt_1_rounded,
+              size: 48,
+              color: tokens.onSurfaceMuted,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No subscribed channels yet',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: tokens.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Channels you subscribe to will show up here.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: tokens.onSurfaceMuted,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onSubscribe,
+              icon: const Icon(Icons.add),
+              label: const Text('Subscribe to channels'),
+            ),
+          ],
+        ),
       ),
     );
   }

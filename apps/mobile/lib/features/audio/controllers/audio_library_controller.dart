@@ -3,10 +3,12 @@ import 'package:flutter/foundation.dart';
 import '../../../core/api/release_revision.dart';
 import '../../../shared/services/library_languages_controller.dart';
 import '../../../shared/ui/language_meta.dart';
+import '../../channels/channel_service.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
 import '../services/audio_storage_service.dart';
+import '../services/audio_subscription_filter.dart';
 import '../services/audio_sync_manager.dart';
 import 'audio_player_controller.dart';
 
@@ -54,6 +56,11 @@ class AudioLibraryViewState {
   final AudioChannelSort channelSort;
   final List<AudioSeries>? asyncSearchResults;
 
+  /// Names of the channels the user is subscribed to. On the YouTube tab this
+  /// restricts the channel grid to subscribed channels; empty means the tab
+  /// shows its "subscribe" call to action instead.
+  final Set<String> subscribedChannelNames;
+
   const AudioLibraryViewState({
     this.isLoading = true,
     this.seriesList = const [],
@@ -68,6 +75,7 @@ class AudioLibraryViewState {
     this.searchQuery = '',
     this.viewMode = AudioViewMode.featured,
     this.channelSort = AudioChannelSort.mostTracks,
+    this.subscribedChannelNames = const {},
   });
 
   bool get isAllLanguagesSelected =>
@@ -75,6 +83,15 @@ class AudioLibraryViewState {
       selectedLanguages.any((l) => l.toLowerCase() == 'all');
 
   bool get isSearching => searchQuery.trim().isNotEmpty;
+
+  bool get hasChannelSubscriptions => subscribedChannelNames.isNotEmpty;
+
+  /// Whether the YouTube tab should render its "subscribe" call to action:
+  /// there is nothing to show because the user has no channel subscriptions.
+  bool get shouldShowSubscribedCta =>
+      selectedFormat == AudioFormat.youtube &&
+      !hasChannelSubscriptions &&
+      filteredSeries.isEmpty;
 
   AudioLibraryViewState copyWith({
     bool? isLoading,
@@ -92,6 +109,7 @@ class AudioLibraryViewState {
     String? searchQuery,
     AudioViewMode? viewMode,
     AudioChannelSort? channelSort,
+    Set<String>? subscribedChannelNames,
   }) {
     return AudioLibraryViewState(
       isLoading: isLoading ?? this.isLoading,
@@ -108,6 +126,7 @@ class AudioLibraryViewState {
       searchQuery: searchQuery ?? this.searchQuery,
       viewMode: viewMode ?? this.viewMode,
       channelSort: channelSort ?? this.channelSort,
+      subscribedChannelNames: {...(subscribedChannelNames ?? this.subscribedChannelNames)},
     );
   }
 
@@ -120,6 +139,14 @@ class AudioLibraryViewState {
     if (selectedFormat == AudioFormat.songs && !isSong) return false;
     if (selectedFormat == AudioFormat.youtube && !isYouTube) return false;
     if (selectedFormat == AudioFormat.archive && (isSong || isYouTube)) return false;
+
+    if (selectedFormat == AudioFormat.youtube &&
+        !isSubscribedAudioSeries(
+          subscribedChannelNames: subscribedChannelNames,
+          series: s,
+        )) {
+      return false;
+    }
 
     final matchesCategory =
         selectedCategory == 'All' || s.category == selectedCategory;
@@ -244,6 +271,10 @@ class AudioLibraryController extends ChangeNotifier {
   final LibraryLanguagesController _langController;
   late final bool _ownsLangController;
 
+  /// Source of the user's channel subscriptions, bridged by name to audio
+  /// YouTube series.
+  final ChannelService _channelService;
+
   AudioLibraryViewState _state = const AudioLibraryViewState();
   AudioLibraryViewState get state => _state;
 
@@ -251,17 +282,50 @@ class AudioLibraryController extends ChangeNotifier {
 
   bool _disposed = false;
 
+  /// Guards the best-effort channel-name fetch so it runs at most once per
+  /// controller lifetime.
+  bool _channelNamesFetchAttempted = false;
+
   AudioLibraryController({
     AudioCatalogService? catalogService,
     AudioStorageService? storageService,
     LibraryLanguagesController? langController,
+    ChannelService? channelService,
   })  : _catalogService = catalogService ?? AudioCatalogService(),
         _storageService = storageService ?? AudioStorageService(),
         _langController = langController ?? LibraryLanguagesController(),
-        _ownsLangController = langController == null {
+        _ownsLangController = langController == null,
+        _channelService = channelService ?? ChannelService() {
+    _state = AudioLibraryViewState(
+      subscribedChannelNames: _channelService.subscribedChannelNames,
+    );
     _langController.addListener(_onLangChanged);
+    _channelService.addListener(_onChannelSubscriptionsChanged);
     loadData();
     AudioPlayerController.instance.addListener(_onPlayerStateChanged);
+  }
+
+  /// Channel subscriptions are keyed by channel id, but audio YouTube series
+  /// only carry the channel name. Fetch the channel list (best effort, once)
+  /// when names are missing so the grid can bridge subscriptions to series.
+  void _ensureSubscribedChannelNames() {
+    if (_channelNamesFetchAttempted) return;
+    final ids = _channelService.subscribedChannelIds;
+    if (ids.isEmpty) return;
+    if (_channelService.subscribedChannelNames.length >= ids.length) return;
+    _channelNamesFetchAttempted = true;
+    _channelService.fetchChannels().catchError((e) {
+      debugPrint('Failed to load channel names for audio subscriptions: $e');
+    });
+  }
+
+  void _onChannelSubscriptionsChanged() {
+    if (_disposed) return;
+    _ensureSubscribedChannelNames();
+    final names = _channelService.subscribedChannelNames;
+    if (setEquals(names, _state.subscribedChannelNames)) return;
+    _state = _state.copyWith(subscribedChannelNames: names);
+    notifyListeners();
   }
 
   void _onLangChanged() {
@@ -288,6 +352,10 @@ class AudioLibraryController extends ChangeNotifier {
   }
 
   Future<void> loadData({bool forceRefresh = false}) async {
+    // Make sure channel names are available to bridge subscriptions to audio
+    // series when the singleton had already loaded by the time we attached.
+    _ensureSubscribedChannelNames();
+
     // Check cloud for playback updates across devices in background
     AudioPlayerController.instance.syncWithCloud();
 
@@ -418,6 +486,7 @@ class AudioLibraryController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _langController.removeListener(_onLangChanged);
+    _channelService.removeListener(_onChannelSubscriptionsChanged);
     if (_ownsLangController) _langController.dispose();
     AudioPlayerController.instance.removeListener(_onPlayerStateChanged);
     super.dispose();
