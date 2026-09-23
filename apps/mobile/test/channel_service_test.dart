@@ -167,4 +167,88 @@ void main() {
     expect(service.subscribedChannelIds, {'c1'});
     expect(adapter.requests, isEmpty);
   });
+
+  group('addChannel', () {
+    ResponseBody jsonResponse(String body, int status) => ResponseBody.fromString(
+          body,
+          status,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+
+    DioException serverError(RequestOptions options, int status) =>
+        DioException.badResponse(
+          requestOptions: options,
+          statusCode: status,
+          response: Response(requestOptions: options, statusCode: status),
+        );
+
+    test('returns true and refetches when /api/channels accepts the channel', () async {
+      final adapter = StubAdapter(
+        onFetch: (options) {
+          if (options.method == 'GET') {
+            return jsonResponse(jsonEncode([
+              {'id': 'UC1', 'name': 'New Channel', 'isActive': true},
+            ]), 200);
+          }
+          return jsonResponse(
+            jsonEncode({'status': 'success'}),
+            201,
+          );
+        },
+      );
+      final service = ChannelService.forTesting(dio: testDio(adapter));
+
+      final ok = await service.addChannel(channelUrl: 'https://youtube.com/@test');
+
+      expect(ok, isTrue);
+      expect(service.channels.map((c) => c.id), contains('UC1'));
+      expect(adapter.requests, hasLength(2));
+    });
+
+    test('falls back to /channels when the /api/channels POST errors', () async {
+      final adapter = StubAdapter(
+        onFetch: (options) {
+          if (options.method == 'POST' && options.path == '/api/channels') {
+            throw serverError(options, 500);
+          }
+          if (options.method == 'GET') {
+            return jsonResponse('[]', 200);
+          }
+          return jsonResponse(
+            jsonEncode({'status': 'success'}),
+            200,
+          );
+        },
+      );
+      final service = ChannelService.forTesting(dio: testDio(adapter));
+
+      final ok = await service.addChannel(channelUrl: '@test');
+
+      expect(ok, isTrue);
+      final postedPaths = adapter.requests
+          .where((r) => r.method == 'POST')
+          .map((r) => r.path)
+          .toList();
+      expect(postedPaths, ['/api/channels', '/channels']);
+    });
+
+    test('returns false when both POST routes reject the channel', () async {
+      final adapter = StubAdapter(
+        onFetch: (options) {
+          if (options.method == 'POST') {
+            throw serverError(options, 403);
+          }
+          return jsonResponse('[]', 200);
+        },
+      );
+      final service = ChannelService.forTesting(dio: testDio(adapter));
+
+      final ok = await service.addChannel(channelUrl: '@test');
+
+      expect(ok, isFalse);
+      expect(service.channels, isEmpty);
+    });
+  });
 }
