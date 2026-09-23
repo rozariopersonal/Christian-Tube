@@ -188,6 +188,68 @@ void main() {
       expect(find.text('Genesis - The Creation'), findsOneWidget);
       expect(find.text('Genesis - The Fall of Man'), findsOneWidget);
     });
+
+    testWidgets('renders without overflow at 320 and 600 with search bar', (tester) async {
+      for (final width in [320.0, 600.0]) {
+        setSurfaceSize(tester, width, 800);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData.dark().copyWith(
+              extensions: [AppTokens.dark],
+            ),
+            home: AudioSeriesScreen(
+              seriesId: testSeries.id,
+              initialSeries: testSeries,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Search this series...'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    });
+
+    testWidgets('in-channel search filters visible tracks', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTokens.dark],
+          ),
+          home: AudioSeriesScreen(
+            seriesId: testSeries.id,
+            initialSeries: testSeries,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Search bar exists and both tracks visible initially.
+      expect(find.text('Search this series...'), findsOneWidget);
+      expect(find.text('Genesis - The Creation'), findsOneWidget);
+      expect(find.text('Genesis - The Fall of Man'), findsOneWidget);
+
+      // Filter down to one track.
+      await tester.enterText(find.byType(TextField), 'Fall of Man');
+      await tester.pump();
+
+      expect(find.text('Genesis - The Fall of Man'), findsOneWidget);
+      expect(find.text('Genesis - The Creation'), findsNothing);
+      expect(find.text('1 of 2 tracks'), findsOneWidget);
+
+      // A no-match query shows the empty state.
+      await tester.enterText(find.byType(TextField), 'zzz');
+      await tester.pump();
+
+      expect(find.textContaining('No tracks match'), findsOneWidget);
+
+      // Clearing restores the full list.
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+
+      expect(find.text('Genesis - The Creation'), findsOneWidget);
+      expect(find.text('Genesis - The Fall of Man'), findsOneWidget);
+    });
   });
 
   group('MiniAudioPlayer Gestures Test', () {

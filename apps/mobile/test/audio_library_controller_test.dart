@@ -9,10 +9,16 @@ import 'package:mobile/shared/services/library_languages_controller.dart';
 
 class _FakeCatalogService extends AudioCatalogService {
   final List<AudioSeries> series;
+  bool? lastForceRefresh;
+  int catalogCalls = 0;
   _FakeCatalogService(this.series);
 
   @override
-  Future<List<AudioSeries>> getCatalog({bool forceRefresh = false}) async => series;
+  Future<List<AudioSeries>> getCatalog({bool forceRefresh = false}) async {
+    lastForceRefresh = forceRefresh;
+    catalogCalls++;
+    return series;
+  }
 }
 
 class _FakeStorageService extends AudioStorageService {
@@ -148,6 +154,32 @@ void main() {
 
       controller.setViewMode(AudioViewMode.alphabetical);
       expect(controller.state.viewMode, AudioViewMode.alphabetical);
+
+      controller.dispose();
+    });
+
+    test('forceRefresh propagates to the catalog service', () async {
+      final sampleSeries = [
+        _series('1', 'Romans Exposition'),
+        _series('2', 'Genesis Survey'),
+      ];
+
+      final fake = _FakeCatalogService(sampleSeries);
+      final controller = AudioLibraryController(
+        catalogService: fake,
+        storageService: _FakeStorageService(),
+        langController: LibraryLanguagesController(),
+      );
+
+      // Constructor fires a non-forced load.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(fake.catalogCalls, greaterThanOrEqualTo(1));
+      expect(fake.lastForceRefresh, isFalse);
+
+      await controller.loadData(forceRefresh: true);
+
+      expect(fake.lastForceRefresh, isTrue);
+      expect(controller.state.seriesList.length, 2);
 
       controller.dispose();
     });

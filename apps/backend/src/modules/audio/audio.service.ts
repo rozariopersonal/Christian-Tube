@@ -49,8 +49,10 @@ export class AudioService {
         const existingSeries = await this.prisma.audioSeries.findUnique({
           where: { id: seriesData.id },
         });
+        const catalogCount = seriesData.trackCount || 0;
 
-        // 3. Upsert the AudioSeries record
+        // 3. Upsert the AudioSeries record (trackCount is refined to the real
+        //    per-series JSON count inside syncSeriesTracks below)
         await this.prisma.audioSeries.upsert({
           where: { id: seriesData.id },
           create: {
@@ -61,7 +63,7 @@ export class AudioService {
             category: seriesData.category,
             language: seriesData.language,
             coverUrl: seriesData.coverUrl,
-            trackCount: seriesData.trackCount || 0,
+            trackCount: catalogCount,
           },
           update: {
             title: seriesData.title,
@@ -70,14 +72,16 @@ export class AudioService {
             category: seriesData.category,
             language: seriesData.language,
             coverUrl: seriesData.coverUrl,
-            trackCount: seriesData.trackCount || 0,
+            trackCount: catalogCount,
             updatedAt: new Date(),
           },
         });
 
-        // 4. Delta Sync tracks: Only fetch the series JSON if trackCount increased
-        if (!existingSeries || existingSeries.trackCount < (seriesData.trackCount || 0)) {
-          this.logger.log(`Syncing new tracks for series: ${seriesData.id} (${existingSeries?.trackCount || 0} -> ${seriesData.trackCount || 0})`);
+        // 4. Delta Sync tracks: fetch the series JSON whenever the published
+        //    trackCount differs from the stored one (grew OR shrank), or the
+        //    series is new. Never skip because a count decreased.
+        if (!existingSeries || existingSeries.trackCount !== catalogCount) {
+          this.logger.log(`Syncing tracks for series: ${seriesData.id} (${existingSeries?.trackCount ?? 'new'} -> ${catalogCount})`);
           await this.syncSeriesTracks(seriesData.id, revision);
         }
       }
@@ -103,34 +107,47 @@ export class AudioService {
       const seriesJson: any = await seriesRes.json();
       const tracks: any[] = seriesJson.tracks || [];
 
-      // Batch replace tracks for the series
-      if (tracks.length > 0) {
-        await this.prisma.$transaction([
-          this.prisma.audioTrack.deleteMany({
-            where: { seriesId: seriesId }
-          }),
-          this.prisma.audioTrack.createMany({
-            data: tracks.map((track) => ({
-              id: track.id,
-              seriesId: seriesId,
-              title: track.title,
-              speaker: track.speaker,
-              durationSeconds: track.durationSeconds || 0,
-              audioUrl: track.audioUrl,
-              streamUrl: track.streamUrl,
-              fallbackUrl: track.fallbackUrl,
-              ifCoverUrl: track.ifCoverUrl,
-              thumbnailUrl: track.thumbnailUrl,
-              youtubeVideoId: track.youtubeVideoId,
-              scriptureBook: track.scriptureBook,
-              scriptureChapter: track.scriptureChapter,
-              scriptureVerse: track.scriptureVerse,
-              updatedAt: new Date(),
-            })),
-          })
-        ]);
-        this.logger.log(`Replaced ${tracks.length} tracks for series ${seriesId}`);
-      }
+      // Batch replace tracks for the series. The delete always runs so tracks
+      // removed upstream are pruned; createMany is skipped when empty so a
+      // series that legitimately shrinks to zero still clears its rows.
+      const deleteTracks = this.prisma.audioTrack.deleteMany({
+        where: { seriesId: seriesId },
+      });
+      await this.prisma.$transaction([
+        deleteTracks,
+        ...(tracks.length > 0
+          ? [
+              this.prisma.audioTrack.createMany({
+                data: tracks.map((track) => ({
+                  id: track.id,
+                  seriesId: seriesId,
+                  title: track.title,
+                  speaker: track.speaker,
+                  durationSeconds: track.durationSeconds || 0,
+                  audioUrl: track.audioUrl,
+                  streamUrl: track.streamUrl,
+                  fallbackUrl: track.fallbackUrl,
+                  ifCoverUrl: track.ifCoverUrl,
+                  thumbnailUrl: track.thumbnailUrl,
+                  youtubeVideoId: track.youtubeVideoId,
+                  scriptureBook: track.scriptureBook,
+                  scriptureChapter: track.scriptureChapter,
+                  scriptureVerse: track.scriptureVerse,
+                  updatedAt: new Date(),
+                })),
+              }),
+            ]
+          : []),
+      ]);
+
+      // Keep the stored trackCount authoritative: derive it from the real
+      // per-series JSON so the sync endpoint never serves a stale count.
+      await this.prisma.audioSeries.update({
+        where: { id: seriesId },
+        data: { trackCount: tracks.length },
+      });
+
+      this.logger.log(`Replaced ${tracks.length} tracks for series ${seriesId}`);
     } catch (error) {
       this.logger.error(`Error syncing tracks for ${seriesId}: ${error.message}`);
     }
@@ -143,13 +160,21 @@ export class AudioService {
   async getSyncData(sinceTimestamp?: number) {
     if (sinceTimestamp) {
       const date = new Date(sinceTimestamp);
+      // Include series whose row changed (title/count/metadata) even when no
+      // individual track row changed, so mobile never keeps a stale trackCount.
+      const changedSeries = await this.prisma.audioSeries.findMany({
+        where: { updatedAt: { gt: date } },
+        orderBy: { updatedAt: 'desc' },
+      });
       const newTracks = await this.prisma.audioTrack.findMany({
         where: { updatedAt: { gt: date } },
         include: { series: true },
       });
       // The mobile app expects a list of AudioSeries with tracks populated
-      // We will group the updated tracks by their series
       const seriesMap = new Map<string, any>();
+      for (const series of changedSeries) {
+        seriesMap.set(series.id, { ...series, tracks: [] });
+      }
       for (const track of newTracks) {
         if (!seriesMap.has(track.seriesId)) {
           const series = track.series;
