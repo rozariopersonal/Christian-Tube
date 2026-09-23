@@ -369,7 +369,7 @@ class AudioLibraryController extends ChangeNotifier {
       await ReleaseRevision.load();
       _catalogService.invalidateCaches();
       try {
-        await syncManager.syncCatalog();
+        await syncManager.syncCatalog(fullRefresh: true);
       } catch (e) {
         debugPrint('Audio sync failed during force refresh: $e');
       }
