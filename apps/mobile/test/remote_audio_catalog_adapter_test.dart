@@ -4,8 +4,47 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mobile/core/config/app_config.dart';
+import 'package:mobile/features/audio/adapters/audio_catalog_adapter.dart';
 import 'package:mobile/features/audio/adapters/remote_audio_catalog_adapter.dart';
 import 'package:mobile/features/audio/adapters/seed_audio_catalog.dart';
+import 'package:mobile/features/audio/models/audio_series.dart';
+
+AudioSeries _series(String id) => AudioSeries(
+      id: id,
+      title: 'Mirror $id',
+      description: '',
+      speaker: '',
+      category: '',
+      language: '',
+      trackCount: 0,
+      tracks: const [],
+    );
+
+class _StubOfflineAdapter implements AudioCatalogAdapter {
+  _StubOfflineAdapter({this.catalog, this.series, this.ready = true});
+
+  final List<AudioSeries>? catalog;
+  final AudioSeries? series;
+  final bool ready;
+
+  @override
+  Future<bool> get isReady async => ready;
+
+  @override
+  Future<List<AudioSeries>> fetchCatalog({bool forceRefresh = false}) async =>
+      catalog ?? const [];
+
+  @override
+  Future<AudioSeries?> fetchSeries(
+    String seriesId, {
+    bool forceRefresh = false,
+  }) async =>
+      (series != null && series!.id == seriesId) ? series : null;
+
+  @override
+  Future<List<AudioSeries>> search(String query) async =>
+      catalog?.where((s) => s.title.contains(query)).toList() ?? const [];
+}
 
 void main() {
   setUp(() {
@@ -113,6 +152,79 @@ void main() {
       final catalog = await adapter.fetchCatalog();
 
       expect(catalog, same(SeedAudioCatalog.catalog));
+    });
+  });
+
+  group('RemoteAudioCatalogAdapter offline fallback (SQLite mirror)', () {
+    test('serves the synced mirror (not the seed) when the DB errors', () async {
+      final offline = _StubOfflineAdapter(catalog: [_series('from_mirror')]);
+      final client = MockClient((request) async => http.Response('boom', 500));
+      final adapter = RemoteAudioCatalogAdapter(
+        client: client,
+        offlineFallback: offline,
+      );
+
+      final catalog = await adapter.fetchCatalog();
+
+      expect(catalog.single.id, 'from_mirror');
+      expect(catalog, isNot(same(SeedAudioCatalog.catalog)));
+    });
+
+    test('falls back to the seed when the mirror is empty', () async {
+      final offline = _StubOfflineAdapter(catalog: const []);
+      final client = MockClient((request) async => http.Response('boom', 500));
+      final adapter = RemoteAudioCatalogAdapter(
+        client: client,
+        offlineFallback: offline,
+      );
+
+      final catalog = await adapter.fetchCatalog();
+
+      expect(catalog, same(SeedAudioCatalog.catalog));
+    });
+
+    test('never reads a not-ready mirror (no sync yet) even when the DB fails', () async {
+      final offline = _StubOfflineAdapter(
+        catalog: [_series('unusable_mirror')],
+        ready: false,
+      );
+      final client = MockClient((request) async => http.Response('boom', 500));
+      final adapter = RemoteAudioCatalogAdapter(
+        client: client,
+        offlineFallback: offline,
+      );
+
+      final catalog = await adapter.fetchCatalog();
+
+      expect(catalog, same(SeedAudioCatalog.catalog));
+      expect(catalog.any((s) => s.id == 'unusable_mirror'), isFalse);
+    });
+
+    test('serves the mirror series when fetching a tracklist fails', () async {
+      final offline = _StubOfflineAdapter(series: _series('mirror_series'));
+      final client = MockClient((request) async => http.Response('boom', 503));
+      final adapter = RemoteAudioCatalogAdapter(
+        client: client,
+        offlineFallback: offline,
+      );
+
+      final series = await adapter.fetchSeries('mirror_series');
+
+      expect(series, isNotNull);
+      expect(series!.id, 'mirror_series');
+    });
+
+    test('search falls back to the mirror when the API fails', () async {
+      final offline = _StubOfflineAdapter(catalog: [_series('sermon_alpha')]);
+      final client = MockClient((request) async => http.Response('nope', 500));
+      final adapter = RemoteAudioCatalogAdapter(
+        client: client,
+        offlineFallback: offline,
+      );
+
+      final results = await adapter.search('sermon');
+
+      expect(results.map((s) => s.id), contains('sermon_alpha'));
     });
   });
 

@@ -46,6 +46,9 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
     }
   }
 
+  @override
+  Future<bool> get isReady => isInitialized;
+
   Future<Database> _getDb() async {
     if (_db != null && _db!.isOpen) return _db!;
     if (_dbOpenCompleter != null) {

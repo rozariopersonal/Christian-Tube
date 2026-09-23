@@ -1,14 +1,15 @@
 import 'package:http/http.dart' as http;
 
-import '../adapters/audio_catalog_adapter.dart';
 import '../adapters/remote_audio_catalog_adapter.dart';
 import '../adapters/sqlite_audio_catalog_adapter.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 
-/// Hybrid router for audio catalog. 
-/// If the SQLite database is initialized (i.e. sync has run), it serves data and search locally.
-/// Otherwise, it falls back to the remote adapter (GitHub fetching + NestJS search API).
+/// DB-first router for the audio catalog.
+/// The catalog is always read from the backend PostgreSQL database via the
+/// remote adapter. The local SQLite mirror is only an OFFLINE cache: the
+/// remote adapter consults it when the DB is unreachable, so it is never the
+/// primary read source and can't serve stale data while the backend is up.
 class AudioCatalogService {
   final SqliteAudioCatalogAdapter _localAdapter;
   final RemoteAudioCatalogAdapter _remoteAdapter;
@@ -21,7 +22,11 @@ class AudioCatalogService {
     SqliteAudioCatalogAdapter? localAdapter,
     RemoteAudioCatalogAdapter? remoteAdapter,
   })  : _localAdapter = localAdapter ?? SqliteAudioCatalogAdapter(),
-        _remoteAdapter = remoteAdapter ?? RemoteAudioCatalogAdapter(client: client);
+        _remoteAdapter = remoteAdapter ??
+            RemoteAudioCatalogAdapter(
+              client: client,
+              offlineFallback: localAdapter ?? SqliteAudioCatalogAdapter(),
+            );
 
   SqliteAudioCatalogAdapter get localAdapter => _localAdapter;
   RemoteAudioCatalogAdapter get remoteAdapter => _remoteAdapter;
@@ -32,17 +37,6 @@ class AudioCatalogService {
     RemoteAudioCatalogAdapter.invalidateCache();
     _youtubeIdCache.clear();
     _isCacheLoaded = false;
-  }
-
-  Future<AudioCatalogAdapter> _getAdapter() async {
-    try {
-      if (await _localAdapter.isInitialized) {
-        return _localAdapter;
-      }
-    } catch (_) {
-      // Gracefully fall back to remote adapter if SQLite check fails
-    }
-    return _remoteAdapter;
   }
 
   /// Look up an audio track by its associated YouTube Video ID.
@@ -71,25 +65,23 @@ class AudioCatalogService {
     return _youtubeIdCache[videoId];
   }
 
-  /// Loads the top-level audio catalog dynamically from local SQLite or remote.
+  /// Loads the top-level audio catalog from the backend database.
   Future<List<AudioSeries>> getCatalog({bool forceRefresh = false}) async {
-    final adapter = await _getAdapter();
-    return adapter.fetchCatalog(forceRefresh: forceRefresh);
+    return _remoteAdapter.fetchCatalog(forceRefresh: forceRefresh);
   }
 
-  /// Loads the full series with tracks dynamically from local SQLite or remote.
+  /// Loads the full series with tracks from the backend database.
   Future<AudioSeries?> getSeries(
     String seriesId, {
     bool forceRefresh = false,
   }) async {
-    final adapter = await _getAdapter();
-    return adapter.fetchSeries(seriesId, forceRefresh: forceRefresh);
+    return _remoteAdapter.fetchSeries(seriesId, forceRefresh: forceRefresh);
   }
   
-  /// Searches the audio catalog locally via FTS5 or remotely via API.
+  /// Searches the audio catalog via the backend search API (with an offline
+  /// fallback to the local SQLite FTS mirror).
   Future<List<AudioSeries>> search(String query) async {
     if (query.trim().isEmpty) return [];
-    final adapter = await _getAdapter();
-    return adapter.search(query);
+    return _remoteAdapter.search(query);
   }
 }
