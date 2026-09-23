@@ -301,6 +301,12 @@ Christian-Tube-Releases/
 ### 3. Data Access Philosophy: "GitHub-First, Streaming-Default"
 
 - Both web and mobile clients access data live from GitHub CDN by default.
+- **Audio catalog is DB-first**: the mobile remote adapter reads catalog and
+  per-series tracklist metadata from the backend (`GET /api/audio/catalog`,
+  `GET /api/audio/series/{id}`) backed by PostgreSQL and seeded from the
+  releases repo; audio binary media still streams from CDN/Audio.com. The
+  releases `audio/` JSON remains the sync source for the backend, not a client
+  read path.
 - Downloading to local SQLite is an optional enhancement for offline/airplane use,
   never a blocking prerequisite for reading.
 - **Cross-references**: Strictly JSON-only. Served on demand as small (~2–5 KB) per-chapter
