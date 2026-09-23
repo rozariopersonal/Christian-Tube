@@ -216,21 +216,32 @@ class _GroupSection extends StatelessWidget {
                           ),
                           Padding(
                             padding: const EdgeInsets.all(14),
-                            child: GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: seriesList.length,
-                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 160,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                                childAspectRatio: 1.0,
-                              ),
-                              itemBuilder: (context, idx) {
-                                final series = seriesList[idx];
-                                return AudioSeriesCard(
-                                  series: series,
-                                  onTap: () => onOpenSeries(series),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                // Intrinsic-height passes can lay this
+                                // shrink-wrap grid out at zero width; a grid
+                                // with no horizontal space must not be built.
+                                if (constraints.maxWidth <= 0) {
+                                  return const SizedBox.shrink();
+                                }
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: seriesList.length,
+                                  gridDelegate:
+                                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 160,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 10,
+                                    childAspectRatio: 1.0,
+                                  ),
+                                  itemBuilder: (context, idx) {
+                                    final series = seriesList[idx];
+                                    return AudioSeriesCard(
+                                      series: series,
+                                      onTap: () => onOpenSeries(series),
+                                    );
+                                  },
                                 );
                               },
                             ),

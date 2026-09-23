@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
 import 'package:mobile/features/micro_feed/engines/wftw/models/wftw_card.dart';
 import 'package:mobile/features/micro_feed/engines/wftw/models/wftw_filter_state.dart';
 import 'package:mobile/features/micro_feed/engines/wftw/widgets/wftw_card_view.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
@@ -44,9 +47,27 @@ WftwCard _fallbackCard() => WftwCard.fromMap({
     });
 
 void main() {
+  late Directory tempDir;
+
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+  });
+
+  setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('wftw_card_view_test_');
+    LocalBibleService.overrideDbPath = p.join(tempDir.path, 'bible.db');
+    await LocalBibleService.resetForTest();
+  });
+
+  tearDown(() async {
+    LocalBibleService.overrideDbPath = null;
+    await LocalBibleService.resetForTest();
+    try {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    } catch (_) {}
   });
 
   Widget subject(WftwCard card, WftwFilterState state) {
@@ -75,6 +96,10 @@ void main() {
           reason: 'overflow/exception at $width');
       expect(find.textContaining('Faith in Trials'), findsOneWidget);
       expect(find.text('— Matthew 5:3-4'), findsOneWidget);
+
+      // Flush the async verse lookup's sqflite transaction lock timer (10s)
+      // so no fake-async timer remains pending at teardown.
+      await tester.pump(const Duration(seconds: 12));
     });
 
     testWidgets('fallback WftwCardView renders at $width logical px',
