@@ -61,6 +61,7 @@ AudioSeries _youtubeSeries(
   int trackCount, {
   String category = 'YouTube',
   String language = 'en',
+  DateTime? latestPublishedAt,
 }) {
   return AudioSeries(
     id: id,
@@ -71,6 +72,7 @@ AudioSeries _youtubeSeries(
     trackCount: trackCount,
     category: category,
     language: language,
+    latestPublishedAt: latestPublishedAt,
     tracks: const [],
   );
 }
@@ -323,6 +325,38 @@ void main() {
       controller.setChannelSort(AudioChannelSort.name);
       expect(controller.state.channelSortedSeries.map((s) => s.id),
           ['ta2', 'ta1']);
+
+      controller.dispose();
+    });
+
+    test('newest sort orders by recency, placing series without a date last',
+        () async {
+      final older = _youtubeSeries(
+        'old',
+        'Older Channel',
+        5,
+        latestPublishedAt: DateTime.utc(2025, 1, 1),
+      );
+      final newer = _youtubeSeries(
+        'new',
+        'Newer Channel',
+        2,
+        latestPublishedAt: DateTime.utc(2026, 9, 15),
+      );
+      final unknown = _youtubeSeries('na', 'No Date Channel', 50);
+
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService([older, newer, unknown]),
+        storageService: _FakeStorageService(),
+        langController: LibraryLanguagesController(),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      controller.selectFormat(AudioFormat.youtube);
+
+      controller.setChannelSort(AudioChannelSort.newest);
+      expect(controller.state.channelSortedSeries.map((s) => s.id),
+          ['new', 'old', 'na']); // recency desc, undated pushed last
 
       controller.dispose();
     });

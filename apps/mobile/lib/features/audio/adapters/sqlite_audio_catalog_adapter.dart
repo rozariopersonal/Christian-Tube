@@ -13,7 +13,7 @@ import 'audio_catalog_adapter.dart';
 class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
   static const String defaultFileName = 'audio_sync.sqlite';
   static const String syncedPrefKey = 'audio_sqlite_synced';
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
 
   final String? dbPathOverride;
   Database? _db;
@@ -70,6 +70,7 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
             language TEXT,
             coverUrl TEXT,
             trackCount INTEGER DEFAULT 0,
+            latestPublishedAt INTEGER,
             updatedAt INTEGER
           )
         ''');
@@ -159,6 +160,12 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
           END;
         ''');
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 3) {
+          await db.execute(
+              'ALTER TABLE series ADD COLUMN latestPublishedAt INTEGER');
+        }
+      },
     );
     _db = db;
     completer.complete(db);
@@ -183,6 +190,7 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
       'language': series.language,
       'coverUrl': series.coverUrl,
       'trackCount': series.trackCount,
+      'latestPublishedAt': series.latestPublishedAt?.millisecondsSinceEpoch,
       'updatedAt': updatedAtMs ?? DateTime.now().millisecondsSinceEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
@@ -230,8 +238,13 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
   Future<List<AudioSeries>> fetchCatalog({bool forceRefresh = false}) async {
     final db = await _getDb();
     final results = await db.query('series', orderBy: 'title ASC');
-    
-    return results.map((row) => AudioSeries(
+
+    return results.map(_seriesFromRow).toList();
+  }
+
+  AudioSeries _seriesFromRow(Map<String, Object?> row) {
+    final rawEpoch = row['latestPublishedAt'] as int?;
+    return AudioSeries(
       id: row['id'] as String,
       title: row['title'] as String,
       description: row['description'] as String,
@@ -240,8 +253,11 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
       category: row['category'] as String,
       language: row['language'] as String,
       coverUrl: row['coverUrl'] as String?,
+      latestPublishedAt: rawEpoch != null
+          ? DateTime.fromMillisecondsSinceEpoch(rawEpoch)
+          : null,
       tracks: [],
-    )).toList();
+    );
   }
 
   @override
@@ -280,6 +296,10 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
       category: row['category'] as String,
       language: row['language'] as String,
       coverUrl: row['coverUrl'] as String?,
+      latestPublishedAt: row['latestPublishedAt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(
+              row['latestPublishedAt'] as int)
+          : null,
       tracks: tracks,
     );
   }
@@ -305,17 +325,7 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
       LIMIT ?
     ''', [ftsQuery, ftsQuery, limit]);
 
-    return results.map((row) => AudioSeries(
-      id: row['id'] as String,
-      title: row['title'] as String,
-      description: row['description'] as String,
-      speaker: row['speaker'] as String,
-      trackCount: row['trackCount'] as int,
-      category: row['category'] as String,
-      language: row['language'] as String,
-      coverUrl: row['coverUrl'] as String?,
-      tracks: [],
-    )).toList();
+    return results.map(_seriesFromRow).toList();
   }
 
   Future<void> close() async {

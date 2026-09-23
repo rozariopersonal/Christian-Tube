@@ -129,6 +129,9 @@ export class AudioService implements OnModuleInit {
 
         // 3. Upsert the AudioSeries record (trackCount is refined to the real
         //    per-series JSON count inside syncSeriesTracks below)
+        const latestPublished = seriesData.latestPublishedAt
+          ? new Date(seriesData.latestPublishedAt)
+          : null;
         await this.prisma.audioSeries.upsert({
           where: { id: seriesData.id },
           create: {
@@ -140,6 +143,7 @@ export class AudioService implements OnModuleInit {
             language: seriesData.language,
             coverUrl: seriesData.coverUrl,
             trackCount: catalogCount,
+            latestPublishedAt: latestPublished,
           },
           update: {
             title: seriesData.title,
@@ -149,6 +153,11 @@ export class AudioService implements OnModuleInit {
             language: seriesData.language,
             coverUrl: seriesData.coverUrl,
             trackCount: catalogCount,
+            // Only overwrite recency when the catalog actually carries it, so a
+            // backfilled DB value is never clobbered by a legacy catalog entry.
+            latestPublishedAt: seriesData.latestPublishedAt
+              ? latestPublished
+              : undefined,
             updatedAt: new Date(),
           },
         });
@@ -163,12 +172,51 @@ export class AudioService implements OnModuleInit {
       }
 
       this.logger.log('Audio catalog sync completed successfully.');
+      await this.backfillSeriesRecency(revision);
       return { success: true, count: catalog.length };
     } catch (error) {
       this.logger.error(`Error syncing audio catalog: ${error.message}`);
       throw error;
     } finally {
       this.isSyncing = false;
+    }
+  }
+
+  /**
+   * One-time recency backfill for legacy series. Series rows whose
+   * latestPublishedAt is still NULL were created from catalog entries that
+   * predate the recency field; their per-series JSON already carries track
+   * publishedAt values, so we derive the latest one directly. Once populated,
+   * a series is skipped on every future sync.
+   */
+  private async backfillSeriesRecency(revision: string = 'latest') {
+    const stale = (await this.prisma.audioSeries.findMany({
+      where: { latestPublishedAt: null },
+      select: { id: true },
+    })) ?? [];
+    if (stale.length === 0) return;
+
+    this.logger.log(`Backfilling recency for ${stale.length} series...`);
+    for (const { id } of stale) {
+      try {
+        const res = await fetch(`${this.githubBaseUrl}/audio/series/${id}.json?rv=${revision}`);
+        if (!res.ok) continue;
+        const seriesJson: any = await res.json();
+        const tracks: any[] = seriesJson.tracks || [];
+        const latestTs = tracks.reduce<number>(
+          (acc, t) =>
+            t.publishedAt ? Math.max(acc, new Date(t.publishedAt).getTime()) : acc,
+          0,
+        );
+        if (latestTs > 0) {
+          await this.prisma.audioSeries.update({
+            where: { id },
+            data: { latestPublishedAt: new Date(latestTs) },
+          });
+        }
+      } catch (error) {
+        this.logger.warn(`Recency backfill failed for series ${id}: ${error.message}`);
+      }
     }
   }
 
@@ -206,6 +254,9 @@ export class AudioService implements OnModuleInit {
                   ifCoverUrl: track.ifCoverUrl,
                   thumbnailUrl: track.thumbnailUrl,
                   youtubeVideoId: track.youtubeVideoId,
+                  publishedAt: track.publishedAt
+                    ? new Date(track.publishedAt)
+                    : undefined,
                   scriptureBook: track.scriptureBook,
                   scriptureChapter: track.scriptureChapter,
                   scriptureVerse: track.scriptureVerse,
@@ -217,10 +268,19 @@ export class AudioService implements OnModuleInit {
       ]);
 
       // Keep the stored trackCount authoritative: derive it from the real
-      // per-series JSON so the sync endpoint never serves a stale count.
+      // per-series JSON so the sync endpoint never serves a stale count, and
+      // refresh series recency from the same source of truth.
+      const latestTs = tracks.reduce<number>(
+        (acc, t) =>
+          t.publishedAt ? Math.max(acc, new Date(t.publishedAt).getTime()) : acc,
+        0,
+      );
       await this.prisma.audioSeries.update({
         where: { id: seriesId },
-        data: { trackCount: tracks.length },
+        data: {
+          trackCount: tracks.length,
+          latestPublishedAt: latestTs > 0 ? new Date(latestTs) : undefined,
+        },
       });
 
       this.logger.log(`Replaced ${tracks.length} tracks for series ${seriesId}`);

@@ -251,6 +251,7 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertEqual(series_data["trackCount"], 1)
         self.assertEqual(series_data["tracks"][0]["seriesId"], "zac_poonen_sermons")
         self.assertEqual(series_data["tracks"][0]["seriesTitle"], "Zac Poonen Sermons")
+        self.assertEqual(series_data["latestPublishedAt"], "2026-09-11T00:00:00+00:00")
 
         # Verify catalog.json updated and audiocom_uploads removed
         cat_data = json.loads(storage["audio/catalog.json"])
@@ -258,6 +259,32 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertNotIn("audiocom_uploads", cat_ids)
         self.assertIn("zac_poonen_sermons", cat_ids)
         self.assertIn("through_the_bible", cat_ids)
+        cat_entry = next(s for s in cat_data if s["id"] == "zac_poonen_sermons")
+        self.assertEqual(cat_entry["latestPublishedAt"], "2026-09-11T00:00:00+00:00")
+
+        # A second, newer track advances the series and catalog recency
+        newer_track = {
+            "id": "vid456",
+            "title": "The Narrow Way",
+            "speaker": "Zac Poonen",
+            "youtubeVideoId": "vid456",
+            "thumbnailUrl": "https://img.youtube.com/vi/vid456/hqdefault.jpg",
+            "publishedAt": "2026-09-20T06:30:00Z",
+            "durationSeconds": 2400,
+            "audioUrl": "https://audio.com/456",
+        }
+        update_channel_audio_catalog(
+            repo,
+            channel_name="Zac Poonen Sermons",
+            channel_lang="en",
+            track=newer_track,
+        )
+        series_data = json.loads(storage[series_file])
+        self.assertEqual(series_data["trackCount"], 2)
+        self.assertEqual(series_data["latestPublishedAt"], "2026-09-20T06:30:00+00:00")
+        cat_data = json.loads(storage["audio/catalog.json"])
+        cat_entry = next(s for s in cat_data if s["id"] == "zac_poonen_sermons")
+        self.assertEqual(cat_entry["latestPublishedAt"], "2026-09-20T06:30:00+00:00")
 
         # Verify manifest.json bumped
         self.assertIn("manifest.json", storage)

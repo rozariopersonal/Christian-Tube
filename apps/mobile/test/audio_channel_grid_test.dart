@@ -12,7 +12,8 @@ void setSurfaceSize(WidgetTester tester, double width, double height) {
   addTearDown(tester.view.reset);
 }
 
-AudioSeries _youtubeSeries(String id, String title, int trackCount) {
+AudioSeries _youtubeSeries(String id, String title, int trackCount,
+    {DateTime? latestPublishedAt}) {
   return AudioSeries(
     id: id,
     title: title,
@@ -22,14 +23,17 @@ AudioSeries _youtubeSeries(String id, String title, int trackCount) {
     trackCount: trackCount,
     category: 'YouTube',
     language: 'en',
+    latestPublishedAt: latestPublishedAt,
     tracks: const [],
   );
 }
 
 void main() {
   final series = [
-    _youtubeSeries('c', 'Alpha Channel', 50),
-    _youtubeSeries('b', 'Beta Channel', 3),
+    _youtubeSeries('c', 'Alpha Channel', 50,
+        latestPublishedAt: DateTime.utc(2025, 6, 1)),
+    _youtubeSeries('b', 'Beta Channel', 3,
+        latestPublishedAt: DateTime.utc(2026, 9, 20)),
     _youtubeSeries('d', 'Gamma Channel', 10),
   ];
 
@@ -94,6 +98,37 @@ void main() {
     await tester.tap(find.text('A–Z'));
     await tester.pumpAndSettle();
     expect(selected, AudioChannelSort.name);
+  });
+
+  testWidgets('Newest first popup reorders the grid and reports the selection',
+      (tester) async {
+    setSurfaceSize(tester, 700, 1200);
+
+    AudioChannelSort selected = baseState.channelSort;
+    final newestState = baseState.copyWith(
+      channelSort: AudioChannelSort.newest,
+    );
+    await tester.pumpWidget(buildHarness(
+      newestState,
+      (sort) => selected = sort,
+    ));
+    await tester.pump();
+
+    // Beta (2026) before Alpha (2025); Gamma has no date, so it sorts last.
+    final betaX = tester.getTopLeft(find.text('Beta Channel')).dx;
+    final alphaX = tester.getTopLeft(find.text('Alpha Channel')).dx;
+    final gammaX = tester.getTopLeft(find.text('Gamma Channel')).dx;
+    expect(betaX, lessThan(alphaX));
+    expect(alphaX, lessThan(gammaX));
+
+    await tester.tap(find.byTooltip('Sort channels'));
+    await tester.pumpAndSettle();
+    expect(find.text('Newest first'), findsOneWidget);
+
+    await tester.tap(find.text('Newest first'));
+    await tester.pumpAndSettle();
+    expect(selected, AudioChannelSort.newest);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('renders across breakpoints (320, 600, 840, 1400) without overflow',

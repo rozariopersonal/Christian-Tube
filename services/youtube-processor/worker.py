@@ -1229,6 +1229,30 @@ def extract_speaker(title: str, description: str, default_speaker: str) -> str:
 
 
 
+def _max_published_at(tracks: list[dict]) -> str | None:
+    """Returns the latest ISO publishedAt among tracks (None if none parse).
+
+    YouTube timestamps are UTC ``...Z`` strings; a few older entries are naive
+    ``datetime.isoformat()`` values. All are normalized to an explicit UTC
+    offset so ISO string ordering stays correct across both shapes.
+    """
+    best: str | None = None
+    for t in tracks or []:
+        raw = (t or {}).get("publishedAt")
+        if not raw:
+            continue
+        try:
+            text = str(raw)
+            if text.endswith("Z"):
+                text = text[:-1] + "+00:00"
+            iso = datetime.fromisoformat(text).astimezone(timezone.utc).isoformat()
+        except (ValueError, TypeError):
+            continue
+        if best is None or iso > best:
+            best = iso
+    return best
+
+
 def update_channel_audio_catalog(
     repo: GitHubRepo,
     channel_name: str,
@@ -1266,6 +1290,7 @@ def update_channel_audio_catalog(
             "speaker": track.get("speaker") or series_title,
             "coverUrl": track.get("thumbnailUrl"),
             "trackCount": 0,
+            "latestPublishedAt": track.get("publishedAt"),
             "category": series_category,
             "language": series_lang,
             "tracks": [],
@@ -1285,6 +1310,9 @@ def update_channel_audio_catalog(
     tracks.insert(0, track)  # newest first
     series_data["tracks"] = tracks
     series_data["trackCount"] = len(tracks)
+    latest_published = _max_published_at(tracks)
+    if latest_published:
+        series_data["latestPublishedAt"] = latest_published
     if not series_data.get("coverUrl") and track.get("thumbnailUrl"):
         series_data["coverUrl"] = track.get("thumbnailUrl")
 
@@ -1315,6 +1343,8 @@ def update_channel_audio_catalog(
         existing_entry["speaker"] = series_data["speaker"]
         existing_entry["language"] = series_data["language"]
         existing_entry["category"] = series_data.get("category", series_category)
+        if series_data.get("latestPublishedAt"):
+            existing_entry["latestPublishedAt"] = series_data["latestPublishedAt"]
         if not existing_entry.get("coverUrl") and series_data.get("coverUrl"):
             existing_entry["coverUrl"] = series_data["coverUrl"]
     else:
@@ -1327,6 +1357,7 @@ def update_channel_audio_catalog(
             "category": series_data.get("category", series_category),
             "language": series_data["language"],
             "coverUrl": series_data.get("coverUrl"),
+            "latestPublishedAt": series_data.get("latestPublishedAt"),
         })
 
     repo.upsert(

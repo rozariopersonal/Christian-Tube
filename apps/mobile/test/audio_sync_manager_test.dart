@@ -42,5 +42,36 @@ void main() {
       verify(() => mockHttpClient.get(any())).called(1);
       verifyNever(() => mockSqliteAdapter.upsertSeries(any(), updatedAtMs: any(named: 'updatedAtMs')));
     });
+
+    test('syncCatalog maps latestPublishedAt from the backend response', () async {
+      when(() => mockSqliteAdapter.getLastSyncTimestamp()).thenAnswer((_) async => 0);
+      const body = '''
+      {
+        "data": [
+          {
+            "id": "yt1",
+            "title": "CFC India Sermons",
+            "description": "",
+            "speaker": "Zac Poonen",
+            "category": "YouTube",
+            "language": "en",
+            "trackCount": 2,
+            "latestPublishedAt": "2026-09-11T00:00:00.000Z",
+            "tracks": []
+          }
+        ]
+      }
+      ''';
+      when(() => mockHttpClient.get(any()))
+          .thenAnswer((_) async => http.Response(body, 200));
+
+      await syncManager.syncCatalog();
+
+      final captured = verify(() => mockSqliteAdapter.upsertSeries(
+        captureAny(),
+        updatedAtMs: any(named: 'updatedAtMs'),
+      )).captured.single as AudioSeries;
+      expect(captured.latestPublishedAt, DateTime.utc(2026, 9, 11));
+    });
   });
 }
