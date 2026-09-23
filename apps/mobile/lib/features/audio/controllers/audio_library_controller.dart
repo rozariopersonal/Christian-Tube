@@ -246,8 +246,11 @@ class AudioLibraryController extends ChangeNotifier {
     // Check cloud for playback updates across devices in background
     AudioPlayerController.instance.syncWithCloud();
     
-    // Fire off background catalog sync from NestJS to Local SQLite
-    AudioSyncManager(_catalogService.localAdapter).syncCatalog().catchError((e) {
+    // Sync the local SQLite mirror from the NestJS backend. An explicit
+    // refresh pulls the full catalog (no `since` cursor) so a mirror frozen
+    // by a drifted cursor is rebuilt.
+    final syncManager = AudioSyncManager(_catalogService.localAdapter);
+    syncManager.syncCatalog(fullRefresh: forceRefresh).catchError((e) {
       debugPrint('Background sync failed: $e');
     });
 

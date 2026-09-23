@@ -15,14 +15,22 @@ class AudioSyncManager {
   AudioSyncManager(this._sqliteAdapter, {http.Client? client})
       : _client = client ?? http.Client();
 
-  Future<void> syncCatalog() async {
+  Future<void> syncCatalog({bool fullRefresh = false}) async {
     if (kIsWeb) return; // Web doesn't use local SQLite sync
     
     try {
-      final lastSyncMs = await _sqliteAdapter.getLastSyncTimestamp();
-      
-      final url = Uri.parse('${AppConfig.apiBaseUrl}/api/audio/sync?since=$lastSyncMs');
-      final response = await _client.get(url);
+      final String url;
+      if (fullRefresh) {
+        // No `since`: the backend responds with the entire catalog, which
+        // rebuilds the mirror and rescues installs whose cursor drifted past
+        // every server `updatedAt` (old clients stamped "now" into the mirror).
+        url = '${AppConfig.apiBaseUrl}/api/audio/sync';
+      } else {
+        final lastSyncMs = await _sqliteAdapter.getLastSyncTimestamp();
+        url = '${AppConfig.apiBaseUrl}/api/audio/sync?since=$lastSyncMs';
+      }
+
+      final response = await _client.get(Uri.parse(url));
       
       if (response.statusCode != 200) {
         throw Exception('Failed to sync audio catalog: ${response.statusCode}');
@@ -43,6 +51,19 @@ class AudioSyncManager {
         final seriesId = s['id'] as String? ?? '';
         final seriesTitle = s['title'] as String? ?? '';
         final seriesSpeaker = s['speaker'] as String? ?? 'Zac Poonen';
+
+        // Persist the server's own `updatedAt` as the sync cursor. Stamping
+        // client "now" here made MAX(updatedAt) drift ahead of every server
+        // timestamp, so subsequent `?since=` delta syncs returned nothing and
+        // the mirror froze on the very first snapshot.
+        int? updatedAtMs;
+        final rawUpdatedAt = s['updatedAt'];
+        if (rawUpdatedAt is String) {
+          updatedAtMs = DateTime.tryParse(rawUpdatedAt)?.millisecondsSinceEpoch;
+        } else if (rawUpdatedAt is num) {
+          updatedAtMs = rawUpdatedAt.toInt();
+        }
+        updatedAtMs ??= currentMs;
 
         final series = AudioSeries(
           id: seriesId,
@@ -73,7 +94,7 @@ class AudioSyncManager {
           }).toList(),
         );
         
-        await _sqliteAdapter.upsertSeries(series, updatedAtMs: currentMs);
+        await _sqliteAdapter.upsertSeries(series, updatedAtMs: updatedAtMs);
       }
       
       final prefs = await SharedPreferences.getInstance();
