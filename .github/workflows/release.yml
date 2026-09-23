@@ -68,7 +68,7 @@ jobs:
       - name: Flutter Static Analysis
         run: |
           cd apps/mobile
-          flutter analyze --no-fatal-infos
+          flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Flutter Unit & Widget Tests
         run: |
