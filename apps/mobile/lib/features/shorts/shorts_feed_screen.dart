@@ -76,8 +76,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   Future<void> _loadChannelContext() async {
     await _channelService.loadSubscriptions();
     if (!mounted) return;
-    await _channelService.fetchChannels();
-    if (!mounted) return;
     await _pushSubscriptionContext();
   }
 
@@ -94,7 +92,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     await _communityController.updateSubscriptionContext(
       isAuthenticated: _authService.isAuthenticated,
       subscribedChannelIds: _channelService.subscribedChannelIds,
-      channels: _channelService.channels,
     );
   }
 
