@@ -236,6 +236,21 @@ void main() {
       expect(results.first.title, 'Faith Series');
     });
 
+    test('URL-encodes the query (spaces & special chars survive)', () async {
+      late Uri captured;
+      final client = MockClient((request) async {
+        captured = request.url;
+        return http.Response(jsonEncode({'data': []}), 200);
+      });
+
+      final adapter = RemoteAudioCatalogAdapter(client: client);
+      await adapter.search('Ministry of a Deliverer & more');
+
+      expect(captured.path, '/api/audio/search');
+      expect(captured.queryParameters['q'], 'Ministry of a Deliverer & more');
+      expect(captured.queryParameters['limit'], '20');
+    });
+
     test('returns an empty list when search fails', () async {
       final client = MockClient((request) async => http.Response('nope', 500));
       final adapter = RemoteAudioCatalogAdapter(client: client);

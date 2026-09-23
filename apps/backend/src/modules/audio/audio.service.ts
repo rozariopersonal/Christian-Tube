@@ -1,11 +1,66 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+/** A series plus its (possibly matched) tracks, shaped for the mobile client. */
+export interface SeriesSearchResult {
+  id: string;
+  title: string;
+  description: string | null;
+  speaker: string | null;
+  coverUrl: string | null;
+  trackCount: number;
+  category: string | null;
+  language: string | null;
+  tracks: any[];
+}
+
+/** Raw rows from the trigram series query (SELECT column labels). */
+interface RawSeriesRow {
+  id: string;
+  title: string;
+  description: string | null;
+  speaker: string | null;
+  coverUrl: string | null;
+  trackCount: number;
+  category: string | null;
+  language: string | null;
+  score: number;
+}
+
+/** Raw rows from the trigram track query (series fields + track fields). */
+interface RawTrackRow {
+  seriesId: string;
+  title: string;
+  description: string | null;
+  speaker: string | null;
+  coverUrl: string | null;
+  trackCount: number;
+  category: string | null;
+  language: string | null;
+  trackId: string;
+  trackTitle: string;
+  trackSpeaker: string | null;
+  trackDurationSeconds: number;
+  trackAudioUrl: string;
+  trackStreamUrl: string | null;
+  trackFallbackUrl: string | null;
+  trackCoverUrl: string | null;
+  trackThumbnailUrl: string | null;
+  trackYoutubeVideoId: string | null;
+  trackScriptureBook: string | null;
+  trackScriptureChapter: number | null;
+  trackScriptureVerse: number | null;
+}
 
 @Injectable()
 export class AudioService implements OnModuleInit {
   private readonly logger = new Logger(AudioService.name);
   private readonly githubBaseUrl = 'https://cdn.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main';
   private isSyncing = false;
+
+  /** pg_trgm similarity floor for fuzzy matches (typo tolerance). */
+  private readonly fuzzyThreshold = 0.35;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -217,49 +272,173 @@ export class AudioService implements OnModuleInit {
   }
 
   /**
-   * Searches across all audio tracks and groups them by series.
+   * Fuzzy (typo-tolerant) search over series and tracks, grouped by series.
+   *
+   * Uses Postgres pg_trgm `word_similarity` for fuzzy hits, with exact
+   * substring (ILIKE) matches boosted above them, ranked by score. Degrades
+   * to plain substring search when the trigram extension is unavailable or
+   * the term is too short for trigram matching to be reliable.
    */
   async searchCatalog(query: string, limit: number = 20) {
-    const searchTokens = query.trim().split(' ').map(t => t + ':*').join(' | ');
+    const clean = query.trim();
+    if (!clean) return [];
 
-    // We search the AudioTrack table for matches using Postgres text search capabilities,
-    // or just use Prisma's robust exact/contains queries since we have Prisma setup.
-    // Given the hybrid requirement, we can rely on simple Prisma queries to emulate it:
-    
+    const maxLimit = Math.max(1, Math.min(limit, 50));
+    if (clean.length < 3) {
+      return this.substringSearchCatalog(clean, maxLimit);
+    }
+
+    try {
+      return await this.trigramSearchCatalog(clean, maxLimit);
+    } catch (error: any) {
+      this.logger.warn(
+        `Trigram fuzzy search unavailable (${error?.message}); falling back to substring search.`,
+      );
+      return this.substringSearchCatalog(clean, maxLimit);
+    }
+  }
+
+  private async trigramSearchCatalog(clean: string, limit: number) {
+    const seriesRows = await this.prisma.$queryRaw<RawSeriesRow[]>(Prisma.sql`
+      SELECT
+        s.id, s.title, s.description, s.speaker,
+        s."coverUrl", s."trackCount", s.category, s.language,
+        CASE
+          WHEN s.title ILIKE '%' || ${clean} || '%' THEN 2
+          WHEN s.speaker ILIKE '%' || ${clean} || '%' OR s.description ILIKE '%' || ${clean} || '%' THEN 1
+          ELSE 0
+        END
+        + GREATEST(
+          COALESCE(word_similarity(lower(${clean}), lower(COALESCE(s.title, ''))), 0),
+          COALESCE(word_similarity(lower(${clean}), lower(COALESCE(s.speaker, ''))), 0),
+          COALESCE(word_similarity(lower(${clean}), lower(COALESCE(s.description, ''))), 0)
+        ) AS score
+      FROM "AudioSeries" s
+      WHERE
+        s.title ILIKE '%' || ${clean} || '%'
+        OR s.speaker ILIKE '%' || ${clean} || '%'
+        OR s.description ILIKE '%' || ${clean} || '%'
+        OR word_similarity(lower(${clean}), lower(COALESCE(s.title, ''))) > ${this.fuzzyThreshold}
+        OR word_similarity(lower(${clean}), lower(COALESCE(s.speaker, ''))) > ${this.fuzzyThreshold}
+        OR word_similarity(lower(${clean}), lower(COALESCE(s.description, ''))) > ${this.fuzzyThreshold}
+      ORDER BY score DESC, s.title ASC
+      LIMIT ${limit}
+    `);
+
+    const trackRows = await this.prisma.$queryRaw<RawTrackRow[]>(Prisma.sql`
+      SELECT
+        s.id AS "seriesId", s.title, s.description, s.speaker,
+        s."coverUrl", s."trackCount", s.category, s.language,
+        t.id AS "trackId", t.title AS "trackTitle", t.speaker AS "trackSpeaker",
+        t."durationSeconds" AS "trackDurationSeconds", t."audioUrl" AS "trackAudioUrl",
+        t."streamUrl" AS "trackStreamUrl", t."fallbackUrl" AS "trackFallbackUrl",
+        t."ifCoverUrl" AS "trackCoverUrl", t."thumbnailUrl" AS "trackThumbnailUrl",
+        t."youtubeVideoId" AS "trackYoutubeVideoId", t."scriptureBook" AS "trackScriptureBook",
+        t."scriptureChapter" AS "trackScriptureChapter", t."scriptureVerse" AS "trackScriptureVerse",
+        CASE WHEN t.title ILIKE '%' || ${clean} || '%' THEN 1 ELSE 0 END
+          + GREATEST(
+            COALESCE(word_similarity(lower(${clean}), lower(COALESCE(t.title, ''))), 0),
+            COALESCE(word_similarity(lower(${clean}), lower(COALESCE(t.speaker, ''))), 0)
+          ) AS score
+      FROM "AudioTrack" t
+      JOIN "AudioSeries" s ON s.id = t."seriesId"
+      WHERE
+        t.title ILIKE '%' || ${clean} || '%'
+        OR t.speaker ILIKE '%' || ${clean} || '%'
+        OR word_similarity(lower(${clean}), lower(COALESCE(t.title, ''))) > ${this.fuzzyThreshold}
+        OR word_similarity(lower(${clean}), lower(COALESCE(t.speaker, ''))) > ${this.fuzzyThreshold}
+      ORDER BY score DESC, s.title ASC
+      LIMIT ${Math.min(limit * 3, 60)}
+    `);
+
+    const seriesMap = new Map<string, SeriesSearchResult>();
+
+    for (const s of seriesRows) {
+      seriesMap.set(s.id, this.projectSeries(s));
+    }
+
+    for (const r of trackRows) {
+      if (!seriesMap.has(r.seriesId)) {
+        seriesMap.set(r.seriesId, this.projectSeries(r));
+      }
+      const entry = seriesMap.get(r.seriesId)!;
+      entry.tracks.push({
+        id: r.trackId,
+        seriesId: r.seriesId,
+        seriesTitle: r.title,
+        title: r.trackTitle,
+        speaker: r.trackSpeaker ?? 'Zac Poonen',
+        durationSeconds: r.trackDurationSeconds,
+        audioUrl: r.trackAudioUrl,
+        streamUrl: r.trackStreamUrl,
+        fallbackUrl: r.trackFallbackUrl,
+        coverUrl: r.trackCoverUrl,
+        thumbnailUrl: r.trackThumbnailUrl,
+        youtubeVideoId: r.trackYoutubeVideoId,
+        scriptureBook: r.trackScriptureBook,
+        scriptureChapter: r.trackScriptureChapter,
+        scriptureVerse: r.trackScriptureVerse,
+      });
+    }
+
+    return Array.from(seriesMap.values());
+  }
+
+  private projectSeries(
+    row: {
+      id?: string;
+      seriesId?: string;
+      title: string;
+      description: string | null;
+      speaker: string | null;
+      coverUrl: string | null;
+      trackCount: number;
+      category: string | null;
+      language: string | null;
+    },
+  ): SeriesSearchResult {
+    return {
+      id: row.id ?? row.seriesId!,
+      title: row.title,
+      description: row.description,
+      speaker: row.speaker,
+      coverUrl: row.coverUrl,
+      trackCount: row.trackCount,
+      category: row.category,
+      language: row.language,
+      tracks: [],
+    };
+  }
+
+  private async substringSearchCatalog(clean: string, limit: number) {
     const tracks = await this.prisma.audioTrack.findMany({
       where: {
         OR: [
-          { title: { contains: query, mode: 'insensitive' } },
-          { speaker: { contains: query, mode: 'insensitive' } },
+          { title: { contains: clean, mode: 'insensitive' } },
+          { speaker: { contains: clean, mode: 'insensitive' } },
         ]
       },
       take: limit,
       include: { series: true },
     });
 
-    // We can also search series directly
     const seriesMatches = await this.prisma.audioSeries.findMany({
       where: {
         OR: [
-          { title: { contains: query, mode: 'insensitive' } },
-          { speaker: { contains: query, mode: 'insensitive' } },
-          { description: { contains: query, mode: 'insensitive' } },
+          { title: { contains: clean, mode: 'insensitive' } },
+          { speaker: { contains: clean, mode: 'insensitive' } },
+          { description: { contains: clean, mode: 'insensitive' } },
         ]
       },
       take: limit,
     });
 
-    // Grouping logic for the frontend response
-    const seriesMap = new Map<string, any>();
-    
-    // Add series matches (empty tracks for now, or just the series itself)
+    const seriesMap = new Map<string, SeriesSearchResult>();
+
     for (const s of seriesMatches) {
-      if (!seriesMap.has(s.id)) {
-        seriesMap.set(s.id, { ...s, tracks: [] });
-      }
+      seriesMap.set(s.id, { ...s, tracks: [] });
     }
 
-    // Add track matches
     for (const track of tracks) {
       if (!seriesMap.has(track.seriesId)) {
         seriesMap.set(track.seriesId, {
@@ -267,7 +446,7 @@ export class AudioService implements OnModuleInit {
           tracks: [],
         });
       }
-      seriesMap.get(track.seriesId).tracks.push(track);
+      seriesMap.get(track.seriesId)!.tracks.push(track);
     }
 
     return Array.from(seriesMap.values());
