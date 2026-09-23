@@ -19,6 +19,15 @@ enum AudioViewMode {
   alphabetical,
 }
 
+/// Sort options for the YouTube channel grid in the Audio tab.
+enum AudioChannelSort {
+  /// Channels with the most tracks first.
+  mostTracks,
+
+  /// Alphabetical by channel name (A–Z).
+  name,
+}
+
 /// Immutable snapshot of the Audio Library browse state.
 ///
 /// Follows the repository standard: views read this single derived value
@@ -39,6 +48,7 @@ class AudioLibraryViewState {
 
   final String searchQuery;
   final AudioViewMode viewMode;
+  final AudioChannelSort channelSort;
   final List<AudioSeries>? asyncSearchResults;
 
   const AudioLibraryViewState({
@@ -54,6 +64,7 @@ class AudioLibraryViewState {
     this.languageTrackCounts = const {},
     this.searchQuery = '',
     this.viewMode = AudioViewMode.featured,
+    this.channelSort = AudioChannelSort.mostTracks,
   });
 
   bool get isAllLanguagesSelected =>
@@ -77,6 +88,7 @@ class AudioLibraryViewState {
     Map<String, int>? languageTrackCounts,
     String? searchQuery,
     AudioViewMode? viewMode,
+    AudioChannelSort? channelSort,
   }) {
     return AudioLibraryViewState(
       isLoading: isLoading ?? this.isLoading,
@@ -92,31 +104,49 @@ class AudioLibraryViewState {
       languageTrackCounts: languageTrackCounts ?? this.languageTrackCounts,
       searchQuery: searchQuery ?? this.searchQuery,
       viewMode: viewMode ?? this.viewMode,
+      channelSort: channelSort ?? this.channelSort,
     );
+  }
+
+  /// Active format/category/language predicate shared by the browse list and
+  /// the deep async search results so both surfaces honor the same filters.
+  bool _matchesActiveFilters(AudioSeries s) {
+    final isSong = s.category.toLowerCase() == 'songs';
+    final isYouTube = s.category.toLowerCase() == 'youtube';
+
+    if (selectedFormat == AudioFormat.songs && !isSong) return false;
+    if (selectedFormat == AudioFormat.youtube && !isYouTube) return false;
+    if (selectedFormat == AudioFormat.archive && (isSong || isYouTube)) return false;
+
+    final matchesCategory =
+        selectedCategory == 'All' || s.category == selectedCategory;
+    if (selectedFormat == AudioFormat.archive && !matchesCategory) return false;
+
+    if (isAllLanguagesSelected) return true;
+
+    final code = LanguageMeta.canonicalCode(s.language);
+    return code.isNotEmpty &&
+        selectedLanguages.any((l) => l.toLowerCase() == code);
   }
 
   /// Series matching the active category and language filters.
   List<AudioSeries> get filteredSeries {
-    final isAll = isAllLanguagesSelected;
+    return seriesList.where(_matchesActiveFilters).toList();
+  }
 
-    return seriesList.where((s) {
-      final isSong = s.category.toLowerCase() == 'songs';
-      final isYouTube = s.category.toLowerCase() == 'youtube';
-
-      if (selectedFormat == AudioFormat.songs && !isSong) return false;
-      if (selectedFormat == AudioFormat.youtube && !isYouTube) return false;
-      if (selectedFormat == AudioFormat.archive && (isSong || isYouTube)) return false;
-
-      final matchesCategory =
-          selectedCategory == 'All' || s.category == selectedCategory;
-      if (selectedFormat == AudioFormat.archive && !matchesCategory) return false;
-
-      if (isAll) return true;
-
-      final code = LanguageMeta.canonicalCode(s.language);
-      return code.isNotEmpty &&
-          selectedLanguages.any((l) => l.toLowerCase() == code);
-    }).toList();
+  /// The YouTube channel grid, ordered by the active [channelSort].
+  List<AudioSeries> get channelSortedSeries {
+    final list = filteredSeries;
+    switch (channelSort) {
+      case AudioChannelSort.name:
+        final sorted = List<AudioSeries>.from(list)
+          ..sort((a, b) =>
+              a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        return sorted;
+      case AudioChannelSort.mostTracks:
+        return List<AudioSeries>.from(list)
+          ..sort((a, b) => b.trackCount.compareTo(a.trackCount));
+    }
   }
 
   /// Instant search results matching the active query against titles,
@@ -125,7 +155,9 @@ class AudioLibraryViewState {
     final clean = searchQuery.trim().toLowerCase();
     if (clean.isEmpty) return filteredSeries;
 
-    if (asyncSearchResults != null) return asyncSearchResults!;
+    if (asyncSearchResults != null) {
+      return asyncSearchResults!.where(_matchesActiveFilters).toList();
+    }
 
     return filteredSeries.where((s) {
       return s.title.toLowerCase().contains(clean) ||
@@ -349,6 +381,12 @@ class AudioLibraryController extends ChangeNotifier {
   void setViewMode(AudioViewMode mode) {
     if (_state.viewMode == mode) return;
     _state = _state.copyWith(viewMode: mode);
+    notifyListeners();
+  }
+
+  void setChannelSort(AudioChannelSort sort) {
+    if (_state.channelSort == sort) return;
+    _state = _state.copyWith(channelSort: sort);
     notifyListeners();
   }
 

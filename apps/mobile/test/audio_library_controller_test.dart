@@ -9,9 +9,11 @@ import 'package:mobile/shared/services/library_languages_controller.dart';
 
 class _FakeCatalogService extends AudioCatalogService {
   final List<AudioSeries> series;
+  final List<AudioSeries> searchResults;
   bool? lastForceRefresh;
   int catalogCalls = 0;
-  _FakeCatalogService(this.series);
+  _FakeCatalogService(this.series, {List<AudioSeries>? searchResults})
+      : searchResults = searchResults ?? series;
 
   @override
   Future<List<AudioSeries>> getCatalog({bool forceRefresh = false}) async {
@@ -19,6 +21,9 @@ class _FakeCatalogService extends AudioCatalogService {
     catalogCalls++;
     return series;
   }
+
+  @override
+  Future<List<AudioSeries>> search(String query) async => searchResults;
 }
 
 class _FakeStorageService extends AudioStorageService {
@@ -44,6 +49,26 @@ AudioSeries _series(
     speaker: speaker,
     coverUrl: null,
     trackCount: 5,
+    category: category,
+    language: language,
+    tracks: const [],
+  );
+}
+
+AudioSeries _youtubeSeries(
+  String id,
+  String title,
+  int trackCount, {
+  String category = 'YouTube',
+  String language = 'en',
+}) {
+  return AudioSeries(
+    id: id,
+    title: title,
+    description: '',
+    speaker: 'Zac Poonen',
+    coverUrl: null,
+    trackCount: trackCount,
     category: category,
     language: language,
     tracks: const [],
@@ -180,6 +205,124 @@ void main() {
 
       expect(fake.lastForceRefresh, isTrue);
       expect(controller.state.seriesList.length, 2);
+
+      controller.dispose();
+    });
+  });
+
+  group('AudioLibraryController YouTube channel grid', () {
+    test('async search results respect the active format filter', () async {
+      final youtubeSeries = _youtubeSeries('yt1', 'CFC India Sermons', 40);
+      final archiveSeries =
+          _series('arch1', 'Romans Exposition', category: 'Bible Survey');
+      final songsSeries = _youtubeSeries(
+        'sg1',
+        'Tamil Songs',
+        500,
+        category: 'Songs',
+      );
+
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService(
+          [youtubeSeries, archiveSeries, songsSeries],
+          searchResults: [youtubeSeries, archiveSeries, songsSeries],
+        ),
+        storageService: _FakeStorageService(),
+        langController: LibraryLanguagesController(),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      controller.selectFormat(AudioFormat.youtube);
+      expect(controller.state.filteredSeries.map((s) => s.id), ['yt1']);
+
+      // Deep async search on the YouTube tab must not surface Archive or
+      // Songs series that the backend matched.
+      controller.setSearchQuery('grace');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(controller.state.searchResults.map((s) => s.id), ['yt1']);
+
+      controller.dispose();
+    });
+
+    test('async search results respect the archive category filter', () async {
+      final romans = _series('r1', 'Romans Exposition', category: 'Verse By Verse');
+      final foundations = _series('f1', 'Foundations of Faith', category: 'Foundations');
+      final songsSeries = _youtubeSeries('sg1', 'Tamil Songs', 10, category: 'Songs');
+
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService(
+          [romans, foundations, songsSeries],
+          searchResults: [romans, foundations, songsSeries],
+        ),
+        storageService: _FakeStorageService(),
+        langController: LibraryLanguagesController(),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      controller.selectCategory('Foundations');
+      controller.setSearchQuery('faith');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(controller.state.searchResults.map((s) => s.id), ['f1']);
+
+      controller.dispose();
+    });
+
+    test('channel grid sorts by most tracks by default and toggles to A-Z',
+        () async {
+      final a = _youtubeSeries('b', 'Beta Channel', 3);
+      final c = _youtubeSeries('c', 'Alpha Channel', 50);
+      final d = _youtubeSeries('d', 'Gamma Channel', 10);
+
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService([a, c, d]),
+        storageService: _FakeStorageService(),
+        langController: LibraryLanguagesController(),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      controller.selectFormat(AudioFormat.youtube);
+
+      expect(controller.state.channelSort, AudioChannelSort.mostTracks);
+      expect(controller.state.channelSortedSeries.map((s) => s.id),
+          ['c', 'd', 'b']); // Alpha (50), Gamma (10), Beta (3)
+
+      controller.setChannelSort(AudioChannelSort.name);
+      expect(controller.state.channelSortedSeries.map((s) => s.id),
+          ['c', 'b', 'd']); // Alpha, Beta, Gamma
+
+      controller.dispose();
+    });
+
+    test('channel sort applies after language filtering', () async {
+      final ta = _youtubeSeries('ta1', 'Tamil Channel', 8, language: 'ta');
+      final enBig = _youtubeSeries('en1', 'English Channel', 90, language: 'en');
+      final taBig = _youtubeSeries('ta2', 'Another Tamil Channel', 30, language: 'ta');
+
+      final lang = LibraryLanguagesController();
+      lang.announceLanguages(['en', 'ta']);
+
+      final controller = AudioLibraryController(
+        catalogService: _FakeCatalogService([ta, enBig, taBig]),
+        storageService: _FakeStorageService(),
+        langController: lang,
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      controller.selectFormat(AudioFormat.youtube);
+      lang.selectLanguages({'ta'});
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(controller.state.channelSortedSeries.map((s) => s.id),
+          ['ta2', 'ta1']);
+
+      controller.setChannelSort(AudioChannelSort.name);
+      expect(controller.state.channelSortedSeries.map((s) => s.id),
+          ['ta2', 'ta1']);
 
       controller.dispose();
     });

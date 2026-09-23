@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../books/models/book_language_meta.dart';
 import '../controllers/audio_library_controller.dart';
@@ -11,12 +12,14 @@ class AudioChannelGrid extends StatelessWidget {
   final AudioLibraryViewState state;
   final VoidCallback onReset;
   final ValueChanged<AudioSeries> onOpenSeries;
+  final ValueChanged<AudioChannelSort> onChannelSortChanged;
 
   const AudioChannelGrid({
     super.key,
     required this.state,
     required this.onReset,
     required this.onOpenSeries,
+    required this.onChannelSortChanged,
   });
 
   @override
@@ -27,7 +30,7 @@ class AudioChannelGrid extends StatelessWidget {
             ? AppTokens.dark
             : AppTokens.light);
 
-    final filtered = state.filteredSeries;
+    final sorted = state.channelSortedSeries;
     final isAllLang = state.isAllLanguagesSelected;
     final String langSuffix;
     if (isAllLang) {
@@ -39,43 +42,52 @@ class AudioChannelGrid extends StatelessWidget {
       langSuffix = ' • ${state.selectedLanguages.length} Languages';
     }
 
-    final headerTitle = 'YouTube Channels (${filtered.length}$langSuffix)';
+    final headerTitle =
+        'YouTube Channels (${state.filteredSeries.length}$langSuffix)';
     final showReset = state.selectedCategory != 'All' || !isAllLang;
 
-    return Padding(
+    return MaxWidthBox(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showReset)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    headerTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: tokens.onSurface,
-                    ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  headerTitle,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: tokens.onSurface,
                   ),
                 ),
+              ),
+              if (showReset)
                 TextButton(
                   onPressed: onReset,
                   child: const Text('Reset'),
                 ),
-              ],
-            )
-          else
-            Text(
-              headerTitle,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: tokens.onSurface,
+              PopupMenuButton<AudioChannelSort>(
+                initialValue: state.channelSort,
+                tooltip: 'Sort channels',
+                icon: Icon(Icons.sort, color: tokens.onSurfaceMuted),
+                onSelected: onChannelSortChanged,
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: AudioChannelSort.mostTracks,
+                    child: Text('Most tracks'),
+                  ),
+                  PopupMenuItem(
+                    value: AudioChannelSort.name,
+                    child: Text('A–Z'),
+                  ),
+                ],
               ),
-            ),
+            ],
+          ),
           const SizedBox(height: 14),
-          if (filtered.isEmpty)
+          if (sorted.isEmpty)
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(40),
@@ -93,15 +105,15 @@ class AudioChannelGrid extends StatelessWidget {
                 return GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filtered.length,
+                  itemCount: sorted.length,
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 180,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 0.85,
+                    childAspectRatio: 0.72,
                   ),
                   itemBuilder: (context, index) {
-                    final series = filtered[index];
+                    final series = sorted[index];
                     return _AudioChannelCard(
                       series: series,
                       onTap: () => onOpenSeries(series),
@@ -149,14 +161,14 @@ class _AudioChannelCard extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(12.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Circular Avatar
                 Container(
-                  width: 72,
-                  height: 72,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: tokens.surface,
@@ -175,18 +187,20 @@ class _AudioChannelCard extends StatelessWidget {
                         )
                       : _buildFallbackIcon(tokens),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 
                 // Channel Name
-                Text(
-                  series.title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: tokens.onSurface,
+                Flexible(
+                  child: Text(
+                    series.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: tokens.onSurface,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
                 
