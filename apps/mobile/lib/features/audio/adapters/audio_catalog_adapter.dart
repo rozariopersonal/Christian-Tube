@@ -9,4 +9,9 @@ abstract class AudioCatalogAdapter {
   Future<AudioSeries?> fetchSeries(String seriesId, {bool forceRefresh = false});
   
   Future<List<AudioSeries>> search(String query);
+
+  /// Whether this adapter holds real, usable data. Remote is always ready;
+  /// a SQLite mirror is ready only after it has been synced. Offline fallbacks
+  /// check this before reading so an empty mirror is never created or served.
+  Future<bool> get isReady async => true;
 }

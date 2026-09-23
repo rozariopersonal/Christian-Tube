@@ -9,10 +9,15 @@ import 'seed_audio_catalog.dart';
 
 /// Fetches the audio catalog and series tracklists from the backend database
 /// (DB-first) via `GET /api/audio/catalog` and `GET /api/audio/series/{id}`,
-/// with an offline seed fallback. Audio media itself streams directly from
+/// with an offline fallback. Audio media itself streams directly from
 /// official cfcindia.org / Audio.com servers.
+///
+/// When the backend is unreachable, an optional `offlineFallback` (the SQLite
+/// mirror) is consulted before the embedded seed catalog, so airplane users see
+/// the full synced catalog rather than a handful of seed entries.
 class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
   final http.Client _client;
+  final AudioCatalogAdapter? _offlineFallback;
   static List<AudioSeries>? _cachedCatalog;
   static final Map<String, AudioSeries> _cachedSeries = {};
 
@@ -28,8 +33,12 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
     _cachedCatalog = catalog ?? SeedAudioCatalog.catalog;
   }
 
-  RemoteAudioCatalogAdapter({http.Client? client})
-      : _client = client ?? http.Client();
+  RemoteAudioCatalogAdapter({http.Client? client, AudioCatalogAdapter? offlineFallback})
+      : _client = client ?? http.Client(),
+        _offlineFallback = offlineFallback;
+
+  @override
+  Future<bool> get isReady async => true;
 
   @override
   Future<List<AudioSeries>> fetchCatalog({bool forceRefresh = false}) async {
@@ -56,12 +65,41 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
         }
       }
     } catch (_) {
-      // Fall through to seed catalog below.
+      // Fall through to offline fallback below.
+    }
+
+    // Offline: prefer the synced local mirror over the tiny embedded seed.
+    final offline = await _tryOfflineCatalog();
+    if (offline != null) {
+      _cachedCatalog = offline;
+      return offline;
     }
 
     // Fallback seed catalog if offline
     _cachedCatalog = SeedAudioCatalog.catalog;
     return SeedAudioCatalog.catalog;
+  }
+
+  Future<List<AudioSeries>?> _tryOfflineCatalog() async {
+    final fallback = _offlineFallback;
+    if (fallback == null || !await _isOfflineReady(fallback)) return null;
+    try {
+      final local = await fallback.fetchCatalog();
+      if (local.isNotEmpty) return local;
+    } catch (_) {
+      // Offline mirror unavailable (e.g. never synced); caller decides.
+    }
+    return null;
+  }
+
+  Future<bool> _isOfflineReady(AudioCatalogAdapter fallback) async {
+    try {
+      final ready = await fallback.isReady;
+      if (ready) return true;
+    } catch (_) {
+      // Mirror cannot report readiness (plugin missing / DB absent).
+    }
+    return false;
   }
 
   @override
@@ -88,7 +126,21 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
         }
       }
     } catch (_) {
-      // Fall through to seed series fallback below.
+      // Fall through to offline fallback below.
+    }
+
+    // Offline: prefer the synced local mirror over the embedded seed series.
+    final offlineFallback = _offlineFallback;
+    if (offlineFallback != null && await _isOfflineReady(offlineFallback)) {
+      try {
+        final local = await offlineFallback.fetchSeries(seriesId);
+        if (local != null) {
+          _cachedSeries[seriesId] = local;
+          return local;
+        }
+      } catch (_) {
+        // Offline mirror unavailable; fall through to the seed.
+      }
     }
 
     // Return seed series if available
@@ -112,7 +164,16 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
         return list.map((e) => AudioSeries.fromJson(e as Map<String, dynamic>)).toList();
       }
     } catch (e) {
-      // Ignore network errors for search
+      // Ignore network errors for search; try the offline mirror below.
+    }
+
+    final offlineFallback = _offlineFallback;
+    if (offlineFallback != null && await _isOfflineReady(offlineFallback)) {
+      try {
+        return await offlineFallback.search(query);
+      } catch (_) {
+        // Offline mirror unavailable; return empty.
+      }
     }
     return [];
   }
