@@ -68,5 +68,31 @@ void main() {
       expect(prefs.getString('current_user'), isNull);
       expect(prefs.getString('auth_token'), isNull);
     });
+
+    test('buildGuestToken embeds the claimed email so admins pass backend guard', () {
+      expect(
+        AuthService.buildGuestToken(userId: 'u1', email: 'arul.rozario4@gmail.com'),
+        'token_u1::arul.rozario4@gmail.com',
+      );
+      expect(AuthService.buildGuestToken(userId: 'u1', email: '  a@b.c  '), 'token_u1::a@b.c');
+      expect(AuthService.buildGuestToken(userId: 'u1'), 'token_u1');
+      expect(AuthService.buildGuestToken(userId: 'u1', email: ''), 'token_u1');
+    });
+
+    test('signInAsGuest stores a token embedding the claimed email', () async {
+      final authService = AuthService();
+      await authService.signInAsGuest(
+        'Admin Tester',
+        'arul.rozario4@gmail.com',
+      );
+
+      expect(authService.isAuthenticated, isTrue);
+      expect(authService.currentUser?.email, 'arul.rozario4@gmail.com');
+
+      final prefs = await SharedPreferences.getInstance();
+      final storedToken = prefs.getString('auth_token');
+      expect(storedToken, startsWith('token_user_'));
+      expect(storedToken, endsWith('::arul.rozario4@gmail.com'));
+    });
   });
 }
