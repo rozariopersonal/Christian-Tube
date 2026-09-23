@@ -102,7 +102,8 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
   @override
   Future<List<AudioSeries>> search(String query) async {
     try {
-      final url = Uri.parse('${AppConfig.apiBaseUrl}/api/audio/search?q=$query&limit=20');
+      final url = Uri.parse('${AppConfig.apiBaseUrl}/api/audio/search')
+          .replace(queryParameters: {'q': query, 'limit': '20'});
       final res = await _client.get(url).timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200) {

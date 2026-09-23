@@ -14,6 +14,7 @@ function makeService() {
       findMany: jest.fn(),
     },
     $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
+    $queryRaw: jest.fn(),
   };
   const service = new AudioService(prisma as any);
   return { service, prisma };
@@ -277,6 +278,141 @@ describe('AudioService', () => {
 
       const series = await service.getSeries('does_not_exist');
       expect(series).toBeNull();
+    });
+  });
+
+  describe('searchCatalog (fuzzy)', () => {
+    const seriesRow = {
+      id: 's1',
+      title: 'Ministry of a Deliverer',
+      description: 'Series about deliverance',
+      speaker: 'Zac Poonen',
+      coverUrl: 'http://covers/s1.jpg',
+      trackCount: 4,
+      category: 'General',
+      language: 'English',
+      score: 2.51,
+    };
+
+    const trackRow = {
+      seriesId: 's1',
+      title: 'Ministry of a Deliverer',
+      description: 'Series about deliverance',
+      speaker: 'Zac Poonen',
+      coverUrl: 'http://covers/s1.jpg',
+      trackCount: 4,
+      category: 'General',
+      language: 'English',
+      trackId: 't1',
+      trackTitle: 'The Deliverer Speaks',
+      trackSpeaker: 'Zac Poonen',
+      trackDurationSeconds: 100,
+      trackAudioUrl: 'https://audio.com/12345',
+      trackStreamUrl: null,
+      trackFallbackUrl: null,
+      trackCoverUrl: 'http://covers/t1.jpg',
+      trackThumbnailUrl: null,
+      trackYoutubeVideoId: 'abc',
+      trackScriptureBook: 'GEN',
+      trackScriptureChapter: 1,
+      trackScriptureVerse: 1,
+    };
+
+    it('groups fuzzy series and track matches with inline derived tracks', async () => {
+      const { service, prisma } = makeService();
+      prisma.$queryRaw
+        .mockResolvedValueOnce([seriesRow])
+        .mockResolvedValueOnce([trackRow]);
+
+      const out = await service.searchCatalog('delvirer');
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+      expect(out).toHaveLength(1);
+      expect(out[0].id).toBe('s1');
+      expect(out[0].title).toBe('Ministry of a Deliverer');
+      // Track match carried its series inline with the matched track only.
+      expect(out[0].tracks).toHaveLength(1);
+      expect(out[0].tracks[0].id).toBe('t1');
+      expect(out[0].tracks[0].seriesTitle).toBe('Ministry of a Deliverer');
+      expect(out[0].tracks[0].coverUrl).toBe('http://covers/t1.jpg');
+      expect(out[0].tracks[0].speaker).toBe('Zac Poonen');
+    });
+
+    it('returns an empty array for a blank query without hitting the database', async () => {
+      const { service, prisma } = makeService();
+      const out = await service.searchCatalog('   ');
+      expect(out).toEqual([]);
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+      expect(prisma.audioSeries.findMany).not.toHaveBeenCalled();
+    });
+
+    it('uses substring search (not trigram) for terms shorter than 3 chars', async () => {
+      const { service, prisma } = makeService();
+      prisma.audioSeries.findMany.mockResolvedValue([]);
+      prisma.audioTrack.findMany.mockResolvedValue([]);
+
+      const out = await service.searchCatalog('zz');
+
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+      expect(prisma.audioSeries.findMany).toHaveBeenCalled();
+      expect(out).toEqual([]);
+    });
+
+    it('falls back to substring search when the trigram query fails', async () => {
+      const { service, prisma } = makeService();
+      prisma.$queryRaw.mockRejectedValue(
+        new Error('function word_similarity(text, text) does not exist'),
+      );
+      prisma.audioSeries.findMany.mockResolvedValue([
+        {
+          id: 's1',
+          title: 'Ministry of a Deliverer',
+          description: 'desc',
+          speaker: 'Zac Poonen',
+          coverUrl: null,
+          trackCount: 4,
+          category: 'General',
+          language: 'English',
+        },
+      ]);
+      prisma.audioTrack.findMany.mockResolvedValue([]);
+
+      const out = await service.searchCatalog('deliverance');
+
+      expect(prisma.audioSeries.findMany).toHaveBeenCalled();
+      expect(out).toHaveLength(1);
+      expect(out[0].id).toBe('s1');
+      expect(out[0].tracks).toEqual([]);
+    });
+
+    it('substring fallback merges track matches into the matching series', async () => {
+      const { service, prisma } = makeService();
+      prisma.audioSeries.findMany.mockResolvedValue([]);
+      prisma.audioTrack.findMany.mockResolvedValue([
+        {
+          id: 't1',
+          seriesId: 's1',
+          title: 'The Deliverer Speaks',
+          speaker: 'Zac Poonen',
+          series: {
+            id: 's1',
+            title: 'Ministry of a Deliverer',
+            description: 'desc',
+            speaker: 'Zac Poonen',
+            coverUrl: null,
+            trackCount: 4,
+            category: 'General',
+            language: 'English',
+          },
+        },
+      ]);
+
+      const out = await service.searchCatalog('the robber', 5);
+
+      expect(out).toHaveLength(1);
+      expect(out[0].id).toBe('s1');
+      expect(out[0].tracks).toHaveLength(1);
+      expect(out[0].tracks[0].id).toBe('t1');
     });
   });
 });
