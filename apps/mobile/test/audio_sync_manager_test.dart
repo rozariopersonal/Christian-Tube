@@ -30,6 +30,11 @@ void main() {
         trackCount: 0,
         tracks: [],
       ));
+      when(() => mockSqliteAdapter.upsertSeries(
+            any(),
+            updatedAtMs: any(named: 'updatedAtMs'),
+          ))
+          .thenAnswer((_) async {});
     });
 
     test('syncCatalog does nothing if no updates', () async {
@@ -72,6 +77,59 @@ void main() {
         updatedAtMs: any(named: 'updatedAtMs'),
       )).captured.single as AudioSeries;
       expect(captured.latestPublishedAt, DateTime.utc(2026, 9, 11));
+    });
+
+    test('syncCatalog persists the server updatedAt as the cursor, not client now', () async {
+      when(() => mockSqliteAdapter.getLastSyncTimestamp()).thenAnswer((_) async => 0);
+      const body = '''
+      {
+        "data": [
+          {
+            "id": "yt1",
+            "title": "CFC India Sermons",
+            "description": "",
+            "speaker": "Zac Poonen",
+            "category": "YouTube",
+            "language": "en",
+            "trackCount": 2,
+            "updatedAt": "2026-09-11T08:30:00.000Z",
+            "tracks": []
+          }
+        ]
+      }
+      ''';
+      when(() => mockHttpClient.get(any()))
+          .thenAnswer((_) async => http.Response(body, 200));
+
+      await syncManager.syncCatalog();
+
+      final storedCursor = verify(() => mockSqliteAdapter.upsertSeries(
+        any(),
+        updatedAtMs: captureAny(named: 'updatedAtMs'),
+      )).captured.single as int;
+      expect(storedCursor, DateTime.utc(2026, 9, 11, 8, 30).millisecondsSinceEpoch);
+    });
+
+    test('syncCatalog sends the incremental since cursor by default', () async {
+      when(() => mockSqliteAdapter.getLastSyncTimestamp()).thenAnswer((_) async => 123456789);
+      when(() => mockHttpClient.get(any()))
+          .thenAnswer((_) async => http.Response('{"data": []}', 200));
+
+      await syncManager.syncCatalog();
+
+      final uri = verify(() => mockHttpClient.get(captureAny())).captured.single as Uri;
+      expect(uri.queryParameters['since'], '123456789');
+    });
+
+    test('syncCatalog(fullRefresh: true) omits the since cursor and does not read one', () async {
+      when(() => mockHttpClient.get(any()))
+          .thenAnswer((_) async => http.Response('{"data": []}', 200));
+
+      await syncManager.syncCatalog(fullRefresh: true);
+
+      final uri = verify(() => mockHttpClient.get(captureAny())).captured.single as Uri;
+      expect(uri.queryParameters.containsKey('since'), isFalse);
+      verifyNever(() => mockSqliteAdapter.getLastSyncTimestamp());
     });
   });
 }
