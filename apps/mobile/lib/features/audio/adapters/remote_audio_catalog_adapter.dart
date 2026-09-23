@@ -2,16 +2,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-import '../../../core/api/github_data_service.dart';
 import '../../../core/config/app_config.dart';
 import '../models/audio_series.dart';
 import 'audio_catalog_adapter.dart';
 import 'seed_audio_catalog.dart';
 
-/// Fetches the dynamically updated CFC India audio catalog and series
-/// tracklists from the releases repository (jsDelivr Edge CDN / GitHub), with
-/// an offline seed fallback. Audio media itself streams directly from official
-/// cfcindia.org servers.
+/// Fetches the audio catalog and series tracklists from the backend database
+/// (DB-first) via `GET /api/audio/catalog` and `GET /api/audio/series/{id}`,
+/// with an offline seed fallback. Audio media itself streams directly from
+/// official cfcindia.org / Audio.com servers.
 class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
   final http.Client _client;
   static List<AudioSeries>? _cachedCatalog;
@@ -41,23 +40,23 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
       return _cachedCatalog!;
     }
 
-    final urls = GitHubDataService.audioCatalogUrls();
-    for (final url in urls) {
-      try {
-        final res = await _client.get(Uri.parse(url)).timeout(
-              const Duration(seconds: 4),
-            );
-        if (res.statusCode == 200) {
-          final list = jsonDecode(res.body) as List<dynamic>;
-          final parsed = list
-              .map((e) => AudioSeries.fromJson(e as Map<String, dynamic>))
-              .toList();
-          _cachedCatalog = parsed;
-          return parsed;
+    final url = Uri.parse('${AppConfig.apiBaseUrl}/api/audio/catalog');
+    try {
+      final res = await _client.get(url).timeout(
+            const Duration(seconds: 8),
+          );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final list = (body['data'] as List<dynamic>? ?? [])
+            .map((e) => AudioSeries.fromJson(e as Map<String, dynamic>))
+            .toList();
+        if (list.isNotEmpty) {
+          _cachedCatalog = list;
+          return list;
         }
-      } catch (_) {
-        // Try next fallback URL
       }
+    } catch (_) {
+      // Fall through to seed catalog below.
     }
 
     // Fallback seed catalog if offline
@@ -74,21 +73,22 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
       return _cachedSeries[seriesId];
     }
 
-    final urls = GitHubDataService.audioSeriesUrls(seriesId);
-    for (final url in urls) {
-      try {
-        final res = await _client.get(Uri.parse(url)).timeout(
-              const Duration(seconds: 4),
-            );
-        if (res.statusCode == 200) {
-          final map = jsonDecode(res.body) as Map<String, dynamic>;
+    final url = Uri.parse('${AppConfig.apiBaseUrl}/api/audio/series/$seriesId');
+    try {
+      final res = await _client.get(url).timeout(
+            const Duration(seconds: 8),
+          );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final map = body['data'] as Map<String, dynamic>?;
+        if (map != null) {
           final series = AudioSeries.fromJson(map);
           _cachedSeries[seriesId] = series;
           return series;
         }
-      } catch (_) {
-        // Try next fallback URL
       }
+    } catch (_) {
+      // Fall through to seed series fallback below.
     }
 
     // Return seed series if available
@@ -98,13 +98,13 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
     }
     return fallback;
   }
-  
+
   @override
   Future<List<AudioSeries>> search(String query) async {
     try {
       final url = Uri.parse('${AppConfig.apiBaseUrl}/api/audio/search?q=$query&limit=20');
       final res = await _client.get(url).timeout(const Duration(seconds: 5));
-      
+
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = data['data'] as List<dynamic>? ?? [];

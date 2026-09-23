@@ -1,13 +1,34 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class AudioService {
+export class AudioService implements OnModuleInit {
   private readonly logger = new Logger(AudioService.name);
   private readonly githubBaseUrl = 'https://cdn.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main';
   private isSyncing = false;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Self-heal: when the audio tables are empty on boot (fresh DB / new
+   * deployment), pull the catalog once from the releases repository so the
+   * DB-first read path always has data. Non-blocking; never throws on boot.
+   */
+  async onModuleInit() {
+    try {
+      const count = await this.prisma.audioSeries.count();
+      if (count === 0) {
+        this.logger.log('Audio catalog database is empty; triggering initial sync...');
+        this.syncCatalogFromGitHub().catch((err) => {
+          this.logger.error(`Initial audio catalog sync failed: ${err.message}`);
+        });
+      } else {
+        this.logger.log(`Audio catalog database already populated (${count} series).`);
+      }
+    } catch (e: any) {
+      this.logger.warn(`Could not verify audio catalog on boot: ${e.message}`);
+    }
+  }
 
   /**
    * Syncs the audio catalog from the GitHub releases repo into PostgreSQL.
@@ -250,5 +271,70 @@ export class AudioService {
     }
 
     return Array.from(seriesMap.values());
+  }
+
+  /**
+   * DB-first catalog read. Mirrors the shape of the legacy `audio/catalog.json`
+   * (a list of series WITHOUT inline tracks) so mobile clients that previously
+   * fetched from the releases CDN now consume the database instead.
+   */
+  async getCatalog() {
+    return this.prisma.audioSeries.findMany({
+      orderBy: { title: 'asc' },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        speaker: true,
+        coverUrl: true,
+        trackCount: true,
+        category: true,
+        language: true,
+      },
+    });
+  }
+
+  /**
+   * DB-first series read. Mirrors the shape of the legacy
+   * `audio/series/{id}.json` (a series with its `tracks` inline). Mobile
+   * `AudioTrack.fromJson` expects `seriesTitle` and `coverUrl` on each track,
+   * which the table does not store directly — derived here from the series.
+   * Returns `null` when the series does not exist.
+   */
+  async getSeries(id: string) {
+    const series = await this.prisma.audioSeries.findUnique({
+      where: { id },
+      include: { tracks: true },
+    });
+    if (!series) return null;
+
+    return {
+      id: series.id,
+      title: series.title,
+      description: series.description,
+      speaker: series.speaker,
+      coverUrl: series.coverUrl,
+      trackCount: series.trackCount,
+      category: series.category,
+      language: series.language,
+      tracks: series.tracks.map((track) => ({
+        id: track.id,
+        seriesId: track.seriesId,
+        seriesTitle: series.title,
+        title: track.title,
+        speaker: track.speaker,
+        durationSeconds: track.durationSeconds,
+        audioUrl: track.audioUrl,
+        streamUrl: track.streamUrl,
+        fallbackUrl: track.fallbackUrl,
+        coverUrl: track.ifCoverUrl,
+        ifCoverUrl: track.ifCoverUrl,
+        thumbnailUrl: track.thumbnailUrl,
+        youtubeVideoId: track.youtubeVideoId,
+        scriptureBook: track.scriptureBook,
+        scriptureChapter: track.scriptureChapter,
+        scriptureVerse: track.scriptureVerse,
+      })),
+    };
   }
 }

@@ -186,4 +186,97 @@ describe('AudioService', () => {
       expect(out[0].tracks).toEqual([]);
     });
   });
+
+  describe('getCatalog (DB-first read)', () => {
+    it('returns series projections ordered by title ascending without tracks', async () => {
+      const { service, prisma } = makeService();
+      prisma.audioSeries.findMany.mockResolvedValue([
+        {
+          id: 's2',
+          title: 'Sermon B',
+          description: 'B',
+          speaker: 'ZP',
+          coverUrl: 'http://covers/b.jpg',
+          trackCount: 3,
+          category: 'General',
+          language: 'English',
+        },
+        {
+          id: 's1',
+          title: 'Sermon A',
+          description: 'A',
+          speaker: 'ZP',
+          coverUrl: 'http://covers/a.jpg',
+          trackCount: 5,
+          category: 'General',
+          language: 'English',
+        },
+      ]);
+
+      const catalog = await service.getCatalog();
+
+      expect(prisma.audioSeries.findMany).toHaveBeenCalledWith({
+        orderBy: { title: 'asc' },
+        select: expect.objectContaining({ id: true, trackCount: true }),
+      });
+      expect(catalog).toHaveLength(2);
+      expect(catalog[0].id).toBe('s2');
+      expect(catalog[0]).not.toHaveProperty('tracks');
+    });
+  });
+
+  describe('getSeries (DB-first read)', () => {
+    it('maps a series row with inline tracks incl derived seriesTitle and coverUrl', async () => {
+      const { service, prisma } = makeService();
+      prisma.audioSeries.findUnique.mockResolvedValue({
+        id: 's1',
+        title: 'Sermon One',
+        description: 'desc',
+        speaker: 'ZP',
+        coverUrl: 'http://covers/s1.jpg',
+        trackCount: 1,
+        category: 'General',
+        language: 'English',
+        tracks: [
+          {
+            id: 't1',
+            seriesId: 's1',
+            title: 'Track 1',
+            speaker: 'ZP',
+            durationSeconds: 100,
+            audioUrl: 'https://audio.com/12345',
+            streamUrl: null,
+            fallbackUrl: null,
+            coverUrl: null,
+            ifCoverUrl: 'http://covers/t1.jpg',
+            thumbnailUrl: null,
+            youtubeVideoId: 'abc',
+            scriptureBook: 'GEN',
+            scriptureChapter: 1,
+            scriptureVerse: 1,
+          },
+        ],
+      });
+
+      const series = await service.getSeries('s1');
+
+      expect(prisma.audioSeries.findUnique).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        include: { tracks: true },
+      });
+      expect(series).not.toBeNull();
+      expect(series!.id).toBe('s1');
+      expect(series!.tracks).toHaveLength(1);
+      expect(series!.tracks[0].seriesTitle).toBe('Sermon One');
+      expect(series!.tracks[0].coverUrl).toBe('http://covers/t1.jpg');
+    });
+
+    it('returns null for a missing series', async () => {
+      const { service, prisma } = makeService();
+      prisma.audioSeries.findUnique.mockResolvedValue(null);
+
+      const series = await service.getSeries('does_not_exist');
+      expect(series).toBeNull();
+    });
+  });
 });

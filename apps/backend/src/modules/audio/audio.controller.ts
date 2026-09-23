@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res, HttpException, HttpStatus, Query, Post, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Param, Res, HttpException, HttpStatus, Query, Post, Headers, UnauthorizedException, NotFoundException, Header } from '@nestjs/common';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AudioService } from './audio.service';
@@ -9,6 +9,23 @@ export class AudioController {
     private readonly configService: ConfigService,
     private readonly audioService: AudioService,
   ) {}
+
+  @Get('catalog')
+  @Header('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400')
+  async getCatalog() {
+    const data = await this.audioService.getCatalog();
+    return { data };
+  }
+
+  @Get('series/:id')
+  @Header('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400')
+  async getSeries(@Param('id') id: string) {
+    const data = await this.audioService.getSeries(id);
+    if (!data) {
+      throw new NotFoundException(`Audio series not found: ${id}`);
+    }
+    return { data };
+  }
 
   @Get('stream/:id')
   async getAudioStream(@Param('id') id: string, @Res() res: Response) {
