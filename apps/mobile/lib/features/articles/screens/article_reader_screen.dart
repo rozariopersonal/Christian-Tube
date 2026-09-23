@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
@@ -179,67 +180,83 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
         final title = state.article?.title ?? widget.initialTitle ?? l10n.appTitle;
 
-        return Scaffold(
-          backgroundColor: tokens.background,
-          appBar: AppBar(
-            backgroundColor: tokens.surface,
-            elevation: 0,
-            title: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: tokens.onSurface,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back, color: tokens.onSurface),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            actions: [
-              // Aa typography appearance button
-              IconButton(
-                icon: Text(
-                  'Aa',
-                  style: TextStyle(
-                    color: tokens.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+        // Back is intercepted so a system back press behaves exactly like the
+        // AppBar chevron: pop back to the previous page when there is one,
+        // otherwise (cold deep link) land on the articles browser instead of
+        // exiting the app.
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop(result);
+            } else {
+              context.go('/articles');
+            }
+          },
+          child: Scaffold(
+            backgroundColor: tokens.background,
+            appBar: AppBar(
+              backgroundColor: tokens.surface,
+              elevation: 0,
+              title: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tokens.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
-                tooltip: l10n.appearance,
-                onPressed: () => showReaderAppearanceSheet(context, appearance),
               ),
-
-              // Share button
-              if (state.article != null)
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back, color: tokens.onSurface),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              actions: [
+                // Aa typography appearance button
                 IconButton(
-                  icon: Icon(Icons.share_rounded, color: tokens.onSurface),
-                  tooltip: l10n.share,
-                  onPressed: () {
-                    final article = state.article!;
-                    final link = DeepLinkService.article(
-                      widget.articleId,
-                      lang: widget.lang,
-                    );
-                    final buffer = StringBuffer();
-                    buffer.writeln(article.title);
-                    buffer.writeln('By ${article.author} • ${article.date}\n');
-                    for (final l in article.lines.take(12)) {
-                      buffer.writeln(l.text);
-                    }
-                    buffer.writeln('${l10n.readOnApp}: $link');
-                    Share.share(
-                      buffer.toString(),
-                      subject: article.title,
-                    );
-                  },
+                  icon: Text(
+                    'Aa',
+                    style: TextStyle(
+                      color: tokens.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  tooltip: l10n.appearance,
+                  onPressed: () =>
+                      showReaderAppearanceSheet(context, appearance),
                 ),
-            ],
+
+                // Share button
+                if (state.article != null)
+                  IconButton(
+                    icon: Icon(Icons.share_rounded, color: tokens.onSurface),
+                    tooltip: l10n.share,
+                    onPressed: () {
+                      final article = state.article!;
+                      final link = DeepLinkService.article(
+                        widget.articleId,
+                        lang: widget.lang,
+                      );
+                      final buffer = StringBuffer();
+                      buffer.writeln(article.title);
+                      buffer.writeln('By ${article.author} • ${article.date}\n');
+                      for (final l in article.lines.take(12)) {
+                        buffer.writeln(l.text);
+                      }
+                      buffer.writeln('${l10n.readOnApp}: $link');
+                      Share.share(
+                        buffer.toString(),
+                        subject: article.title,
+                      );
+                    },
+                  ),
+              ],
+            ),
+            body: _buildBody(state, tokens, fontFamily, appearance, l10n),
           ),
-          body: _buildBody(state, tokens, fontFamily, appearance, l10n),
         );
       },
     );

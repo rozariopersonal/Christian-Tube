@@ -51,6 +51,14 @@ class ShortsOrchestratorService extends ChangeNotifier {
     });
   }
 
+  /// Test-only hook: stops the singleton's periodic retry loop so widget tests
+  /// that mount the shorts feed do not leak a pending timer.
+  @visibleForTesting
+  void cancelRetryLoopForTest() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+  }
+
   /// Automatically retry any scheduledUpload items whose retry time has passed.
   Future<void> _checkScheduledRetries() async {
     final now = DateTime.now();

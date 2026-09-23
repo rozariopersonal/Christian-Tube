@@ -126,6 +126,24 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     _coordinator.schedulePendingResumeIfReady();
   }
 
+  /// Single back path for the reader (system back, AppBar chevron and the
+  /// "Go Back" error action funnel here): persist the reading position first,
+  /// then always pop so a failing flush can never strand the user on the
+  /// reader page.
+  Future<void> _handleBack(Object? result) async {
+    if (_isPopping) return;
+    _isPopping = true;
+    try {
+      await _controller.flushProgressToDb();
+    } catch (e) {
+      debugPrint('Error flushing reading progress: $e');
+    } finally {
+      if (mounted) {
+        Navigator.of(context).pop(result);
+      }
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -321,13 +339,9 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       listenable: appearance,
       builder: (context, _) => PopScope(
         canPop: false,
-        onPopInvokedWithResult: (didPop, result) async {
-          if (didPop || _isPopping) return;
-          _isPopping = true;
-          await _controller.flushProgressToDb();
-          if (context.mounted) {
-            Navigator.of(context).pop(result);
-          }
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          _handleBack(result);
         },
         child: Scaffold(
           backgroundColor: bgColor,
@@ -369,7 +383,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                             FilledButton.tonalIcon(
                               icon: const Icon(Icons.arrow_back_rounded, size: 16),
                               label: const Text('Go Back'),
-                              onPressed: () => Navigator.of(context).maybePop(),
+                              onPressed: () => _handleBack(null),
                             ),
                           ],
                         ),
