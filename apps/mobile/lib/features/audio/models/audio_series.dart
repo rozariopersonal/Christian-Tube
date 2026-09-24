@@ -15,6 +15,13 @@ class AudioSeries {
   final DateTime? latestPublishedAt;
   final List<AudioTrack> tracks;
 
+  /// Backing YouTube Channel this series belongs to (null for sermon
+  /// collections). Set during backend sync and matched by ID to the user's
+  /// channel subscriptions on the Audio Library's YouTube tab.
+  final String? channelId;
+  final String? channelName;
+  final String? channelThumbnail;
+
   const AudioSeries({
     required this.id,
     required this.title,
@@ -25,6 +32,9 @@ class AudioSeries {
     required this.category,
     this.language = 'English',
     this.latestPublishedAt,
+    this.channelId,
+    this.channelName,
+    this.channelThumbnail,
     this.tracks = const [],
   });
 
@@ -44,6 +54,9 @@ class AudioSeries {
       category: json['category'] as String? ?? 'Sermons',
       language: json['language'] as String? ?? 'English',
       latestPublishedAt: _parseTimestamp(json['latestPublishedAt']),
+      channelId: json['channelId'] as String?,
+      channelName: json['channelName'] as String?,
+      channelThumbnail: json['channelThumbnail'] as String?,
       tracks: tracks,
     );
   }
@@ -69,6 +82,9 @@ class AudioSeries {
         'language': language,
         if (latestPublishedAt != null)
           'latestPublishedAt': latestPublishedAt!.toIso8601String(),
+        if (channelId != null) 'channelId': channelId,
+        if (channelName != null) 'channelName': channelName,
+        if (channelThumbnail != null) 'channelThumbnail': channelThumbnail,
         if (tracks.isNotEmpty)
           'tracks': tracks.map((t) => t.toJson()).toList(),
       };
@@ -84,6 +100,9 @@ class AudioSeries {
     String? language,
     DateTime? latestPublishedAt,
     bool clearLatestPublishedAt = false,
+    String? channelId,
+    String? channelName,
+    String? channelThumbnail,
     List<AudioTrack>? tracks,
   }) {
     return AudioSeries(
@@ -98,6 +117,9 @@ class AudioSeries {
       latestPublishedAt: clearLatestPublishedAt
           ? null
           : (latestPublishedAt ?? this.latestPublishedAt),
+      channelId: channelId ?? this.channelId,
+      channelName: channelName ?? this.channelName,
+      channelThumbnail: channelThumbnail ?? this.channelThumbnail,
       tracks: tracks ?? this.tracks,
     );
   }

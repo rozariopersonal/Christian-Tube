@@ -12,6 +12,9 @@ export interface SeriesSearchResult {
   trackCount: number;
   category: string | null;
   language: string | null;
+  channelId: string | null;
+  channelName: string | null;
+  channelThumbnail: string | null;
   tracks: any[];
 }
 
@@ -25,6 +28,9 @@ interface RawSeriesRow {
   trackCount: number;
   category: string | null;
   language: string | null;
+  channelId: string | null;
+  channelName: string | null;
+  channelThumbnail: string | null;
   score: number;
 }
 
@@ -38,6 +44,9 @@ interface RawTrackRow {
   trackCount: number;
   category: string | null;
   language: string | null;
+  channelId: string | null;
+  channelName: string | null;
+  channelThumbnail: string | null;
   trackId: string;
   trackTitle: string;
   trackSpeaker: string | null;
@@ -119,6 +128,25 @@ export class AudioService implements OnModuleInit {
       const catalog: any[] = await catalogRes.json();
       this.logger.log(`Fetched ${catalog.length} series from catalog.json.`);
 
+      // Load existing channels once so every series can be resolved to its
+      // Channel row by slug-of-name (series id is the slugified channel name
+      // for channel-backed series). Non-channel series resolve to null.
+      const channels = await this.prisma.channel.findMany({
+        select: { id: true, name: true, thumbnail: true },
+      });
+      const channelBySlug = new Map<string, { id: string; thumbnail: string | null }>();
+      const channelByName = new Map<string, { id: string; thumbnail: string | null }>();
+      for (const ch of channels) {
+        channelBySlug.set(this.slugify(ch.name) || ch.name, {
+          id: ch.id,
+          thumbnail: ch.thumbnail,
+        });
+        channelByName.set(ch.name.toLowerCase(), {
+          id: ch.id,
+          thumbnail: ch.thumbnail,
+        });
+      }
+
       // Process in sequence to avoid overwhelming the database
       for (const seriesData of catalog) {
         // Find existing series in DB to compare trackCount
@@ -126,6 +154,11 @@ export class AudioService implements OnModuleInit {
           where: { id: seriesData.id },
         });
         const catalogCount = seriesData.trackCount || 0;
+
+        // 3. Resolve the backing Channel (if any) so subscriptions can match
+        //    audio series to channels by ID instead of name heuristics.
+        const channel = this.resolveChannel(channelBySlug, channelByName, seriesData);
+        const channelId = channel?.id ?? null;
 
         // 3. Upsert the AudioSeries record (trackCount is refined to the real
         //    per-series JSON count inside syncSeriesTracks below)
@@ -142,6 +175,7 @@ export class AudioService implements OnModuleInit {
             category: seriesData.category,
             language: seriesData.language,
             coverUrl: seriesData.coverUrl,
+            channelId,
             trackCount: catalogCount,
             latestPublishedAt: latestPublished,
           },
@@ -152,6 +186,7 @@ export class AudioService implements OnModuleInit {
             category: seriesData.category,
             language: seriesData.language,
             coverUrl: seriesData.coverUrl,
+            channelId,
             trackCount: catalogCount,
             // Only overwrite recency when the catalog actually carries it, so a
             // backfilled DB value is never clobbered by a legacy catalog entry.
@@ -180,6 +215,40 @@ export class AudioService implements OnModuleInit {
     } finally {
       this.isSyncing = false;
     }
+  }
+
+  /**
+   * Resolves the backing YouTube Channel for an audio series.
+   *
+   * Channel-backed series (category "YouTube") are keyed on a slugified
+   * channel name: e.g. series `chennai_cfc` ← channel "CHENNAI CFC". Exact
+   * (case-insensitive) name equality wins first, then slug-of-name equality
+   * against the series id and the series title. Returns null for sermon/
+   * teaching collections that are not attached to a Channel row.
+   */
+  private resolveChannel(
+    channelBySlug: Map<string, { id: string; thumbnail: string | null }>,
+    channelByName: Map<string, { id: string; thumbnail: string | null }>,
+    seriesData: any,
+  ): { id: string; thumbnail: string | null } | null {
+    const byExactName = channelByName.get(String(seriesData.title || '').toLowerCase());
+    if (byExactName) return byExactName;
+
+    const slug = this.slugify(seriesData.title);
+    if (slug && channelBySlug.has(slug)) return channelBySlug.get(slug)!;
+
+    const idSlug = this.slugify(seriesData.id);
+    if (idSlug && channelBySlug.has(idSlug)) return channelBySlug.get(idSlug)!;
+
+    return null;
+  }
+
+  /** Lowercase ASCII slug used to key channel names (mirrors release data). */
+  private slugify(value: string): string {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
   }
 
   /**
@@ -324,10 +393,15 @@ export class AudioService implements OnModuleInit {
       return Array.from(seriesMap.values());
     } else {
       // Full catalog
-      return this.prisma.audioSeries.findMany({
-        include: { tracks: true },
+      const seriesRows = await this.prisma.audioSeries.findMany({
+        include: { tracks: true, channel: { select: { name: true, thumbnail: true } } },
         orderBy: { title: 'asc' },
       });
+      return seriesRows.map(({ channel, ...series }) => ({
+        ...series,
+        channelName: channel?.name ?? null,
+        channelThumbnail: channel?.thumbnail ?? null,
+      }));
     }
   }
 
@@ -363,6 +437,7 @@ export class AudioService implements OnModuleInit {
       SELECT
         s.id, s.title, s.description, s.speaker,
         s."coverUrl", s."trackCount", s.category, s.language,
+        s."channelId", c.name AS "channelName", c.thumbnail AS "channelThumbnail",
         CASE
           WHEN s.title ILIKE '%' || ${clean} || '%' THEN 2
           WHEN s.speaker ILIKE '%' || ${clean} || '%' OR s.description ILIKE '%' || ${clean} || '%' THEN 1
@@ -374,6 +449,7 @@ export class AudioService implements OnModuleInit {
           COALESCE(word_similarity(lower(${clean}), lower(COALESCE(s.description, ''))), 0)
         ) AS score
       FROM "AudioSeries" s
+      LEFT JOIN "Channel" c ON c.id = s."channelId"
       WHERE
         s.title ILIKE '%' || ${clean} || '%'
         OR s.speaker ILIKE '%' || ${clean} || '%'
@@ -389,6 +465,7 @@ export class AudioService implements OnModuleInit {
       SELECT
         s.id AS "seriesId", s.title, s.description, s.speaker,
         s."coverUrl", s."trackCount", s.category, s.language,
+        s."channelId", c.name AS "channelName", c.thumbnail AS "channelThumbnail",
         t.id AS "trackId", t.title AS "trackTitle", t.speaker AS "trackSpeaker",
         t."durationSeconds" AS "trackDurationSeconds", t."audioUrl" AS "trackAudioUrl",
         t."streamUrl" AS "trackStreamUrl", t."fallbackUrl" AS "trackFallbackUrl",
@@ -402,6 +479,7 @@ export class AudioService implements OnModuleInit {
           ) AS score
       FROM "AudioTrack" t
       JOIN "AudioSeries" s ON s.id = t."seriesId"
+      LEFT JOIN "Channel" c ON c.id = s."channelId"
       WHERE
         t.title ILIKE '%' || ${clean} || '%'
         OR t.speaker ILIKE '%' || ${clean} || '%'
@@ -455,6 +533,9 @@ export class AudioService implements OnModuleInit {
       trackCount: number;
       category: string | null;
       language: string | null;
+      channelId?: string | null;
+      channelName?: string | null;
+      channelThumbnail?: string | null;
     },
   ): SeriesSearchResult {
     return {
@@ -466,6 +547,9 @@ export class AudioService implements OnModuleInit {
       trackCount: row.trackCount,
       category: row.category,
       language: row.language,
+      channelId: row.channelId ?? null,
+      channelName: row.channelName ?? null,
+      channelThumbnail: row.channelThumbnail ?? null,
       tracks: [],
     };
   }
@@ -479,7 +563,7 @@ export class AudioService implements OnModuleInit {
         ]
       },
       take: limit,
-      include: { series: true },
+      include: { series: { include: { channel: true } } },
     });
 
     const seriesMatches = await this.prisma.audioSeries.findMany({
@@ -491,25 +575,50 @@ export class AudioService implements OnModuleInit {
         ]
       },
       take: limit,
+      include: { channel: true },
     });
 
     const seriesMap = new Map<string, SeriesSearchResult>();
 
     for (const s of seriesMatches) {
-      seriesMap.set(s.id, { ...s, tracks: [] });
+      seriesMap.set(
+        s.id,
+        this.fromSeriesRow(s, { ...s, tracks: [] }),
+      );
     }
 
     for (const track of tracks) {
       if (!seriesMap.has(track.seriesId)) {
-        seriesMap.set(track.seriesId, {
-          ...track.series,
-          tracks: [],
-        });
+        seriesMap.set(
+          track.seriesId,
+          this.fromSeriesRow(track.series, { ...track.series, tracks: [] }),
+        );
       }
       seriesMap.get(track.seriesId)!.tracks.push(track);
     }
 
     return Array.from(seriesMap.values());
+  }
+
+  /** Flatten a series row (with its channel relation) into a search result. */
+  private fromSeriesRow(
+    series: any,
+    full: any,
+  ): SeriesSearchResult {
+    return {
+      id: full.id,
+      title: full.title,
+      description: full.description,
+      speaker: full.speaker,
+      coverUrl: full.coverUrl,
+      trackCount: full.trackCount,
+      category: full.category,
+      language: full.language,
+      channelId: series.channelId ?? null,
+      channelName: series.channel?.name ?? null,
+      channelThumbnail: series.channel?.thumbnail ?? null,
+      tracks: [],
+    };
   }
 
   /**
@@ -518,7 +627,7 @@ export class AudioService implements OnModuleInit {
    * fetched from the releases CDN now consume the database instead.
    */
   async getCatalog() {
-    return this.prisma.audioSeries.findMany({
+    const rows = await this.prisma.audioSeries.findMany({
       orderBy: { title: 'asc' },
       select: {
         id: true,
@@ -529,8 +638,15 @@ export class AudioService implements OnModuleInit {
         trackCount: true,
         category: true,
         language: true,
+        channelId: true,
+        channel: { select: { name: true, thumbnail: true } },
       },
     });
+    return rows.map(({ channel, ...series }) => ({
+      ...series,
+      channelName: channel?.name ?? null,
+      channelThumbnail: channel?.thumbnail ?? null,
+    }));
   }
 
   /**
@@ -543,7 +659,7 @@ export class AudioService implements OnModuleInit {
   async getSeries(id: string) {
     const series = await this.prisma.audioSeries.findUnique({
       where: { id },
-      include: { tracks: true },
+      include: { tracks: true, channel: true },
     });
     if (!series) return null;
 
@@ -556,6 +672,9 @@ export class AudioService implements OnModuleInit {
       trackCount: series.trackCount,
       category: series.category,
       language: series.language,
+      channelId: series.channelId,
+      channelName: series.channel?.name ?? null,
+      channelThumbnail: series.channel?.thumbnail ?? null,
       tracks: series.tracks.map((track) => ({
         id: track.id,
         seriesId: track.seriesId,

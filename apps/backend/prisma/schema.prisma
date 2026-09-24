@@ -189,6 +189,7 @@ model Channel {
 
   videos          Video[]
   subscriptions   ChannelSubscription[]
+  audioSeries     AudioSeries[]
 
   @@index([isActive])
   @@index([category])
@@ -328,15 +329,18 @@ model AudioSeries {
   category         String?
   language         String?
   coverUrl         String?
+  channelId        String?
   trackCount       Int          @default(0)
   latestPublishedAt DateTime?
   updatedAt        DateTime     @updatedAt
   createdAt        DateTime     @default(now())
 
   tracks           AudioTrack[]
+  channel          Channel?     @relation(fields: [channelId], references: [id], onDelete: SetNull)
 
   @@index([category])
   @@index([speaker])
+  @@index([channelId])
   @@index([latestPublishedAt])
   @@index([updatedAt])
 }
