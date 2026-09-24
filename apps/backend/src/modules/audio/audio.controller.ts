@@ -3,7 +3,7 @@ import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AudioService } from './audio.service';
 
-@Controller('audio')
+@Controller(['audio', 'api/audio'])
 export class AudioController {
   constructor(
     private readonly configService: ConfigService,
