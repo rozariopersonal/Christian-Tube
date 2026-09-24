@@ -13,7 +13,7 @@ import 'audio_catalog_adapter.dart';
 class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
   static const String defaultFileName = 'audio_sync.sqlite';
   static const String syncedPrefKey = 'audio_sqlite_synced';
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
 
   final String? dbPathOverride;
   Database? _db;
@@ -74,6 +74,9 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
             coverUrl TEXT,
             trackCount INTEGER DEFAULT 0,
             latestPublishedAt INTEGER,
+            channelId TEXT,
+            channelName TEXT,
+            channelThumbnail TEXT,
             updatedAt INTEGER
           )
         ''');
@@ -168,6 +171,11 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
           await db.execute(
               'ALTER TABLE series ADD COLUMN latestPublishedAt INTEGER');
         }
+        if (oldVersion < 4) {
+          await db.execute('ALTER TABLE series ADD COLUMN channelId TEXT');
+          await db.execute('ALTER TABLE series ADD COLUMN channelName TEXT');
+          await db.execute('ALTER TABLE series ADD COLUMN channelThumbnail TEXT');
+        }
       },
     );
     _db = db;
@@ -194,6 +202,9 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
       'coverUrl': series.coverUrl,
       'trackCount': series.trackCount,
       'latestPublishedAt': series.latestPublishedAt?.millisecondsSinceEpoch,
+      'channelId': series.channelId,
+      'channelName': series.channelName,
+      'channelThumbnail': series.channelThumbnail,
       'updatedAt': updatedAtMs ?? DateTime.now().millisecondsSinceEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
@@ -259,6 +270,9 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
       latestPublishedAt: rawEpoch != null
           ? DateTime.fromMillisecondsSinceEpoch(rawEpoch)
           : null,
+      channelId: row['channelId'] as String?,
+      channelName: row['channelName'] as String?,
+      channelThumbnail: row['channelThumbnail'] as String?,
       tracks: [],
     );
   }

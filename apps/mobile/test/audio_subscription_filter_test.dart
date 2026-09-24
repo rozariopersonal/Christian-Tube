@@ -2,7 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/audio/models/audio_series.dart';
 import 'package:mobile/features/audio/services/audio_subscription_filter.dart';
 
-AudioSeries _youtubeSeries(String id, String title) {
+AudioSeries _youtubeSeries(
+  String id,
+  String title, {
+  String? channelId,
+}) {
   return AudioSeries(
     id: id,
     title: title,
@@ -12,6 +16,8 @@ AudioSeries _youtubeSeries(String id, String title) {
     trackCount: 5,
     category: 'YouTube',
     language: 'en',
+    channelId: channelId,
+    channelName: title,
     tracks: const [],
   );
 }
@@ -32,11 +38,47 @@ void main() {
     });
   });
 
-  group('isSubscribedAudioSeries', () {
-    test('matches a series whose title equals a subscribed channel name', () {
+  group('isSubscribedAudioSeries (ID-based)', () {
+    test('matches series by its relational channelId', () {
+      final series = _youtubeSeries(
+        'chennai_cfc',
+        'CHENNAI CFC',
+        channelId: 'UCjOBTIP3cKg-F2MDsG8s5Og',
+      );
+      expect(
+        isSubscribedAudioSeries(
+          subscribedChannelIds: const {'UCjOBTIP3cKg-F2MDsG8s5Og'},
+          subscribedChannelNames: const {},
+          series: series,
+        ),
+        isTrue,
+      );
+    });
+
+    test('rejects a series whose channelId is not subscribed', () {
+      final series = _youtubeSeries(
+        'chennai_cfc',
+        'CHENNAI CFC',
+        channelId: 'UCjOBTIP3cKg-F2MDsG8s5Og',
+      );
+      expect(
+        isSubscribedAudioSeries(
+          subscribedChannelIds: const {'UCL8wQnv6qB7rZtEYfY3vPtw'},
+          subscribedChannelNames: const {},
+          series: series,
+        ),
+        isFalse,
+      );
+    });
+
+    test(
+        'falls back to name matching for series without a relational channelId',
+        () {
+      // Legacy row still in the SQLite mirror before a re-sync.
       final series = _youtubeSeries('cfc_india', 'CFC India');
       expect(
         isSubscribedAudioSeries(
+          subscribedChannelIds: const {},
           subscribedChannelNames: const {'cfc india'},
           series: series,
         ),
@@ -44,23 +86,11 @@ void main() {
       );
     });
 
-    test('matches by slugified id when the name differs in punctuation', () {
-      // Worker stamps the id from slugify(channel_name); the subscribed name
-      // may carry extra punctuation while the series title is the clean name.
-      final series = _youtubeSeries('zac_poonen_sermons', 'Zac Poonen Sermons');
-      expect(
-        isSubscribedAudioSeries(
-          subscribedChannelNames: const {'Zac Poonen Sermons!'},
-          series: series,
-        ),
-        isTrue,
-      );
-    });
-
-    test('rejects channels the user is not subscribed to', () {
+    test('rejects channels the user is not subscribed to (name path)', () {
       final series = _youtubeSeries('alpha_channel', 'Alpha Channel');
       expect(
         isSubscribedAudioSeries(
+          subscribedChannelIds: const {},
           subscribedChannelNames: const {'Beta Channel'},
           series: series,
         ),
@@ -68,10 +98,14 @@ void main() {
       );
     });
 
-    test('returns false for an empty subscription list', () {
+    test('returns false for empty subscription lists', () {
       final series = _youtubeSeries('alpha_channel', 'Alpha Channel');
       expect(
-        isSubscribedAudioSeries(subscribedChannelNames: const {}, series: series),
+        isSubscribedAudioSeries(
+          subscribedChannelIds: const {},
+          subscribedChannelNames: const {},
+          series: series,
+        ),
         isFalse,
       );
     });

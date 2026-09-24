@@ -69,6 +69,19 @@ void main() {
                 'category': 'General',
                 'language': 'English',
               },
+              {
+                'id': 'chennai_cfc',
+                'title': 'CHENNAI CFC',
+                'description': '',
+                'speaker': 'Zac Poonen',
+                'coverUrl': 'http://cdn/chennai.jpg',
+                'trackCount': 90,
+                'category': 'YouTube',
+                'language': 'Tamil',
+                'channelId': 'UCjOBTIP3cKg-F2MDsG8s5Og',
+                'channelName': 'CHENNAI CFC',
+                'channelThumbnail': 'http://cdn/thumbs/chennai.jpg',
+              },
             ],
           }),
           200,
@@ -79,10 +92,15 @@ void main() {
       final catalog = await adapter.fetchCatalog();
 
       expect(requested, ['/api/audio/catalog']);
-      expect(catalog, hasLength(1));
+      expect(catalog, hasLength(2));
       expect(catalog.first.id, 'sermon_one');
       expect(catalog.first.trackCount, 4);
       expect(catalog.first.tracks, isEmpty);
+      final youtube = catalog.last;
+      expect(youtube.id, 'chennai_cfc');
+      expect(youtube.channelId, 'UCjOBTIP3cKg-F2MDsG8s5Og');
+      expect(youtube.channelName, 'CHENNAI CFC');
+      expect(youtube.channelThumbnail, 'http://cdn/thumbs/chennai.jpg');
     });
 
     test('does not hit the releases CDN any more', () async {

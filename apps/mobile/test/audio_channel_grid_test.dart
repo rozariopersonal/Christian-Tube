@@ -43,6 +43,7 @@ void main() {
     selectedFormat: AudioFormat.youtube,
     selectedLanguages: const {'All'},
     availableLanguages: const ['All'],
+    subscribedChannelIds: const {'c1', 'c2', 'c3'},
     subscribedChannelNames: const {
       'Alpha Channel',
       'Beta Channel',
@@ -191,7 +192,10 @@ void main() {
 
     var subscribed = false;
     await tester.pumpWidget(buildHarness(
-      baseState.copyWith(subscribedChannelNames: const {}),
+      baseState.copyWith(
+        subscribedChannelIds: const {},
+        subscribedChannelNames: const {},
+      ),
       (_) {},
       onSubscribe: () => subscribed = true,
     ));
@@ -213,7 +217,10 @@ void main() {
     for (final width in [320.0, 600.0, 840.0, 1400.0]) {
       setSurfaceSize(tester, width, 900);
       await tester.pumpWidget(buildHarness(
-        baseState.copyWith(subscribedChannelNames: const {}),
+        baseState.copyWith(
+          subscribedChannelIds: const {},
+          subscribedChannelNames: const {},
+        ),
         (_) {},
       ));
       await tester.pump();

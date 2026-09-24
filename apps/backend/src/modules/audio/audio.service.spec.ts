@@ -15,6 +15,9 @@ function makeService() {
     },
     $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     $queryRaw: jest.fn(),
+    channel: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   };
   const service = new AudioService(prisma as any);
   return { service, prisma };
@@ -79,6 +82,57 @@ describe('AudioService', () => {
         where: { id: 's1' },
         data: { trackCount: 3 },
       });
+    });
+
+    it('backfills channelId from a matching Channel row by slug-of-name', async () => {
+      const { service, prisma } = makeService();
+      global.fetch = jest.fn()
+        // manifest.json
+        .mockResolvedValueOnce(jsonResponse({ revision: 'abc123' }))
+        // catalog.json
+        .mockResolvedValueOnce(jsonResponse([
+          {
+            id: 'chennai_cfc',
+            title: 'CHENNAI CFC',
+            speaker: 'Zac Poonen',
+            category: 'YouTube',
+            trackCount: 3,
+          },
+        ]))
+        // series JSON for chennai_cfc
+        .mockResolvedValueOnce(jsonResponse({
+          id: 'chennai_cfc',
+          tracks: [
+            { id: 't1' }, { id: 't2' }, { id: 't3' },
+          ],
+        }));
+
+      // The seeded Channel row whose YouTube id is the authoritative key.
+      prisma.channel.findMany.mockResolvedValue([
+        {
+          id: 'UCjOBTIP3cKg-F2MDsG8s5Og',
+          name: 'CHENNAI CFC',
+          thumbnail: 'http://thumbs/chennai.jpg',
+        },
+      ]);
+      prisma.audioSeries.findUnique.mockResolvedValue({
+        id: 'chennai_cfc',
+        trackCount: 3,
+      });
+      prisma.audioSeries.upsert.mockResolvedValue({ id: 'chennai_cfc' });
+      prisma.audioTrack.createMany.mockResolvedValue({ count: 3 });
+      prisma.audioSeries.update.mockResolvedValue({ id: 'chennai_cfc', trackCount: 3 });
+
+      await service.syncCatalogFromGitHub();
+
+      expect(prisma.channel.findMany).toHaveBeenCalled();
+      expect(prisma.audioSeries.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            channelId: 'UCjOBTIP3cKg-F2MDsG8s5Og',
+          }),
+        }),
+      );
     });
 
     it('re-syncs a series when the published trackCount INCREASED', async () => {
@@ -272,6 +326,8 @@ describe('AudioService', () => {
           trackCount: 3,
           category: 'General',
           language: 'English',
+          channelId: null,
+          channel: null,
         },
         {
           id: 's1',
@@ -282,6 +338,11 @@ describe('AudioService', () => {
           trackCount: 5,
           category: 'General',
           language: 'English',
+          channelId: 'UCjOBTIP3cKg-F2MDsG8s5Og',
+          channel: {
+            name: 'CHENNAI CFC',
+            thumbnail: 'http://thumbs/chennai.jpg',
+          },
         },
       ]);
 
@@ -294,6 +355,10 @@ describe('AudioService', () => {
       expect(catalog).toHaveLength(2);
       expect(catalog[0].id).toBe('s2');
       expect(catalog[0]).not.toHaveProperty('tracks');
+      expect(catalog[0].channelId).toBeNull();
+      expect(catalog[1].channelId).toBe('UCjOBTIP3cKg-F2MDsG8s5Og');
+      expect(catalog[1].channelName).toBe('CHENNAI CFC');
+      expect(catalog[1].channelThumbnail).toBe('http://thumbs/chennai.jpg');
     });
   });
 
@@ -309,6 +374,11 @@ describe('AudioService', () => {
         trackCount: 1,
         category: 'General',
         language: 'English',
+        channelId: 'UCjOBTIP3cKg-F2MDsG8s5Og',
+        channel: {
+          name: 'CHENNAI CFC',
+          thumbnail: 'http://thumbs/chennai.jpg',
+        },
         tracks: [
           {
             id: 't1',
@@ -334,13 +404,15 @@ describe('AudioService', () => {
 
       expect(prisma.audioSeries.findUnique).toHaveBeenCalledWith({
         where: { id: 's1' },
-        include: { tracks: true },
+        include: { tracks: true, channel: true },
       });
       expect(series).not.toBeNull();
       expect(series!.id).toBe('s1');
       expect(series!.tracks).toHaveLength(1);
       expect(series!.tracks[0].seriesTitle).toBe('Sermon One');
       expect(series!.tracks[0].coverUrl).toBe('http://covers/t1.jpg');
+      expect(series!.channelId).toBe('UCjOBTIP3cKg-F2MDsG8s5Og');
+      expect(series!.channelName).toBe('CHENNAI CFC');
     });
 
     it('returns null for a missing series', async () => {

@@ -56,9 +56,12 @@ class AudioLibraryViewState {
   final AudioChannelSort channelSort;
   final List<AudioSeries>? asyncSearchResults;
 
-  /// Names of the channels the user is subscribed to. On the YouTube tab this
-  /// restricts the channel grid to subscribed channels; empty means the tab
-  /// shows its "subscribe" call to action instead.
+  /// Channel subscriptions the user has, keyed by YouTube channel id. The
+  /// YouTube tab restricts the channel grid to subscribed channels — empty
+  /// means the tab shows its "subscribe" call to action instead.
+  final Set<String> subscribedChannelIds;
+
+  /// Channel display names for the legacy (pre-relational) name-based bridge.
   final Set<String> subscribedChannelNames;
 
   const AudioLibraryViewState({
@@ -75,6 +78,7 @@ class AudioLibraryViewState {
     this.searchQuery = '',
     this.viewMode = AudioViewMode.featured,
     this.channelSort = AudioChannelSort.mostTracks,
+    this.subscribedChannelIds = const {},
     this.subscribedChannelNames = const {},
   });
 
@@ -84,7 +88,7 @@ class AudioLibraryViewState {
 
   bool get isSearching => searchQuery.trim().isNotEmpty;
 
-  bool get hasChannelSubscriptions => subscribedChannelNames.isNotEmpty;
+  bool get hasChannelSubscriptions => subscribedChannelIds.isNotEmpty;
 
   /// Whether the YouTube tab should render its "subscribe" call to action:
   /// there is nothing to show because the user has no channel subscriptions.
@@ -109,6 +113,7 @@ class AudioLibraryViewState {
     String? searchQuery,
     AudioViewMode? viewMode,
     AudioChannelSort? channelSort,
+    Set<String>? subscribedChannelIds,
     Set<String>? subscribedChannelNames,
   }) {
     return AudioLibraryViewState(
@@ -126,6 +131,7 @@ class AudioLibraryViewState {
       searchQuery: searchQuery ?? this.searchQuery,
       viewMode: viewMode ?? this.viewMode,
       channelSort: channelSort ?? this.channelSort,
+      subscribedChannelIds: {...(subscribedChannelIds ?? this.subscribedChannelIds)},
       subscribedChannelNames: {...(subscribedChannelNames ?? this.subscribedChannelNames)},
     );
   }
@@ -142,6 +148,7 @@ class AudioLibraryViewState {
 
     if (selectedFormat == AudioFormat.youtube &&
         !isSubscribedAudioSeries(
+          subscribedChannelIds: subscribedChannelIds,
           subscribedChannelNames: subscribedChannelNames,
           series: s,
         )) {
@@ -282,10 +289,6 @@ class AudioLibraryController extends ChangeNotifier {
 
   bool _disposed = false;
 
-  /// Guards the best-effort channel-name fetch so it runs at most once per
-  /// controller lifetime.
-  bool _channelNamesFetchAttempted = false;
-
   AudioLibraryController({
     AudioCatalogService? catalogService,
     AudioStorageService? storageService,
@@ -297,6 +300,7 @@ class AudioLibraryController extends ChangeNotifier {
         _ownsLangController = langController == null,
         _channelService = channelService ?? ChannelService() {
     _state = AudioLibraryViewState(
+      subscribedChannelIds: _channelService.subscribedChannelIds,
       subscribedChannelNames: _channelService.subscribedChannelNames,
     );
     _langController.addListener(_onLangChanged);
@@ -305,26 +309,18 @@ class AudioLibraryController extends ChangeNotifier {
     AudioPlayerController.instance.addListener(_onPlayerStateChanged);
   }
 
-  /// Channel subscriptions are keyed by channel id, but audio YouTube series
-  /// only carry the channel name. Fetch the channel list (best effort, once)
-  /// when names are missing so the grid can bridge subscriptions to series.
-  void _ensureSubscribedChannelNames() {
-    if (_channelNamesFetchAttempted) return;
-    final ids = _channelService.subscribedChannelIds;
-    if (ids.isEmpty) return;
-    if (_channelService.subscribedChannelNames.length >= ids.length) return;
-    _channelNamesFetchAttempted = true;
-    _channelService.fetchChannels().catchError((e) {
-      debugPrint('Failed to load channel names for audio subscriptions: $e');
-    });
-  }
-
   void _onChannelSubscriptionsChanged() {
     if (_disposed) return;
-    _ensureSubscribedChannelNames();
+    final ids = _channelService.subscribedChannelIds;
     final names = _channelService.subscribedChannelNames;
-    if (setEquals(names, _state.subscribedChannelNames)) return;
-    _state = _state.copyWith(subscribedChannelNames: names);
+    if (setEquals(ids, _state.subscribedChannelIds) &&
+        setEquals(names, _state.subscribedChannelNames)) {
+      return;
+    }
+    _state = _state.copyWith(
+      subscribedChannelIds: ids,
+      subscribedChannelNames: names,
+    );
     notifyListeners();
   }
 
@@ -352,10 +348,6 @@ class AudioLibraryController extends ChangeNotifier {
   }
 
   Future<void> loadData({bool forceRefresh = false}) async {
-    // Make sure channel names are available to bridge subscriptions to audio
-    // series when the singleton had already loaded by the time we attached.
-    _ensureSubscribedChannelNames();
-
     // Check cloud for playback updates across devices in background
     AudioPlayerController.instance.syncWithCloud();
 
