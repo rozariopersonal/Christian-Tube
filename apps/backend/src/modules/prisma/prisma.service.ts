@@ -51,7 +51,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           "transcriptionRetryCount" INTEGER NOT NULL DEFAULT 0,
           "transcriptionDetail" JSONB,
           "lastTranscriptionError" TEXT,
-          "content" TEXT,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
@@ -199,6 +198,25 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
          ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingStatus" TEXT DEFAULT 'pending';
          ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingError" TEXT;
          ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingRetryCount" INTEGER DEFAULT 0;`,
+      ],
+      [
+        "Transcription table",
+        `CREATE TABLE IF NOT EXISTS "Transcription" (
+           "videoId" TEXT NOT NULL PRIMARY KEY,
+           "content" TEXT NOT NULL,
+           "source" TEXT NOT NULL DEFAULT 'parakeet',
+           "contentVersion" INTEGER NOT NULL DEFAULT 0,
+           "wordCount" INTEGER,
+           "segmentCount" INTEGER,
+           "maxSec" DOUBLE PRECISION,
+           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           CONSTRAINT "Transcription_videoId_fkey"
+             FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+             ON DELETE CASCADE ON UPDATE CASCADE
+         );
+         CREATE INDEX IF NOT EXISTS "Transcription_contentVersion_idx"
+           ON "Transcription"("contentVersion");`,
       ],
       [
         "VideoChunk indexes",

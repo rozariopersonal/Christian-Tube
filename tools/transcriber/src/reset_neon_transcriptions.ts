@@ -45,11 +45,11 @@ async function main() {
     console.log(`  - ${r.transcriptionStatus || 'NULL'}: ${r.count}`);
   }
 
-  const contentRes = await pool.query('SELECT count(*) FROM "Video" WHERE content IS NOT NULL');
-  console.log(`Videos with non-null content: ${contentRes.rows[0].count}`);
-
   const detailRes = await pool.query('SELECT count(*) FROM "Video" WHERE "transcriptionDetail" IS NOT NULL');
   console.log(`Videos with non-null transcriptionDetail: ${detailRes.rows[0].count}`);
+
+  const transcriptionRes = await pool.query('SELECT count(*) FROM "Transcription"');
+  console.log(`Total Transcription rows: ${transcriptionRes.rows[0].count}`);
 
   const chunkRes = await pool.query('SELECT count(*) FROM "VideoChunk"');
   console.log(`Total VideoChunk records: ${chunkRes.rows[0].count}`);
@@ -93,7 +93,13 @@ async function main() {
   const delEmbeddings = await pool.query('DELETE FROM "VideoEmbedding"');
   console.log(`Deleted ${delEmbeddings.rowCount} VideoEmbedding row(s)`);
 
-  // 3. Reset Video fields for transcription, chunking, and embedding
+  // 3. Delete all Transcription + VideoSentence rows
+  const delSentences = await pool.query('DELETE FROM "VideoSentence"');
+  console.log(`Deleted ${delSentences.rowCount} VideoSentence row(s)`);
+  const delTranscriptions = await pool.query('DELETE FROM "Transcription"');
+  console.log(`Deleted ${delTranscriptions.rowCount} Transcription row(s)`);
+
+  // 4. Reset Video fields for transcription, chunking, and embedding
   const resetVideos = await pool.query(`
     UPDATE "Video"
     SET 
@@ -102,7 +108,6 @@ async function main() {
       "transcriptionRetryCount" = 0,
       "transcriptionDetail" = NULL,
       "lastTranscriptionError" = NULL,
-      "content" = NULL,
       "contentVersion" = 0,
       "chunkStatus" = 'pending',
       "chunkError" = NULL,
@@ -113,7 +118,7 @@ async function main() {
       "embeddingVersion" = 0,
       "embeddingHash" = NULL
   `);
-  console.log(`Reset ${resetVideos.rowCount} Video row(s) to transcriptionStatus='pending', embeddingStatus='pending', and cleared content.`);
+  console.log(`Reset ${resetVideos.rowCount} Video row(s) to transcriptionStatus='pending', embeddingStatus='pending'.`);
 
   console.log('----------------------------------------');
   console.log('RESET SUCCESSFUL! Verifying post-reset state:');
@@ -138,8 +143,8 @@ async function main() {
     console.log(`  - ${r.embeddingStatus}: ${r.count}`);
   }
 
-  const postContent = await pool.query('SELECT count(*) FROM "Video" WHERE content IS NOT NULL');
-  console.log(`Videos with content: ${postContent.rows[0].count}`);
+  const postContent = await pool.query('SELECT count(*) FROM "Transcription"');
+  console.log(`Transcription rows: ${postContent.rows[0].count}`);
 
   const postChunks = await pool.query('SELECT count(*) FROM "VideoChunk"');
   console.log(`VideoChunk count: ${postChunks.rows[0].count}`);

@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       cmake \
       curl \
       ffmpeg \
-      git \
       libsndfile1 \
       ca-certificates \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \

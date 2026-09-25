@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Transcription daemon: captions-first / Parakeet ASR -> Video.content.
+"""Transcription daemon: captions-first / Parakeet ASR -> Transcription table.
 
 Polls the database for English videos that lack a transcript, tries YouTube
 captions first, and falls back to Audio.com audio decoded with ffmpeg and
 transcribed by NVIDIA Parakeet (NeMo). The timestamped transcript is written to
-``Video.content`` and the row is marked ``transcriptionStatus='completed'``.
+the ``Transcription`` table and the row is marked ``transcriptionStatus='completed'``.
 
 This service ONLY transcribes. Chunking (LLM idea extraction) and embedding are
 separate daemons that consume the transcript straight from the database:
-    services/transcriber  -> Video.content                     (this daemon)
-    services/chunker      -> Video.content -> VideoChunk rows  (no vectors)
+    services/transcriber  -> Transcription                    (this daemon)
+    services/chunker      -> Transcription -> VideoChunk rows (no vectors)
     services/embedder     -> VideoChunk.embedding (async fill-in)
 """
 
@@ -56,12 +56,36 @@ class Database:
         self.ensure_schema()
 
     def ensure_schema(self):
-        try:
-            self.cur.execute(
-                'ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0'
-            )
-        except Exception as e:  # noqa: BLE001
-            log.warning("contentVersion step failed: %s", e)
+        steps = [
+            (
+                "contentVersion column",
+                'ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0',
+            ),
+            (
+                "Transcription table",
+                """CREATE TABLE IF NOT EXISTS "Transcription" (
+                     "videoId" TEXT NOT NULL PRIMARY KEY,
+                     "content" TEXT NOT NULL,
+                     "source" TEXT NOT NULL DEFAULT 'parakeet',
+                     "contentVersion" INTEGER NOT NULL DEFAULT 0,
+                     "wordCount" INTEGER,
+                     "segmentCount" INTEGER,
+                     "maxSec" DOUBLE PRECISION,
+                     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                     CONSTRAINT "Transcription_videoId_fkey"
+                       FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+                       ON DELETE CASCADE ON UPDATE CASCADE
+                   );
+                   CREATE INDEX IF NOT EXISTS "Transcription_contentVersion_idx"
+                     ON "Transcription"("contentVersion");""",
+            ),
+        ]
+        for name, sql in steps:
+            try:
+                self.cur.execute(sql)
+            except Exception as e:  # noqa: BLE001
+                log.warning("%s step failed: %s", name, e)
 
     def release_stale_processing(self):
         try:
@@ -111,9 +135,20 @@ class Database:
             "contentVersion": cfg.content_version,
         }
         self.cur.execute(
+            """INSERT INTO "Transcription"
+                 ("videoId", "content", "source", "contentVersion", "maxSec", "createdAt", "updatedAt")
+               VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "content"=EXCLUDED."content",
+                 "source"=EXCLUDED."source",
+                 "contentVersion"=EXCLUDED."contentVersion",
+                 "maxSec"=EXCLUDED."maxSec",
+                 "updatedAt"=CURRENT_TIMESTAMP""",
+            (video_id, transcript, source, cfg.content_version, round(max_sec, 2)),
+        )
+        self.cur.execute(
             """UPDATE "Video" SET "transcriptionStatus"='completed',
                       "transcriptionProgress"=100,
-                      "content"=%s,
                       "contentVersion"=%s,
                       "transcriptionDetail"=%s,
                       "chunkStatus"='pending',
@@ -122,7 +157,7 @@ class Database:
                       "lastTranscriptionError"=NULL,
                       "transcriptionRetryCount"=0
                WHERE "id"=%s""",
-            (transcript, cfg.content_version, json.dumps(detail), video_id),
+            (cfg.content_version, json.dumps(detail), video_id),
         )
 
     def mark_failed(self, video_id: str, error: str):
