@@ -284,5 +284,93 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('tapping close button pauses and dismisses mini player', (tester) async {
+      AudioPlayerController.instance.setStateForTesting(const AudioPlayerState(
+        currentTrack: testTrack1,
+        queue: [testTrack1],
+        queueIndex: 0,
+        status: AudioPlaybackStatus.playing,
+        isMiniPlayerVisible: true,
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTokens.dark],
+          ),
+          home: Scaffold(
+            body: ListenableBuilder(
+              listenable: AudioPlayerController.instance,
+              builder: (context, _) {
+                final s = AudioPlayerController.instance.state;
+                if (s.isMiniPlayerVisible && s.hasTrack) {
+                  return MiniAudioPlayer(state: s);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(MiniAudioPlayer), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(AudioPlayerController.instance.state.isMiniPlayerVisible, isFalse);
+      expect(find.byType(MiniAudioPlayer), findsNothing);
+    });
+
+    testWidgets('vertical swipe down dismisses mini player', (tester) async {
+      AudioPlayerController.instance.setStateForTesting(const AudioPlayerState(
+        currentTrack: testTrack1,
+        queue: [testTrack1],
+        queueIndex: 0,
+        status: AudioPlaybackStatus.playing,
+        isMiniPlayerVisible: true,
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTokens.dark],
+          ),
+          home: Scaffold(
+            body: ListenableBuilder(
+              listenable: AudioPlayerController.instance,
+              builder: (context, _) {
+                final s = AudioPlayerController.instance.state;
+                if (s.isMiniPlayerVisible && s.hasTrack) {
+                  return MiniAudioPlayer(state: s);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(MiniAudioPlayer), findsOneWidget);
+
+      // Perform vertical swipe down on the mini player card
+      await tester.fling(
+        find.descendant(
+          of: find.byType(MiniAudioPlayer),
+          matching: find.byType(GestureDetector),
+        ).first,
+        const Offset(0, 500),
+        1000,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(AudioPlayerController.instance.state.isMiniPlayerVisible, isFalse);
+    });
   });
 }

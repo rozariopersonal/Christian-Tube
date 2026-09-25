@@ -45,6 +45,11 @@ class MiniAudioPlayer extends StatelessWidget {
                 onVerticalDragEnd: (details) {
                   if (details.primaryVelocity != null && details.primaryVelocity! < -200) {
                     FullAudioPlayerSheet.show(context);
+                  } else if (details.primaryVelocity != null && details.primaryVelocity! > 200) {
+                    if (state.isPlaying) {
+                      AudioPlayerController.instance.togglePlayPause();
+                    }
+                    AudioPlayerController.instance.dismissMiniPlayer();
                   }
                 },
                 onHorizontalDragEnd: (details) {
@@ -168,7 +173,27 @@ class MiniAudioPlayer extends StatelessWidget {
                                       AudioPlayerController.instance.togglePlayPause(),
                                 ),
 
-
+                              // Close button
+                              IconButton(
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  size: 20,
+                                  color: tokens.onSurfaceMuted,
+                                ),
+                                tooltip: 'Close player',
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                onPressed: () {
+                                  if (state.isPlaying) {
+                                    AudioPlayerController.instance.togglePlayPause();
+                                  }
+                                  AudioPlayerController.instance.dismissMiniPlayer();
+                                },
+                              ),
                             ],
                           ),
                         ),
