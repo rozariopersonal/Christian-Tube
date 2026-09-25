@@ -11,7 +11,7 @@
 -- WARNING: comment lines must not contain those token names, nor the psycopg2
 -- parameter marker (single percent followed by the letter s) or doubled
 -- percent, because they would be counted as extra query parameters.
-SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
+SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language, v."channelId", v."duration", v."thumbnail"
 FROM "Video" v
 JOIN "Channel" c ON c.id = v."channelId"
 LEFT JOIN (
