@@ -149,53 +149,62 @@ class _FullAudioPlayerSheetState extends State<FullAudioPlayerSheet> {
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+      child: Column(
         children: [
-          IconButton(
-            icon: const Icon(Icons.keyboard_arrow_down, size: 28),
-            color: tokens.onSurface,
-            tooltip: 'Minimize Player',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          Expanded(
-            child: Text(
-              track.seriesTitle,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: tokens.onSurface,
-                fontWeight: FontWeight.w600,
-              ),
+          // Drag handle
+          Container(
+            width: 40,
+            height: 5,
+            decoration: BoxDecoration(
+              color: tokens.onSurfaceMuted.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(2.5),
             ),
           ),
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: tokens.onSurface),
-            tooltip: 'More options',
-            color: tokens.surfaceElevated,
-            onSelected: (value) {
-              switch (value) {
-                case 'share':
-                  final link = DeepLinkService.audioSeries(track.seriesId);
-                  Share.share(
-                    'Listening to "${track.title}" by ${track.speaker}\n'
-                    'Open in ChristianApp: $link',
-                    subject: '${track.title} — ${track.seriesTitle}',
-                  );
-                  break;
-                case 'sleep_timer':
-                  showSleepTimerSheet(context);
-                  break;
-                case 'view_series':
-                  Navigator.of(context).pop();
-                  context.push('/audio/series/${track.seriesId}');
-                  break;
-              }
-            },
-            itemBuilder: (ctx) => [
-              _menuItem(ctx, tokens, Icons.share_outlined, 'Share Sermon', 'share'),
-              _menuItem(ctx, tokens, Icons.bedtime_outlined, 'Sleep Timer', 'sleep_timer'),
-              _menuItem(ctx, tokens, Icons.folder_open_outlined, 'View Series', 'view_series'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const SizedBox(width: 48), // Balance for trailing button
+              Expanded(
+                child: Text(
+                  track.seriesTitle,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: tokens.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: tokens.onSurface),
+                tooltip: 'More options',
+                color: tokens.surfaceElevated,
+                onSelected: (value) {
+                  switch (value) {
+                    case 'share':
+                      final link = DeepLinkService.audioSeries(track.seriesId);
+                      Share.share(
+                        'Listening to "${track.title}" by ${track.speaker}\n'
+                        'Open in ChristianApp: $link',
+                        subject: '${track.title} — ${track.seriesTitle}',
+                      );
+                      break;
+                    case 'sleep_timer':
+                      showSleepTimerSheet(context);
+                      break;
+                    case 'view_series':
+                      Navigator.of(context).pop();
+                      context.push('/audio/series/${track.seriesId}');
+                      break;
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  _menuItem(ctx, tokens, Icons.share_outlined, 'Share Sermon', 'share'),
+                  _menuItem(ctx, tokens, Icons.bedtime_outlined, 'Sleep Timer', 'sleep_timer'),
+                  _menuItem(ctx, tokens, Icons.folder_open_outlined, 'View Series', 'view_series'),
+                ],
+              ),
             ],
           ),
         ],

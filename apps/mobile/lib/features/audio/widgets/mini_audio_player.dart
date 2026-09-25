@@ -68,6 +68,18 @@ class MiniAudioPlayer extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Drag handle hint
+                        Center(
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            width: 32,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: tokens.onSurfaceMuted.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           child: Row(
@@ -156,17 +168,7 @@ class MiniAudioPlayer extends StatelessWidget {
                                       AudioPlayerController.instance.togglePlayPause(),
                                 ),
 
-                              // Dismiss button
-                              IconButton(
-                                icon: Icon(
-                                  Icons.close,
-                                  size: 20,
-                                  color: tokens.onSurfaceMuted,
-                                ),
-                                tooltip: 'Dismiss mini player',
-                                onPressed: () =>
-                                    AudioPlayerController.instance.dismissMiniPlayer(),
-                              ),
+
                             ],
                           ),
                         ),
