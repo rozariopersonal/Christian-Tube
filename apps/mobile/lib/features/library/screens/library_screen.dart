@@ -180,9 +180,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
         builder: (ctx) => AlertDialog(
           backgroundColor: tokens.surface,
           title: Text('Resume Reading?', style: TextStyle(color: tokens.onSurface)),
-          content: Text(
-            'You were previously on page ${progress.currentPage}. Would you like to resume from where you left off or start over from the beginning?',
-            style: TextStyle(color: tokens.onSurfaceMuted),
+          content: SingleChildScrollView(
+            child: Text(
+              'You were previously on page ${progress.currentPage}. Would you like to resume from where you left off or start over from the beginning?',
+              style: TextStyle(color: tokens.onSurfaceMuted),
+            ),
           ),
           actions: [
             TextButton(
@@ -378,92 +380,92 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ),
         if (_filteredBooks.isNotEmpty)
-          SizedBox(
-            height: 140,
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: _filteredBooks.length,
-              itemBuilder: (context, index) {
-                final book = _filteredBooks[index];
-                final progress = _progressMap[book.id];
-                return Container(
-                  width: 240,
-                  margin: const EdgeInsets.only(right: 12),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceVariant,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: tokens.surfaceBorder),
-                  ),
-                  child: InkWell(
-                    onTap: () => _openReader(book),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: Container(
-                            width: 48,
-                            height: 72,
-                            color: tokens.surface,
-                            child: book.coverFile.isNotEmpty
-                                ? CachedNetworkImage(
-                                    imageUrl:
-                                        GitHubDataService.bookCoverUrl(book.coverFile),
-                                    fit: BoxFit.cover,
-                                    placeholder: (_, __) =>
-                                        Container(color: tokens.surface),
-                                    errorWidget: (context, url, error) => Icon(
-                                        Icons.menu_book, color: tokens.accent, size: 22),
-                                  )
-                                : Icon(Icons.menu_book, color: tokens.accent, size: 22),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                book.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: tokens.onSurface,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${book.author} • p. ${progress?.currentPage ?? 1}/${book.totalPages}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: tokens.onSurfaceMuted,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(3),
-                                child: LinearProgressIndicator(
-                                  value: progress?.completionPercent ?? 0.0,
-                                  minHeight: 3.5,
-                                  backgroundColor: tokens.surface,
-                                  valueColor:
-                                      AlwaysStoppedAnimation<Color>(tokens.accent),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: _filteredBooks.map((book) {
+                  final progress = _progressMap[book.id];
+                  return Container(
+                    width: 240,
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: tokens.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: tokens.surfaceBorder),
                     ),
-                  ),
-                );
-              },
+                    child: InkWell(
+                      onTap: () => _openReader(book),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              width: 48,
+                              height: 72,
+                              color: tokens.surface,
+                              child: book.coverFile.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl:
+                                          GitHubDataService.bookCoverUrl(book.coverFile),
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) =>
+                                          Container(color: tokens.surface),
+                                      errorWidget: (context, url, error) => Icon(
+                                          Icons.menu_book, color: tokens.accent, size: 22),
+                                    )
+                                  : Icon(Icons.menu_book, color: tokens.accent, size: 22),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  book.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: tokens.onSurface,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${book.author} • p. ${progress?.currentPage ?? 1}/${book.totalPages}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: tokens.onSurfaceMuted,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LinearProgressIndicator(
+                                    value: progress?.completionPercent ?? 0.0,
+                                    minHeight: 3.5,
+                                    backgroundColor: tokens.surface,
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(tokens.accent),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           )
         else
