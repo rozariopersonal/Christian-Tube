@@ -71,12 +71,21 @@ class AudioTrackListTile extends StatelessWidget {
               )
             : null;
 
-        return Material(
-          color: isCurrentTrack
-              ? theme.colorScheme.primary.withValues(alpha: 0.06)
-              : Colors.transparent,
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: isCurrentTrack
+                ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                : Colors.transparent,
+            border: isCurrentTrack 
+                ? Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.6), width: 1.5)
+                : Border.all(color: Colors.transparent, width: 1.5),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             leading: _TrackLeading(
               track: track,
               index: index,

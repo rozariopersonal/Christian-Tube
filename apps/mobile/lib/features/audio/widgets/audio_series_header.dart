@@ -218,7 +218,7 @@ class _AudioSeriesHeaderState extends State<AudioSeriesHeader> {
                           theme.colorScheme.primary.withValues(alpha: 0.75),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
                           color:
@@ -233,7 +233,7 @@ class _AudioSeriesHeaderState extends State<AudioSeriesHeader> {
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(24),
                         ),
                       ),
                       onPressed: widget.onPlayAll,
