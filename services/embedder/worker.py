@@ -9,6 +9,7 @@ vector in the VideoEmbedding table. Mirrors services/youtube-processor/worker.py
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import signal
