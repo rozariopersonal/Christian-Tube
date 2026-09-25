@@ -100,7 +100,8 @@ Future<void> showPlaybackQueueSheet(
                       ),
                       title: Text(
                         item.title,
-                        maxLines: 1,
+                        maxLines: 2,
+                        softWrap: true,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
