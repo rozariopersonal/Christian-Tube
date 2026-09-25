@@ -254,7 +254,6 @@ export class SyncService implements OnModuleInit {
             tags,
             category: videoCategory,
             metadata: videoMetadata as any,
-            transcriptionStatus: 'pending',
             creatorName: parsedMeta?.creatorName || null,
             creatorEmail: parsedMeta?.creatorEmail || null,
             sourceVideoId: parsedMeta?.sourceVideoId || null,
@@ -401,7 +400,6 @@ export class SyncService implements OnModuleInit {
         viewCount: v.viewCount || 0,
         category: finalCategory,
         metadata: videoMetadata as any,
-        transcriptionStatus: 'pending',
       },
     });
   }
@@ -531,7 +529,6 @@ export class SyncService implements OnModuleInit {
                 viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
                 category,
                 metadata: videoMetadata as any,
-                transcriptionStatus: 'pending',
               },
             });
             this.logger.log(`✅ Live synced new video "${title}" (${videoId}) via WebSub push`);
@@ -573,7 +570,6 @@ export class SyncService implements OnModuleInit {
           viewCount: 0,
           category,
           metadata: fallbackMeta as any,
-          transcriptionStatus: 'pending',
         },
       });
 
@@ -713,7 +709,6 @@ export class SyncService implements OnModuleInit {
         tags: ['#Shorts'],
         category: 'Shorts',
         metadata: videoMetadata as any,
-        transcriptionStatus: 'pending',
         creatorUserId: parsedMeta?.creatorUserId || null,
         creatorName: parsedMeta?.creatorName || null,
         creatorEmail: parsedMeta?.creatorEmail || null,

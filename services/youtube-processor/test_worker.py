@@ -360,45 +360,57 @@ class TestDailyRetryPolicy(unittest.TestCase):
         db, cur = _make_db()
         db.mark_failed("vid1", "yt-dlp extraction failed: too many requests")
         sql, params = cur.execute.call_args[0]
-        self.assertIn("'failed'", sql)
-        self.assertNotIn("'dead'", sql)
-        self.assertEqual(params[0], "yt-dlp extraction failed: too many requests")
-        self.assertEqual(params[1], "vid1")
+        self.assertIn("VideoPipelineStatus", sql)
+        self.assertEqual(params[1], "failed")
+        self.assertEqual(params[2], "yt-dlp extraction failed: too many requests")
+        self.assertEqual(params[0], "vid1")
 
     def test_mark_failed_permanent_sets_dead_status(self):
         db, cur = _make_db()
         db.mark_failed("vid1", "ERROR: This video is not available", permanent=True)
         sql, params = cur.execute.call_args[0]
-        self.assertIn("'dead'", sql)
-        self.assertNotIn("'failed'", sql)
+        self.assertIn("VideoPipelineStatus", sql)
+        self.assertEqual(params[1], "dead")
 
     def test_mark_failed_increments_retry_count(self):
         db, cur = _make_db()
         db.mark_failed("vid1", "desc")
         sql, params = cur.execute.call_args[0]
-        self.assertIn("ELSE COALESCE(\"audioRetryCount\", 0) + 1", sql)
+        self.assertIn("retryCount", sql)
+        self.assertIn('"VideoPipelineStatus"."ingest"->>\'retryCount\'', sql)
 
     def test_mark_completed_resets_retry_state(self):
         db, cur = _make_db()
         db.mark_completed("vid1", "https://audio.com/123")
-        sql, params = cur.execute.call_args[0]
-        self.assertIn('"audioUploadStatus"=\'completed\'', sql)
-        self.assertIn('"audioRetryCount"=0', sql)
-        self.assertIn('"audioLastRetryAt"=NULL', sql)
+        first_sql, first_params = cur.execute.call_args_list[0][0]
+        second_sql, second_params = cur.execute.call_args_list[1][0]
+        self.assertIn('UPDATE "Video" SET "audioUrl"', first_sql)
+        self.assertEqual(first_params[0], "https://audio.com/123")
+        self.assertIn('INSERT INTO "VideoPipelineStatus"', second_sql)
+        payload = json.loads(second_params[1])
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["retryCount"], 0)
+        self.assertIsNone(payload["lastRetryAt"])
 
     def test_batch_mark_completed_resets_retry_state(self):
         db, cur = _make_db()
-        captured = {}
+        captured = []
         def fake_execute_values(cursor, sql, argslist, template=None, page_size=100, fetch=False):
-            captured["sql"] = sql
-            captured["args"] = argslist
+            captured.append((sql, argslist))
         with patch("psycopg2.extras.execute_values", side_effect=fake_execute_values):
             db.batch_mark_completed([("vid1", "https://audio.com/1"), ("vid2", "https://audio.com/2")])
-        sql = captured["sql"]
-        self.assertIn('"audioRetryCount"=0', sql)
-        self.assertIn('"audioLastRetryAt"=NULL', sql)
-        self.assertIn("FROM (VALUES %s)", sql)
-        self.assertEqual(captured["args"], [("vid1", "https://audio.com/1"), ("vid2", "https://audio.com/2")])
+        video_update_sql, video_args = captured[0]
+        status_sql, status_args = captured[1]
+        self.assertIn('UPDATE "Video" AS v', video_update_sql)
+        self.assertIn("SET \"audioUrl\"=data.audio_url", video_update_sql)
+        self.assertIn("FROM (VALUES %s)", video_update_sql)
+        self.assertEqual(video_args, [("vid1", "https://audio.com/1"), ("vid2", "https://audio.com/2")])
+        self.assertIn('INSERT INTO "VideoPipelineStatus"', status_sql)
+        self.assertEqual(status_args[0][0], "vid1")
+        payload = json.loads(status_args[0][1])
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["retryCount"], 0)
+        self.assertIsNone(payload["lastRetryAt"])
 
     def test_is_permanent_failure_classifies_terminal_errors(self):
         terminal = [
@@ -554,9 +566,9 @@ class TestFetchEligiblePriority(unittest.TestCase):
         db.fetch_eligible_videos(cfg)
         sql = cur.execute.call_args[0][0]
         # Failed videos retry when last attempt was a previous day or budget left.
-        self.assertIn("audioLastRetryAt", sql)
-        self.assertIn("audioUploadStatus", sql)
-        self.assertIn("audioRetryCount", sql)
+        self.assertIn("s.ingest->>'lastRetryAt'", sql)
+        self.assertIn("s.ingest->>'status'", sql)
+        self.assertIn("s.ingest->>'retryCount'", sql)
 
     def test_eligible_sql_env_override(self):
         custom = Path(__file__).parent / "custom_eligible.sql"

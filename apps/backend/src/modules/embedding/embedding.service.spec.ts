@@ -334,8 +334,8 @@ describe('EmbeddingService', () => {
       await service.reconcilePendingEmbeddings();
       expect(prisma.$executeRawUnsafe).toHaveBeenCalledTimes(1);
       const [sql, version] = prisma.$executeRawUnsafe.mock.calls[0];
-      expect(sql).toContain(`SET "embeddingStatus" = 'pending'`);
-      expect(sql).toContain('"embeddingVersion" <> $1');
+      expect(sql).toContain(`'status', 'pending'`);
+      expect(sql).toContain(`NULLIF("embedding"->>'version', '')::integer <> $1`);
       expect(version).toBe(1);
     });
 

@@ -21,6 +21,7 @@ function makeService(
     video: { findMany: jest.fn(), findUnique: jest.fn(), upsert: jest.fn() },
     channel: { upsert: jest.fn() },
     $queryRawUnsafe: jest.fn(),
+    $executeRawUnsafe: jest.fn().mockResolvedValue(1),
   };
   const configService = { get: jest.fn((key: string) => config[key]) };
   const embeddingService = {
@@ -317,11 +318,14 @@ describe('VideosService', () => {
       const upsert = prisma.video.upsert.mock.calls[0][0];
       expect(upsert.update).toMatchObject({
         type: 'SHORT',
-        embeddingStatus: 'pending',
-        embeddingHash: null,
         category: 'Devotion',
       });
       expect(upsert.create).toMatchObject({ type: 'SHORT', channelId: 'UCSaJppP4zb2vivjxYfTqOKw' });
+      // Pipeline status is upserted separately via the shared status table
+      expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO "VideoPipelineStatus"'),
+        'short1',
+      );
       expect(saved.id).toBe('short1');
     });
   });

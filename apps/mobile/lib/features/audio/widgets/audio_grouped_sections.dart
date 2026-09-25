@@ -230,7 +230,8 @@ class _GroupSection extends StatelessWidget {
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
                                   itemCount: seriesList.length,
-                                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                  gridDelegate:
+                                      const SliverGridDelegateWithMaxCrossAxisExtent(
                                     maxCrossAxisExtent: 160,
                                     crossAxisSpacing: 10,
                                     mainAxisSpacing: 10,

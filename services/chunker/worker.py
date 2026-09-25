@@ -65,12 +65,35 @@ class NeonDatabase:
         self.conn = psycopg2.connect(sanitize_db_url(url), connect_timeout=30)
         self.conn.autocommit = True
         self.cur = self.conn.cursor()
+        self._ensure_schema()
+
+    def _ensure_schema(self):
+        try:
+            self.cur.execute("""
+                CREATE TABLE IF NOT EXISTS "VideoPipelineStatus" (
+                  "videoId" TEXT NOT NULL PRIMARY KEY,
+                  "contentVersion" INTEGER NOT NULL DEFAULT 0,
+                  "ingest" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "transcription" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "chunk" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "embedding" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  CONSTRAINT "VideoPipelineStatus_videoId_fkey"
+                    FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+                    ON DELETE CASCADE ON UPDATE CASCADE
+                );
+            """)
+        except Exception as e:
+            log.warning("Schema check note: %s", e)
 
     def release_stale_processing(self):
         try:
             self.cur.execute(
-                """UPDATE "Video" SET "chunkStatus"='pending'
-                   WHERE "chunkStatus"='processing'"""
+                """UPDATE "VideoPipelineStatus"
+                   SET "chunk" = COALESCE("chunk", '{}'::jsonb) || '{"status":"pending"}'::jsonb,
+                       "updatedAt" = CURRENT_TIMESTAMP
+                   WHERE "chunk"->>'status' = 'processing'"""
             )
             if self.cur.rowcount:
                 log.info("  released %d stale chunk 'processing' row(s)", self.cur.rowcount)
@@ -83,10 +106,13 @@ class NeonDatabase:
             SELECT v.id, v.title
             FROM "Video" v
             JOIN "Channel" c ON c.id = v."channelId"
+            LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
             WHERE c."isActive" = true
-              AND v."transcriptionStatus" = 'completed'
-              AND (v."chunkStatus" IS NULL OR v."chunkStatus" IN ('pending', 'failed'))
-              AND (v."chunkRetryCount" IS NULL OR v."chunkRetryCount" < 3)
+              AND COALESCE(s.transcription->>'status', 'pending') = 'completed'
+              AND (COALESCE(s.chunk->>'status', 'pending') IS NULL
+                   OR COALESCE(s.chunk->>'status', 'pending') IN ('pending', 'failed'))
+              AND (NULLIF(s.chunk->>'retryCount', '')::integer IS NULL
+                   OR NULLIF(s.chunk->>'retryCount', '')::integer < 3)
               AND EXISTS (
                 SELECT 1 FROM "VideoSentence" vs
                 WHERE vs."videoId" = v.id
@@ -104,25 +130,36 @@ class NeonDatabase:
 
     def mark_processing(self, video_id: str):
         self.cur.execute(
-            """UPDATE "Video" SET "chunkStatus"='processing', "chunkError"=NULL WHERE "id"=%s""",
-            (video_id,),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "chunk", "updatedAt")
+               VALUES (%s, %s::jsonb, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "chunk" = COALESCE("VideoPipelineStatus"."chunk", '{}'::jsonb) || EXCLUDED."chunk",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, json.dumps({"status": "processing", "error": None})),
         )
 
     def mark_completed(self, video_id: str, idea_count: int, version: int):
         self.cur.execute(
-            """UPDATE "Video" SET "chunkStatus"='completed', "chunkError"=NULL,
-                      "chunkRetryCount"=0, "contentVersion"=%s
-               WHERE "id"=%s""",
-            (version, video_id),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "contentVersion", "chunk", "updatedAt")
+               VALUES (%s, %s, %s::jsonb, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "contentVersion" = EXCLUDED."contentVersion",
+                 "chunk" = COALESCE("VideoPipelineStatus"."chunk", '{}'::jsonb) || EXCLUDED."chunk",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, version, json.dumps({"status": "completed", "ideaCount": idea_count, "error": None, "retryCount": 0})),
         )
 
     def mark_failed(self, video_id: str, error: str):
         self.cur.execute(
-            """UPDATE "Video" SET "chunkStatus"='failed',
-                      "chunkError"=%s,
-                      "chunkRetryCount"=COALESCE("chunkRetryCount", 0) + 1
-               WHERE "id"=%s""",
-            (error[:2000], video_id),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "chunk", "updatedAt")
+               VALUES (%s, jsonb_build_object('status', 'failed', 'error', %s, 'retryCount', 1), CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "chunk" = jsonb_build_object(
+                   'status', 'failed',
+                   'error', %s,
+                   'retryCount', COALESCE(NULLIF("VideoPipelineStatus"."chunk"->>'retryCount', '')::integer, 0) + 1),
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, error[:2000], error[:2000]),
         )
 
     def fetch_sentences(self, video_id: str) -> list[dict]:

@@ -48,7 +48,7 @@ void main() {
       verifyNever(() => mockSqliteAdapter.upsertSeries(any(), updatedAtMs: any(named: 'updatedAtMs')));
     });
 
-    test('syncCatalog maps latestPublishedAt from the backend response', () async {
+test('syncCatalog maps latestPublishedAt from the backend response', () async {
       when(() => mockSqliteAdapter.getLastSyncTimestamp()).thenAnswer((_) async => 0);
       const body = '''
       {

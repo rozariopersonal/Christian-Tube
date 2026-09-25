@@ -46,12 +46,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           "viewCount" INTEGER NOT NULL DEFAULT 0,
           "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
           "category" TEXT,
-          "transcriptionStatus" TEXT NOT NULL DEFAULT 'pending',
-          "transcriptionProgress" INTEGER,
-          "transcriptionRetryCount" INTEGER NOT NULL DEFAULT 0,
-          "transcriptionDetail" JSONB,
-          "lastTranscriptionError" TEXT,
-          "content" TEXT,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
@@ -120,7 +114,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Creates the pgvector extension, Video embedding metadata columns, the
+   * Creates the pgvector extension, the shared VideoPipelineStatus table, the
    * VideoEmbedding table, and the HNSW index. Idempotent; safe to run every
    * boot. Each step is isolated so a single failure (e.g. CREATE EXTENSION on
    * a restricted pooled connection) cannot prevent the table from existing.
@@ -129,19 +123,26 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const steps: [string, string][] = [
       ["extension", `CREATE EXTENSION IF NOT EXISTS vector`],
       [
-        "embedding columns",
-        `ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingStatus" TEXT DEFAULT 'pending';
-         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingVersion" INTEGER DEFAULT 0;
-         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingHash" TEXT;
-         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingError" TEXT;
-         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingRetryCount" INTEGER DEFAULT 0;`,
-      ],
-      [
-        "content columns",
-        `ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0;
-         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "chunkStatus" TEXT DEFAULT 'pending';
-         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "chunkError" TEXT;
-         ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "chunkRetryCount" INTEGER DEFAULT 0;`,
+        "VideoPipelineStatus table",
+        `CREATE TABLE IF NOT EXISTS "VideoPipelineStatus" (
+           "videoId" TEXT NOT NULL PRIMARY KEY,
+           "contentVersion" INTEGER NOT NULL DEFAULT 0,
+           "ingest" JSONB NOT NULL DEFAULT '{}'::jsonb,
+           "transcription" JSONB NOT NULL DEFAULT '{}'::jsonb,
+           "chunk" JSONB NOT NULL DEFAULT '{}'::jsonb,
+           "embedding" JSONB NOT NULL DEFAULT '{}'::jsonb,
+           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           CONSTRAINT "VideoPipelineStatus_videoId_fkey"
+             FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+             ON DELETE CASCADE ON UPDATE CASCADE
+         );
+         CREATE INDEX IF NOT EXISTS "VideoPipelineStatus_transcription_status_idx"
+           ON "VideoPipelineStatus" ((transcription->>'status'))
+           WHERE transcription->>'status' IN ('pending', 'failed');
+         CREATE INDEX IF NOT EXISTS "VideoPipelineStatus_embedding_status_idx"
+           ON "VideoPipelineStatus" ((embedding->>'status'))
+           WHERE embedding->>'status' IN ('pending', 'failed');`,
       ],
       [
         "VideoEmbedding table",
@@ -199,6 +200,25 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
          ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingStatus" TEXT DEFAULT 'pending';
          ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingError" TEXT;
          ALTER TABLE "VideoChunk" ADD COLUMN IF NOT EXISTS "embeddingRetryCount" INTEGER DEFAULT 0;`,
+      ],
+      [
+        "Transcription table",
+        `CREATE TABLE IF NOT EXISTS "Transcription" (
+           "videoId" TEXT NOT NULL PRIMARY KEY,
+           "content" TEXT NOT NULL,
+           "source" TEXT NOT NULL DEFAULT 'parakeet',
+           "contentVersion" INTEGER NOT NULL DEFAULT 0,
+           "wordCount" INTEGER,
+           "segmentCount" INTEGER,
+           "maxSec" DOUBLE PRECISION,
+           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           CONSTRAINT "Transcription_videoId_fkey"
+             FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+             ON DELETE CASCADE ON UPDATE CASCADE
+         );
+         CREATE INDEX IF NOT EXISTS "Transcription_contentVersion_idx"
+           ON "Transcription"("contentVersion");`,
       ],
       [
         "VideoChunk indexes",

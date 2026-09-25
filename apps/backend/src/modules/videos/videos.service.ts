@@ -444,7 +444,32 @@ export class VideosService {
   async findOne(id: string) {
     const video = await this.prisma.video.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        type: true,
+        title: true,
+        description: true,
+        thumbnail: true,
+        channelId: true,
+        channelName: true,
+        channelThumbnail: true,
+        channelSubscriberCount: true,
+        publishedAt: true,
+        duration: true,
+        viewCount: true,
+        tags: true,
+        category: true,
+        metadata: true,
+        creatorUserId: true,
+        creatorName: true,
+        creatorEmail: true,
+        sourceVideoId: true,
+        clipStartTime: true,
+        clipEndTime: true,
+        cropOffsetX: true,
+        audioUrl: true,
+        createdAt: true,
+        updatedAt: true,
         channel: true,
       },
     });
@@ -591,8 +616,6 @@ export class VideosService {
           parsedMeta.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : 0.0,
         clippedAt: new Date(),
         category: body.category || "General",
-        embeddingStatus: "pending",
-        embeddingHash: null,
       },
       create: {
         id: videoId,
@@ -624,6 +647,17 @@ export class VideosService {
         category: body.category || "General",
       },
     });
+
+    // Re-queue embedding for existing videos (new rows default to pending)
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO "VideoPipelineStatus" ("videoId", "embedding", "updatedAt")
+       VALUES ($1, jsonb_build_object('status', 'pending', 'error', NULL, 'hash', NULL), CURRENT_TIMESTAMP)
+       ON CONFLICT ("videoId") DO UPDATE SET
+         "embedding" = COALESCE("VideoPipelineStatus"."embedding", '{}'::jsonb)
+                        || jsonb_build_object('status', 'pending', 'error', NULL, 'hash', NULL),
+         "updatedAt" = CURRENT_TIMESTAMP`,
+      savedVideo.id,
+    );
 
     this.logger.log(
       `Short imported and published: ${savedVideo.id} - "${savedVideo.title}"`,

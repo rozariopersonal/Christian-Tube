@@ -93,8 +93,6 @@ services:
       - ${ENV_FILE:-envs/neon.env}
     volumes:
       - content-work:/work
-      - ./releases:/app/releases
-      - ./.git/modules/releases:/app/.git/modules/releases
       - ./tools/transcriber/src:/app/src
 
   chunker:
