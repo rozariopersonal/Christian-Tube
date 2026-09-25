@@ -164,15 +164,15 @@ class _TrackLeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasCover = track.coverUrl != null && track.coverUrl!.isNotEmpty;
+    final imageUrl = track.displayImageUrl;
 
-    if (hasCover) {
+    if (imageUrl != null) {
       return Stack(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: CachedNetworkImage(
-              imageUrl: track.coverUrl!,
+              imageUrl: imageUrl,
               width: 40,
               height: 40,
               fit: BoxFit.cover,

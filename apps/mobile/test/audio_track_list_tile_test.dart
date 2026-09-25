@@ -130,5 +130,43 @@ void main() {
       expect(find.byIcon(Icons.pause_circle_rounded), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    test('AudioTrack displayImageUrl prefers thumbnailUrl then coverUrl', () {
+      const trackWithBoth = AudioTrack(
+        id: '1',
+        title: 'Title',
+        seriesId: 's1',
+        seriesTitle: 'Series',
+        speaker: 'Speaker',
+        durationSeconds: 100,
+        audioUrl: 'https://example.com/a.mp3',
+        thumbnailUrl: 'https://example.com/thumb.jpg',
+        coverUrl: 'https://example.com/cover.jpg',
+      );
+      expect(trackWithBoth.displayImageUrl, 'https://example.com/thumb.jpg');
+
+      const trackWithOnlyCover = AudioTrack(
+        id: '2',
+        title: 'Title',
+        seriesId: 's1',
+        seriesTitle: 'Series',
+        speaker: 'Speaker',
+        durationSeconds: 100,
+        audioUrl: 'https://example.com/a.mp3',
+        coverUrl: 'https://example.com/cover.jpg',
+      );
+      expect(trackWithOnlyCover.displayImageUrl, 'https://example.com/cover.jpg');
+
+      const trackWithNeither = AudioTrack(
+        id: '3',
+        title: 'Title',
+        seriesId: 's1',
+        seriesTitle: 'Series',
+        speaker: 'Speaker',
+        durationSeconds: 100,
+        audioUrl: 'https://example.com/a.mp3',
+      );
+      expect(trackWithNeither.displayImageUrl, isNull);
+    });
   });
 }

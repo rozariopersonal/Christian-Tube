@@ -96,9 +96,9 @@ class MiniAudioPlayer extends StatelessWidget {
                                   width: 44,
                                   height: 44,
                                   color: tokens.surfaceVariant,
-                                  child: track.coverUrl != null && track.coverUrl!.isNotEmpty
+                                  child: track.displayImageUrl != null
                                       ? CachedNetworkImage(
-                                          imageUrl: track.coverUrl!,
+                                          imageUrl: track.displayImageUrl!,
                                           fit: BoxFit.cover,
                                           errorWidget: (_, __, ___) => Icon(
                                             Icons.headphones,
