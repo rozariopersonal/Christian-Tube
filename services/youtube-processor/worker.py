@@ -5,26 +5,23 @@ YouTube Video Processor for ChristianApp.
 Monitors the ChristianApp PostgreSQL database, extracts audio from
 active ChristianApp channel videos (eligibility per the SQL in
 eligible_videos.sql), uploads them to Audio.com with rich metadata, and
-registers them in the public GitHub Releases audio catalog.
+registers them directly in the Neon audio catalog (AudioSeries/AudioTrack)
+so the DB-first mobile app picks them up on its next query.
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import logging
 import os
-import random
 import re
-import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 import time
 import urllib.parse
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -40,14 +37,55 @@ log = logging.getLogger("youtube-processor")
 
 
 # --------------------------------------------------------------------------- #
+# Permanent-failure classification
+# --------------------------------------------------------------------------- #
+# A failure matching ANY marker is terminal: the source video is gone/walled on
+# YouTube, so re-downloading will never succeed. Marking it 'dead' stops the
+# daily retry loop from burning attempts on it forever. Everything else keeps
+# the per-day budget (transient throttles, JS-runtime hiccups, etc.).
+PERMANENT_ERROR_MARKERS: tuple[str, ...] = (
+    "this video is not available",
+    "video unavailable",
+    "has been removed by the uploader",
+    "this video has been removed",
+    "this video is private",
+    "video is private",
+    "private video",
+    "sign in to confirm your age",
+    "video is age-restricted",
+    "not available in your country",
+    "may not be available in your country",
+    "content is not available",
+    "unsupported url",
+    "this video does not exist",
+    "the video is currently unavailable",
+    "invalid video id",
+    "video id not found",
+    "no video id",
+    "video not found",
+    "isn't available for playback",
+    "playback on other websites",
+    "watch on youtube",
+    "copyright",
+    "taken down",
+)
+
+
+def is_permanent_failure(error_text: str) -> bool:
+    """True when the error indicates the source video can never be re-downloaded."""
+    if not error_text:
+        return False
+    lowered = error_text.lower()
+    return any(marker in lowered for marker in PERMANENT_ERROR_MARKERS)
+
+
+# --------------------------------------------------------------------------- #
 # Configuration
 # --------------------------------------------------------------------------- #
 class Config:
     def __init__(
         self,
         database_url: str,
-        github_repo: str,
-        github_token: str,
         audio_com_token: str,
         work_dir: Path,
         poll_interval: int = 300,
@@ -62,8 +100,6 @@ class Config:
         purge_audiocom: bool = False,
     ):
         self.database_url = database_url
-        self.github_repo = github_repo
-        self.github_token = github_token
         self.audio_com_token = audio_com_token
         self.work_dir = work_dir
         self.poll_interval = poll_interval
@@ -99,15 +135,10 @@ def load_config(args: argparse.Namespace) -> Config:
         return os.environ.get(name, default).strip()
 
     db_url = _env("DATABASE_URL")
-    gh_token = _env("GITHUB_TOKEN")
     audio_token = _env("AUDIO_COM_TOKEN")
 
     if not db_url:
         log.error("DATABASE_URL is required in environment.")
-        sys.exit(1)
-
-    if not gh_token:
-        log.error("GITHUB_TOKEN is required in environment (fine-grained PAT with Contents: read/write).")
         sys.exit(1)
 
     if not audio_token:
@@ -131,8 +162,6 @@ def load_config(args: argparse.Namespace) -> Config:
 
     return Config(
         database_url=db_url,
-        github_repo=_env("GITHUB_REPO", "rozariopersonal/Christian-Tube-Releases"),
-        github_token=gh_token,
         audio_com_token=audio_token,
         work_dir=work_dir,
         poll_interval=int(_env("POLL_INTERVAL", "300")),
@@ -192,13 +221,54 @@ class Database:
             raise RuntimeError(f"Could not read eligible-videos SQL from {path}: {e}")
 
     def _ensure_schema(self) -> None:
-        """Ensure audioUrl and audioUploadStatus columns exist on Video."""
+        """Ensure audioUrl/upload columns on Video and the audio catalog tables exist.
+
+        The audio catalog is authored directly in PostgreSQL by this worker, so
+        it ensures AudioSeries/AudioTrack are present even on a database that
+        has not run Prisma migrations yet. Table bodies mirror prisma/schema.prisma.
+        """
         try:
             self.cur.execute("""
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioUrl" TEXT;
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioUploadStatus" TEXT DEFAULT 'pending';
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioRetryCount" INT DEFAULT 0;
+                ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioLastRetryAt" TIMESTAMPTZ;
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioLastError" TEXT;
+            """)
+            self.cur.execute("""
+                CREATE TABLE IF NOT EXISTS "AudioSeries" (
+                    "id" TEXT PRIMARY KEY,
+                    "title" TEXT NOT NULL,
+                    "description" TEXT,
+                    "speaker" TEXT,
+                    "category" TEXT,
+                    "language" TEXT,
+                    "coverUrl" TEXT,
+                    "channelId" TEXT,
+                    "trackCount" INTEGER NOT NULL DEFAULT 0,
+                    "latestPublishedAt" TIMESTAMPTZ,
+                    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                CREATE TABLE IF NOT EXISTS "AudioTrack" (
+                    "id" TEXT PRIMARY KEY,
+                    "seriesId" TEXT NOT NULL,
+                    "title" TEXT NOT NULL,
+                    "speaker" TEXT,
+                    "durationSeconds" INTEGER NOT NULL DEFAULT 0,
+                    "audioUrl" TEXT NOT NULL,
+                    "streamUrl" TEXT,
+                    "fallbackUrl" TEXT,
+                    "ifCoverUrl" TEXT,
+                    "thumbnailUrl" TEXT,
+                    "youtubeVideoId" TEXT,
+                    "publishedAt" TIMESTAMPTZ,
+                    "scriptureBook" TEXT,
+                    "scriptureChapter" INTEGER,
+                    "scriptureVerse" INTEGER,
+                    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
             """)
         except Exception as e:
             log.warning("Schema check note: %s", e)
@@ -214,20 +284,32 @@ class Database:
         """
         Fetch long-form videos (type='VIDEO') from active ChristianApp channels
         that have not yet been uploaded to Audio.com.
+
+        Failed videos are retried daily: each calendar day a failed video gets up
+        to ``max_retries`` attempts, then its per-day counter resets (via
+        `audioLastRetryAt`) so it is retried again the next day — indefinitely
+        until an attempt passes.
         """
-        statuses = ["pending"]
-        include_failed = False
+        statuses = ["pending", "failed"]
         if cfg.redo:
             statuses = ["pending", "completed", "failed"]
-        elif cfg.retry_failed:
-            statuses.append("failed")
-            include_failed = True
 
         ph = ",".join(["%s"] * len(statuses))
         params: list[Any] = list(statuses)
-        retry_clause = ""
-        if include_failed:
-            retry_clause = ' AND ("audioRetryCount" IS NULL OR "audioRetryCount" < %s)'
+
+        # Query lives in eligible_videos.sql (hot-reloadable) so it can be
+        # edited at any time without a code change.
+        sql_template = self._eligible_sql()
+
+        # Per-day retry gate: a failed video is eligible when it has budget left
+        # TODAY, or its last attempt was a previous calendar day (counter resets).
+        retry_clause = """
+            AND (
+              COALESCE(v."audioUploadStatus", '') <> 'failed'
+              OR COALESCE(v."audioLastRetryAt", '-infinity'::timestamptz)::date < CURRENT_DATE
+              OR COALESCE(v."audioRetryCount", 0) < %s
+            )"""
+        if "{retry_clause}" in sql_template:
             params.append(cfg.max_retries)
 
         # Channel name filter (--channels flag)
@@ -246,10 +328,8 @@ class Database:
             priority_clause = ' CASE WHEN v."channelId" = ANY(%s::text[]) THEN 0 ELSE 1 END,'
             params.append(cfg.priority_channel_ids)
 
-        # Query lives in eligible_videos.sql (hot-reloadable) so it can be
-        # edited at any time without a code change.
         query = (
-            self._eligible_sql()
+            sql_template
             .replace("{status_ph}", ph)
             .replace("{retry_clause}", retry_clause)
             .replace("{channel_clause}", channel_clause)
@@ -270,7 +350,7 @@ class Database:
 
     def fetch_one(self, video_id: str) -> tuple | None:
         self.cur.execute(
-            """SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
+            """SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language, v."channelId", v."duration", v."thumbnail"
                FROM "Video" v
                LEFT JOIN "Channel" c ON c.id = v."channelId"
                WHERE v.id=%s""",
@@ -289,7 +369,8 @@ class Database:
     def mark_completed(self, video_id: str, audio_url: str) -> None:
         self.cur.execute(
             """UPDATE "Video"
-               SET "audioUploadStatus"='completed', "audioUrl"=%s, "audioLastError"=NULL
+               SET "audioUploadStatus"='completed', "audioUrl"=%s, "audioLastError"=NULL,
+                   "audioRetryCount"=0, "audioLastRetryAt"=NULL
                WHERE "id"=%s""",
             (audio_url, video_id),
         )
@@ -304,21 +385,182 @@ class Database:
                SET "audioUploadStatus"='completed',
                    "audioUrl"=data.audio_url,
                    "audioLastError"=NULL,
-                   "audioRetryCount"=0
+                   "audioRetryCount"=0,
+                   "audioLastRetryAt"=NULL
                FROM (VALUES %s) AS data(video_id, audio_url)
                WHERE v."id" = data.video_id""",
             items,
         )
 
-    def mark_failed(self, video_id: str, error: str) -> None:
+    def mark_failed(self, video_id: str, error: str, permanent: bool = False) -> None:
+        # A permanent failure ("This video is not available", private, removed,
+        # region-blocked, ...) is terminal: it gets status 'dead' and is never
+        # picked again. Transient failures keep the daily-retry budget.
+        status = "'dead'" if permanent else "'failed'"
         self.cur.execute(
-            """UPDATE "Video"
-               SET "audioUploadStatus"='failed',
+            f"""UPDATE "Video"
+               SET "audioUploadStatus"={status},
                    "audioLastError"=%s,
-                   "audioRetryCount"=COALESCE("audioRetryCount", 0) + 1
+                   "audioLastRetryAt"=NOW(),
+                   "audioRetryCount"=CASE
+                     WHEN COALESCE("audioLastRetryAt", '-infinity'::timestamptz)::date < CURRENT_DATE THEN 1
+                     ELSE COALESCE("audioRetryCount", 0) + 1
+                   END
                WHERE "id"=%s""",
             (error[:2000], video_id),
         )
+
+    def find_audio_track(self, series_id: str, youtube_video_id: str) -> dict | None:
+        """Looks up an already-registered audio track for a series/video.
+
+        Replaces the old Git-based dedupe: the audio catalog is now authored
+        directly in PostgreSQL, so "have we uploaded this video already?" is
+        answered here instead of in the releases repository JSON.
+        """
+        self.cur.execute(
+            """SELECT "audioUrl" FROM "AudioTrack"
+               WHERE "seriesId"=%s AND "youtubeVideoId"=%s LIMIT 1""",
+            (series_id, youtube_video_id),
+        )
+        row = self.cur.fetchone()
+        return {"audioUrl": row[0]} if row else None
+
+    def audio_id_referenced(self, audio_id: str) -> bool:
+        """Returns True when any AudioTrack already references this Audio.com id.
+
+        Guards title-based reuse: a matched Audio.com audio must not be wired to
+        a second video unless it is still an orphan (unreferenced).
+        """
+        if not audio_id:
+            return False
+        self.cur.execute(
+            """SELECT 1 FROM "AudioTrack" WHERE "audioUrl" LIKE %s LIMIT 1""",
+            (f"%audio.com/{audio_id}%",),
+        )
+        return self.cur.fetchone() is not None
+
+    def referenced_audio_ids(self) -> set[str]:
+        """Returns the set of Audio.com ids currently referenced by any AudioTrack."""
+        self.cur.execute(
+            """SELECT "audioUrl" FROM "AudioTrack" WHERE "audioUrl" LIKE 'https://audio.com/%'""",
+        )
+        ids: set[str] = set()
+        for (u,) in self.cur.fetchall():
+            aid = "".join(ch for ch in u.split("audio.com/")[-1] if ch.isdigit())
+            if aid:
+                ids.add(aid)
+        return ids
+
+    def delete_audio_track(self, series_id: str, youtube_video_id: str) -> bool:
+        """Removes a dead catalogue track row (Audio.com audio no longer exists).
+
+        Returns True when a row was actually deleted. The caller must then
+        re-upload the audio and register a fresh track.
+        """
+        self.cur.execute(
+            """DELETE FROM "AudioTrack"
+               WHERE "seriesId"=%s AND "youtubeVideoId"=%s""",
+            (series_id, youtube_video_id),
+        )
+        deleted = self.cur.rowcount > 0
+        if deleted:
+            self.cur.execute(
+                """UPDATE "AudioSeries" SET
+                     "trackCount"=(SELECT COUNT(*) FROM "AudioTrack" WHERE "seriesId"=%s),
+                     "latestPublishedAt"=(SELECT MAX("publishedAt") FROM "AudioTrack" WHERE "seriesId"=%s),
+                     "updatedAt"=NOW()
+                   WHERE "id"=%s""",
+                (series_id, series_id, series_id),
+            )
+        return deleted
+
+    def upsert_audio_series_and_track(
+        self,
+        *,
+        series_id: str,
+        series_title: str,
+        series_description: str,
+        series_speaker: str,
+        series_category: str,
+        series_language: str,
+        cover_url: str | None,
+        channel_id: str | None,
+        published_at: Any,
+        track: dict[str, Any],
+    ) -> None:
+        """Registers (or refreshes) an uploaded track and its series in Neon.
+
+        Series row is upserted first, then the track, then the series counts are
+        recomputed from the AudioTrack rows so trackCount/latestPublishedAt are
+        always derived from the DB, not from a stale JSON snapshot. Idempotent:
+        re-processing a video overwrites its single AudioTrack row.
+        """
+        self.cur.execute(
+            """INSERT INTO "AudioSeries"
+                 ("id","title","description","speaker","category","language",
+                  "coverUrl","channelId","trackCount","latestPublishedAt",
+                  "updatedAt","createdAt")
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,0,%s, NOW(), NOW())
+               ON CONFLICT ("id") DO UPDATE SET
+                 "title"=EXCLUDED."title",
+                 "description"=EXCLUDED."description",
+                 "speaker"=COALESCE("AudioSeries"."speaker", EXCLUDED."speaker"),
+                 "category"=EXCLUDED."category",
+                 "language"=EXCLUDED."language",
+                 "coverUrl"=COALESCE("AudioSeries"."coverUrl", EXCLUDED."coverUrl"),
+                 "channelId"=EXCLUDED."channelId",
+                 "updatedAt"=NOW()""",
+            (
+                series_id,
+                series_title,
+                series_description,
+                series_speaker,
+                series_category,
+                series_language,
+                cover_url,
+                channel_id,
+                published_at,
+            ),
+        )
+        self.cur.execute(
+            """INSERT INTO "AudioTrack"
+                 ("id","seriesId","title","speaker","durationSeconds",
+                  "audioUrl","streamUrl","thumbnailUrl","youtubeVideoId",
+                  "publishedAt","updatedAt","createdAt")
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, NOW(), NOW())
+               ON CONFLICT ("id") DO UPDATE SET
+                 "seriesId"=EXCLUDED."seriesId",
+                 "title"=EXCLUDED."title",
+                 "speaker"=EXCLUDED."speaker",
+                 "durationSeconds"=EXCLUDED."durationSeconds",
+                 "audioUrl"=EXCLUDED."audioUrl",
+                 "streamUrl"=EXCLUDED."streamUrl",
+                 "thumbnailUrl"=EXCLUDED."thumbnailUrl",
+                 "youtubeVideoId"=EXCLUDED."youtubeVideoId",
+                 "publishedAt"=EXCLUDED."publishedAt",
+                 "updatedAt"=NOW()""",
+            (
+                track["id"],
+                series_id,
+                track["title"],
+                track.get("speaker"),
+                int(track.get("durationSeconds") or 0),
+                track["audioUrl"],
+                track.get("streamUrl"),
+                track.get("thumbnailUrl"),
+                track.get("youtubeVideoId"),
+                track.get("publishedAt"),
+            ),
+        )
+        self.cur.execute(
+            """UPDATE "AudioSeries" SET
+                 "trackCount"=(SELECT COUNT(*) FROM "AudioTrack" WHERE "seriesId"=%s),
+                 "latestPublishedAt"=(SELECT MAX("publishedAt") FROM "AudioTrack" WHERE "seriesId"=%s),
+                 "updatedAt"=NOW()
+               WHERE "id"=%s""",
+            (series_id, series_id, series_id),
+        )
+        log.info("  registered track %s with Neon audio catalog (series: %s)", track["id"], series_id)
 
     def mark_short(self, video_id: str) -> None:
         """Marks a video as a short and ignores it from future audio processing."""
@@ -344,6 +586,18 @@ class Database:
 # --------------------------------------------------------------------------- #
 # Audio.com Client
 # --------------------------------------------------------------------------- #
+def norm_title(title: str | None) -> str:
+    """Normalizes a title for Audio.com title-based dedupe matching."""
+    if not title:
+        return ""
+    t = title.strip()
+    # Strip YouTube-style suffixes: " (v12345)", " [720p]", trailing ids
+    t = re.sub(r"\s*\(\s*[a-z0-9_-]{4,}\s*\)\s*$", "", t, flags=re.I)
+    t = re.sub(r"\s*\[[^\]]*\]\s*$", "", t)
+    t = re.sub(r"\s+", " ", t)
+    return t.lower()
+
+
 def clean_audiocom_tags(tags, limit: int = 5, max_len: int = 40) -> list[str]:
     """Audio.com accepts at most ``limit`` tags, each at most ``max_len`` chars.
 
@@ -495,17 +749,29 @@ class AudioComClient:
         return False
 
     def find_existing_track_id(self, title: str) -> str | None:
-        """Finds if an audio track with this title already exists on Audio.com."""
-        clean_target = title.strip().lower()
+        """Finds the first candidate audio id for this title, if any."""
+        ids = self.find_existing_title_ids(title)
+        return ids[0] if ids else None
+
+    def find_existing_title_ids(self, title: str) -> list[str]:
+        """Returns ALL Audio.com track ids whose title matches this one.
+
+        Multiple audios can share a title (re-uploads, cross-posts), so callers
+        must iterate candidates and pick one that is not already referenced by
+        another Neon track (see audio_id_referenced).
+        """
+        clean_target = norm_title(title)
+        if not clean_target:
+            return []
         if not hasattr(self, "_existing_audio_cache"):
-            self._existing_audio_cache = {}
+            self._existing_audio_cache: dict[str, list[str]] = {}
             try:
                 page = 1
                 while True:
                     resp = self._requests.get(
                         f"{self.api}/audio/list",
                         headers=self.headers,
-                        params={"page": page, "limit": 100},
+                        params={"page": page, "limit": 50},
                         timeout=20,
                     )
                     if resp.status_code != 200:
@@ -516,17 +782,17 @@ class AudioComClient:
                     if not items:
                         break
                     for item in items:
-                        t = (item.get("title") or "").strip().lower()
+                        t = norm_title(item.get("title"))
                         aid = str(item.get("id", ""))
-                        if t and aid and t not in self._existing_audio_cache:
-                            self._existing_audio_cache[t] = aid
-                    if len(items) < 100:
+                        if t and aid and aid not in self._existing_audio_cache.setdefault(t, []):
+                            self._existing_audio_cache[t].append(aid)
+                    if len(items) < 50:
                         break
                     page += 1
             except Exception as e:
                 log.warning("  failed to populate existing audio cache: %s", e)
 
-        return self._existing_audio_cache.get(clean_target)
+        return self._existing_audio_cache.get(clean_target, [])
 
     def upload_audio(
         self,
@@ -534,20 +800,31 @@ class AudioComClient:
         metadata: dict,
         collection_name: str | None = None,
         image_bytes: bytes | None = None,
+        referenced_ids: set[str] | None = None,
     ) -> tuple[str, str | None]:
         """
         Uploads audio to Audio.com and returns (audio_url, stream_url).
         - audio_url:  human-readable landing page (https://audio.com/{id})
         - stream_url: direct CDN audio file URL for streaming (resolved after
                        transcoding), or None if transcoding hasn't completed.
+
+        ``referenced_ids`` (optional): Audio.com ids already claimed by another
+        Neon track. A title-matched candidate is reused only when it is NOT in
+        this set, so two videos never share one audio upload.
         """
         title = metadata.get("title", "Untitled Sermon")[:100]
 
-        # 0. Check if track with this title was already uploaded
-        existing_id = self.find_existing_track_id(title)
-        if existing_id:
-            log.info("  track '%s' already exists on Audio.com (id: %s), reusing existing", title, existing_id)
+        # 0. Check if an unreferenced track with this title was already uploaded
+        candidates = self.find_existing_title_ids(title)
+        if referenced_ids is None:
+            referenced_ids = set()
+        for existing_id in candidates:
+            if existing_id in referenced_ids:
+                continue
             audio_url = f"https://audio.com/{existing_id}"
+            if not self.is_audio_live(audio_url):
+                continue
+            log.info("  track '%s' already exists on Audio.com (id: %s), reusing existing", title, existing_id)
             stream_url = self._resolve_stream_url(existing_id)
             return audio_url, stream_url
 
@@ -559,7 +836,7 @@ class AudioComClient:
         # 1. Create audio entity & presigned URL. Audio.com has no post-create
         # metadata route (audio/{id} 404s), so all track metadata must be sent
         # here at creation time.
-        desc = (metadata.get("description") or "")[:2000]
+        desc = (metadata.get("description") or "")[:500]
         tags = clean_audiocom_tags(metadata.get("tags"))
         resp = self._requests.post(
             f"{self.api}/audio/create",
@@ -628,8 +905,12 @@ class AudioComClient:
     def _resolve_stream_url(self, audio_id: str, max_attempts: int = 10, delay: int = 3) -> str | None:
         """
         Polls the Audio.com API for the transcoded stream URL.
-        Audio.com transcodes uploads asynchronously; the ``play.stream_url``
-        field becomes available once processing finishes.
+
+        Audio.com transcodes uploads asynchronously. The preferred source of the
+        stream is ``transcodings[].url`` (present once processing finishes); the
+        legacy ``play.url`` field is NULL for older uploads, so it cannot be
+        relied on as a primary source. Falls back to the original source file
+        URL when no transcode is available yet, and retries up to max_attempts.
         """
         for attempt in range(1, max_attempts + 1):
             try:
@@ -640,8 +921,16 @@ class AudioComClient:
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    play = data.get("play") or {}
-                    stream = play.get("url") or play.get("stream_url") or play.get("streamUrl")
+                    transcodings = data.get("transcodings") or data.get("sources") or []
+                    # Prefer an mp3 transcode (>192kbps preferred, any mp3 ok).
+                    stream = None
+                    for t in transcodings:
+                        if (t.get("format") or "").lower() == "mp3":
+                            stream = t.get("url")
+                            break
+                    if not stream:
+                        play = data.get("play") or {}
+                        stream = (play.get("url") or play.get("stream_url") or play.get("streamUrl"))
                     if stream:
                         log.info("  resolved stream URL on attempt %d/%d", attempt, max_attempts)
                         return stream
@@ -653,6 +942,31 @@ class AudioComClient:
 
         log.warning("  could not resolve stream URL after %d attempts (transcoding may still be in progress)", max_attempts)
         return None
+
+    def is_audio_live(self, audio_url: str) -> bool:
+        """
+        Checks whether an Audio.com URL points at an audio that still exists.
+
+        Used before reusing a catalog entry: the Neon track may reference an
+        audio id that has since been deleted on Audio.com (404). A deleted
+        audio must be re-uploaded, not silently reused.
+        """
+        if not audio_url or "audio.com/" not in audio_url:
+            return False
+        audio_id = audio_url.split("audio.com/")[-1].split("?")[0]
+        audio_id = "".join(ch for ch in audio_id if ch.isdigit())
+        if not audio_id:
+            return False
+        try:
+            resp = self._requests.get(
+                f"{self.api}/audio/view?id={audio_id}",
+                headers=self.headers,
+                timeout=15,
+            )
+            return resp.status_code == 200
+        except Exception as e:
+            log.warning("  live-check for audio %s failed: %s", audio_id, e)
+            return False
 
     def purge_all(self) -> int:
         """
@@ -736,126 +1050,6 @@ class AudioComClient:
         self._collection_cache.clear()
         log.info("Audio.com purge complete: %d audio track(s) deleted", deleted)
         return deleted
-
-
-# --------------------------------------------------------------------------- #
-# GitHub Releases Catalog
-# --------------------------------------------------------------------------- #
-class GitHubRepo:
-    def __init__(self, repo: str, token: str):
-        import requests
-
-        self._requests = requests
-        self.api = "https://api.github.com"
-        self.repo = repo
-        self.headers = {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
-
-    def _url(self, path: str) -> str:
-        return f"{self.api}/repos/{self.repo}/contents/{urllib.parse.quote(path)}"
-
-    def read_text_or_none(self, path: str) -> str | None:
-        resp = self._requests.get(self._url(path), headers=self.headers, timeout=20)
-        if resp.status_code == 404:
-            return None
-        resp.raise_for_status()
-        data = resp.json()
-        if data.get("encoding") == "base64" and data.get("content"):
-            return base64.b64decode(data["content"]).decode("utf-8")
-        return None
-
-    def upsert(self, path: str, content: str, message: str, max_retries: int = 3) -> None:
-        encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
-        for attempt in range(max_retries):
-            sha: str | None = None
-            get_resp = self._requests.get(self._url(path), headers=self.headers, timeout=20)
-            if get_resp.status_code == 200:
-                sha = get_resp.json().get("sha")
-
-            payload: dict[str, Any] = {"message": message, "content": encoded}
-            if sha:
-                payload["sha"] = sha
-
-            put_resp = self._requests.put(self._url(path), headers=self.headers, json=payload, timeout=30)
-            if put_resp.status_code in (200, 201):
-                return
-            if put_resp.status_code == 409 and attempt < max_retries - 1:
-                time.sleep(1)
-                continue
-            put_resp.raise_for_status()
-
-
-class LocalGitRepo:
-    def __init__(self, repo_dir: Path, seed_dir: Path | None, github_repo: str, github_token: str | None):
-        self.repo_dir = repo_dir
-        self.seed_dir = seed_dir
-        self.github_repo = github_repo
-        self.github_token = github_token
-        self._init()
-
-    def _run_git(self, cmd: list[str], check: bool = True) -> str:
-        res = subprocess.run(cmd, cwd=str(self.repo_dir), capture_output=True, text=True)
-        if check and res.returncode != 0:
-            raise RuntimeError(f"git command failed: {' '.join(cmd)}\n{res.stderr}")
-        return res.stdout.strip()
-
-    def _init(self) -> None:
-        if not (self.repo_dir / ".git").exists():
-            if self.seed_dir and (self.seed_dir / ".git").exists():
-                log.info("Seeding releases repo from %s to %s...", self.seed_dir, self.repo_dir)
-                shutil.copytree(str(self.seed_dir), str(self.repo_dir), dirs_exist_ok=True)
-            else:
-                clone_url = f"https://{self.github_token}@github.com/{self.github_repo}.git" if self.github_token else f"https://github.com/{self.github_repo}.git"
-                subprocess.run(["git", "clone", clone_url, str(self.repo_dir)], check=True)
-
-        self._run_git(["git", "config", "user.name", "Christian-Tube YouTube Processor"])
-        self._run_git(["git", "config", "user.email", "bot@privatetube.org"])
-        if self.github_token:
-            auth_url = f"https://{self.github_token}@github.com/{self.github_repo}.git"
-            self._run_git(["git", "remote", "set-url", "origin", auth_url])
-        log.info("LocalGitRepo initialized at %s", self.repo_dir)
-
-    def read_text_or_none(self, rel_path: str) -> str | None:
-        target = self.repo_dir / rel_path
-        if not target.exists():
-            return None
-        return target.read_text(encoding="utf-8")
-
-    def upsert(self, rel_path: str, content: str, message: str) -> None:
-        target = self.repo_dir / rel_path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-        self._run_git(["git", "add", rel_path])
-        self._run_git(["git", "commit", "-m", message])
-        log.info("Committed %s locally in Git WAL", rel_path)
-
-    def push_batch(self, max_retries: int = 5) -> bool:
-        for attempt in range(1, max_retries + 1):
-            try:
-                log.info("Pulling latest releases with rebase before push (attempt %d/%d)...", attempt, max_retries)
-                self._run_git(["git", "pull", "--rebase", "origin", "main"])
-                self._run_git(["git", "push", "origin", "main"])
-                log.info("Releases pushed successfully to GitHub.")
-                return True
-            except Exception as e:
-                log.warning("Push attempt %d failed: %s", attempt, e)
-                status = self._run_git(["git", "status", "--porcelain"], check=False)
-                if "UU manifest.json" in status:
-                    manifest_path = self.repo_dir / "manifest.json"
-                    manifest_path.write_text(json.dumps({"revision": str(int(time.time() * 1000))}, indent=2), encoding="utf-8")
-                    self._run_git(["git", "add", "manifest.json"])
-                    self._run_git(["git", "rebase", "--continue"], check=False)
-                elif "UU" in status:
-                    self._run_git(["git", "rebase", "--abort"], check=False)
-
-                if attempt == max_retries:
-                    log.error("All push attempts failed.")
-                    return False
-                time.sleep(2 * attempt + random.uniform(0.5, 2.0))
-        return False
 
 
 def slugify(text: str) -> str:
@@ -1228,177 +1422,6 @@ def extract_speaker(title: str, description: str, default_speaker: str) -> str:
     return default_speaker
 
 
-
-def _max_published_at(tracks: list[dict]) -> str | None:
-    """Returns the latest ISO publishedAt among tracks (None if none parse).
-
-    YouTube timestamps are UTC ``...Z`` strings; a few older entries are naive
-    ``datetime.isoformat()`` values. All are normalized to an explicit UTC
-    offset so ISO string ordering stays correct across both shapes.
-    """
-    best: str | None = None
-    for t in tracks or []:
-        raw = (t or {}).get("publishedAt")
-        if not raw:
-            continue
-        try:
-            text = str(raw)
-            if text.endswith("Z"):
-                text = text[:-1] + "+00:00"
-            iso = datetime.fromisoformat(text).astimezone(timezone.utc).isoformat()
-        except (ValueError, TypeError):
-            continue
-        if best is None or iso > best:
-            best = iso
-    return best
-
-
-def update_channel_audio_catalog(
-    repo: GitHubRepo,
-    channel_name: str,
-    channel_lang: str | None,
-    track: dict,
-) -> None:
-    """
-    Registers the uploaded audio track in the GitHub Releases catalog
-    under a series/collection named after the channel.
-    - Updates audio/series/{channel_slug}.json
-    - Updates audio/catalog.json
-    - Updates manifest.json with a bumped dataset revision (busts app & CDN cache)
-    - Purges jsDelivr edge CDN cache for affected files
-    """
-    series_id = slugify(channel_name)
-    series_title = channel_name.strip() or "General Sermons"
-    series_lang = map_language(channel_lang)
-    series_category = detect_category(channel_name)
-    series_path = f"audio/series/{series_id}.json"
-
-    raw_series = repo.read_text_or_none(series_path)
-    if raw_series:
-        try:
-            series_data = json.loads(raw_series)
-        except json.JSONDecodeError:
-            series_data = None
-    else:
-        series_data = None
-
-    if not series_data:
-        series_data = {
-            "id": series_id,
-            "title": series_title,
-            "description": f"Audio sermons and messages from {series_title}",
-            "speaker": track.get("speaker") or series_title,
-            "coverUrl": track.get("thumbnailUrl"),
-            "trackCount": 0,
-            "latestPublishedAt": track.get("publishedAt"),
-            "category": series_category,
-            "language": series_lang,
-            "tracks": [],
-        }
-    else:
-        # Update category if it was missing or legacy default
-        if series_data.get("category") in ("General Sermons", "Sermons", None):
-            series_data["category"] = series_category
-
-    # Ensure track fields reflect the series
-    track["seriesId"] = series_id
-    track["seriesTitle"] = series_title
-
-    tracks = series_data.get("tracks", [])
-    # Deduplicate by youtubeVideoId
-    tracks = [t for t in tracks if t.get("youtubeVideoId") != track.get("youtubeVideoId")]
-    tracks.insert(0, track)  # newest first
-    series_data["tracks"] = tracks
-    series_data["trackCount"] = len(tracks)
-    latest_published = _max_published_at(tracks)
-    if latest_published:
-        series_data["latestPublishedAt"] = latest_published
-    if not series_data.get("coverUrl") and track.get("thumbnailUrl"):
-        series_data["coverUrl"] = track.get("thumbnailUrl")
-
-    repo.upsert(
-        series_path,
-        json.dumps(series_data, indent=2, ensure_ascii=False),
-        f"audio catalog: add track {track.get('youtubeVideoId')} to {series_id}",
-    )
-
-    # Update audio/catalog.json
-    catalog_path = "audio/catalog.json"
-    raw_cat = repo.read_text_or_none(catalog_path)
-    if raw_cat:
-        try:
-            cat_data = json.loads(raw_cat)
-        except json.JSONDecodeError:
-            cat_data = []
-    else:
-        cat_data = []
-
-    # Clean up obsolete 'audiocom_uploads' placeholder if present
-    cat_data = [s for s in cat_data if s.get("id") != "audiocom_uploads"]
-
-    existing_entry = next((s for s in cat_data if s.get("id") == series_id), None)
-    if existing_entry:
-        existing_entry["trackCount"] = series_data["trackCount"]
-        existing_entry["title"] = series_data["title"]
-        existing_entry["speaker"] = series_data["speaker"]
-        existing_entry["language"] = series_data["language"]
-        existing_entry["category"] = series_data.get("category", series_category)
-        if series_data.get("latestPublishedAt"):
-            existing_entry["latestPublishedAt"] = series_data["latestPublishedAt"]
-        if not existing_entry.get("coverUrl") and series_data.get("coverUrl"):
-            existing_entry["coverUrl"] = series_data["coverUrl"]
-    else:
-        cat_data.append({
-            "id": series_data["id"],
-            "title": series_data["title"],
-            "description": series_data["description"],
-            "speaker": series_data["speaker"],
-            "trackCount": series_data["trackCount"],
-            "category": series_data.get("category", series_category),
-            "language": series_data["language"],
-            "coverUrl": series_data.get("coverUrl"),
-            "latestPublishedAt": series_data.get("latestPublishedAt"),
-        })
-
-    repo.upsert(
-        catalog_path,
-        json.dumps(cat_data, indent=2, ensure_ascii=False),
-        f"audio catalog: sync series {series_id} ({series_data['trackCount']} tracks)",
-    )
-    log.info("  synced track with GitHub releases audio catalog (series: %s)", series_id)
-
-    # Bump manifest.json dataset revision so clients and CDNs get fresh data
-    manifest_path = "manifest.json"
-    raw_manifest = repo.read_text_or_none(manifest_path)
-    if raw_manifest:
-        try:
-            manifest_data = json.loads(raw_manifest)
-        except json.JSONDecodeError:
-            manifest_data = {}
-    else:
-        manifest_data = {}
-
-    new_rev = hex(int(time.time()))[2:]
-    manifest_data["revision"] = new_rev
-    manifest_data["updatedAt"] = datetime.now(timezone.utc).isoformat()
-
-    repo.upsert(
-        manifest_path,
-        json.dumps(manifest_data, indent=2, ensure_ascii=False),
-        f"manifest: bump revision to {new_rev}",
-    )
-    log.info("  bumped dataset revision to %s in manifest.json", new_rev)
-
-    # Best-effort jsDelivr purge so changes are immediately live on edge CDN
-    try:
-        import requests
-        repo_slug = repo.repo
-        for p in [catalog_path, series_path, manifest_path]:
-            requests.get(f"https://purge.jsdelivr.net/gh/{repo_slug}@main/{p}", timeout=5)
-    except Exception as e:
-        log.debug("  jsDelivr purge skipped: %s", e)
-
-
 def is_short_content(
     title: str,
     desc: str,
@@ -1486,14 +1509,110 @@ def extract_audio(video_id: str, out_dir: Path) -> tuple[Path, dict]:
 # --------------------------------------------------------------------------- #
 # Processing Orchestration
 # --------------------------------------------------------------------------- #
-def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg: Config, row: tuple) -> None:
-    video_id, title, channel, published_at, db_desc, channel_lang = row
+def parse_duration_seconds(dur: str | None) -> int:
+    """Parses DB duration text ('52:26', '1:14:33') into seconds."""
+    if not dur:
+        return 0
+    parts = str(dur).strip().split(":")
+    try:
+        nums = [int(p) for p in parts if p != ""]
+    except ValueError:
+        return 0
+    if not nums:
+        return 0
+    total = 0
+    for n in nums:
+        total = total * 60 + n
+    return total
+
+
+def process_video(db: Database, audiocom: AudioComClient, cfg: Config, row: tuple) -> None:
+    video_id, title, channel, published_at, db_desc, channel_lang, channel_id, db_duration, db_thumbnail = row
     log.info(">> Processing video: %s | %s (%s)", video_id, title, channel)
 
     db.mark_processing(video_id)
     try:
+        series_id = slugify(channel)
+
+        # Skip YouTube Shorts up-front when possible (DB title hint) so we don't
+        # download audio for content that would be discarded anyway.
+        db_title = (title or "").strip()
+        if db_title and ("#short" in db_title.lower() or "#shorts" in db_title.lower()):
+            log.info("  >> Skipping %s: short hashtag in title",
+                     video_id)
+            db.mark_short(video_id)
+            return
+
         with tempfile.TemporaryDirectory(prefix="proc_", dir=str(cfg.work_dir)) as tmp:
             tmp_path = Path(tmp)
+
+            # 0. Check if the track is already in the Neon audio catalog
+            #    BEFORE doing any download or upload.
+            existing_track = db.find_audio_track(series_id, video_id)
+            if existing_track:
+                if audiocom.is_audio_live(existing_track["audioUrl"]):
+                    log.info("  >> Track %s already in the Neon audio catalog (%s). Reusing.",
+                             video_id, existing_track["audioUrl"])
+                    return (video_id, existing_track["audioUrl"])
+                log.warning("  >> Track %s references deleted Audio.com audio (%s). Removing and re-uploading.",
+                            video_id, existing_track["audioUrl"])
+                db.delete_audio_track(series_id, video_id)
+
+            # 1. Title-match against Audio.com BEFORE downloading the audio:
+            #    if an upload with this title already exists and is not wired to
+            #    another track, register it directly from DB metadata and skip
+            #    the download+upload entirely.
+            referenced_ids = db.referenced_audio_ids()
+            matched_id = None
+            for candidate_id in audiocom.find_existing_title_ids(title or ""):
+                if candidate_id in referenced_ids:
+                    continue
+                if not audiocom.is_audio_live(f"https://audio.com/{candidate_id}"):
+                    log.warning("  >> Title match %s points at deleted Audio.com audio (%s). Skipping.",
+                                title, candidate_id)
+                    continue
+                matched_id = candidate_id
+                break
+
+            if matched_id:
+                audio_url = f"https://audio.com/{matched_id}"
+                stream_url = audiocom._resolve_stream_url(matched_id)
+                speaker = extract_speaker(title, db_desc, channel or "Unknown")
+                primary_lang, _ = detect_languages(title or "", db_desc, map_language(channel_lang))
+                thumbnail = db_thumbnail or f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+                pub_date = published_at if isinstance(published_at, str) or hasattr(published_at, "isoformat") else None
+                log.info("  >> Found existing Audio.com upload '%s' (id: %s). Registering track without download.",
+                         title, matched_id)
+                db.upsert_audio_series_and_track(
+                    series_id=series_id,
+                    series_title=channel.strip() or "General Sermons",
+                    series_description=f"Audio sermons and messages from {channel.strip() or 'General Sermons'}",
+                    series_speaker=speaker,
+                    series_category=detect_category(channel),
+                    series_language=map_language(primary_lang),
+                    cover_url=thumbnail,
+                    channel_id=channel_id,
+                    published_at=pub_date,
+                    track={
+                        "id": video_id,
+                        "title": title,
+                        "speaker": speaker,
+                        "youtubeVideoId": video_id,
+                        "thumbnailUrl": thumbnail,
+                        "publishedAt": pub_date,
+                        "durationSeconds": parse_duration_seconds(db_duration),
+                        "audioUrl": audio_url,
+                        "streamUrl": stream_url,
+                    },
+                )
+                if channel.strip():
+                    col_id = audiocom.get_or_create_collection(channel.strip())
+                    if col_id:
+                        audiocom.add_to_collection(col_id, str(matched_id))
+                log.info(">> Successfully completed (reused existing upload): %s", video_id)
+                return (video_id, audio_url)
+
+            # 2. No match: download the audio from YouTube.
             audio_file, meta = extract_audio(video_id, tmp_path)
 
             final_title = meta.get("title") or title or "Untitled Audio"
@@ -1520,60 +1639,38 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
                 if meta_tag and meta_tag not in audio_tags:
                     audio_tags.append(meta_tag)
 
-            # Build rich Audio.com description header
-            lang_str = primary_lang
-            if secondary_lang:
-                lang_str += f" / {secondary_lang}"
-            desc_header = f"Speaker: {speaker} | Language: {lang_str} | Channel: {channel}"
-            rich_desc = f"{desc_header}\n\n{final_desc}" if final_desc else desc_header
-
-            # Check if track is already uploaded in local Git catalog
-            series_id = slugify(channel)
-            series_path = f"audio/series/{series_id}.json"
-            raw_series = repo.read_text_or_none(series_path)
-            existing_track = None
-            if raw_series:
-                try:
-                    sdata = json.loads(raw_series)
-                    for t in sdata.get("tracks", []):
-                        if t.get("youtubeVideoId") == video_id and t.get("audioUrl"):
-                            existing_track = t
-                            break
-                except Exception:
-                    pass
-
-            if existing_track:
-                log.info("  >> Track %s already uploaded in Git releases catalog (%s). Reusing.", video_id, existing_track["audioUrl"])
-                return (video_id, existing_track["audioUrl"])
-
-            # 1. Upload to Audio.com (and link to channel collection)
+            # 3. Upload to Audio.com (and link to channel collection). The
+            #    upload path re-checks title dedupe as a final safety net and
+            #    only reuses an orphan (unreferenced) upload.
             audio_url, stream_url = audiocom.upload_audio(
                 audio_file,
                 {
                     "title": final_title,
-                    "description": rich_desc,
+                    "description": video_id,
                     "tags": audio_tags,
                 },
                 collection_name=channel,
+                referenced_ids=referenced_ids,
             )
 
-            # 2. Update GitHub Releases Audio Catalog under channel collection/series
-            pub_date = published_at.isoformat() if hasattr(published_at, "isoformat") else str(published_at)
-            update_channel_audio_catalog(
-                repo,
-                channel_name=channel,
-                channel_lang=primary_lang,
+            # 4. Register the track and its series directly in PostgreSQL (Neon)
+            pub_date = published_at if isinstance(published_at, str) or hasattr(published_at, "isoformat") else None
+            series_title = channel.strip() or "General Sermons"
+            db.upsert_audio_series_and_track(
+                series_id=series_id,
+                series_title=series_title,
+                series_description=f"Audio sermons and messages from {series_title}",
+                series_speaker=speaker,
+                series_category=detect_category(channel),
+                series_language=map_language(primary_lang),
+                cover_url=thumbnail,
+                channel_id=channel_id,
+                published_at=pub_date,
                 track={
                     "id": video_id,
                     "title": final_title,
-                    "seriesId": series_id,
-                    "seriesTitle": channel,
                     "speaker": speaker,
-                    "language": primary_lang,
-                    "secondaryLanguage": secondary_lang,
-                    "channelName": channel,
                     "youtubeVideoId": video_id,
-                    "tags": final_tags,
                     "thumbnailUrl": thumbnail,
                     "publishedAt": pub_date,
                     "durationSeconds": int(duration),
@@ -1586,8 +1683,10 @@ def process_video(db: Database, audiocom: AudioComClient, repo: GitHubRepo, cfg:
             return (video_id, audio_url)
 
     except Exception as e:
-        log.error(">> Failed processing %s: %s", video_id, e)
-        db.mark_failed(video_id, str(e))
+        err = str(e)
+        permanent = is_permanent_failure(err)
+        log.error(">> Failed processing %s: %s%s", video_id, "PERMANENT " if permanent else "", err)
+        db.mark_failed(video_id, err, permanent=permanent)
         return None
 
 
@@ -1608,7 +1707,7 @@ def main():
     parser.add_argument("--video-id", help="Process a single YouTube video ID")
     parser.add_argument("--once", action="store_true", help="Process one batch and exit")
     parser.add_argument("--redo", action="store_true", help="Re-process completed videos")
-    parser.add_argument("--retry-failed", action="store_true", help="Include failed videos")
+    parser.add_argument("--retry-failed", action="store_true", help="(Deprecated: failed videos are always retried daily)")
     parser.add_argument("--limit", type=int, help="Override batch limit")
     parser.add_argument("--channels", type=str, help="Comma-separated channel name filter (ILIKE match, e.g. 'CFC,NCCF')")
     parser.add_argument("--purge-audiocom", action="store_true", help="Delete ALL existing Audio.com uploads before processing")
@@ -1620,16 +1719,12 @@ def main():
     cfg = load_config(args)
 
     if cfg.channel_filters:
-        log.info("Starting YouTube Video Processor (repo: %s, channels: %s)...", cfg.github_repo, cfg.channel_filters)
+        log.info("Starting YouTube Video Processor (channels: %s)...", cfg.channel_filters)
     else:
-        log.info("Starting YouTube Video Processor service (repo: %s)...", cfg.github_repo)
+        log.info("Starting YouTube Video Processor service...")
 
     db = Database(cfg.database_url)
     audiocom = AudioComClient(cfg.audio_com_token)
-
-    releases_dir = Path(os.environ.get("RELEASES_DIR", str(cfg.work_dir / "releases")))
-    seed_dir = Path(os.environ.get("RELEASES_SEED_DIR", "/app/releases-seed"))
-    repo = LocalGitRepo(releases_dir, seed_dir, cfg.github_repo, cfg.github_token)
 
     # Purge all Audio.com uploads if requested
     if cfg.purge_audiocom:
@@ -1644,8 +1739,7 @@ def main():
     def flush_batch():
         if not completed_buffer:
             return
-        log.info("Flushing batch: %d video(s) to GitHub remote and Neon DB...", len(completed_buffer))
-        repo.push_batch()
+        log.info("Flushing batch: %d video(s) to Neon DB...", len(completed_buffer))
         db.batch_mark_completed(completed_buffer)
         log.info("Batch of %d video(s) successfully marked completed in DB.", len(completed_buffer))
         completed_buffer.clear()
@@ -1656,9 +1750,8 @@ def main():
         if not row:
             log.error("Video ID %s not found in database.", cfg.video_id)
             sys.exit(1)
-        res = process_video(db, audiocom, repo, cfg, row)
+        res = process_video(db, audiocom, cfg, row)
         if res:
-            repo.push_batch()
             db.mark_completed(res[0], res[1])
         return
 
@@ -1682,7 +1775,7 @@ def main():
             for row in videos:
                 if not _running:
                     break
-                res = process_video(db, audiocom, repo, cfg, row)
+                res = process_video(db, audiocom, cfg, row)
                 if res:
                     completed_buffer.append(res)
                     if len(completed_buffer) >= cfg.batch_limit:
