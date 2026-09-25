@@ -67,10 +67,10 @@ async function main() {
     `SELECT column_name FROM information_schema.columns WHERE table_name = 'Video' AND column_name = ANY($1::text[])`,
     [STATUS_COLUMNS]
   );
-  const present = cols.rows.map((r) => r.column_name as string);
-  console.log(`Status columns still present on Video: ${present.length}`);
-  if (present.length > 0) {
-    console.log(`  ${present.join(', ')}`);
+  const legacy = cols.rows.map((r) => r.column_name as string);
+  console.log(`Status columns still present on Video: ${legacy.length}`);
+  if (legacy.length > 0) {
+    console.log(`  ${legacy.join(', ')}`);
   } else {
     console.log('  (none) — migration already complete');
   }
@@ -79,7 +79,7 @@ async function main() {
   const hasTable = tableExists.rows[0].t !== null;
   console.log(`VideoPipelineStatus table exists: ${hasTable}`);
 
-  if (present.length === 0) {
+  if (legacy.length === 0) {
     const count = hasTable
       ? (await pool.query(`SELECT count(*) FROM "VideoPipelineStatus"`)).rows[0].count
       : 0;
@@ -117,37 +117,54 @@ async function main() {
   `);
   console.log('Ensured VideoPipelineStatus table.');
 
-  // 2. Backfill statuses. jsonb_build_object omits keys whose value is NULL,
-  //    so absent keys read back as "pending"/0 via COALESCE in workers.
+  // 2. Backfill statuses from whatever legacy columns remain. A backend boot
+  //    (`prisma db push`) may have already dropped the data-free columns, so
+  //    build the expression from the live column set. jsonb_build_object()
+  //    omits keys whose value is NULL, so absent keys read back as
+  //    "pending"/0 via COALESCE in workers.
+  const present = await pool.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'Video' AND column_name = ANY($1::text[])`,
+    [STATUS_COLUMNS]
+  );
+  const have = new Set(present.rows.map((r) => r.column_name as string));
+  const obj = (kvs: string[]) => (kvs.length ? `jsonb_build_object(${kvs.join(', ')})` : `'{}'::jsonb`);
+  console.log(`Legacy columns present and being backfilled: ${have.size ? [...have].join(', ') : '(none)'}`);
+
+  const ingestKvs = [
+    have.has('audioUploadStatus') ? `'status', v."audioUploadStatus"` : null,
+    have.has('audioRetryCount') ? `'retryCount', v."audioRetryCount"` : null,
+    have.has('audioLastError') ? `'lastError', v."audioLastError"` : null,
+  ].filter(Boolean) as string[];
+  const transcriptionKvs = [
+    have.has('transcriptionStatus') ? `'status', v."transcriptionStatus"` : null,
+    have.has('transcriptionProgress') ? `'progress', v."transcriptionProgress"` : null,
+    have.has('transcriptionRetryCount') ? `'retryCount', v."transcriptionRetryCount"` : null,
+    have.has('transcriptionDetail') ? `'detail', v."transcriptionDetail"` : null,
+    have.has('lastTranscriptionError') ? `'lastError', v."lastTranscriptionError"` : null,
+  ].filter(Boolean) as string[];
+  const chunkKvs = [
+    have.has('chunkStatus') ? `'status', v."chunkStatus"` : null,
+    have.has('chunkError') ? `'error', v."chunkError"` : null,
+    have.has('chunkRetryCount') ? `'retryCount', v."chunkRetryCount"` : null,
+  ].filter(Boolean) as string[];
+  const embeddingKvs = [
+    have.has('embeddingStatus') ? `'status', v."embeddingStatus"` : null,
+    have.has('embeddingVersion') ? `'version', v."embeddingVersion"` : null,
+    have.has('embeddingHash') ? `'hash', v."embeddingHash"` : null,
+    have.has('embeddingError') ? `'error', v."embeddingError"` : null,
+    have.has('embeddingRetryCount') ? `'retryCount', v."embeddingRetryCount"` : null,
+  ].filter(Boolean) as string[];
+  const contentVersionExpr = have.has('contentVersion') ? `COALESCE(v."contentVersion", 0)` : '0';
+
   const backfill = await pool.query(`
     INSERT INTO "VideoPipelineStatus" ("videoId", "contentVersion", "ingest", "transcription", "chunk", "embedding", "createdAt", "updatedAt")
     SELECT
       v.id,
-      COALESCE(v."contentVersion", 0),
-      jsonb_build_object(
-        'status', v."audioUploadStatus",
-        'retryCount', v."audioRetryCount",
-        'lastError', v."audioLastError"
-      ),
-      jsonb_build_object(
-        'status', v."transcriptionStatus",
-        'progress', v."transcriptionProgress",
-        'retryCount', v."transcriptionRetryCount",
-        'detail', v."transcriptionDetail",
-        'lastError', v."lastTranscriptionError"
-      ),
-      jsonb_build_object(
-        'status', v."chunkStatus",
-        'error', v."chunkError",
-        'retryCount', v."chunkRetryCount"
-      ),
-      jsonb_build_object(
-        'status', v."embeddingStatus",
-        'version', v."embeddingVersion",
-        'hash', v."embeddingHash",
-        'error', v."embeddingError",
-        'retryCount', v."embeddingRetryCount"
-      ),
+      ${contentVersionExpr},
+      ${obj(ingestKvs)},
+      ${obj(transcriptionKvs)},
+      ${obj(chunkKvs)},
+      ${obj(embeddingKvs)},
       CURRENT_TIMESTAMP,
       CURRENT_TIMESTAMP
     FROM "Video" v
@@ -157,8 +174,7 @@ async function main() {
 
   // 3. Reset-empties policy: transcripts marked completed but holding no
   //    content (Video.content NULL or empty) are re-queued as 'pending' so the
-  //    transcriber reprocesses them. Embedding stays truthful — children keep
-  //    their own row-level embeddingStatus, so untouched chunks get embedded.
+  //    transcriber reprocesses them.
   const resetEmpties = await pool.query(`
     UPDATE "VideoPipelineStatus" s
     SET
@@ -172,7 +188,26 @@ async function main() {
   `);
   console.log(`Reset ${resetEmpties.rowCount} completed-without-content transcript(s) to pending.`);
 
-  // 4. Drop the status columns from Video (audioUrl stays — it is data, not status)
+  // 4. Full re-embed policy: reset every chunk/sentence to 'pending' so the
+  //    embedder re-embeds the entire corpus on the current contract version.
+  //    embeddingError only exists where the embedder wrote it, so include it
+  //    per-table only if the column is present.
+  const resetChildEmbedding = async (table: 'VideoChunk' | 'VideoSentence') => {
+    const errCol = await pool.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = 'embeddingError'`,
+      [table]
+    );
+    const setClause = errCol.rows.length
+      ? `"embeddingStatus"='pending', "embeddingError"=NULL`
+      : `"embeddingStatus"='pending'`;
+    const r = await pool.query(`UPDATE "${table}" SET ${setClause} WHERE "embeddingStatus" IS DISTINCT FROM 'pending'`);
+    return r.rowCount;
+  };
+  const reEmbedChunks = await resetChildEmbedding('VideoChunk');
+  const reEmbedSentences = await resetChildEmbedding('VideoSentence');
+  console.log(`Full re-embed: reset ${reEmbedChunks} VideoChunk + ${reEmbedSentences} VideoSentence row(s).`);
+
+  // 5. Drop the status columns from Video (audioUrl stays — it is data, not status)
   for (const col of STATUS_COLUMNS) {
     await pool.query(`ALTER TABLE "Video" DROP COLUMN IF EXISTS "${col}"`);
   }
