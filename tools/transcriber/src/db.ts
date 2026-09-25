@@ -14,8 +14,23 @@ export function createDbPool(connectionString: string): pg.Pool {
 export async function ensureSchema(pool: pg.Pool): Promise<void> {
   const steps: [string, string][] = [
     [
-      "contentVersion column",
-      `ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0;`,
+      "VideoPipelineStatus table",
+      `CREATE TABLE IF NOT EXISTS "VideoPipelineStatus" (
+         "videoId" TEXT NOT NULL PRIMARY KEY,
+         "contentVersion" INTEGER NOT NULL DEFAULT 0,
+         "ingest" JSONB NOT NULL DEFAULT '{}'::jsonb,
+         "transcription" JSONB NOT NULL DEFAULT '{}'::jsonb,
+         "chunk" JSONB NOT NULL DEFAULT '{}'::jsonb,
+         "embedding" JSONB NOT NULL DEFAULT '{}'::jsonb,
+         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+         CONSTRAINT "VideoPipelineStatus_videoId_fkey"
+           FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+           ON DELETE CASCADE ON UPDATE CASCADE
+       );
+       CREATE INDEX IF NOT EXISTS "VideoPipelineStatus_transcription_status_idx"
+         ON "VideoPipelineStatus" ((transcription->>'status'))
+         WHERE transcription->>'status' IN ('pending', 'failed');`,
     ],
     [
       "Transcription table",
@@ -49,8 +64,10 @@ export async function ensureSchema(pool: pg.Pool): Promise<void> {
 export async function releaseStaleProcessing(pool: pg.Pool): Promise<number> {
   try {
     const res = await pool.query(
-      `UPDATE "Video" SET "transcriptionStatus" = 'pending'
-       WHERE "transcriptionStatus" = 'processing'`
+      `UPDATE "VideoPipelineStatus"
+       SET "transcription" = COALESCE("transcription", '{}'::jsonb) || '{"status":"pending"}'::jsonb,
+           "updatedAt" = CURRENT_TIMESTAMP
+       WHERE "transcription"->>'status' = 'processing'`
     );
     if ((res.rowCount ?? 0) > 0) {
       console.log(`[Transcriber DB] Released ${res.rowCount} stale processing video(s)`);
@@ -70,6 +87,7 @@ export async function fetchEligibleVideos(
     SELECT v.id, v.title, v.description, v."audioUrl", v.duration, v."channelId", c.language AS "channelLanguage"
     FROM "Video" v
     JOIN "Channel" c ON c.id = v."channelId"
+    LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
     LEFT JOIN (
         SELECT "channelId", COUNT(*) AS video_count
         FROM "Video"
@@ -78,12 +96,11 @@ export async function fetchEligibleVideos(
     WHERE (c."isActive" = true OR c."isActive" IS NULL)
       AND c.id != 'UC_ChristianTubeOfficial'
       AND (v."duration" IS NULL OR (v."duration" != '0:00' AND v."duration" NOT LIKE '0:0%'))
-      AND v."audioUploadStatus" = 'completed'
+      AND COALESCE(s.ingest->>'status', 'pending') = 'completed'
       AND v."audioUrl" IS NOT NULL
-      AND (v."transcriptionStatus" IS NULL
-           OR v."transcriptionStatus" IN ('pending', 'failed'))
-      AND (v."transcriptionRetryCount" IS NULL
-           OR v."transcriptionRetryCount" < $1)
+      AND COALESCE(s.transcription->>'status', 'pending') IN ('pending', 'failed')
+      AND (NULLIF(s.transcription->>'retryCount', '')::integer IS NULL
+           OR NULLIF(s.transcription->>'retryCount', '')::integer < $1)
     ORDER BY
       CASE WHEN v."channelId" = ANY($2::text[]) THEN 0 ELSE 1 END,
       CASE c.language
@@ -136,12 +153,12 @@ export async function fetchOneVideo(
 
 export async function markProcessing(pool: pg.Pool, videoId: string): Promise<void> {
   await pool.query(
-    `UPDATE "Video"
-     SET "transcriptionStatus" = 'processing',
-         "transcriptionProgress" = 5,
-         "lastTranscriptionError" = NULL
-     WHERE id = $1`,
-    [videoId]
+    `INSERT INTO "VideoPipelineStatus" ("videoId", "transcription", "updatedAt")
+     VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
+     ON CONFLICT ("videoId") DO UPDATE SET
+       "transcription" = COALESCE("VideoPipelineStatus"."transcription", '{}'::jsonb) || EXCLUDED."transcription",
+       "updatedAt" = CURRENT_TIMESTAMP`,
+    [videoId, JSON.stringify({ status: 'processing', progress: 5, lastError: null })]
   );
 }
 
@@ -150,11 +167,14 @@ export async function updateProgress(
   videoId: string,
   progress: number
 ): Promise<void> {
+  const safe = Math.min(99, Math.max(1, Math.round(progress)));
   await pool.query(
-    `UPDATE "Video"
-     SET "transcriptionProgress" = $1
-     WHERE id = $2`,
-    [Math.min(99, Math.max(1, Math.round(progress))), videoId]
+    `INSERT INTO "VideoPipelineStatus" ("videoId", "transcription", "updatedAt")
+     VALUES ($1, jsonb_build_object('progress', $2), CURRENT_TIMESTAMP)
+     ON CONFLICT ("videoId") DO UPDATE SET
+       "transcription" = COALESCE("VideoPipelineStatus"."transcription", '{}'::jsonb) || jsonb_build_object('progress', $2),
+       "updatedAt" = CURRENT_TIMESTAMP`,
+    [videoId, safe]
   );
 }
 
@@ -235,18 +255,19 @@ export async function markCompleted(
   });
 
   await pool.query(
-    `UPDATE "Video"
-     SET "transcriptionStatus" = 'completed',
-         "transcriptionProgress" = 100,
-         "contentVersion" = $1,
-         "transcriptionDetail" = $2,
-         "chunkStatus" = 'pending',
-         "chunkError" = NULL,
-         "chunkRetryCount" = 0,
-         "lastTranscriptionError" = NULL,
-         "transcriptionRetryCount" = 0
-     WHERE id = $3`,
-    [contentVersion, JSON.stringify(detail), videoId]
+    `INSERT INTO "VideoPipelineStatus" ("videoId", "contentVersion", "transcription", "chunk", "updatedAt")
+     VALUES ($1, $2, $3::jsonb, $4::jsonb, CURRENT_TIMESTAMP)
+     ON CONFLICT ("videoId") DO UPDATE SET
+       "contentVersion" = EXCLUDED."contentVersion",
+       "transcription" = COALESCE("VideoPipelineStatus"."transcription", '{}'::jsonb) || EXCLUDED."transcription",
+       "chunk" = COALESCE("VideoPipelineStatus"."chunk", '{}'::jsonb) || EXCLUDED."chunk",
+       "updatedAt" = CURRENT_TIMESTAMP`,
+    [
+      videoId,
+      contentVersion,
+      JSON.stringify({ status: 'completed', progress: 100, retryCount: 0, detail, lastError: null }),
+      JSON.stringify({ status: 'pending', error: null, retryCount: 0 }),
+    ]
   );
 }
 
@@ -256,12 +277,15 @@ export async function markFailed(
   error: string
 ): Promise<void> {
   await pool.query(
-    `UPDATE "Video"
-     SET "transcriptionStatus" = 'failed',
-         "lastTranscriptionError" = $1,
-         "transcriptionRetryCount" = COALESCE("transcriptionRetryCount", 0) + 1
-     WHERE id = $2`,
-    [error.slice(0, 2000), videoId]
+    `INSERT INTO "VideoPipelineStatus" ("videoId", "transcription", "updatedAt")
+     VALUES ($1, jsonb_build_object('status', 'failed', 'lastError', $2, 'retryCount', 1), CURRENT_TIMESTAMP)
+     ON CONFLICT ("videoId") DO UPDATE SET
+       "transcription" = jsonb_build_object(
+         'status', 'failed',
+         'lastError', $2,
+         'retryCount', COALESCE(NULLIF("VideoPipelineStatus"."transcription"->>'retryCount', '')::integer, 0) + 1),
+       "updatedAt" = CURRENT_TIMESTAMP`,
+    [videoId, error.slice(0, 2000)]
   );
 }
 
@@ -366,35 +390,41 @@ export async function batchMarkCompleted(
     transParams
   );
 
-  // 2. Batch update Video status flags only
+  // 2. Batch upsert per-video pipeline status (transcription + chunk + contentVersion)
   const valuePlaceholders: string[] = [];
   const params: any[] = [];
 
   items.forEach((item, idx) => {
-    const base = idx * 3;
+    const base = idx * 4;
     valuePlaceholders.push(
-      `($${base + 1}, $${base + 2}::jsonb, $${base + 3}::integer)`
+      `($${base + 1}, $${base + 2}::integer, $${base + 3}::jsonb, $${base + 4}::jsonb)`
     );
-    params.push(item.videoId, JSON.stringify(item.detail), item.contentVersion);
+    params.push(
+      item.videoId,
+      item.contentVersion,
+      JSON.stringify({
+        status: 'completed',
+        progress: 100,
+        retryCount: 0,
+        detail: item.detail,
+        lastError: null,
+      }),
+      JSON.stringify({ status: 'pending', error: null, retryCount: 0 })
+    );
   });
 
-  const query = `
-    UPDATE "Video" AS v
-    SET "transcriptionStatus" = 'completed',
-        "transcriptionProgress" = 100,
-        "contentVersion" = u.content_version,
-        "transcriptionDetail" = u.detail,
-        "chunkStatus" = 'pending',
-        "chunkError" = NULL,
-        "chunkRetryCount" = 0,
-        "lastTranscriptionError" = NULL,
-        "transcriptionRetryCount" = 0
-    FROM (VALUES ${valuePlaceholders.join(', ')}) AS u(id, detail, content_version)
-    WHERE v.id = u.id;
-  `;
+  await pool.query(
+    `INSERT INTO "VideoPipelineStatus" ("videoId", "contentVersion", "transcription", "chunk", "updatedAt")
+     VALUES ${valuePlaceholders.join(', ')}
+     ON CONFLICT ("videoId") DO UPDATE SET
+       "contentVersion" = EXCLUDED."contentVersion",
+       "transcription" = COALESCE("VideoPipelineStatus"."transcription", '{}'::jsonb) || EXCLUDED."transcription",
+       "chunk" = COALESCE("VideoPipelineStatus"."chunk", '{}'::jsonb) || EXCLUDED."chunk",
+       "updatedAt" = CURRENT_TIMESTAMP`,
+    params
+  );
 
-  const res = await pool.query(query, params);
-  return res.rowCount ?? 0;
+  return items.length;
 }
 
 export async function batchMarkSkipped(
@@ -407,32 +437,40 @@ export async function batchMarkSkipped(
   const params: any[] = [];
 
   items.forEach((item, idx) => {
-    const base = idx * 3;
-    const detail = JSON.stringify({
+    const base = idx * 4;
+    const detail = {
       skipped: true,
       reason: item.reason,
       channelLanguage: item.channelLanguage,
-    });
-    valuePlaceholders.push(`($${base + 1}, $${base + 2}::jsonb, $${base + 3}::integer)`);
-    params.push(item.videoId, detail, item.contentVersion);
+    };
+    valuePlaceholders.push(
+      `($${base + 1}, $${base + 2}::integer, $${base + 3}::jsonb, $${base + 4}::jsonb)`
+    );
+    params.push(
+      item.videoId,
+      item.contentVersion,
+      JSON.stringify({
+        status: 'completed',
+        progress: 100,
+        retryCount: 0,
+        detail,
+        lastError: null,
+      }),
+      JSON.stringify({ status: 'pending', error: null, retryCount: 0 })
+    );
   });
 
-  const query = `
-    UPDATE "Video" AS v
-    SET "transcriptionStatus" = 'completed',
-        "transcriptionProgress" = 100,
-        "transcriptionDetail" = u.detail,
-        "contentVersion" = u.content_version,
-        "chunkStatus" = 'pending',
-        "chunkError" = NULL,
-        "chunkRetryCount" = 0,
-        "lastTranscriptionError" = NULL,
-        "transcriptionRetryCount" = 0
-    FROM (VALUES ${valuePlaceholders.join(', ')}) AS u(id, detail, content_version)
-    WHERE v.id = u.id;
-  `;
+  await pool.query(
+    `INSERT INTO "VideoPipelineStatus" ("videoId", "contentVersion", "transcription", "chunk", "updatedAt")
+     VALUES ${valuePlaceholders.join(', ')}
+     ON CONFLICT ("videoId") DO UPDATE SET
+       "contentVersion" = EXCLUDED."contentVersion",
+       "transcription" = COALESCE("VideoPipelineStatus"."transcription", '{}'::jsonb) || EXCLUDED."transcription",
+       "chunk" = COALESCE("VideoPipelineStatus"."chunk", '{}'::jsonb) || EXCLUDED."chunk",
+       "updatedAt" = CURRENT_TIMESTAMP`,
+    params
+  );
 
-  const res = await pool.query(query, params);
-  return res.rowCount ?? 0;
+  return items.length;
 }
 

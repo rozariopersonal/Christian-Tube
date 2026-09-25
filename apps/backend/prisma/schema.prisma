@@ -12,13 +12,6 @@ enum VideoType {
   SHORT
 }
 
-enum TranscriptionStatus {
-  pending
-  processing
-  completed
-  failed
-}
-
 model Video {
   id                     String              @id // YouTube Video ID
   type                   VideoType           @default(VIDEO)
@@ -36,19 +29,6 @@ model Video {
   category               String?
   metadata               Json?
 
-  transcriptionStatus    TranscriptionStatus @default(pending)
-  transcriptionProgress  Int?
-  transcriptionRetryCount Int                @default(0)
-  transcriptionDetail    Json?
-  lastTranscriptionError String?
-  contentVersion         Int?                @default(0)
-
-  embeddingStatus        String?             @default("pending")
-  embeddingVersion       Int?                @default(0)
-  embeddingHash          String?
-  embeddingError         String?
-  embeddingRetryCount    Int?                @default(0)
-
   // Creator & Clipping Metadata
   creatorUserId          String?
   creatorName            String?
@@ -61,9 +41,6 @@ model Video {
 
   // Audio Extraction Metadata
   audioUrl               String?
-  audioUploadStatus      String?
-  audioRetryCount        Int?                @default(0)
-  audioLastError         String?
 
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
@@ -71,6 +48,7 @@ model Video {
   channel                Channel?            @relation(fields: [channelId], references: [id])
   videoEmbedding         VideoEmbedding?
   transcription          Transcription?
+  pipelineStatus         VideoPipelineStatus?
   videoChunks            VideoChunk[]
   videoIdeas             VideoIdea[]
   videoSentences         VideoSentence[]
@@ -83,8 +61,25 @@ model Video {
   @@index([sourceVideoId])
   @@index([type, publishedAt(sort: Desc)])
   @@index([channelId, type, publishedAt(sort: Desc)])
-  @@index([embeddingStatus])
-  @@index([transcriptionStatus])
+}
+
+/// Per-video pipeline status. One row per video; each worker owns a JSONB
+/// column (ingest / transcription / chunk / embedding) and upserts it lazily,
+/// so an absent row simply means "everything pending". `contentVersion` is a
+/// typed shared column written by the transcriber and the chunker.
+model VideoPipelineStatus {
+  videoId       String   @id
+  contentVersion Int     @default(0)
+  ingest        Json?    @db.JsonB
+  transcription Json?    @db.JsonB
+  chunk         Json?    @db.JsonB
+  embedding     Json?    @db.JsonB
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  video         Video    @relation(fields: [videoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("VideoPipelineStatus")
 }
 
 model VideoEmbedding {

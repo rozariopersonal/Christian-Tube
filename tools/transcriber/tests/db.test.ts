@@ -14,7 +14,7 @@ function mockPool() {
     calls,
     async query(sql: string, params?: any[]) {
       calls.push({ sql, params });
-      return { rowCount: params ? params.length / 3 : 0, rows: [] };
+      return { rowCount: 1, rows: [] };
     },
   };
 }
@@ -59,7 +59,7 @@ describe('transcriptionRowFromItem', () => {
 });
 
 describe('batchMarkCompleted', () => {
-  it('writes transcription rows and updates Video status without touching content', async () => {
+  it('writes transcription rows and upserts per-video pipeline status', async () => {
     const pool: any = mockPool();
     const items: BatchCompletedItem[] = [
       {
@@ -89,11 +89,20 @@ describe('batchMarkCompleted', () => {
       'vid2', 't2', 'parakeet', 3, null, null, null,
     ]);
 
-    // Second call: Video status update must not write the content column
-    const update = pool.calls[1];
-    assert.match(update.sql, /UPDATE "Video"/);
-    assert.ok(!/"content"\s*=/.test(update.sql), 'Video status update must not write content');
-    assert.ok(update.sql.includes('"transcriptionStatus"'));
+    // Second call: VideoPipelineStatus upsert covering transcription + chunk + contentVersion
+    const status = pool.calls[1];
+    assert.match(status.sql, /INSERT INTO "VideoPipelineStatus"/);
+    assert.match(status.sql, /ON CONFLICT \("videoId"\)/);
+    assert.match(status.sql, /"contentVersion" = EXCLUDED."contentVersion"/);
+    assert.match(status.sql, /"transcription" = COALESCE/);
+    assert.deepEqual(status.params.slice(0), [
+      'vid1', 3,
+      JSON.stringify({ status: 'completed', progress: 100, retryCount: 0, detail: { source: 'parakeet' }, lastError: null }),
+      JSON.stringify({ status: 'pending', error: null, retryCount: 0 }),
+      'vid2', 3,
+      JSON.stringify({ status: 'completed', progress: 100, retryCount: 0, detail: { source: 'parakeet' }, lastError: null }),
+      JSON.stringify({ status: 'pending', error: null, retryCount: 0 }),
+    ]);
   });
 });
 
@@ -107,14 +116,21 @@ describe('batchMarkSkipped', () => {
     const n = await batchMarkSkipped(pool, items);
     assert.equal(n, 1);
     assert.equal(pool.calls.length, 1);
-    const update = pool.calls[0];
-    assert.match(update.sql, /UPDATE "Video"/);
-    assert.ok(!/"content"\s*=/.test(update.sql), 'skipped update must not write content column');
-    assert.equal(update.params[1], JSON.stringify({
-      skipped: true,
-      reason: 'non-english',
-      channelLanguage: 'Tamil',
-    }));
+    const status = pool.calls[0];
+    assert.match(status.sql, /INSERT INTO "VideoPipelineStatus"/);
+    assert.ok(!/"content"\s*=/.test(status.sql), 'skipped update must not write content column');
+    assert.equal(status.params[1], 3);
+    assert.deepEqual(JSON.parse(status.params[2]), {
+      status: 'completed',
+      progress: 100,
+      retryCount: 0,
+      detail: {
+        skipped: true,
+        reason: 'non-english',
+        channelLanguage: 'Tamil',
+      },
+      lastError: null,
+    });
   });
 });
 

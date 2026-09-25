@@ -231,10 +231,12 @@ export class EmbeddingService {
     if (!this.enabled) return;
     try {
       const result = await this.prisma.$executeRawUnsafe(
-        `UPDATE "Video"
-         SET "embeddingStatus" = 'pending', "embeddingError" = NULL
-         WHERE "embeddingStatus" = 'completed'
-           AND ("embeddingVersion" IS NULL OR "embeddingVersion" <> $1)`,
+        `UPDATE "VideoPipelineStatus"
+         SET "embedding" = (COALESCE("embedding", '{}'::jsonb) - 'error' - 'hash')
+                          || jsonb_build_object('status', 'pending', 'version', $1),
+             "updatedAt" = CURRENT_TIMESTAMP
+         WHERE "embedding"->>'status' = 'completed'
+           AND ("embedding"->>'version' IS NULL OR NULLIF("embedding"->>'version', '')::integer <> $1)`,
         this.version,
       );
       if (result > 0) {
