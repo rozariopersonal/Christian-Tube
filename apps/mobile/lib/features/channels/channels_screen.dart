@@ -9,6 +9,13 @@ import '../auth/auth_service.dart';
 import 'channel_service.dart';
 import 'channel_detail_screen.dart';
 
+/// Fixed tile height for the channels grid.
+///
+/// [ChannelCard] lays out a banner, an overlapping avatar, title, metadata and
+/// a footer action, so the extent has to clear the tallest of those at the
+/// default text scale. Below ~280 the description is silently clipped.
+const double kChannelCardGridExtent = 300;
+
 class ChannelsScreen extends StatefulWidget {
   const ChannelsScreen({super.key});
 
@@ -202,7 +209,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            mainAxisExtent: 260,
+            mainAxisExtent: kChannelCardGridExtent,
           ),
           itemCount: channels.length,
           itemBuilder: (context, index) {

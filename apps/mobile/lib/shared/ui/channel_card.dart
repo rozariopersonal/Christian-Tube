@@ -73,8 +73,8 @@ class ChannelCard extends StatelessWidget {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.3),
+                            context.tokens.scrim.withValues(alpha: 0),
+                            context.tokens.scrim.withValues(alpha: 0.3),
                           ],
                         ),
                       ),
@@ -115,7 +115,8 @@ class ChannelCard extends StatelessWidget {
             const SizedBox(height: 24), // Space for avatar overlap
             // Body
             Expanded(
-              child: Padding(
+              child: SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
