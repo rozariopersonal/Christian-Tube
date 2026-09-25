@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/models/channel_request.dart';
-import '../../core/utils/formatters.dart';
 import '../../core/theme/app_tokens.dart';
-import '../../shared/ui/channel_avatar.dart';
+import '../../shared/ui/channel_card.dart';
 import '../auth/auth_service.dart';
 import 'channel_service.dart';
 import 'channel_detail_screen.dart';
@@ -189,112 +189,93 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
       );
     }
 
+    final screenClass = ScreenClass.of(context);
+    final isCompact = screenClass == ScreenClass.compact;
+    final crossAxisCount = isCompact ? 1 : (screenClass == ScreenClass.medium ? 2 : 3);
+
     return RefreshIndicator(
       onRefresh: () async => _channelService.fetchChannels(),
       child: MaxWidthBox(
-        child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: channels.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final ch = channels[index];
-          final isSubscribed = ch.isSubscribed;
+        child: GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            mainAxisExtent: 260,
+          ),
+          itemCount: channels.length,
+          itemBuilder: (context, index) {
+            final ch = channels[index];
+            final isSubscribed = ch.isSubscribed;
 
-          return InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChannelDetailScreen(channelId: ch.id),
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: context.tokens.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: context.tokens.surfaceBorder,
-                ),
+            final subscribeButton = ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSubscribed
+                    ? context.tokens.surfaceVariant
+                    : Theme.of(context).colorScheme.primary,
+                foregroundColor: isSubscribed
+                    ? context.tokens.onSurfaceMuted
+                    : Theme.of(context).colorScheme.onPrimary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               ),
-              child: Row(
-              children: [
-                ChannelAvatar(
-                  avatarUrl: ch.avatarUrl,
-                  channelTitle: ch.name,
-                  radius: 26,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              onPressed: () => _channelService.toggleSubscribe(ch.id),
+              icon: Icon(
+                isSubscribed ? Icons.notifications_active : Icons.add,
+                size: 16,
+              ),
+              label: Text(
+                isSubscribed ? 'Subscribed' : 'Subscribe',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            );
+
+            final adminMenu = isAdmin ? PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onSelected: (val) {
+                if (val == 'delete') {
+                  _confirmDeleteChannel(context, ch.id, ch.name);
+                }
+              },
+              itemBuilder: (ctx) => [
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
                     children: [
-                      Text(
-                        ch.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${Formatters.formatSubscribers(ch.subscriberCount)} subscribers • ${ch.videoCount} videos',
-                        style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
-                      ),
+                      Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Remove Channel', style: TextStyle(color: Theme.of(context).colorScheme.error)),
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isSubscribed
-                        ? context.tokens.surfaceVariant
-                        : Theme.of(context).colorScheme.primary,
-                    foregroundColor: isSubscribed
-                        ? context.tokens.onSurfaceMuted
-                        : Theme.of(context).colorScheme.onPrimary,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              ],
+            ) : null;
+
+            return ChannelCard(
+              title: ch.name,
+              description: ch.description,
+              avatarUrl: ch.avatarUrl,
+              bannerUrl: ch.bannerUrl,
+              subscriberCount: ch.subscriberCount,
+              videoCount: ch.videoCount,
+              language: ch.language,
+              isCompact: isCompact,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChannelDetailScreen(channelId: ch.id),
                   ),
-                  onPressed: () => _channelService.toggleSubscribe(ch.id),
-                  icon: Icon(
-                    isSubscribed ? Icons.notifications_active : Icons.add,
-                    size: 16,
-                  ),
-                  label: Text(
-                    isSubscribed ? 'Subscribed' : 'Subscribe',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                if (isAdmin) ...[
-                  const SizedBox(width: 4),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onSelected: (val) {
-                      if (val == 'delete') {
-                        _confirmDeleteChannel(context, ch.id, ch.name);
-                      }
-                    },
-                    itemBuilder: (ctx) => [
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 20),
-                            const SizedBox(width: 8),
-                            Text('Remove Channel', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ], // closes isAdmin
-              ], // closes Row children
-            ), // closes Row
-          ), // closes Container
-        ); // closes InkWell
-        },
+                );
+              },
+              actionButton: subscribeButton,
+              trailingMenu: adminMenu,
+            );
+          },
         ),
       ),
     );
@@ -657,28 +638,35 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
                       ),
                     )
                   : ListView.separated(
+                      padding: const EdgeInsets.only(top: 8),
                       itemCount: _searchResults.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, idx) {
                         final r = _searchResults[idx];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: r['thumbnail'] != null ? NetworkImage(r['thumbnail']) : null,
-                            child: r['thumbnail'] == null ? const Icon(Icons.tv) : null,
-                          ),
-                          title: Text(r['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          subtitle: Text(
-                            r['handle'] != null ? '${r['handle']}' : (r['description'] != null ? '${r['description']}' : 'YouTube Channel'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          trailing: ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              widget.onAddDirect(r['id'] ?? '', r['name'] ?? '');
-                            },
-                            child: const Text('Add'),
+                        int subs = 0;
+                        if (r['subscriberCount'] != null) {
+                          subs = int.tryParse(r['subscriberCount'].toString()) ?? 0;
+                        }
+                        
+                        return SizedBox(
+                          height: 250,
+                          child: ChannelCard(
+                            title: r['name'] ?? 'Unknown Channel',
+                            description: r['description'],
+                            avatarUrl: r['thumbnail'] ?? '',
+                            subscriberCount: subs,
+                            isCompact: true,
+                            actionButton: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                              ),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                widget.onAddDirect(r['id'] ?? '', r['name'] ?? '');
+                              },
+                              child: const Text('Add to Instance'),
+                            ),
                           ),
                         );
                       },
@@ -783,26 +771,35 @@ class _RequestChannelBottomSheetState extends State<_RequestChannelBottomSheet> 
                         ),
                       )
                     : ListView.separated(
+                        padding: const EdgeInsets.only(top: 8),
                         itemCount: _searchResults.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (context, idx) {
                           final r = _searchResults[idx];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundImage: r['thumbnail'] != null ? NetworkImage(r['thumbnail']) : null,
-                              child: r['thumbnail'] == null ? const Icon(Icons.tv) : null,
-                            ),
-                            title: Text(r['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            subtitle: Text(
-                              '${Formatters.formatSubscribers(r['subscriberCount'])} subs',
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            trailing: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                widget.onSubmitRequest(r['id'] ?? '', r['name'] ?? '');
-                              },
-                              child: const Text('Request'),
+                          int subs = 0;
+                          if (r['subscriberCount'] != null) {
+                            subs = int.tryParse(r['subscriberCount'].toString()) ?? 0;
+                          }
+                          
+                          return SizedBox(
+                            height: 250,
+                            child: ChannelCard(
+                              title: r['name'] ?? 'Unknown Channel',
+                              description: r['description'],
+                              avatarUrl: r['thumbnail'] ?? '',
+                              subscriberCount: subs,
+                              isCompact: true,
+                              actionButton: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                ),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  widget.onSubmitRequest(r['id'] ?? '', r['name'] ?? '');
+                                },
+                                child: const Text('Request Channel'),
+                              ),
                             ),
                           );
                         },
