@@ -59,26 +59,26 @@ class SongShelf extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(
-          height: 132,
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: songs.length,
-            itemBuilder: (context, index) {
-              final song = songs[index];
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: SizedBox(
-                  width: 220,
-                  child: _SongShelfTile(
-                    song: song,
-                    tokens: tokens,
-                    onTap: () => onTapSong(song),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: songs.map((song) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: SizedBox(
+                    width: 220,
+                    child: _SongShelfTile(
+                      song: song,
+                      tokens: tokens,
+                      onTap: () => onTapSong(song),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              }).toList(),
+            ),
           ),
         ),
       ],
