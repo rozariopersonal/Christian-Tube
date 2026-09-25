@@ -178,6 +178,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
     final tokens = theme.extension<AppTokens>();
     final currentPath = GoRouterState.of(context).uri.path;
     final selectedIndex = _getSelectedIndex(currentPath);
+    final isAudioPage = currentPath.startsWith('/audio');
 
     return ShellBackHandler(
       path: currentPath,
@@ -208,7 +209,11 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
                     const FloatingFeedbackButton(),
                   ],
                 ),
-                bottomNavigationBar: _buildBottomBar(isDark, selectedIndex),
+                bottomNavigationBar: _buildBottomBar(
+                  isDark,
+                  selectedIndex,
+                  isAudioPage: isAudioPage,
+                ),
               );
             case AppNavMode.rail:
               return Scaffold(
@@ -233,7 +238,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
                               ],
                             ),
                           ),
-                          if (_isAudioTabEnabled)
+                          if (_isAudioTabEnabled && isAudioPage)
                             ListenableBuilder(
                               listenable: AudioPlayerController.instance,
                               builder: (context, _) {
@@ -260,7 +265,11 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
     );
   }
 
-  Widget _buildBottomBar(bool isDark, int selectedIndex) {
+  Widget _buildBottomBar(
+    bool isDark,
+    int selectedIndex, {
+    required bool isAudioPage,
+  }) {
     final tokens = Theme.of(context).extension<AppTokens>() ??
         (isDark ? AppTokens.dark : AppTokens.light);
     return ListenableBuilder(
@@ -271,6 +280,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_isAudioTabEnabled &&
+                isAudioPage &&
                 state.isMiniPlayerVisible &&
                 state.hasTrack)
               MiniAudioPlayer(state: state),

@@ -140,7 +140,8 @@ class AudioSearchDelegate extends SearchDelegate<AudioSeries?> {
             ),
             title: Text(
               s.title,
-              maxLines: 1,
+              maxLines: 2,
+              softWrap: true,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
