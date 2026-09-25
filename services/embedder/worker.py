@@ -135,14 +135,25 @@ class Database:
 
         try:
             self.cur.execute("""
-                ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingStatus" TEXT DEFAULT 'pending';
-                ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingVersion" INTEGER DEFAULT 0;
-                ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingHash" TEXT;
-                ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingError" TEXT;
-                ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "embeddingRetryCount" INTEGER DEFAULT 0;
+                CREATE TABLE IF NOT EXISTS "VideoPipelineStatus" (
+                  "videoId" TEXT NOT NULL PRIMARY KEY,
+                  "contentVersion" INTEGER NOT NULL DEFAULT 0,
+                  "ingest" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "transcription" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "chunk" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "embedding" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  CONSTRAINT "VideoPipelineStatus_videoId_fkey"
+                    FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+                    ON DELETE CASCADE ON UPDATE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS "VideoPipelineStatus_embedding_status_idx"
+                  ON "VideoPipelineStatus" ((embedding->>'status'))
+                  WHERE embedding->>'status' IN ('pending', 'failed');
             """)
         except Exception as e:
-            log.warning("Ensure Video embedding columns note: %s", e)
+            log.warning("Ensure VideoPipelineStatus table note: %s", e)
 
         try:
             self.cur.execute(f"""
@@ -215,8 +226,10 @@ class Database:
     def release_stale_processing(self):
         try:
             self.cur.execute(
-                """UPDATE "Video" SET "embeddingStatus"='pending'
-                   WHERE "embeddingStatus"='processing'"""
+                """UPDATE "VideoPipelineStatus"
+                   SET "embedding" = COALESCE("embedding", '{}'::jsonb) || '{"status":"pending"}'::jsonb,
+                       "updatedAt" = CURRENT_TIMESTAMP
+                   WHERE "embedding"->>'status' = 'processing'"""
             )
         except Exception:
             pass
@@ -226,13 +239,19 @@ class Database:
         a table wipe) are re-queued so the backfill repairs coverage."""
         try:
             self.cur.execute(
-                """UPDATE "Video" SET "embeddingStatus"='pending',
-                        "embeddingError"=NULL, "embeddingHash"=NULL
-                   WHERE "embeddingStatus"='completed'
+                """INSERT INTO "VideoPipelineStatus" ("videoId", "embedding", "updatedAt")
+                   SELECT v.id, jsonb_build_object('status', 'pending'), CURRENT_TIMESTAMP
+                   FROM "Video" v
+                   LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
+                   WHERE COALESCE(s.embedding->>'status', 'pending') = 'completed'
                      AND NOT EXISTS (
                        SELECT 1 FROM "VideoEmbedding" ve
-                       WHERE ve."videoId" = "Video"."id"
-                     )"""
+                       WHERE ve."videoId" = v.id
+                     )
+                   ON CONFLICT ("videoId") DO UPDATE SET
+                     "embedding" = COALESCE("VideoPipelineStatus"."embedding", '{}'::jsonb)
+                                    || '{"status":"pending","error":null,"hash":null}'::jsonb,
+                     "updatedAt" = CURRENT_TIMESTAMP"""
             )
         except Exception as e:
             log.warning("Orphaned-completed requeue note: %s", e)
@@ -248,13 +267,16 @@ class Database:
         params: list = list(statuses)
         retry_clause = ""
         if cfg.retry_failed and "failed" in statuses:
-            retry_clause = ' AND ("embeddingRetryCount" IS NULL OR "embeddingRetryCount" < %s)'
+            retry_clause = (" AND (NULLIF(s.embedding->>'retryCount', '')::integer IS NULL"
+                            "   OR NULLIF(s.embedding->>'retryCount', '')::integer < %s)")
             params.append(cfg.max_retries)
 
         query = f"""
             SELECT v.id, v.title, v.description
             FROM "Video" v
-            WHERE ("embeddingStatus" IS NULL OR "embeddingStatus" IN ({ph}))
+            LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
+            WHERE (COALESCE(s.embedding->>'status', 'pending') IS NULL
+                   OR COALESCE(s.embedding->>'status', 'pending') IN ({ph}))
             {retry_clause}
             ORDER BY v."publishedAt" DESC
             LIMIT %s
@@ -265,9 +287,12 @@ class Database:
 
     def mark_processing(self, video_id: str):
         self.cur.execute(
-            """UPDATE "Video" SET "embeddingStatus"='processing', "embeddingError"=NULL
-               WHERE "id"=%s""",
-            (video_id,),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "embedding", "updatedAt")
+               VALUES (%s, %s::jsonb, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "embedding" = COALESCE("VideoPipelineStatus"."embedding", '{}'::jsonb) || EXCLUDED."embedding",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, json.dumps({"status": "processing", "error": None})),
         )
 
     def upsert_embedding(self, video_id: str, vector: list, model: str, version: int):
@@ -286,24 +311,31 @@ class Database:
 
     def mark_completed(self, video_id: str, version: int, digest: str):
         self.cur.execute(
-            """UPDATE "Video"
-               SET "embeddingStatus"='completed',
-                   "embeddingVersion"=%s,
-                   "embeddingHash"=%s,
-                   "embeddingRetryCount"=0,
-                   "embeddingError"=NULL
-               WHERE "id"=%s""",
-            (version, digest, video_id),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "embedding", "updatedAt")
+               VALUES (%s, %s::jsonb, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "embedding" = COALESCE("VideoPipelineStatus"."embedding", '{}'::jsonb) || EXCLUDED."embedding",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, json.dumps({
+                "status": "completed",
+                "version": version,
+                "hash": digest,
+                "retryCount": 0,
+                "error": None,
+            })),
         )
 
     def mark_failed(self, video_id: str, error: str):
         self.cur.execute(
-            """UPDATE "Video"
-               SET "embeddingStatus"='failed',
-                   "embeddingError"=%s,
-                   "embeddingRetryCount"=COALESCE("embeddingRetryCount",0)+1
-               WHERE "id"=%s""",
-            (error[:500], video_id),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "embedding", "updatedAt")
+               VALUES (%s, jsonb_build_object('status', 'failed', 'error', %s, 'retryCount', 1), CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "embedding" = jsonb_build_object(
+                   'status', 'failed',
+                   'error', %s,
+                   'retryCount', COALESCE(NULLIF("VideoPipelineStatus"."embedding"->>'retryCount', '')::integer, 0) + 1),
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, error[:500], error[:500]),
         )
 
     # ------------------------------------------------------------------ #
@@ -488,7 +520,11 @@ def process_video(db: Database, cfg: Config, row) -> None:
     digest = content_hash(title, description)
 
     if cfg.redo:
-        db.cur.execute('SELECT "embeddingStatus", "embeddingHash" FROM "Video" WHERE "id"=%s', (video_id,))
+        db.cur.execute(
+            'SELECT "embedding"->>\'status\' AS status, "embedding"->>\'hash\' AS hash '
+            'FROM "VideoPipelineStatus" WHERE "videoId"=%s',
+            (video_id,),
+        )
         existing = db.cur.fetchone()
         if existing and existing[0] == "completed" and existing[1] == digest:
             return

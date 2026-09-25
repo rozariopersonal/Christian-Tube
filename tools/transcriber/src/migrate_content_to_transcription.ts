@@ -107,21 +107,24 @@ async function main() {
     )
   `);
 
-  // 2. Backfill non-empty content (millions of rows in one statement)
+  // 2. Backfill non-empty content (millions of rows in one statement).
+  //    Reads metadata from VideoPipelineStatus.transcription->'detail' (the
+  //    status-table migration runs first and drops the Video columns).
   const backfill = await pool.query(`
     INSERT INTO "Transcription" ("videoId", "content", "source", "contentVersion", "wordCount", "segmentCount", "maxSec", "createdAt", "updatedAt")
     SELECT
       v.id,
       v."content",
-      CASE WHEN v."transcriptionDetail"->>'source' IS NOT NULL THEN v."transcriptionDetail"->>'source'
+      CASE WHEN s.transcription->'detail'->>'source' IS NOT NULL THEN s.transcription->'detail'->>'source'
            ELSE 'parakeet' END,
-      COALESCE(v."contentVersion", 0),
-      NULLIF(v."transcriptionDetail"->>'wordCount', '')::int,
-      NULLIF(v."transcriptionDetail"->>'segmentCount', '')::int,
-      NULLIF(v."transcriptionDetail"->>'maxSec', '')::float,
+      COALESCE(s."contentVersion", 0),
+      NULLIF(s.transcription->'detail'->>'wordCount', '')::int,
+      NULLIF(s.transcription->'detail'->>'segmentCount', '')::int,
+      NULLIF(s.transcription->'detail'->>'maxSec', '')::float,
       CURRENT_TIMESTAMP,
       CURRENT_TIMESTAMP
     FROM "Video" v
+    LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
     WHERE v."content" IS NOT NULL AND length(v."content") > 0
     ON CONFLICT ("videoId") DO UPDATE SET
       "content" = EXCLUDED."content",

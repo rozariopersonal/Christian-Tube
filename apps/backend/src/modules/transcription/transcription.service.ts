@@ -31,11 +31,14 @@ export class TranscriptionService {
   async processPendingTranscriptions() {
     if (!this.enabled || !this.genAI) return;
 
-    const pendingVideos = await this.prisma.video.findMany({
-      where: { transcriptionStatus: 'pending' },
-      take: 2,
-      orderBy: { createdAt: 'desc' },
-    });
+    const pendingVideos = (await this.prisma.$queryRawUnsafe(`
+      SELECT v.id, v.title, v.description
+      FROM "Video" v
+      LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
+      WHERE COALESCE(s.transcription->>'status', 'pending') = 'pending'
+      ORDER BY v."createdAt" DESC
+      LIMIT 2
+    `)) as { id: string; title: string; description: string }[];
 
     if (!pendingVideos.length) return;
 
@@ -43,10 +46,15 @@ export class TranscriptionService {
 
     for (const video of pendingVideos) {
       try {
-        await this.prisma.video.update({
-          where: { id: video.id },
-          data: { transcriptionStatus: 'processing' },
-        });
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO "VideoPipelineStatus" ("videoId", "transcription", "updatedAt")
+           VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
+           ON CONFLICT ("videoId") DO UPDATE SET
+             "transcription" = COALESCE("VideoPipelineStatus"."transcription", '{}'::jsonb) || EXCLUDED."transcription",
+             "updatedAt" = CURRENT_TIMESTAMP`,
+          video.id,
+          JSON.stringify({ status: 'processing', progress: 5, lastError: null }),
+        );
 
         const model = this.genAI.getGenerativeModel({ model: this.modelName });
         const prompt = `Analyze this video titled "${video.title}" with description: "${video.description}". 
@@ -83,25 +91,39 @@ Provide a structured summary with:
           },
         });
 
-        await this.prisma.video.update({
-          where: { id: video.id },
-          data: {
-            transcriptionStatus: 'completed',
-            transcriptionProgress: 100,
-          },
-        });
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO "VideoPipelineStatus" ("videoId", "transcription", "chunk", "updatedAt")
+           VALUES ($1, $2::jsonb, $3::jsonb, CURRENT_TIMESTAMP)
+           ON CONFLICT ("videoId") DO UPDATE SET
+             "transcription" = COALESCE("VideoPipelineStatus"."transcription", '{}'::jsonb) || EXCLUDED."transcription",
+             "chunk" = COALESCE("VideoPipelineStatus"."chunk", '{}'::jsonb) || EXCLUDED."chunk",
+             "updatedAt" = CURRENT_TIMESTAMP`,
+          video.id,
+          JSON.stringify({
+            status: 'completed',
+            progress: 100,
+            retryCount: 0,
+            detail: { source: 'gemini' },
+            lastError: null,
+          }),
+          JSON.stringify({ status: 'pending', error: null, retryCount: 0 }),
+        );
 
         this.logger.log(`Transcription completed for video: ${video.id}`);
       } catch (err: any) {
         this.logger.error(`Failed to transcribe video ${video.id}: ${err.message}`);
-        await this.prisma.video.update({
-          where: { id: video.id },
-          data: {
-            transcriptionStatus: 'failed',
-            lastTranscriptionError: err.message,
-            transcriptionRetryCount: { increment: 1 },
-          },
-        });
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO "VideoPipelineStatus" ("videoId", "transcription", "updatedAt")
+           VALUES ($1, jsonb_build_object('status', 'failed', 'lastError', $2, 'retryCount', 1), CURRENT_TIMESTAMP)
+           ON CONFLICT ("videoId") DO UPDATE SET
+             "transcription" = jsonb_build_object(
+               'status', 'failed',
+               'lastError', $2,
+               'retryCount', COALESCE(NULLIF("VideoPipelineStatus"."transcription"->>'retryCount', '')::integer, 0) + 1),
+             "updatedAt" = CURRENT_TIMESTAMP`,
+          video.id,
+          err.message,
+        );
       }
     }
   }

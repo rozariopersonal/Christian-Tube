@@ -468,7 +468,6 @@ export class VideosService {
         clipEndTime: true,
         cropOffsetX: true,
         audioUrl: true,
-        audioUploadStatus: true,
         createdAt: true,
         updatedAt: true,
         channel: true,
@@ -617,8 +616,6 @@ export class VideosService {
           parsedMeta.cropOffsetX != null ? Number(parsedMeta.cropOffsetX) : 0.0,
         clippedAt: new Date(),
         category: body.category || "General",
-        embeddingStatus: "pending",
-        embeddingHash: null,
       },
       create: {
         id: videoId,
@@ -650,6 +647,17 @@ export class VideosService {
         category: body.category || "General",
       },
     });
+
+    // Re-queue embedding for existing videos (new rows default to pending)
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO "VideoPipelineStatus" ("videoId", "embedding", "updatedAt")
+       VALUES ($1, jsonb_build_object('status', 'pending', 'error', NULL, 'hash', NULL), CURRENT_TIMESTAMP)
+       ON CONFLICT ("videoId") DO UPDATE SET
+         "embedding" = COALESCE("VideoPipelineStatus"."embedding", '{}'::jsonb)
+                        || jsonb_build_object('status', 'pending', 'error', NULL, 'hash', NULL),
+         "updatedAt" = CURRENT_TIMESTAMP`,
+      savedVideo.id,
+    );
 
     this.logger.log(
       `Short imported and published: ${savedVideo.id} - "${savedVideo.title}"`,

@@ -58,8 +58,20 @@ class Database:
     def ensure_schema(self):
         steps = [
             (
-                "contentVersion column",
-                'ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0',
+                "VideoPipelineStatus table",
+                """CREATE TABLE IF NOT EXISTS "VideoPipelineStatus" (
+                     "videoId" TEXT NOT NULL PRIMARY KEY,
+                     "contentVersion" INTEGER NOT NULL DEFAULT 0,
+                     "ingest" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                     "transcription" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                     "chunk" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                     "embedding" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                     CONSTRAINT "VideoPipelineStatus_videoId_fkey"
+                       FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+                       ON DELETE CASCADE ON UPDATE CASCADE
+                   );""",
             ),
             (
                 "Transcription table",
@@ -90,8 +102,10 @@ class Database:
     def release_stale_processing(self):
         try:
             self.cur.execute(
-                """UPDATE "Video" SET "transcriptionStatus"='pending'
-                   WHERE "transcriptionStatus"='processing'"""
+                """UPDATE "VideoPipelineStatus"
+                   SET "transcription" = COALESCE("transcription", '{}'::jsonb) || '{"status":"pending"}'::jsonb,
+                       "updatedAt" = CURRENT_TIMESTAMP
+                   WHERE "transcription"->>'status' = 'processing'"""
             )
             if self.cur.rowcount:
                 log.info("  released %d stale 'processing' row(s)", self.cur.rowcount)
@@ -103,15 +117,16 @@ class Database:
             """SELECT v.id, v.title, v.description, v."audioUrl", v.duration
                FROM "Video" v
                JOIN "Channel" c ON c.id = v."channelId"
+               LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
                WHERE c."isActive" = true
                  AND c.language = 'English'
                  AND v.type = 'VIDEO'
-                 AND v."audioUploadStatus" = 'completed'
+                 AND COALESCE(s.ingest->>'status', 'pending') = 'completed'
                  AND v."audioUrl" IS NOT NULL
-                 AND (v."transcriptionStatus" IS NULL
-                      OR v."transcriptionStatus" IN ('pending', 'failed'))
-                 AND (v."transcriptionRetryCount" IS NULL
-                      OR v."transcriptionRetryCount" < %s)
+                 AND (COALESCE(s.transcription->>'status', 'pending') IS NULL
+                      OR COALESCE(s.transcription->>'status', 'pending') IN ('pending', 'failed'))
+                 AND (NULLIF(s.transcription->>'retryCount', '')::integer IS NULL
+                      OR NULLIF(s.transcription->>'retryCount', '')::integer < %s)
                ORDER BY
                  CASE WHEN v."channelId" = ANY(%s::text[]) THEN 0 ELSE 1 END,
                  v."publishedAt" DESC
@@ -122,10 +137,12 @@ class Database:
 
     def mark_processing(self, video_id: str):
         self.cur.execute(
-            """UPDATE "Video" SET "transcriptionStatus"='processing',
-                      "transcriptionProgress"=5, "lastTranscriptionError"=NULL
-               WHERE "id"=%s""",
-            (video_id,),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "transcription", "updatedAt")
+               VALUES (%s, %s::jsonb, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "transcription" = COALESCE("VideoPipelineStatus"."transcription", '{}'::jsonb) || EXCLUDED."transcription",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, json.dumps({"status": "processing", "progress": 5, "lastError": None})),
         )
 
     def mark_completed(self, video_id: str, transcript: str, source: str, max_sec: float, cfg: Config):
@@ -147,26 +164,29 @@ class Database:
             (video_id, transcript, source, cfg.content_version, round(max_sec, 2)),
         )
         self.cur.execute(
-            """UPDATE "Video" SET "transcriptionStatus"='completed',
-                      "transcriptionProgress"=100,
-                      "contentVersion"=%s,
-                      "transcriptionDetail"=%s,
-                      "chunkStatus"='pending',
-                      "chunkError"=NULL,
-                      "chunkRetryCount"=0,
-                      "lastTranscriptionError"=NULL,
-                      "transcriptionRetryCount"=0
-               WHERE "id"=%s""",
-            (cfg.content_version, json.dumps(detail), video_id),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "contentVersion", "transcription", "chunk", "updatedAt")
+               VALUES (%s, %s, %s::jsonb, %s::jsonb, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "contentVersion" = EXCLUDED."contentVersion",
+                 "transcription" = COALESCE("VideoPipelineStatus"."transcription", '{}'::jsonb) || EXCLUDED."transcription",
+                 "chunk" = COALESCE("VideoPipelineStatus"."chunk", '{}'::jsonb) || EXCLUDED."chunk",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, cfg.content_version,
+             json.dumps({"status": "completed", "progress": 100, "retryCount": 0, "detail": detail, "lastError": None}),
+             json.dumps({"status": "pending", "error": None, "retryCount": 0})),
         )
 
     def mark_failed(self, video_id: str, error: str):
         self.cur.execute(
-            """UPDATE "Video" SET "transcriptionStatus"='failed',
-                      "lastTranscriptionError"=%s,
-                      "transcriptionRetryCount"="transcriptionRetryCount"+1
-               WHERE "id"=%s""",
-            (error[:2000], video_id),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "transcription", "updatedAt")
+               VALUES (%s, jsonb_build_object('status', 'failed', 'lastError', %s, 'retryCount', 1), CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "transcription" = jsonb_build_object(
+                   'status', 'failed',
+                   'lastError', %s,
+                   'retryCount', COALESCE(NULLIF("VideoPipelineStatus"."transcription"->>'retryCount', '')::integer, 0) + 1),
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, error[:2000], error[:2000]),
         )
 
     def close(self):

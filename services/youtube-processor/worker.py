@@ -192,13 +192,23 @@ class Database:
             raise RuntimeError(f"Could not read eligible-videos SQL from {path}: {e}")
 
     def _ensure_schema(self) -> None:
-        """Ensure audioUrl and audioUploadStatus columns exist on Video."""
+        """Ensure audioUrl stays on Video and the shared pipeline status table exists."""
         try:
             self.cur.execute("""
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioUrl" TEXT;
-                ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioUploadStatus" TEXT DEFAULT 'pending';
-                ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioRetryCount" INT DEFAULT 0;
-                ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioLastError" TEXT;
+                CREATE TABLE IF NOT EXISTS "VideoPipelineStatus" (
+                  "videoId" TEXT NOT NULL PRIMARY KEY,
+                  "contentVersion" INTEGER NOT NULL DEFAULT 0,
+                  "ingest" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "transcription" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "chunk" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "embedding" JSONB NOT NULL DEFAULT '{}'::jsonb,
+                  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  CONSTRAINT "VideoPipelineStatus_videoId_fkey"
+                    FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+                    ON DELETE CASCADE ON UPDATE CASCADE
+                );
             """)
         except Exception as e:
             log.warning("Schema check note: %s", e)
@@ -227,7 +237,8 @@ class Database:
         params: list[Any] = list(statuses)
         retry_clause = ""
         if include_failed:
-            retry_clause = ' AND ("audioRetryCount" IS NULL OR "audioRetryCount" < %s)'
+            retry_clause = (" AND (NULLIF(s.ingest->>'retryCount', '')::integer IS NULL"
+                            "  OR NULLIF(s.ingest->>'retryCount', '')::integer < %s)")
             params.append(cfg.max_retries)
 
         # Channel name filter (--channels flag)
@@ -280,18 +291,26 @@ class Database:
 
     def mark_processing(self, video_id: str) -> None:
         self.cur.execute(
-            """UPDATE "Video"
-               SET "audioUploadStatus"='processing', "audioLastError"=NULL
-               WHERE "id"=%s""",
-            (video_id,),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "ingest", "updatedAt")
+               VALUES (%s, %s::jsonb, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "ingest" = COALESCE("VideoPipelineStatus"."ingest", '{}'::jsonb) || EXCLUDED."ingest",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, json.dumps({"status": "processing", "lastError": None})),
         )
 
     def mark_completed(self, video_id: str, audio_url: str) -> None:
         self.cur.execute(
-            """UPDATE "Video"
-               SET "audioUploadStatus"='completed', "audioUrl"=%s, "audioLastError"=NULL
-               WHERE "id"=%s""",
+            """UPDATE "Video" SET "audioUrl"=%s WHERE "id"=%s""",
             (audio_url, video_id),
+        )
+        self.cur.execute(
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "ingest", "updatedAt")
+               VALUES (%s, %s::jsonb, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "ingest" = COALESCE("VideoPipelineStatus"."ingest", '{}'::jsonb) || EXCLUDED."ingest",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, json.dumps({"status": "completed", "retryCount": 0, "lastError": None})),
         )
 
     def batch_mark_completed(self, items: list[tuple[str, str]]) -> None:
@@ -301,41 +320,60 @@ class Database:
         execute_values(
             self.cur,
             """UPDATE "Video" AS v
-               SET "audioUploadStatus"='completed',
-                   "audioUrl"=data.audio_url,
-                   "audioLastError"=NULL,
-                   "audioRetryCount"=0
+               SET "audioUrl"=data.audio_url
                FROM (VALUES %s) AS data(video_id, audio_url)
                WHERE v."id" = data.video_id""",
             items,
         )
+        status_items = [
+            (video_id, json.dumps({"status": "completed", "retryCount": 0, "lastError": None}))
+            for video_id, _ in items
+        ]
+        execute_values(
+            self.cur,
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "ingest", "updatedAt")
+               VALUES %s
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "ingest" = COALESCE("VideoPipelineStatus"."ingest", '{}'::jsonb) || EXCLUDED."ingest",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            status_items,
+            template="(%s, %s::jsonb, CURRENT_TIMESTAMP)",
+        )
 
     def mark_failed(self, video_id: str, error: str) -> None:
         self.cur.execute(
-            """UPDATE "Video"
-               SET "audioUploadStatus"='failed',
-                   "audioLastError"=%s,
-                   "audioRetryCount"=COALESCE("audioRetryCount", 0) + 1
-               WHERE "id"=%s""",
-            (error[:2000], video_id),
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "ingest", "updatedAt")
+               VALUES (%s, jsonb_build_object('status', 'failed', 'lastError', %s, 'retryCount', 1), CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "ingest" = jsonb_build_object(
+                   'status', 'failed',
+                   'lastError', %s,
+                   'retryCount', COALESCE(NULLIF("VideoPipelineStatus"."ingest"->>'retryCount', '')::integer, 0) + 1),
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, error[:2000], error[:2000]),
         )
 
     def mark_short(self, video_id: str) -> None:
         """Marks a video as a short and ignores it from future audio processing."""
         self.cur.execute(
-            """UPDATE "Video"
-               SET "type"='SHORT',
-                   "audioUploadStatus"='ignored',
-                   "audioLastError"='Ignored: YouTube Short detected'
-               WHERE "id"=%s""",
+            """UPDATE "Video" SET "type"='SHORT' WHERE "id"=%s""",
             (video_id,),
+        )
+        self.cur.execute(
+            """INSERT INTO "VideoPipelineStatus" ("videoId", "ingest", "updatedAt")
+               VALUES (%s, %s::jsonb, CURRENT_TIMESTAMP)
+               ON CONFLICT ("videoId") DO UPDATE SET
+                 "ingest" = COALESCE("VideoPipelineStatus"."ingest", '{}'::jsonb) || EXCLUDED."ingest",
+                 "updatedAt" = CURRENT_TIMESTAMP""",
+            (video_id, json.dumps({"status": "ignored", "lastError": "Ignored: YouTube Short detected"})),
         )
 
     def release_stale_processing(self) -> None:
         self.cur.execute(
-            """UPDATE "Video"
-               SET "audioUploadStatus"='pending'
-               WHERE "audioUploadStatus"='processing'"""
+            """UPDATE "VideoPipelineStatus"
+               SET "ingest" = COALESCE("ingest", '{}'::jsonb) || '{"status":"pending"}'::jsonb,
+                   "updatedAt" = CURRENT_TIMESTAMP
+               WHERE "ingest"->>'status' = 'processing'"""
         )
         if self.cur.rowcount:
             log.info("Reset %d stale processing video(s) back to 'pending'", self.cur.rowcount)

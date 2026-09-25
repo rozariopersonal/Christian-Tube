@@ -2,7 +2,7 @@
 -- Read from disk on every batch so it can be edited at any time, without a restart.
 --
 -- The worker substitutes exactly four tokens before execution, in this order:
---   1. status_ph      -> the IN-list for audioUploadStatus
+--   1. status_ph      -> the IN-list for the ingest JSONB status
 --   2. retry_clause   -> optional retry-count filter (empty when not retrying failed)
 --   3. channel_clause -> optional channel-name ILIKE filter (empty when unset)
 --   4. priority_clause-> optional "priority channels first" ORDER BY tier (empty when unset)
@@ -14,6 +14,7 @@
 SELECT v.id, v.title, COALESCE(v."channelName", c.name, 'Unknown'), v."publishedAt", v.description, c.language
 FROM "Video" v
 JOIN "Channel" c ON c.id = v."channelId"
+LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
 LEFT JOIN (
     SELECT "channelId", COUNT(*) AS video_count
     FROM "Video"
@@ -22,7 +23,7 @@ LEFT JOIN (
 WHERE (c."isActive" = true OR c."isActive" IS NULL)
   AND c.id != 'UC_ChristianTubeOfficial'
   AND (v."duration" IS NULL OR (v."duration" != '0:00' AND v."duration" NOT LIKE '0:0%%'))
-  AND (v."audioUploadStatus" IS NULL OR v."audioUploadStatus" IN ({status_ph}))
+  AND (COALESCE(s.ingest->>'status', 'pending') IS NULL OR COALESCE(s.ingest->>'status', 'pending') IN ({status_ph}))
   {retry_clause}
   {channel_clause}
 ORDER BY{priority_clause}
