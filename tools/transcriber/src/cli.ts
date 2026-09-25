@@ -17,13 +17,13 @@ import {
   batchSaveSentences,
   batchMarkCompleted,
   batchMarkSkipped,
+  hasTranscription,
   BatchCompletedItem,
   BatchSkippedItem,
 } from './db.js';
 import { AsrClient } from './asr_client.js';
 import { processVideo } from './transcriber.js';
 import { checkPureEnglish } from './language_filter.js';
-import { GitTracker } from './git_tracker.js';
 import { parseTranscriptSegments } from './sentence_assembler.js';
 
 dotenv.config();
@@ -63,7 +63,7 @@ async function main() {
 
   program
     .name('transcriber')
-    .description('Fault-tolerant Parakeet transcription tool with silence slicing and GitHub Releases batch tracker')
+    .description('Fault-tolerant Parakeet transcription tool with silence slicing and Neon batch persistence')
     .option('--video <id>', 'Process a specific video ID and exit')
     .option('--once', 'Process one batch from the queue and exit')
     .option('--batch <limit>', 'Maximum videos per batch', (val) => parseInt(val, 10))
@@ -85,22 +85,6 @@ async function main() {
   await ensureSchema(pool);
   await releaseStaleProcessing(pool);
 
-  // Initialize Git Tracker (WAL)
-  const releasesDir = process.env.RELEASES_DIR || path.join(cfg.workDir, 'releases');
-  const seedDir = process.env.RELEASES_SEED_DIR || '/app/releases-seed';
-  const gitTracker = new GitTracker({
-    releasesDir,
-    seedDir,
-    githubRepo: process.env.GITHUB_REPO || 'rozariopersonal/Christian-Tube-Releases',
-    githubToken: process.env.GITHUB_TOKEN,
-  });
-
-  try {
-    gitTracker.init();
-  } catch (err: any) {
-    console.warn(`[Transcriber] Warning initializing GitTracker: ${err.message}`);
-  }
-
   const runnerScript = path.join(__dirname, 'asr_runner.py');
   const asrClient = new AsrClient(cfg.pythonBin, runnerScript);
 
@@ -117,15 +101,7 @@ async function main() {
       `\n[Transcriber] === FLUSHING BATCH (${completedBuffer.length} completed, ${skippedBuffer.length} skipped) ===`
     );
 
-    // 1. Push to GitHub remote (with rebase and retry)
-    if (completedBuffer.length > 0) {
-      const pushed = await gitTracker.pushWithRetry(5);
-      if (!pushed) {
-        console.warn('[Transcriber] Warning: Remote push did not succeed, but transcripts are committed locally in WAL.');
-      }
-    }
-
-    // 2. Batch update Neon DB (sentences first, then video status)
+    // Batch update Neon DB (sentences first, transcription rows, then video status)
     if (completedBuffer.length > 0) {
       const sentenceCount = await batchSaveSentences(pool, completedBuffer);
       console.log(`[Transcriber] Database updated: ${sentenceCount} sentences saved.`);
@@ -174,13 +150,14 @@ async function main() {
       const langCheck = checkPureEnglish(video.title || '', video.description || '', video.channelLanguage);
       if (!langCheck.isPureEnglish) {
         console.log(`[Transcriber] Skipping non-pure-English video ${video.id}: ${langCheck.reason}`);
-        await markCompleted(
-          pool,
-          video.id,
-          '',
-          { skipped: true, reason: langCheck.reason, channelLanguage: video.channelLanguage },
-          cfg.contentVersion
-        );
+        await batchMarkSkipped(pool, [
+          {
+            videoId: video.id,
+            reason: langCheck.reason,
+            channelLanguage: video.channelLanguage,
+            contentVersion: cfg.contentVersion,
+          },
+        ]);
         await shutdown();
         return;
       }
@@ -196,8 +173,6 @@ async function main() {
         report: result.report || {},
       };
 
-      gitTracker.commitTranscript(video, result.transcript, detail);
-      await gitTracker.pushWithRetry(3);
       await markCompleted(pool, video.id, result.transcript, detail, cfg.contentVersion);
       console.log(`[Transcriber] Single video ${video.id} completed.`);
       await shutdown();
@@ -228,15 +203,15 @@ async function main() {
       for (const video of rows) {
         if (isStopping) break;
 
-        // Crash recovery check: Has this video already been committed to local Git?
-        if (gitTracker.hasTranscript(video.id)) {
-          const cachedTranscript = gitTracker.readTranscript(video.id) || '';
-          const segments = parseTranscriptSegments(cachedTranscript);
-          console.log(`[Transcriber] Video ${video.id} already committed in Git tracker (${segments.length} sentences). Queuing for DB update.`);
+        // Crash recovery check: Has this video already been transcribed to Neon at this content version?
+        const existing = await hasTranscription(pool, video.id, cfg.contentVersion);
+        if (existing.transcript) {
+          const segments = parseTranscriptSegments(existing.transcript);
+          console.log(`[Transcriber] Video ${video.id} already transcribed in Neon (${segments.length} sentences). Queuing for DB status update.`);
           completedBuffer.push({
             videoId: video.id,
-            transcript: cachedTranscript,
-            detail: { source: 'git_cached', contentVersion: cfg.contentVersion },
+            transcript: existing.transcript,
+            detail: { source: existing.source || 'parakeet', contentVersion: cfg.contentVersion, reused: true },
             contentVersion: cfg.contentVersion,
             segments,
           });
@@ -287,10 +262,7 @@ async function main() {
             report: result.report || {},
           };
 
-          // 1. Commit immediately to local Git WAL
-          gitTracker.commitTranscript(video, result.transcript, detail);
-
-          // 2. Add to batch buffer
+          // Add to batch buffer
           completedBuffer.push({
             videoId: video.id,
             transcript: result.transcript,
@@ -303,7 +275,7 @@ async function main() {
             `[Transcriber] Completed ${video.id}: ${result.segments.length} sentences, ${result.wordCount} words (Buffered: ${completedBuffer.length + skippedBuffer.length}/${cfg.batchLimit})`
           );
 
-          // 3. If batch reached limit, flush (push to GitHub + batch update DB)
+          // 3. If batch reached limit, flush (batch update DB)
           if (completedBuffer.length + skippedBuffer.length >= cfg.batchLimit) {
             await flushBatch();
           }

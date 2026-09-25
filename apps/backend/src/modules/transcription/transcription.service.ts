@@ -67,11 +67,26 @@ Provide a structured summary with:
           );
         } catch (_) {}
 
+        await this.prisma.transcription.upsert({
+          where: { videoId: video.id },
+          create: {
+            videoId: video.id,
+            content: text,
+            source: 'gemini',
+            wordCount: undefined,
+            segmentCount: undefined,
+          },
+          update: {
+            content: text,
+            source: 'gemini',
+            updatedAt: new Date(),
+          },
+        });
+
         await this.prisma.video.update({
           where: { id: video.id },
           data: {
             transcriptionStatus: 'completed',
-            content: text,
             transcriptionProgress: 100,
           },
         });

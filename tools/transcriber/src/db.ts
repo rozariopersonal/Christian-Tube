@@ -12,12 +12,37 @@ export function createDbPool(connectionString: string): pg.Pool {
 }
 
 export async function ensureSchema(pool: pg.Pool): Promise<void> {
-  try {
-    await pool.query(
-      'ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0;'
-    );
-  } catch (err: any) {
-    console.warn(`[Transcriber DB] ensureSchema warning: ${err.message}`);
+  const steps: [string, string][] = [
+    [
+      "contentVersion column",
+      `ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "contentVersion" INTEGER DEFAULT 0;`,
+    ],
+    [
+      "Transcription table",
+      `CREATE TABLE IF NOT EXISTS "Transcription" (
+         "videoId" TEXT NOT NULL PRIMARY KEY,
+         "content" TEXT NOT NULL,
+         "source" TEXT NOT NULL DEFAULT 'parakeet',
+         "contentVersion" INTEGER NOT NULL DEFAULT 0,
+         "wordCount" INTEGER,
+         "segmentCount" INTEGER,
+         "maxSec" DOUBLE PRECISION,
+         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+         CONSTRAINT "Transcription_videoId_fkey"
+           FOREIGN KEY ("videoId") REFERENCES "Video"("id")
+           ON DELETE CASCADE ON UPDATE CASCADE
+       );
+       CREATE INDEX IF NOT EXISTS "Transcription_contentVersion_idx"
+         ON "Transcription"("contentVersion");`,
+    ],
+  ];
+  for (const [name, sql] of steps) {
+    try {
+      await pool.query(sql);
+    } catch (err: any) {
+      console.warn(`[Transcriber DB] ${name} warning: ${err.message}`);
+    }
   }
 }
 
@@ -133,6 +158,65 @@ export async function updateProgress(
   );
 }
 
+export interface TranscriptionRow {
+  videoId: string;
+  transcript: string;
+  source: string;
+  contentVersion: number;
+  wordCount: number | null;
+  segmentCount: number | null;
+  maxSec: number | null;
+}
+
+export function transcriptionRowFromItem(item: BatchCompletedItem): TranscriptionRow {
+  return {
+    videoId: item.videoId,
+    transcript: item.transcript,
+    source: item.detail.source || 'parakeet',
+    contentVersion: item.contentVersion,
+    wordCount: item.detail.wordCount ?? null,
+    segmentCount: item.detail.segmentCount ?? null,
+    maxSec: item.detail.maxSec ?? null,
+  };
+}
+
+export async function upsertTranscription(pool: pg.Pool, row: TranscriptionRow): Promise<void> {
+  await pool.query(
+    `INSERT INTO "Transcription" ("videoId", "content", "source", "contentVersion", "wordCount", "segmentCount", "maxSec", "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     ON CONFLICT ("videoId") DO UPDATE SET
+       "content" = EXCLUDED."content",
+       "source" = EXCLUDED."source",
+       "contentVersion" = EXCLUDED."contentVersion",
+       "wordCount" = EXCLUDED."wordCount",
+       "segmentCount" = EXCLUDED."segmentCount",
+       "maxSec" = EXCLUDED."maxSec",
+       "updatedAt" = CURRENT_TIMESTAMP`,
+    [row.videoId, row.transcript, row.source, row.contentVersion, row.wordCount, row.segmentCount, row.maxSec]
+  );
+}
+
+export async function hasTranscription(
+  pool: pg.Pool,
+  videoId: string,
+  contentVersion: number
+): Promise<{ transcript: string | null; source: string | null }> {
+  const res = await pool.query(
+    `SELECT "content", "source", "contentVersion"
+     FROM "Transcription"
+     WHERE "videoId" = $1
+       AND "contentVersion" >= $2
+       AND length("content") > 0
+     LIMIT 1`,
+    [videoId, contentVersion]
+  );
+  if (res.rows.length === 0) return { transcript: null, source: null };
+  return {
+    transcript: res.rows[0].content as string,
+    source: res.rows[0].source as string | null,
+  };
+}
+
 export async function markCompleted(
   pool: pg.Pool,
   videoId: string,
@@ -140,20 +224,29 @@ export async function markCompleted(
   detail: Record<string, any>,
   contentVersion: number
 ): Promise<void> {
+  await upsertTranscription(pool, {
+    videoId,
+    transcript,
+    source: detail.source || 'parakeet',
+    contentVersion,
+    wordCount: detail.wordCount ?? null,
+    segmentCount: detail.segmentCount ?? null,
+    maxSec: detail.maxSec ?? null,
+  });
+
   await pool.query(
     `UPDATE "Video"
      SET "transcriptionStatus" = 'completed',
          "transcriptionProgress" = 100,
-         "content" = $1,
-         "contentVersion" = $2,
-         "transcriptionDetail" = $3,
+         "contentVersion" = $1,
+         "transcriptionDetail" = $2,
          "chunkStatus" = 'pending',
          "chunkError" = NULL,
          "chunkRetryCount" = 0,
          "lastTranscriptionError" = NULL,
          "transcriptionRetryCount" = 0
-     WHERE id = $4`,
-    [transcript, contentVersion, JSON.stringify(detail), videoId]
+     WHERE id = $3`,
+    [contentVersion, JSON.stringify(detail), videoId]
   );
 }
 
@@ -238,35 +331,65 @@ export async function batchMarkCompleted(
 ): Promise<number> {
   if (items.length === 0) return 0;
 
+  const rows = items.map(transcriptionRowFromItem);
+
+  // 1. Upsert transcripts into the Transcription table (multi-row)
+  const transValuePlaceholders: string[] = [];
+  const transParams: any[] = [];
+  rows.forEach((row, idx) => {
+    const base = idx * 7;
+    transValuePlaceholders.push(
+      `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}::integer, $${base + 5}::integer, $${base + 6}::integer, $${base + 7}::double precision)`
+    );
+    transParams.push(
+      row.videoId,
+      row.transcript,
+      row.source,
+      row.contentVersion,
+      row.wordCount,
+      row.segmentCount,
+      row.maxSec
+    );
+  });
+
+  await pool.query(
+    `INSERT INTO "Transcription" ("videoId", "content", "source", "contentVersion", "wordCount", "segmentCount", "maxSec", "createdAt", "updatedAt")
+     VALUES ${transValuePlaceholders.join(', ')}
+     ON CONFLICT ("videoId") DO UPDATE SET
+       "content" = EXCLUDED."content",
+       "source" = EXCLUDED."source",
+       "contentVersion" = EXCLUDED."contentVersion",
+       "wordCount" = EXCLUDED."wordCount",
+       "segmentCount" = EXCLUDED."segmentCount",
+       "maxSec" = EXCLUDED."maxSec",
+       "updatedAt" = CURRENT_TIMESTAMP`,
+    transParams
+  );
+
+  // 2. Batch update Video status flags only
   const valuePlaceholders: string[] = [];
   const params: any[] = [];
 
   items.forEach((item, idx) => {
-    const base = idx * 4;
+    const base = idx * 3;
     valuePlaceholders.push(
-      `($${base + 1}, $${base + 2}, $${base + 3}::jsonb, $${base + 4}::integer)`
+      `($${base + 1}, $${base + 2}::jsonb, $${base + 3}::integer)`
     );
-    params.push(
-      item.videoId,
-      item.transcript,
-      JSON.stringify(item.detail),
-      item.contentVersion
-    );
+    params.push(item.videoId, JSON.stringify(item.detail), item.contentVersion);
   });
 
   const query = `
     UPDATE "Video" AS v
     SET "transcriptionStatus" = 'completed',
         "transcriptionProgress" = 100,
-        "content" = u.content,
-        "transcriptionDetail" = u.detail,
         "contentVersion" = u.content_version,
+        "transcriptionDetail" = u.detail,
         "chunkStatus" = 'pending',
         "chunkError" = NULL,
         "chunkRetryCount" = 0,
         "lastTranscriptionError" = NULL,
         "transcriptionRetryCount" = 0
-    FROM (VALUES ${valuePlaceholders.join(', ')}) AS u(id, content, detail, content_version)
+    FROM (VALUES ${valuePlaceholders.join(', ')}) AS u(id, detail, content_version)
     WHERE v.id = u.id;
   `;
 
@@ -298,7 +421,6 @@ export async function batchMarkSkipped(
     UPDATE "Video" AS v
     SET "transcriptionStatus" = 'completed',
         "transcriptionProgress" = 100,
-        "content" = '',
         "transcriptionDetail" = u.detail,
         "contentVersion" = u.content_version,
         "chunkStatus" = 'pending',
