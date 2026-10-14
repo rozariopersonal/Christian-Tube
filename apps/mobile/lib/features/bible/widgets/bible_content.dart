@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
-import '../../dictionary/widgets/inline_dictionary_popover.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../models/bible_verse.dart';
@@ -68,46 +67,13 @@ class BibleContent extends StatelessWidget {
           }
           return false;
         },
-        child: SelectionArea(
-          contextMenuBuilder: (context, selectableRegionState) {
-            String selectedText = '';
-            try {
-              final dynamic dyn = selectableRegionState;
-              final dynamic content = dyn.getSelectedContent();
-              if (content != null && content.plainText != null && (content.plainText as String).trim().isNotEmpty) {
-                selectedText = (content.plainText as String).trim();
-              }
-            } catch (_) {}
-
-            final words = selectedText
-                .split(RegExp(r'\s+'))
-                .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
-                .where((w) => w.isNotEmpty)
-                .toList();
-            final lookupWord = words.isNotEmpty ? words.first : selectedText;
-
-            return AdaptiveTextSelectionToolbar.buttonItems(
-              anchors: selectableRegionState.contextMenuAnchors,
-              buttonItems: [
-                if (lookupWord.isNotEmpty)
-                  ContextMenuButtonItem(
-                    label: 'Define',
-                    onPressed: () {
-                      selectableRegionState.hideToolbar();
-                      InlineDictionaryPopover.show(context, word: lookupWord);
-                    },
-                  ),
-                ...selectableRegionState.contextMenuButtonItems,
-              ],
-            );
-          },
-          child: ScrollablePositionedList.builder(
-            itemScrollController: itemScrollController,
-            itemPositionsListener: itemPositionsListener,
-            itemCount: itemCount,
-            minCacheExtent: 300,
-            padding: const EdgeInsets.only(top: 16, bottom: 128),
-            itemBuilder: (context, index) {
+        child: ScrollablePositionedList.builder(
+          itemScrollController: itemScrollController,
+          itemPositionsListener: itemPositionsListener,
+          itemCount: itemCount,
+          minCacheExtent: 300,
+          padding: const EdgeInsets.only(top: 16, bottom: 128),
+          itemBuilder: (context, index) {
               if (index < 0 || index >= itemCount) return const SizedBox.shrink();
               if (!isWholeBible) {
                 if (index >= s.verses.length) return const SizedBox.shrink();
@@ -128,14 +94,12 @@ class BibleContent extends StatelessWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SelectionContainer.disabled(
-                        child: _ChapterHeader(
-                          chapter: controller.currentChapter,
-                          appearance: controller.appearance,
-                          bookName: controller.displayBookName(controller.currentBook),
-                          chapterTitle: controller.displayChapterTitle(controller.currentChapter),
-                          isBookStart: controller.currentChapter == 1,
-                        ),
+                      _ChapterHeader(
+                        chapter: controller.currentChapter,
+                        appearance: controller.appearance,
+                        bookName: controller.displayBookName(controller.currentBook),
+                        chapterTitle: controller.displayChapterTitle(controller.currentChapter),
+                        isBookStart: controller.currentChapter == 1,
                       ),
                       verseWidget,
                     ],
@@ -157,14 +121,12 @@ class BibleContent extends StatelessWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SelectionContainer.disabled(
-                        child: _ChapterHeader(
-                          chapter: ref.chapter,
-                          appearance: controller.appearance,
-                          bookName: controller.displayBookName(bookName),
-                          chapterTitle: controller.displayChapterTitle(ref.chapter),
-                          isBookStart: ref.chapter == 1,
-                        ),
+                      _ChapterHeader(
+                        chapter: ref.chapter,
+                        appearance: controller.appearance,
+                        bookName: controller.displayBookName(bookName),
+                        chapterTitle: controller.displayChapterTitle(ref.chapter),
+                        isBookStart: ref.chapter == 1,
                       ),
                       _PlaceholderRow(
                         key: ValueKey('ph-${ref.bookNumber}-${ref.chapter}-${ref.verse}'),
@@ -205,14 +167,12 @@ class BibleContent extends StatelessWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SelectionContainer.disabled(
-                      child: _ChapterHeader(
-                        chapter: ref.chapter,
-                        appearance: controller.appearance,
-                        bookName: controller.displayBookName(bookName),
-                        chapterTitle: controller.displayChapterTitle(ref.chapter),
-                        isBookStart: ref.chapter == 1,
-                      ),
+                    _ChapterHeader(
+                      chapter: ref.chapter,
+                      appearance: controller.appearance,
+                      bookName: controller.displayBookName(bookName),
+                      chapterTitle: controller.displayChapterTitle(ref.chapter),
+                      isBookStart: ref.chapter == 1,
                     ),
                     verseWidget,
                   ],
@@ -222,8 +182,7 @@ class BibleContent extends StatelessWidget {
             },
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
