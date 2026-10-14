@@ -278,11 +278,11 @@ export async function markFailed(
 ): Promise<void> {
   await pool.query(
     `INSERT INTO "VideoPipelineStatus" ("videoId", "transcription", "updatedAt")
-     VALUES ($1, jsonb_build_object('status', 'failed', 'lastError', $2, 'retryCount', 1), CURRENT_TIMESTAMP)
+     VALUES ($1, jsonb_build_object('status', 'failed', 'lastError', $2::text, 'retryCount', 1), CURRENT_TIMESTAMP)
      ON CONFLICT ("videoId") DO UPDATE SET
        "transcription" = jsonb_build_object(
          'status', 'failed',
-         'lastError', $2,
+         'lastError', $2::text,
          'retryCount', COALESCE(NULLIF("VideoPipelineStatus"."transcription"->>'retryCount', '')::integer, 0) + 1),
        "updatedAt" = CURRENT_TIMESTAMP`,
     [videoId, error.slice(0, 2000)]

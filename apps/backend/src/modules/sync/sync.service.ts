@@ -21,30 +21,37 @@ export class SyncService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    const syncOnBoot = process.env.SYNC_ON_BOOT === 'true' || this.configService.get<string>('SYNC_ON_BOOT') === 'true';
     setTimeout(async () => {
       // 1. Auto-subscribe all active channels to Google WebSub Hub
       this.renewAllWebSubSubscriptions().catch((e) => {
         this.logger.warn(`Initial WebSub subscription error on boot: ${e.message}`);
       });
 
-      // 2. Launch centralized sync on wakeup / boot
-      this.syncAllChannels().catch((e) => {
-        this.logger.warn(`Initial automated sync on boot error: ${e.message}`);
-      });
+      if (syncOnBoot) {
+        // 2. Launch centralized sync on wakeup / boot only if SYNC_ON_BOOT=true
+        this.syncAllChannels().catch((e) => {
+          this.logger.warn(`Initial automated sync on boot error: ${e.message}`);
+        });
 
-      // 3. Backfill missing metadata & durations
-      this.backfillVideoMetadata(500).catch((e) => {
-        this.logger.warn(`Initial automated backfill on boot error: ${e.message}`);
-      });
+        // 3. Backfill missing metadata & durations
+        this.backfillVideoMetadata(500).catch((e) => {
+          this.logger.warn(`Initial automated backfill on boot error: ${e.message}`);
+        });
+      } else {
+        this.logger.log('Boot-time channel sync disabled (SYNC_ON_BOOT != true). Daily sync will run at 12:00 PM (IST).');
+      }
     }, 3000);
   }
 
   /**
-   * Periodic scheduler: Runs every 2 hours
+   * Periodic scheduler: Runs once a day at 12:00 PM (Noon) local time (IST)
    */
-  @Cron(CronExpression.EVERY_2_HOURS)
+  @Cron('0 0 12 * * *', {
+    timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
+  })
   async scheduledSync() {
-    this.logger.log('⏰ Triggering 2-hour scheduled channel sync sweep...');
+    this.logger.log('⏰ Triggering daily daytime scheduled channel sync sweep at 12:00 PM (IST)...');
     return this.syncAllChannels();
   }
 

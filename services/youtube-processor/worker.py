@@ -82,13 +82,28 @@ def is_permanent_failure(error_text: str) -> bool:
 # --------------------------------------------------------------------------- #
 # Configuration
 # --------------------------------------------------------------------------- #
+def seconds_until_daily_run(target_hour: int = 12, target_minute: int = 0, tz_name: str = "Asia/Kolkata") -> int:
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        import datetime
+        tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    import datetime
+    now = datetime.datetime.now(tz)
+    target = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+    if target <= now:
+        target += datetime.timedelta(days=1)
+    return max(1, int((target - now).total_seconds()))
+
+
 class Config:
     def __init__(
         self,
         database_url: str,
         audio_com_token: str,
         work_dir: Path,
-        poll_interval: int = 300,
+        poll_interval: int = 86400,
         batch_limit: int = 5,
         max_retries: int = 3,
         redo: bool = False,
@@ -98,6 +113,10 @@ class Config:
         channel_filters: list[str] | None = None,
         priority_channel_ids: list[str] | None = None,
         purge_audiocom: bool = False,
+        daily_run_hour: int = 12,
+        daily_run_minute: int = 0,
+        timezone: str = "Asia/Kolkata",
+        run_on_boot: bool = False,
     ):
         self.database_url = database_url
         self.audio_com_token = audio_com_token
@@ -112,6 +131,10 @@ class Config:
         self.channel_filters = channel_filters
         self.priority_channel_ids = priority_channel_ids
         self.purge_audiocom = purge_audiocom
+        self.daily_run_hour = daily_run_hour
+        self.daily_run_minute = daily_run_minute
+        self.timezone = timezone
+        self.run_on_boot = run_on_boot
 
 
 def load_config(args: argparse.Namespace) -> Config:
@@ -173,7 +196,10 @@ def load_config(args: argparse.Namespace) -> Config:
         video_id=args.video_id or None,
         channel_filters=channel_filters,
         priority_channel_ids=priority_channel_ids,
-        purge_audiocom=getattr(args, 'purge_audiocom', False),
+        daily_run_hour=int(_env("DAILY_RUN_HOUR", "12")),
+        daily_run_minute=int(_env("DAILY_RUN_MINUTE", "0")),
+        timezone=_env("TIMEZONE", "Asia/Kolkata"),
+        run_on_boot=_env("RUN_ON_BOOT", "false").lower() in ("1", "true", "yes"),
     )
 
 
@@ -1797,6 +1823,18 @@ def main():
             db.mark_completed(res[0], res[1])
         return
 
+    # Daytime schedule: wait until next 12:00 PM IST unless run_on_boot is explicitly enabled
+    if not cfg.run_on_boot and not cfg.once and not cfg.video_id:
+        wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+        log.info(
+            "Daytime schedule: waiting %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
+            wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+        )
+        for _ in range(wait_sec):
+            if not _running:
+                return
+            time.sleep(1)
+
     # Continuous polling loop
     try:
         while _running:
@@ -1806,8 +1844,12 @@ def main():
                 if cfg.once:
                     log.info("No eligible videos found, exiting (--once).")
                     break
-                log.info("No pending videos from ChristianApp channels. Sleeping %ds...", cfg.poll_interval)
-                for _ in range(cfg.poll_interval):
+                wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+                log.info(
+                    "No pending videos from ChristianApp channels. Sleeping %ds (%.2f hours) until %02d:%02d (%s)...",
+                    wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+                )
+                for _ in range(wait_sec):
                     if not _running:
                         break
                     time.sleep(1)
@@ -1826,6 +1868,16 @@ def main():
             flush_batch()
             if cfg.once:
                 break
+
+            wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+            log.info(
+                "Daily batch finished. Sleeping %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
+                wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+            )
+            for _ in range(wait_sec):
+                if not _running:
+                    break
+                time.sleep(1)
     finally:
         flush_batch()
         db.close()
