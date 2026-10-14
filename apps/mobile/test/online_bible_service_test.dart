@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/bible/models/bible_book.dart';
 import 'package:mobile/features/engines/scripture/adapters/web_bible_data_adapter.dart';
 import 'package:mobile/features/engines/scripture/services/online_bible_service.dart';
 
@@ -118,6 +119,59 @@ void main() {
       final v1 = verses.where((v) => v['verse'] == 1).firstOrNull;
       expect(v1, isNotNull);
       expect((v1!['text'] as String).isNotEmpty, isTrue);
+    }, timeout: const Timeout(Duration(seconds: 25)));
+  });
+
+  group('Canonical Bible Chapter Navigation Helpers', () {
+    test('nextBibleChapter navigates within same book and across book boundaries', () {
+      // Normal progression
+      expect(nextBibleChapter(1, 1), equals((1, 2))); // Gen 1 -> Gen 2
+      expect(nextBibleChapter(43, 14), equals((43, 15))); // John 14 -> John 15
+
+      // Book boundary transition
+      expect(nextBibleChapter(1, 50), equals((2, 1))); // Gen 50 -> Ex 1
+      expect(nextBibleChapter(43, 21), equals((44, 1))); // John 21 -> Acts 1
+
+      // Canon boundary
+      expect(nextBibleChapter(66, 22), isNull); // End of Revelation
+    });
+
+    test('prevBibleChapter navigates backwards within same book and across book boundaries', () {
+      // Normal progression
+      expect(prevBibleChapter(1, 2), equals((1, 1))); // Gen 2 -> Gen 1
+      expect(prevBibleChapter(43, 15), equals((43, 14))); // John 15 -> John 14
+
+      // Book boundary transition
+      expect(prevBibleChapter(2, 1), equals((1, 50))); // Ex 1 -> Gen 50 (50 chs in Genesis)
+      expect(prevBibleChapter(44, 1), equals((43, 21))); // Acts 1 -> John 21 (21 chs in John)
+
+      // Canon boundary
+      expect(prevBibleChapter(1, 1), isNull); // Start of Genesis
+    });
+  });
+
+  group('OnlineBibleService Adjacent Prefetching', () {
+    test('prefetchAdjacentChapters dispatches background fetch and populates listener', () async {
+      final loaded = <(int, int)>[];
+      void listener(String versionId, int bookNumber, int chapter, List<Map<String, dynamic>> verses) {
+        if (versionId == 'NASB') {
+          loaded.add((bookNumber, chapter));
+        }
+      }
+
+      OnlineBibleService.addChapterListener(listener);
+
+      // Trigger prefetch around John 14 (book 43, ch 14)
+      OnlineBibleService.prefetchAdjacentChapters('NASB', 43, 14, radius: 1);
+
+      // Wait a moment for background queue to drain
+      await Future<void>.delayed(const Duration(seconds: 4));
+
+      OnlineBibleService.removeChapterListener(listener);
+
+      // At least John 15 or John 13 should have loaded through the queue
+      expect(loaded, isNotEmpty);
+      expect(loaded.any((item) => item.$1 == 43 && (item.$2 == 13 || item.$2 == 15)), isTrue);
     }, timeout: const Timeout(Duration(seconds: 25)));
   });
 }

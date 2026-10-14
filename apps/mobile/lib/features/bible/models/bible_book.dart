@@ -66,3 +66,33 @@ const Map<String, int> bibleBooks = {
   'Jude': 1,
   'Revelation': 22,
 };
+
+/// Returns `(nextBookNumber, nextChapter)` or `null` if at the end of the canon (Rev 22).
+(int, int)? nextBibleChapter(int bookNumber, int chapter) {
+  final books = bibleBooks.keys.toList();
+  if (bookNumber < 1 || bookNumber > books.length) return null;
+  final maxChapters = bibleBooks[books[bookNumber - 1]] ?? 1;
+  var nextBook = bookNumber;
+  var nextCh = chapter + 1;
+  if (nextCh > maxChapters) {
+    if (nextBook >= books.length) return null;
+    nextBook += 1;
+    nextCh = 1;
+  }
+  return (nextBook, nextCh);
+}
+
+/// Returns `(prevBookNumber, prevChapter)` or `null` if at the start of the canon (Gen 1).
+(int, int)? prevBibleChapter(int bookNumber, int chapter) {
+  final books = bibleBooks.keys.toList();
+  if (bookNumber < 1 || bookNumber > books.length) return null;
+  var prevBook = bookNumber;
+  var prevCh = chapter - 1;
+  if (prevCh < 1) {
+    if (prevBook <= 1) return null;
+    prevBook -= 1;
+    prevCh = bibleBooks[books[prevBook - 1]] ?? 1;
+  }
+  return (prevBook, prevCh);
+}
+

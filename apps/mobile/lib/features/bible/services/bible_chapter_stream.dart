@@ -119,30 +119,11 @@ class BibleChapterStream {
     }
   }
 
-  (int, int)? nextChapter(int bookNumber, int chapter) {
-    final books = bibleBooks.keys.toList();
-    var maxChapters = bibleBooks[books[bookNumber - 1]] ?? 1;
-    var nextBook = bookNumber;
-    var nextChapter = chapter + 1;
-    if (nextChapter > maxChapters) {
-      if (nextBook >= books.length) return null;
-      nextBook += 1;
-      nextChapter = 1;
-    }
-    return (nextBook, nextChapter);
-  }
+  (int, int)? nextChapter(int bookNumber, int chapter) =>
+      nextBibleChapter(bookNumber, chapter);
 
-  (int, int)? prevChapter(int bookNumber, int chapter) {
-    final books = bibleBooks.keys.toList();
-    var prevBook = bookNumber;
-    var prevChapter = chapter - 1;
-    if (prevChapter < 1) {
-      if (prevBook <= 1) return null;
-      prevBook -= 1;
-      prevChapter = bibleBooks[books[prevBook - 1]] ?? 1;
-    }
-    return (prevBook, prevChapter);
-  }
+  (int, int)? prevChapter(int bookNumber, int chapter) =>
+      prevBibleChapter(bookNumber, chapter);
 
   /// Drops every buffered chapter (used when switching versions).
   void clear() {
