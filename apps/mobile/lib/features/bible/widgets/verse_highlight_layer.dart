@@ -3,40 +3,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../services/verse_band_geometry.dart';
 
-/// A render object widget that paints highlight bands and selection underlines
-/// behind and under lines of text in its descendant [RenderParagraph], without
-/// modifying or shifting the text layout at all.
+/// A render object widget that paints continuous highlight bands behind
+/// lines of text in its descendant [RenderParagraph], with roundedness
+/// around the 4 outer corners of the highlight, without modifying or shifting
+/// the text layout at all.
 class VerseHighlightLayer extends SingleChildRenderObjectWidget {
   final Color? highlightColor;
-  final bool showUnderline;
-  final Color? underlineColor;
   final bool isHovered;
   final Color? hoverColor;
   final BandWidthMode bandWidthMode;
   final double verticalBleed;
+  final double cornerRadius;
 
   const VerseHighlightLayer({
     super.key,
     super.child,
     this.highlightColor,
-    this.showUnderline = false,
-    this.underlineColor,
     this.isHovered = false,
     this.hoverColor,
     this.bandWidthMode = BandWidthMode.tightText,
-    this.verticalBleed = 6.0,
+    this.verticalBleed = 4.0,
+    this.cornerRadius = 6.0,
   });
 
   @override
   RenderObject createRenderObject(BuildContext context) {
     return RenderVerseHighlightLayer(
       highlightColor: highlightColor,
-      showUnderline: showUnderline,
-      underlineColor: underlineColor,
       isHovered: isHovered,
       hoverColor: hoverColor,
       bandWidthMode: bandWidthMode,
       verticalBleed: verticalBleed,
+      cornerRadius: cornerRadius,
     );
   }
 
@@ -45,60 +43,42 @@ class VerseHighlightLayer extends SingleChildRenderObjectWidget {
       BuildContext context, RenderVerseHighlightLayer renderObject) {
     renderObject
       ..highlightColor = highlightColor
-      ..showUnderline = showUnderline
-      ..underlineColor = underlineColor
       ..isHovered = isHovered
       ..hoverColor = hoverColor
       ..bandWidthMode = bandWidthMode
-      ..verticalBleed = verticalBleed;
+      ..verticalBleed = verticalBleed
+      ..cornerRadius = cornerRadius;
   }
 }
 
 class RenderVerseHighlightLayer extends RenderProxyBox {
   Color? _highlightColor;
-  bool _showUnderline;
-  Color? _underlineColor;
   bool _isHovered;
   Color? _hoverColor;
   BandWidthMode _bandWidthMode;
   double _verticalBleed;
+  double _cornerRadius;
 
   RenderVerseHighlightLayer({
     Color? highlightColor,
-    bool showUnderline = false,
-    Color? underlineColor,
     bool isHovered = false,
     Color? hoverColor,
     BandWidthMode bandWidthMode = BandWidthMode.tightText,
-    double verticalBleed = 6.0,
+    double verticalBleed = 4.0,
+    double cornerRadius = 6.0,
     RenderBox? child,
   })  : _highlightColor = highlightColor,
-        _showUnderline = showUnderline,
-        _underlineColor = underlineColor,
         _isHovered = isHovered,
         _hoverColor = hoverColor,
         _bandWidthMode = bandWidthMode,
         _verticalBleed = verticalBleed,
+        _cornerRadius = cornerRadius,
         super(child);
 
   Color? get highlightColor => _highlightColor;
   set highlightColor(Color? value) {
     if (_highlightColor == value) return;
     _highlightColor = value;
-    markNeedsPaint();
-  }
-
-  bool get showUnderline => _showUnderline;
-  set showUnderline(bool value) {
-    if (_showUnderline == value) return;
-    _showUnderline = value;
-    markNeedsPaint();
-  }
-
-  Color? get underlineColor => _underlineColor;
-  set underlineColor(Color? value) {
-    if (_underlineColor == value) return;
-    _underlineColor = value;
     markNeedsPaint();
   }
 
@@ -127,6 +107,13 @@ class RenderVerseHighlightLayer extends RenderProxyBox {
   set verticalBleed(double value) {
     if (_verticalBleed == value) return;
     _verticalBleed = value;
+    markNeedsPaint();
+  }
+
+  double get cornerRadius => _cornerRadius;
+  set cornerRadius(double value) {
+    if (_cornerRadius == value) return;
+    _cornerRadius = value;
     markNeedsPaint();
   }
 
@@ -168,54 +155,33 @@ class RenderVerseHighlightLayer extends RenderProxyBox {
 
         final canvas = context.canvas;
 
-        // 1. Draw Highlight Bands or Hover Background
+        // 1. Draw Highlight Bands or Hover Background with rounded outer corners
         final fillColor = _highlightColor ?? (_isHovered ? _hoverColor : null);
         if (fillColor != null && bands.isNotEmpty) {
           final paint = Paint()
             ..color = fillColor
             ..style = PaintingStyle.fill;
 
-          for (final band in bands) {
-            final targetRect = band.shift(offset + paragraphOffset);
-            final rrect = RRect.fromRectAndRadius(targetRect, const Radius.circular(3.0));
+          final radius = Radius.circular(_cornerRadius);
+
+          for (int i = 0; i < bands.length; i++) {
+            final targetRect = bands[i].shift(offset + paragraphOffset);
+            final isFirst = i == 0;
+            final isLast = i == bands.length - 1;
+
+            final rrect = RRect.fromRectAndCorners(
+              targetRect,
+              topLeft: isFirst ? radius : Radius.zero,
+              topRight: isFirst ? radius : (isLast ? radius : Radius.zero),
+              bottomLeft: isLast ? radius : Radius.zero,
+              bottomRight: isLast ? radius : Radius.zero,
+            );
             canvas.drawRRect(rrect, paint);
           }
         }
 
         // 2. Paint Child Content (the text and icons)
         super.paint(context, offset);
-
-        // 3. Draw Dotted / Dashed Underline for Selection
-        if (_showUnderline && bands.isNotEmpty) {
-          final uColor = _underlineColor ?? _highlightColor ?? const Color(0xFF2196F3);
-          final underlinePaint = Paint()
-            ..color = uColor
-            ..strokeWidth = 2.0
-            ..style = PaintingStyle.stroke;
-
-          for (final band in bands) {
-            final targetRect = band.shift(offset + paragraphOffset);
-            final y = targetRect.bottom - 1.0;
-            final startX = targetRect.left + 2.0;
-            final endX = targetRect.right - 2.0;
-
-            if (endX > startX) {
-              // Draw dashed line (YouVersion-style)
-              const dashWidth = 4.0;
-              const dashSpace = 3.0;
-              double currentX = startX;
-              while (currentX < endX) {
-                final nextX = (currentX + dashWidth).clamp(startX, endX);
-                canvas.drawLine(
-                  Offset(currentX, y),
-                  Offset(nextX, y),
-                  underlinePaint,
-                );
-                currentX += dashWidth + dashSpace;
-              }
-            }
-          }
-        }
         return;
       }
     }
