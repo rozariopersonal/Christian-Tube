@@ -831,8 +831,15 @@ class BibleDownloadManager extends ChangeNotifier {
 
   static BibleVersionMeta getMeta(String id) {
     return catalog.firstWhere(
-      (v) => v.id == id,
-      orElse: () => catalog.first,
+      (v) => v.id.toUpperCase() == id.toUpperCase(),
+      orElse: () => BibleVersionMeta(
+        id: id,
+        name: id,
+        language: 'English',
+        languageCode: 'en',
+        sizeDisplay: 'Online',
+        description: '',
+      ),
     );
   }
 }
