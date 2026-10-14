@@ -63,6 +63,35 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         }
       },
     );
+    OnlineBibleService.addChapterListener(_onOnlineChapterPrefetched);
+  }
+
+  void _onOnlineChapterPrefetched(
+    String versionId,
+    int bookNumber,
+    int chapter,
+    List<Map<String, dynamic>> verses,
+  ) {
+    final cacheKey = '${versionId.toLowerCase()}_${bookNumber}_$chapter';
+    _liveChapterCache[cacheKey] = verses;
+    _persistChapterVerses(versionId, verses);
+  }
+
+  Future<bool> hasChapterLocally(String versionId, int bookNumber, int chapter) async {
+    final cacheKey = '${versionId.toLowerCase()}_${bookNumber}_$chapter';
+    if (_liveChapterCache.containsKey(cacheKey)) return true;
+    if (_db == null || !_db!.isOpen) return false;
+    try {
+      final count = Sqflite.firstIntValue(
+        await _db!.rawQuery(
+          'SELECT COUNT(*) FROM verses WHERE LOWER(version_id) = ? AND book_number = ? AND chapter = ?',
+          [versionId.toLowerCase(), bookNumber, chapter],
+        ),
+      );
+      return (count ?? 0) > 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -107,6 +136,7 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
 
   @override
   Future<void> close() async {
+    OnlineBibleService.removeChapterListener(_onOnlineChapterPrefetched);
     _liveChapterCache.clear();
     _liveCountsCache.clear();
     await _db?.close();
@@ -178,6 +208,15 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         orderBy: 'verse ASC',
       );
       if (localRows.isNotEmpty) {
+        if (OnlineBibleService.isOnlineVersion(versionId)) {
+          OnlineBibleService.prefetchAdjacentChapters(
+            versionId,
+            bookNum,
+            chapter,
+            radius: 2,
+            isCachedLocally: (b, c) => hasChapterLocally(versionId, b, c),
+          );
+        }
         return localRows;
       }
       if (await hasVerses(versionId) && !OnlineBibleService.isOnlineVersion(versionId)) {
@@ -191,6 +230,13 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
       if (liveResults.isNotEmpty) {
         _liveChapterCache[cacheKey] = liveResults;
         _persistChapterVerses(versionId, liveResults);
+        OnlineBibleService.prefetchAdjacentChapters(
+          versionId,
+          bookNum,
+          chapter,
+          radius: 2,
+          isCachedLocally: (b, c) => hasChapterLocally(versionId, b, c),
+        );
         return liveResults;
       }
     }

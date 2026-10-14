@@ -1,10 +1,18 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../../../bible/models/bible_book.dart';
 import '../../../bible/models/book_abbreviation.dart';
 import 'book_name_service.dart';
 
 enum OnlineProvider { apiBible, youVersion }
+
+typedef OnlineChapterListener = void Function(
+  String versionId,
+  int bookNumber,
+  int chapter,
+  List<Map<String, dynamic>> verses,
+);
 
 class OnlineBibleConfig {
   final String versionId;
@@ -181,9 +189,45 @@ class OnlineBibleService {
     receiveTimeout: const Duration(seconds: 15),
   ));
 
+  static final Map<String, List<Map<String, dynamic>>> _memoryCache = {};
+  static final Map<String, Future<List<Map<String, dynamic>>>> _inFlight = {};
+  static final List<OnlineChapterListener> _chapterListeners = [];
+
+  static final List<({String versionId, int bookNumber, int chapter})> _prefetchQueue = [];
+  static final Set<String> _queuedKeys = {};
+  static bool _isPrefetching = false;
+
+  /// Registers a listener called whenever an online chapter finishes fetching.
+  static void addChapterListener(OnlineChapterListener listener) {
+    if (!_chapterListeners.contains(listener)) {
+      _chapterListeners.add(listener);
+    }
+  }
+
+  /// Removes a previously registered online chapter listener.
+  static void removeChapterListener(OnlineChapterListener listener) {
+    _chapterListeners.remove(listener);
+  }
+
+  static void _notifyChapterLoaded(
+    String versionId,
+    int bookNumber,
+    int chapter,
+    List<Map<String, dynamic>> verses,
+  ) {
+    for (final listener in List.of(_chapterListeners)) {
+      try {
+        listener(versionId, bookNumber, chapter, verses);
+      } catch (e) {
+        debugPrint('Error in OnlineChapterListener: $e');
+      }
+    }
+  }
+
   /// Fetches a chapter from the live online provider (API.Bible or YouVersion).
-  /// Returns a list of standardized verse maps:
-  /// `{'version_id': versionId, 'book_name': bookName, 'book_number': bookNum, 'chapter': chapter, 'verse': verseNum, 'text': text}`
+  ///
+  /// Deduplicates concurrent in-flight requests for the exact same chapter, caches
+  /// results in memory, and notifies registered listeners on arrival.
   static Future<List<Map<String, dynamic>>> fetchLiveChapter(
     String versionId,
     int bookNumber,
@@ -192,6 +236,34 @@ class OnlineBibleService {
     final config = getConfig(versionId);
     if (config == null) return const [];
 
+    final cacheKey = '${versionId.toUpperCase()}_${bookNumber}_$chapter';
+    if (_memoryCache.containsKey(cacheKey)) {
+      return _memoryCache[cacheKey]!;
+    }
+
+    final pending = _inFlight[cacheKey];
+    if (pending != null) return pending;
+
+    final future = _doFetchLiveChapter(config, bookNumber, chapter);
+    _inFlight[cacheKey] = future;
+
+    try {
+      final results = await future;
+      if (results.isNotEmpty) {
+        _memoryCache[cacheKey] = results;
+        _notifyChapterLoaded(versionId, bookNumber, chapter, results);
+      }
+      return results;
+    } finally {
+      _inFlight.remove(cacheKey);
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> _doFetchLiveChapter(
+    OnlineBibleConfig config,
+    int bookNumber,
+    int chapter,
+  ) async {
     final bookUsfm = BookAbbreviation.abbreviationFor(bookNumber) ?? 'GEN';
     final bookName = BookNameService.englishNameFor(bookNumber);
 
@@ -202,21 +274,98 @@ class OnlineBibleService {
         return await _fetchYouVersion(config, bookUsfm, bookNumber, bookName, chapter);
       }
     } catch (e) {
-      debugPrint('OnlineBibleService primary fetch failed for $versionId: $e');
+      debugPrint('OnlineBibleService primary fetch failed for ${config.versionId}: $e');
       if (config.fallbackProvider == OnlineProvider.youVersion && config.youVersionId > 0) {
         try {
           return await _fetchYouVersion(config, bookUsfm, bookNumber, bookName, chapter);
         } catch (e2) {
-          debugPrint('OnlineBibleService fallback fetch failed for $versionId: $e2');
+          debugPrint('OnlineBibleService fallback fetch failed for ${config.versionId}: $e2');
         }
       } else if (config.fallbackProvider == OnlineProvider.apiBible && config.apiBibleId.isNotEmpty) {
         try {
           return await _fetchApiBible(config, bookUsfm, bookNumber, bookName, chapter);
         } catch (e2) {
-          debugPrint('OnlineBibleService fallback fetch failed for $versionId: $e2');
+          debugPrint('OnlineBibleService fallback fetch failed for ${config.versionId}: $e2');
         }
       }
       return const [];
+    }
+  }
+
+  /// Asynchronously prefetches adjacent chapters before and after the anchor
+  /// chapter in the background so that reading navigation is instantaneous.
+  static void prefetchAdjacentChapters(
+    String versionId,
+    int bookNumber,
+    int chapter, {
+    int radius = 2,
+    Future<bool> Function(int book, int ch)? isCachedLocally,
+  }) {
+    if (!isOnlineVersion(versionId)) return;
+
+    // Next chapters (+1, +2, ...)
+    var next = nextBibleChapter(bookNumber, chapter);
+    for (int i = 0; i < radius && next != null; i++) {
+      _enqueuePrefetch(versionId, next.$1, next.$2, isCachedLocally);
+      next = nextBibleChapter(next.$1, next.$2);
+    }
+
+    // Previous chapters (-1, -2, ...)
+    var prev = prevBibleChapter(bookNumber, chapter);
+    for (int i = 0; i < radius && prev != null; i++) {
+      _enqueuePrefetch(versionId, prev.$1, prev.$2, isCachedLocally);
+      prev = prevBibleChapter(prev.$1, prev.$2);
+    }
+  }
+
+  static void _enqueuePrefetch(
+    String versionId,
+    int bookNumber,
+    int chapter,
+    Future<bool> Function(int book, int ch)? isCachedLocally,
+  ) {
+    final key = '${versionId.toUpperCase()}_${bookNumber}_$chapter';
+    if (_memoryCache.containsKey(key) ||
+        _queuedKeys.contains(key) ||
+        _inFlight.containsKey(key)) {
+      return;
+    }
+
+    _queuedKeys.add(key);
+    _prefetchQueue.add((versionId: versionId, bookNumber: bookNumber, chapter: chapter));
+    _drainPrefetchQueue(isCachedLocally);
+  }
+
+  static Future<void> _drainPrefetchQueue(
+    Future<bool> Function(int book, int ch)? isCachedLocally,
+  ) async {
+    if (_isPrefetching) return;
+    _isPrefetching = true;
+
+    try {
+      while (_prefetchQueue.isNotEmpty) {
+        final task = _prefetchQueue.removeAt(0);
+        final key = '${task.versionId.toUpperCase()}_${task.bookNumber}_${task.chapter}';
+        _queuedKeys.remove(key);
+
+        if (_memoryCache.containsKey(key)) continue;
+
+        if (isCachedLocally != null) {
+          try {
+            final alreadyCached = await isCachedLocally(task.bookNumber, task.chapter);
+            if (alreadyCached) continue;
+          } catch (_) {}
+        }
+
+        try {
+          await fetchLiveChapter(task.versionId, task.bookNumber, task.chapter);
+        } catch (_) {}
+
+        // Courteous throttle between background prefetch requests so API limits are respected
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      }
+    } finally {
+      _isPrefetching = false;
     }
   }
 
