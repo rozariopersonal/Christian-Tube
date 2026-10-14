@@ -53,6 +53,8 @@ class BibleControllerState {
     this.crossRefsInstalled = false,
     this.crossRefsLoading = false,
     this.chapterBackgrounds = const {},
+    this.loadedCrossRefs = const {},
+    this.loadedBackgrounds = const {},
     this.counts = const BibleVerseCounts([]),
     this.loadedChapters = const {},
     this.verseNotes = const {},
@@ -84,6 +86,12 @@ class BibleControllerState {
   final bool crossRefsInstalled;
   final bool crossRefsLoading;
   final Map<int, List<BibleBackgroundNote>> chapterBackgrounds;
+
+  /// Cross-references grouped by verse number, keyed by [bibleChapterId].
+  final Map<int, Map<int, List<CrossReference>>> loadedCrossRefs;
+
+  /// Background notes grouped by verse number, keyed by [bibleChapterId].
+  final Map<int, Map<int, List<BibleBackgroundNote>>> loadedBackgrounds;
 
   /// Per-chapter verse-row counts for the active version. Empty counts mean the
   /// reader degrades to a single-chapter list ([totalRows] from [verses]).
@@ -167,6 +175,8 @@ extension _StateCopy on BibleControllerState {
     bool? crossRefsInstalled,
     bool? crossRefsLoading,
     Map<int, List<BibleBackgroundNote>>? chapterBackgrounds,
+    Map<int, Map<int, List<CrossReference>>>? loadedCrossRefs,
+    Map<int, Map<int, List<BibleBackgroundNote>>>? loadedBackgrounds,
     BibleVerseCounts? counts,
     Map<int, List<BibleVerse>>? loadedChapters,
     Set<String>? verseNotes,
@@ -194,6 +204,8 @@ extension _StateCopy on BibleControllerState {
         crossRefsInstalled: crossRefsInstalled ?? this.crossRefsInstalled,
         crossRefsLoading: crossRefsLoading ?? this.crossRefsLoading,
         chapterBackgrounds: chapterBackgrounds ?? this.chapterBackgrounds,
+        loadedCrossRefs: loadedCrossRefs ?? this.loadedCrossRefs,
+        loadedBackgrounds: loadedBackgrounds ?? this.loadedBackgrounds,
         counts: counts ?? this.counts,
         loadedChapters: loadedChapters ?? this.loadedChapters,
         verseNotes: verseNotes ?? this.verseNotes,
@@ -574,6 +586,9 @@ class BibleController extends ChangeNotifier {
 
   Future<void> _loadCrossReferencesForChapter(int bookNumber, int chapter) async {
     if (_state.selectedVersion == null) return;
+    final cid = bibleChapterId(bookNumber, chapter);
+    if (_state.loadedCrossRefs.containsKey(cid)) return;
+
     final isNewChapter =
         bookNumber != _crossRefBookNumber || chapter != _crossRefChapter;
     if (_state.crossRefsLoading && isNewChapter) return;
@@ -616,9 +631,13 @@ class BibleController extends ChangeNotifier {
 
     _crossRefBookNumber = bookNumber;
     _crossRefChapter = chapter;
+    final mergedCrossRefs = Map<int, Map<int, List<CrossReference>>>.from(_state.loadedCrossRefs);
+    mergedCrossRefs[cid] = chapterRefs;
+    final mergedTexts = Map<String, String>.from(_state.crossRefTexts)..addAll(resolved);
     _update((s) => s.copyWith(
+          loadedCrossRefs: mergedCrossRefs,
           chapterCrossRefs: chapterRefs,
-          crossRefTexts: resolved,
+          crossRefTexts: mergedTexts,
           crossRefsLoading: false,
         ));
   }
@@ -714,8 +733,15 @@ class BibleController extends ChangeNotifier {
     final stream = _stream;
     if (stream == null || _disposed) return;
     final id = bibleChapterId(bookNumber, chapter);
-    if (_state.loadedChapters.containsKey(id)) return;
-    _fillChapterInBackground(bookNumber, chapter);
+    if (!_state.loadedChapters.containsKey(id)) {
+      _fillChapterInBackground(bookNumber, chapter);
+    }
+    if (!_state.loadedCrossRefs.containsKey(id)) {
+      _loadCrossReferencesForChapter(bookNumber, chapter);
+    }
+    if (!_state.loadedBackgrounds.containsKey(id)) {
+      _loadBackgroundsForChapter(bookNumber, chapter);
+    }
   }
 
   /// Live tracking of the chapter the user is currently scrolled into. Updates
@@ -854,6 +880,8 @@ class BibleController extends ChangeNotifier {
   }
 
   Future<void> _loadBackgroundsForChapter(int bookNumber, int chapter) async {
+    final cid = bibleChapterId(bookNumber, chapter);
+    if (_state.loadedBackgrounds.containsKey(cid)) return;
     final epoch = _loadEpoch;
     try {
       var map = await _backgroundService.getBackgroundsForChapter(bookNumber, chapter);
@@ -861,7 +889,12 @@ class BibleController extends ChangeNotifier {
         map = await _backgroundService.fetchChapterOnline(bookNumber, chapter);
       }
       if (epoch != _loadEpoch) return; // stale
-      _update((s) => s.copyWith(chapterBackgrounds: map));
+      final mergedBackgrounds = Map<int, Map<int, List<BibleBackgroundNote>>>.from(_state.loadedBackgrounds);
+      mergedBackgrounds[cid] = map;
+      _update((s) => s.copyWith(
+            loadedBackgrounds: mergedBackgrounds,
+            chapterBackgrounds: map,
+          ));
     } catch (e) {
       debugPrint('BibleController _loadBackgroundsForChapter error: $e');
     }

@@ -4,6 +4,7 @@ import '../../../core/theme/highlight_palette.dart';
 import '../../../features/engines/scripture/models/scripture_theme_state.dart';
 import '../models/bible_verse.dart';
 import '../../../shared/services/reader_appearance.dart';
+import 'verse_highlight_layer.dart';
 
 class VerseText extends StatefulWidget {
   final BibleVerse verse;
@@ -77,15 +78,12 @@ class _VerseTextState extends State<VerseText> {
             child: ValueListenableBuilder<bool>(
               valueListenable: _hoverNotifier,
               builder: (context, isHovering, _) {
-                // A persistent highlight keeps its own marker colour. When such
-                // a verse is also selected we show selection via an underline
-                // instead of swapping the marker for the selection tint.
                 final bool hasPersistentHighlight = highlightColor != null;
                 final Color? highlightFill;
                 if (hasPersistentHighlight) {
                   highlightFill = highlightColor;
                 } else if (widget.isSelected) {
-                  highlightFill = theme.colorScheme.primary.withValues(alpha: 0.22);
+                  highlightFill = theme.colorScheme.primary.withValues(alpha: 0.16);
                 } else if (widget.isHighlighted) {
                   highlightFill = widget.appearance.isDark(context.tokens)
                       ? theme.colorScheme.primary.withValues(alpha: 0.28)
@@ -94,39 +92,23 @@ class _VerseTextState extends State<VerseText> {
                   highlightFill = null;
                 }
 
-                final hasHighlight = highlightFill != null;
-                final showUnderline = widget.isSelected && hasPersistentHighlight;
+                final hoverFill = widget.appearance
+                    .textColor(context.tokens)
+                    .withValues(alpha: 0.06);
 
-                final Widget verseBody;
-                if (isHovering && !hasHighlight) {
-                  verseBody = Align(
-                    alignment: Alignment.centerLeft,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      color: widget
-                          .appearance
-                          .textColor(context.tokens)
-                          .withValues(alpha: 0.06),
-                      child: _buildContent(context, theme, highlightColor),
-                    ),
-                  );
-                } else {
-                  // Marker-pen highlight: the background is applied directly to
-                  // the text style so each rendered line gets its own marker
-                  // bar that hugs the line width (natural ragged edge on
-                  // wrapped lines) and fills the line-height gaps. The box
-                  // approach is intentionally avoided -- it paints one rectangle
-                  // around the whole paragraph instead of per-line marks. This
-                  // also never changes the text layout.
-                  verseBody = _buildContent(context, theme, highlightColor,
-                      highlightOn: hasHighlight ? highlightFill : null,
-                      underline: showUnderline);
-                }
+                final showUnderline = widget.isSelected;
+                final underlineColor = theme.colorScheme.primary;
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
-                  child: verseBody,
+                  child: VerseHighlightLayer(
+                    highlightColor: highlightFill,
+                    showUnderline: showUnderline,
+                    underlineColor: underlineColor,
+                    isHovered: isHovering,
+                    hoverColor: hoverFill,
+                    child: _buildContent(context, theme, highlightColor),
+                  ),
                 );
               },
             ),
@@ -139,16 +121,13 @@ class _VerseTextState extends State<VerseText> {
   Widget _buildContent(
     BuildContext context,
     ThemeData theme,
-    Color? highlightColor, {
-    Color? highlightOn,
-    bool underline = false,
-  }) {
+    Color? highlightColor,
+  ) {
     final tokens = context.tokens;
     final app = widget.appearance;
     final fontFamily = ScriptureThemeCatalog.resolveFontFamily(app.fontFamily, app.languageCode);
 
-    // When a highlight is applied the entire text block flips to the contrast
-    // color so dark highlights get white text and light highlights stay dark.
+    // Contrast foreground color for persistent highlights
     final hasHighlight = highlightColor != null;
     final mutedTextColor = hasHighlight
         ? HighlightPalette.onColorFor(widget.highlightColorIndex!).withValues(alpha: 0.75)
@@ -164,7 +143,6 @@ class _VerseTextState extends State<VerseText> {
 
     return Text.rich(
       TextSpan(
-        style: highlightOn != null ? TextStyle(backgroundColor: highlightOn) : null,
         children: [
           TextSpan(
             text: '${widget.verse.number}',
@@ -173,7 +151,6 @@ class _VerseTextState extends State<VerseText> {
               fontWeight: FontWeight.bold,
               fontSize: app.fontSize * 0.7,
               fontFamily: fontFamily,
-              decoration: underline ? TextDecoration.underline : null,
             ),
           ),
           if (widget.refCount > 0)
@@ -219,11 +196,16 @@ class _VerseTextState extends State<VerseText> {
               fontSize: app.fontSize,
               fontFamily: fontFamily,
               color: bodyTextColor,
-              decoration: underline ? TextDecoration.underline : null,
             ),
           ),
         ],
       ),
+      strutStyle: StrutStyle(
+        fontFamily: fontFamily,
+        fontSize: app.fontSize,
+        height: app.lineHeight,
+        forceStrutHeight: true,
+      ),
     );
   }
-}
+}

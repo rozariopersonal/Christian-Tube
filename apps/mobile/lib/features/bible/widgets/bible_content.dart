@@ -106,7 +106,7 @@ class BibleContent extends StatelessWidget {
             itemPositionsListener: itemPositionsListener,
             itemCount: itemCount,
             minCacheExtent: 300,
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.only(top: 16, bottom: 128),
             itemBuilder: (context, index) {
               if (index < 0 || index >= itemCount) return const SizedBox.shrink();
               if (!isWholeBible) {
@@ -263,6 +263,13 @@ class _VerseRow extends StatelessWidget {
     );
     final isCurrentCh =
         book == controller.currentBook && chapter == controller.currentChapter;
+    final bn = controller.bookNumber(book);
+    final cid = bibleChapterId(bn, chapter);
+    final crossRefs = s.loadedCrossRefs[cid]?[verse.number] ??
+        (isCurrentCh ? (s.chapterCrossRefs[verse.number] ?? const []) : const []);
+    final backgrounds = s.loadedBackgrounds[cid]?[verse.number] ??
+        (isCurrentCh ? (s.chapterBackgrounds[verse.number] ?? const []) : const []);
+
     return VerseItem(
       verse: verse,
       isSelected: isCurrentCh && s.selectedVerses.contains(verse.number),
@@ -271,10 +278,8 @@ class _VerseRow extends StatelessWidget {
       hasNote: s.verseNotes.contains(highlightKey),
       appearance: controller.appearance,
       onVerseTap: () => onVerseTap(verse.number),
-      crossReferences:
-          isCurrentCh ? (s.chapterCrossRefs[verse.number] ?? const []) : const [],
-      backgroundNotes:
-          isCurrentCh ? (s.chapterBackgrounds[verse.number] ?? const []) : const [],
+      crossReferences: crossRefs,
+      backgroundNotes: backgrounds,
       resolvedTexts: isCurrentCh ? s.crossRefTexts : const {},
       selectedCount: isCurrentCh ? s.selectedVerses.length : 0,
       onCopy: onCopy,
