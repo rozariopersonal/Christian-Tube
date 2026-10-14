@@ -6,6 +6,8 @@ import '../../../../core/api/github_data_service.dart';
 import '../../../bible/models/bible_book.dart';
 import '../../../bible/models/bible_highlight.dart';
 import '../services/book_name_service.dart';
+import '../services/bible_download_manager.dart';
+import '../services/online_bible_service.dart';
 import 'bible_data_adapter.dart';
 
 class SqliteBibleDataAdapter implements BibleDataAdapter {
@@ -113,19 +115,44 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
 
   @override
   Future<List<String>> getInstalledVersionIds() async {
-    if (_db == null) return [];
-    final results = await _db!.query('installed_versions', columns: ['id']);
-    return results.map((r) => r['id'] as String).toList();
+    if (_db == null) await initialize();
+    final dbIds = _db != null
+        ? (await _db!.query('installed_versions', columns: ['id']))
+            .map((r) => r['id'] as String)
+            .toList()
+        : <String>[];
+    final allIds = dbIds.toSet()..addAll(OnlineBibleService.onlineVersionIds);
+    return allIds.toList();
   }
 
   @override
   Future<List<Map<String, dynamic>>> getInstalledVersions() async {
-    if (_db == null) return [];
-    return await _db!.query('installed_versions');
+    if (_db == null) await initialize();
+    final list = _db != null
+        ? await _db!.query('installed_versions')
+        : <Map<String, dynamic>>[];
+    final existingIds =
+        list.map((m) => (m['id'] as String).toUpperCase()).toSet();
+    final result = List<Map<String, dynamic>>.from(list);
+    for (final v in BibleDownloadManager.catalog) {
+      if (OnlineBibleService.isOnlineVersion(v.id) &&
+          !existingIds.contains(v.id.toUpperCase())) {
+        result.add({
+          'id': v.id,
+          'name': v.name,
+          'language': v.language,
+          'language_code': v.languageCode,
+          'size_display': 'Online',
+          'installed_at': DateTime.now().toIso8601String(),
+        });
+      }
+    }
+    return result;
   }
 
   @override
   Future<bool> hasVerses(String versionId) async {
+    if (OnlineBibleService.isOnlineVersion(versionId)) return true;
     if (_db == null) await initialize();
     if (_db == null) return false;
     final count = Sqflite.firstIntValue(
@@ -153,8 +180,18 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
       if (localRows.isNotEmpty) {
         return localRows;
       }
-      if (await hasVerses(versionId)) {
+      if (await hasVerses(versionId) && !OnlineBibleService.isOnlineVersion(versionId)) {
         return const [];
+      }
+    }
+
+    // Direct streaming for online API versions (API.Bible / YouVersion)
+    if (OnlineBibleService.isOnlineVersion(versionId) && bookNum > 0) {
+      final liveResults = await OnlineBibleService.fetchLiveChapter(versionId, bookNum, chapter);
+      if (liveResults.isNotEmpty) {
+        _liveChapterCache[cacheKey] = liveResults;
+        _persistChapterVerses(versionId, liveResults);
+        return liveResults;
       }
     }
 
@@ -209,7 +246,7 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
       }
     }
 
-    return [];
+    return const [];
   }
 
   Future<void> _persistChapterVerses(String versionId, List<Map<String, dynamic>> verses) async {
@@ -235,6 +272,17 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     final cacheKey = versionId.toLowerCase();
     if (_liveCountsCache.containsKey(cacheKey)) {
       return _liveCountsCache[cacheKey]!;
+    }
+
+    if (OnlineBibleService.isOnlineVersion(versionId)) {
+      final webCounts = await getChapterVerseCounts('WEB');
+      if (webCounts.isNotEmpty) {
+        _liveCountsCache[cacheKey] = webCounts;
+        return webCounts;
+      }
+      final fallback = bibleBooks.values.map((numChapters) => List<int>.filled(numChapters, 25)).toList();
+      _liveCountsCache[cacheKey] = fallback;
+      return fallback;
     }
 
     if (_db == null) await initialize();
@@ -266,7 +314,7 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         _liveCountsCache[cacheKey] = counts;
         return counts;
       }
-      if (await hasVerses(versionId)) {
+      if (await hasVerses(versionId) && !OnlineBibleService.isOnlineVersion(versionId)) {
         return const [];
       }
     }
@@ -305,6 +353,10 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
       }
     }
 
+    if (OnlineBibleService.isOnlineVersion(versionId)) {
+      return getChapterVerseCounts('WEB');
+    }
+
     return const [];
   }
 
@@ -339,6 +391,20 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     );
     if (results.isNotEmpty) {
       return results.map((r) => r['text'] as String).join(' ');
+    }
+    if (OnlineBibleService.isOnlineVersion(versionId)) {
+      final bookName = BookNameService.englishBookNames.length >= bookNumber
+          ? BookNameService.englishBookNames[bookNumber - 1]
+          : '';
+      if (bookName.isNotEmpty) {
+        final chapterVerses = await getChapter(versionId, bookName, chapter);
+        final filtered = chapterVerses
+            .where((v) => (v['verse'] as int) >= startVerse && (v['verse'] as int) <= end)
+            .map((v) => (v['text'] as String?)?.trim() ?? '')
+            .where((t) => t.isNotEmpty)
+            .toList();
+        if (filtered.isNotEmpty) return filtered.join(' ');
+      }
     }
     return null;
   }
