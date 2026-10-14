@@ -621,31 +621,42 @@ class _BibleScreenState extends State<BibleScreen> {
           onOpenBookmarks: _openBookmarks,
           onPushManager: _pushManager,
         ),
-        body: BibleContent(
-          controller: _controller,
-          itemScrollController: _itemScrollController,
-          itemPositionsListener: _itemPositionsListener,
-          onVerseTap: _controller.toggleVerseSelection,
-          onCopy: _copySelectedVerses,
-          onShare: _shareSelectedVerses,
-          onBookmark: _bookmarkSelectedVerses,
-          onClear: _controller.clearSelection,
-          onOpenStudyPage: _openVerseStudyScreen,
-          onPushManager: _pushManager,
-          onRedownloadDefault: _controller.redownloadDefault,
-        ),
-        bottomNavigationBar: BibleBottomNav(
-          controller: _controller,
-          onShowBookChapterSelector: _showBookChapterSelector,
-          onCopy: _copySelectedVerses,
-          onShare: _shareSelectedVerses,
-          onBookmark: _bookmarkSelectedVerses,
-          onHighlight: _highlightSelectedVerses,
-          onNote: _openNoteEditor,
-          onClear: _controller.clearSelection,
-          onStudy: s.selectedVerses.isNotEmpty
-              ? () => _openVerseStudyScreen(s.selectedVerses.first)
-              : null,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: BibleContent(
+                controller: _controller,
+                itemScrollController: _itemScrollController,
+                itemPositionsListener: _itemPositionsListener,
+                onVerseTap: _controller.toggleVerseSelection,
+                onCopy: _copySelectedVerses,
+                onShare: _shareSelectedVerses,
+                onBookmark: _bookmarkSelectedVerses,
+                onClear: _controller.clearSelection,
+                onOpenStudyPage: _openVerseStudyScreen,
+                onPushManager: _pushManager,
+                onRedownloadDefault: _controller.redownloadDefault,
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: BibleBottomNav(
+                controller: _controller,
+                onShowBookChapterSelector: _showBookChapterSelector,
+                onCopy: _copySelectedVerses,
+                onShare: _shareSelectedVerses,
+                onBookmark: _bookmarkSelectedVerses,
+                onHighlight: _highlightSelectedVerses,
+                onNote: _openNoteEditor,
+                onClear: _controller.clearSelection,
+                onStudy: s.selectedVerses.isNotEmpty
+                    ? () => _openVerseStudyScreen(s.selectedVerses.first)
+                    : null,
+              ),
+            ),
+          ],
         ),
       ),
     ),
