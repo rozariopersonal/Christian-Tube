@@ -78,6 +78,7 @@ class _BibleBookmarksScreenState extends State<BibleBookmarksScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bookmarks'),
+        automaticallyImplyLeading: false,
         actions: [
           if (_bookmarks.isNotEmpty)
             IconButton(

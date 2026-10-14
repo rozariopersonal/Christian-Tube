@@ -66,6 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         return Scaffold(
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             title: const Text('Settings & Customization'),
             actions: [
               IconButton(

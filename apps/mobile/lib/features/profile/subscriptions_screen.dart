@@ -13,7 +13,10 @@ class SubscriptionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Subscriptions')),
+      appBar: AppBar(
+        title: const Text('Subscriptions'),
+        automaticallyImplyLeading: false,
+      ),
       body: AnimatedBuilder(
         animation: channelService,
         builder: (context, _) {

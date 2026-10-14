@@ -70,7 +70,10 @@ class _WatchPlanDetailScreenState extends State<WatchPlanDetailScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.plan.title)),
+      appBar: AppBar(
+        title: Text(widget.plan.title),
+        automaticallyImplyLeading: false,
+      ),
       body: MaxWidthBox(
         child: ListView(
           padding: const EdgeInsets.all(16),

@@ -63,6 +63,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
 
         return Scaffold(
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             title: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,

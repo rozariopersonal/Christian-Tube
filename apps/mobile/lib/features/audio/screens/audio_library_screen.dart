@@ -69,6 +69,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
         return Scaffold(
           backgroundColor: tokens.background,
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             backgroundColor: tokens.background,
             elevation: 0,
             title: Text(
@@ -436,7 +437,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
         AudioChannelGrid(
           state: state,
           onReset: _controller.resetFilters,
-          onSubscribe: () => context.go('/channels'),
+          onSubscribe: () => context.push('/channels'),
           onOpenSeries: _openSeries,
           onChannelSortChanged: _controller.setChannelSort,
         ),

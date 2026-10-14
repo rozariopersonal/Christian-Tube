@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/layout/adaptivity.dart';
@@ -285,13 +284,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _loadRelatedVideos();
   }
 
-  void _handleBack(BuildContext context) {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/feed');
-    }
-  }
 
   @override
   void dispose() {
@@ -436,12 +428,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       elevation: 0,
       scrolledUnderElevation: 1,
       backgroundColor: tokens.background,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded),
-        tooltip: 'Back',
-        onPressed: () => _handleBack(context),
-      ),
-      titleSpacing: 0,
+      automaticallyImplyLeading: false,
+      titleSpacing: 16,
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

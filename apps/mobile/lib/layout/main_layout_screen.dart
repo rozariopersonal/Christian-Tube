@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/engines/active_engine.g.dart';
 import '../core/layout/adaptivity.dart';
 import '../core/layout/shell_back_handler.dart';
+import '../core/navigation/navigation_history_service.dart';
 import '../core/services/bottom_bar_visibility_service.dart';
 import '../core/theme/app_tokens.dart';
 import '../core/config/app_config.dart';
@@ -123,7 +124,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
     // Direct navigation using the same dynamic path list as the bar.
     final destinations = _destinationPaths();
     if (index < 0 || index >= destinations.length) return;
-    context.go(destinations[index]);
+    final targetPath = destinations[index];
+    NavigationHistoryService.instance.recordTab(targetPath);
+    context.go(targetPath);
   }
 
   List<_NavSpec> _destinations(BuildContext context) {
@@ -177,6 +180,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
     final isDark = theme.brightness == Brightness.dark;
     final tokens = theme.extension<AppTokens>();
     final currentPath = GoRouterState.of(context).uri.path;
+    NavigationHistoryService.instance.recordTab(currentPath);
     final selectedIndex = _getSelectedIndex(currentPath);
     final isAudioPage = currentPath.startsWith('/audio');
 

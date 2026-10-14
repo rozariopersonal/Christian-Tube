@@ -116,7 +116,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                             context.push('/search');
                             break;
                           case 'profile':
-                            context.go('/profile');
+                            context.push('/profile');
                             break;
                         }
                       },
@@ -166,7 +166,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                           child: Icon(Icons.account_circle, size: 28),
                         ),
                         tooltip: 'Profile',
-                        onPressed: () => context.go('/profile'),
+                        onPressed: () => context.push('/profile'),
                       ),
                     ),
                   ],
@@ -283,7 +283,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                     Padding(
                       padding: const EdgeInsets.only(left: 8),
                       child: InkWell(
-                        onTap: () => context.go('/channels'),
+                        onTap: () => context.push('/channels'),
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -375,7 +375,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: () => context.go('/channels'),
+                onPressed: () => context.push('/channels'),
                 icon: const Icon(Icons.explore_outlined, size: 18),
                 label: const Text('Explore Channels',
                     style: TextStyle(fontWeight: FontWeight.bold)),
@@ -558,7 +558,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
-            onPressed: () => context.go('/channels'),
+            onPressed: () => context.push('/channels'),
             icon: const Icon(Icons.explore_outlined, size: 16),
             label: const Text('Discover More Channels',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),

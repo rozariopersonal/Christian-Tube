@@ -209,10 +209,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              leading: IconButton(
-                icon: Icon(Icons.arrow_back, color: tokens.onSurface),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
+              automaticallyImplyLeading: false,
               actions: [
                 // Aa typography appearance button
                 IconButton(

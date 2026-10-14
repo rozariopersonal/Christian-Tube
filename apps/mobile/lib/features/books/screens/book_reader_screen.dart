@@ -381,8 +381,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                             ),
                             const SizedBox(height: 16),
                             FilledButton.tonalIcon(
-                              icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                              label: const Text('Go Back'),
+                              icon: const Icon(Icons.local_library_outlined, size: 16),
+                              label: const Text('Return to Library'),
                               onPressed: () => _handleBack(null),
                             ),
                           ],
