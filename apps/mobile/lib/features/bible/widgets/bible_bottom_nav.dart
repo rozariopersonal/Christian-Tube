@@ -35,16 +35,19 @@ class BibleBottomNav extends StatelessWidget {
     final appearance = controller.appearance;
 
     if (s.selectedVerses.isNotEmpty) {
-      return VerseActionBar(
-        selectedCount: s.selectedVerses.length,
-        appearance: appearance,
-        onCopy: onCopy,
-        onShare: onShare,
-        onBookmark: onBookmark,
-        onHighlight: onHighlight,
-        onNote: onNote,
-        onClear: onClear,
-        onStudy: onStudy,
+      return MaxWidthBox(
+        maxWidth: 640,
+        child: VerseActionBar(
+          selectedCount: s.selectedVerses.length,
+          appearance: appearance,
+          onCopy: onCopy,
+          onShare: onShare,
+          onBookmark: onBookmark,
+          onHighlight: onHighlight,
+          onNote: onNote,
+          onClear: onClear,
+          onStudy: onStudy,
+        ),
       );
     }
     return _ChapterNav(
@@ -88,7 +91,6 @@ class _ChapterNav extends StatelessWidget {
     final borderCol = appearance.surfaceBorder(tokens);
 
     return Container(
-      height: 56,
       decoration: BoxDecoration(
         color: bg,
         border: Border(top: BorderSide(color: borderCol, width: 0.5)),
@@ -100,10 +102,14 @@ class _ChapterNav extends StatelessWidget {
           ),
         ],
       ),
-      child: MaxWidthBox(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Row(
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 56,
+          child: MaxWidthBox(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
             children: [
               Semantics(
                 label: 'Previous chapter',
@@ -172,6 +178,8 @@ class _ChapterNav extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 }
