@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../engines/scripture/services/bible_recent_versions_service.dart';
 import '../models/bible_settings.dart';
 
 class BibleSettingsService {
@@ -42,6 +43,7 @@ class BibleSettingsService {
     int chapter,
   ) async {
     final current = await loadSettings();
+    await BibleRecentVersionsService().recordRecentVersion(versionId);
     return saveSettings(
       current.copyWith(
         lastVersion: versionId,

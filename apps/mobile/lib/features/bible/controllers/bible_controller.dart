@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../engines/scripture/services/bible_download_manager.dart';
+import '../../engines/scripture/services/bible_recent_versions_service.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
 import '../models/bible_book.dart';
@@ -578,6 +579,11 @@ class BibleController extends ChangeNotifier {
       selectedVersion = versions.isNotEmpty ? versions.first : null;
     }
 
+    if (selectedVersion != null) {
+      unawaited(BibleRecentVersionsService()
+          .recordRecentVersion(selectedVersion.shortname));
+    }
+
     _update((s) => s.copyWith(versions: versions, selectedVersion: selectedVersion));
     _applyInitialJump();
     _applySavedProgress();
@@ -967,6 +973,8 @@ class BibleController extends ChangeNotifier {
   Future<void> fetchData() => _fetchData();
 
   Future<void> selectVersion(BibleVersion version) async {
+    unawaited(BibleRecentVersionsService()
+        .recordRecentVersion(version.shortname));
     if (_state.selectedVersion?.shortname == version.shortname &&
         _stream != null) {
       _update((s) => s.copyWith(selectedVersion: version));
