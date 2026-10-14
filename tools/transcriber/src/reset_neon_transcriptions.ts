@@ -60,8 +60,12 @@ async function main() {
   const chunkRes = await pool.query('SELECT count(*) FROM "VideoChunk"');
   console.log(`Total VideoChunk records: ${chunkRes.rows[0].count}`);
 
-  const embeddingRes = await pool.query('SELECT count(*) FROM "VideoEmbedding"');
-  console.log(`Total VideoEmbedding records: ${embeddingRes.rows[0].count}`);
+  let embeddingCount = '0';
+  try {
+    const embeddingRes = await pool.query('SELECT count(*) FROM "VideoEmbedding"');
+    embeddingCount = embeddingRes.rows[0].count;
+  } catch (_) {}
+  console.log(`Total VideoEmbedding records: ${embeddingCount}`);
 
   const audioReady = await pool.query(`
     SELECT count(*)
@@ -97,9 +101,11 @@ async function main() {
   const delChunks = await pool.query('DELETE FROM "VideoChunk"');
   console.log(`Deleted ${delChunks.rowCount} VideoChunk row(s)`);
 
-  // 2. Delete all VideoEmbedding entries
-  const delEmbeddings = await pool.query('DELETE FROM "VideoEmbedding"');
-  console.log(`Deleted ${delEmbeddings.rowCount} VideoEmbedding row(s)`);
+  // 2. Delete all VideoEmbedding entries (if table exists)
+  try {
+    const delEmbeddings = await pool.query('DELETE FROM "VideoEmbedding"');
+    console.log(`Deleted ${delEmbeddings.rowCount} VideoEmbedding row(s)`);
+  } catch (_) {}
 
   // 3. Delete all Transcription + VideoSentence rows
   const delSentences = await pool.query('DELETE FROM "VideoSentence"');
@@ -150,8 +156,12 @@ async function main() {
   const postChunks = await pool.query('SELECT count(*) FROM "VideoChunk"');
   console.log(`VideoChunk count: ${postChunks.rows[0].count}`);
 
-  const postEmbeddings = await pool.query('SELECT count(*) FROM "VideoEmbedding"');
-  console.log(`VideoEmbedding count: ${postEmbeddings.rows[0].count}`);
+  let postEmbeddingCount = '0';
+  try {
+    const postEmbeddings = await pool.query('SELECT count(*) FROM "VideoEmbedding"');
+    postEmbeddingCount = postEmbeddings.rows[0].count;
+  } catch (_) {}
+  console.log(`VideoEmbedding count: ${postEmbeddingCount}`);
 
   await pool.end();
 }
