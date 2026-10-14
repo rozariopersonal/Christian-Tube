@@ -68,10 +68,26 @@ def sanitize_db_url(url: str) -> str:
     )
 
 
+def seconds_until_daily_run(target_hour: int = 12, target_minute: int = 0, tz_name: str = "Asia/Kolkata") -> int:
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        import datetime
+        tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    import datetime
+    now = datetime.datetime.now(tz)
+    target = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+    if target <= now:
+        target += datetime.timedelta(days=1)
+    return max(1, int((target - now).total_seconds()))
+
+
 class Config:
-    def __init__(self, database_url, local_database_url="", poll_interval=300, batch_limit=32, max_retries=3,
+    def __init__(self, database_url, local_database_url="", poll_interval=86400, batch_limit=32, max_retries=3,
                  redo=False, retry_failed=False, once=False, embed_chunks=False,
-                 chunk_batch_limit=32):
+                 chunk_batch_limit=32, daily_run_hour=12, daily_run_minute=0,
+                 timezone="Asia/Kolkata", run_on_boot=False):
         self.database_url = database_url
         self.local_database_url = local_database_url
         self.poll_interval = poll_interval
@@ -82,6 +98,10 @@ class Config:
         self.once = once
         self.embed_chunks = embed_chunks
         self.chunk_batch_limit = chunk_batch_limit
+        self.daily_run_hour = daily_run_hour
+        self.daily_run_minute = daily_run_minute
+        self.timezone = timezone
+        self.run_on_boot = run_on_boot
 
 
 def load_config(args: argparse.Namespace) -> Config:
@@ -116,6 +136,10 @@ def load_config(args: argparse.Namespace) -> Config:
         once=args.once,
         embed_chunks=args.embed_chunks,
         chunk_batch_limit=int(os.environ.get("EMBED_CHUNK_BATCH", args.embed_chunk_batch)),
+        daily_run_hour=int(os.environ.get("DAILY_RUN_HOUR", "12")),
+        daily_run_minute=int(os.environ.get("DAILY_RUN_MINUTE", "0")),
+        timezone=os.environ.get("TIMEZONE", "Asia/Kolkata"),
+        run_on_boot=os.environ.get("RUN_ON_BOOT", "false").lower() in ("1", "true", "yes"),
     )
 
 
@@ -571,6 +595,18 @@ def main():
     log.info("Embedder started (model=%s, version=%d, local_db=%s, once=%s, redo=%s)",
              MODEL_ID, EMBEDDING_VERSION, cfg.local_database_url.split("@")[-1], cfg.once, cfg.redo)
 
+    # Daytime schedule: wait until next 12:00 PM IST unless run_on_boot is explicitly enabled
+    if not cfg.run_on_boot and not cfg.once:
+        wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+        log.info(
+            "Daytime schedule: waiting %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
+            wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+        )
+        for _ in range(wait_sec):
+            if not _running:
+                return
+            time.sleep(1)
+
     while _running:
         worked = False
 
@@ -607,18 +643,26 @@ def main():
                         break
                     process_chunk(db, cfg, chunk)
 
-        if not worked:
-            if cfg.once:
-                log.info("No eligible items, exiting (--once).")
-                break
-            log.info("No pending items. Sleeping %ds...", cfg.poll_interval)
-            for _ in range(cfg.poll_interval):
-                if not _running:
-                    break
-                time.sleep(1)
-
         if cfg.once:
+            log.info("Completed batch, exiting (--once).")
             break
+
+        wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+        if worked:
+            log.info(
+                "Embedding batch finished. Sleeping %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
+                wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+            )
+        else:
+            log.info(
+                "No pending items. Sleeping %ds (%.2f hours) until %02d:%02d (%s)...",
+                wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+            )
+
+        for _ in range(wait_sec):
+            if not _running:
+                break
+            time.sleep(1)
 
     db.close()
     local_db.close()

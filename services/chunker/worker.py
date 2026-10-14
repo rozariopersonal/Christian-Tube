@@ -46,6 +46,21 @@ def sanitize_db_url(url: str) -> str:
     )
 
 
+def seconds_until_daily_run(target_hour: int = 12, target_minute: int = 0, tz_name: str = "Asia/Kolkata") -> int:
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        import datetime
+        tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    import datetime
+    now = datetime.datetime.now(tz)
+    target = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+    if target <= now:
+        target += datetime.timedelta(days=1)
+    return max(1, int((target - now).total_seconds()))
+
+
 @dataclass
 class Config:
     db_url: str = ""
@@ -53,11 +68,15 @@ class Config:
     ollama_url: str = os.environ.get("OLLAMA_URL", "http://host.docker.internal:11434")
     ollama_model: str = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
     chunk_version: int = int(os.environ.get("CHUNK_VERSION", "2"))
-    poll_interval: int = int(os.environ.get("POLL_INTERVAL", "300"))
+    poll_interval: int = int(os.environ.get("POLL_INTERVAL", "86400"))
     batch_limit: int = int(os.environ.get("BATCH_LIMIT", "10"))
     max_retries: int = int(os.environ.get("MAX_RETRIES", "3"))
     min_sentences_per_idea: int = int(os.environ.get("MIN_SENTENCES_PER_IDEA", "5"))
     max_sentences_per_idea: int = int(os.environ.get("MAX_SENTENCES_PER_IDEA", "25"))
+    daily_run_hour: int = int(os.environ.get("DAILY_RUN_HOUR", "12"))
+    daily_run_minute: int = int(os.environ.get("DAILY_RUN_MINUTE", "0"))
+    timezone: str = os.environ.get("TIMEZONE", "Asia/Kolkata")
+    run_on_boot: bool = os.environ.get("RUN_ON_BOOT", "false").lower() in ("1", "true", "yes")
 
 
 class NeonDatabase:
@@ -360,7 +379,17 @@ def main():
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
 
-    log.info("Chunker started. Polling for videos with completed sentence embeddings...")
+    # Daytime schedule: wait until next 12:00 PM IST unless run_on_boot is explicitly enabled
+    if not cfg.run_on_boot and not args.once:
+        wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+        log.info(
+            "Daytime schedule: waiting %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
+            wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+        )
+        for _ in range(wait_sec):
+            if running["stop"]:
+                return
+            time.sleep(1)
 
     while not running["stop"]:
         neon_db.release_stale_processing()
@@ -369,8 +398,12 @@ def main():
             if args.once:
                 log.info("No eligible videos, exiting (--once).")
                 break
-            log.info("No pending videos ready for idea chunking. Sleeping %ds...", cfg.poll_interval)
-            for _ in range(cfg.poll_interval):
+            wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+            log.info(
+                "No pending videos ready for idea chunking. Sleeping %ds (%.2f hours) until %02d:%02d (%s)...",
+                wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+            )
+            for _ in range(wait_sec):
                 if running["stop"]:
                     break
                 time.sleep(1)
@@ -388,6 +421,16 @@ def main():
 
         if args.once:
             break
+
+        wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+        log.info(
+            "Chunking batch completed. Sleeping %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
+            wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+        )
+        for _ in range(wait_sec):
+            if running["stop"]:
+                break
+            time.sleep(1)
 
     neon_db.close()
     local_db.close()

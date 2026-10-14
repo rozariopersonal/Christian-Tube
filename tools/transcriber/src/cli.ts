@@ -58,6 +58,37 @@ function loadConfig(): TranscriberConfig {
   };
 }
 
+function secondsUntilDailyRun(
+  targetHour = parseInt(process.env.DAILY_RUN_HOUR || '12', 10),
+  targetMinute = parseInt(process.env.DAILY_RUN_MINUTE || '0', 10)
+): number {
+  const tz = process.env.TIMEZONE || 'Asia/Kolkata';
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(now);
+  const getPart = (type: string) => parseInt(parts.find((p) => p.type === type)?.value || '0', 10);
+  const curHour = getPart('hour');
+  const curMin = getPart('minute');
+  const curSec = getPart('second');
+
+  const secondsToday = curHour * 3600 + curMin * 60 + curSec;
+  const targetSeconds = targetHour * 3600 + targetMinute * 60;
+
+  if (targetSeconds <= secondsToday) {
+    return Math.max(1, 86400 - secondsToday + targetSeconds);
+  }
+  return Math.max(1, targetSeconds - secondsToday);
+}
+
 async function main() {
   const program = new Command();
 
@@ -180,6 +211,17 @@ async function main() {
     }
 
     // 2. Continuous daemon / batch mode
+    const runOnBoot = process.env.RUN_ON_BOOT === 'true';
+    if (!runOnBoot && !options.once) {
+      const waitSec = secondsUntilDailyRun();
+      console.log(
+        `[Transcriber] Daytime schedule: waiting ${waitSec}s (${(waitSec / 3600).toFixed(2)} hours) until next daily run at 12:00 PM (IST)...`
+      );
+      for (let i = 0; i < waitSec && !isStopping; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+
     while (!isStopping) {
       console.log(`[Transcriber] Polling database for eligible videos (batch limit: ${cfg.batchLimit})...`);
       const rows = await fetchEligibleVideos(pool, cfg);
@@ -192,8 +234,11 @@ async function main() {
           console.log('[Transcriber] No eligible videos found. Exiting (--once).');
           break;
         }
-        console.log(`[Transcriber] No eligible videos. Sleeping ${cfg.pollIntervalSec}s...`);
-        for (let i = 0; i < cfg.pollIntervalSec && !isStopping; i++) {
+        const waitSec = secondsUntilDailyRun();
+        console.log(
+          `[Transcriber] No eligible videos. Sleeping ${waitSec}s (${(waitSec / 3600).toFixed(2)} hours) until 12:00 PM (IST)...`
+        );
+        for (let i = 0; i < waitSec && !isStopping; i++) {
           await new Promise((r) => setTimeout(r, 1000));
         }
         continue;
@@ -291,6 +336,14 @@ async function main() {
       if (options.once) {
         console.log('[Transcriber] Batch finished. Exiting (--once).');
         break;
+      }
+
+      const waitSec = secondsUntilDailyRun();
+      console.log(
+        `[Transcriber] Daily batch finished (${rows.length} videos). Sleeping ${waitSec}s (${(waitSec / 3600).toFixed(2)} hours) until next daily run at 12:00 PM (IST)...`
+      );
+      for (let i = 0; i < waitSec && !isStopping; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
       }
     }
   } finally {
