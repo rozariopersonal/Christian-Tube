@@ -74,6 +74,12 @@ class AudioSyncManager {
           language: s['language'] ?? '',
           coverUrl: s['coverUrl'],
           trackCount: s['trackCount'] ?? 0,
+          latestPublishedAt: s['latestPublishedAt'] != null
+              ? DateTime.tryParse(s['latestPublishedAt'] as String)?.toUtc()
+              : null,
+          channelId: s['channelId'] as String?,
+          channelName: s['channelName'] as String?,
+          channelThumbnail: s['channelThumbnail'] as String?,
           tracks: (s['tracks'] as List<dynamic>? ?? []).map((trackJson) {
             return AudioTrack(
               id: trackJson['id'] as String,

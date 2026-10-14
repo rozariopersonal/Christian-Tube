@@ -218,9 +218,11 @@ class _GroupSection extends StatelessWidget {
                             padding: const EdgeInsets.all(14),
                             child: LayoutBuilder(
                               builder: (context, constraints) {
-                                // Intrinsic-height passes can lay this
-                                // shrink-wrap grid out at zero width; a grid
-                                // with no horizontal space must not be built.
+                                // During the AnimatedCrossFade layout pass the
+                                // incoming child can be given a zero width.
+                                // SliverGridDelegateWithMaxCrossAxisExtent
+                                // asserts on crossAxisExtent <= 0, so only
+                                // build the grid when there is real room.
                                 if (constraints.maxWidth <= 0) {
                                   return const SizedBox.shrink();
                                 }

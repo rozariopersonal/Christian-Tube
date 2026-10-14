@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/audio_series.dart';
+import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
 import '../services/audio_download_service.dart';
 import '../services/audio_storage_service.dart';
@@ -11,23 +12,42 @@ class AudioSeriesViewState {
   final AudioSeries? series;
   final Map<String, int> savedPositions;
   final bool isLoading;
+  final String searchQuery;
 
   const AudioSeriesViewState({
     this.series,
     this.savedPositions = const {},
     this.isLoading = true,
+    this.searchQuery = '',
   });
+
+  bool get isSearching => searchQuery.trim().isNotEmpty;
+
+  /// Tracks matching the active in-channel search query. Falls back to the
+  /// full list when the query is blank.
+  List<AudioTrack> get filteredTracks {
+    final tracks = series?.tracks ?? const <AudioTrack>[];
+    final clean = searchQuery.trim().toLowerCase();
+    if (clean.isEmpty) return tracks;
+    return tracks.where((t) {
+      return t.title.toLowerCase().contains(clean) ||
+          t.speaker.toLowerCase().contains(clean) ||
+          (t.youtubeVideoId ?? '').toLowerCase().contains(clean);
+    }).toList();
+  }
 
   AudioSeriesViewState copyWith({
     AudioSeries? series,
     bool clearSeries = false,
     Map<String, int>? savedPositions,
     bool? isLoading,
+    String? searchQuery,
   }) {
     return AudioSeriesViewState(
       series: clearSeries ? null : (series ?? this.series),
       savedPositions: savedPositions ?? this.savedPositions,
       isLoading: isLoading ?? this.isLoading,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 }
@@ -83,4 +103,14 @@ class AudioSeriesController extends ChangeNotifier {
     _disposed = true;
     super.dispose();
   }
+
+  /// Updates the in-channel search query (filters the track list by
+  /// title/speaker).
+  void setSearchQuery(String query) {
+    if (_state.searchQuery == query) return;
+    _state = _state.copyWith(searchQuery: query);
+    notifyListeners();
+  }
+
+  void clearSearch() => setSearchQuery('');
 }

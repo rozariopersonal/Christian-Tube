@@ -228,24 +228,7 @@ export class EmbeddingService {
    */
   @Cron(CronExpression.EVERY_30_MINUTES)
   async reconcilePendingEmbeddings() {
-    if (!this.enabled) return;
-    try {
-      const result = await this.prisma.$executeRawUnsafe(
-        `UPDATE "VideoPipelineStatus"
-         SET "embedding" = (COALESCE("embedding", '{}'::jsonb) - 'error' - 'hash')
-                          || jsonb_build_object('status', 'pending', 'version', $1),
-             "updatedAt" = CURRENT_TIMESTAMP
-         WHERE "embedding"->>'status' = 'completed'
-           AND ("embedding"->>'version' IS NULL OR NULLIF("embedding"->>'version', '')::integer <> $1)`,
-        this.version,
-      );
-      if (result > 0) {
-        this.logger.log(
-          `Re-queued ${result} videos for embedding on contract version ${this.version}.`,
-        );
-      }
-    } catch (e: any) {
-      this.logger.warn(`Embedding reconcile note: ${e.message}`);
-    }
+    // Disabled: Embeddings are stored in the local vector DB and managed by the embedder worker.
+    return;
   }
 }

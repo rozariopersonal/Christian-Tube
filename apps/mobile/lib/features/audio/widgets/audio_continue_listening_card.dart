@@ -81,9 +81,9 @@ class AudioContinueListeningCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
                       color: tokens.surfaceVariant,
-                      child: track.coverUrl != null && track.coverUrl!.isNotEmpty
+                      child: track.displayImageUrl != null
                           ? CachedNetworkImage(
-                              imageUrl: track.coverUrl!,
+                              imageUrl: track.displayImageUrl!,
                               fit: BoxFit.cover,
                               errorWidget: (_, __, ___) => Icon(
                                 Icons.headphones,

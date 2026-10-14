@@ -145,27 +145,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
            WHERE embedding->>'status' IN ('pending', 'failed');`,
       ],
       [
-        "VideoEmbedding table",
-        `CREATE TABLE IF NOT EXISTS "VideoEmbedding" (
-           "videoId" TEXT NOT NULL PRIMARY KEY,
-           "embedding" vector(384) NOT NULL,
-           "model" TEXT NOT NULL,
-           "version" INTEGER NOT NULL DEFAULT 0,
-           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-           CONSTRAINT "VideoEmbedding_videoId_fkey"
-             FOREIGN KEY ("videoId") REFERENCES "Video"("id")
-             ON DELETE CASCADE ON UPDATE CASCADE
-         );`,
-      ],
-      [
-        "VideoEmbedding indexes",
-        `CREATE INDEX IF NOT EXISTS "VideoEmbedding_version_idx" ON "VideoEmbedding"("version");
-         CREATE INDEX IF NOT EXISTS "VideoEmbedding_embedding_hnsw_idx"
-           ON "VideoEmbedding" USING hnsw ("embedding" vector_cosine_ops)
-           WITH (m = 16, ef_construction = 64);`,
-      ],
-      [
         "VideoChunk table",
         `CREATE TABLE IF NOT EXISTS "VideoChunk" (
            "id" SERIAL PRIMARY KEY,

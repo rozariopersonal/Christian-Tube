@@ -4,7 +4,8 @@
 Polls the database for English videos that lack a transcript, tries YouTube
 captions first, and falls back to Audio.com audio decoded with ffmpeg and
 transcribed by NVIDIA Parakeet (NeMo). The timestamped transcript is written to
-the ``Transcription`` table and the row is marked ``transcriptionStatus='completed'``.
+the ``Transcription`` table and the row's transcription status is marked
+``completed`` on the shared ``VideoPipelineStatus`` row (``transcription`` JSONB).
 
 This service ONLY transcribes. Chunking (LLM idea extraction) and embedding are
 separate daemons that consume the transcript straight from the database:

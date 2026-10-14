@@ -53,12 +53,7 @@ class AudioSearchDelegate extends SearchDelegate<AudioSeries?> {
   }
 
   @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      onPressed: () => close(context, null),
-    );
-  }
+  Widget? buildLeading(BuildContext context) => null;
 
   @override
   Widget buildResults(BuildContext context) {
@@ -140,7 +135,8 @@ class AudioSearchDelegate extends SearchDelegate<AudioSeries?> {
             ),
             title: Text(
               s.title,
-              maxLines: 1,
+              maxLines: 2,
+              softWrap: true,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,

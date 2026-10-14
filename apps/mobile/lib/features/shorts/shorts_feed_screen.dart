@@ -76,8 +76,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   Future<void> _loadChannelContext() async {
     await _channelService.loadSubscriptions();
     if (!mounted) return;
-    await _channelService.fetchChannels();
-    if (!mounted) return;
     await _pushSubscriptionContext();
   }
 
@@ -94,7 +92,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     await _communityController.updateSubscriptionContext(
       isAuthenticated: _authService.isAuthenticated,
       subscribedChannelIds: _channelService.subscribedChannelIds,
-      channels: _channelService.channels,
     );
   }
 
@@ -133,6 +130,20 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       });
     }
     BottomBarVisibilityService.instance.setShortPlaying(false);
+  }
+
+  /// Returns to the page that led to the Shorts tab. When the shorts feed was
+  /// pushed on top of another route (rare) we pop back to it; otherwise we
+  /// land on the Videos home feed instead of letting the system back exit the
+  /// app from a root tab.
+  void _handleBackFromGrid() {
+    stopAllPlatformShorts();
+    BottomBarVisibilityService.instance.setShortPlaying(false);
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      context.go('/feed');
+    }
   }
 
   void _applyInitialTarget() {
@@ -207,12 +218,18 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     final bool isPlayerOpen =
         _selectedCommunityIndex != null || _selectedCreationIndex != null;
 
+    // Back is always intercepted so a system back press never pops the root
+    // tab and exits the app:
+    //  - player open  -> close back to the shorts grid (previous shorts page)
+    //  - shorts grid  -> return to the previous page / Videos home feed
     return PopScope(
-      canPop: !isPlayerOpen,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (isPlayerOpen) {
           _closeShortPlayer();
+        } else {
+          _handleBackFromGrid();
         }
       },
       child: Scaffold(
@@ -295,37 +312,10 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
               ),
             ),
 
-            // 2b. Back button
+            // 2b. Tab chips
             Positioned(
               top: MediaQuery.paddingOf(context).top + 8,
-              left: 4,
-              child: IconButton(
-                icon: Icon(Icons.arrow_back_ios_new,
-                    color: context.shortsChromeFg, size: 20),
-                tooltip: 'Back',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                onPressed: () {
-                  if (_selectedCommunityIndex != null ||
-                      _selectedCreationIndex != null) {
-                    _closeShortPlayer();
-                  } else {
-                    stopAllPlatformShorts();
-                    BottomBarVisibilityService.instance.setShortPlaying(false);
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    } else {
-                      context.go('/feed');
-                    }
-                  }
-                },
-              ),
-            ),
-
-            // 2c. Tab chips
-            Positioned(
-              top: MediaQuery.paddingOf(context).top + 8,
-              left: 44,
+              left: 16,
               right: 84,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,

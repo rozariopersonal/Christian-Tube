@@ -2,9 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
-import '../../../core/models/channel.dart';
 import '../../../core/models/short.dart';
-import 'shorts_language_filter.dart';
+import 'shorts_subscription_filter.dart';
 
 class CommunityShortsController extends ChangeNotifier {
   static const String _cacheKeyAll = 'ct_cached_community_shorts';
@@ -32,7 +31,6 @@ class CommunityShortsController extends ChangeNotifier {
 
   bool _isAuthenticated = false;
   Set<String> _subscribedChannelIds = const {};
-  List<Channel> _allChannels = const [];
   Set<String>? _candidateChannelIds;
 
   CommunityShortsController({ApiClient? apiClient})
@@ -49,8 +47,8 @@ class CommunityShortsController extends ChangeNotifier {
   }
 
   /// Cache key scoped to the active filter so a signed-out user (or a user
-  /// with no subscriptions) never sees a stale language-filtered snapshot, and
-  /// vice versa. Exposed for test assertions.
+  /// with no subscriptions) never sees a stale subscriptions-filtered snapshot,
+  /// and vice versa. Exposed for test assertions.
   String get activeCacheKey {
     final ids = _effectiveChannelIds;
     if (ids == null) return _cacheKeyAll;
@@ -79,22 +77,19 @@ class CommunityShortsController extends ChangeNotifier {
     return hash.toRadixString(16).padLeft(8, '0');
   }
 
-  /// Recomputes the language-of-subscriptions filter from the current auth +
-  /// subscription + channel-catalog state. Refetches (and resets the feed)
-  /// only when the resolved candidate set actually changed.
+  /// Recomputes the subscriptions filter from the current auth + subscription
+  /// state. Refetches (and resets the feed) only when the resolved candidate
+  /// set actually changed.
   Future<void> updateSubscriptionContext({
     required bool isAuthenticated,
     required Set<String> subscribedChannelIds,
-    required List<Channel> channels,
   }) async {
     final previous = _effectiveChannelIds;
     _isAuthenticated = isAuthenticated;
     _subscribedChannelIds = subscribedChannelIds;
-    _allChannels = List.unmodifiable(channels);
-    _candidateChannelIds = resolveCandidateChannelIds(
+    _candidateChannelIds = resolveSubscribedChannelIds(
       isAuthenticated: isAuthenticated,
       subscribedChannelIds: subscribedChannelIds,
-      allChannels: _allChannels,
     );
 
     if (_filtersEqual(previous, _effectiveChannelIds)) {

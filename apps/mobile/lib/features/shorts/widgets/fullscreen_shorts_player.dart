@@ -14,7 +14,6 @@ import '../players/shorts_player.dart';
 import '../players/local_short_player.dart';
 import '../native_shorts_player.dart';
 import 'short_player_overlay.dart';
-import 'shorts_chrome.dart';
 import 'my_creations_grid.dart'; // For NonPlayableShortCard
 
 class FullscreenShortsPlayer extends StatefulWidget {
@@ -295,39 +294,7 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
                   ),
                 ),
 
-                // Top-Left Back Button to Return to Grid
-                Positioned(
-                  top: 54,
-                  left: 12,
-                  child: GestureDetector(
-                    onTap: widget.onClose,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: context.shortsChromeBg.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(20),
-                        border:
-                            Border.all(color: context.shortsChromeFgMuted),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.arrow_back_ios_new,
-                              size: 13, color: context.shortsChromeFg),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Back to Grid',
-                            style: TextStyle(
-                                color: context.shortsChromeFg,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+
               ],
             ),
           ),

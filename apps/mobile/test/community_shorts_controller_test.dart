@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/api/api_client.dart';
-import 'package:mobile/core/models/channel.dart';
 import 'package:mobile/features/shorts/services/community_shorts_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,13 +49,6 @@ Map<String, dynamic> _short(String id, String channelId) => {
       'viewCount': 1,
     };
 
-Channel _channel(String id, {String? language}) => Channel(
-      id: id,
-      title: 'T$id',
-      avatarUrl: '',
-      language: language,
-    );
-
 Future<void> _settle() => Future<void>.delayed(const Duration(milliseconds: 20));
 
 void main() {
@@ -74,7 +66,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  group('CommunityShortsController language filter', () {
+  group('CommunityShortsController subscriptions filter', () {
     test('fetchShorts queries all shorts when not signed in', () async {
       final controller =
           buildController(responses: ['[${jsonEncode(_short('s1', 'c1'))}]']);
@@ -96,35 +88,28 @@ void main() {
       await controller.updateSubscriptionContext(
         isAuthenticated: false,
         subscribedChannelIds: {'enA'},
-        channels: [_channel('enA', language: 'English')],
       );
 
       // Effective mode is unchanged (all → all), so no refetch happens.
       expect(adapter.requests, isEmpty);
     });
 
-    test('fetchShorts filters to the languages of subscribed channels', () async {
+    test('fetchShorts filters to subscribed channels only', () async {
       final controller = buildController(responses: ['[]']);
       await _settle();
 
       await controller.updateSubscriptionContext(
         isAuthenticated: true,
         subscribedChannelIds: {'enA'},
-        channels: [
-          _channel('enA', language: 'English'),
-          _channel('enB', language: 'English'),
-          _channel('taC', language: 'Tamil'),
-        ],
       );
 
       expect(adapter.requests, hasLength(1));
       final ids =
           adapter.requests.single.queryParameters['channelIds'] as String;
-      expect(ids.split(','), containsAll(['enA', 'enB']));
-      expect(ids.split(','), isNot(contains('taC')));
+      expect(ids.split(','), ['enA']);
     });
 
-    test('loadMoreShorts keeps the active language filter', () async {
+    test('loadMoreShorts keeps the active subscriptions filter', () async {
       final controller = buildController(responses: [
         '[${jsonEncode(_short('s1', 'enA'))}]',
         '[${jsonEncode(_short('s2', 'enB'))}]',
@@ -134,10 +119,6 @@ void main() {
       await controller.updateSubscriptionContext(
         isAuthenticated: true,
         subscribedChannelIds: {'enA'},
-        channels: [
-          _channel('enA', language: 'English'),
-          _channel('enB', language: 'English'),
-        ],
       );
       expect(controller.shorts, hasLength(1));
       final firstIds =
@@ -167,7 +148,6 @@ void main() {
       await controller.updateSubscriptionContext(
         isAuthenticated: true,
         subscribedChannelIds: {'enA'},
-        channels: [_channel('enA', language: 'English')],
       );
 
       // Feed cleared, filter-scoped cache loaded (none), then refetched —
@@ -188,7 +168,6 @@ void main() {
       await controller.updateSubscriptionContext(
         isAuthenticated: true,
         subscribedChannelIds: {'enA'},
-        channels: [_channel('enA', language: 'English')],
       );
       final filteredKey = controller.activeCacheKey;
       expect(filteredKey, startsWith('ct_cached_community_shorts_sub_'));
@@ -197,56 +176,44 @@ void main() {
       await controller.updateSubscriptionContext(
         isAuthenticated: false,
         subscribedChannelIds: {},
-        channels: const [],
       );
       expect(controller.activeCacheKey, 'ct_cached_community_shorts');
     });
 
     test('subscription change recomputes candidates and refetches', () async {
-      final channels = [
-        _channel('enA', language: 'English'),
-        _channel('enB', language: 'English'),
-        _channel('taC', language: 'Tamil'),
-      ];
       final controller = buildController(responses: ['[]', '[]']);
       await _settle();
 
       await controller.updateSubscriptionContext(
         isAuthenticated: true,
         subscribedChannelIds: {'enA'},
-        channels: channels,
       );
       final first = adapter.requests[0].queryParameters['channelIds'] as String;
-      expect(first.split(','), containsAll(['enA', 'enB']));
-      expect(first.split(','), isNot(contains('taC')));
+      expect(first.split(','), ['enA']);
 
       await controller.updateSubscriptionContext(
         isAuthenticated: true,
         subscribedChannelIds: {'enA', 'taC'},
-        channels: channels,
       );
       final second =
           adapter.requests[1].queryParameters['channelIds'] as String;
-      expect(second.split(','), containsAll(['enA', 'enB', 'taC']));
+      expect(second.split(','), containsAll(['enA', 'taC']));
       expect(second, isNot(first));
     });
 
     test('signing out switches back to the all-shorts feed', () async {
-      final channels = [_channel('enA', language: 'English')];
       final controller = buildController(responses: ['[]', '[]']);
       await _settle();
 
       await controller.updateSubscriptionContext(
         isAuthenticated: true,
         subscribedChannelIds: {'enA'},
-        channels: channels,
       );
       expect(adapter.requests[0].queryParameters['channelIds'], isNotNull);
 
       await controller.updateSubscriptionContext(
         isAuthenticated: false,
         subscribedChannelIds: {'enA'},
-        channels: channels,
       );
       expect(controller.activeCacheKey, 'ct_cached_community_shorts');
       expect(adapter.requests[1].queryParameters['channelIds'], isNull);

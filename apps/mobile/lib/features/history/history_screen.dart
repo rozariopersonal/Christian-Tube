@@ -90,6 +90,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return Scaffold(
           backgroundColor: tokens.background,
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             backgroundColor: tokens.surface,
             elevation: 0,
             title: _isSearching

@@ -116,6 +116,7 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
     return Scaffold(
       backgroundColor: tokens.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: tokens.background,
         foregroundColor: tokens.onSurface,
         title: Column(

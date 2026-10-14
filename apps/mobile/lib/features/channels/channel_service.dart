@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
@@ -12,25 +15,34 @@ class ChannelService extends ChangeNotifier {
   AuthService? _authService;
   AuthService? get authService => _authService;
 
-  ChannelService._internal() {
+  late final Dio _dio;
+
+  ChannelService._internal({Dio? dio}) : _dio = dio ?? ApiClient().dio {
     loadSubscriptions();
   }
 
-  void attachToAuth(AuthService authService) {
+  @visibleForTesting
+  ChannelService.forTesting({Dio? dio, AuthService? authService})
+      : _dio = dio ?? ApiClient().dio {
+    attachToAuth(authService);
+  }
+
+  void attachToAuth(AuthService? authService) {
     _authService = authService;
-    authService.addListener(_onAuthChanged);
+    authService?.addListener(_onAuthChanged);
   }
 
   void _onAuthChanged() {
     loadSubscriptions();
   }
 
-  final ApiClient _apiClient = ApiClient();
+  bool get _isAuthenticated => _authService?.isAuthenticated ?? false;
   List<Channel> _channels = [];
   List<Map<String, dynamic>> _channelRequests = [];
   bool _isLoading = false;
   bool _isLoadingRequests = false;
   Set<String> _subscribedIds = {};
+  final Map<String, String> _channelNamesById = {};
 
   List<Channel> get channels => _channels;
   List<Map<String, dynamic>> get channelRequests => _channelRequests;
@@ -40,8 +52,68 @@ class ChannelService extends ChangeNotifier {
 
   bool isSubscribed(String channelId) => _subscribedIds.contains(channelId);
 
+  /// Names of the currently subscribed channels (trimmed). Other features
+  /// (audio YouTube tab) bridge channel subscriptions to their own data by
+  /// name, so names are remembered whenever they are learned — from the
+  /// backend subscription payload, the channel list, or persisted prefs.
+  Set<String> get subscribedChannelNames {
+    final names = <String>{};
+    for (final id in _subscribedIds) {
+      final name = _channelNamesById[id];
+      if (name != null && name.isNotEmpty) names.add(name);
+    }
+    return names;
+  }
+
+  void _rememberChannelName(String? id, String? name) {
+    if (id == null || id.isEmpty) return;
+    final clean = (name ?? '').trim();
+    if (clean.isEmpty) return;
+    _channelNamesById[id] = clean;
+  }
+
   Future<void> loadSubscriptions() async {
-    await _loadFromPrefs();
+    if (_isAuthenticated) {
+      await _loadFromBackend();
+    } else {
+      await _loadFromPrefs();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadFromBackend() async {
+    try {
+      dynamic response;
+      try {
+        response = await _dio.get('/api/channels/subscriptions');
+      } catch (_) {
+        response = await _dio.get('/channels/subscriptions');
+      }
+
+      if (response.statusCode == 200 && response.data != null) {
+        final channelIds = (response.data['channelIds'] as List?)
+                ?.whereType<String>()
+                .toSet() ??
+            const <String>{};
+        _subscribedIds = channelIds;
+
+        final subscribedChannels = response.data['channels'];
+        if (subscribedChannels is List) {
+          for (final entry in subscribedChannels.whereType<Map>()) {
+            final id = entry['id'];
+            if (id is String && channelIds.contains(id)) {
+              _rememberChannelName(id, entry['name'] as String?);
+            }
+          }
+        }
+
+        await _saveToPrefs();
+        _syncSubscriptionStatus();
+      }
+    } catch (e) {
+      debugPrint('Error loading subscriptions from backend: $e');
+      await _loadFromPrefs();
+    }
   }
 
   Future<void> _loadFromPrefs() async {
@@ -49,6 +121,18 @@ class ChannelService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final list = prefs.getStringList('subscribed_channel_ids') ?? [];
       _subscribedIds = list.toSet();
+
+      final namesJson = prefs.getString('subscribed_channel_names');
+      if (namesJson != null && namesJson.isNotEmpty) {
+        final decoded = jsonDecode(namesJson);
+        if (decoded is Map) {
+          for (final entry in decoded.entries) {
+            if (entry.key is String) {
+              _rememberChannelName(entry.key as String, entry.value as String?);
+            }
+          }
+        }
+      }
       _syncSubscriptionStatus();
       notifyListeners();
     } catch (_) {}
@@ -58,6 +142,14 @@ class ChannelService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('subscribed_channel_ids', _subscribedIds.toList());
+
+      // Persist names only for the currently subscribed ids so the map does
+      // not retain stale entries across accounts or sign-outs.
+      final subscribedNamesJson = jsonEncode({
+        for (final id in _subscribedIds)
+          if (_channelNamesById[id] != null) id: _channelNamesById[id],
+      });
+      await prefs.setString('subscribed_channel_names', subscribedNamesJson);
     } catch (_) {}
   }
 
@@ -77,9 +169,9 @@ class ChannelService extends ChangeNotifier {
     try {
       dynamic response;
       try {
-        response = await _apiClient.dio.get('/api/channels');
+        response = await _dio.get('/api/channels');
       } catch (_) {
-        response = await _apiClient.dio.get('/channels');
+        response = await _dio.get('/channels');
       }
 
       if (response.statusCode == 200 && response.data != null) {
@@ -89,6 +181,10 @@ class ChannelService extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .map((c) => Channel.fromJson(c))
             .toList();
+
+        for (final ch in _channels) {
+          _rememberChannelName(ch.id, ch.name);
+        }
 
         _syncSubscriptionStatus();
       }
@@ -105,7 +201,7 @@ class ChannelService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiClient.dio.get('/channels/requests');
+      final response = await _dio.get('/channels/requests');
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> list = response.data is List ? response.data : [];
         _channelRequests = list.whereType<Map<String, dynamic>>().toList();
@@ -122,13 +218,14 @@ class ChannelService extends ChangeNotifier {
     try {
       dynamic response;
       try {
-        response = await _apiClient.dio.get('/api/channels/$channelId');
+        response = await _dio.get('/api/channels/$channelId');
       } catch (_) {
-        response = await _apiClient.dio.get('/channels/$channelId');
+        response = await _dio.get('/channels/$channelId');
       }
 
       if (response.statusCode == 200 && response.data != null) {
         final ch = Channel.fromJson(response.data);
+        _rememberChannelName(ch.id, ch.name);
         return ch.copyWith(isSubscribed: _subscribedIds.contains(ch.id));
       }
     } catch (e) {
@@ -143,12 +240,12 @@ class ChannelService extends ChangeNotifier {
     try {
       dynamic response;
       try {
-        response = await _apiClient.dio.get(
+        response = await _dio.get(
           '/api/channels/search-youtube',
           queryParameters: {'q': query},
         );
       } catch (_) {
-        response = await _apiClient.dio.get(
+        response = await _dio.get(
           '/channels/search-youtube',
           queryParameters: {'q': query},
         );
@@ -182,9 +279,9 @@ class ChannelService extends ChangeNotifier {
 
       dynamic response;
       try {
-        response = await _apiClient.dio.post('/api/channels', data: data);
+        response = await _dio.post('/api/channels', data: data);
       } catch (_) {
-        response = await _apiClient.dio.post('/channels', data: data);
+        response = await _dio.post('/channels', data: data);
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -199,10 +296,11 @@ class ChannelService extends ChangeNotifier {
 
   Future<bool> removeChannel(String channelId) async {
     try {
-      final response = await _apiClient.dio.delete('/channels/$channelId');
+      final response = await _dio.delete('/channels/$channelId');
       if (response.statusCode == 200 || response.statusCode == 204) {
         _channels.removeWhere((c) => c.id == channelId);
         _subscribedIds.remove(channelId);
+        _channelNamesById.remove(channelId);
         await _saveToPrefs();
         notifyListeners();
         return true;
@@ -215,7 +313,7 @@ class ChannelService extends ChangeNotifier {
 
   Future<bool> submitChannelRequest(ChannelRequest request) async {
     try {
-      final response = await _apiClient.dio.post(
+      final response = await _dio.post(
         '/channels/request',
         data: request.toJson(),
       );
@@ -231,7 +329,7 @@ class ChannelService extends ChangeNotifier {
 
   Future<bool> approveRequest(String requestId, [String? adminEmail]) async {
     try {
-      final response = await _apiClient.dio.post(
+      final response = await _dio.post(
         '/channels/requests/$requestId/approve',
         data: {'adminEmail': adminEmail},
       );
@@ -248,7 +346,7 @@ class ChannelService extends ChangeNotifier {
 
   Future<bool> rejectRequest(String requestId, [String? reason]) async {
     try {
-      final response = await _apiClient.dio.post(
+      final response = await _dio.post(
         '/channels/requests/$requestId/reject',
         data: {'reason': reason},
       );
@@ -264,20 +362,47 @@ class ChannelService extends ChangeNotifier {
 
   void toggleSubscribe(String channelId) {
     final wasSubscribed = _subscribedIds.contains(channelId);
+    final willSubscribe = !wasSubscribed;
 
-    if (wasSubscribed) {
-      _subscribedIds.remove(channelId);
-    } else {
+    _applySubscriptionState(channelId, willSubscribe);
+    _saveToPrefs();
+    notifyListeners();
+
+    if (_isAuthenticated) {
+      _syncSubscriptionToBackend(channelId, willSubscribe, wasSubscribed);
+    }
+  }
+
+  void _applySubscriptionState(String channelId, bool subscribed) {
+    if (subscribed) {
       _subscribedIds.add(channelId);
+    } else {
+      _subscribedIds.remove(channelId);
     }
 
     final index = _channels.indexWhere((c) => c.id == channelId);
     if (index != -1) {
       final ch = _channels[index];
-      _channels[index] = ch.copyWith(isSubscribed: _subscribedIds.contains(channelId));
+      _channels[index] = ch.copyWith(isSubscribed: subscribed);
     }
+  }
 
-    _saveToPrefs();
-    notifyListeners();
+  Future<void> _syncSubscriptionToBackend(
+    String channelId,
+    bool willSubscribe,
+    bool wasSubscribed,
+  ) async {
+    try {
+      if (willSubscribe) {
+        await _dio.post('/api/channels/$channelId/subscribe');
+      } else {
+        await _dio.delete('/api/channels/$channelId/subscribe');
+      }
+    } catch (e) {
+      debugPrint('Subscription backend sync failed, reverting: $e');
+      _applySubscriptionState(channelId, wasSubscribed);
+      _saveToPrefs();
+      notifyListeners();
+    }
   }
 }

@@ -52,7 +52,6 @@ class AudioTrackListTile extends StatelessWidget {
         // Scripture ref becomes a chip tag
         final scriptureChip = track.hasScripture
             ? Container(
-                margin: const EdgeInsets.only(top: 4),
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withValues(alpha: 0.10),
@@ -71,12 +70,19 @@ class AudioTrackListTile extends StatelessWidget {
               )
             : null;
 
+        String metaText = track.formattedDuration;
+        if (!isCurrentTrack && savedPos > 5) {
+          final m = savedPos ~/ 60;
+          final sec = (savedPos % 60).toString().padLeft(2, '0');
+          metaText += ' • Resumes at $m:$sec';
+        }
+
         return Material(
           color: isCurrentTrack
               ? theme.colorScheme.primary.withValues(alpha: 0.06)
               : Colors.transparent,
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             leading: _TrackLeading(
               track: track,
               index: index,
@@ -85,59 +91,49 @@ class AudioTrackListTile extends StatelessWidget {
               theme: theme,
               tokens: tokens,
             ),
-            title: Text(
-              track.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: isCurrentTrack ? FontWeight.bold : FontWeight.normal,
-                color: isCurrentTrack
-                    ? theme.colorScheme.primary
-                    : tokens.onSurface,
+            title: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                track.title,
+                maxLines: 3,
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: isCurrentTrack ? FontWeight.bold : FontWeight.w500,
+                  color: isCurrentTrack
+                      ? theme.colorScheme.primary
+                      : tokens.onSurface,
+                  height: 1.25,
+                ),
               ),
             ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+            subtitle: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 4,
               children: [
                 Text(
-                  // Duration + resume hint (no scripture here ΓÇö moved to chip)
-                  () {
-                    String s = track.formattedDuration;
-                    if (!isCurrentTrack && savedPos > 5) {
-                      final m = savedPos ~/ 60;
-                      final sec = (savedPos % 60).toString().padLeft(2, '0');
-                      s += ' ΓÇó Resumes at $m:$sec';
-                    }
-                    return s;
-                  }(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  metaText,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: tokens.onSurfaceMuted,
                   ),
                 ),
                 if (scriptureChip != null) scriptureChip,
+                AudioTrackDownloadControl(track: track, compact: true),
               ],
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AudioTrackDownloadControl(track: track),
-                IconButton(
-                  icon: Icon(
-                    isCurrentTrack && state.isPlaying
-                        ? Icons.pause_circle_rounded
-                        : Icons.play_circle_rounded,
-                    size: 30,
-                    color: isCurrentTrack
-                        ? theme.colorScheme.primary
-                        : tokens.onSurfaceMuted,
-                  ),
-                  tooltip: isCurrentTrack && state.isPlaying ? 'Pause' : 'Play',
-                  onPressed: playFromHere,
-                ),
-              ],
+            trailing: IconButton(
+              icon: Icon(
+                isCurrentTrack && state.isPlaying
+                    ? Icons.pause_circle_rounded
+                    : Icons.play_circle_rounded,
+                size: 32,
+                color: isCurrentTrack
+                    ? theme.colorScheme.primary
+                    : tokens.onSurfaceMuted,
+              ),
+              tooltip: isCurrentTrack && state.isPlaying ? 'Pause' : 'Play',
+              onPressed: playFromHere,
             ),
             onTap: playFromHere,
           ),
@@ -168,15 +164,15 @@ class _TrackLeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasCover = track.coverUrl != null && track.coverUrl!.isNotEmpty;
+    final imageUrl = track.displayImageUrl;
 
-    if (hasCover) {
+    if (imageUrl != null) {
       return Stack(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: CachedNetworkImage(
-              imageUrl: track.coverUrl!,
+              imageUrl: imageUrl,
               width: 40,
               height: 40,
               fit: BoxFit.cover,

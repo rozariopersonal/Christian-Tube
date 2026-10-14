@@ -51,9 +51,9 @@ void main() {
         expect(tester.takeException(), isNull,
             reason: 'overflow/exception at $width');
 
-        // Top navigation bar with back button is always present
+        // Top navigation bar adheres to No On-Screen Back Arrow standard
         expect(find.byType(AppBar), findsOneWidget);
-        expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
 
         // Video title is rendered
         expect(
@@ -72,7 +72,7 @@ void main() {
       });
     }
 
-    testWidgets('mobile phone portrait renders compact layout with back button',
+    testWidgets('mobile phone portrait renders compact layout without back button',
         (tester) async {
       setSurfaceSize(tester, 390, 844); // iPhone 12/13/14 portrait
       await tester.pumpWidget(createSubject());
@@ -80,7 +80,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byType(AppBar), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
       expect(find.text('Grace Community'), findsOneWidget);
     });
 

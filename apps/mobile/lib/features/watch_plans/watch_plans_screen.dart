@@ -207,6 +207,7 @@ class _WatchPlansScreenState extends State<WatchPlansScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text('${AppConfig.appName} Watch Plans'),
         actions: [
           IconButton(

@@ -12,7 +12,10 @@ class PlaylistDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(playlist.title)),
+      appBar: AppBar(
+        title: Text(playlist.title),
+        automaticallyImplyLeading: false,
+      ),
       body: playlist.videos.isEmpty
           ? const Center(child: Text('No videos in this playlist yet.'))
           : MaxWidthBox(

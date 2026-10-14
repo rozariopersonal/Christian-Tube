@@ -432,6 +432,7 @@ class _NotFoundScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: tokens.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: tokens.background,
         elevation: 0,
         title: Text(

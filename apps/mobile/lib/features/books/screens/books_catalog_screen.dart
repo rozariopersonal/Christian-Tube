@@ -830,6 +830,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     return Scaffold(
       backgroundColor: tokens.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: tokens.background,
         elevation: 0,
         title: Column(

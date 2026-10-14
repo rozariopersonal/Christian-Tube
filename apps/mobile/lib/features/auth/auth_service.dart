@@ -21,6 +21,16 @@ class AuthService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
 
+  /// Builds a guest (mock/test) identity token.
+  /// The optional email claim lets configured admins exercise admin actions
+  /// through the "Quick Sign-In" flow; the backend still gates access by the
+  /// configured admin email list.
+  static String buildGuestToken({required String userId, String? email}) {
+    final cleanEmail = email?.trim();
+    if (cleanEmail == null || cleanEmail.isEmpty) return 'token_$userId';
+    return 'token_$userId::$cleanEmail';
+  }
+
   AuthService() {
     _initGoogleSignIn();
     _loadUserFromStorage();
@@ -222,7 +232,7 @@ class AuthService extends ChangeNotifier {
       email: email,
       displayName: name,
       photoUrl: null,
-      idToken: 'token_$id',
+      idToken: AuthService.buildGuestToken(userId: id, email: email),
     );
 
     _currentUser = user;

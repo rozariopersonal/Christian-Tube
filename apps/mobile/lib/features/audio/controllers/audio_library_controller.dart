@@ -3,10 +3,12 @@ import 'package:flutter/foundation.dart';
 import '../../../core/api/release_revision.dart';
 import '../../../shared/services/library_languages_controller.dart';
 import '../../../shared/ui/language_meta.dart';
+import '../../channels/channel_service.dart';
 import '../models/audio_series.dart';
 import '../models/audio_track.dart';
 import '../services/audio_catalog_service.dart';
 import '../services/audio_storage_service.dart';
+import '../services/audio_subscription_filter.dart';
 import '../services/audio_sync_manager.dart';
 import 'audio_player_controller.dart';
 
@@ -17,6 +19,18 @@ enum AudioViewMode {
   byCategory,
   bySpeaker,
   alphabetical,
+}
+
+/// Sort options for the YouTube channel grid in the Audio tab.
+enum AudioChannelSort {
+  /// Channels with the most tracks first.
+  mostTracks,
+
+  /// Alphabetical by channel name (A–Z).
+  name,
+
+  /// Channels with the most recently published track first.
+  newest,
 }
 
 /// Immutable snapshot of the Audio Library browse state.
@@ -39,7 +53,16 @@ class AudioLibraryViewState {
 
   final String searchQuery;
   final AudioViewMode viewMode;
+  final AudioChannelSort channelSort;
   final List<AudioSeries>? asyncSearchResults;
+
+  /// Channel subscriptions the user has, keyed by YouTube channel id. The
+  /// YouTube tab restricts the channel grid to subscribed channels — empty
+  /// means the tab shows its "subscribe" call to action instead.
+  final Set<String> subscribedChannelIds;
+
+  /// Channel display names for the legacy (pre-relational) name-based bridge.
+  final Set<String> subscribedChannelNames;
 
   const AudioLibraryViewState({
     this.isLoading = true,
@@ -54,6 +77,9 @@ class AudioLibraryViewState {
     this.languageTrackCounts = const {},
     this.searchQuery = '',
     this.viewMode = AudioViewMode.featured,
+    this.channelSort = AudioChannelSort.mostTracks,
+    this.subscribedChannelIds = const {},
+    this.subscribedChannelNames = const {},
   });
 
   bool get isAllLanguagesSelected =>
@@ -61,6 +87,15 @@ class AudioLibraryViewState {
       selectedLanguages.any((l) => l.toLowerCase() == 'all');
 
   bool get isSearching => searchQuery.trim().isNotEmpty;
+
+  bool get hasChannelSubscriptions => subscribedChannelIds.isNotEmpty;
+
+  /// Whether the YouTube tab should render its "subscribe" call to action:
+  /// there is nothing to show because the user has no channel subscriptions.
+  bool get shouldShowSubscribedCta =>
+      selectedFormat == AudioFormat.youtube &&
+      !hasChannelSubscriptions &&
+      filteredSeries.isEmpty;
 
   AudioLibraryViewState copyWith({
     bool? isLoading,
@@ -77,6 +112,9 @@ class AudioLibraryViewState {
     Map<String, int>? languageTrackCounts,
     String? searchQuery,
     AudioViewMode? viewMode,
+    AudioChannelSort? channelSort,
+    Set<String>? subscribedChannelIds,
+    Set<String>? subscribedChannelNames,
   }) {
     return AudioLibraryViewState(
       isLoading: isLoading ?? this.isLoading,
@@ -92,31 +130,70 @@ class AudioLibraryViewState {
       languageTrackCounts: languageTrackCounts ?? this.languageTrackCounts,
       searchQuery: searchQuery ?? this.searchQuery,
       viewMode: viewMode ?? this.viewMode,
+      channelSort: channelSort ?? this.channelSort,
+      subscribedChannelIds: {...(subscribedChannelIds ?? this.subscribedChannelIds)},
+      subscribedChannelNames: {...(subscribedChannelNames ?? this.subscribedChannelNames)},
     );
+  }
+
+  /// Active format/category/language predicate shared by the browse list and
+  /// the deep async search results so both surfaces honor the same filters.
+  bool _matchesActiveFilters(AudioSeries s) {
+    final isSong = s.category.toLowerCase() == 'songs';
+    final isYouTube = s.category.toLowerCase() == 'youtube';
+
+    if (selectedFormat == AudioFormat.songs && !isSong) return false;
+    if (selectedFormat == AudioFormat.youtube && !isYouTube) return false;
+    if (selectedFormat == AudioFormat.archive && (isSong || isYouTube)) return false;
+
+    if (selectedFormat == AudioFormat.youtube &&
+        !isSubscribedAudioSeries(
+          subscribedChannelIds: subscribedChannelIds,
+          subscribedChannelNames: subscribedChannelNames,
+          series: s,
+        )) {
+      return false;
+    }
+
+    final matchesCategory =
+        selectedCategory == 'All' || s.category == selectedCategory;
+    if (selectedFormat == AudioFormat.archive && !matchesCategory) return false;
+
+    if (isAllLanguagesSelected) return true;
+
+    final code = LanguageMeta.canonicalCode(s.language);
+    return code.isNotEmpty &&
+        selectedLanguages.any((l) => l.toLowerCase() == code);
   }
 
   /// Series matching the active category and language filters.
   List<AudioSeries> get filteredSeries {
-    final isAll = isAllLanguagesSelected;
+    return seriesList.where(_matchesActiveFilters).toList();
+  }
 
-    return seriesList.where((s) {
-      final isSong = s.category.toLowerCase() == 'songs';
-      final isYouTube = s.category.toLowerCase() == 'youtube';
-
-      if (selectedFormat == AudioFormat.songs && !isSong) return false;
-      if (selectedFormat == AudioFormat.youtube && !isYouTube) return false;
-      if (selectedFormat == AudioFormat.archive && (isSong || isYouTube)) return false;
-
-      final matchesCategory =
-          selectedCategory == 'All' || s.category == selectedCategory;
-      if (selectedFormat == AudioFormat.archive && !matchesCategory) return false;
-
-      if (isAll) return true;
-
-      final code = LanguageMeta.canonicalCode(s.language);
-      return code.isNotEmpty &&
-          selectedLanguages.any((l) => l.toLowerCase() == code);
-    }).toList();
+  /// The YouTube channel grid, ordered by the active [channelSort].
+  List<AudioSeries> get channelSortedSeries {
+    final list = filteredSeries;
+    switch (channelSort) {
+      case AudioChannelSort.name:
+        final sorted = List<AudioSeries>.from(list)
+          ..sort((a, b) =>
+              a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        return sorted;
+      case AudioChannelSort.newest:
+        final sorted = List<AudioSeries>.from(list)
+          ..sort((a, b) {
+            final at = a.latestPublishedAt?.millisecondsSinceEpoch ?? -1;
+            final bt = b.latestPublishedAt?.millisecondsSinceEpoch ?? -1;
+            final recency = bt.compareTo(at);
+            if (recency != 0) return recency;
+            return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+          });
+        return sorted;
+      case AudioChannelSort.mostTracks:
+        return List<AudioSeries>.from(list)
+          ..sort((a, b) => b.trackCount.compareTo(a.trackCount));
+    }
   }
 
   /// Instant search results matching the active query against titles,
@@ -125,7 +202,9 @@ class AudioLibraryViewState {
     final clean = searchQuery.trim().toLowerCase();
     if (clean.isEmpty) return filteredSeries;
 
-    if (asyncSearchResults != null) return asyncSearchResults!;
+    if (asyncSearchResults != null) {
+      return asyncSearchResults!.where(_matchesActiveFilters).toList();
+    }
 
     return filteredSeries.where((s) {
       return s.title.toLowerCase().contains(clean) ||
@@ -199,6 +278,10 @@ class AudioLibraryController extends ChangeNotifier {
   final LibraryLanguagesController _langController;
   late final bool _ownsLangController;
 
+  /// Source of the user's channel subscriptions, bridged by name to audio
+  /// YouTube series.
+  final ChannelService _channelService;
+
   AudioLibraryViewState _state = const AudioLibraryViewState();
   AudioLibraryViewState get state => _state;
 
@@ -210,13 +293,35 @@ class AudioLibraryController extends ChangeNotifier {
     AudioCatalogService? catalogService,
     AudioStorageService? storageService,
     LibraryLanguagesController? langController,
+    ChannelService? channelService,
   })  : _catalogService = catalogService ?? AudioCatalogService(),
         _storageService = storageService ?? AudioStorageService(),
         _langController = langController ?? LibraryLanguagesController(),
-        _ownsLangController = langController == null {
+        _ownsLangController = langController == null,
+        _channelService = channelService ?? ChannelService() {
+    _state = AudioLibraryViewState(
+      subscribedChannelIds: _channelService.subscribedChannelIds,
+      subscribedChannelNames: _channelService.subscribedChannelNames,
+    );
     _langController.addListener(_onLangChanged);
+    _channelService.addListener(_onChannelSubscriptionsChanged);
     loadData();
     AudioPlayerController.instance.addListener(_onPlayerStateChanged);
+  }
+
+  void _onChannelSubscriptionsChanged() {
+    if (_disposed) return;
+    final ids = _channelService.subscribedChannelIds;
+    final names = _channelService.subscribedChannelNames;
+    if (setEquals(ids, _state.subscribedChannelIds) &&
+        setEquals(names, _state.subscribedChannelNames)) {
+      return;
+    }
+    _state = _state.copyWith(
+      subscribedChannelIds: ids,
+      subscribedChannelNames: names,
+    );
+    notifyListeners();
   }
 
   void _onLangChanged() {
@@ -245,7 +350,7 @@ class AudioLibraryController extends ChangeNotifier {
   Future<void> loadData({bool forceRefresh = false}) async {
     // Check cloud for playback updates across devices in background
     AudioPlayerController.instance.syncWithCloud();
-    
+
     // Sync the local SQLite mirror from the NestJS backend. An explicit
     // refresh pulls the full catalog (no `since` cursor) so a mirror frozen
     // by a drifted cursor is rebuilt.
@@ -255,7 +360,22 @@ class AudioLibraryController extends ChangeNotifier {
     });
 
     if (forceRefresh) {
+      // On explicit refresh: refresh the dataset revision FIRST so CDN URLs
+      // pick up the new cache-busting query, clear in-memory caches, then
+      // re-sync the local SQLite mirror and only THEN read the catalog. This
+      // removes the stale-count race for both the CDN and SQLite paths.
       await ReleaseRevision.load();
+      _catalogService.invalidateCaches();
+      try {
+        await syncManager.syncCatalog(fullRefresh: true);
+      } catch (e) {
+        debugPrint('Audio sync failed during force refresh: $e');
+      }
+    } else {
+      // Background catalog sync from NestJS to Local SQLite (best effort).
+      syncManager.syncCatalog().catchError((e) {
+        debugPrint('Background sync failed: $e');
+      });
     }
 
     final catalog = await _catalogService.getCatalog(forceRefresh: forceRefresh);
@@ -343,6 +463,12 @@ class AudioLibraryController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setChannelSort(AudioChannelSort sort) {
+    if (_state.channelSort == sort) return;
+    _state = _state.copyWith(channelSort: sort);
+    notifyListeners();
+  }
+
   void resetFilters() {
     _state = _state.copyWith(
       selectedFormat: AudioFormat.archive,
@@ -358,6 +484,7 @@ class AudioLibraryController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _langController.removeListener(_onLangChanged);
+    _channelService.removeListener(_onChannelSubscriptionsChanged);
     if (_ownsLangController) _langController.dispose();
     AudioPlayerController.instance.removeListener(_onPlayerStateChanged);
     super.dispose();

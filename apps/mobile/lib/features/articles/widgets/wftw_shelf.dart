@@ -65,26 +65,26 @@ class WftwShelf extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(
-          height: 150,
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: entries.length,
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: SizedBox(
-                  width: 210,
-                  child: _WftwShelfTile(
-                    entry: entry,
-                    tokens: tokens,
-                    onTap: () => onTapArticle(entry),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: SizedBox(
+                    width: 210,
+                    child: _WftwShelfTile(
+                      entry: entry,
+                      tokens: tokens,
+                      onTap: () => onTapArticle(entry),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              }).toList(),
+            ),
           ),
         ),
       ],

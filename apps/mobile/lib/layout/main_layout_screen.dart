@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../core/engines/active_engine.g.dart';
 import '../core/layout/adaptivity.dart';
+import '../core/layout/shell_back_handler.dart';
+import '../core/navigation/navigation_history_service.dart';
 import '../core/services/bottom_bar_visibility_service.dart';
 import '../core/theme/app_tokens.dart';
 import '../core/config/app_config.dart';
@@ -27,7 +29,8 @@ class MainLayoutScreen extends StatefulWidget {
   State<MainLayoutScreen> createState() => _MainLayoutScreenState();
 }
 
-class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBindingObserver {
+class _MainLayoutScreenState extends State<MainLayoutScreen>
+    with WidgetsBindingObserver {
   int _lastSelectedTabIndex = 0;
 
   @override
@@ -121,7 +124,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
     // Direct navigation using the same dynamic path list as the bar.
     final destinations = _destinationPaths();
     if (index < 0 || index >= destinations.length) return;
-    context.go(destinations[index]);
+    final targetPath = destinations[index];
+    NavigationHistoryService.instance.recordTab(targetPath);
+    context.go(targetPath);
   }
 
   List<_NavSpec> _destinations(BuildContext context) {
@@ -175,85 +180,102 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
     final isDark = theme.brightness == Brightness.dark;
     final tokens = theme.extension<AppTokens>();
     final currentPath = GoRouterState.of(context).uri.path;
+    NavigationHistoryService.instance.recordTab(currentPath);
     final selectedIndex = _getSelectedIndex(currentPath);
+    final isAudioPage = currentPath.startsWith('/audio');
 
-    return ListenableBuilder(
-      listenable: Listenable.merge(
-          [BottomBarVisibilityService.instance, widget.authService]),
-      builder: (context, _) {
-        final service = BottomBarVisibilityService.instance;
-        final size = MediaQuery.sizeOf(context);
-        final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
-        final navMode = resolveNavMode(
-          width: size.width,
-          isLandscape: isLandscape,
-          isShortPlaying: service.isShortPlaying,
-          isExplicitlyHidden: service.isExplicitlyHidden,
-          isWatchRoute: currentPath.startsWith('/watch'),
-          isWeb: kIsWeb,
-        );
+    return ShellBackHandler(
+      path: currentPath,
+      child: ListenableBuilder(
+        listenable: Listenable.merge(
+            [BottomBarVisibilityService.instance, widget.authService]),
+        builder: (context, _) {
+          final service = BottomBarVisibilityService.instance;
+          final size = MediaQuery.sizeOf(context);
+          final isLandscape =
+              MediaQuery.orientationOf(context) == Orientation.landscape;
+          final navMode = resolveNavMode(
+            width: size.width,
+            isLandscape: isLandscape,
+            isShortPlaying: service.isShortPlaying,
+            isExplicitlyHidden: service.isExplicitlyHidden,
+            isWatchRoute: currentPath.startsWith('/watch'),
+            isWeb: kIsWeb,
+          );
 
-        switch (navMode) {
-          case AppNavMode.bottomBar:
-            return Scaffold(
-              body: Stack(
-                fit: StackFit.expand,
-                children: [
-                  widget.child,
-                  const FloatingFeedbackButton(),
-                ],
-              ),
-              bottomNavigationBar: _buildBottomBar(isDark, selectedIndex),
-            );
-          case AppNavMode.rail:
-            return Scaffold(
-              body: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildNavigationRail(isDark, selectedIndex),
-                  VerticalDivider(
-                    width: 1,
-                    thickness: 1,
-                    color: tokens?.surfaceBorder ?? theme.dividerColor,
-                  ),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              widget.child,
-                              const FloatingFeedbackButton(),
-                            ],
-                          ),
-                        ),
-                        if (_isAudioTabEnabled)
-                          ListenableBuilder(
-                            listenable: AudioPlayerController.instance,
-                            builder: (context, _) {
-                              final state = AudioPlayerController.instance.state;
-                              if (state.isMiniPlayerVisible && state.hasTrack) {
-                                return MiniAudioPlayer(state: state);
-                              }
-                              return const SizedBox.shrink();
-                            },
-                          ),
-                      ],
+          switch (navMode) {
+            case AppNavMode.bottomBar:
+              return Scaffold(
+                body: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    widget.child,
+                    const FloatingFeedbackButton(),
+                  ],
+                ),
+                bottomNavigationBar: _buildBottomBar(
+                  isDark,
+                  selectedIndex,
+                  isAudioPage: isAudioPage,
+                ),
+              );
+            case AppNavMode.rail:
+              return Scaffold(
+                body: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildNavigationRail(isDark, selectedIndex),
+                    VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: tokens?.surfaceBorder ?? theme.dividerColor,
                     ),
-                  ),
-                ],
-              ),
-            );
-          case AppNavMode.hidden:
-            return Scaffold(body: widget.child);
-        }
-      },
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                widget.child,
+                                const FloatingFeedbackButton(),
+                              ],
+                            ),
+                          ),
+                          if (_isAudioTabEnabled && isAudioPage)
+                            ListenableBuilder(
+                              listenable: AudioPlayerController.instance,
+                              builder: (context, _) {
+                                final state =
+                                    AudioPlayerController.instance.state;
+                                if (state.isMiniPlayerVisible &&
+                                    state.hasTrack) {
+                                  return MiniAudioPlayer(state: state);
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            case AppNavMode.hidden:
+              return Scaffold(body: widget.child);
+          }
+        },
+      ),
     );
   }
 
-  Widget _buildBottomBar(bool isDark, int selectedIndex) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? (isDark ? AppTokens.dark : AppTokens.light);
+  Widget _buildBottomBar(
+    bool isDark,
+    int selectedIndex, {
+    required bool isAudioPage,
+  }) {
+    final tokens = Theme.of(context).extension<AppTokens>() ??
+        (isDark ? AppTokens.dark : AppTokens.light);
     return ListenableBuilder(
       listenable: AudioPlayerController.instance,
       builder: (context, _) {
@@ -261,7 +283,10 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_isAudioTabEnabled && state.isMiniPlayerVisible && state.hasTrack)
+            if (_isAudioTabEnabled &&
+                isAudioPage &&
+                state.isMiniPlayerVisible &&
+                state.hasTrack)
               MiniAudioPlayer(state: state),
             NavigationBarTheme(
               data: NavigationBarThemeData(
@@ -271,7 +296,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
                   final isSelected = states.contains(WidgetState.selected);
                   return TextStyle(
                     fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                     color: isSelected ? context.primary : tokens.onSurfaceMuted,
                   );
                 }),
@@ -312,7 +338,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> with WidgetsBinding
   }
 
   Widget _buildNavigationRail(bool isDark, int selectedIndex) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? (isDark ? AppTokens.dark : AppTokens.light);
+    final tokens = Theme.of(context).extension<AppTokens>() ??
+        (isDark ? AppTokens.dark : AppTokens.light);
     final selectedColor = context.primary;
     final unselectedColor = tokens.onSurfaceMuted;
     final indicator = context.primary.withValues(alpha: 0.12);

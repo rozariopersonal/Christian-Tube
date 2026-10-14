@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/layout/content_width.dart';
@@ -77,30 +78,45 @@ Future<void> showPlaybackQueueSheet(
 
                     return ListTile(
                       dense: true,
-                      leading: Container(
-                        width: 28,
-                        height: 28,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isCurrent
-                              ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                              : tokens?.surfaceVariant,
-                          shape: BoxShape.circle,
-                        ),
-                        child: isCurrent
-                            ? Icon(Icons.equalizer, size: 16, color: theme.colorScheme.primary)
-                            : Text(
-                                '${index + 1}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: tokens?.onSurfaceMuted,
-                                ),
+                      leading: item.displayImageUrl != null
+                          ? SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: CachedNetworkImage(
+                                      imageUrl: item.displayImageUrl!,
+                                      width: 32,
+                                      height: 32,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (_, __, ___) => _buildFallbackBadge(index, isCurrent, theme, tokens),
+                                    ),
+                                  ),
+                                  if (isCurrent)
+                                    Positioned.fill(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Container(
+                                          color: Colors.black.withValues(alpha: 0.45),
+                                          alignment: Alignment.center,
+                                          child: Icon(
+                                            state.isPlaying ? Icons.equalizer : Icons.pause,
+                                            size: 16,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
-                      ),
+                            )
+                          : _buildFallbackBadge(index, isCurrent, theme, tokens),
                       title: Text(
                         item.title,
-                        maxLines: 1,
+                        maxLines: 2,
+                        softWrap: true,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
@@ -131,5 +147,34 @@ Future<void> showPlaybackQueueSheet(
         ),
       );
     },
+  );
+}
+
+Widget _buildFallbackBadge(
+  int index,
+  bool isCurrent,
+  ThemeData theme,
+  AppTokens? tokens,
+) {
+  return Container(
+    width: 28,
+    height: 28,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: isCurrent
+          ? theme.colorScheme.primary.withValues(alpha: 0.15)
+          : tokens?.surfaceVariant,
+      shape: BoxShape.circle,
+    ),
+    child: isCurrent
+        ? Icon(Icons.equalizer, size: 16, color: theme.colorScheme.primary)
+        : Text(
+            '${index + 1}',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: tokens?.onSurfaceMuted,
+            ),
+          ),
   );
 }

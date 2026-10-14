@@ -149,6 +149,60 @@ them in every screen (see Theme & Appearance Standard).
 - No hardcoded `crossAxisCount`; no unbounded `maxWidth`.
 - Navigation reachable in landscape.
 - Empty/loading/error states match the size rules too.
+- Contains no hardcoded back arrow or leading back chevron in `AppBar`; relies on
+  gesture navigation and the Universal Back Handler.
+- Back navigation returns to the previous screen or tab without abruptly closing the app.
+
+---
+
+## Navigation & Universal Back Standard
+
+All screens, widgets, and routers in the Flutter client (`apps/mobile/lib`)
+**must** adhere to the gesture-driven navigation and universal back policy. No
+screen may hardcode on-screen back buttons or terminate the app abruptly.
+
+### 1. No On-Screen Back Arrows
+
+- **Must not** render manual back buttons or back chevrons (`leading: IconButton(icon: Icon(Icons.arrow_back...))`)
+  in `AppBar`s, `SliverAppBar`s, or overlay HUDs.
+- All `AppBar`s **must** set `automaticallyImplyLeading: false` (enforced globally
+  via `AppBarTheme`).
+- Screen titles **must** align flush with standard 16dp content margins without
+  48dp leading icon indentation.
+- Search delegates **must** return `null` from `buildLeading` to provide an
+  edge-to-edge search bar without a leading back arrow.
+- Modals, popovers, and bottom sheets **must** use drag handles, backdrop taps,
+  or swipe-to-dismiss gestures instead of explicit back buttons.
+
+### 2. Universal Back Dispatcher & History Hierarchy
+
+- System hardware back buttons, Android predictive back gestures, and iOS edge-swipe
+  gestures **must** be dispatched through the central `ShellBackHandler` and
+  `NavigationHistoryService`.
+- **Must not** call `SystemNavigator.pop()` directly in screens or widgets.
+- The back dispatcher **must** resolve back events in this strict hierarchical order:
+  1. **Active Overlays / Dialogs / Sheets**: Dismiss the active modal or popup first.
+  2. **Media State Overrides**: If a Short is playing, collapse to the Shorts grid;
+     if a video is fullscreen, exit fullscreen to portrait.
+  3. **Pushed Routes**: If the navigator can pop (`Navigator.of(context).canPop()`),
+     pop the pushed route.
+  4. **In-Shell Subpage Fallbacks**: If an orphaned in-shell subpage has no route on
+     the stack, route it to its logical parent (e.g. `/channels` & `/search` -> `/feed`;
+     `/books`, `/articles`, `/songs` -> `/library`; `/audio/series/:id` -> `/audio`;
+     `/watch-plans` & `/downloads` -> `/profile`).
+  5. **Tab History Unwind**: If the user visited multiple root tabs, unwind to the
+     previously visited tab.
+  6. **Home Feed Exit**: Only when on `/feed` with no history stack may the app exit
+     (prompting a double-tap exit toast before closing).
+
+### 3. Route Traversal: Push over Go for Drill-Downs
+
+- **Must** use `context.push(...)` (or `Navigator.push(...)`) when opening child,
+  detail, or drill-down screens (e.g. video watch, book reader, article reader,
+  channels, search, settings).
+- **Must not** use `context.go(...)` for drill-down navigation where the user expects
+  to return to their previous screen. `context.go(...)` is reserved strictly for
+  root tab switching and deep link initial routes.
 
 ---
 
@@ -301,6 +355,12 @@ Christian-Tube-Releases/
 ### 3. Data Access Philosophy: "GitHub-First, Streaming-Default"
 
 - Both web and mobile clients access data live from GitHub CDN by default.
+- **Audio catalog is DB-first**: the mobile remote adapter reads catalog and
+  per-series tracklist metadata from the backend (`GET /api/audio/catalog`,
+  `GET /api/audio/series/{id}`) backed by PostgreSQL and seeded from the
+  releases repo; audio binary media still streams from CDN/Audio.com. The
+  releases `audio/` JSON remains the sync source for the backend, not a client
+  read path.
 - Downloading to local SQLite is an optional enhancement for offline/airplane use,
   never a blocking prerequisite for reading.
 - **Cross-references**: Strictly JSON-only. Served on demand as small (~2–5 KB) per-chapter

@@ -45,6 +45,11 @@ class MiniAudioPlayer extends StatelessWidget {
                 onVerticalDragEnd: (details) {
                   if (details.primaryVelocity != null && details.primaryVelocity! < -200) {
                     FullAudioPlayerSheet.show(context);
+                  } else if (details.primaryVelocity != null && details.primaryVelocity! > 200) {
+                    if (state.isPlaying) {
+                      AudioPlayerController.instance.togglePlayPause();
+                    }
+                    AudioPlayerController.instance.dismissMiniPlayer();
                   }
                 },
                 onHorizontalDragEnd: (details) {
@@ -68,6 +73,18 @@ class MiniAudioPlayer extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Drag handle hint
+                        Center(
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            width: 32,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: tokens.onSurfaceMuted.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           child: Row(
@@ -79,9 +96,9 @@ class MiniAudioPlayer extends StatelessWidget {
                                   width: 44,
                                   height: 44,
                                   color: tokens.surfaceVariant,
-                                  child: track.coverUrl != null && track.coverUrl!.isNotEmpty
+                                  child: track.displayImageUrl != null
                                       ? CachedNetworkImage(
-                                          imageUrl: track.coverUrl!,
+                                          imageUrl: track.displayImageUrl!,
                                           fit: BoxFit.cover,
                                           errorWidget: (_, __, ___) => Icon(
                                             Icons.headphones,
@@ -156,16 +173,26 @@ class MiniAudioPlayer extends StatelessWidget {
                                       AudioPlayerController.instance.togglePlayPause(),
                                 ),
 
-                              // Dismiss button
+                              // Close button
                               IconButton(
                                 icon: Icon(
-                                  Icons.close,
+                                  Icons.close_rounded,
                                   size: 20,
                                   color: tokens.onSurfaceMuted,
                                 ),
-                                tooltip: 'Dismiss mini player',
-                                onPressed: () =>
-                                    AudioPlayerController.instance.dismissMiniPlayer(),
+                                tooltip: 'Close player',
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                onPressed: () {
+                                  if (state.isPlaying) {
+                                    AudioPlayerController.instance.togglePlayPause();
+                                  }
+                                  AudioPlayerController.instance.dismissMiniPlayer();
+                                },
                               ),
                             ],
                           ),

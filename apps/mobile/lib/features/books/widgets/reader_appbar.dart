@@ -63,6 +63,7 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
     }
 
     return AppBar(
+      automaticallyImplyLeading: false,
       backgroundColor: bgColor.withValues(alpha: 0.85),
       surfaceTintColor: Colors.transparent,
       iconTheme: IconThemeData(color: textCol),

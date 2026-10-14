@@ -39,9 +39,9 @@ class FullPlayerCoverArt extends StatelessWidget {
                 ),
               ],
             ),
-            child: track.coverUrl != null && track.coverUrl!.isNotEmpty
+            child: track.displayImageUrl != null
                 ? CachedNetworkImage(
-                    imageUrl: track.coverUrl!,
+                    imageUrl: track.displayImageUrl!,
                     fit: BoxFit.cover,
                     errorWidget: (_, __, ___) => const _CoverFallback(),
                   )

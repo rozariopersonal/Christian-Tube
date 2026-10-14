@@ -16,13 +16,29 @@ from worker import (
     extract_speaker,
     detect_languages,
     clean_audiocom_tags,
+    norm_title,
+    parse_duration_seconds,
+    is_permanent_failure,
+    process_video,
     AudioComClient,
-    GitHubRepo,
-    update_channel_audio_catalog,
     Config,
     Database,
     load_config,
 )
+
+
+def _make_db():
+    with patch("psycopg2.connect") as mock_connect:
+        conn = MagicMock()
+        cur = MagicMock()
+        mock_connect.return_value = conn
+        conn.cursor.return_value = cur
+        conn.autocommit = True
+        cur.connection = conn
+        conn.encoding = "UTF8"
+        db = Database("postgresql://user:pass@host/db?sslmode=require")
+        cur.reset_mock()
+        return db, cur
 
 
 class TestWorkerCollections(unittest.TestCase):
@@ -31,16 +47,16 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertEqual(detect_languages("10. Baptism in Fire by Bro Victor [Tamil-English]", ""), ("Tamil", "English"))
         self.assertEqual(detect_languages("Don't Ever Lose Heart (SPANISH & ENGLISH)", ""), ("Spanish", "English"))
         self.assertEqual(detect_languages("Sunday Service with Hindi Translation", ""), ("Hindi", "English"))
-        
+
         # Indic script titles with English secondary
         self.assertEqual(detect_languages("பிலிப்பியர் மூன்றாம் பகுதி | Philippians Third Session", ""), ("Tamil", "English"))
-        
+
         # Pure native script
         self.assertEqual(detect_languages("சகரியா பூணன் செய்தி", ""), ("Tamil", None))
-        
+
         # Pure English
         self.assertEqual(detect_languages("Devotion to Christ - Zac Poonen", ""), ("English", None))
-        
+
         # Romanized keyword
         self.assertEqual(detect_languages("Tamil Message by Bro. Vincent", ""), ("Tamil", None))
 
@@ -50,18 +66,18 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertEqual(extract_speaker("Love and Grace - Charles Banna", "", "CFC India"), "Charles Banna")
         self.assertEqual(extract_speaker("Knowing God | Ian Robson", "", "CFC India"), "Ian Robson")
         self.assertEqual(extract_speaker("Bro. Parisutham - The Body of Christ", "", "CHENNAI CFC"), "Parisutham")
-        
+
         # Known speakers from title (Tamil)
         self.assertEqual(extract_speaker("இயேசு போதித்த அனைத்தும் | சகோ. சகரியா பூணன்", "", "CHENNAI CFC"), "Zac Poonen")
         self.assertEqual(extract_speaker("மாம்சத்திற்கென்று விதையாதிருப்போம் | சகோ. செல்லையா", "", "CHENNAI CFC"), "Chellaiah")
-        
+
         # Known speakers from description
         self.assertEqual(extract_speaker("Sunday Sermon", "Preached by Bro. Sam Varghese at Chennai", "CHENNAI CFC"), "Sam Varghese")
-        
+
         # Heuristic unknown person names
         self.assertEqual(extract_speaker("Special Message | Bro. Arthur Pink", "", "CFC India"), "Arthur Pink")
         self.assertEqual(extract_speaker("General Meeting", "Sharing by Bro. John Wesley during Sunday Service", "CFC Thanjavur"), "John Wesley")
-        
+
         # Fallback to default speaker when no person name detected
         self.assertEqual(extract_speaker("Sunday Service Live Stream", "Praise and worship", "CFC Thanjavur"), "CFC Thanjavur")
 
@@ -71,6 +87,7 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertEqual(detect_category("மாசில்லா வாலிபம் Maasilla Valibam"), "Songs")
         self.assertEqual(detect_category("CFC India - Zac Poonen"), "YouTube")
         self.assertEqual(detect_category("CHENNAI CFC"), "YouTube")
+
     def test_is_short_content(self):
         # By duration
         self.assertTrue(is_short_content("Regular Title", "desc", duration=45, width=1920, height=1080))
@@ -105,6 +122,12 @@ class TestWorkerCollections(unittest.TestCase):
         self.assertEqual(map_language(None), "English")
         self.assertEqual(map_language("italian"), "Italian")
 
+    def test_norm_title(self):
+        self.assertEqual(norm_title("  My Sermon (v12345)  "), "my sermon")
+        self.assertEqual(norm_title("My Sermon [720p]"), "my sermon")
+        self.assertEqual(norm_title(None), "")
+        self.assertEqual(norm_title("Grace and Truth"), "grace and truth")
+
     def test_clean_audiocom_tags(self):
         # Long YouTube tags are truncated to the Audio.com 40-char limit.
         self.assertEqual(
@@ -128,7 +151,7 @@ class TestWorkerCollections(unittest.TestCase):
 
     def test_audiocom_collection_resolution(self):
         client = AudioComClient("test_token")
-        
+
         # Test finding existing collection
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -180,7 +203,7 @@ class TestWorkerCollections(unittest.TestCase):
                 "audio": {"id": "1876", "title": "My Title"},
             }
             ok = MagicMock(status_code=204)
-            client.find_existing_track_id = MagicMock(return_value=None)
+            client.find_existing_title_ids = MagicMock(return_value=[])
             client._resolve_stream_url = MagicMock(return_value="https://stream/1")
             client._requests.post = MagicMock(side_effect=[create_resp, ok])
             client._requests.put = MagicMock(return_value=ok)
@@ -205,84 +228,278 @@ class TestWorkerCollections(unittest.TestCase):
         finally:
             os.unlink(tmp.name)
 
-    def test_update_channel_audio_catalog(self):
-        storage = {}
+    def test_upload_audio_reuses_unreferenced_title_match(self):
+        client = AudioComClient("test_token")
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.close()
+        try:
+            client.find_existing_title_ids = MagicMock(return_value=["5555"])
+            client.is_audio_live = MagicMock(return_value=True)
+            client._resolve_stream_url = MagicMock(return_value="https://stream/5555")
+            client._requests = MagicMock()
 
-        def mock_read(path):
-            return storage.get(path)
+            url, stream = client.upload_audio(
+                Path(tmp.name),
+                {"title": "Grace and Truth"},
+                referenced_ids={"1111"},
+            )
+            self.assertEqual(url, "https://audio.com/5555")
+            self.assertEqual(stream, "https://stream/5555")
+            client._requests.post.assert_not_called()
+        finally:
+            os.unlink(tmp.name)
 
-        def mock_upsert(path, content, message):
-            storage[path] = content
+    def test_upload_audio_skips_referenced_title_match(self):
+        client = AudioComClient("test_token")
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.close()
+        try:
+            # 5555 is in referenced_ids -> cannot be reused, so a fresh upload happens.
+            client.find_existing_title_ids = MagicMock(return_value=["5555"])
+            client.is_audio_live = MagicMock(return_value=True)
+            client._resolve_stream_url = MagicMock(return_value="https://stream/6666")
+            client._requests = MagicMock()
 
-        repo = MagicMock(spec=GitHubRepo)
-        repo.read_text_or_none.side_effect = mock_read
-        repo.upsert.side_effect = mock_upsert
+            create_resp = MagicMock()
+            create_resp.status_code = 201
+            create_resp.json.return_value = {
+                "url": "https://presigned/put",
+                "success": "https://api.audio.com/v1/audio/upload/success?id=1&token=t",
+                "audio": {"id": "6666", "title": "Grace and Truth"},
+            }
+            ok = MagicMock(status_code=204)
+            client._requests.post = MagicMock(side_effect=[create_resp, ok])
+            client._requests.put = MagicMock(return_value=ok)
 
-        # Seed existing catalog with old audiocom_uploads
-        storage["audio/catalog.json"] = json.dumps([
-            {"id": "audiocom_uploads", "title": "Audio.com Uploads", "trackCount": 1},
-            {"id": "through_the_bible", "title": "Through the Bible", "trackCount": 50},
-        ])
+            url, stream = client.upload_audio(
+                Path(tmp.name),
+                {"title": "Grace and Truth"},
+                referenced_ids={"5555"},
+            )
+            self.assertEqual(url, "https://audio.com/6666")
+            self.assertEqual(stream, "https://stream/6666")
+        finally:
+            os.unlink(tmp.name)
 
-        track = {
-            "id": "vid123",
-            "title": "Grace and Truth",
-            "speaker": "Zac Poonen",
-            "youtubeVideoId": "vid123",
-            "thumbnailUrl": "https://img.youtube.com/vi/vid123/hqdefault.jpg",
-            "publishedAt": "2026-09-11T00:00:00Z",
-            "durationSeconds": 1800,
-            "audioUrl": "https://audio.com/123",
-        }
 
-        update_channel_audio_catalog(
-            repo,
-            channel_name="Zac Poonen Sermons",
-            channel_lang="en",
-            track=track,
+class TestAudioCatalogDb(unittest.TestCase):
+    """DB-authors the audio catalog directly in PostgreSQL (no releases repo)."""
+
+    def test_find_audio_track_returns_audio_url(self):
+        db, cur = _make_db()
+        cur.fetchone.return_value = ("https://audio.com/123",)
+        res = db.find_audio_track("series_id", "vid1")
+        self.assertEqual(res, {"audioUrl": "https://audio.com/123"})
+
+    def test_find_audio_track_missing(self):
+        db, cur = _make_db()
+        cur.fetchone.return_value = None
+        self.assertIsNone(db.find_audio_track("series_id", "vid1"))
+
+    def test_audio_id_referenced(self):
+        db, cur = _make_db()
+        cur.fetchone.return_value = (1,)
+        self.assertTrue(db.audio_id_referenced("1876636242"))
+        sql, params = cur.execute.call_args[0]
+        self.assertIn("%audio.com/1876636242%", params[0])
+
+    def test_audio_id_referenced_empty(self):
+        db, _ = _make_db()
+        self.assertFalse(db.audio_id_referenced(""))
+        self.assertFalse(db.audio_id_referenced(None))
+
+    def test_referenced_audio_ids_extracts_digits(self):
+        db, cur = _make_db()
+        cur.fetchall.return_value = [
+            ("https://audio.com/123",),
+            ("https://audio.com/abc456",),
+        ]
+        self.assertEqual(db.referenced_audio_ids(), {"123", "456"})
+
+    def test_delete_audio_track_updates_series_counts(self):
+        db, cur = _make_db()
+        cur.rowcount = 1
+        self.assertTrue(db.delete_audio_track("series_id", "vid1"))
+
+    def test_upsert_audio_series_and_track_registers_rows(self):
+        db, cur = _make_db()
+        db.upsert_audio_series_and_track(
+            series_id="cfc_india",
+            series_title="CFC India",
+            series_description="Audio sermons from CFC India",
+            series_speaker="Zac Poonen",
+            series_category="YouTube",
+            series_language="English",
+            cover_url="https://img/thumb",
+            channel_id="UC_1",
+            published_at="2026-09-11T00:00:00Z",
+            track={
+                "id": "vid123",
+                "title": "Grace and Truth",
+                "speaker": "Zac Poonen",
+                "youtubeVideoId": "vid123",
+                "thumbnailUrl": "https://img/thumb",
+                "publishedAt": "2026-09-11T00:00:00Z",
+                "durationSeconds": 1800,
+                "audioUrl": "https://audio.com/123",
+                "streamUrl": "https://stream/123",
+            },
         )
+        # series upsert + track upsert + series recount
+        self.assertEqual(cur.execute.call_count, 3)
+        inserts = [c[0][0] for c in cur.execute.call_args_list]
+        self.assertTrue(any('INSERT INTO "AudioSeries"' in s for s in inserts))
+        self.assertTrue(any('INSERT INTO "AudioTrack"' in s for s in inserts))
 
-        # Verify channel series file
-        series_file = "audio/series/zac_poonen_sermons.json"
-        self.assertIn(series_file, storage)
-        series_data = json.loads(storage[series_file])
-        self.assertEqual(series_data["id"], "zac_poonen_sermons")
-        self.assertEqual(series_data["title"], "Zac Poonen Sermons")
-        self.assertEqual(series_data["trackCount"], 1)
-        self.assertEqual(series_data["tracks"][0]["seriesId"], "zac_poonen_sermons")
-        self.assertEqual(series_data["tracks"][0]["seriesTitle"], "Zac Poonen Sermons")
 
-        # Verify catalog.json updated and audiocom_uploads removed
-        cat_data = json.loads(storage["audio/catalog.json"])
-        cat_ids = [s["id"] for s in cat_data]
-        self.assertNotIn("audiocom_uploads", cat_ids)
-        self.assertIn("zac_poonen_sermons", cat_ids)
-        self.assertIn("through_the_bible", cat_ids)
+class TestDailyRetryPolicy(unittest.TestCase):
+    """Per-day retry budget: failed videos retried daily until one passes,
+    permanent failures marked 'dead' so they are never retried."""
 
-        # Verify manifest.json bumped
-        self.assertIn("manifest.json", storage)
-        manifest_data = json.loads(storage["manifest.json"])
-        self.assertTrue(bool(manifest_data.get("revision")))
+    def test_mark_failed_transient_keeps_failed_status(self):
+        db, cur = _make_db()
+        db.mark_failed("vid1", "yt-dlp extraction failed: too many requests")
+        sql, params = cur.execute.call_args[0]
+        self.assertIn("VideoPipelineStatus", sql)
+        self.assertEqual(params[1], "failed")
+        self.assertEqual(params[2], "yt-dlp extraction failed: too many requests")
+        self.assertEqual(params[0], "vid1")
+
+    def test_mark_failed_permanent_sets_dead_status(self):
+        db, cur = _make_db()
+        db.mark_failed("vid1", "ERROR: This video is not available", permanent=True)
+        sql, params = cur.execute.call_args[0]
+        self.assertIn("VideoPipelineStatus", sql)
+        self.assertEqual(params[1], "dead")
+
+    def test_mark_failed_increments_retry_count(self):
+        db, cur = _make_db()
+        db.mark_failed("vid1", "desc")
+        sql, params = cur.execute.call_args[0]
+        self.assertIn("retryCount", sql)
+        self.assertIn('"VideoPipelineStatus"."ingest"->>\'retryCount\'', sql)
+
+    def test_mark_completed_resets_retry_state(self):
+        db, cur = _make_db()
+        db.mark_completed("vid1", "https://audio.com/123")
+        first_sql, first_params = cur.execute.call_args_list[0][0]
+        second_sql, second_params = cur.execute.call_args_list[1][0]
+        self.assertIn('UPDATE "Video" SET "audioUrl"', first_sql)
+        self.assertEqual(first_params[0], "https://audio.com/123")
+        self.assertIn('INSERT INTO "VideoPipelineStatus"', second_sql)
+        payload = json.loads(second_params[1])
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["retryCount"], 0)
+        self.assertIsNone(payload["lastRetryAt"])
+
+    def test_batch_mark_completed_resets_retry_state(self):
+        db, cur = _make_db()
+        captured = []
+        def fake_execute_values(cursor, sql, argslist, template=None, page_size=100, fetch=False):
+            captured.append((sql, argslist))
+        with patch("psycopg2.extras.execute_values", side_effect=fake_execute_values):
+            db.batch_mark_completed([("vid1", "https://audio.com/1"), ("vid2", "https://audio.com/2")])
+        video_update_sql, video_args = captured[0]
+        status_sql, status_args = captured[1]
+        self.assertIn('UPDATE "Video" AS v', video_update_sql)
+        self.assertIn("SET \"audioUrl\"=data.audio_url", video_update_sql)
+        self.assertIn("FROM (VALUES %s)", video_update_sql)
+        self.assertEqual(video_args, [("vid1", "https://audio.com/1"), ("vid2", "https://audio.com/2")])
+        self.assertIn('INSERT INTO "VideoPipelineStatus"', status_sql)
+        self.assertEqual(status_args[0][0], "vid1")
+        payload = json.loads(status_args[0][1])
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["retryCount"], 0)
+        self.assertIsNone(payload["lastRetryAt"])
+
+    def test_is_permanent_failure_classifies_terminal_errors(self):
+        terminal = [
+            "ERROR: This video is not available",
+            "ERROR: This video has been removed by the uploader",
+            "Video unavailable",
+            "This video is private",
+            "Sign in to confirm your age",
+            "This video is not available in your country",
+            "UNSUPPORTED URL: https://youtu.be/xyz",
+            "This video does not exist",
+            "Copyright claim: video taken down",
+        ]
+        for err in terminal:
+            self.assertTrue(is_permanent_failure(err), f"expected terminal: {err}")
+
+    def test_is_permanent_failure_keeps_transient_errors(self):
+        transient = [
+            "yt-dlp extraction failed: too many requests",
+            "HTTP Error 403: Forbidden",
+            "Audio.com create failed: 500 Internal Server Error",
+            "Timed out after 30s",
+            "No eligible videos found",
+        ]
+        for err in transient:
+            self.assertFalse(is_permanent_failure(err), f"expected transient: {err}")
+
+    def test_is_permanent_failure_handles_empty(self):
+        self.assertFalse(is_permanent_failure(None))
+        self.assertFalse(is_permanent_failure(""))
+        self.assertFalse(is_permanent_failure("   "))
+
+
+class TestProcessVideo(unittest.TestCase):
+    """process_video: title-match first, no download when an orphan matches."""
+
+    def test_title_match_registers_without_download(self):
+        db = MagicMock(spec=Database)
+        audiocom = MagicMock(spec=AudioComClient)
+        cfg = Config(
+            database_url="x",
+            audio_com_token="x",
+            work_dir=Path("."),
+        )
+        row = ("vid1", "Grace and Truth", "CFC India", "2026-09-11T00:00:00Z",
+               "desc", "en", "UC_1", "30:00", "https://img/thumb")
+
+        db.find_audio_track.return_value = None
+        db.referenced_audio_ids.return_value = {"1111"}
+        audiocom.find_existing_title_ids.return_value = ["5555"]
+        audiocom.is_audio_live.return_value = True
+        audiocom._resolve_stream_url.return_value = "https://stream/5555"
+
+        with patch("worker.extract_audio") as mock_extract:
+            res = process_video(db, audiocom, cfg, row)
+
+        self.assertEqual(res, ("vid1", "https://audio.com/5555"))
+        mock_extract.assert_not_called()
+        db.upsert_audio_series_and_track.assert_called_once()
+
+    def test_permanent_error_marks_dead(self):
+        db = MagicMock(spec=Database)
+        audiocom = MagicMock(spec=AudioComClient)
+        cfg = Config(
+            database_url="x",
+            audio_com_token="x",
+            work_dir=Path("."),
+        )
+        row = ("vid1", "Grace", "CFC India", "2026-09-11T00:00:00Z",
+               "", "en", "UC_1", "30:00", None)
+
+        db.find_audio_track.return_value = None
+        db.referenced_audio_ids.return_value = set()
+        audiocom.find_existing_title_ids.return_value = []
+
+        with patch("worker.extract_audio", side_effect=RuntimeError("ERROR: This video is not available")):
+            res = process_video(db, audiocom, cfg, row)
+
+        self.assertIsNone(res)
+        db.mark_failed.assert_called_once_with("vid1", "ERROR: This video is not available", permanent=True)
 
 
 class TestFetchEligiblePriority(unittest.TestCase):
-    """Channel-priority ordering in the eligible-videos query (mirrors content-worker)."""
-
-    def _make_db(self):
-        with patch("psycopg2.connect") as mock_connect:
-            conn = MagicMock()
-            cur = MagicMock()
-            mock_connect.return_value = conn
-            conn.cursor.return_value = cur
-            conn.autocommit = True
-            return Database("postgresql://user:pass@host/db?sslmode=require"), cur
+    """Channel-priority ordering in the eligible-videos query."""
 
     def test_priority_order_clause_included(self):
-        db, cur = self._make_db()
+        db, cur = _make_db()
         cfg = Config(
             database_url="x",
-            github_repo="x",
-            github_token="x",
             audio_com_token="x",
             work_dir=Path("."),
             priority_channel_ids=["UCpZG4Vl2tqg5cIfGMocI2Ag"],
@@ -296,11 +513,9 @@ class TestFetchEligiblePriority(unittest.TestCase):
         self.assertIn(["UCpZG4Vl2tqg5cIfGMocI2Ag"], cur.execute.call_args[0][1])
 
     def test_language_tier_and_video_count_ordering(self):
-        db, cur = self._make_db()
+        db, cur = _make_db()
         cfg = Config(
             database_url="x",
-            github_repo="x",
-            github_token="x",
             audio_com_token="x",
             work_dir=Path("."),
         )
@@ -316,11 +531,9 @@ class TestFetchEligiblePriority(unittest.TestCase):
         self.assertNotIn('#short', sql)
 
     def test_priority_order_clause_omitted_when_unset(self):
-        db, cur = self._make_db()
+        db, cur = _make_db()
         cfg = Config(
             database_url="x",
-            github_repo="x",
-            github_token="x",
             audio_com_token="x",
             work_dir=Path("."),
         )
@@ -329,11 +542,9 @@ class TestFetchEligiblePriority(unittest.TestCase):
         self.assertNotIn("ANY(%s::text[])", sql)
 
     def test_tokens_substituted_from_sql_file(self):
-        db, cur = self._make_db()
+        db, cur = _make_db()
         cfg = Config(
             database_url="x",
-            github_repo="x",
-            github_token="x",
             audio_com_token="x",
             work_dir=Path("."),
             priority_channel_ids=["UCpZG4Vl2tqg5cIfGMocI2Ag"],
@@ -345,19 +556,31 @@ class TestFetchEligiblePriority(unittest.TestCase):
         # LIMIT stays as a psycopg2 %s parameter.
         self.assertIn("LIMIT %s", sql)
 
+    def test_retry_clause_gate_included(self):
+        db, cur = _make_db()
+        cfg = Config(
+            database_url="x",
+            audio_com_token="x",
+            work_dir=Path("."),
+        )
+        db.fetch_eligible_videos(cfg)
+        sql = cur.execute.call_args[0][0]
+        # Failed videos retry when last attempt was a previous day or budget left.
+        self.assertIn("s.ingest->>'lastRetryAt'", sql)
+        self.assertIn("s.ingest->>'status'", sql)
+        self.assertIn("s.ingest->>'retryCount'", sql)
+
     def test_eligible_sql_env_override(self):
         custom = Path(__file__).parent / "custom_eligible.sql"
         custom.write_text(
-            'SELECT 1 FROM "Video" WHERE y = %s LIMIT %s',
+            'SELECT 1 FROM "Video" WHERE y = %s AND z = %s LIMIT %s',
             encoding="utf-8",
         )
         try:
             with patch.dict(os.environ, {"ELIGIBLE_SQL_PATH": str(custom.resolve())}):
-                db, cur = self._make_db()
+                db, cur = _make_db()
                 cfg = Config(
                     database_url="x",
-                    github_repo="x",
-                    github_token="x",
                     audio_com_token="x",
                     work_dir=Path("."),
                 )
@@ -371,16 +594,14 @@ class TestFetchEligiblePriority(unittest.TestCase):
     def test_marker_guard_catches_bad_sql(self):
         custom = Path(__file__).parent / "custom_eligible.sql"
         custom.write_text(
-            "SELECT 1 FROM \"Video\" WHERE x = %s AND y = %s LIMIT %s",
+            "SELECT 1 FROM \"Video\" WHERE x = %s AND y = %s AND z = %s LIMIT %s",
             encoding="utf-8",
         )
         try:
             with patch.dict(os.environ, {"ELIGIBLE_SQL_PATH": str(custom.resolve())}):
-                db, cur = self._make_db()
+                db, cur = _make_db()
                 cfg = Config(
                     database_url="x",
-                    github_repo="x",
-                    github_token="x",
                     audio_com_token="x",
                     work_dir=Path("."),
                 )
@@ -402,7 +623,6 @@ class TestFetchEligiblePriority(unittest.TestCase):
             "os.environ",
             {
                 "DATABASE_URL": "postgresql://user:pass@host/db",
-                "GITHUB_TOKEN": "tok",
                 "AUDIO_COM_TOKEN": "aud",
                 "PRIORITY_CHANNEL_IDS": "UCpZG4Vl2tqg5cIfGMocI2Ag,UC_OTHER",
             },

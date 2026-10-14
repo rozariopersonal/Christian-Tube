@@ -188,6 +188,68 @@ void main() {
       expect(find.text('Genesis - The Creation'), findsOneWidget);
       expect(find.text('Genesis - The Fall of Man'), findsOneWidget);
     });
+
+    testWidgets('renders without overflow at 320 and 600 with search bar', (tester) async {
+      for (final width in [320.0, 600.0]) {
+        setSurfaceSize(tester, width, 800);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData.dark().copyWith(
+              extensions: [AppTokens.dark],
+            ),
+            home: AudioSeriesScreen(
+              seriesId: testSeries.id,
+              initialSeries: testSeries,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Search this series...'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    });
+
+    testWidgets('in-channel search filters visible tracks', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTokens.dark],
+          ),
+          home: AudioSeriesScreen(
+            seriesId: testSeries.id,
+            initialSeries: testSeries,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Search bar exists and both tracks visible initially.
+      expect(find.text('Search this series...'), findsOneWidget);
+      expect(find.text('Genesis - The Creation'), findsOneWidget);
+      expect(find.text('Genesis - The Fall of Man'), findsOneWidget);
+
+      // Filter down to one track.
+      await tester.enterText(find.byType(TextField), 'Fall of Man');
+      await tester.pump();
+
+      expect(find.text('Genesis - The Fall of Man'), findsOneWidget);
+      expect(find.text('Genesis - The Creation'), findsNothing);
+      expect(find.text('1 of 2 tracks'), findsOneWidget);
+
+      // A no-match query shows the empty state.
+      await tester.enterText(find.byType(TextField), 'zzz');
+      await tester.pump();
+
+      expect(find.textContaining('No tracks match'), findsOneWidget);
+
+      // Clearing restores the full list.
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+
+      expect(find.text('Genesis - The Creation'), findsOneWidget);
+      expect(find.text('Genesis - The Fall of Man'), findsOneWidget);
+    });
   });
 
   group('MiniAudioPlayer Gestures Test', () {
@@ -221,6 +283,94 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('tapping close button pauses and dismisses mini player', (tester) async {
+      AudioPlayerController.instance.setStateForTesting(const AudioPlayerState(
+        currentTrack: testTrack1,
+        queue: [testTrack1],
+        queueIndex: 0,
+        status: AudioPlaybackStatus.playing,
+        isMiniPlayerVisible: true,
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTokens.dark],
+          ),
+          home: Scaffold(
+            body: ListenableBuilder(
+              listenable: AudioPlayerController.instance,
+              builder: (context, _) {
+                final s = AudioPlayerController.instance.state;
+                if (s.isMiniPlayerVisible && s.hasTrack) {
+                  return MiniAudioPlayer(state: s);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(MiniAudioPlayer), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(AudioPlayerController.instance.state.isMiniPlayerVisible, isFalse);
+      expect(find.byType(MiniAudioPlayer), findsNothing);
+    });
+
+    testWidgets('vertical swipe down dismisses mini player', (tester) async {
+      AudioPlayerController.instance.setStateForTesting(const AudioPlayerState(
+        currentTrack: testTrack1,
+        queue: [testTrack1],
+        queueIndex: 0,
+        status: AudioPlaybackStatus.playing,
+        isMiniPlayerVisible: true,
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTokens.dark],
+          ),
+          home: Scaffold(
+            body: ListenableBuilder(
+              listenable: AudioPlayerController.instance,
+              builder: (context, _) {
+                final s = AudioPlayerController.instance.state;
+                if (s.isMiniPlayerVisible && s.hasTrack) {
+                  return MiniAudioPlayer(state: s);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(MiniAudioPlayer), findsOneWidget);
+
+      // Perform vertical swipe down on the mini player card
+      await tester.fling(
+        find.descendant(
+          of: find.byType(MiniAudioPlayer),
+          matching: find.byType(GestureDetector),
+        ).first,
+        const Offset(0, 500),
+        1000,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(AudioPlayerController.instance.state.isMiniPlayerVisible, isFalse);
     });
   });
 }

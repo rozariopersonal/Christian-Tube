@@ -146,10 +146,7 @@ class CrossReferencesScreen extends StatelessWidget {
         backgroundColor: tokens.background,
         elevation: 0,
         title: title,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: tokens.onSurface),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
       ),
       body: body,
     );

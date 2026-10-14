@@ -68,10 +68,26 @@ def sanitize_db_url(url: str) -> str:
     )
 
 
+def seconds_until_daily_run(target_hour: int = 12, target_minute: int = 0, tz_name: str = "Asia/Kolkata") -> int:
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        import datetime
+        tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    import datetime
+    now = datetime.datetime.now(tz)
+    target = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+    if target <= now:
+        target += datetime.timedelta(days=1)
+    return max(1, int((target - now).total_seconds()))
+
+
 class Config:
-    def __init__(self, database_url, local_database_url="", poll_interval=300, batch_limit=32, max_retries=3,
+    def __init__(self, database_url, local_database_url="", poll_interval=86400, batch_limit=32, max_retries=3,
                  redo=False, retry_failed=False, once=False, embed_chunks=False,
-                 chunk_batch_limit=32):
+                 chunk_batch_limit=32, daily_run_hour=12, daily_run_minute=0,
+                 timezone="Asia/Kolkata", run_on_boot=False):
         self.database_url = database_url
         self.local_database_url = local_database_url
         self.poll_interval = poll_interval
@@ -82,6 +98,10 @@ class Config:
         self.once = once
         self.embed_chunks = embed_chunks
         self.chunk_batch_limit = chunk_batch_limit
+        self.daily_run_hour = daily_run_hour
+        self.daily_run_minute = daily_run_minute
+        self.timezone = timezone
+        self.run_on_boot = run_on_boot
 
 
 def load_config(args: argparse.Namespace) -> Config:
@@ -116,6 +136,10 @@ def load_config(args: argparse.Namespace) -> Config:
         once=args.once,
         embed_chunks=args.embed_chunks,
         chunk_batch_limit=int(os.environ.get("EMBED_CHUNK_BATCH", args.embed_chunk_batch)),
+        daily_run_hour=int(os.environ.get("DAILY_RUN_HOUR", "12")),
+        daily_run_minute=int(os.environ.get("DAILY_RUN_MINUTE", "0")),
+        timezone=os.environ.get("TIMEZONE", "Asia/Kolkata"),
+        run_on_boot=os.environ.get("RUN_ON_BOOT", "false").lower() in ("1", "true", "yes"),
     )
 
 
@@ -155,45 +179,6 @@ class Database:
             """)
         except Exception as e:
             log.warning("Ensure VideoPipelineStatus table note: %s", e)
-
-        try:
-            self.cur.execute(f"""
-                CREATE TABLE IF NOT EXISTS "VideoEmbedding" (
-                    "videoId" TEXT NOT NULL PRIMARY KEY,
-                    "embedding" vector({EMBEDDING_DIM}) NOT NULL,
-                    "model" TEXT NOT NULL,
-                    "version" INTEGER NOT NULL DEFAULT 0,
-                    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    CONSTRAINT "VideoEmbedding_videoId_fkey"
-                        FOREIGN KEY ("videoId") REFERENCES "Video"("id")
-                        ON DELETE CASCADE ON UPDATE CASCADE
-                );
-            """)
-        except Exception as e:
-            log.error("Could not create VideoEmbedding table: %s", e)
-            raise
-
-        try:
-            self.cur.execute(
-                'CREATE INDEX IF NOT EXISTS "VideoEmbedding_version_idx" '
-                'ON "VideoEmbedding"("version");'
-            )
-            self.cur.execute(
-                'CREATE INDEX IF NOT EXISTS "VideoEmbedding_embedding_hnsw_idx" '
-                'ON "VideoEmbedding" USING hnsw ("embedding" vector_cosine_ops) '
-                'WITH (m = 16, ef_construction = 64);'
-            )
-        except Exception as e:
-            log.warning("Ensure VideoEmbedding indexes note: %s", e)
-
-        self.cur.execute(
-            """SELECT to_regclass('public."VideoEmbedding"') AS tbl"""
-        )
-        if self.cur.fetchone()[0] is None:
-            raise RuntimeError(
-                'VideoEmbedding table is missing after schema bootstrap'
-            )
 
         self._ensure_chunk_queue_columns()
 
@@ -236,26 +221,9 @@ class Database:
             pass
 
     def requeue_orphaned_completed(self):
-        """Videos claiming 'completed' without a VideoEmbedding row (e.g. after
-        a table wipe) are re-queued so the backfill repairs coverage."""
-        try:
-            self.cur.execute(
-                """INSERT INTO "VideoPipelineStatus" ("videoId", "embedding", "updatedAt")
-                   SELECT v.id, jsonb_build_object('status', 'pending'), CURRENT_TIMESTAMP
-                   FROM "Video" v
-                   LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
-                   WHERE COALESCE(s.embedding->>'status', 'pending') = 'completed'
-                     AND NOT EXISTS (
-                       SELECT 1 FROM "VideoEmbedding" ve
-                       WHERE ve."videoId" = v.id
-                     )
-                   ON CONFLICT ("videoId") DO UPDATE SET
-                     "embedding" = COALESCE("VideoPipelineStatus"."embedding", '{}'::jsonb)
-                                    || '{"status":"pending","error":null,"hash":null}'::jsonb,
-                     "updatedAt" = CURRENT_TIMESTAMP"""
-            )
-        except Exception as e:
-            log.warning("Orphaned-completed requeue note: %s", e)
+        # Video embeddings are stored exclusively in the local database.
+        # Skip Neon orphaned check to prevent re-queueing and querying a non-existent table.
+        pass
 
     def fetch_eligible(self, cfg: Config):
         statuses = ["pending"]
@@ -294,20 +262,6 @@ class Database:
                  "embedding" = COALESCE("VideoPipelineStatus"."embedding", '{}'::jsonb) || EXCLUDED."embedding",
                  "updatedAt" = CURRENT_TIMESTAMP""",
             (video_id, json.dumps({"status": "processing", "error": None})),
-        )
-
-    def upsert_embedding(self, video_id: str, vector: list, model: str, version: int):
-        self.cur.execute(
-            """
-            INSERT INTO "VideoEmbedding" ("videoId","embedding","model","version","createdAt","updatedAt")
-            VALUES (%s, %s::vector, %s, %s, now(), now())
-            ON CONFLICT ("videoId") DO UPDATE SET
-                "embedding"=EXCLUDED."embedding",
-                "model"=EXCLUDED."model",
-                "version"=EXCLUDED."version",
-                "updatedAt"=now()
-            """,
-            (video_id, vector, model, version),
         )
 
     def mark_completed(self, video_id: str, version: int, digest: str):
@@ -489,9 +443,35 @@ class LocalVectorDatabase:
                 );
                 CREATE INDEX IF NOT EXISTS "SentenceEmbedding_videoId_idx" ON "SentenceEmbedding"("videoId");
                 CREATE INDEX IF NOT EXISTS "SentenceEmbedding_hnsw_idx" ON "SentenceEmbedding" USING hnsw ("embedding" vector_cosine_ops);
+
+                CREATE TABLE IF NOT EXISTS "VideoEmbedding" (
+                    "videoId" TEXT PRIMARY KEY,
+                    "embedding" vector({EMBEDDING_DIM}) NOT NULL,
+                    "model" TEXT NOT NULL,
+                    "version" INTEGER NOT NULL DEFAULT {EMBEDDING_VERSION},
+                    "createdAt" TIMESTAMPTZ DEFAULT now(),
+                    "updatedAt" TIMESTAMPTZ DEFAULT now()
+                );
+                CREATE INDEX IF NOT EXISTS "VideoEmbedding_version_idx" ON "VideoEmbedding"("version");
+                CREATE INDEX IF NOT EXISTS "VideoEmbedding_embedding_hnsw_idx"
+                    ON "VideoEmbedding" USING hnsw ("embedding" vector_cosine_ops);
             """)
         except Exception as e:
-            log.warning("Local SentenceEmbedding table schema note: %s", e)
+            log.warning("Local SentenceEmbedding / VideoEmbedding table schema note: %s", e)
+
+    def upsert_video_embedding(self, video_id: str, vector: list, model: str, version: int):
+        self.cur.execute(
+            """
+            INSERT INTO "VideoEmbedding" ("videoId","embedding","model","version","createdAt","updatedAt")
+            VALUES (%s, %s::vector, %s, %s, now(), now())
+            ON CONFLICT ("videoId") DO UPDATE SET
+                "embedding"=EXCLUDED."embedding",
+                "model"=EXCLUDED."model",
+                "version"=EXCLUDED."version",
+                "updatedAt"=now()
+            """,
+            (video_id, vector, model, version),
+        )
 
     def save_sentence_embeddings(self, items: list[tuple]):
         if not items:
@@ -516,7 +496,7 @@ class LocalVectorDatabase:
             pass
 
 
-def process_video(db: Database, cfg: Config, row) -> None:
+def process_video(db: Database, local_db: LocalVectorDatabase, cfg: Config, row) -> None:
     video_id, title, description = row
     digest = content_hash(title, description)
 
@@ -534,9 +514,9 @@ def process_video(db: Database, cfg: Config, row) -> None:
 
     try:
         [vector] = embed_texts([passage_text(title, description)], onnx_dir=ONNX_DIR)
-        db.upsert_embedding(video_id, vector, MODEL_ID, EMBEDDING_VERSION)
+        local_db.upsert_video_embedding(video_id, vector, MODEL_ID, EMBEDDING_VERSION)
         db.mark_completed(video_id, EMBEDDING_VERSION, digest)
-        log.info("Embedded %s (%d dims)", video_id, len(vector))
+        log.info("Embedded %s (%d dims) into local DB", video_id, len(vector))
     except Exception as e:
         log.error("Failed to embed %s: %s", video_id, e)
         db.mark_failed(video_id, str(e))
@@ -615,6 +595,18 @@ def main():
     log.info("Embedder started (model=%s, version=%d, local_db=%s, once=%s, redo=%s)",
              MODEL_ID, EMBEDDING_VERSION, cfg.local_database_url.split("@")[-1], cfg.once, cfg.redo)
 
+    # Daytime schedule: wait until next 12:00 PM IST unless run_on_boot is explicitly enabled
+    if not cfg.run_on_boot and not cfg.once:
+        wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+        log.info(
+            "Daytime schedule: waiting %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
+            wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+        )
+        for _ in range(wait_sec):
+            if not _running:
+                return
+            time.sleep(1)
+
     while _running:
         worked = False
 
@@ -630,7 +622,6 @@ def main():
                 log.error("Sentence batch processing failed: %s", e)
 
         # 2. Embed videos (title + description)
-        db.requeue_orphaned_completed()
         rows = db.fetch_eligible(cfg)
         if rows:
             log.info("Found %d eligible video(s).", len(rows))
@@ -638,7 +629,7 @@ def main():
             for row in rows:
                 if not _running:
                     break
-                process_video(db, cfg, row)
+                process_video(db, local_db, cfg, row)
 
         # 3. Optional: Embed legacy chunks if enabled
         if cfg.embed_chunks:
@@ -652,18 +643,26 @@ def main():
                         break
                     process_chunk(db, cfg, chunk)
 
-        if not worked:
-            if cfg.once:
-                log.info("No eligible items, exiting (--once).")
-                break
-            log.info("No pending items. Sleeping %ds...", cfg.poll_interval)
-            for _ in range(cfg.poll_interval):
-                if not _running:
-                    break
-                time.sleep(1)
-
         if cfg.once:
+            log.info("Completed batch, exiting (--once).")
             break
+
+        wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
+        if worked:
+            log.info(
+                "Embedding batch finished. Sleeping %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
+                wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+            )
+        else:
+            log.info(
+                "No pending items. Sleeping %ds (%.2f hours) until %02d:%02d (%s)...",
+                wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
+            )
+
+        for _ in range(wait_sec):
+            if not _running:
+                break
+            time.sleep(1)
 
     db.close()
     local_db.close()

@@ -94,6 +94,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
     return Scaffold(
       backgroundColor: tokens.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: tokens.background,
         elevation: 0,
         title: Row(

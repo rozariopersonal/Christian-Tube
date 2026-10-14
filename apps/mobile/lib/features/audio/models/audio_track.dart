@@ -52,6 +52,17 @@ class AudioTrack {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
+  /// Preferred image URL for this track: prefers [thumbnailUrl], then [coverUrl].
+  String? get displayImageUrl {
+    if (thumbnailUrl != null && thumbnailUrl!.isNotEmpty) {
+      return thumbnailUrl;
+    }
+    if (coverUrl != null && coverUrl!.isNotEmpty) {
+      return coverUrl;
+    }
+    return null;
+  }
+
   bool get hasScripture =>
       scriptureBook != null && scriptureChapter != null && scriptureChapter! > 0;
 

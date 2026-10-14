@@ -71,7 +71,10 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
 
     return Scaffold(
       backgroundColor: context.tokens.background,
-      appBar: AppBar(title: const Text('Explore Shorts')),
+      appBar: AppBar(
+        title: const Text('Explore Shorts'),
+        automaticallyImplyLeading: false,
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1080),

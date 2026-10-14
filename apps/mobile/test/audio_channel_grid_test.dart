@@ -1,0 +1,234 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/layout/content_width.dart';
+import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/features/audio/controllers/audio_library_controller.dart';
+import 'package:mobile/features/audio/models/audio_series.dart';
+import 'package:mobile/features/audio/widgets/audio_channel_grid.dart';
+
+void setSurfaceSize(WidgetTester tester, double width, double height) {
+  tester.view.physicalSize = Size(width, height);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
+AudioSeries _youtubeSeries(String id, String title, int trackCount,
+    {DateTime? latestPublishedAt}) {
+  return AudioSeries(
+    id: id,
+    title: title,
+    description: '',
+    speaker: 'Zac Poonen',
+    coverUrl: null,
+    trackCount: trackCount,
+    category: 'YouTube',
+    language: 'en',
+    latestPublishedAt: latestPublishedAt,
+    tracks: const [],
+  );
+}
+
+void main() {
+  final series = [
+    _youtubeSeries('c', 'Alpha Channel', 50,
+        latestPublishedAt: DateTime.utc(2025, 6, 1)),
+    _youtubeSeries('b', 'Beta Channel', 3,
+        latestPublishedAt: DateTime.utc(2026, 9, 20)),
+    _youtubeSeries('d', 'Gamma Channel', 10),
+  ];
+
+  final baseState = AudioLibraryViewState(
+    isLoading: false,
+    seriesList: series,
+    selectedFormat: AudioFormat.youtube,
+    selectedLanguages: const {'All'},
+    availableLanguages: const ['All'],
+    subscribedChannelIds: const {'c1', 'c2', 'c3'},
+    subscribedChannelNames: const {
+      'Alpha Channel',
+      'Beta Channel',
+      'Gamma Channel',
+    },
+  );
+
+  Widget buildHarness(AudioLibraryViewState state,
+      ValueChanged<AudioChannelSort> onChannelSortChanged,
+      {VoidCallback? onSubscribe}) {
+    return MaterialApp(
+      theme: ThemeData.light(useMaterial3: true).copyWith(
+        extensions: [AppTokens.light],
+      ),
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: AudioChannelGrid(
+            state: state,
+            onReset: () {},
+            onSubscribe: onSubscribe ?? () {},
+            onOpenSeries: (_) {},
+            onChannelSortChanged: onChannelSortChanged,
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('sorts by most tracks by default with positions left-to-right',
+      (tester) async {
+    setSurfaceSize(tester, 700, 1200);
+    await tester.pumpWidget(buildHarness(baseState, (_) {}));
+    await tester.pump();
+
+    expect(find.text('YouTube Channels (3)'), findsOneWidget);
+
+    // Default sort: most tracks first, so Alpha(50) < Gamma(10) < Beta(3).
+    final alphaX = tester.getTopLeft(find.text('Alpha Channel')).dx;
+    final gammaX = tester.getTopLeft(find.text('Gamma Channel')).dx;
+    final betaX = tester.getTopLeft(find.text('Beta Channel')).dx;
+    expect(alphaX, lessThan(gammaX));
+    expect(gammaX, lessThan(betaX));
+  });
+
+  testWidgets('A-Z popup reorders the grid and reports the selection',
+      (tester) async {
+    setSurfaceSize(tester, 700, 1200);
+
+    AudioChannelSort selected = baseState.channelSort;
+    await tester.pumpWidget(buildHarness(
+      baseState,
+      (sort) => selected = sort,
+    ));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Sort channels'));
+    await tester.pumpAndSettle();
+    expect(find.text('A–Z'), findsOneWidget);
+
+    await tester.tap(find.text('A–Z'));
+    await tester.pumpAndSettle();
+    expect(selected, AudioChannelSort.name);
+  });
+
+  testWidgets('Newest first popup reorders the grid and reports the selection',
+      (tester) async {
+    setSurfaceSize(tester, 700, 1200);
+
+    AudioChannelSort selected = baseState.channelSort;
+    final newestState = baseState.copyWith(
+      channelSort: AudioChannelSort.newest,
+    );
+    await tester.pumpWidget(buildHarness(
+      newestState,
+      (sort) => selected = sort,
+    ));
+    await tester.pump();
+
+    // Beta (2026) before Alpha (2025); Gamma has no date, so it sorts last.
+    final betaX = tester.getTopLeft(find.text('Beta Channel')).dx;
+    final alphaX = tester.getTopLeft(find.text('Alpha Channel')).dx;
+    final gammaX = tester.getTopLeft(find.text('Gamma Channel')).dx;
+    expect(betaX, lessThan(alphaX));
+    expect(alphaX, lessThan(gammaX));
+
+    await tester.tap(find.byTooltip('Sort channels'));
+    await tester.pumpAndSettle();
+    expect(find.text('Newest first'), findsOneWidget);
+
+    await tester.tap(find.text('Newest first'));
+    await tester.pumpAndSettle();
+    expect(selected, AudioChannelSort.newest);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('renders across breakpoints (320, 600, 840, 1400) without overflow',
+      (tester) async {
+    for (final width in [320.0, 600.0, 840.0, 1400.0]) {
+      setSurfaceSize(tester, width, 900);
+      await tester.pumpWidget(buildHarness(baseState, (_) {}));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull,
+          reason: 'Failed at width $width');
+      expect(find.byType(MaxWidthBox), findsOneWidget,
+          reason: 'Missing MaxWidthBox cap at width $width');
+    }
+  });
+
+  testWidgets('shows empty state without channels', (tester) async {
+    setSurfaceSize(tester, 600, 900);
+    await tester.pumpWidget(buildHarness(
+      baseState.copyWith(
+        seriesList: const [],
+        selectedFormat: AudioFormat.youtube,
+      ),
+      (_) {},
+    ));
+    await tester.pump();
+
+    expect(find.text('No channels found for the selected filter.'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('filters out channels the user is not subscribed to',
+      (tester) async {
+    setSurfaceSize(tester, 700, 1200);
+    await tester.pumpWidget(buildHarness(
+      baseState.copyWith(
+        subscribedChannelNames: const {'Alpha Channel'},
+      ),
+      (_) {},
+    ));
+    await tester.pump();
+
+    expect(find.text('YouTube Channels (1)'), findsOneWidget);
+    expect(find.text('Alpha Channel'), findsOneWidget);
+    expect(find.text('Beta Channel'), findsNothing);
+    expect(find.text('Gamma Channel'), findsNothing);
+  });
+
+  testWidgets('shows the subscribe call to action without subscriptions',
+      (tester) async {
+    setSurfaceSize(tester, 700, 1200);
+
+    var subscribed = false;
+    await tester.pumpWidget(buildHarness(
+      baseState.copyWith(
+        subscribedChannelIds: const {},
+        subscribedChannelNames: const {},
+      ),
+      (_) {},
+      onSubscribe: () => subscribed = true,
+    ));
+    await tester.pump();
+
+    expect(find.text('YouTube Channels (0)'), findsOneWidget);
+    expect(find.text('No subscribed channels yet'), findsOneWidget);
+    expect(find.text('Channels you subscribe to will show up here.'),
+        findsOneWidget);
+
+    await tester.tap(find.text('Subscribe to channels'));
+    await tester.pump();
+    expect(subscribed, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('renders the subscribe call to action across breakpoints without overflow',
+      (tester) async {
+    for (final width in [320.0, 600.0, 840.0, 1400.0]) {
+      setSurfaceSize(tester, width, 900);
+      await tester.pumpWidget(buildHarness(
+        baseState.copyWith(
+          subscribedChannelIds: const {},
+          subscribedChannelNames: const {},
+        ),
+        (_) {},
+      ));
+      await tester.pump();
+
+      expect(find.text('No subscribed channels yet'), findsOneWidget,
+          reason: 'CTA missing at width $width');
+      expect(tester.takeException(), isNull,
+          reason: 'Failed at width $width');
+    }
+  });
+}

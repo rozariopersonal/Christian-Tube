@@ -43,12 +43,7 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
   }
 
   @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(
-      icon: Icon(Icons.arrow_back_ios_new, color: context.tokens.onSurface, size: 20),
-      onPressed: () => close(context, null),
-    );
-  }
+  Widget? buildLeading(BuildContext context) => null;
 
   @override
   Widget buildResults(BuildContext context) {

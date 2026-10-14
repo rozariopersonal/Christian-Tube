@@ -88,7 +88,7 @@ class _ChannelDetailScreenState extends State<ChannelDetailScreen>
   Widget build(BuildContext context) {
     if (_isLoading && _channel == null) {
       return Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(automaticallyImplyLeading: false),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -101,6 +101,7 @@ class _ChannelDetailScreenState extends State<ChannelDetailScreen>
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
+              automaticallyImplyLeading: false,
               expandedHeight: 120,
               pinned: true,
               flexibleSpace: FlexibleSpaceBar(

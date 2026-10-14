@@ -55,10 +55,7 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
           'Bible Translations',
           style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: tokens.onSurface),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
       ),
       body: AnimatedBuilder(
         animation: _manager,
