@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:mobile/core/api/github_data_service.dart';
+import 'package:mobile/features/bible/models/bible_book.dart';
 import 'package:mobile/features/bible/models/bible_highlight.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/features/engines/scripture/services/bible_download_manager.dart';
+import 'package:mobile/features/engines/scripture/services/online_bible_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'bible_data_adapter.dart';
 
@@ -14,7 +16,7 @@ class WebBibleDataAdapter implements BibleDataAdapter {
 
   static const _cdnVersions = {
     'ASV', 'BBE', 'DIODATI', 'ELBERFELDER', 'ELBERFELDER1905', 'HIN_IRV',
-    'KAN_IRV', 'KJV', 'LUTHER1545', 'MAL_IRV', 'MARTIN', 'POLGDANSKA',
+    'KAN_IRV', 'KJV', 'LUTHER1545', 'MAL_IRV', 'MARTIN', 'MSG', 'NASB', 'NLT', 'POLGDANSKA',
     'RIVEDUTA', 'SSE', 'STATENVERTALING', 'TAOBVSI', 'TEL_IRV', 'WB', 'WEB', 'YLT'
   };
 
@@ -466,16 +468,20 @@ class WebBibleDataAdapter implements BibleDataAdapter {
 
   @override
   Future<List<String>> getInstalledVersionIds() async {
-    return BibleDownloadManager.catalog
+    final set = BibleDownloadManager.catalog
         .where((v) => _cdnVersions.contains(v.id.toUpperCase()))
         .map((v) => v.id)
-        .toList();
+        .toSet();
+    set.addAll(OnlineBibleService.onlineVersionIds);
+    return set.toList();
   }
 
   @override
   Future<List<Map<String, dynamic>>> getInstalledVersions() async {
     return BibleDownloadManager.catalog
-        .where((v) => _cdnVersions.contains(v.id.toUpperCase()))
+        .where((v) =>
+            _cdnVersions.contains(v.id.toUpperCase()) ||
+            OnlineBibleService.isOnlineVersion(v.id))
         .map((v) => {
               'id': v.id,
               'name': v.name,
@@ -498,6 +504,17 @@ class WebBibleDataAdapter implements BibleDataAdapter {
     }
 
     final bookNum = BookNameService.englishBookNames.indexOf(bookName) + 1;
+    if (OnlineBibleService.isOnlineVersion(versionId) && bookNum > 0) {
+      final liveResults = await OnlineBibleService.fetchLiveChapter(versionId, bookNum, chapter);
+      if (liveResults.isNotEmpty) {
+        _liveChapterCache[cacheKey] = liveResults;
+        for (final item in liveResults) {
+          _addVerse(versionId, bookNum, chapter, item['verse'] as int, item['text'] as String);
+        }
+        return liveResults;
+      }
+    }
+
     if (bookNum > 0) {
       final urls = GitHubDataService.bibleChapterUrls(
         versionId, bookNum, chapter,
@@ -561,6 +578,16 @@ class WebBibleDataAdapter implements BibleDataAdapter {
       }
     });
     results.sort((a, b) => (a['verse'] as int).compareTo(b['verse'] as int));
+    if (results.isEmpty && OnlineBibleService.isOnlineVersion(versionId)) {
+      final liveResults = await OnlineBibleService.fetchLiveChapter(versionId, bookNum, chapter);
+      if (liveResults.isNotEmpty) {
+        _liveChapterCache[cacheKey] = liveResults;
+        for (final item in liveResults) {
+          _addVerse(versionId, bookNum, chapter, item['verse'] as int, item['text'] as String);
+        }
+        return liveResults;
+      }
+    }
     return results;
   }
 
@@ -590,6 +617,11 @@ class WebBibleDataAdapter implements BibleDataAdapter {
       } catch (_) {
         continue;
       }
+    }
+    if (OnlineBibleService.isOnlineVersion(versionId)) {
+      final webCounts = await getChapterVerseCounts('WEB');
+      if (webCounts.isNotEmpty) return webCounts;
+      return bibleBooks.values.map((numChapters) => List<int>.filled(numChapters, 25)).toList();
     }
     return [];
   }
@@ -631,6 +663,20 @@ class WebBibleDataAdapter implements BibleDataAdapter {
       }
     }
     if (parts.isNotEmpty) return parts.join(' ');
+    if (OnlineBibleService.isOnlineVersion(versionId)) {
+      final bookName = BookNameService.englishBookNames.length >= bookNumber
+          ? BookNameService.englishBookNames[bookNumber - 1]
+          : '';
+      if (bookName.isNotEmpty) {
+        final chapterVerses = await getChapter(versionId, bookName, chapter);
+        final filtered = chapterVerses
+            .where((v) => (v['verse'] as int) >= startVerse && (v['verse'] as int) <= end)
+            .map((v) => (v['text'] as String?)?.trim() ?? '')
+            .where((t) => t.isNotEmpty)
+            .toList();
+        if (filtered.isNotEmpty) return filtered.join(' ');
+      }
+    }
     return null;
   }
 
