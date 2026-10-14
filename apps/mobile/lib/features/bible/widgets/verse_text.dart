@@ -69,7 +69,7 @@ class _VerseTextState extends State<VerseText> {
                 : HighlightPalette.colorFor(widget.highlightColorIndex!);
 
         return GestureDetector(
-          behavior: HitTestBehavior.translucent,
+          behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           child: MouseRegion(
             onEnter: (_) => _hoverNotifier.value = true,
@@ -83,7 +83,7 @@ class _VerseTextState extends State<VerseText> {
                 if (hasPersistentHighlight) {
                   highlightFill = highlightColor;
                 } else if (widget.isSelected) {
-                  highlightFill = theme.colorScheme.primary.withValues(alpha: 0.16);
+                  highlightFill = theme.colorScheme.primary.withValues(alpha: 0.22);
                 } else if (widget.isHighlighted) {
                   highlightFill = widget.appearance.isDark(context.tokens)
                       ? theme.colorScheme.primary.withValues(alpha: 0.28)
@@ -96,15 +96,10 @@ class _VerseTextState extends State<VerseText> {
                     .textColor(context.tokens)
                     .withValues(alpha: 0.06);
 
-                final showUnderline = widget.isSelected;
-                final underlineColor = theme.colorScheme.primary;
-
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
                   child: VerseHighlightLayer(
                     highlightColor: highlightFill,
-                    showUnderline: showUnderline,
-                    underlineColor: underlineColor,
                     isHovered: isHovering,
                     hoverColor: hoverFill,
                     child: _buildContent(context, theme, highlightColor),

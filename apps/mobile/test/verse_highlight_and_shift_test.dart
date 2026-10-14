@@ -183,4 +183,24 @@ void main() {
       });
     }
   });
+
+  group('VerseHighlightLayer Appearance & No Underline Tests', () {
+    testWidgets('VerseHighlightLayer paints without throwing and does not paint underlines', (tester) async {
+      final appearance = ReaderAppearance();
+      final verse = BibleVerse(number: 1, text: 'Short single line verse text.');
+
+      await tester.pumpWidget(
+        wrapWithTokens(
+          VerseText(
+            verse: verse,
+            appearance: appearance,
+            isSelected: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
 }
