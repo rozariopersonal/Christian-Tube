@@ -35,18 +35,21 @@ class BibleBottomNav extends StatelessWidget {
     final appearance = controller.appearance;
 
     if (s.selectedVerses.isNotEmpty) {
-      return MaxWidthBox(
-        maxWidth: 640,
-        child: VerseActionBar(
-          selectedCount: s.selectedVerses.length,
-          appearance: appearance,
-          onCopy: onCopy,
-          onShare: onShare,
-          onBookmark: onBookmark,
-          onHighlight: onHighlight,
-          onNote: onNote,
-          onClear: onClear,
-          onStudy: onStudy,
+      return SafeArea(
+        top: false,
+        child: MaxWidthBox(
+          maxWidth: 640,
+          child: VerseActionBar(
+            selectedCount: s.selectedVerses.length,
+            appearance: appearance,
+            onCopy: onCopy,
+            onShare: onShare,
+            onBookmark: onBookmark,
+            onHighlight: onHighlight,
+            onNote: onNote,
+            onClear: onClear,
+            onStudy: onStudy,
+          ),
         ),
       );
     }

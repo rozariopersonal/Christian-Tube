@@ -12,10 +12,11 @@ class VerseActionBar extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback? onStudy;
   final ReaderAppearance? appearance;
+  final EdgeInsetsGeometry? margin;
 
   const VerseActionBar({
     super.key,
-    required this.selectedCount,
+    this.selectedCount = 1,
     required this.onCopy,
     required this.onShare,
     required this.onBookmark,
@@ -24,110 +25,115 @@ class VerseActionBar extends StatelessWidget {
     required this.onClear,
     this.onStudy,
     this.appearance,
+    this.margin,
   });
 
   @override
   Widget build(BuildContext context) {
     if (selectedCount == 0) return const SizedBox.shrink();
 
+    final theme = Theme.of(context);
     final tokens = context.tokens;
-    final bg = appearance?.surface(tokens) ?? tokens.surface;
-    final textCol = appearance?.textColor(tokens) ?? tokens.onSurface;
-    final mutedCol = appearance?.mutedTextColor(tokens) ?? tokens.onSurfaceMuted;
-    final borderCol = appearance?.surfaceBorder(tokens) ?? tokens.surfaceBorder;
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark ||
+        (appearance?.isDark(tokens) ?? false);
+
+    // Floating bar has a distinct background color contrasting with the
+    // reader background and the main navigation bar tabs below.
+    final bg = isDark
+        ? tokens.surfaceElevated
+        : colorScheme.surfaceContainerHighest;
+    final textCol = isDark ? tokens.onSurface : colorScheme.onSurface;
+    final mutedCol = isDark ? tokens.onSurfaceMuted : colorScheme.onSurfaceVariant;
+    final borderCol = tokens.surfaceBorder;
 
     return Container(
+      margin: margin ?? const EdgeInsets.fromLTRB(16, 0, 16, 12),
       decoration: BoxDecoration(
         color: bg,
-        border: Border(top: BorderSide(color: borderCol, width: 0.5)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: borderCol.withValues(alpha: isDark ? 0.25 : 0.45),
+          width: 1.0,
+        ),
         boxShadow: [
           BoxShadow(
-            color: tokens.scrim.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
+            color: tokens.scrim.withValues(alpha: isDark ? 0.35 : 0.12),
+            blurRadius: 16,
+            spreadRadius: 1,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Top row: Selection count and Clear
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Deselect all',
-                    icon: Icon(Icons.close, color: mutedCol, size: 20),
-                    onPressed: onClear,
-                  ),
-                  Expanded(
-                    child: Text(
-                      '$selectedCount selected',
-                      style: TextStyle(
-                        color: textCol,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Bottom row: Actions — horizontally scrollable so the six items
-            // never overflow at 320dp width or large text scales.
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              child: Align(
-                alignment: Alignment.center,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ActionItem(
-                      icon: Icons.copy,
-                      label: 'Copy',
-                      textColor: textCol,
-                      onPressed: onCopy,
-                    ),
-                    _ActionItem(
-                      icon: Icons.ios_share,
-                      label: 'Share',
-                      textColor: textCol,
-                      onPressed: onShare,
-                    ),
-                    _ActionItem(
-                      icon: Icons.bookmark_add_outlined,
-                      label: 'Bookmark',
-                      textColor: textCol,
-                      onPressed: onBookmark,
-                    ),
-                    _ActionItem(
-                      icon: Icons.border_color_rounded,
-                      label: 'Highlight',
-                      textColor: textCol,
-                      onPressed: onHighlight,
-                    ),
-                    _ActionItem(
-                      icon: Icons.edit_note_rounded,
-                      label: 'Note',
-                      textColor: textCol,
-                      onPressed: onNote,
-                    ),
-                    if (onStudy != null)
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Material(
+          color: Colors.transparent,
+          child: Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       _ActionItem(
-                        icon: Icons.auto_stories_outlined,
-                        label: 'Study',
+                        icon: Icons.copy_rounded,
+                        label: 'Copy',
                         textColor: textCol,
-                        onPressed: onStudy!,
+                        onPressed: onCopy,
                       ),
-                  ],
+                      _ActionItem(
+                        icon: Icons.ios_share_rounded,
+                        label: 'Share',
+                        textColor: textCol,
+                        onPressed: onShare,
+                      ),
+                      _ActionItem(
+                        icon: Icons.bookmark_add_outlined,
+                        label: 'Bookmark',
+                        textColor: textCol,
+                        onPressed: onBookmark,
+                      ),
+                      _ActionItem(
+                        icon: Icons.border_color_rounded,
+                        label: 'Highlight',
+                        textColor: textCol,
+                        onPressed: onHighlight,
+                      ),
+                      _ActionItem(
+                        icon: Icons.edit_note_rounded,
+                        label: 'Note',
+                        textColor: textCol,
+                        onPressed: onNote,
+                      ),
+                      if (onStudy != null)
+                        _ActionItem(
+                          icon: Icons.auto_stories_outlined,
+                          label: 'Study',
+                          textColor: textCol,
+                          onPressed: onStudy!,
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+              Container(
+                height: 28,
+                width: 1,
+                color: borderCol.withValues(alpha: isDark ? 0.25 : 0.4),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: IconButton(
+                  tooltip: 'Deselect all',
+                  icon: Icon(Icons.close_rounded, color: mutedCol, size: 20),
+                  onPressed: onClear,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -150,17 +156,17 @@ class _ActionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 64,
+      width: 62,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: textColor, size: 22),
-              const SizedBox(height: 4),
+              Icon(icon, color: textColor, size: 20),
+              const SizedBox(height: 3),
               Text(
                 label,
                 maxLines: 1,

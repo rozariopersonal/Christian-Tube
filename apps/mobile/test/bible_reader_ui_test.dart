@@ -135,14 +135,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(VerseActionBar), findsOneWidget);
-    expect(find.text('1 selected'), findsOneWidget);
+    expect(find.text('1 selected'), findsNothing);
 
     // Tap verse 2
     await tester.tap(verseWidgets.at(1), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(VerseActionBar), findsOneWidget);
-    expect(find.text('2 selected'), findsOneWidget);
+    expect(find.text('2 selected'), findsNothing);
 
     // Tap Deselect all (Close icon)
     await tester.tap(find.byTooltip('Deselect all'), warnIfMissed: false);
