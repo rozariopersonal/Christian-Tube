@@ -46,7 +46,6 @@ model Video {
   updatedAt              DateTime            @updatedAt
 
   channel                Channel?            @relation(fields: [channelId], references: [id])
-  videoEmbedding         VideoEmbedding?
   transcription          Transcription?
   pipelineStatus         VideoPipelineStatus?
   videoChunks            VideoChunk[]
@@ -80,20 +79,6 @@ model VideoPipelineStatus {
   video         Video    @relation(fields: [videoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("VideoPipelineStatus")
-}
-
-model VideoEmbedding {
-  videoId   String   @id
-  embedding Unsupported("vector(384)")?
-  model     String
-  version   Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@index([version])
-  @@map("VideoEmbedding")
 }
 
 model Transcription {
