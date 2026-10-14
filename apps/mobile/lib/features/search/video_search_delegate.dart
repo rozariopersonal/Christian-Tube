@@ -23,12 +23,7 @@ class VideoSearchDelegate extends SearchDelegate<Video?> {
   }
 
   @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      onPressed: () => close(context, null),
-    );
-  }
+  Widget? buildLeading(BuildContext context) => null;
 
   @override
   Widget buildResults(BuildContext context) {

@@ -605,8 +605,15 @@ class _BibleScreenState extends State<BibleScreen> {
     final appearance = _controller.appearance;
     return ListenableBuilder(
       listenable: appearance,
-      builder: (context, _) => Scaffold(
-        backgroundColor: appearance.background(tokens),
+      builder: (context, _) => PopScope(
+        canPop: s.selectedVerses.isEmpty,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && s.selectedVerses.isNotEmpty) {
+            _controller.clearSelection();
+          }
+        },
+        child: Scaffold(
+          backgroundColor: appearance.background(tokens),
         appBar: BibleAppBar(
           controller: _controller,
           onShowSearch: _showSearch,
@@ -641,6 +648,7 @@ class _BibleScreenState extends State<BibleScreen> {
               : null,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

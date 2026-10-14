@@ -136,6 +136,7 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
     return Scaffold(
       backgroundColor: tokens.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: tokens.background,
         elevation: 0,
         title: Text(

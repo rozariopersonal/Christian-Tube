@@ -66,6 +66,7 @@ class _AudioSeriesScreenState extends State<AudioSeriesScreen> {
         return Scaffold(
           backgroundColor: tokens.background,
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             backgroundColor: tokens.background,
             elevation: 0,
             title: Text(

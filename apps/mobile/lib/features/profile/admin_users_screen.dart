@@ -31,6 +31,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text(
           'User Management',
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 19),

@@ -157,6 +157,7 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
         return Scaffold(
           backgroundColor: tokens.background,
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             backgroundColor: tokens.background,
             elevation: 0,
             title: Text(

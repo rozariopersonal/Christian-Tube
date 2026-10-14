@@ -162,10 +162,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
             fontSize: 18,
           ),
         ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: tokens.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: Icon(Icons.refresh, color: tokens.onSurfaceMuted),

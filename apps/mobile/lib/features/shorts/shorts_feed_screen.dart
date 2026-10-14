@@ -312,31 +312,10 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
               ),
             ),
 
-            // 2b. Back button
+            // 2b. Tab chips
             Positioned(
               top: MediaQuery.paddingOf(context).top + 8,
-              left: 4,
-              child: IconButton(
-                icon: Icon(Icons.arrow_back_ios_new,
-                    color: context.shortsChromeFg, size: 20),
-                tooltip: 'Back',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                onPressed: () {
-                  if (_selectedCommunityIndex != null ||
-                      _selectedCreationIndex != null) {
-                    _closeShortPlayer();
-                  } else {
-                    _handleBackFromGrid();
-                  }
-                },
-              ),
-            ),
-
-            // 2c. Tab chips
-            Positioned(
-              top: MediaQuery.paddingOf(context).top + 8,
-              left: 44,
+              left: 16,
               right: 84,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,

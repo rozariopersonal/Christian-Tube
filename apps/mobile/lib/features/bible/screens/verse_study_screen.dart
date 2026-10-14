@@ -1017,10 +1017,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: tokens.onSurface),
-            onPressed: () => Navigator.pop(context),
-          ),
+          automaticallyImplyLeading: false,
         ),
         body: _buildLayout(context),
       ),

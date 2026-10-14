@@ -53,12 +53,7 @@ class AudioSearchDelegate extends SearchDelegate<AudioSeries?> {
   }
 
   @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      onPressed: () => close(context, null),
-    );
-  }
+  Widget? buildLeading(BuildContext context) => null;
 
   @override
   Widget buildResults(BuildContext context) {
