@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/bible/models/bible_verse.dart';
 import 'package:mobile/features/bible/services/verse_band_geometry.dart';
+import 'package:mobile/features/bible/widgets/verse_action_bar.dart';
 import 'package:mobile/features/bible/widgets/verse_text.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
 
@@ -201,6 +202,49 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('VerseActionBar renders as floating rounded bar without selection count row', (tester) async {
+      bool cleared = false;
+      await tester.pumpWidget(
+        wrapWithTokens(
+          VerseActionBar(
+            selectedCount: 2,
+            onCopy: () {},
+            onShare: () {},
+            onBookmark: () {},
+            onHighlight: () {},
+            onNote: () {},
+            onClear: () {
+              cleared = true;
+            },
+            onStudy: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify no selection count row exists
+      expect(find.text('2 selected'), findsNothing);
+      expect(find.text('1 selected'), findsNothing);
+
+      // Verify actions exist
+      expect(find.text('Copy'), findsOneWidget);
+      expect(find.text('Share'), findsOneWidget);
+      expect(find.text('Bookmark'), findsOneWidget);
+      expect(find.text('Highlight'), findsOneWidget);
+      expect(find.text('Note'), findsOneWidget);
+      expect(find.text('Study'), findsOneWidget);
+
+      // Verify Deselect all button clears
+      expect(find.byTooltip('Deselect all'), findsOneWidget);
+      await tester.tap(find.byTooltip('Deselect all'));
+      expect(cleared, isTrue);
+
+      // Verify rounded container exists
+      final container = tester.widget<Container>(find.byType(Container).first);
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.borderRadius, equals(BorderRadius.circular(20)));
     });
   });
 }
