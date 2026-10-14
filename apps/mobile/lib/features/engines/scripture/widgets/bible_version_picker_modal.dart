@@ -33,14 +33,16 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
       BibleRecentVersionsService();
 
   List<String> _recentVersionIds = [];
+  List<String> _frequentVersionIds = [];
+  Map<String, int> _frequencyMap = {};
   String _searchQuery = '';
-  bool _isLoadingRecents = true;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    _loadRecents();
+    _loadHistory();
   }
 
   @override
@@ -59,18 +61,28 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
     }
   }
 
-  Future<void> _loadRecents() async {
+  Future<void> _loadHistory() async {
     final recents = await _recentService.getRecentVersions();
+    final frequent = await _recentService.getFrequentlyUsedVersions();
+    final freqMap = await _recentService.getFrequencyMap();
+
     // Preseed active version if not yet present
     final active = widget.activeVersionId.trim();
-    if (active.isNotEmpty &&
-        !recents.any((id) => id.toUpperCase() == active.toUpperCase())) {
-      recents.insert(0, active);
+    if (active.isNotEmpty) {
+      if (!recents.any((id) => id.toUpperCase() == active.toUpperCase())) {
+        recents.insert(0, active);
+      }
+      if (!frequent.any((id) => id.toUpperCase() == active.toUpperCase())) {
+        frequent.insert(0, active);
+      }
     }
+
     if (mounted) {
       setState(() {
         _recentVersionIds = recents;
-        _isLoadingRecents = false;
+        _frequentVersionIds = frequent;
+        _frequencyMap = freqMap;
+        _isLoading = false;
       });
     }
   }
@@ -118,21 +130,43 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
                 v.language.toLowerCase().contains(query);
           }).toList();
 
-    // Extract recently used items in exact chronological order
-    final List<BibleVersionMeta> recentItems = [];
-    final seenRecent = <String>{};
-    for (final rId in _recentVersionIds) {
-      final upper = rId.toUpperCase();
-      if (seenRecent.contains(upper)) continue;
+    // 1. Frequently Used Items (sorted descending by frequency count)
+    final List<BibleVersionMeta> frequentItems = [];
+    final seenFrequent = <String>{};
+    for (final fId in _frequentVersionIds) {
+      final upper = fId.toUpperCase();
+      if (seenFrequent.contains(upper)) continue;
 
-      // Check if this recent version matches available versions
       final meta = allVersions.cast<BibleVersionMeta?>().firstWhere(
             (v) => v?.id.toUpperCase() == upper,
             orElse: () => null,
           );
 
       if (meta != null) {
-        // If searching, check query match
+        if (query.isNotEmpty) {
+          final matches = meta.name.toLowerCase().contains(query) ||
+              meta.id.toLowerCase().contains(query) ||
+              meta.language.toLowerCase().contains(query);
+          if (!matches) continue;
+        }
+        seenFrequent.add(upper);
+        frequentItems.add(meta);
+      }
+    }
+
+    // 2. Recently Used Items (in exact chronological order)
+    final List<BibleVersionMeta> recentItems = [];
+    final seenRecent = <String>{};
+    for (final rId in _recentVersionIds) {
+      final upper = rId.toUpperCase();
+      if (seenRecent.contains(upper)) continue;
+
+      final meta = allVersions.cast<BibleVersionMeta?>().firstWhere(
+            (v) => v?.id.toUpperCase() == upper,
+            orElse: () => null,
+          );
+
+      if (meta != null) {
         if (query.isNotEmpty) {
           final matches = meta.name.toLowerCase().contains(query) ||
               meta.id.toLowerCase().contains(query) ||
@@ -144,7 +178,7 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
       }
     }
 
-    // Group remaining versions by language
+    // 3. Group remaining versions by language
     final Map<String, List<BibleVersionMeta>> groupedByLanguage = {};
     for (final meta in filteredVersions) {
       final lang =
@@ -179,6 +213,15 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
       });
 
     final screenHeight = MediaQuery.sizeOf(context).height;
+
+    // Combined chips list for quick access row
+    final quickChips = <BibleVersionMeta>[];
+    final seenChips = <String>{};
+    for (final item in [...frequentItems, ...recentItems]) {
+      if (seenChips.add(item.id.toUpperCase())) {
+        quickChips.add(item);
+      }
+    }
 
     return Container(
       constraints: BoxConstraints(maxHeight: screenHeight * 0.85),
@@ -309,8 +352,8 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
           ),
           const SizedBox(height: 8),
 
-          // Quick Recent Chips (when not actively searching)
-          if (_searchQuery.isEmpty && recentItems.isNotEmpty) ...[
+          // Quick Chips (when not actively searching)
+          if (_searchQuery.isEmpty && quickChips.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.only(top: 4, bottom: 8),
               child: SizedBox(
@@ -318,10 +361,10 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
-                  itemCount: recentItems.length,
+                  itemCount: quickChips.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 6),
                   itemBuilder: (context, index) {
-                    final meta = recentItems[index];
+                    final meta = quickChips[index];
                     final isSelected = meta.id.toUpperCase() ==
                         widget.activeVersionId.toUpperCase();
                     return _QuickRecentChip(
@@ -335,21 +378,51 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
             ),
           ],
 
-          // Main List of Translations (Recently Used + Grouped by Language)
+          // Main List of Translations (Frequently Used on top + Recently Used + Grouped by Language)
           Flexible(
-            child: filteredVersions.isEmpty && recentItems.isEmpty
+            child: filteredVersions.isEmpty &&
+                    recentItems.isEmpty &&
+                    frequentItems.isEmpty
                 ? _buildEmptyState(tokens)
                 : ListView(
                     shrinkWrap: true,
                     physics: const BouncingScrollPhysics(),
                     children: [
-                      // 1. Recently Used Section (in exact order)
-                      if (!_isLoadingRecents && recentItems.isNotEmpty) ...[
+                      // 1. Frequently Used Section (on top!)
+                      if (!_isLoading && frequentItems.isNotEmpty) ...[
+                        _buildSectionHeader(
+                          title: 'Frequently Used',
+                          icon: Icons.trending_up_rounded,
+                          count: frequentItems.length,
+                          isAccent: true,
+                          tokens: tokens,
+                        ),
+                        const SizedBox(height: 4),
+                        ...frequentItems.map((meta) {
+                          final isSelected = meta.id.toUpperCase() ==
+                              widget.activeVersionId.toUpperCase();
+                          final count =
+                              _frequencyMap[meta.id.toUpperCase()] ?? 0;
+                          return _buildVersionTile(
+                            meta: meta,
+                            isSelected: isSelected,
+                            tokens: tokens,
+                            frequencyCount: count,
+                          );
+                        }),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child:
+                              Divider(color: tokens.surfaceBorder, height: 1),
+                        ),
+                      ],
+
+                      // 2. Recently Used Section (in exact chronological order)
+                      if (!_isLoading && recentItems.isNotEmpty) ...[
                         _buildSectionHeader(
                           title: 'Recently Used',
                           icon: Icons.history_rounded,
                           count: recentItems.length,
-                          isAccent: true,
                           tokens: tokens,
                         ),
                         const SizedBox(height: 4),
@@ -360,7 +433,6 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
                             meta: meta,
                             isSelected: isSelected,
                             tokens: tokens,
-                            isRecent: true,
                           );
                         }),
                         Padding(
@@ -370,7 +442,7 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
                         ),
                       ],
 
-                      // 2. Language Groups
+                      // 3. Language Groups
                       for (final lang in sortedLanguages) ...[
                         _buildSectionHeader(
                           title: lang,
@@ -470,7 +542,7 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
     required BibleVersionMeta meta,
     required bool isSelected,
     required AppTokens tokens,
-    bool isRecent = false,
+    int? frequencyCount,
   }) {
     return Material(
       color: Colors.transparent,
@@ -528,16 +600,41 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '${meta.language} • ${meta.sizeDisplay}',
-                      style: TextStyle(
-                        color: isSelected
-                            ? tokens.accent.withValues(alpha: 0.8)
-                            : tokens.onSurfaceMuted,
-                        fontSize: 11.5,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '${meta.language} • ${meta.sizeDisplay}',
+                            style: TextStyle(
+                              color: isSelected
+                                  ? tokens.accent.withValues(alpha: 0.8)
+                                  : tokens.onSurfaceMuted,
+                              fontSize: 11.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (frequencyCount != null && frequencyCount > 1) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: tokens.accent.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '$frequencyCount reads',
+                              style: TextStyle(
+                                color: tokens.accent,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

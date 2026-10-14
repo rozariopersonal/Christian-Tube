@@ -61,7 +61,30 @@ void main() {
       expect(recents, ['NIV']);
     });
 
-    test('clears recent versions', () async {
+    test('tracks frequency and returns frequently used versions in descending count order', () async {
+      final service = BibleRecentVersionsService();
+
+      // Access NIV 3 times, KJV 1 time, NASB 5 times
+      await service.recordRecentVersion('NIV');
+      await service.recordRecentVersion('NASB');
+      await service.recordRecentVersion('NIV');
+      await service.recordRecentVersion('KJV');
+      await service.recordRecentVersion('NASB');
+      await service.recordRecentVersion('NASB');
+      await service.recordRecentVersion('NIV');
+      await service.recordRecentVersion('NASB');
+      await service.recordRecentVersion('NASB');
+
+      final freqMap = await service.getFrequencyMap();
+      expect(freqMap['NASB'], 5);
+      expect(freqMap['NIV'], 3);
+      expect(freqMap['KJV'], 1);
+
+      final frequent = await service.getFrequentlyUsedVersions(maxFrequent: 3);
+      expect(frequent, ['NASB', 'NIV', 'KJV']);
+    });
+
+    test('clears recent versions and frequency history', () async {
       final service = BibleRecentVersionsService();
 
       await service.recordRecentVersion('NIV');
@@ -69,7 +92,9 @@ void main() {
       await service.clearRecentVersions();
 
       final recents = await service.getRecentVersions();
+      final frequent = await service.getFrequentlyUsedVersions();
       expect(recents, isEmpty);
+      expect(frequent, isEmpty);
     });
   });
 }
