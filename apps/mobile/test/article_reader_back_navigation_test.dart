@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/layout/shell_back_handler.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/articles/models/article_data.dart';
 import 'package:mobile/features/articles/screens/article_reader_screen.dart';
@@ -42,27 +43,30 @@ class _ArticlesBrowserStub extends StatelessWidget {
   }
 }
 
-/// Mirrors the production route table: `/articles` lives inside the navigation
-/// shell while `/article/:id` is a top-level route above it.
+/// Mirrors the production route table: `/articles` and `/article/:id` live
+/// inside the navigation shell with ShellBackHandler handling back events.
 GoRouter buildRouter(String initialLocation) {
   return GoRouter(
     initialLocation: initialLocation,
     routes: [
       ShellRoute(
-        builder: (context, state, child) => Scaffold(body: child),
+        builder: (context, state, child) => ShellBackHandler(
+          path: state.uri.path,
+          child: Scaffold(body: child),
+        ),
         routes: [
           GoRoute(
             path: '/articles',
             builder: (context, state) => const _ArticlesBrowserStub(),
           ),
+          GoRoute(
+            path: '/article/:id',
+            builder: (context, state) => ArticleReaderScreen(
+              articleId: state.pathParameters['id'] ?? '',
+              syncService: _OfflineSyncService(),
+            ),
+          ),
         ],
-      ),
-      GoRoute(
-        path: '/article/:id',
-        builder: (context, state) => ArticleReaderScreen(
-          articleId: state.pathParameters['id'] ?? '',
-          syncService: _OfflineSyncService(),
-        ),
       ),
     ],
   );

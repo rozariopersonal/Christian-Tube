@@ -39,47 +39,47 @@ void main() {
         isTrue,
       );
 
-      // Watch video in portrait
+      // Watch video in portrait (subpage hides bottom bar)
       expect(
         service.shouldShow(
           context: capturedContext,
           currentPath: '/watch/abc1234',
           selectedIndex: 0,
         ),
-        isTrue,
+        isFalse,
       );
 
-      // Search screen
+      // Search screen (subpage hides bottom bar)
       expect(
         service.shouldShow(
           context: capturedContext,
           currentPath: '/search',
           selectedIndex: 0,
         ),
-        isTrue,
+        isFalse,
       );
 
-      // Watch plans screen
+      // Watch plans screen (subpage hides bottom bar)
       expect(
         service.shouldShow(
           context: capturedContext,
           currentPath: '/watch-plans',
           selectedIndex: 4,
         ),
-        isTrue,
+        isFalse,
       );
 
-      // Subscriptions screen
+      // Channels screen (subpage hides bottom bar)
       expect(
         service.shouldShow(
           context: capturedContext,
           currentPath: '/channels',
           selectedIndex: 3,
         ),
-        isTrue,
+        isFalse,
       );
 
-      // Shorts feed exploration grid (when not playing a video)
+      // Shorts feed exploration grid (root tab: keeps bottom bar)
       expect(
         service.shouldShow(
           context: capturedContext,
@@ -89,14 +89,14 @@ void main() {
         isTrue,
       );
 
-      // Books catalog screen
+      // Books catalog screen (subpage hides bottom bar)
       expect(
         service.shouldShow(
           context: capturedContext,
           currentPath: '/books',
           selectedIndex: 3,
         ),
-        isTrue,
+        isFalse,
       );
     });
 

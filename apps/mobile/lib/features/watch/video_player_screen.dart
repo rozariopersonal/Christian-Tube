@@ -402,18 +402,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           );
         }
 
-        return PopScope(
-          canPop: true,
-          child: Scaffold(
-            appBar: _buildAppBar(context),
-            body: SafeArea(
-              top: false,
-              bottom: true,
-              child: SingleChildScrollView(
-                child: screenClass.isCompact
-                    ? _buildCompactLayout(context, player)
-                    : _buildExpandedLayout(context, player),
-              ),
+        return Scaffold(
+          appBar: _buildAppBar(context),
+          body: SafeArea(
+            top: false,
+            bottom: true,
+            child: SingleChildScrollView(
+              child: screenClass.isCompact
+                  ? _buildCompactLayout(context, player)
+                  : _buildExpandedLayout(context, player),
             ),
           ),
         );

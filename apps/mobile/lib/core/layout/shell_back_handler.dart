@@ -54,8 +54,22 @@ class ShellBackHandler extends StatelessWidget {
     }
 
     // 3. In-shell subpage fallback routing (when entered via direct replace/deep link).
-    if (path.startsWith('/channels') || path.startsWith('/search')) {
+    if (path.startsWith('/channels') ||
+        path.startsWith('/search') ||
+        path.startsWith('/watch')) {
       context.go('/feed');
+      return;
+    }
+    if (path.startsWith('/article/')) {
+      context.go('/articles');
+      return;
+    }
+    if (path.startsWith('/song/')) {
+      context.go('/songs');
+      return;
+    }
+    if (path.startsWith('/books/')) {
+      context.go('/books');
       return;
     }
     if (path.startsWith('/books') ||
@@ -70,7 +84,13 @@ class ShellBackHandler extends StatelessWidget {
     }
     if (path.startsWith('/watch-plans') ||
         path.startsWith('/downloads') ||
-        path.startsWith('/bible-manager')) {
+        path.startsWith('/bible-manager') ||
+        path.startsWith('/history') ||
+        path.startsWith('/settings') ||
+        path.startsWith('/admin-users') ||
+        path.startsWith('/subscriptions') ||
+        path.startsWith('/saved-scriptures') ||
+        path.startsWith('/playlists')) {
       context.go('/profile');
       return;
     }

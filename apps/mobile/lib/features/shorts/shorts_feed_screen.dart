@@ -132,19 +132,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     BottomBarVisibilityService.instance.setShortPlaying(false);
   }
 
-  /// Returns to the page that led to the Shorts tab. When the shorts feed was
-  /// pushed on top of another route (rare) we pop back to it; otherwise we
-  /// land on the Videos home feed instead of letting the system back exit the
-  /// app from a root tab.
-  void _handleBackFromGrid() {
-    stopAllPlatformShorts();
-    BottomBarVisibilityService.instance.setShortPlaying(false);
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    } else {
-      context.go('/feed');
-    }
-  }
+
 
   void _applyInitialTarget() {
     if (_communityController.shorts.isEmpty) return;
@@ -218,18 +206,14 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     final bool isPlayerOpen =
         _selectedCommunityIndex != null || _selectedCreationIndex != null;
 
-    // Back is always intercepted so a system back press never pops the root
-    // tab and exits the app:
-    //  - player open  -> close back to the shorts grid (previous shorts page)
-    //  - shorts grid  -> return to the previous page / Videos home feed
+    // When full-screen short player is open, intercept back to close to grid.
+    // When on the grid, allow back to bubble up to ShellBackHandler.
     return PopScope(
-      canPop: false,
+      canPop: !isPlayerOpen,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (isPlayerOpen) {
           _closeShortPlayer();
-        } else {
-          _handleBackFromGrid();
         }
       },
       child: Scaffold(

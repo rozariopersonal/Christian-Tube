@@ -310,98 +310,98 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               path: '/bible-manager',
               builder: (context, state) => const DownloadsManagerScreen(initialTab: 1),
             ),
+            GoRoute(
+              path: '/books/:id',
+              builder: (context, state) {
+                final bookId = state.pathParameters['id'] ?? '';
+                final qp = state.uri.queryParameters;
+                final page = int.tryParse(qp['page'] ?? '');
+                final startLine = int.tryParse(qp['startLine'] ?? '');
+                final endLine = int.tryParse(qp['endLine'] ?? '');
+                return BookReaderScreen(
+                  bookId: bookId,
+                  initialPage: page,
+                  highlightStartLine: startLine,
+                  highlightEndLine: endLine,
+                );
+              },
+            ),
+            GoRoute(
+              path: '/article/:id',
+              builder: (context, state) {
+                final articleId = state.pathParameters['id'] ?? '';
+                final extra = state.extra;
+                final extraMap = extra is Map<String, dynamic> ? extra : null;
+                final lang = (state.uri.queryParameters['lang'] ??
+                        extraMap?['lang'] as String?)
+                    ?.trim();
+                return ArticleReaderScreen(
+                  articleId: articleId,
+                  initialTitle: extraMap?['title'] as String?,
+                  lang: (lang == null || lang.isEmpty) ? 'en' : lang,
+                );
+              },
+            ),
+            GoRoute(
+              path: '/song/:id',
+              builder: (context, state) {
+                final songId = state.pathParameters['id'] ?? '';
+                final extra = state.extra;
+                final song = extra is Song ? extra : null;
+                return SongReaderScreen(
+                  songId: songId,
+                  initialSong: song,
+                );
+              },
+            ),
+            GoRoute(
+              path: '/history',
+              builder: (context, state) => const HistoryScreen(),
+            ),
+            GoRoute(
+              path: '/settings',
+              builder: (context, state) =>
+                  SettingsScreen(themeService: _themeService),
+            ),
+            GoRoute(
+              path: '/admin-users',
+              builder: (context, state) =>
+                  AdminUsersScreen(userService: _userService),
+            ),
+            GoRoute(
+              path: '/subscriptions',
+              builder: (context, state) =>
+                  SubscriptionsScreen(channelService: _channelService),
+            ),
+            GoRoute(
+              path: '/saved-scriptures',
+              builder: (context, state) => const SavedScripturesScreen(),
+            ),
+            GoRoute(
+              path: '/playlists/:id',
+              builder: (context, state) {
+                final playlist = state.extra is Playlist ? state.extra as Playlist : null;
+                if (playlist == null) {
+                  return const Scaffold(
+                    body: Center(child: Text('Playlist not found')),
+                  );
+                }
+                return PlaylistDetailScreen(playlist: playlist);
+              },
+            ),
+            GoRoute(
+              path: '/watch-plans/:id',
+              builder: (context, state) {
+                final plan = state.extra is WatchPlan ? state.extra as WatchPlan : null;
+                if (plan == null) {
+                  return const Scaffold(
+                    body: Center(child: Text('Watch plan not found')),
+                  );
+                }
+                return WatchPlanDetailScreen(plan: plan);
+              },
+            ),
           ],
-        ),
-        GoRoute(
-          path: '/books/:id',
-          builder: (context, state) {
-            final bookId = state.pathParameters['id'] ?? '';
-            final qp = state.uri.queryParameters;
-            final page = int.tryParse(qp['page'] ?? '');
-            final startLine = int.tryParse(qp['startLine'] ?? '');
-            final endLine = int.tryParse(qp['endLine'] ?? '');
-            return BookReaderScreen(
-              bookId: bookId,
-              initialPage: page,
-              highlightStartLine: startLine,
-              highlightEndLine: endLine,
-            );
-          },
-        ),
-        GoRoute(
-          path: '/article/:id',
-          builder: (context, state) {
-            final articleId = state.pathParameters['id'] ?? '';
-            final extra = state.extra;
-            final extraMap = extra is Map<String, dynamic> ? extra : null;
-            final lang = (state.uri.queryParameters['lang'] ??
-                    extraMap?['lang'] as String?)
-                ?.trim();
-            return ArticleReaderScreen(
-              articleId: articleId,
-              initialTitle: extraMap?['title'] as String?,
-              lang: (lang == null || lang.isEmpty) ? 'en' : lang,
-            );
-          },
-        ),
-        GoRoute(
-          path: '/song/:id',
-          builder: (context, state) {
-            final songId = state.pathParameters['id'] ?? '';
-            final extra = state.extra;
-            final song = extra is Song ? extra : null;
-            return SongReaderScreen(
-              songId: songId,
-              initialSong: song,
-            );
-          },
-        ),
-        GoRoute(
-          path: '/history',
-          builder: (context, state) => const HistoryScreen(),
-        ),
-        GoRoute(
-          path: '/settings',
-          builder: (context, state) =>
-              SettingsScreen(themeService: _themeService),
-        ),
-        GoRoute(
-          path: '/admin-users',
-          builder: (context, state) =>
-              AdminUsersScreen(userService: _userService),
-        ),
-        GoRoute(
-          path: '/subscriptions',
-          builder: (context, state) =>
-              SubscriptionsScreen(channelService: _channelService),
-        ),
-        GoRoute(
-          path: '/saved-scriptures',
-          builder: (context, state) => const SavedScripturesScreen(),
-        ),
-        GoRoute(
-          path: '/playlists/:id',
-          builder: (context, state) {
-            final playlist = state.extra is Playlist ? state.extra as Playlist : null;
-            if (playlist == null) {
-              return const Scaffold(
-                body: Center(child: Text('Playlist not found')),
-              );
-            }
-            return PlaylistDetailScreen(playlist: playlist);
-          },
-        ),
-        GoRoute(
-          path: '/watch-plans/:id',
-          builder: (context, state) {
-            final plan = state.extra is WatchPlan ? state.extra as WatchPlan : null;
-            if (plan == null) {
-              return const Scaffold(
-                body: Center(child: Text('Watch plan not found')),
-              );
-            }
-            return WatchPlanDetailScreen(plan: plan);
-          },
         ),
       ],
     );
