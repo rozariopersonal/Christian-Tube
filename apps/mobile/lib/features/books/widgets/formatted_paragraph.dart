@@ -93,6 +93,9 @@ class FormattedParagraphBuilder {
       fontSize: appearance.fontSize,
       height: appearance.lineHeight,
       fontFamily: fontFamily,
+      fontWeight: appearance.fontWeight,
+      fontStyle: appearance.fontStyle,
+      decoration: appearance.textDecoration,
     );
 
     if (highlights.isEmpty) {

@@ -18,6 +18,8 @@ import '../models/verse_concept.dart';
 import '../services/study/bible_study_service.dart';
 import '../services/study/bible_study_updater.dart';
 import '../widgets/verse_concept_card.dart';
+import '../../../shared/services/reader_appearance.dart';
+import '../../../shared/ui/widgets/reader_appearance_action_button.dart';
 
 /// Dedicated study screen displaying both Cross References and Historical/Cultural
 /// Commentaries for a verse in a cohesive, tabbed presentation.
@@ -144,9 +146,15 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
     return null;
   }
 
+  // Reading appearance for study typography
+  final ReaderAppearance _appearance = ReaderAppearance();
+
   @override
   void initState() {
     super.initState();
+    _appearance.fontSize = widget.baseFontSize;
+    _appearance.loadFromPrefs();
+    _appearance.addListener(_onAppearanceChanged);
     _loadBookCommentariesCount();
     _loadDictionaryEntries();
     _loadVerseConcepts();
@@ -154,6 +162,17 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
     BookNameService().ensureLoaded().then((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void dispose() {
+    _appearance.removeListener(_onAppearanceChanged);
+    _appearance.dispose();
+    super.dispose();
+  }
+
+  void _onAppearanceChanged() {
+    if (mounted) setState(() {});
   }
 
   void _loadBookCommentariesCount() {
@@ -315,7 +334,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   Widget _buildVerseCard(BuildContext context) {
     final tokens = context.tokens;
     final screen = ScreenClass.of(context);
-    final fontSize = screen.isCompact ? widget.baseFontSize : widget.baseFontSize + 1.0;
+    final fontSize = screen.isCompact ? _appearance.fontSize : _appearance.fontSize + 1.0;
 
     return Container(
       width: double.infinity,
@@ -446,7 +465,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
             CrossReferenceCard(
               reference: ref,
               text: widget.resolvedTexts[ref.textKey],
-              fontSize: widget.baseFontSize,
+              fontSize: _appearance.fontSize,
               versionId: _resolvedVersionId,
               onTap: () {
                 if (widget.onTapReference != null) {
@@ -831,7 +850,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
     final theme = Theme.of(context);
     final tokens = context.tokens;
     final textTheme = theme.textTheme;
-    final commentaryFontSize = (widget.baseFontSize * 0.92).clamp(14.0, 22.0);
+    final commentaryFontSize = (_appearance.fontSize * 0.92).clamp(14.0, 22.0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -1031,6 +1050,9 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
             ),
           ),
           automaticallyImplyLeading: false,
+          actions: [
+            ReaderAppearanceActionButton(appearance: _appearance),
+          ],
         ),
         body: _buildLayout(context),
       ),
@@ -1198,7 +1220,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
           )
         else ...[
           for (final concept in _verseConcepts)
-            VerseConceptCard(concept: concept, baseFontSize: widget.baseFontSize),
+            VerseConceptCard(concept: concept, baseFontSize: _appearance.fontSize),
         ],
         if (_isDictionaryLoading)
           Center(

@@ -10,6 +10,7 @@ import '../../books/services/book_service.dart';
 import '../../dictionary/services/dictionary_download_manager.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../songs/services/songs_download_manager.dart';
+import '../../../shared/services/reader_fonts_service.dart';
 import '../models/downloads_state.dart';
 import '../models/storage_breakdown.dart';
 
@@ -121,6 +122,10 @@ class StorageCalculatorService {
       }
     }
 
+    // 8. Reader Fonts
+    final fontsBytes = await ReaderFontsService.instance.getInstalledFontsSizeBytes();
+    final fontsCount = await ReaderFontsService.instance.getInstalledFontsCount();
+
     return StorageBreakdown(
       biblesBytes: biblesBytes,
       dictionariesBytes: dictionariesBytes,
@@ -129,6 +134,7 @@ class StorageCalculatorService {
       songsBytes: songsBytes,
       articlesBytes: articlesBytes,
       studyDbBytes: studyDbBytes,
+      fontsBytes: fontsBytes,
       biblesCount: biblesCount,
       dictsCount: dictsCount,
       booksCount: booksCount,
@@ -137,6 +143,7 @@ class StorageCalculatorService {
       songsInstalled: songsInstalled,
       articlesCount: articlesCount,
       studyDbInstalled: studyDbInstalled,
+      fontsCount: fontsCount,
     );
   }
 

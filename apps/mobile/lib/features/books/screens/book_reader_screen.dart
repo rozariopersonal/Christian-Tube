@@ -107,7 +107,9 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         }
       },
     );
-    _controller.appearance.loadFromPrefs();
+    _controller.appearance.loadFromPrefs().then((_) {
+      if (mounted) setState(() {});
+    });
     _controller.pageLoader.onPageStateChanged = () {
       if (!mounted) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {

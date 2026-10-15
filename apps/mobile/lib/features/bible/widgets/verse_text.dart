@@ -4,6 +4,7 @@ import '../../../core/theme/highlight_palette.dart';
 import '../../../features/engines/scripture/models/scripture_theme_state.dart';
 import '../models/bible_verse.dart';
 import '../../../shared/services/reader_appearance.dart';
+import '../../../shared/services/reader_fonts_service.dart';
 import 'verse_highlight_layer.dart';
 
 class VerseText extends StatefulWidget {
@@ -46,7 +47,7 @@ class _VerseTextState extends State<VerseText> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.appearance,
+      listenable: Listenable.merge([widget.appearance, ReaderFontsService.instance]),
       builder: (context, _) {
         final theme = Theme.of(context);
         if (widget.verse.isChapterHeader) {
@@ -217,6 +218,9 @@ class _VerseTextState extends State<VerseText> {
               fontSize: app.fontSize,
               fontFamily: fontFamily,
               color: bodyTextColor,
+              fontWeight: app.fontWeight,
+              fontStyle: app.fontStyle,
+              decoration: app.textDecoration,
             ),
           ),
         ],
@@ -225,7 +229,7 @@ class _VerseTextState extends State<VerseText> {
         fontFamily: fontFamily,
         fontSize: app.fontSize,
         height: app.lineHeight,
-        forceStrutHeight: true,
+        forceStrutHeight: false,
       ),
     );
   }
