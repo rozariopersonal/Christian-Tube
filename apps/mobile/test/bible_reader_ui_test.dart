@@ -104,7 +104,7 @@ void main() {
     expect(find.byTooltip('Next chapter'), findsOneWidget);
   });
 
-  testWidgets('Multi-verse selection displays single VerseActionBar with Clear action', (tester) async {
+  testWidgets('Multi-verse selection displays single VerseActionBar and deselects cleanly', (tester) async {
     tester.view.physicalSize = const Size(360 * 2, 640 * 2);
     tester.view.devicePixelRatio = 2.0;
     addTearDown(() {
@@ -144,9 +144,12 @@ void main() {
 
     expect(find.byType(VerseActionBar), findsOneWidget);
     expect(find.text('2 selected'), findsNothing);
+    expect(find.byTooltip('Deselect all'), findsNothing);
 
-    // Tap Deselect all (Close icon)
-    await tester.tap(find.byTooltip('Deselect all'), warnIfMissed: false);
+    // Deselect verses by tapping them
+    await tester.tap(verseWidgets.at(1), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(verseWidgets.at(0), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(VerseActionBar), findsNothing);
