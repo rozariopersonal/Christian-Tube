@@ -765,6 +765,8 @@ class BibleController extends ChangeNotifier {
     }
     final book = BookNameService.englishBookNames[bookNumber - 1];
     if (verse != null && verse >= 1) _currentVerse = verse;
+    if (book == _currentBook && chapter == _currentChapter) return;
+
     _currentBook = book;
     _currentChapter = chapter;
     _update((s) => s.copyWith(
