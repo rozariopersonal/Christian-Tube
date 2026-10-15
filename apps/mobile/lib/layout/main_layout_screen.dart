@@ -293,7 +293,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
             state.isMiniPlayerVisible &&
             state.hasTrack;
 
-        final barHeight = 60.0 + (hasMiniAudio ? 56.0 : 0.0);
+        final bottomPadding = MediaQuery.paddingOf(context).bottom;
+        final barHeight = 60.0 + (hasMiniAudio ? 56.0 : 0.0) + bottomPadding;
 
         final barContent = Column(
           mainAxisSize: MainAxisSize.min,

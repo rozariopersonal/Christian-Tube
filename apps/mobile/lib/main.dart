@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'core/api/release_revision.dart';
@@ -55,6 +56,9 @@ import 'layout/main_layout_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb) {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
   initPlatformDatabases();
   // Web: use clean path-based URLs (no '#') so shared links like
   // /watch/<id> resolve to real routes in the browser, Android App Links

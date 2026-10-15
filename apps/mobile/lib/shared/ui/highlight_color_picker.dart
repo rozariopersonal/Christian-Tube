@@ -58,6 +58,8 @@ class HighlightColorPicker extends StatelessWidget {
     List<String>? titles,
     int? currentColorIndex,
     bool hasHighlight = false,
+    ValueChanged<int>? onColorSelected,
+    VoidCallback? onHighlightRemoved,
   }) async {
     HighlightPickerResult? result;
     await showAdaptiveBottomSheet<HighlightPickerResult>(
@@ -70,11 +72,13 @@ class HighlightColorPicker extends StatelessWidget {
         hasHighlight: hasHighlight,
         onSelectColor: (i) {
           result = HighlightPickerPicked(i);
+          onColorSelected?.call(i);
           Navigator.pop(sheetContext);
         },
         onRemove: hasHighlight
             ? () {
                 result = const HighlightPickerRemoved();
+                onHighlightRemoved?.call();
                 Navigator.pop(sheetContext);
               }
             : null,

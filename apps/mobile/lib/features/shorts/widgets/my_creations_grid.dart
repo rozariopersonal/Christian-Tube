@@ -313,7 +313,7 @@ class CreationGridBadge extends StatelessWidget {
           BoxShadow(
             color: context.tokens.scrim.withValues(alpha: 0.4),
             blurRadius: 4,
-            offset: Offset(0, 1),
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -388,7 +388,7 @@ class CreationStatusChip extends StatelessWidget {
           BoxShadow(
             color: context.tokens.scrim.withValues(alpha: 0.4),
             blurRadius: 8,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),

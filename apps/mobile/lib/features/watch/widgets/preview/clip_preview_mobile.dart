@@ -60,10 +60,10 @@ class _MobileClipPreviewWidget extends StatefulWidget {
   });
 
   @override
-  State<_MobileClipPreviewWidget> createState() => MobileClipPreviewWidgetState();
+  State<_MobileClipPreviewWidget> createState() => _MobileClipPreviewWidgetState();
 }
 
-class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
+class _MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
   YoutubePlayerController? _controller;
   bool _isPlaying = true;
   double _currentPosition = 0.0;
@@ -262,9 +262,9 @@ class MobileClipPreviewWidgetState extends State<_MobileClipPreviewWidget> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double canvasHeight = 220.0;
+        const double canvasHeight = 220.0;
         final double canvasWidth = constraints.maxWidth;
-        final double cropBoxHeight = canvasHeight;
+        const double cropBoxHeight = canvasHeight;
         final double cropBoxWidth = (cropBoxHeight * (9 / 16)).clamp(80.0, canvasWidth);
         final double travelDistance = (canvasWidth - cropBoxWidth).clamp(0.0, canvasWidth);
         final double cropBoxLeft = (travelDistance / 2) + (_localCropOffset * (travelDistance / 2));

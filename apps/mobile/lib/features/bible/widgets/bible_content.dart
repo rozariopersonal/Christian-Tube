@@ -46,7 +46,7 @@ class BibleContent extends StatelessWidget {
     final s = controller.state;
     if (s.isLoading) return const Center(child: CircularProgressIndicator());
     if (s.versions.isEmpty) return _EmptyState(onPushManager: onPushManager);
-    if (s.chapterEmpty) {
+    if (s.chapterEmpty || s.totalRows == 0) {
       return _ChapterEmptyState(
         controller: controller,
         onRedownloadDefault: onRedownloadDefault,
@@ -425,7 +425,25 @@ class _ChapterEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final dm = BibleDownloadManager();
     if (dm.isDownloading(BibleDownloadManager.defaultVersionId)) {
-      return const SizedBox.shrink();
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Downloading Bible translation...',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     final bookLabel = controller.displayBookName(controller.currentBook);
     final chapterLabel = bookLabel.isNotEmpty
