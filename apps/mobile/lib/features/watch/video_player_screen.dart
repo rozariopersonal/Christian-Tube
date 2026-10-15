@@ -70,6 +70,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   double? _restoredStartSeconds;
   Timer? _positionSaveTimer;
 
+  /// Persistent GlobalKey to ensure the underlying platform player (WebView / iframe)
+  /// is never unmounted or reloaded across layout changes, rotation, or fullscreen toggles.
+  final GlobalKey _playerSubtreeKey = GlobalKey(debugLabel: 'video_player_subtree');
+
   /// App-level fullscreen toggle.
   bool _isFullScreen = false;
 
@@ -77,25 +81,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// Prevents physical landscape rotation from immediately re-triggering
   /// fullscreen until the device returns to portrait orientation.
   bool _userExitedFullscreen = false;
-
-  final List<Timer> _resumeTimers = [];
-  bool? _lastBuiltFullscreen;
-
-  void _resumeVideoAfterFullscreenToggle() {
-    resumePlatformMainVideo();
-    final resumeAt =
-        _currentPositionSeconds > 0 ? _currentPositionSeconds : null;
-    if (resumeAt != null) {
-      seekPlatformMainVideoTo(resumeAt);
-    }
-    for (final delayMs in [150, 350, 600, 1000]) {
-      _resumeTimers.add(Timer(Duration(milliseconds: delayMs), () {
-        if (mounted) {
-          resumePlatformMainVideo();
-        }
-      }));
-    }
-  }
 
   PlaylistLoopMode _loopMode = PlaylistLoopMode.off;
   bool _isShuffle = false;
@@ -291,10 +276,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (_currentPositionSeconds > 0) {
       UserService().saveVideoPosition(_activeVideoId, _currentPositionSeconds);
     }
-    for (final timer in _resumeTimers) {
-      timer.cancel();
-    }
-    _resumeTimers.clear();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -325,15 +306,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final isFullscreen = _isFullScreen ||
         (!kIsWeb && isPhoneLandscape && !_userExitedFullscreen);
 
-    if (_lastBuiltFullscreen != null && _lastBuiltFullscreen != isFullscreen) {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _resumeVideoAfterFullscreenToggle();
-        }
-      });
-    }
-    _lastBuiltFullscreen = isFullscreen;
-
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
       startSeconds: widget.startSeconds ?? _restoredStartSeconds,
@@ -358,7 +330,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         } else {
           setState(() => _isFullScreen = true);
         }
-        _resumeVideoAfterFullscreenToggle();
       },
       onPositionChanged: (pos) {
         _currentPositionSeconds = pos.inMilliseconds / 1000.0;
@@ -372,6 +343,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       },
       builder: (context, player) {
         final tokens = context.tokens;
+        // KeyedSubtree guarantees that Flutter will NEVER tear down the native
+        // WebView / HtmlElementView when switching between fullscreen and normal trees.
+        final persistentPlayer = KeyedSubtree(
+          key: _playerSubtreeKey,
+          child: player,
+        );
+
         if (isFullscreen) {
           return PopScope(
             canPop: !_isFullScreen,
@@ -392,12 +370,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         DeviceOrientation.values);
                   }
                 });
-                _resumeVideoAfterFullscreenToggle();
               }
             },
             child: Scaffold(
               backgroundColor: tokens.scrim,
-              body: SizedBox.expand(child: player),
+              body: SizedBox.expand(child: persistentPlayer),
             ),
           );
         }
@@ -409,8 +386,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             bottom: true,
             child: SingleChildScrollView(
               child: screenClass.isCompact
-                  ? _buildCompactLayout(context, player)
-                  : _buildExpandedLayout(context, player),
+                  ? _buildCompactLayout(context, persistentPlayer)
+                  : _buildExpandedLayout(context, persistentPlayer),
             ),
           ),
         );
