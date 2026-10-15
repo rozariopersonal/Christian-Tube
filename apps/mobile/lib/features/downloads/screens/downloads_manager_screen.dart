@@ -833,10 +833,19 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
                   ),
                 )
               else if (isDownloading)
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Text(
+                    progress > 0
+                        ? '${(progress * 100).toInt()}%'
+                        : 'Downloading…',
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
                 )
               else
                 FilledButton.tonal(
@@ -847,9 +856,14 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
           ),
           if (isDownloading) ...[
             const SizedBox(height: 10),
-            LinearProgressIndicator(
-              value: progress > 0 ? progress : null,
-              color: tokens.accent,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress > 0 ? progress : null,
+                backgroundColor: tokens.surfaceVariant,
+                color: tokens.accent,
+                minHeight: 4,
+              ),
             ),
           ],
         ],
@@ -959,10 +973,19 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
                   },
                 )
               else if (isDownloading)
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Text(
+                    (!_bibleManager.isIndeterminate(bible.id) && progress > 0)
+                        ? '${(progress * 100).toInt()}%'
+                        : 'Downloading…',
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
                 )
               else
                 FilledButton.tonal(
@@ -973,9 +996,16 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
           ),
           if (isDownloading) ...[
             const SizedBox(height: 10),
-            LinearProgressIndicator(
-              value: progress > 0 ? progress : null,
-              color: tokens.accent,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: _bibleManager.isIndeterminate(bible.id)
+                    ? null
+                    : (progress > 0 ? progress : null),
+                backgroundColor: tokens.surfaceVariant,
+                color: tokens.accent,
+                minHeight: 4,
+              ),
             ),
           ],
         ],
@@ -1212,10 +1242,19 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
                   },
                 )
               else if (isDownloading)
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Text(
+                    progress > 0
+                        ? '${(progress * 100).toInt()}%'
+                        : 'Downloading…',
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
                 )
               else
                 FilledButton.tonal(
@@ -1226,9 +1265,14 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
           ),
           if (isDownloading) ...[
             const SizedBox(height: 10),
-            LinearProgressIndicator(
-              value: progress > 0 ? progress : null,
-              color: tokens.accent,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress > 0 ? progress : null,
+                backgroundColor: tokens.surfaceVariant,
+                color: tokens.accent,
+                minHeight: 4,
+              ),
             ),
           ],
         ],

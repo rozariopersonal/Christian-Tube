@@ -79,5 +79,28 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('Downloading items do not render double loaders (no circular and linear simultaneously on cards)',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        buildFrame(
+          const DownloadsManagerScreen(),
+          size: const Size(800, 800),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(Tab, 'Bibles & Study Tools'));
+      await tester.pumpAndSettle();
+
+      // Ensure no card contains both CircularProgressIndicator and LinearProgressIndicator simultaneously
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 11));
+    });
   });
 }

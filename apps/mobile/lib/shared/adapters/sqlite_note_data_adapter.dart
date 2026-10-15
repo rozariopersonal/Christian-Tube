@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import 'package:mobile/core/database/database_init.dart';
 import 'package:mobile/shared/models/note.dart';
 import 'note_data_adapter.dart';
 
@@ -34,6 +35,7 @@ class SqliteNoteDataAdapter implements NoteDataAdapter {
     }
     _isInitializing = true;
     try {
+      initPlatformDatabases();
       final dbPath = p.join(await getDatabasesPath(), 'christian_tube_notes.db');
       _db = await openDatabase(
         dbPath,
@@ -45,7 +47,9 @@ class SqliteNoteDataAdapter implements NoteDataAdapter {
           await _createTables(db);
         },
       );
-      await _createTables(_db!);
+      if (_db != null) {
+        await _createTables(_db!);
+      }
     } catch (e) {
       debugPrint('SqliteNoteDataAdapter initialize error: $e');
     } finally {
@@ -63,6 +67,13 @@ class SqliteNoteDataAdapter implements NoteDataAdapter {
         context_text TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      );
+    ''');
+    // Remove any historical duplicate anchors before ensuring the unique index.
+    await db.execute('''
+      DELETE FROM user_notes
+      WHERE rowid NOT IN (
+        SELECT max(rowid) FROM user_notes GROUP BY feature, target_id
       );
     ''');
     await db.execute('''
@@ -127,16 +138,14 @@ class SqliteNoteDataAdapter implements NoteDataAdapter {
   @override
   Future<void> upsertNote(Note note) async {
     final db = await database;
-    if (db == null) return;
-    try {
-      await db.insert(
-        'user_notes',
-        note.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    } catch (e) {
-      debugPrint('SqliteNoteDataAdapter upsertNote error: $e');
+    if (db == null) {
+      throw StateError('Notes database is not initialized');
     }
+    await db.insert(
+      'user_notes',
+      note.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   @override

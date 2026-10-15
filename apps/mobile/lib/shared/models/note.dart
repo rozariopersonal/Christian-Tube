@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 /// A user-authored note attached to a target (Bible verse, book line, article).
 ///
 /// The model is intentionally generic so any reading surface (Bible reader,
@@ -58,10 +60,12 @@ class Note {
       };
 
   factory Note.fromJson(Map<String, dynamic> json) => Note(
-        id: json['id'] as String,
-        feature: json['feature'] as String? ?? '',
-        targetId: json['targetId'] as String? ?? '',
-        text: json['text'] as String? ?? '',
+        id: (json['id'] as String?)?.isNotEmpty == true
+            ? json['id'] as String
+            : const Uuid().v4(),
+        feature: (json['feature'] as String?) ?? '',
+        targetId: (json['targetId'] as String?) ?? '',
+        text: (json['text'] as String?) ?? '',
         contextText: json['contextText'] as String?,
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0),
@@ -81,10 +85,12 @@ class Note {
       };
 
   factory Note.fromMap(Map<String, dynamic> map) => Note(
-        id: map['id'] as String,
-        feature: map['feature'] as String,
-        targetId: map['target_id'] as String,
-        text: map['text'] as String? ?? '',
+        id: (map['id'] as String?)?.isNotEmpty == true
+            ? map['id'] as String
+            : const Uuid().v4(),
+        feature: (map['feature'] as String?) ?? '',
+        targetId: (map['target_id'] as String?) ?? '',
+        text: (map['text'] as String?) ?? '',
         contextText: map['context_text'] as String?,
         createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0),

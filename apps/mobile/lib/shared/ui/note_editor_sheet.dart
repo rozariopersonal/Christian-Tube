@@ -119,11 +119,17 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialText);
+    _controller.addListener(_onTextChanged);
     _focusNode = FocusNode()..requestFocus();
+  }
+
+  void _onTextChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -260,16 +266,18 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Row(
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    if (widget.hasExistingNote) ...[
+                    if (widget.hasExistingNote)
                       IconButton(
                         tooltip: 'Delete note',
                         onPressed: () => _pop(const NoteEditorDelete()),
                         icon: Icon(Icons.delete_outline, color: mutedCol),
                       ),
-                      const Spacer(),
-                    ],
                     TextButton(
                       onPressed: () => _pop(const NoteEditorDismiss()),
                       child: Text(
@@ -277,7 +285,6 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
                         style: TextStyle(color: mutedCol),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: canSave
                           ? () => _pop(NoteEditorSave(_controller.text.trim()))
