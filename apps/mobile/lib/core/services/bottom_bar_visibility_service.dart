@@ -58,6 +58,35 @@ class BottomBarVisibilityService extends ChangeNotifier {
     }
   }
 
+  bool _isBibleNavHidden = false;
+
+  /// Whether the bottom tab navigation bar is hidden due to scrolling in the Bible reader.
+  bool get isBibleNavHidden => _isBibleNavHidden;
+
+  /// Hides the bottom tab navigation bar with animation when scrolling in the Bible.
+  void hideBibleNav() {
+    if (!_isBibleNavHidden) {
+      _isBibleNavHidden = true;
+      notifyListeners();
+    }
+  }
+
+  /// Brings the bottom tab navigation bar back with animation.
+  void showBibleNav() {
+    if (_isBibleNavHidden) {
+      _isBibleNavHidden = false;
+      notifyListeners();
+    }
+  }
+
+  /// Resets the Bible reader bottom tab navigation visibility when leaving the reader.
+  void resetBibleNav() {
+    if (_isBibleNavHidden) {
+      _isBibleNavHidden = false;
+      notifyListeners();
+    }
+  }
+
   /// Whether the bottom tab bar should be visible in the current context.
   ///
   /// Delegates to [resolveNavMode] so the shell has exactly one navigation

@@ -18,7 +18,7 @@ class WebUserItemDataAdapter implements UserItemDataAdapter {
     try {
       final list = jsonDecode(raw) as List<dynamic>;
       return list
-          .map((e) => UserItem.fromJson(e as Map<String, dynamic>))
+          .map((e) => UserItem.fromJson(Map<String, dynamic>.from(e as Map)))
           .where((i) => i.userId == userId && i.id.isNotEmpty)
           .toList();
     } catch (_) {

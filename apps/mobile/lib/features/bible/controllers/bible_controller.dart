@@ -43,6 +43,8 @@ class BibleControllerState {
     this.isLoading = true,
     this.chapterEmpty = false,
     this.selectedVerses = const {},
+    this.selectedBook,
+    this.selectedChapter,
     this.settings = const BibleSettings(),
     this.settingsLoaded = false,
     this.highlightedVerse,
@@ -69,6 +71,8 @@ class BibleControllerState {
   final bool isLoading;
   final bool chapterEmpty;
   final Set<int> selectedVerses;
+  final String? selectedBook;
+  final int? selectedChapter;
   final BibleSettings settings;
   final bool settingsLoaded;
   final int? highlightedVerse;
@@ -141,7 +145,11 @@ class BibleControllerState {
 
   String selectedText({String prefix = ''}) {
     if (selectedVerses.isEmpty) return '';
-    return verses
+    final selBook = selectedBook ?? currentBook;
+    final selChapter = selectedChapter ?? currentChapter;
+    final chId = bibleChapterId(bookNumber(selBook), selChapter);
+    final chVerses = loadedChapters[chId] ?? verses;
+    return chVerses
         .where((v) => selectedVerses.contains(v.number))
         .map((v) => '$prefix[${v.verseDisplay}] ${v.text}')
         .join('\n');
@@ -163,6 +171,10 @@ extension _StateCopy on BibleControllerState {
     bool? isLoading,
     bool? chapterEmpty,
     Set<int>? selectedVerses,
+    String? selectedBook,
+    bool clearSelectedBook = false,
+    int? selectedChapter,
+    bool clearSelectedChapter = false,
     BibleSettings? settings,
     bool? settingsLoaded,
     int? highlightedVerse,
@@ -191,6 +203,8 @@ extension _StateCopy on BibleControllerState {
         isLoading: isLoading ?? this.isLoading,
         chapterEmpty: chapterEmpty ?? this.chapterEmpty,
         selectedVerses: selectedVerses ?? this.selectedVerses,
+        selectedBook: clearSelectedBook ? null : (selectedBook ?? this.selectedBook),
+        selectedChapter: clearSelectedChapter ? null : (selectedChapter ?? this.selectedChapter),
         settings: settings ?? this.settings,
         settingsLoaded: settingsLoaded ?? this.settingsLoaded,
         highlightedVerse: clearHighlighted ? null : (highlightedVerse ?? this.highlightedVerse),
@@ -230,20 +244,6 @@ class BibleScrollTarget {
     required this.chapter,
     required this.verse,
     this.highlight = true,
-  });
-}
-
-/// The book/chapter/verses of a selection that was auto-cleared by scrolling
-/// into a new chapter. Usable to navigate back and restore it (undo).
-class RestoredSelection {
-  final String book;
-  final int chapter;
-  final Set<int> verses;
-
-  const RestoredSelection({
-    required this.book,
-    required this.chapter,
-    required this.verses,
   });
 }
 
@@ -765,28 +765,11 @@ class BibleController extends ChangeNotifier {
     }
     final book = BookNameService.englishBookNames[bookNumber - 1];
     if (verse != null && verse >= 1) _currentVerse = verse;
-    if (book == _currentBook && chapter == _currentChapter) return;
-
-    // Clear selection when the user scrolls into a different chapter so that
-    // stale verse numbers from the previous chapter are never acted upon. The
-    // first auto-clear is recorded for undo; later same-session clears while
-    // the selection is already empty must not clobber it.
-    final hadSelection = _state.selectedVerses.isNotEmpty;
-    if (hadSelection && _previousSelection == null) {
-      _previousSelection =
-          Set<int>.from(_state.selectedVerses);
-      _previousSelectionBook = _currentBook;
-      _previousSelectionChapter = _currentChapter;
-    }
-
     _currentBook = book;
     _currentChapter = chapter;
     _update((s) => s.copyWith(
           currentBook: book,
           currentChapter: chapter,
-          selectedVerses: hadSelection ? {} : s.selectedVerses,
-          clearHighlightColorForSelection: hadSelection,
-          selectionHasHighlight: hadSelection ? false : s.selectionHasHighlight,
         ));
     _fillChapterInBackground(bookNumber, chapter);
     stream.preloadAround(bookNumber, chapter, radius: 2);
@@ -797,82 +780,6 @@ class BibleController extends ChangeNotifier {
     if (saveProgress) {
       _settingsService.saveReadingProgress(version.shortname, book, chapter);
     }
-  }
-
-  // ── Undo-support for auto-cleared selection ────────────────────────────
-
-  Set<int>? _previousSelection;
-  String? _previousSelectionBook;
-  int? _previousSelectionChapter;
-
-  /// Whether there is a previous selection that can be restored.
-  bool get canRestoreSelection => _previousSelection != null;
-
-  /// Restores the selection that was auto-cleared when the user scrolled into
-  /// a different chapter. When the current chapter differs from where the
-  /// selection lived, the reader is navigated back to that chapter first.
-  /// Returns the restored selection info, or null when nothing is pending.
-  RestoredSelection? restoreSelection() {
-    final prev = _previousSelection;
-    final book = _previousSelectionBook;
-    final chapter = _previousSelectionChapter;
-    if (prev == null || book == null || chapter == null) return null;
-
-    final result = RestoredSelection(
-      book: book,
-      chapter: chapter,
-      verses: prev,
-    );
-
-    _previousSelection = null;
-    _previousSelectionBook = null;
-    _previousSelectionChapter = null;
-
-    if (_currentBook == book && _currentChapter == chapter) {
-      _update((s) => s.copyWith(
-            selectedVerses: prev,
-            highlightColorForSelection: _selectionHighlightColor(s, prev),
-            selectionHasHighlight: _selectionHasHighlight(s, prev),
-          ));
-      return result;
-    }
-
-    // Selection lived in a different chapter — navigate back and re-arm it so
-    // it survives the chapter load.
-    _currentBook = book;
-    _currentChapter = chapter;
-    _pendingRestoredSelection = prev;
-    _update((s) => s.copyWith(
-          currentBook: book,
-          currentChapter: chapter,
-          isLoading: true,
-        ));
-    final epoch = ++_loadEpoch;
-    _ensureChapterLoaded(book, chapter, epoch: epoch).then((_) {
-      if (_disposed || epoch != _loadEpoch) return;
-      final restore = _pendingRestoredSelection;
-      _pendingRestoredSelection = null;
-      if (restore != null) {
-        _update((s) => s.copyWith(
-              isLoading: false,
-              selectedVerses: restore,
-              highlightColorForSelection: _selectionHighlightColor(s, restore),
-              selectionHasHighlight: _selectionHasHighlight(s, restore),
-            ));
-      }
-    });
-    return result;
-  }
-
-  Set<int>? _pendingRestoredSelection;
-
-  /// Clears any pending auto-clear undo state (e.g. on explicit selection
-  /// actions that supersede it).
-  void discardRestorableSelection() {
-    _previousSelection = null;
-    _previousSelectionBook = null;
-    _previousSelectionChapter = null;
-    _pendingRestoredSelection = null;
   }
 
   Future<void> _fillChapterInBackground(int bookNumber, int chapter) async {
@@ -1045,7 +952,6 @@ class BibleController extends ChangeNotifier {
   /// chapter only refreshes the current selection.
   Future<void> _navigateTo(String book, int chapter, {int? verse}) async {
     if (!bibleBooks.containsKey(book)) return;
-    discardRestorableSelection();
     final sameChapter = book == _currentBook && chapter == _currentChapter;
     final armVerse = verse ?? (sameChapter ? null : 1);
     final shouldHighlight = verse != null;
@@ -1063,17 +969,12 @@ class BibleController extends ChangeNotifier {
       return;
     }
 
-    // Clear selection when navigating to a different chapter.
-    final clearSel = !sameChapter && _state.selectedVerses.isNotEmpty;
     _currentBook = book;
     _currentChapter = chapter;
     _update((s) => s.copyWith(
           isLoading: true,
           currentBook: book,
           currentChapter: chapter,
-          selectedVerses: clearSel ? {} : s.selectedVerses,
-          clearHighlightColorForSelection: clearSel,
-          selectionHasHighlight: clearSel ? false : s.selectionHasHighlight,
         ));
     final epoch = ++_loadEpoch;
     await _ensureChapterLoaded(book, chapter, epoch: epoch);
@@ -1091,37 +992,64 @@ class BibleController extends ChangeNotifier {
     return chapterVersesFromRows(chapterMap, version.shortname);
   }
 
-  void toggleVerseSelection(int verseNumber) {
+  void toggleVerseSelection(int verseNumber, {String? book, int? chapter}) {
     if (verseNumber == 0) return;
-    if (_state.selectedVerses.isEmpty) discardRestorableSelection();
-    final newSelected = Set<int>.from(_state.selectedVerses);
+    final targetBook = book ?? _state.selectedBook ?? _currentBook;
+    final targetChapter = chapter ?? _state.selectedChapter ?? _currentChapter;
+
+    final sameTarget = (_state.selectedBook == null || _state.selectedBook == targetBook) &&
+        (_state.selectedChapter == null || _state.selectedChapter == targetChapter);
+
+    final newSelected = (sameTarget && _state.selectedVerses.isNotEmpty)
+        ? Set<int>.from(_state.selectedVerses)
+        : <int>{};
+
     if (newSelected.contains(verseNumber)) {
       newSelected.remove(verseNumber);
     } else {
       newSelected.add(verseNumber);
     }
-    _update((s) => s.copyWith(
-          selectedVerses: newSelected,
-          highlightColorForSelection: _selectionHighlightColor(s, newSelected),
-          selectionHasHighlight: _selectionHasHighlight(s, newSelected),
-        ));
+
+    final hasSelection = newSelected.isNotEmpty;
+    final selBook = hasSelection ? targetBook : null;
+    final selChapter = hasSelection ? targetChapter : null;
+
+    _update((s) {
+      final stateWithSel = s.copyWith(
+        selectedVerses: newSelected,
+        selectedBook: selBook,
+        selectedChapter: selChapter,
+        clearSelectedBook: !hasSelection,
+        clearSelectedChapter: !hasSelection,
+      );
+      return stateWithSel.copyWith(
+        highlightColorForSelection:
+            _selectionHighlightColor(stateWithSel, newSelected),
+        selectionHasHighlight:
+            _selectionHasHighlight(stateWithSel, newSelected),
+        clearHighlightColorForSelection: !hasSelection,
+      );
+    });
   }
 
   void clearSelection() {
-    discardRestorableSelection();
     _update((s) => s.copyWith(
           selectedVerses: {},
+          clearSelectedBook: true,
+          clearSelectedChapter: true,
           clearHighlightColorForSelection: true,
           selectionHasHighlight: false,
         ));
   }
 
   /// The common highlight color (if any) shared by all [selected] verses of the
-  /// current chapter. Returns null when the selection is empty, has no
+  /// selected chapter. Returns null when the selection is empty, has no
   /// highlights, or mixes different colors.
   int? _selectionHighlightColor(BibleControllerState s, Set<int> selected) {
     if (selected.isEmpty) return null;
-    final keyPrefix = '$currentBook:$currentChapter:';
+    final selBook = s.selectedBook ?? currentBook;
+    final selChapter = s.selectedChapter ?? currentChapter;
+    final keyPrefix = '$selBook:$selChapter:';
     final colors = <int>{};
     for (final v in selected) {
       final c = s.verseHighlights['$keyPrefix$v'];
@@ -1133,7 +1061,9 @@ class BibleController extends ChangeNotifier {
   /// True when at least one of [selected] verses currently has a highlight.
   bool _selectionHasHighlight(BibleControllerState s, Set<int> selected) {
     if (selected.isEmpty) return false;
-    final keyPrefix = '$currentBook:$currentChapter:';
+    final selBook = s.selectedBook ?? currentBook;
+    final selChapter = s.selectedChapter ?? currentChapter;
+    final keyPrefix = '$selBook:$selChapter:';
     return selected.any((v) => s.verseHighlights['$keyPrefix$v'] != null);
   }
 
@@ -1141,7 +1071,11 @@ class BibleController extends ChangeNotifier {
   /// highlights and refreshing the selection marker. Clears the selection after.
   Future<void> applyHighlight(int colorIndex) async {
     if (_state.selectedVerses.isEmpty || _state.selectedVersion == null) return;
-    final selected = _state.verses
+    final book = _state.selectedBook ?? _currentBook;
+    final chapter = _state.selectedChapter ?? _currentChapter;
+    final chId = bibleChapterId(bookNumber(book), chapter);
+    final chVerses = _state.loadedChapters[chId] ?? _state.verses;
+    final selected = chVerses
         .where((v) => _state.selectedVerses.contains(v.number))
         .toList();
     if (selected.isEmpty) return;
@@ -1153,8 +1087,8 @@ class BibleController extends ChangeNotifier {
     try {
       await _highlightService.apply(
         versionId: version.shortname,
-        book: _currentBook,
-        chapter: _currentChapter,
+        book: book,
+        chapter: chapter,
         verses: verses,
         colorIndex: colorIndex,
         text: text,
@@ -1162,13 +1096,14 @@ class BibleController extends ChangeNotifier {
       _update((s) {
         final merged = Map<String, int>.from(s.verseHighlights);
         for (final v in verses) {
-          merged[
-              BibleControllerState.verseHighlightKey(_currentBook, _currentChapter, v)] =
+          merged[BibleControllerState.verseHighlightKey(book, chapter, v)] =
               colorIndex;
         }
         return s.copyWith(
           verseHighlights: merged,
           selectedVerses: {},
+          clearSelectedBook: true,
+          clearSelectedChapter: true,
           clearHighlightColorForSelection: true,
           selectionHasHighlight: false,
         );
@@ -1182,22 +1117,26 @@ class BibleController extends ChangeNotifier {
   /// selection after.
   Future<void> removeHighlight() async {
     if (_state.selectedVerses.isEmpty) return;
+    final book = _state.selectedBook ?? _currentBook;
+    final chapter = _state.selectedChapter ?? _currentChapter;
     final verses = _state.selectedVerses.toList();
     try {
       await _highlightService.remove(
-        book: _currentBook,
-        chapter: _currentChapter,
+        book: book,
+        chapter: chapter,
         verses: verses,
       );
       _update((s) {
         final merged = Map<String, int>.from(s.verseHighlights);
         for (final v in verses) {
           merged.remove(
-              BibleControllerState.verseHighlightKey(_currentBook, _currentChapter, v));
+              BibleControllerState.verseHighlightKey(book, chapter, v));
         }
         return s.copyWith(
           verseHighlights: merged,
           selectedVerses: {},
+          clearSelectedBook: true,
+          clearSelectedChapter: true,
           clearHighlightColorForSelection: true,
           selectionHasHighlight: false,
         );
@@ -1223,7 +1162,11 @@ class BibleController extends ChangeNotifier {
 
   Future<void> toggleBookmarkSelected() async {
     if (_state.selectedVerses.isEmpty || _state.selectedVersion == null) return;
-    final selected = _state.verses
+    final book = _state.selectedBook ?? _currentBook;
+    final chapter = _state.selectedChapter ?? _currentChapter;
+    final chId = bibleChapterId(bookNumber(book), chapter);
+    final chVerses = _state.loadedChapters[chId] ?? _state.verses;
+    final selected = chVerses
         .where((v) => _state.selectedVerses.contains(v.number))
         .toList();
     if (selected.isEmpty) return;
@@ -1234,8 +1177,8 @@ class BibleController extends ChangeNotifier {
       for (final v in selected) {
         final isNowBookmarked = await _bookmarkService.toggle(
           versionId: _state.selectedVersion!.shortname,
-          book: _currentBook,
-          chapter: _currentChapter,
+          book: book,
+          chapter: chapter,
           verse: v.number,
           text: v.text,
         );

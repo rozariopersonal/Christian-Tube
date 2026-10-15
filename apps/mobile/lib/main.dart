@@ -47,6 +47,8 @@ import 'features/audio/models/audio_series.dart';
 import 'features/articles/screens/article_browser_screen.dart';
 import 'features/articles/screens/article_reader_screen.dart';
 import 'features/songs/models/song.dart';
+import 'core/database/database_init.dart';
+import 'shared/services/note_service.dart';
 import 'features/songs/screens/song_reader_screen.dart';
 import 'features/songs/screens/songs_library_screen.dart';
 import 'l10n/app_localizations.dart';
@@ -54,6 +56,7 @@ import 'layout/main_layout_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  initPlatformDatabases();
   // Web: use clean path-based URLs (no '#') so shared links like
   // /watch/<id> resolve to real routes in the browser, Android App Links
   // match the same paths, and the OG function can serve preview meta.
@@ -68,6 +71,7 @@ void main() async {
 
   // Run secondary initializations in background to eliminate startup blank screen
   NotificationService().initialize().catchError((e) => debugPrint('Notification init error: $e'));
+  NoteService.instance.initialize().catchError((e) => debugPrint('NoteService init error: $e'));
   // Ensure the default bible (TAOBVSI) starts downloading right away so the
   // Words feed and Bible page have text even if the user never opens the
   // scripture engine first.

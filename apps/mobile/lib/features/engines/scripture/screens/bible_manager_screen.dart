@@ -286,12 +286,18 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
                 ),
               ),
               if (isDownloading)
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: tokens.accent,
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Text(
+                    (!_crossRefService.isIndeterminate && progress > 0)
+                        ? '${(progress * 100).toInt()}%'
+                        : 'Downloading…',
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                 )
               else if (_crossRefsInstalled)
@@ -460,12 +466,18 @@ class _BibleManagerScreenState extends State<BibleManagerScreen> {
                 onPressed: () => BibleVersionInfoSheet.show(context, meta),
               ),
               if (isDownloading)
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: tokens.accent,
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Text(
+                    (!_manager.isIndeterminate(meta.id) && progress > 0)
+                        ? '${(progress * 100).toInt()}%'
+                        : 'Downloading…',
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                 )
               else

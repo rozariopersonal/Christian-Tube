@@ -24,6 +24,7 @@ import '../services/bible_passage_navigator.dart';
 import '../widgets/bible_app_bar.dart';
 import '../widgets/bible_content.dart';
 import '../widgets/bible_bottom_nav.dart';
+import '../../../core/services/bottom_bar_visibility_service.dart';
 
 class BibleScreen extends StatefulWidget {
   const BibleScreen({
@@ -58,9 +59,6 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _isProgrammaticScrolling = false;
   Timer? _highlightTimer;
   Timer? _programmaticScrollTimer;
-  int _prevSelectedCount = 0;
-  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
-      _undoSnackBarController;
 
   @override
   void initState() {
@@ -112,6 +110,7 @@ class _BibleScreenState extends State<BibleScreen> {
 
   @override
   void dispose() {
+    BottomBarVisibilityService.instance.resetBibleNav();
     _highlightTimer?.cancel();
     _programmaticScrollTimer?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onItemPositionsChanged);
@@ -153,15 +152,6 @@ class _BibleScreenState extends State<BibleScreen> {
     setState(() {});
     final s = _controller.state;
     if (s.isLoading) return;
-
-    final selectedCount = s.selectedVerses.length;
-    if (selectedCount < _prevSelectedCount &&
-        selectedCount == 0 &&
-        _prevSelectedCount > 0 &&
-        _controller.canRestoreSelection) {
-      _showUndoClearedSelection();
-    }
-    _prevSelectedCount = selectedCount;
 
     final target = _controller.consumeScrollTargetIfReady();
     if (target != null) {
@@ -205,30 +195,6 @@ class _BibleScreenState extends State<BibleScreen> {
         }
       }
     }
-  }
-
-  void _showUndoClearedSelection() {
-    _undoSnackBarController?.close();
-    _undoSnackBarController = ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Selection cleared'),
-        duration: const Duration(seconds: 5),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () {
-            final restored = _controller.restoreSelection();
-            if (restored == null || restored.verses.isEmpty) return;
-            // Restore the exact verse the selection last pointed at so the
-            // reader scrolls back into the chapter the selection lived in.
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              _scrollToVerse(restored.verses.first, highlight: false);
-            });
-          },
-        ),
-      ),
-    );
   }
 
   void _scrollToGlobalIndex(int index, int verseNumber, {bool highlight = true}) {
@@ -392,25 +358,40 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
-  void _openVerseStudyScreen(int verseNumber, {int initialTab = 0}) {
+  void _openVerseStudyScreen(
+    int verseNumber, {
+    int initialTab = 0,
+    String? book,
+    int? chapter,
+  }) {
     final s = _controller.state;
-    final verse = s.verses.firstWhere(
+    final targetBook = book ?? s.selectedBook ?? _controller.currentBook;
+    final targetChapter = chapter ?? s.selectedChapter ?? _controller.currentChapter;
+    final bookNum = _controller.bookNumber(targetBook);
+    final cid = bibleChapterId(bookNum, targetChapter);
+    final chVerses = s.loadedChapters[cid] ?? s.verses;
+    final verse = chVerses.firstWhere(
       (v) => v.number == verseNumber,
-      orElse: () => s.verses.isNotEmpty
-          ? s.verses.first
+      orElse: () => chVerses.isNotEmpty
+          ? chVerses.first
           : BibleVerse(number: verseNumber, text: ''),
     );
     final verseLabel =
-        '${_controller.displayBookName(_controller.currentBook)} '
-        '${_controller.currentChapter}:$verseNumber';
-    final refs = s.chapterCrossRefs[verseNumber] ?? const [];
-    var notes = s.chapterBackgrounds[verseNumber] ?? const [];
+        '${_controller.displayBookName(targetBook)} '
+        '$targetChapter:$verseNumber';
+    final refs = s.loadedCrossRefs[cid]?[verseNumber] ??
+        (targetBook == _controller.currentBook && targetChapter == _controller.currentChapter
+            ? (s.chapterCrossRefs[verseNumber] ?? const [])
+            : const []);
+    var notes = s.loadedBackgrounds[cid]?[verseNumber] ??
+        (targetBook == _controller.currentBook && targetChapter == _controller.currentChapter
+            ? (s.chapterBackgrounds[verseNumber] ?? const [])
+            : const []);
     if (notes.isEmpty && s.chapterBackgrounds[0] != null) {
       notes = s.chapterBackgrounds[0]!;
     }
-    final bookNum = _controller.bookNumber(_controller.currentBook);
     final bookCommentariesFuture = BookService.instance.getCommentariesForVerse(
-      bookNum, _controller.currentChapter, verseNumber,
+      bookNum, targetChapter, verseNumber,
     );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -420,7 +401,7 @@ class _BibleScreenState extends State<BibleScreen> {
           versionLabel: _controller.selectedVersion?.name,
           versionId: _controller.selectedVersion?.shortname,
           bookNumber: bookNum,
-          chapterNumber: _controller.currentChapter,
+          chapterNumber: targetChapter,
           verseNumber: verseNumber,
           references: refs,
           resolvedTexts: s.crossRefTexts,
@@ -458,16 +439,17 @@ class _BibleScreenState extends State<BibleScreen> {
   void _shareSelectedVerses() {
     final s = _controller.state;
     if (s.selectedVerses.isEmpty) return;
+    final book = s.selectedBook ?? _controller.currentBook;
+    final chapter = s.selectedChapter ?? _controller.currentChapter;
     final header = _controller.selectedVersion != null
-        ? '${_controller.currentBook} ${_controller.currentChapter} '
-            '· ${_controller.selectedVersion!.shortname}'
-        : '${_controller.currentBook} ${_controller.currentChapter}';
+        ? '$book $chapter · ${_controller.selectedVersion!.shortname}'
+        : '$book $chapter';
     final text = s.selectedText();
     final firstVerse = s.selectedVerses.first;
     final link = DeepLinkService.bible(
       version: _controller.selectedVersion?.shortname,
-      book: _controller.currentBook,
-      chapter: _controller.currentChapter,
+      book: book,
+      chapter: chapter,
       verse: firstVerse,
     );
     final shareBody = text.isEmpty
@@ -496,14 +478,18 @@ class _BibleScreenState extends State<BibleScreen> {
     final s = _controller.state;
     if (s.selectedVerses.isEmpty) return;
 
-    final selected = s.verses
+    final book = s.selectedBook ?? _controller.currentBook;
+    final chapter = s.selectedChapter ?? _controller.currentChapter;
+    final chId = bibleChapterId(_controller.bookNumber(book), chapter);
+    final chVerses = s.loadedChapters[chId] ?? s.verses;
+    final selected = chVerses
         .where((v) => s.selectedVerses.contains(v.number))
         .toList();
     if (selected.isEmpty) return;
 
     final label = selected.length == 1
-        ? '${_controller.currentBook} ${_controller.currentChapter}:${selected.first.verseDisplay}'
-        : '${_controller.currentBook} ${_controller.currentChapter}:'
+        ? '${_controller.displayBookName(book)} $chapter:${selected.first.verseDisplay}'
+        : '${_controller.displayBookName(book)} $chapter:'
             '${selected.first.number}-${selected.last.endNumber ?? selected.last.number}';
 
     final result = await HighlightColorPicker.show(
@@ -529,8 +515,8 @@ class _BibleScreenState extends State<BibleScreen> {
     final s = _controller.state;
     if (s.selectedVerses.isEmpty && verseNumber == null) return;
     final targetVerse = verseNumber ?? s.selectedVerses.first;
-    final book = _controller.currentBook;
-    final chapter = _controller.currentChapter;
+    final book = s.selectedBook ?? _controller.currentBook;
+    final chapter = s.selectedChapter ?? _controller.currentChapter;
     final existing = await _controller.getNoteForVerse(targetVerse, book: book, chapter: chapter);
     if (!mounted) return;
 
@@ -574,19 +560,20 @@ class _BibleScreenState extends State<BibleScreen> {
         case NoteEditorDismiss():
           break;
       }
-    } catch (e) {
-      debugPrint('Error saving/deleting note: $e');
+    } catch (e, stackTrace) {
+      debugPrint('Error saving/deleting note: $e\n$stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Note could not be saved'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text('Note could not be saved: $e'),
+            duration: const Duration(seconds: 3),
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
+    } finally {
+      _controller.clearSelection();
     }
-    _controller.clearSelection();
   }
 
   @override
@@ -601,15 +588,23 @@ class _BibleScreenState extends State<BibleScreen> {
     final tokens = context.tokens;
     final appearance = _controller.appearance;
     return ListenableBuilder(
-      listenable: appearance,
-      builder: (context, _) => PopScope(
-        canPop: s.selectedVerses.isEmpty,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop && s.selectedVerses.isNotEmpty) {
-            _controller.clearSelection();
-          }
-        },
-        child: Scaffold(
+      listenable: Listenable.merge([appearance, BottomBarVisibilityService.instance]),
+      builder: (context, _) {
+        final isNavHidden = BottomBarVisibilityService.instance.isBibleNavHidden;
+        return PopScope(
+          canPop: s.selectedVerses.isEmpty && !isNavHidden,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (s.selectedVerses.isNotEmpty) {
+              _controller.clearSelection();
+              return;
+            }
+            if (BottomBarVisibilityService.instance.isBibleNavHidden) {
+              BottomBarVisibilityService.instance.showBibleNav();
+              return;
+            }
+          },
+          child: Scaffold(
           backgroundColor: appearance.background(tokens),
         appBar: BibleAppBar(
           controller: _controller,
@@ -625,7 +620,8 @@ class _BibleScreenState extends State<BibleScreen> {
                 controller: _controller,
                 itemScrollController: _itemScrollController,
                 itemPositionsListener: _itemPositionsListener,
-                onVerseTap: _controller.toggleVerseSelection,
+                onVerseTap: (v, {book, chapter}) =>
+                    _controller.toggleVerseSelection(v, book: book, chapter: chapter),
                 onCopy: _copySelectedVerses,
                 onShare: _shareSelectedVerses,
                 onBookmark: _bookmarkSelectedVerses,
@@ -649,14 +645,19 @@ class _BibleScreenState extends State<BibleScreen> {
                 onNote: _openNoteEditor,
                 onClear: _controller.clearSelection,
                 onStudy: s.selectedVerses.isNotEmpty
-                    ? () => _openVerseStudyScreen(s.selectedVerses.first)
+                    ? () => _openVerseStudyScreen(
+                          s.selectedVerses.first,
+                          book: s.selectedBook,
+                          chapter: s.selectedChapter,
+                        )
                     : null,
               ),
             ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  },
+);
 }
 }

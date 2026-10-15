@@ -18,7 +18,7 @@ class WebNoteDataAdapter implements NoteDataAdapter {
     try {
       final list = jsonDecode(raw) as List<dynamic>;
       return list
-          .map((e) => Note.fromJson(e as Map<String, dynamic>))
+          .map((e) => Note.fromJson(Map<String, dynamic>.from(e as Map)))
           .where((n) => n.id.isNotEmpty)
           .toList();
     } catch (_) {
