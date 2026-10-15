@@ -236,10 +236,9 @@ void main() {
       expect(find.text('Note'), findsOneWidget);
       expect(find.text('Study'), findsOneWidget);
 
-      // Verify Deselect all button clears
-      expect(find.byTooltip('Deselect all'), findsOneWidget);
-      await tester.tap(find.byTooltip('Deselect all'));
-      expect(cleared, isTrue);
+      // Verify close button is removed
+      expect(find.byTooltip('Deselect all'), findsNothing);
+      expect(find.byIcon(Icons.close_rounded), findsNothing);
 
       // Verify rounded container exists without border and with BackdropFilter glass effect
       final container = tester.widget<Container>(find.byType(Container).first);

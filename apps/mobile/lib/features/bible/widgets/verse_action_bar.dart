@@ -10,7 +10,7 @@ class VerseActionBar extends StatelessWidget {
   final VoidCallback onBookmark;
   final VoidCallback onHighlight;
   final VoidCallback onNote;
-  final VoidCallback onClear;
+  final VoidCallback? onClear;
   final VoidCallback? onStudy;
   final ReaderAppearance? appearance;
   final EdgeInsetsGeometry? margin;
@@ -23,7 +23,7 @@ class VerseActionBar extends StatelessWidget {
     required this.onBookmark,
     required this.onHighlight,
     required this.onNote,
-    required this.onClear,
+    this.onClear,
     this.onStudy,
     this.appearance,
     this.margin,
@@ -41,9 +41,8 @@ class VerseActionBar extends StatelessWidget {
 
     // Glass effect using the active theme accent color with backdrop blur
     final accentColor = context.accent;
-    final glassColor = accentColor.withValues(alpha: isDark ? 0.80 : 0.88);
+    final glassColor = accentColor.withValues(alpha: isDark ? 0.70 : 0.75);
     final textCol = colorScheme.onPrimary;
-    final mutedCol = colorScheme.onPrimary.withValues(alpha: 0.75);
 
     return Container(
       margin: margin ?? const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -66,43 +65,68 @@ class VerseActionBar extends StatelessWidget {
             color: glassColor,
             child: Material(
               color: Colors.transparent,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final actionCount = onStudy != null ? 6 : 5;
+                  // Usable width inside the bar (minus horizontal padding)
+                  final availableWidth = (constraints.maxWidth - 16).clamp(0.0, 520.0);
+                  // Calculate item width so all actions fit on screen without scrolling
+                  // Clamped to max 66.0 so they don't grow too large on tablets/wide screens
+                  final itemWidth = (availableWidth / actionCount).clamp(40.0, 66.0);
+                  // Dynamic icon and font sizes proportional to the item width
+                  final iconSize = (itemWidth * 0.36).clamp(16.0, 21.0);
+                  final fontSize = (itemWidth * 0.19).clamp(9.5, 11.5);
+
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           _ActionItem(
                             icon: Icons.copy_rounded,
                             label: 'Copy',
                             textColor: textCol,
+                            width: itemWidth,
+                            iconSize: iconSize,
+                            fontSize: fontSize,
                             onPressed: onCopy,
                           ),
                           _ActionItem(
                             icon: Icons.ios_share_rounded,
                             label: 'Share',
                             textColor: textCol,
+                            width: itemWidth,
+                            iconSize: iconSize,
+                            fontSize: fontSize,
                             onPressed: onShare,
                           ),
                           _ActionItem(
                             icon: Icons.bookmark_add_outlined,
                             label: 'Bookmark',
                             textColor: textCol,
+                            width: itemWidth,
+                            iconSize: iconSize,
+                            fontSize: fontSize,
                             onPressed: onBookmark,
                           ),
                           _ActionItem(
                             icon: Icons.border_color_rounded,
                             label: 'Highlight',
                             textColor: textCol,
+                            width: itemWidth,
+                            iconSize: iconSize,
+                            fontSize: fontSize,
                             onPressed: onHighlight,
                           ),
                           _ActionItem(
                             icon: Icons.edit_note_rounded,
                             label: 'Note',
                             textColor: textCol,
+                            width: itemWidth,
+                            iconSize: iconSize,
+                            fontSize: fontSize,
                             onPressed: onNote,
                           ),
                           if (onStudy != null)
@@ -110,26 +134,16 @@ class VerseActionBar extends StatelessWidget {
                               icon: Icons.auto_stories_outlined,
                               label: 'Study',
                               textColor: textCol,
+                              width: itemWidth,
+                              iconSize: iconSize,
+                              fontSize: fontSize,
                               onPressed: onStudy!,
                             ),
                         ],
                       ),
                     ),
-                  ),
-                  Container(
-                    height: 28,
-                    width: 1,
-                    color: colorScheme.onPrimary.withValues(alpha: 0.25),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: IconButton(
-                      tooltip: 'Deselect all',
-                      icon: Icon(Icons.close_rounded, color: mutedCol, size: 20),
-                      onPressed: onClear,
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -145,27 +159,34 @@ class _ActionItem extends StatelessWidget {
     required this.label,
     required this.textColor,
     required this.onPressed,
+    required this.width,
+    required this.iconSize,
+    required this.fontSize,
   });
 
   final IconData icon;
   final String label;
   final Color textColor;
   final VoidCallback onPressed;
+  final double width;
+  final double iconSize;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 62,
+      width: width,
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 5),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: textColor, size: 20),
-              const SizedBox(height: 3),
+              Icon(icon, color: textColor, size: iconSize),
+              const SizedBox(height: 2),
               Text(
                 label,
                 maxLines: 1,
@@ -173,8 +194,9 @@ class _ActionItem extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: textColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w600,
+                  height: 1.15,
                 ),
               ),
             ],
