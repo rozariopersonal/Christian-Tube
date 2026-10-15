@@ -9,6 +9,7 @@ class StorageBreakdown {
   final int booksBytes;
   final int audioBytes;
   final int songsBytes;
+  final int articlesBytes;
   final int studyDbBytes;
 
   final int biblesCount;
@@ -17,6 +18,7 @@ class StorageBreakdown {
   final int audioTracksCount;
   final int audioSeriesCount;
   final bool songsInstalled;
+  final int articlesCount;
   final bool studyDbInstalled;
 
   const StorageBreakdown({
@@ -25,6 +27,7 @@ class StorageBreakdown {
     this.booksBytes = 0,
     this.audioBytes = 0,
     this.songsBytes = 0,
+    this.articlesBytes = 0,
     this.studyDbBytes = 0,
     this.biblesCount = 0,
     this.dictsCount = 0,
@@ -32,6 +35,7 @@ class StorageBreakdown {
     this.audioTracksCount = 0,
     this.audioSeriesCount = 0,
     this.songsInstalled = false,
+    this.articlesCount = 0,
     this.studyDbInstalled = false,
   });
 
@@ -42,6 +46,7 @@ class StorageBreakdown {
       booksBytes +
       audioBytes +
       songsBytes +
+      articlesBytes +
       studyDbBytes;
 
   /// Human-readable format of [bytes] (e.g. "14.2 MB", "1.1 GB").
@@ -65,6 +70,7 @@ class StorageBreakdown {
   String get booksFormatted => formatBytes(booksBytes);
   String get audioFormatted => formatBytes(audioBytes);
   String get songsFormatted => formatBytes(songsBytes);
+  String get articlesFormatted => formatBytes(articlesBytes);
   String get studyDbFormatted => formatBytes(studyDbBytes);
 
   /// Fraction of total offline storage taken by [bytes] (0.0 to 1.0).

@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../articles/services/articles_download_manager.dart';
 import '../../bible/services/study/bible_study_updater.dart';
 import '../../books/services/book_service.dart';
 import '../../dictionary/services/dictionary_download_manager.dart';
@@ -38,6 +39,7 @@ class StorageCalculatorService {
     DictionaryDownloadManager? dictManager,
     BookService? bookService,
     SongsDownloadManager? songsManager,
+    ArticlesDownloadManager? articlesManager,
   }) async {
     if (kIsWeb) return const StorageBreakdown();
 
@@ -45,6 +47,7 @@ class StorageCalculatorService {
     final dManager = dictManager ?? DictionaryDownloadManager();
     final bService = bookService ?? BookService.instance;
     final sManager = songsManager ?? SongsDownloadManager();
+    final aManager = articlesManager ?? ArticlesDownloadManager();
 
     final dbDir = await getDatabasesPath();
     final docsDir = await getApplicationDocumentsDirectory();
@@ -77,7 +80,15 @@ class StorageCalculatorService {
     final songsBytes = await _fileSizeWithWal(songsDbPath);
     final songsInstalled = sManager.isInstalled;
 
-    // 5. Study DB
+    // 5. Articles
+    var articlesBytes = 0;
+    for (final lang in aManager.installedLanguages) {
+      final artPath = p.join(dbDir, 'articles_$lang.sqlite');
+      articlesBytes += await _fileSizeWithWal(artPath);
+    }
+    final articlesCount = aManager.installedLanguages.length;
+
+    // 6. Study DB
     final studyDbPath = await BibleStudyUpdater.getDatabasePath();
     var studyDbBytes = 0;
     if (studyDbPath != null) {
@@ -85,7 +96,7 @@ class StorageCalculatorService {
     }
     final studyDbInstalled = await BibleStudyUpdater.isDownloaded();
 
-    // 6. Audio
+    // 7. Audio
     var audioBytes = 0;
     var audioTracksCount = 0;
     var audioSeriesCount = 0;
@@ -116,6 +127,7 @@ class StorageCalculatorService {
       booksBytes: booksBytes,
       audioBytes: audioBytes,
       songsBytes: songsBytes,
+      articlesBytes: articlesBytes,
       studyDbBytes: studyDbBytes,
       biblesCount: biblesCount,
       dictsCount: dictsCount,
@@ -123,6 +135,7 @@ class StorageCalculatorService {
       audioTracksCount: audioTracksCount,
       audioSeriesCount: audioSeriesCount,
       songsInstalled: songsInstalled,
+      articlesCount: articlesCount,
       studyDbInstalled: studyDbInstalled,
     );
   }

@@ -1,3 +1,5 @@
+import '../../../shared/ui/language_meta.dart';
+
 /// A single song in the library, language- and source-agnostic.
 ///
 /// Lyrics are stored as a plain list of verse strings. For scripts where a
@@ -82,7 +84,7 @@ class Song {
       author: json['author']?.toString(),
       album: json['album']?.toString(),
       collection: json['collection']?.toString(),
-      language: (json['language'] ?? 'en').toString(),
+      language: LanguageMeta.canonicalCode((json['language'] ?? 'en').toString()),
       category: json['category']?.toString(),
       verses: (json['verses'] as List<dynamic>? ?? const [])
           .map((v) => v.toString())

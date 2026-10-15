@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../shared/ui/language_meta.dart';
 
 class Book {
   final String id;
@@ -55,7 +56,7 @@ class Book {
       totalLines: ((map['total_lines'] ?? map['totalLines']) as num?)?.toInt() ?? 0,
       downloadSizeFormatted: (map['downloadSizeFormatted'] ?? map['download_size_formatted'] ?? '') as String,
       createdAt: (map['created_at'] ?? map['createdAt'] ?? '') as String,
-      language: (map['language'] ?? map['lang'] ?? 'en') as String,
+      language: LanguageMeta.canonicalCode((map['language'] ?? map['lang'] ?? 'en') as String),
     );
   }
 

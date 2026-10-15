@@ -60,8 +60,9 @@ class SongsDownloadManager extends ChangeNotifier {
   }
 
   /// Downloads and installs the offline songs package (CDN first, GitHub
-  /// fallback). Returns false if every mirror failed or the file is invalid.
-  Future<bool> download() async {
+  /// fallback). Supports downloading per-language packages (e.g. Tamil or
+  /// English) and merging into the target database.
+  Future<bool> download({String? language}) async {
     if (kIsWeb || _downloading) return false;
 
     _downloading = true;
@@ -75,10 +76,12 @@ class SongsDownloadManager extends ChangeNotifier {
     );
 
     try {
-      // Close any open handle before swapping the file underneath it.
       await SqliteSongsCatalogAdapter().close();
 
-      final urls = GitHubDataService.songsSqliteUrls();
+      final urls = (language != null && language.trim().isNotEmpty && language.toLowerCase() != 'all')
+          ? GitHubDataService.songsLanguageSqliteUrls(language)
+          : GitHubDataService.songsSqliteUrls();
+
       final dio = Dio(BaseOptions(
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(minutes: 5),
@@ -115,13 +118,36 @@ class SongsDownloadManager extends ChangeNotifier {
       final decompressed = gzip.decode(compressed);
 
       final target = File(await _dbPath());
-      if (await target.exists()) await target.delete();
-      for (final sfx in const ['-wal', '-shm']) {
-        final side = File('${target.path}$sfx');
-        if (await side.exists()) await side.delete();
+      if (await target.exists()) {
+        final tempSqlite = p.join(
+          tempDir.path,
+          'songs_merge_${DateTime.now().millisecondsSinceEpoch}.sqlite',
+        );
+        await File(tempSqlite).writeAsBytes(decompressed, flush: true);
+        final sourceDb = await openReadOnlyDatabase(tempSqlite);
+        final destDb = await openDatabase(target.path);
+
+        final songs = await sourceDb.query('songs');
+        final verses = await sourceDb.query('song_verses');
+
+        final batch = destDb.batch();
+        for (final s in songs) {
+          batch.insert('songs', s, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+        for (final v in verses) {
+          batch.insert('song_verses', v, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+        await batch.commit(noResult: true);
+
+        await sourceDb.close();
+        await destDb.close();
+        try {
+          await File(tempSqlite).delete();
+        } catch (_) {}
+      } else {
+        await target.parent.create(recursive: true);
+        await target.writeAsBytes(decompressed, flush: true);
       }
-      await target.parent.create(recursive: true);
-      await target.writeAsBytes(decompressed, flush: true);
 
       try {
         await File(tempGz).delete();

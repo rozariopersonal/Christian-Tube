@@ -27,6 +27,7 @@ class LibraryScreen extends StatefulWidget {
   final ArticlesCatalogLoader? articlesLoader;
   final ArticlesLanguagesLoader? languagesLoader;
   final SongsCatalogLoader? songsLoader;
+  final LibraryLanguagesController? langController;
 
   const LibraryScreen({
     super.key,
@@ -34,6 +35,7 @@ class LibraryScreen extends StatefulWidget {
     this.articlesLoader,
     this.languagesLoader,
     this.songsLoader,
+    this.langController,
   });
 
   @override
@@ -43,7 +45,7 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   late final LibraryDataLoader _loader;
   late final ArticlesCatalogLoader _articlesLoader;
-  late final ArticlesLanguagesLoader _languagesLoader;
+  late final ArticlesLanguagesLoader? _languagesLoader;
   late final SongsCatalogLoader _songsLoader;
   late final LibraryLanguagesController _langController;
 
@@ -52,7 +54,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Map<String, UserReadingProgress> _progressMap = const {};
   List<WftwIndexEntry> _allArticles = const [];
   List<Song> _allSongs = const [];
-  bool _loading = true;
 
   static const int _recentBookLimit = 10;
   static const int _shelfCount = 8;
@@ -63,12 +64,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.initState();
     _loader = widget.loader ?? BookServiceLibraryLoader();
     _articlesLoader = widget.articlesLoader ??
-        () => WftwIndexService().getArticlesIndex();
-    _languagesLoader =
-        widget.languagesLoader ?? WftwIndexService().getLanguages;
+        () => WftwIndexService().getRecentArticles();
+    _languagesLoader = widget.languagesLoader;
     _songsLoader = widget.songsLoader ??
         () => SongsCatalogService().getSongs();
-    _langController = LibraryLanguagesController()
+    _langController = (widget.langController ?? LibraryLanguagesController.instance)
       ..addListener(_onLanguagesChanged);
     _loadData();
   }
@@ -103,6 +103,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _langController.announceLanguages(codes);
   }
 
+  Future<void> _refreshRecentProgress() async {
+    try {
+      final recentProgress = await _loader.getRecentProgress(
+        limit: _recentBookLimit,
+      );
+      final progressMap = <String, UserReadingProgress>{};
+      final recentBooks = <Book>[];
+      for (final p in recentProgress) {
+        progressMap[p.bookId] = p;
+        final match = _allBooks.where((b) => b.id == p.bookId).firstOrNull;
+        if (match != null) recentBooks.add(match);
+      }
+      if (mounted) {
+        setState(() {
+          _progressMap = progressMap;
+          _recentBooks = recentBooks;
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> _loadData() async {
     try {
       await _loader.initialize();
@@ -120,21 +141,29 @@ class _LibraryScreenState extends State<LibraryScreen> {
         if (match != null) recentBooks.add(match);
       }
 
+      if (mounted) {
+        setState(() {
+          _allBooks = books;
+          _recentBooks = recentBooks;
+          _progressMap = progressMap;
+        });
+      }
+
       final List<WftwIndexEntry> allArticles = [];
       try {
         allArticles.addAll(await _articlesLoader());
-        final languages = await _languagesLoader();
-        for (final l in languages) {
-          if (l.code.isNotEmpty) {
-            // Teach the shared language registry about catalog languages it
-            // does not already know so codes are shown as names, never as raw
-            // ISO codes.
-            LanguageMeta.registerLanguage(l.code, englishName: l.name);
+        if (_languagesLoader != null) {
+          final languages = await _languagesLoader();
+          for (final l in languages) {
+            if (l.code.isNotEmpty) {
+              LanguageMeta.registerLanguage(l.code, englishName: l.name);
+            }
           }
         }
       } catch (e) {
         debugPrint('Articles shelf unavailable: $e');
       }
+
       final List<Song> allSongs = [];
       try {
         allSongs.addAll(await _songsLoader());
@@ -145,16 +174,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (!mounted) return;
       _announceLanguages(books, allArticles, allSongs);
       setState(() {
-        _recentBooks = recentBooks;
-        _allBooks = books;
         _allArticles = allArticles;
         _allSongs = allSongs;
-        _progressMap = progressMap;
-        _loading = false;
       });
     } catch (e) {
       debugPrint('Library load failed: $e');
-      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -198,7 +222,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await context.push(
       '/books/${book.id}?page=$targetPage&startLine=$targetLine&endLine=$targetLine',
     );
-    _loadData();
+    if (!mounted) return;
+    _refreshRecentProgress();
   }
 
   @override
@@ -238,26 +263,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ),
       body: MaxWidthBox(
         maxWidth: 1080,
-        child: _loading
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: tokens.accent),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Loading library...',
-                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
-                    ),
-                  ],
-                ),
-              )
-            : RefreshIndicator(
-                onRefresh: _loadData,
-                color: tokens.accent,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          color: tokens.accent,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
                     SliverToBoxAdapter(
                       child: _buildLanguageFilter(tokens),
                     ),
