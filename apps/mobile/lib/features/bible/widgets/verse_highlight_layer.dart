@@ -100,6 +100,7 @@ class RenderVerseHighlightLayer extends RenderProxyBox {
   set bandWidthMode(BandWidthMode value) {
     if (_bandWidthMode == value) return;
     _bandWidthMode = value;
+    _clearBandCache();
     markNeedsPaint();
   }
 
@@ -107,6 +108,7 @@ class RenderVerseHighlightLayer extends RenderProxyBox {
   set verticalBleed(double value) {
     if (_verticalBleed == value) return;
     _verticalBleed = value;
+    _clearBandCache();
     markNeedsPaint();
   }
 
@@ -115,6 +117,24 @@ class RenderVerseHighlightLayer extends RenderProxyBox {
     if (_cornerRadius == value) return;
     _cornerRadius = value;
     markNeedsPaint();
+  }
+
+  List<Rect>? _cachedBands;
+  RenderParagraph? _cachedParagraph;
+  double? _cachedWidth;
+  Offset? _cachedParagraphOffset;
+
+  void _clearBandCache() {
+    _cachedBands = null;
+    _cachedParagraph = null;
+    _cachedWidth = null;
+    _cachedParagraphOffset = null;
+  }
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    _clearBandCache();
   }
 
   RenderParagraph? _findParagraph(RenderObject? node) {
@@ -129,35 +149,45 @@ class RenderVerseHighlightLayer extends RenderProxyBox {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final paragraph = _findParagraph(child);
+    // 0. Instant early exit: if not highlighted and not hovered, skip text extraction and geometry calculations entirely
+    final fillColor = _highlightColor ?? (_isHovered ? _hoverColor : null);
+    if (fillColor == null) {
+      super.paint(context, offset);
+      return;
+    }
+
+    final paragraph = _cachedParagraph ??= _findParagraph(child);
 
     if (paragraph != null && paragraph.hasSize) {
       final textLength = paragraph.text.toPlainText().length;
       if (textLength > 0) {
-        final selection = TextSelection(baseOffset: 0, extentOffset: textLength);
-        final rawBoxes = paragraph.getBoxesForSelection(
-          selection,
-          boxHeightStyle: BoxHeightStyle.max,
-        );
-
-        // Get offset of paragraph relative to this RenderObject
-        final paragraphOffset = paragraph.localToGlobal(Offset.zero, ancestor: this);
-
         final columnWidth = size.width;
-        final bands = VerseBandGeometry.computeLineBands(
-          rawBoxes,
-          mode: _bandWidthMode,
-          columnWidth: columnWidth,
-          horizontalBleed: 5.0,
-          topBleed: _highlightColor != null ? _verticalBleed : 0.0,
-          bottomBleed: _highlightColor != null ? _verticalBleed : 0.0,
-        );
+        if (_cachedBands == null || _cachedWidth != columnWidth) {
+          final selection = TextSelection(baseOffset: 0, extentOffset: textLength);
+          final rawBoxes = paragraph.getBoxesForSelection(
+            selection,
+            boxHeightStyle: BoxHeightStyle.max,
+          );
 
+          // Get offset of paragraph relative to this RenderObject
+          _cachedParagraphOffset = paragraph.localToGlobal(Offset.zero, ancestor: this);
+          _cachedBands = VerseBandGeometry.computeLineBands(
+            rawBoxes,
+            mode: _bandWidthMode,
+            columnWidth: columnWidth,
+            horizontalBleed: 5.0,
+            topBleed: _highlightColor != null ? _verticalBleed : 0.0,
+            bottomBleed: _highlightColor != null ? _verticalBleed : 0.0,
+          );
+          _cachedWidth = columnWidth;
+        }
+
+        final bands = _cachedBands!;
+        final paragraphOffset = _cachedParagraphOffset ?? Offset.zero;
         final canvas = context.canvas;
 
         // 1. Draw Highlight Bands or Hover Background with rounded outer corners
-        final fillColor = _highlightColor ?? (_isHovered ? _hoverColor : null);
-        if (fillColor != null && bands.isNotEmpty) {
+        if (bands.isNotEmpty) {
           final paint = Paint()
             ..color = fillColor
             ..style = PaintingStyle.fill;

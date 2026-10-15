@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +14,7 @@ import 'models/scripture_card.dart';
 import 'models/scripture_filter_state.dart';
 import 'models/scripture_theme_state.dart';
 import 'services/bible_download_manager.dart';
+import 'services/online_bible_service.dart';
 import 'services/saved_scripture_service.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
@@ -29,7 +31,7 @@ class ScriptureEngine
 
   final ScriptureService _service = ScriptureService();
   static ScriptureFilterState _cachedFilterState =
-      const ScriptureFilterState(activeVersionId: BibleDownloadManager.defaultVersionId);
+      const ScriptureFilterState(activeVersionId: 'NASB');
   static bool _hasLoadedPrefs = false;
 
   @override
@@ -53,15 +55,25 @@ class ScriptureEngine
     }
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedVersion =
-          prefs.getString('pref_bible_version') ?? _cachedFilterState.activeVersionId;
-      _cachedFilterState = await loadFilterStateForVersion(savedVersion);
+      final savedVersion = prefs.getString('pref_bible_version');
+
+      // Check downloaded bibles that contain verse text
+      final installedIds = await _service.getInstalledVersionIds();
+
+      String activeVersion = 'NASB';
+      if (savedVersion != null &&
+          (installedIds.contains(savedVersion) ||
+              OnlineBibleService.isOnlineVersion(savedVersion))) {
+        activeVersion = savedVersion;
+      } else if (installedIds.isNotEmpty) {
+        activeVersion = installedIds.first;
+      } else {
+        activeVersion = 'NASB';
+      }
+
+      _cachedFilterState = await loadFilterStateForVersion(activeVersion);
       _hasLoadedPrefs = true;
     } catch (_) {}
-
-    // Pull the default bible (TAOBVSI) on first run so the feed and bible page
-    // have real verse text; it is served from the releases repo.
-    await BibleDownloadManager().ensureDefaultInstalled();
   }
 
   void resetRandomDeck() {
@@ -177,8 +189,12 @@ class ScriptureEngine
     }
     final comparisonId = filterState.comparisonVersionId;
     if (comparisonId != null && comparisonId != filterState.activeVersionId) {
-      for (final c in cards) {
-        await _service.resolveCardComparisonText(c, comparisonId);
+      final eagerCount = cards.length > 3 ? 3 : cards.length;
+      await Future.wait(
+        cards.take(eagerCount).map((c) => _service.resolveCardComparisonText(c, comparisonId)),
+      );
+      for (final c in cards.skip(eagerCount)) {
+        unawaited(_service.resolveCardComparisonText(c, comparisonId));
       }
     }
     return cards;

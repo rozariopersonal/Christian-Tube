@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/micro_feed/widgets/card_scrim_overlay.dart';
 import 'package:mobile/core/widgets/animated_fluid_gradient.dart';
@@ -30,7 +29,8 @@ class ScriptureCardView extends StatefulWidget {
   State<ScriptureCardView> createState() => _ScriptureCardViewState();
 }
 
-class _ScriptureCardViewState extends State<ScriptureCardView> {
+class _ScriptureCardViewState extends State<ScriptureCardView>
+    with SingleTickerProviderStateMixin {
   final ScriptureService _service = ScriptureService();
   String? _displayedText;
   String? _displayedVersion;
@@ -38,9 +38,66 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   String? _lastAttemptedVersion;
   DateTime _lastEdgeShift = DateTime.fromMillisecondsSinceEpoch(0);
 
+  late final AnimationController _entranceController;
+  late final Animation<double> _quoteFade;
+  late final Animation<double> _quoteScale;
+  late final Animation<double> _textFade;
+  late final Animation<Offset> _textSlide;
+  late final Animation<double> _badgeFade;
+  late final Animation<Offset> _badgeSlide;
+
   @override
   void initState() {
     super.initState();
+
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _quoteFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.0, 0.45, curve: Curves.easeOut),
+    );
+    _quoteScale = Tween<double>(begin: 0.80, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.0, 0.50, curve: Curves.easeOutBack),
+      ),
+    );
+
+    _textFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.12, 0.85, curve: Curves.easeOut),
+    );
+    _textSlide = Tween<Offset>(
+      begin: const Offset(0.0, 0.05),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.12, 0.90, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _badgeFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.30, 1.0, curve: Curves.easeOut),
+    );
+    _badgeSlide = Tween<Offset>(
+      begin: const Offset(0.0, 0.06),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.30, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    if (widget.isActive) {
+      _entranceController.forward();
+    }
+
     final targetVersion = widget.filterState.activeVersionId;
     if (widget.card.resolvedVersion == targetVersion &&
         widget.card.resolvedText != null) {
@@ -71,6 +128,13 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
   @override
   void didUpdateWidget(covariant ScriptureCardView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        _entranceController.forward(from: 0.0);
+      } else {
+        _entranceController.reset();
+      }
+    }
     if (oldWidget.filterState.activeVersionId !=
             widget.filterState.activeVersionId ||
         oldWidget.card.id != widget.card.id ||
@@ -88,6 +152,12 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
     if (widget.isActive && (!oldWidget.isActive || oldWidget.filterState != widget.filterState)) {
       _pregenerateImage();
     }
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
   }
 
   Future<void> _resolveComparison() async {
@@ -167,8 +237,9 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
   void _pregenerateImage() {
     final targetVersion = widget.filterState.activeVersionId;
+    final isDark = mounted ? context.isDark : true;
     final currentKey =
-        '${widget.card.id}_${targetVersion}_${widget.filterState.activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.textColorHex}_${widget.card.activeBackground}';
+        '${widget.card.id}_${targetVersion}_${widget.filterState.activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.textColorHex}_${widget.card.activeBackground}_$isDark';
     if (widget.card.precomputedImageKey == currentKey &&
         widget.card.precomputedImageBytes != null) {
       return;
@@ -185,6 +256,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
           isBold: widget.filterState.isBold,
           isItalic: widget.filterState.isItalic,
           textAlign: widget.filterState.textAlign,
+          isDark: isDark,
         );
         widget.card.precomputedImageBytes = bytes;
         widget.card.precomputedImageKey = currentKey;
@@ -274,8 +346,11 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
     final activeFontFamily =
         widget.card.customFontFamily ?? widget.filterState.activeFontFamily;
-    final textColor =
+    Color textColor =
         ScriptureThemeCatalog.parseColor(widget.filterState.textColorHex);
+    if (!context.isDark && widget.filterState.textColorHex == '#FFFFFF') {
+      textColor = preset.resolveTextColor(context);
+    }
     final fontWeight =
         widget.filterState.isBold ? FontWeight.w700 : FontWeight.w400;
     final fontStyle =
@@ -295,6 +370,21 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
         break;
     }
 
+    final List<Shadow>? textShadows = context.isDark
+        ? [
+            Shadow(
+              color: tokens.scrim,
+              blurRadius: 16,
+              offset: const Offset(0, 2),
+            ),
+            Shadow(
+              color: tokens.scrim.withValues(alpha: 0.54),
+              blurRadius: 6,
+              offset: const Offset(0, 1),
+            ),
+          ]
+        : null;
+
     final textStyle = ScriptureThemeCatalog.getTextStyle(
       fontFamily: activeFontFamily,
       languageCode: primaryMeta.languageCode,
@@ -311,6 +401,10 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
     final double horizontalPad = (screenWidth * 0.08).clamp(24.0, 48.0);
     final double rightInset = horizontalPad + 64.0;
 
+    final double scrimOpacity = context.isDark
+        ? (preset.isGradient ? 0.20 : 0.0)
+        : 0.0;
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -320,13 +414,13 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
           switchInCurve: Curves.easeInOut,
           switchOutCurve: Curves.easeInOut,
           child: KeyedSubtree(
-            key: ValueKey('${preset.id}_${preset.imageUrl}'),
+            key: ValueKey('${preset.id}_${context.isDark}'),
             child: _buildBackground(preset),
           ),
         ),
 
-        // 2. Readability Gradient Scrim
-        const CardScrimOverlay(opacity: 0.72),
+        // 2. Readability Gradient Scrim (only where needed)
+        if (scrimOpacity > 0.0) CardScrimOverlay(opacity: scrimOpacity),
 
         // 3. Typographic Content Canvas (Scroll-safe, centered, zero-overflow)
         Center(
@@ -348,71 +442,80 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Opening Quote Mark
-                      Text(
-                        '"',
-                        style: TextStyle(
-                          fontSize: 48,
-                          height: 0.8,
-                          fontFamily: 'serif',
-                          color: context.accent.withValues(alpha: 0.9),
-                          shadows: [
-                            Shadow(
-                              color: tokens.scrim.withValues(alpha: 0.87),
-                              blurRadius: 12,
-                              offset: Offset(0, 2),
+                      // Opening Quote Mark (Stagger 1: Entrance Scale & Fade)
+                      FadeTransition(
+                        opacity: _quoteFade,
+                        child: ScaleTransition(
+                          scale: _quoteScale,
+                          child: Text(
+                            '"',
+                            style: TextStyle(
+                              fontSize: 48,
+                              height: 0.8,
+                              fontFamily: 'serif',
+                              color: context.accent.withValues(alpha: 0.9),
+                              shadows: context.isDark
+                                  ? [
+                                      Shadow(
+                                        color: tokens.scrim.withValues(alpha: 0.87),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
 
-                      // Primary Verse Body Text with Smooth Animated Replacement
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0.0, 0.04),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
+                      // Primary Verse Body Text (Stagger 2: Upward Rise & Fade)
+                      FadeTransition(
+                        opacity: _textFade,
+                        child: SlideTransition(
+                          position: _textSlide,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0.0, 0.04),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: Text(
+                              primaryText,
+                              key: ValueKey(
+                                  '${primaryVersionId}_${primaryText.hashCode}_${widget.filterState.textColorHex}_${activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.isBold}_${widget.filterState.isItalic}_${widget.filterState.textAlign}'),
+                              textAlign: textAlign,
+                              softWrap: true,
+                              textWidthBasis: TextWidthBasis.parent,
+                              style: textStyle.copyWith(
+                                color: textColor,
+                                shadows: textShadows,
+                              ),
                             ),
-                          );
-                        },
-                        child: Text(
-                          primaryText,
-                          key: ValueKey(
-                              '${primaryVersionId}_${primaryText.hashCode}_${widget.filterState.textColorHex}_${activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.isBold}_${widget.filterState.isItalic}_${widget.filterState.textAlign}'),
-                          textAlign: textAlign,
-                          softWrap: true,
-                          textWidthBasis: TextWidthBasis.parent,
-                          style: textStyle.copyWith(
-                            color: textColor,
-                            shadows: [
-                              Shadow(
-                                color: tokens.scrim,
-                                blurRadius: 16,
-                                offset: Offset(0, 2),
-                              ),
-                              Shadow(
-                                color: tokens.scrim.withValues(alpha: 0.54),
-                                blurRadius: 6,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
                           ),
                         ),
                       ),
                       const SizedBox(height: 20),
 
-                      // Reference Attribution Badge (Primary)
-                      _ReferenceBadge(
-                        reference: '— ${widget.card.referenceLabel}',
-                        versionId: primaryVersionId,
-                        onTap: widget.onReferenceTap,
+                      // Reference Attribution Badge (Stagger 3: Badge Entry)
+                      FadeTransition(
+                        opacity: _badgeFade,
+                        child: SlideTransition(
+                          position: _badgeSlide,
+                          child: _ReferenceBadge(
+                            reference: '— ${widget.card.referenceLabel}',
+                            versionId: primaryVersionId,
+                            onTap: widget.onReferenceTap,
+                          ),
+                        ),
                       ),
 
                       if (comparisonText != null &&
@@ -423,41 +526,44 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
                           height: 1,
                           indent: 60,
                           endIndent: 60,
-                        ),                        const SizedBox(height: 16),
+                        ),
+                        const SizedBox(height: 16),
 
                         // Secondary Verse Body Text (smaller, subdued)
-                        Text(
-                          comparisonText,
-                          textAlign: textAlign,
-                          softWrap: true,
-                          textWidthBasis: TextWidthBasis.parent,
-                          style: ScriptureThemeCatalog.getTextStyle(
-                            fontFamily: activeFontFamily,
-                            languageCode: comparisonMeta?.languageCode ?? 'en',
-                            baseSize: comparisonFontSize,
-                            color: tokens.onScrim.withValues(alpha: 0.88),
-                            fontWeight: FontWeight.w400,
-                            fontStyle: FontStyle.italic,
-                          ).copyWith(shadows: [
-                            Shadow(
-                              color: tokens.scrim,
-                              blurRadius: 16,
-                              offset: Offset(0, 2),
-                            ),
-                            Shadow(
-                              color: tokens.scrim.withValues(alpha: 0.54),
-                              blurRadius: 6,
-                              offset: Offset(0, 1),
-                            ),
-                          ]),
-                        ),
-                        const SizedBox(height: 14),
+                        FadeTransition(
+                          opacity: _badgeFade,
+                          child: SlideTransition(
+                            position: _badgeSlide,
+                            child: Column(
+                              children: [
+                                Text(
+                                  comparisonText,
+                                  textAlign: textAlign,
+                                  softWrap: true,
+                                  textWidthBasis: TextWidthBasis.parent,
+                                  style: ScriptureThemeCatalog.getTextStyle(
+                                    fontFamily: activeFontFamily,
+                                    languageCode:
+                                        comparisonMeta?.languageCode ?? 'en',
+                                    baseSize: comparisonFontSize,
+                                    color: context.isDark
+                                        ? tokens.onScrim.withValues(alpha: 0.88)
+                                        : tokens.onSurfaceMuted,
+                                    fontWeight: FontWeight.w400,
+                                    fontStyle: FontStyle.italic,
+                                  ).copyWith(shadows: textShadows),
+                                ),
+                                const SizedBox(height: 14),
 
-                        // Reference Attribution Badge (Secondary)
-                        _ReferenceBadge(
-                          reference: '— ${widget.card.referenceLabel}',
-                          versionId: comparisonVersionId,
-                          subdued: true,
+                                // Reference Attribution Badge (Secondary)
+                                _ReferenceBadge(
+                                  reference: '— ${widget.card.referenceLabel}',
+                                  versionId: comparisonVersionId,
+                                  subdued: true,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ],
@@ -495,11 +601,13 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
 
   Widget _buildBackground(BackgroundPreset preset) {
     final tokens = context.tokens;
-    if (preset.isGradient && preset.gradientColors != null) {
+    final colors = preset.resolveColors(context);
+
+    if (preset.isGradient) {
       if (preset.isAnimatedGradient) {
         return AnimatedFluidGradient(
-          colors: preset.gradientColors!,
-          overlayOpacity: 0.35, // Enforce readability
+          colors: colors,
+          overlayOpacity: context.isDark ? 0.20 : 0.0,
         );
       }
       return Container(
@@ -507,39 +615,15 @@ class _ScriptureCardViewState extends State<ScriptureCardView> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: preset.gradientColors!,
-          ),
-        ),
-      );
-    } else if (preset.imageUrl != null) {
-      return CachedNetworkImage(
-        imageUrl: preset.imageUrl!,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        fadeInDuration: const Duration(milliseconds: 300),
-        placeholder: (context, url) => Container(
-          color: tokens.surface,
-          child: Center(
-            child: CircularProgressIndicator(
-              color: tokens.onScrim.withValues(alpha: 0.24),
-              strokeWidth: 1.5,
-            ),
-          ),
-        ),
-        errorWidget: (context, url, error) => Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [tokens.surface, tokens.scrim],
-            ),
+            colors: colors,
           ),
         ),
       );
     } else {
       return Container(
-        color: tokens.scrim,
+        color: colors.isNotEmpty
+            ? colors.first
+            : (context.isDark ? tokens.scrim : tokens.background),
       );
     }
   }
@@ -562,13 +646,37 @@ class _ReferenceBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final borderColor = subdued
-        ? tokens.onScrim.withValues(alpha: 0.25)
-        : context.accent.withValues(alpha: 0.4);
-    final accent = subdued ? tokens.onScrimMuted : context.tokens.accent;
+    final isDark = context.isDark;
+
+    final borderColor = onTap != null
+        ? context.accent.withValues(alpha: 0.7)
+        : (isDark
+            ? (subdued
+                ? tokens.onScrim.withValues(alpha: 0.25)
+                : context.accent.withValues(alpha: 0.4))
+            : (subdued
+                ? tokens.surfaceBorder
+                : context.accent.withValues(alpha: 0.4)));
+
+    final accent = subdued
+        ? (isDark ? tokens.onScrimMuted : tokens.onSurfaceMuted)
+        : context.tokens.accent;
+
     final accentBg = subdued
-        ? tokens.onScrim.withValues(alpha: 0.10)
-        : context.accent.withValues(alpha: 0.25);
+        ? (isDark
+            ? tokens.onScrim.withValues(alpha: 0.10)
+            : tokens.surfaceVariant)
+        : context.accent.withValues(alpha: isDark ? 0.25 : 0.15);
+
+    final pillBg = isDark
+        ? (onTap != null
+            ? tokens.scrim.withValues(alpha: 0.55)
+            : tokens.scrim.withValues(alpha: 0.45))
+        : (onTap != null
+            ? tokens.surface.withValues(alpha: 0.90)
+            : tokens.surface.withValues(alpha: 0.80));
+
+    final pillTextColor = isDark ? tokens.onScrim : tokens.onSurface;
 
     return GestureDetector(
       onTap: onTap,
@@ -576,14 +684,12 @@ class _ReferenceBadge extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: onTap != null
-              ? tokens.scrim.withValues(alpha: 0.55)
-              : tokens.scrim.withValues(alpha: 0.45),
+          color: pillBg,
           borderRadius: const BorderRadius.all(Radius.circular(20)),
-          border: Border.all(color: onTap != null ? context.accent.withValues(alpha: 0.7) : borderColor, width: 1.0),
+          border: Border.all(color: borderColor, width: 1.0),
           boxShadow: [
             BoxShadow(
-              color: tokens.scrim.withValues(alpha: 0.3),
+              color: tokens.scrim.withValues(alpha: isDark ? 0.3 : 0.08),
               blurRadius: 8,
             ),
           ],
@@ -596,7 +702,7 @@ class _ReferenceBadge extends StatelessWidget {
                 reference,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: tokens.onScrim,
+                  color: pillTextColor,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,

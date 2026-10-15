@@ -577,14 +577,24 @@ class _BibleScreenState extends State<BibleScreen> {
       titles: [label],
       currentColorIndex: s.highlightColorForSelection,
       hasHighlight: s.selectionHasHighlight,
+      onColorSelected: (colorIndex) {
+        _controller.applyHighlight(colorIndex);
+      },
+      onHighlightRemoved: () {
+        _controller.removeHighlight();
+      },
     );
     if (!mounted || result == null) return;
 
     switch (result) {
       case HighlightPickerPicked(:final colorIndex):
-        await _controller.applyHighlight(colorIndex);
+        if (_controller.state.selectedVerses.isNotEmpty) {
+          await _controller.applyHighlight(colorIndex);
+        }
       case HighlightPickerRemoved():
-        await _controller.removeHighlight();
+        if (_controller.state.selectedVerses.isNotEmpty) {
+          await _controller.removeHighlight();
+        }
     }
   }
 

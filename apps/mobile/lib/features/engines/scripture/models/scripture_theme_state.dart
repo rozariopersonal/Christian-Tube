@@ -4,21 +4,55 @@ import 'package:google_fonts/google_fonts.dart';
 class BackgroundPreset {
   final String id;
   final String name;
+  final List<Color> darkColors;
+  final List<Color> lightColors;
+  final Color defaultDarkText;
+  final Color defaultLightText;
   final String? imageUrl;
   final String? blurHash;
-  final List<Color>? gradientColors;
   final bool isGradient;
   final bool isAnimatedGradient;
 
   const BackgroundPreset({
     required this.id,
     required this.name,
+    this.darkColors = const [],
+    this.lightColors = const [],
+    this.defaultDarkText = const Color(0xFFFFFFFF),
+    this.defaultLightText = const Color(0xFF0F172A),
     this.imageUrl,
     this.blurHash,
-    this.gradientColors,
+    List<Color>? gradientColors,
     this.isGradient = false,
-    this.isAnimatedGradient = true, // By default, gradients are animated
-  });
+    this.isAnimatedGradient = true,
+  }) : _legacyGradientColors = gradientColors;
+
+  final List<Color>? _legacyGradientColors;
+
+  List<Color>? get gradientColors =>
+      _legacyGradientColors ?? (darkColors.isNotEmpty ? darkColors : null);
+
+  List<Color> resolveColors(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) {
+      if (darkColors.isNotEmpty) return darkColors;
+      if (gradientColors != null && gradientColors!.isNotEmpty) {
+        return gradientColors!;
+      }
+      return const [Color(0xFF000000)];
+    } else {
+      if (lightColors.isNotEmpty) return lightColors;
+      if (gradientColors != null && gradientColors!.isNotEmpty) {
+        return gradientColors!;
+      }
+      return const [Color(0xFFFFFFFF)];
+    }
+  }
+
+  Color resolveTextColor(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark ? defaultDarkText : defaultLightText;
+  }
 }
 
 class ScriptureFontOption {
@@ -460,12 +494,17 @@ class ScriptureThemeCatalog {
     }
   }
 
-  // Curated Text Color Palette
+  // Curated Text Color Palette (Supports both Light and Dark backgrounds)
   static const List<ScriptureColorOption> colorPalette = [
     ScriptureColorOption(
       hex: '#FFFFFF',
       name: 'Pure White',
       color: Colors.white,
+    ),
+    ScriptureColorOption(
+      hex: '#0F172A',
+      name: 'Obsidian Ink',
+      color: Color(0xFF0F172A),
     ),
     ScriptureColorOption(
       hex: '#F59E0B',
@@ -476,6 +515,16 @@ class ScriptureThemeCatalog {
       hex: '#FEF3C7',
       name: 'Warm Ivory',
       color: Color(0xFFFEF3C7),
+    ),
+    ScriptureColorOption(
+      hex: '#1E293B',
+      name: 'Deep Slate',
+      color: Color(0xFF1E293B),
+    ),
+    ScriptureColorOption(
+      hex: '#78350F',
+      name: 'Warm Espresso',
+      color: Color(0xFF78350F),
     ),
     ScriptureColorOption(
       hex: '#FDE68A',
@@ -504,110 +553,124 @@ class ScriptureThemeCatalog {
     ),
   ];
 
-  // Background Wallpapers & Themes Catalog
+  // Background Themes & Presets Catalog (Theme-Aware Solids & Sacred Gradients)
   static const List<BackgroundPreset> presets = [
-    // 1. High-Res Curated Photos
+    // 1. Plain Minimalist Solids (OLED & Glare-Free Paper)
     BackgroundPreset(
-      id: 'mountain_dawn',
-      name: 'Mountain Dawn',
-      imageUrl:
-          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1080&q=80',
-      blurHash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4',
+      id: 'true_minimalist',
+      name: 'True Minimalist',
+      darkColors: [Color(0xFF000000)],
+      lightColors: [Color(0xFFFFFFFF)],
+      defaultDarkText: Color(0xFFFFFFFF),
+      defaultLightText: Color(0xFF0F172A),
+      isGradient: false,
     ),
     BackgroundPreset(
-      id: 'starry_night',
-      name: 'Starry Cosmos',
-      imageUrl:
-          'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1080&q=80',
-      blurHash: 'L01n9aWB00of_3WBofWB00of_3WB',
+      id: 'editorial_paper',
+      name: 'Editorial Paper',
+      darkColors: [Color(0xFF141414)],
+      lightColors: [Color(0xFFFDFBF7)],
+      defaultDarkText: Color(0xFFF5F5F4),
+      defaultLightText: Color(0xFF1C1917),
+      isGradient: false,
     ),
     BackgroundPreset(
-      id: 'calm_ocean',
-      name: 'Calm Ocean',
-      imageUrl:
-          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1080&q=80',
-      blurHash: 'LEHV6nWB2yk8pyo0adRjQ-kCM|j[',
+      id: 'obsidian_slate',
+      name: 'Obsidian Slate',
+      darkColors: [Color(0xFF0F172A)],
+      lightColors: [Color(0xFFF1F5F9)],
+      defaultDarkText: Color(0xFFF8FAFC),
+      defaultLightText: Color(0xFF0F172A),
+      isGradient: false,
     ),
     BackgroundPreset(
-      id: 'misty_forest',
-      name: 'Misty Forest',
-      imageUrl:
-          'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1080&q=80',
-      blurHash: 'L5B:d;%M00IU00t7xut700%M?bIU',
-    ),
-    BackgroundPreset(
-      id: 'golden_fields',
-      name: 'Golden Fields',
-      imageUrl:
-          'https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?auto=format&fit=crop&w=1080&q=80',
-      blurHash: 'L9F5W-~q00%M00of%Mof00%M_3of',
-    ),
-    BackgroundPreset(
-      id: 'desert_dunes',
-      name: 'Desert Twilight',
-      imageUrl:
-          'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1080&q=80',
-      blurHash: 'L6I5+q%M~qof_3WB%Mof00%M_3of',
-    ),
-    BackgroundPreset(
-      id: 'autumn_leaves',
-      name: 'Autumn Glory',
-      imageUrl:
-          'https://images.unsplash.com/photo-1507371341162-763b5e419408?auto=format&fit=crop&w=1080&q=80',
-      blurHash: 'L8E_#J_300of~qof%Mof00%M_3of',
-    ),
-    BackgroundPreset(
-      id: 'night_sky',
-      name: 'Aurora Borealis',
-      imageUrl:
-          'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1080&q=80',
-      blurHash: 'L01#o^of00of~qofofof00of_3of',
+      id: 'sanctuary_warmth',
+      name: 'Sanctuary Warmth',
+      darkColors: [Color(0xFF1C1917)],
+      lightColors: [Color(0xFFFFFBEB)],
+      defaultDarkText: Color(0xFFFEF3C7),
+      defaultLightText: Color(0xFF292524),
+      isGradient: false,
     ),
 
-    // 2. Artistic Sacred Gradients
+    // 2. Sacred Gradients (Living Ambient Motions)
+    BackgroundPreset(
+      id: 'gradient_living_waters',
+      name: 'Living Waters',
+      isGradient: true,
+      darkColors: [Color(0xFF082F49), Color(0xFF0C4A6E), Color(0xFF0369A1)],
+      lightColors: [Color(0xFFF0F9FF), Color(0xFFE0F2FE), Color(0xFFBAE6FD)],
+      defaultDarkText: Color(0xFFFFFFFF),
+      defaultLightText: Color(0xFF0C4A6E),
+    ),
+    BackgroundPreset(
+      id: 'gradient_living_hope',
+      name: 'Living Hope',
+      isGradient: true,
+      darkColors: [Color(0xFF052E16), Color(0xFF064E3B), Color(0xFF047857)],
+      lightColors: [Color(0xFFF0FDF4), Color(0xFFDCFCE7), Color(0xFFBBF7D0)],
+      defaultDarkText: Color(0xFFFFFFFF),
+      defaultLightText: Color(0xFF064E3B),
+    ),
+    BackgroundPreset(
+      id: 'gradient_celestial_dawn',
+      name: 'Celestial Dawn',
+      isGradient: true,
+      darkColors: [Color(0xFF3B0764), Color(0xFF581C87), Color(0xFF701A75)],
+      lightColors: [Color(0xFFFDF4FF), Color(0xFFFAE8FF), Color(0xFFE9D5FF)],
+      defaultDarkText: Color(0xFFFFFFFF),
+      defaultLightText: Color(0xFF3B0764),
+    ),
+    BackgroundPreset(
+      id: 'gradient_divine_amber',
+      name: 'Divine Amber',
+      isGradient: true,
+      darkColors: [Color(0xFF451A03), Color(0xFF78350F), Color(0xFF9A3412)],
+      lightColors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7), Color(0xFFFDE68A)],
+      defaultDarkText: Color(0xFFFFFFFF),
+      defaultLightText: Color(0xFF451A03),
+    ),
+    BackgroundPreset(
+      id: 'gradient_twilight_peace',
+      name: 'Twilight Peace',
+      isGradient: true,
+      darkColors: [Color(0xFF1E1B4B), Color(0xFF312E81), Color(0xFF1E293B)],
+      lightColors: [Color(0xFFEEF2FF), Color(0xFFE0E7FF), Color(0xFFC7D2FE)],
+      defaultDarkText: Color(0xFFFFFFFF),
+      defaultLightText: Color(0xFF1E1B4B),
+    ),
     BackgroundPreset(
       id: 'gradient_royal_midnight',
       name: 'Royal Midnight',
       isGradient: true,
-      gradientColors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
-    ),
-    BackgroundPreset(
-      id: 'gradient_radiant_gold',
-      name: 'Divine Amber',
-      isGradient: true,
-      gradientColors: [Color(0xFF78350F), Color(0xFFB45309), Color(0xFFD97706)],
-    ),
-    BackgroundPreset(
-      id: 'gradient_celestial_rose',
-      name: 'Celestial Dawn',
-      isGradient: true,
-      gradientColors: [Color(0xFF4C0519), Color(0xFF881337), Color(0xFFBE123C)],
-    ),
-    BackgroundPreset(
-      id: 'gradient_emerald_sanctuary',
-      name: 'Living Hope',
-      isGradient: true,
-      gradientColors: [Color(0xFF064E3B), Color(0xFF065F46), Color(0xFF047857)],
-    ),
-    BackgroundPreset(
-      id: 'gradient_majestic_purple',
-      name: 'Majestic Glory',
-      isGradient: true,
-      gradientColors: [Color(0xFF3B0764), Color(0xFF581C87), Color(0xFF6B21A8)],
-    ),
-    BackgroundPreset(
-      id: 'gradient_deep_ocean',
-      name: 'Living Waters',
-      isGradient: true,
-      gradientColors: [Color(0xFF0C4A6E), Color(0xFF0369A1), Color(0xFF0284C7)],
+      darkColors: [Color(0xFF090D16), Color(0xFF0F172A), Color(0xFF1E1B4B)],
+      lightColors: [Color(0xFFF8FAFC), Color(0xFFF1F5F9), Color(0xFFE2E8F0)],
+      defaultDarkText: Color(0xFFFFFFFF),
+      defaultLightText: Color(0xFF0F172A),
     ),
   ];
 
+  static final Map<String, BackgroundPreset> _legacyAliases = {
+    'mountain_dawn': presets.firstWhere((p) => p.id == 'gradient_celestial_dawn'),
+    'starry_night': presets.firstWhere((p) => p.id == 'gradient_royal_midnight'),
+    'calm_ocean': presets.firstWhere((p) => p.id == 'gradient_living_waters'),
+    'misty_forest': presets.firstWhere((p) => p.id == 'gradient_living_hope'),
+    'golden_fields': presets.firstWhere((p) => p.id == 'gradient_divine_amber'),
+    'desert_dunes': presets.firstWhere((p) => p.id == 'sanctuary_warmth'),
+    'autumn_leaves': presets.firstWhere((p) => p.id == 'gradient_divine_amber'),
+    'night_sky': presets.firstWhere((p) => p.id == 'gradient_twilight_peace'),
+    'gradient_radiant_gold': presets.firstWhere((p) => p.id == 'gradient_divine_amber'),
+    'gradient_celestial_rose': presets.firstWhere((p) => p.id == 'gradient_celestial_dawn'),
+    'gradient_emerald_sanctuary': presets.firstWhere((p) => p.id == 'gradient_living_hope'),
+    'gradient_majestic_purple': presets.firstWhere((p) => p.id == 'gradient_celestial_dawn'),
+    'gradient_deep_ocean': presets.firstWhere((p) => p.id == 'gradient_living_waters'),
+  };
+
   static BackgroundPreset getPreset(String id) {
-    return presets.firstWhere(
-      (p) => p.id == id,
-      orElse: () => presets.first,
-    );
+    for (final p in presets) {
+      if (p.id == id) return p;
+    }
+    return _legacyAliases[id] ?? presets.first;
   }
 
   static Color parseColor(String hex) {

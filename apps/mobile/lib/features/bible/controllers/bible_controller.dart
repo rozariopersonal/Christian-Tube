@@ -416,7 +416,6 @@ class BibleController extends ChangeNotifier {
     unawaited(ReaderFontsService.instance
         .ensureResolved(appearance.fontFamily, appearance.languageCode));
     appearance.addListener(notifyListeners);
-    _loadSettings();
     await _fetchData();
     _checkCrossRefsInstalled();
   }
@@ -457,10 +456,7 @@ class BibleController extends ChangeNotifier {
     try {
       final settings = await _settingsService.loadSettings();
       _update((s) => s.copyWith(settings: settings, settingsLoaded: true));
-      final applied = _applySavedProgress();
-      if (applied && _state.selectedVersion != null) {
-        await _loadChapter();
-      }
+      _applySavedProgress();
     } catch (e, stack) {
       debugPrint('BibleController _loadSettings error: $e\n$stack');
       _update((s) => s.copyWith(settingsLoaded: true));
@@ -545,6 +541,8 @@ class BibleController extends ChangeNotifier {
     try {
       await _localBibleService.initialize();
       await _loadVersions();
+      await _loadSettings();
+      _applyInitialJump();
       if (_state.selectedVersion != null) {
         await _loadChapter();
       }
@@ -696,10 +694,19 @@ class BibleController extends ChangeNotifier {
   }) async {
     final stream = _stream;
     final version = _state.selectedVersion;
-    if (version == null || stream == null) return;
-    if (!bibleBooks.containsKey(book)) return;
+    if (version == null || stream == null || !bibleBooks.containsKey(book)) {
+      if (epoch == _loadEpoch && !_disposed) {
+        _update((s) => s.copyWith(isLoading: false));
+      }
+      return;
+    }
     final bn = bookNumber(book);
-    final rows = await stream.ensureChapter(bn, chapter);
+    List<BibleVerse> rows = const [];
+    try {
+      rows = await stream.ensureChapter(bn, chapter);
+    } catch (e) {
+      debugPrint('BibleController _ensureChapterLoaded error: $e');
+    }
     if (epoch != _loadEpoch || _disposed) return;
     _fillChapterRows(rows, bn, chapter);
     final indexEmpty = _state.index != null && _state.index!.chapterRowCount(
@@ -901,7 +908,13 @@ class BibleController extends ChangeNotifier {
           isLoading: true,
         ));
     _syncAppearanceLanguage();
-    await _loadChapter();
+    try {
+      await _loadChapter();
+    } finally {
+      if (!_disposed) {
+        _update((s) => s.copyWith(isLoading: false));
+      }
+    }
   }
 
   Future<void> fetchNextChapter() async {
@@ -979,9 +992,13 @@ class BibleController extends ChangeNotifier {
           currentChapter: chapter,
         ));
     final epoch = ++_loadEpoch;
-    await _ensureChapterLoaded(book, chapter, epoch: epoch);
-    if (epoch != _loadEpoch || _disposed) return;
-    _update((s) => s.copyWith(isLoading: false));
+    try {
+      await _ensureChapterLoaded(book, chapter, epoch: epoch);
+    } finally {
+      if (epoch == _loadEpoch && !_disposed) {
+        _update((s) => s.copyWith(isLoading: false));
+      }
+    }
   }
 
   /// Fetches the verse list for a chapter without changing the current reader
@@ -1080,12 +1097,32 @@ class BibleController extends ChangeNotifier {
     final selected = chVerses
         .where((v) => _state.selectedVerses.contains(v.number))
         .toList();
-    if (selected.isEmpty) return;
+    final verses = selected.isNotEmpty
+        ? selected.map((v) => v.number).toList()
+        : _state.selectedVerses.toList();
+    if (verses.isEmpty) return;
     if (colorIndex < 0 || colorIndex >= HighlightPalette.count) return;
 
-    final verses = selected.map((v) => v.number).toList();
     final text = selected.map((v) => v.text).join('\n');
     final version = _state.selectedVersion!;
+
+    // 1. Instant optimistic update so UI reacts immediately (0ms)
+    final previousHighlights = _state.verseHighlights;
+    final merged = Map<String, int>.from(_state.verseHighlights);
+    for (final v in verses) {
+      merged[BibleControllerState.verseHighlightKey(book, chapter, v)] =
+          colorIndex;
+    }
+    _update((s) => s.copyWith(
+          verseHighlights: merged,
+          selectedVerses: {},
+          clearSelectedBook: true,
+          clearSelectedChapter: true,
+          clearHighlightColorForSelection: true,
+          selectionHasHighlight: false,
+        ));
+
+    // 2. Persist to SQLite in background
     try {
       await _highlightService.apply(
         versionId: version.shortname,
@@ -1095,23 +1132,11 @@ class BibleController extends ChangeNotifier {
         colorIndex: colorIndex,
         text: text,
       );
-      _update((s) {
-        final merged = Map<String, int>.from(s.verseHighlights);
-        for (final v in verses) {
-          merged[BibleControllerState.verseHighlightKey(book, chapter, v)] =
-              colorIndex;
-        }
-        return s.copyWith(
-          verseHighlights: merged,
-          selectedVerses: {},
-          clearSelectedBook: true,
-          clearSelectedChapter: true,
-          clearHighlightColorForSelection: true,
-          selectionHasHighlight: false,
-        );
-      });
     } catch (e) {
       debugPrint('BibleController applyHighlight error: $e');
+      if (!_disposed) {
+        _update((s) => s.copyWith(verseHighlights: previousHighlights));
+      }
     }
   }
 
@@ -1122,29 +1147,35 @@ class BibleController extends ChangeNotifier {
     final book = _state.selectedBook ?? _currentBook;
     final chapter = _state.selectedChapter ?? _currentChapter;
     final verses = _state.selectedVerses.toList();
-    try {
-      await _highlightService.remove(
-        book: book,
-        chapter: chapter,
-        verses: verses,
-      );
-      _update((s) {
-        final merged = Map<String, int>.from(s.verseHighlights);
-        for (final v in verses) {
-          merged.remove(
-              BibleControllerState.verseHighlightKey(book, chapter, v));
-        }
-        return s.copyWith(
+
+    // 1. Instant optimistic update so UI reacts immediately (0ms)
+    final previousHighlights = _state.verseHighlights;
+    final merged = Map<String, int>.from(_state.verseHighlights);
+    for (final v in verses) {
+      merged.remove(
+          BibleControllerState.verseHighlightKey(book, chapter, v));
+    }
+    _update((s) => s.copyWith(
           verseHighlights: merged,
           selectedVerses: {},
           clearSelectedBook: true,
           clearSelectedChapter: true,
           clearHighlightColorForSelection: true,
           selectionHasHighlight: false,
-        );
-      });
+        ));
+
+    // 2. Persist removal in background
+    try {
+      await _highlightService.remove(
+        book: book,
+        chapter: chapter,
+        verses: verses,
+      );
     } catch (e) {
       debugPrint('BibleController removeHighlight error: $e');
+      if (!_disposed) {
+        _update((s) => s.copyWith(verseHighlights: previousHighlights));
+      }
     }
   }
 

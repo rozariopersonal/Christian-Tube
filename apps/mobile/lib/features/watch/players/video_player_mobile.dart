@@ -76,14 +76,10 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
   InAppWebViewController? _webViewController;
   // Tracks the pending portrait-restore timer so it can be cancelled on dispose.
   Timer? _orientationRestoreTimer;
-  final List<Timer> _resumeTimers = [];
 
   @override
   void initState() {
     super.initState();
-    // Orientation is managed by the screen-level widget (_VideoPlayerScreenState)
-    // via _applyFullscreenMode. Do NOT call setPreferredOrientations here so we
-    // avoid racing with the screen's own orientation setup.
   }
 
   @override
@@ -94,26 +90,6 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
     }
     if (oldWidget.isFullScreen != widget.isFullScreen) {
       _applyFullscreenMode(widget.isFullScreen);
-      _scheduleResume();
-    }
-  }
-
-  void _resumeVideo() {
-    try {
-      _webViewController?.evaluateJavascript(
-        source: "try { if (typeof playVideo === 'function') { playVideo(); } else if (typeof player !== 'undefined' && player && typeof player.playVideo === 'function') { player.playVideo(); } } catch(e) {}",
-      );
-    } catch (_) {}
-  }
-
-  void _scheduleResume() {
-    _resumeVideo();
-    for (final delayMs in [150, 350, 600, 1000]) {
-      _resumeTimers.add(Timer(Duration(milliseconds: delayMs), () {
-        if (mounted) {
-          _resumeVideo();
-        }
-      }));
     }
   }
 
@@ -151,20 +127,10 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
 
   @override
   void dispose() {
-    // Cancel the pending portrait-restore timer so it cannot fire after
-    // _VideoPlayerScreenState.dispose() has already applied the portrait lock.
-    // If we let it fire it would re-open all orientations on the previous route.
     _orientationRestoreTimer?.cancel();
-    for (final timer in _resumeTimers) {
-      timer.cancel();
-    }
-    _resumeTimers.clear();
     if (_activeMainWebViewController == _webViewController) {
       _activeMainWebViewController = null;
     }
-    // Restore edge-to-edge but do NOT touch setPreferredOrientations here.
-    // The owning _VideoPlayerScreenState.dispose() is the single place that
-    // locks back to portrait, preventing the two calls from racing.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -371,7 +337,6 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
           key: const ValueKey('video_fullscreen_toggle'),
           onTap: () {
             widget.onToggleFullScreen?.call();
-            _scheduleResume();
           },
           borderRadius: BorderRadius.circular(4),
           child: Container(

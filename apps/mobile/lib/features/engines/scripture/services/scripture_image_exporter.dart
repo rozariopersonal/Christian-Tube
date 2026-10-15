@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/link/deep_link_service.dart';
 import '../models/scripture_card.dart';
@@ -23,6 +22,7 @@ class ScriptureGraphicGenerator {
     bool isBold = false,
     bool isItalic = false,
     String textAlign = 'center',
+    bool isDark = true,
     int width = 1080,
     int height = 1920,
     String appName = 'ChristianApp',
@@ -44,17 +44,9 @@ class ScriptureGraphicGenerator {
     final versionMeta = BibleDownloadManager.getMeta(
         card.resolvedVersion ?? activeVersionId);
 
-    // 1. Draw Background (High-Res Image or Procedural Gradient)
-    ui.Image? loadedImage;
-    if (!preset.isGradient && preset.imageUrl != null) {
-      loadedImage = await _fetchUiImage(preset.imageUrl!);
-    }
-
-    if (loadedImage != null) {
-      _drawImageCover(canvas, loadedImage, w, h);
-    } else {
-      final colors = preset.gradientColors ??
-          const [Color(0xFF0F172A), Color(0xFF020617), Color(0xFF000000)];
+    // 1. Draw Background (Procedural Theme-Aware Gradient or Solid)
+    final colors = isDark ? preset.darkColors : preset.lightColors;
+    if (preset.isGradient) {
       final bgPaint = Paint()
         ..shader = ui.Gradient.linear(
           Offset.zero,
@@ -62,27 +54,32 @@ class ScriptureGraphicGenerator {
           colors,
         );
       canvas.drawRect(Rect.fromLTWH(0, 0, w, h), bgPaint);
+    } else {
+      final bgPaint = Paint()
+        ..color = colors.isNotEmpty
+            ? colors.first
+            : (isDark ? const Color(0xFF000000) : const Color(0xFFFBFBF9));
+      canvas.drawRect(Rect.fromLTWH(0, 0, w, h), bgPaint);
     }
 
-    // 2. Draw Multi-Stop Readability Dark Scrim Overlay
-    final scrimPaint = Paint()
-      ..shader = ui.Gradient.linear(
-        const Offset(0, 0),
-        Offset(0, h),
-        [
-          const Color(0xAA000000), // Top 67% black
-          const Color(0x99000000), // Center 60% black
-          const Color(0xBF000000), // Mid-bottom 75% black
-          const Color(0xF2000000), // Bottom 95% black
-        ],
-        [0.0, 0.30, 0.65, 1.0],
-      );
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), scrimPaint);
+    // 2. Readability Scrim (gentle in dark mode for gradients; none in light mode)
+    if (isDark && preset.isGradient) {
+      final scrimPaint = Paint()
+        ..shader = ui.Gradient.linear(
+          const Offset(0, 0),
+          Offset(0, h),
+          [
+            const Color(0x33000000), // Top 20% black
+            const Color(0x66000000), // Bottom 40% black
+          ],
+        );
+      canvas.drawRect(Rect.fromLTWH(0, 0, w, h), scrimPaint);
+    }
 
     // 3. Layout Verse Typography with TextPainter
     final verseText = card.resolvedText ??
         'Peace I leave with you; my peace I give you. Do not let your hearts be troubled.';
-    
+
     final words = verseText.split(RegExp(r'\s+'));
     int maxWordLength = 0;
     for (final w in words) {
@@ -99,7 +96,11 @@ class ScriptureGraphicGenerator {
       baseFontSize = (baseFontSize - penalty).clamp(26.0, 60.0);
     }
 
-    final textColor = ScriptureThemeCatalog.parseColor(textColorHex);
+    Color textColor = ScriptureThemeCatalog.parseColor(textColorHex);
+    if (!isDark && textColorHex == '#FFFFFF') {
+      textColor = preset.defaultLightText;
+    }
+
     final fontWeight = isBold ? FontWeight.w700 : FontWeight.w400;
     final fontStyle = isItalic ? FontStyle.italic : FontStyle.normal;
 
@@ -128,12 +129,12 @@ class ScriptureGraphicGenerator {
 
     // Opening Quote Mark TextPainter
     final quotePainter = TextPainter(
-      text: const TextSpan(
+      text: TextSpan(
         text: '“',
         style: TextStyle(
           fontSize: 96,
           fontFamily: 'serif',
-          color: Color(0xFFF59E0B),
+          color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706),
           height: 0.8,
         ),
       ),
@@ -147,13 +148,15 @@ class ScriptureGraphicGenerator {
         text: verseText,
         style: textStyle.copyWith(
           height: 1.45,
-          shadows: [
-            const Shadow(
-              color: Colors.black,
-              blurRadius: 24,
-              offset: Offset(0, 4),
-            ),
-          ],
+          shadows: isDark
+              ? [
+                  const Shadow(
+                    color: Colors.black,
+                    blurRadius: 24,
+                    offset: Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -167,8 +170,8 @@ class ScriptureGraphicGenerator {
     final refPainter = TextPainter(
       text: TextSpan(
         text: refText,
-        style: const TextStyle(
-          color: Color(0xFFFBBF24),
+        style: TextStyle(
+          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E),
           fontSize: 28,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.2,
@@ -218,11 +221,13 @@ class ScriptureGraphicGenerator {
     );
 
     final badgeBgPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.5);
+      ..color = (isDark ? Colors.black : Colors.white)
+          .withValues(alpha: isDark ? 0.50 : 0.85);
     canvas.drawRRect(badgeRect, badgeBgPaint);
 
     final badgeBorderPaint = Paint()
-      ..color = const Color(0xFFF59E0B).withValues(alpha: 0.5)
+      ..color = (isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706))
+          .withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     canvas.drawRRect(badgeRect, badgeBorderPaint);
@@ -236,8 +241,8 @@ class ScriptureGraphicGenerator {
     final watermarkPainter = TextPainter(
       text: TextSpan(
         text: '✦  $appName Words',
-        style: const TextStyle(
-          color: Color(0xFFFBBF24),
+        style: TextStyle(
+          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E),
           fontSize: 24,
           fontWeight: FontWeight.w600,
           letterSpacing: 2.5,
@@ -258,41 +263,6 @@ class ScriptureGraphicGenerator {
 
     return byteData!.buffer.asUint8List();
   }
-
-  static void _drawImageCover(
-      Canvas canvas, ui.Image image, double targetW, double targetH) {
-    final imgW = image.width.toDouble();
-    final imgH = image.height.toDouble();
-
-    final scale = (targetW / imgW > targetH / imgH)
-        ? (targetW / imgW)
-        : (targetH / imgH);
-    final scaledW = imgW * scale;
-    final scaledH = imgH * scale;
-
-    final srcRect = Rect.fromLTWH(0, 0, imgW, imgH);
-    final dstRect = Rect.fromLTWH(
-      (targetW - scaledW) / 2.0,
-      (targetH - scaledH) / 2.0,
-      scaledW,
-      scaledH,
-    );
-
-    canvas.drawImageRect(image, srcRect, dstRect, Paint());
-  }
-
-  static Future<ui.Image?> _fetchUiImage(String url) async {
-    try {
-      final response =
-          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
-      if (response.statusCode == 200) {
-        final codec = await ui.instantiateImageCodec(response.bodyBytes);
-        final frame = await codec.getNextFrame();
-        return frame.image;
-      }
-    } catch (_) {}
-    return null;
-  }
 }
 
 class ScriptureImageExporter {
@@ -310,8 +280,11 @@ class ScriptureImageExporter {
     String appName = 'ChristianApp',
   }) async {
     try {
+      final isDark = context != null
+          ? (Theme.of(context).brightness == Brightness.dark)
+          : true;
       final currentKey =
-          '${card.id}_${activeVersionId}_${fontFamily}_${fontSizeScale}_${textColorHex}_${card.activeBackground}';
+          '${card.id}_${activeVersionId}_${fontFamily}_${fontSizeScale}_${textColorHex}_${card.activeBackground}_$isDark';
 
       // 1. Use pre-created image from memory (0ms instant) or generate if not ready
       Uint8List pngBytes;
@@ -328,6 +301,7 @@ class ScriptureImageExporter {
           isBold: isBold,
           isItalic: isItalic,
           textAlign: textAlign,
+          isDark: isDark,
           appName: appName,
         );
         card.precomputedImageBytes = pngBytes;
@@ -372,6 +346,9 @@ class ScriptureImageExporter {
       }
     } catch (e) {
       debugPrint('Error triggering share dialog: $e');
+      final isDark = context != null
+          ? (Theme.of(context).brightness == Brightness.dark)
+          : true;
       final sanitizedRef =
           card.referenceLabel.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
       final fileName =
@@ -386,6 +363,7 @@ class ScriptureImageExporter {
             isBold: isBold,
             isItalic: isItalic,
             textAlign: textAlign,
+            isDark: isDark,
             appName: appName,
           );
       await saveOrDownloadFile(pngBytes, fileName);
