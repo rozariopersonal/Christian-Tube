@@ -450,9 +450,6 @@ class _BibleScreenState extends State<BibleScreen> {
     if (s.selectedVerses.isEmpty) return;
     Clipboard.setData(ClipboardData(text: s.selectedText())).then((_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verses copied to clipboard')),
-        );
         _controller.clearSelection();
       }
     });
