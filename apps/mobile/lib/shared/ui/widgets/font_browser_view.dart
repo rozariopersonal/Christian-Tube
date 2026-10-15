@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile/core/layout/adaptivity.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
@@ -65,14 +66,28 @@ class _FontBrowserViewState extends State<FontBrowserView> {
     final tokens = context.tokens;
     final textCol = widget.appearance.textColor(tokens);
     final borderCol = widget.appearance.surfaceBorder(tokens);
+    final screen = ScreenClass.of(context);
 
     final fonts = ScriptureThemeCatalog.getFontsForLanguage(widget.appearance.languageCode);
     final filteredFonts = _filterFonts(fonts);
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (screen.isCompact) ...[
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: borderCol,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+
         // Header with Back navigation and Title
         Row(
           children: [
@@ -125,6 +140,13 @@ class _FontBrowserViewState extends State<FontBrowserView> {
                 ),
               ),
             ),
+            if (!screen.isCompact) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Icon(Icons.close, size: 20, color: widget.appearance.mutedTextColor(tokens)),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ],
         ),
 
@@ -144,16 +166,14 @@ class _FontBrowserViewState extends State<FontBrowserView> {
           ),
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
         // Specimen List
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * 0.55,
-          ),
+        Expanded(
           child: ListView.separated(
-            shrinkWrap: true,
             itemCount: filteredFonts.length,
+            padding: const EdgeInsets.only(top: 4, bottom: 20),
+            physics: const BouncingScrollPhysics(),
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final font = filteredFonts[index];
