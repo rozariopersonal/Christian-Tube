@@ -41,6 +41,9 @@ class DownloadsState {
   final bool isBooksBundleDownloading;
   final double booksBundleProgress;
 
+  final Set<String> installedArticleLanguages;
+  final Set<String> downloadingArticleLanguages;
+
   final bool songsInstalled;
   final bool isSongsDownloading;
   final double songsProgress;
@@ -72,6 +75,8 @@ class DownloadsState {
     this.booksBundleInstalled = false,
     this.isBooksBundleDownloading = false,
     this.booksBundleProgress = 0.0,
+    this.installedArticleLanguages = const {},
+    this.downloadingArticleLanguages = const {},
     this.songsInstalled = false,
     this.isSongsDownloading = false,
     this.songsProgress = 0.0,
@@ -100,6 +105,8 @@ class DownloadsState {
     bool? booksBundleInstalled,
     bool? isBooksBundleDownloading,
     double? booksBundleProgress,
+    Set<String>? installedArticleLanguages,
+    Set<String>? downloadingArticleLanguages,
     bool? songsInstalled,
     bool? isSongsDownloading,
     double? songsProgress,
@@ -128,6 +135,10 @@ class DownloadsState {
       isBooksBundleDownloading:
           isBooksBundleDownloading ?? this.isBooksBundleDownloading,
       booksBundleProgress: booksBundleProgress ?? this.booksBundleProgress,
+      installedArticleLanguages:
+          installedArticleLanguages ?? this.installedArticleLanguages,
+      downloadingArticleLanguages:
+          downloadingArticleLanguages ?? this.downloadingArticleLanguages,
       songsInstalled: songsInstalled ?? this.songsInstalled,
       isSongsDownloading: isSongsDownloading ?? this.isSongsDownloading,
       songsProgress: songsProgress ?? this.songsProgress,

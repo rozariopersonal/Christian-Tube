@@ -47,6 +47,11 @@ class LanguageMeta {
     'te': LanguageMeta(code: 'te', englishName: 'Telugu', nativeName: 'తెలుగు'),
     'kn': LanguageMeta(code: 'kn', englishName: 'Kannada', nativeName: 'ಕನ್ನಡ'),
     'ml': LanguageMeta(code: 'ml', englishName: 'Malayalam', nativeName: 'മലയാളം'),
+    'gu': LanguageMeta(code: 'gu', englishName: 'Gujarati', nativeName: 'ગુજરાતી'),
+    'mr': LanguageMeta(code: 'mr', englishName: 'Marathi', nativeName: 'मराठी'),
+    'bn': LanguageMeta(code: 'bn', englishName: 'Bengali', nativeName: 'বাংলা'),
+    'pa': LanguageMeta(code: 'pa', englishName: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ'),
+    'ne': LanguageMeta(code: 'ne', englishName: 'Nepali', nativeName: 'नेपाली'),
     'de': LanguageMeta(code: 'de', englishName: 'German', nativeName: 'Deutsch'),
     'ro': LanguageMeta(code: 'ro', englishName: 'Romanian', nativeName: 'Română'),
     'pt': LanguageMeta(code: 'pt', englishName: 'Portuguese', nativeName: 'Português'),
@@ -56,7 +61,10 @@ class LanguageMeta {
     'it': LanguageMeta(code: 'it', englishName: 'Italian', nativeName: 'Italiano'),
     'pl': LanguageMeta(code: 'pl', englishName: 'Polish', nativeName: 'Polski'),
     'ru': LanguageMeta(code: 'ru', englishName: 'Russian', nativeName: 'Русский'),
-    'mr': LanguageMeta(code: 'mr', englishName: 'Marathi', nativeName: 'मराठी'),
+    'hu': LanguageMeta(code: 'hu', englishName: 'Hungarian', nativeName: 'Magyar'),
+    'mg': LanguageMeta(code: 'mg', englishName: 'Malagasy', nativeName: 'Malagasy'),
+    'ja': LanguageMeta(code: 'ja', englishName: 'Japanese', nativeName: '日本語'),
+    'ko': LanguageMeta(code: 'ko', englishName: 'Korean', nativeName: '한국어'),
   };
 
   /// Languages discovered at runtime (e.g. the hosted `languages.json`

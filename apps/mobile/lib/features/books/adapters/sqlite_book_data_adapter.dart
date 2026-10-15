@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'package:mobile/core/api/github_data_service.dart';
+import 'package:mobile/core/api/release_assets.dart';
 import 'package:mobile/core/config/app_config.dart';
 import '../models/book.dart';
 import '../models/book_chapter.dart';
@@ -554,17 +555,107 @@ class SqliteBookDataAdapter implements BookDataAdapter {
     }
   }
 
+  static List<Book>? _cachedBooks;
+
+  Future<File?> _getBookCatalogCacheFile() async {
+    if (kIsWeb) return null;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final cacheDir = Directory(p.join(dir.path, 'books_cache'));
+      if (!await cacheDir.exists()) {
+        await cacheDir.create(recursive: true);
+      }
+      final rev =
+          ReleaseAssets.revision.trim().replaceAll(RegExp(r'[^\w]'), '_');
+      final fileName = rev.isEmpty ? 'catalog.json' : 'catalog_$rev.json';
+      return File(p.join(cacheDir.path, fileName));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _syncCatalogRemoteInBackground(File? cacheFile) {
+    if (kIsWeb) return;
+    unawaited(Future(() async {
+      try {
+        final urls = GitHubDataService.booksCatalogUrls();
+        final dio = Dio(BaseOptions(
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 15),
+        ));
+        for (final url in urls) {
+          try {
+            final res = await dio.get<String>(
+              url,
+              options: Options(responseType: ResponseType.plain),
+            );
+            if (res.statusCode == 200 && res.data != null) {
+              final list = jsonDecode(res.data!) as List<dynamic>;
+              final remoteBooks = list
+                  .map((item) =>
+                      Book.fromMap(item as Map<String, dynamic>))
+                  .toList();
+              if (remoteBooks.isNotEmpty) {
+                _cachedBooks = remoteBooks;
+                if (cacheFile != null) {
+                  await cacheFile.writeAsString(res.data!);
+                }
+              }
+              break;
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }));
+  }
+
   /// Retrieves all books, optionally filtered by query, subject, or author.
   Future<List<Book>> getBooks({String? query, String? subject, String? author}) async {
     return getCatalogFromAsset(query: query, subject: subject, author: author);
   }
 
   @override
-  Future<List<Book>> getCatalogFromAsset({String? query, String? subject, String? author, String? language}) async {
+  Future<List<Book>> getCatalogFromAsset({
+    String? query,
+    String? subject,
+    String? author,
+    String? language,
+    bool forceRefresh = false,
+  }) async {
     try {
-      final jsonStr = await rootBundle.loadString('assets/books/catalog.json');
-      final list = jsonDecode(jsonStr) as List<dynamic>;
-      var books = list.map((item) => Book.fromMap(item as Map<String, dynamic>)).toList();
+      var allBooks = _cachedBooks;
+      if (allBooks == null || forceRefresh) {
+        final cacheFile = await _getBookCatalogCacheFile();
+        String? jsonStr;
+
+        if (!forceRefresh && cacheFile != null && await cacheFile.exists()) {
+          try {
+            jsonStr = await cacheFile.readAsString();
+          } catch (_) {}
+        }
+
+        if (jsonStr == null || jsonStr.isEmpty) {
+          try {
+            jsonStr = await rootBundle.loadString('assets/books/catalog.json');
+            if (cacheFile != null) {
+              unawaited(cacheFile.writeAsString(jsonStr));
+            }
+          } catch (_) {}
+        }
+
+        if (jsonStr != null && jsonStr.isNotEmpty) {
+          final list = jsonDecode(jsonStr) as List<dynamic>;
+          allBooks = list
+              .map((item) =>
+                  Book.fromMap(item as Map<String, dynamic>))
+              .toList();
+          _cachedBooks = allBooks;
+        }
+
+        _syncCatalogRemoteInBackground(cacheFile);
+      }
+
+      var books = allBooks ?? <Book>[];
 
       if (language != null && language.trim().isNotEmpty && language.trim().toLowerCase() != 'all') {
         final l = language.trim().toLowerCase();

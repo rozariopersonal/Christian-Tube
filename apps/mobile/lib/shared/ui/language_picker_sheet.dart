@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_tokens.dart';
+import '../services/library_languages_controller.dart';
 import 'language_list_tile.dart';
 import 'language_meta.dart';
+
+sealed class _PickerEntry {}
+
+class _LanguageEntry extends _PickerEntry {
+  final String code;
+  _LanguageEntry(this.code);
+}
+
+class _HeaderEntry extends _PickerEntry {
+  final String title;
+  final IconData icon;
+  _HeaderEntry(this.title, this.icon);
+}
 
 /// An adaptive modal sheet for selecting one or multiple catalog languages.
 ///
@@ -288,47 +302,125 @@ class _LanguagePickerSheetState extends State<LanguagePickerSheet> {
             const SizedBox(height: 10),
             Divider(color: tokens.surfaceBorder, height: 1),
 
-            Flexible(
-              child: filteredLanguages.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 36),
-                      child: Center(
-                        child: Text(
-                          'No matching language found',
-                          style: TextStyle(
-                              color: tokens.onSurfaceMuted, fontSize: 13),
-                        ),
+            Builder(
+              builder: (context) {
+                final List<_PickerEntry> entries = [];
+                if (_filterQuery.isNotEmpty) {
+                  for (final code in filteredLanguages) {
+                    entries.add(_LanguageEntry(code));
+                  }
+                } else {
+                  if (widget.availableLanguages.any((c) => c.toLowerCase() == 'all')) {
+                    entries.add(_LanguageEntry('All'));
+                  }
+
+                  final langState = LibraryLanguagesController.instance.state;
+                  final topCodes = <String>{};
+                  for (final code in langState.recentLanguages) {
+                    if (code.toLowerCase() != 'all' &&
+                        widget.availableLanguages.any((c) => c.toLowerCase() == code.toLowerCase())) {
+                      topCodes.add(code);
+                    }
+                  }
+                  for (final code in langState.frequentlyUsedLanguages) {
+                    if (code.toLowerCase() != 'all' &&
+                        widget.availableLanguages.any((c) => c.toLowerCase() == code.toLowerCase())) {
+                      topCodes.add(code);
+                    }
+                  }
+
+                  if (topCodes.isNotEmpty) {
+                    entries.add(_HeaderEntry('Frequently & Recently Used', Icons.history_rounded));
+                    for (final code in topCodes) {
+                      entries.add(_LanguageEntry(code));
+                    }
+                    entries.add(_HeaderEntry('All Languages', Icons.translate_rounded));
+                  }
+
+                  final remaining = widget.availableLanguages.where((code) {
+                    if (code.toLowerCase() == 'all') return false;
+                    return !topCodes.any((t) => t.toLowerCase() == code.toLowerCase());
+                  }).toList()
+                    ..sort();
+
+                  for (final code in remaining) {
+                    entries.add(_LanguageEntry(code));
+                  }
+                }
+
+                if (entries.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 36),
+                    child: Center(
+                      child: Text(
+                        'No matching language found',
+                        style: TextStyle(
+                            color: tokens.onSurfaceMuted, fontSize: 13),
                       ),
-                    )
-                  : ListView.separated(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 8),
-                      itemCount: filteredLanguages.length,
-                      separatorBuilder: (_, __) => Divider(
+                    ),
+                  );
+                }
+
+                return Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 6, horizontal: 8),
+                    itemCount: entries.length,
+                    separatorBuilder: (context, index) {
+                      final curr = entries[index];
+                      final next = index + 1 < entries.length ? entries[index + 1] : null;
+                      if (curr is _HeaderEntry || next is _HeaderEntry) {
+                        return const SizedBox.shrink();
+                      }
+                      return Divider(
                         color: tokens.surfaceBorder.withValues(alpha: 0.4),
                         height: 1,
                         indent: 56,
                         endIndent: 12,
-                      ),
-                      itemBuilder: (context, index) {
-                        final code = filteredLanguages[index];
-                        final isSelected = code.toLowerCase() == 'all'
-                            ? isAll
-                            : (!isAll &&
-                                _currentSelection.any((l) =>
-                                    l.toLowerCase() == code.toLowerCase()));
-                        final count = widget.itemCounts[code] ?? 0;
-
-                        return LanguageListTile(
-                          code: code,
-                          isSelected: isSelected,
-                          itemCount: count,
-                          itemNoun: widget.itemNoun,
-                          onTap: () => _toggleLanguage(code),
+                      );
+                    },
+                    itemBuilder: (context, index) {
+                      final entry = entries[index];
+                      if (entry is _HeaderEntry) {
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                          child: Row(
+                            children: [
+                              Icon(entry.icon, size: 14, color: tokens.accent),
+                              const SizedBox(width: 6),
+                              Text(
+                                entry.title.toUpperCase(),
+                                style: TextStyle(
+                                  color: tokens.onSurfaceMuted,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
                         );
-                      },
-                    ),
+                      }
+                      final code = (entry as _LanguageEntry).code;
+                      final isSelected = code.toLowerCase() == 'all'
+                          ? isAll
+                          : (!isAll &&
+                              _currentSelection.any((l) =>
+                                  l.toLowerCase() == code.toLowerCase()));
+                      final count = widget.itemCounts[code] ?? 0;
+
+                      return LanguageListTile(
+                        code: code,
+                        isSelected: isSelected,
+                        itemCount: count,
+                        itemNoun: widget.itemNoun,
+                        onTap: () => _toggleLanguage(code),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
 
             Divider(color: tokens.surfaceBorder, height: 1),

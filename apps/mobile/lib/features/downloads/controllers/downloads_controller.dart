@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+import '../../articles/services/articles_download_manager.dart';
 import '../../audio/services/audio_download_service.dart';
 import '../../audio/services/audio_local_library.dart';
 import '../../bible/services/study/bible_study_updater.dart';
@@ -19,6 +20,7 @@ class DownloadsController extends ChangeNotifier {
   final DictionaryDownloadManager _dictManager;
   final BookService _bookService;
   final SongsDownloadManager _songsManager;
+  final ArticlesDownloadManager _articlesManager;
   final AudioLocalLibrary _audioLibrary;
   final AudioDownloadService _audioDownloadService;
   final StorageCalculatorService _storageService;
@@ -33,6 +35,7 @@ class DownloadsController extends ChangeNotifier {
     DictionaryDownloadManager? dictManager,
     BookService? bookService,
     SongsDownloadManager? songsManager,
+    ArticlesDownloadManager? articlesManager,
     AudioLocalLibrary? audioLibrary,
     AudioDownloadService? audioDownloadService,
     StorageCalculatorService? storageService,
@@ -40,6 +43,7 @@ class DownloadsController extends ChangeNotifier {
         _dictManager = dictManager ?? DictionaryDownloadManager(),
         _bookService = bookService ?? BookService.instance,
         _songsManager = songsManager ?? SongsDownloadManager(),
+        _articlesManager = articlesManager ?? ArticlesDownloadManager(),
         _audioLibrary = audioLibrary ?? AudioLocalLibrary(),
         _audioDownloadService =
             audioDownloadService ?? AudioDownloadService.instance,
@@ -52,6 +56,7 @@ class DownloadsController extends ChangeNotifier {
     _dictManager.addListener(_onServiceNotification);
     _bookService.addListener(_onServiceNotification);
     _songsManager.addListener(_onServiceNotification);
+    _articlesManager.addListener(_onServiceNotification);
     _audioDownloadService.addListener(_onServiceNotification);
 
     unawaited(refreshAll());
@@ -64,6 +69,7 @@ class DownloadsController extends ChangeNotifier {
     _dictManager.removeListener(_onServiceNotification);
     _bookService.removeListener(_onServiceNotification);
     _songsManager.removeListener(_onServiceNotification);
+    _articlesManager.removeListener(_onServiceNotification);
     _audioDownloadService.removeListener(_onServiceNotification);
     super.dispose();
   }
@@ -79,6 +85,7 @@ class DownloadsController extends ChangeNotifier {
       booksBundleInstalled: _state.booksBundleInstalled,
       isBooksBundleDownloading: _bookService.isDownloading,
       booksBundleProgress: _bookService.downloadProgress,
+      installedArticleLanguages: _articlesManager.installedLanguages,
       songsInstalled: _songsManager.isInstalled,
       isSongsDownloading: _songsManager.isDownloading,
       songsProgress: _songsManager.downloadProgress,
@@ -94,6 +101,7 @@ class DownloadsController extends ChangeNotifier {
     await _dictManager.initialize();
     await _bookService.initialize();
     await _songsManager.initialize();
+    await _articlesManager.initialize();
 
     final books = await _bookService.isInstalled();
     final studyDb = await BibleStudyUpdater.isDownloaded();
@@ -105,6 +113,7 @@ class DownloadsController extends ChangeNotifier {
       dictManager: _dictManager,
       bookService: _bookService,
       songsManager: _songsManager,
+      articlesManager: _articlesManager,
     );
     final audioSeries = await _storageService.scanDownloadedAudioSeries();
 
@@ -120,6 +129,7 @@ class DownloadsController extends ChangeNotifier {
       booksBundleInstalled: books,
       isBooksBundleDownloading: _bookService.isDownloading,
       booksBundleProgress: _bookService.downloadProgress,
+      installedArticleLanguages: _articlesManager.installedLanguages,
       songsInstalled: _songsManager.isInstalled,
       isSongsDownloading: _songsManager.isDownloading,
       songsProgress: _songsManager.downloadProgress,
@@ -227,13 +237,34 @@ class DownloadsController extends ChangeNotifier {
 
   // --- Songs Operations ---
 
-  Future<void> downloadSongs() async {
-    await _songsManager.download();
+  Future<void> downloadSongs({String? language}) async {
+    await _songsManager.download(language: language);
     await refreshAll();
   }
 
   Future<void> deleteSongs() async {
     await _songsManager.delete();
+    await refreshAll();
+  }
+
+  // --- Article Operations ---
+
+  bool isArticleLanguageInstalled(String lang) =>
+      _articlesManager.isInstalled(lang);
+
+  bool isArticleLanguageDownloading(String lang) =>
+      _articlesManager.isDownloading(lang);
+
+  double getArticleLanguageProgress(String lang) =>
+      _articlesManager.getProgress(lang);
+
+  Future<void> downloadArticlesLanguage(String lang) async {
+    await _articlesManager.downloadLanguage(lang);
+    await refreshAll();
+  }
+
+  Future<void> deleteArticlesLanguage(String lang) async {
+    await _articlesManager.deleteLanguage(lang);
     await refreshAll();
   }
 

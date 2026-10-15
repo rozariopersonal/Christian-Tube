@@ -1,3 +1,4 @@
+import '../../../shared/ui/language_meta.dart';
 import 'audio_track.dart';
 
 /// Represents a collection/series/album of audio sermon tracks.
@@ -30,7 +31,7 @@ class AudioSeries {
     this.coverUrl,
     required this.trackCount,
     required this.category,
-    this.language = 'English',
+    this.language = 'en',
     this.latestPublishedAt,
     this.channelId,
     this.channelName,
@@ -52,7 +53,7 @@ class AudioSeries {
       coverUrl: json['coverUrl'] as String?,
       trackCount: json['trackCount'] as int? ?? tracks.length,
       category: json['category'] as String? ?? 'Sermons',
-      language: json['language'] as String? ?? 'English',
+      language: LanguageMeta.canonicalCode((json['language'] ?? 'en').toString()),
       latestPublishedAt: _parseTimestamp(json['latestPublishedAt']),
       channelId: json['channelId'] as String?,
       channelName: json['channelName'] as String?,

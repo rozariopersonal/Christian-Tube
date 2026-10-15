@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/theme/theme_service.dart';
+import '../../shared/ui/language_meta.dart';
 import '../update/update_service.dart';
 import '../feedback/widgets/voice_feedback_sheet.dart';
 import 'widgets/app_share_dialog.dart';
@@ -19,15 +20,9 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _version = '1.28.0';
 
-  final List<Map<String, String>> _languages = [
-    {'code': 'en', 'name': 'English', 'native': 'English'},
-    {'code': 'es', 'name': 'Spanish', 'native': 'Español'},
-    {'code': 'fr', 'name': 'French', 'native': 'Français'},
-    {'code': 'ta', 'name': 'Tamil', 'native': 'தமிழ்'},
-    {'code': 'hi', 'name': 'Hindi', 'native': 'हिन्दी'},
-    {'code': 'pt', 'name': 'Portuguese', 'native': 'Português'},
-    {'code': 'de', 'name': 'German', 'native': 'Deutsch'},
-  ];
+  List<LanguageMeta> get _languages => LanguageMeta.supportedLanguages.values
+      .where((l) => l.code.toLowerCase() != 'all')
+      .toList();
 
   final List<String> _fonts = [
     'Inter',
@@ -263,10 +258,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: Column(
                     children: _languages.map((lang) {
-                      final isSelected = currentLang == lang['code'];
+                      final isSelected = currentLang == lang.code;
                       return ListTile(
-                        title: Text(lang['name']!),
-                        subtitle: Text(lang['native']!,
+                        title: Text(lang.englishName),
+                        subtitle: Text(lang.nativeName,
                             style: TextStyle(
                                 fontSize: 12,
                                 color: context.tokens.onSurfaceMuted)),
@@ -275,7 +270,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 color: theme.colorScheme.primary)
                             : null,
                         onTap: () =>
-                            widget.themeService.setLanguage(lang['code']!),
+                            widget.themeService.setLanguage(lang.code),
                       );
                     }).toList(),
                   ),
