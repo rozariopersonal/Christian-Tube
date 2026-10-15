@@ -44,7 +44,7 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
     _translit = SongTransliterationController()..addListener(_onChanged);
     _translit.load();
     _song = widget.initialSong;
-    if (_song == null && _effectiveId.isNotEmpty) {
+    if ((_song == null || _song!.verses.isEmpty) && _effectiveId.isNotEmpty) {
       _loadSong();
     }
   }
@@ -53,9 +53,9 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
     setState(() => _loading = true);
     try {
       final loaded = await SongsCatalogService().getSong(_effectiveId);
-      if (mounted) setState(() => _song = loaded);
+      if (mounted) setState(() => _song = loaded ?? widget.initialSong ?? const Song.empty());
     } catch (_) {
-      if (mounted) setState(() => _song = const Song.empty());
+      if (mounted) setState(() => _song = widget.initialSong ?? const Song.empty());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
