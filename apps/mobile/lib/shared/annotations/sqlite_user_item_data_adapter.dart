@@ -20,18 +20,45 @@ class SqliteUserItemDataAdapter implements UserItemDataAdapter {
   final String? _databasePath;
 
   Database? _db;
-  bool _isInitializing = false;
+
+  Future<Database?>? _openFuture;
 
   Future<Database?> get database async {
     if (_db != null && _db!.isOpen) return _db;
-    await initialize();
-    return _db;
+    return _openDatabase();
+  }
+
+  Future<Database?> _openDatabase() {
+    if (_openFuture != null) return _openFuture!;
+    final future = Future(() async {
+      try {
+        initPlatformDatabases();
+        final dbPath = _databasePath ??
+            p.join(await getDatabasesPath(), 'christian_tube_user_items.db');
+        final db = await openDatabase(
+          dbPath,
+          version: 1,
+          onCreate: (db, version) async {
+            await _createTables(db);
+          },
+        );
+        _db = db;
+        return db;
+      } catch (e) {
+        debugPrint('SqliteUserItemDataAdapter initialize error: $e');
+        return null;
+      } finally {
+        _openFuture = null;
+      }
+    });
+    _openFuture = future;
+    return future;
   }
 
   Future<void> close() async {
+    _openFuture = null;
     final db = _db;
     _db = null;
-    _isInitializing = false;
     if (db != null && db.isOpen) {
       try {
         await db.close();
@@ -41,35 +68,7 @@ class SqliteUserItemDataAdapter implements UserItemDataAdapter {
 
   @override
   Future<void> initialize() async {
-    if (_db != null && _db!.isOpen) return;
-    if (_isInitializing) {
-      while (_isInitializing) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-      return;
-    }
-    _isInitializing = true;
-    try {
-      initPlatformDatabases();
-      final dbPath = _databasePath ?? p.join(await getDatabasesPath(), 'christian_tube_user_items.db');
-      _db = await openDatabase(
-        dbPath,
-        version: 1,
-        onCreate: (db, version) async {
-          await _createTables(db);
-        },
-        onUpgrade: (db, oldVersion, newVersion) async {
-          await _createTables(db);
-        },
-      );
-      if (_db != null) {
-        await _createTables(_db!);
-      }
-    } catch (e) {
-      debugPrint('SqliteUserItemDataAdapter initialize error: $e');
-    } finally {
-      _isInitializing = false;
-    }
+    await database;
   }
 
   Future<void> _createTables(Database db) async {

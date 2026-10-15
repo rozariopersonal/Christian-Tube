@@ -23,7 +23,22 @@ import 'package:mobile/shared/models/note.dart';
 class NoteService {
   NoteService._(NoteDataAdapter adapter) : _adapter = adapter;
 
-  late final NoteDataAdapter _adapter;
+  NoteDataAdapter _adapter;
+
+  /// Redirects the SQLite database file in tests (mirrors
+  /// `LocalBibleService.overrideDbPath`); must be set before [resetForTest].
+  @visibleForTesting
+  static String? overrideDbPath;
+
+  /// Injected adapter for test environments.
+  @visibleForTesting
+  static NoteDataAdapter? overrideAdapter;
+
+  static NoteDataAdapter _platformAdapter() {
+    if (overrideAdapter != null) return overrideAdapter!;
+    if (kIsWeb) return WebNoteDataAdapter();
+    return SqliteNoteDataAdapter(databasePath: overrideDbPath);
+  }
 
   /// Global shared instance backed by the platform-appropriate adapter.
   static final NoteService instance = NoteService._(_platformAdapter());
@@ -33,9 +48,14 @@ class NoteService {
   factory NoteService.forTesting({NoteDataAdapter? adapter}) =>
       NoteService._(adapter ?? _platformAdapter());
 
-  static NoteDataAdapter _platformAdapter() {
-    if (kIsWeb) return WebNoteDataAdapter();
-    return SqliteNoteDataAdapter();
+  /// Closes the active native adapter and rebuilds it from the current override state.
+  @visibleForTesting
+  static Future<void> resetForTest() async {
+    final prev = instance._adapter;
+    if (prev is SqliteNoteDataAdapter) {
+      await prev.close();
+    }
+    instance._adapter = _platformAdapter();
   }
 
   bool get _userTier => UserItemSyncService.instance.isUserTierActive;
