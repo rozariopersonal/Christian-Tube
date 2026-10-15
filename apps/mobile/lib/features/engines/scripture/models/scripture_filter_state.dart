@@ -14,7 +14,7 @@ class ScriptureFilterState extends BaseFeedFilterState {
   final String? comparisonVersionId;
 
   const ScriptureFilterState({
-    this.activeVersionId = 'TAOBVSI',
+    this.activeVersionId = 'NASB',
     this.fontSizeScale = 1.0,
     this.activeFontFamily = 'Playfair',
     this.textColorHex = '#FFFFFF',

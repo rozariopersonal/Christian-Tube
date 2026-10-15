@@ -345,6 +345,7 @@ class _SavedScripturesScreenState extends State<SavedScripturesScreen> {
                         fontFamily: 'Playfair',
                         fontSizeScale: 1.0,
                         textColorHex: '#FFFFFF',
+                        isDark: context.isDark,
                       );
                       if (context.mounted) {
                         ScriptureShareModal.show(

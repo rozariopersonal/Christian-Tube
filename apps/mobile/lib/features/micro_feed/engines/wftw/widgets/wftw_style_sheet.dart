@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import '../models/wftw_card.dart';
@@ -171,6 +170,9 @@ class _WftwStyleSheetState extends State<WftwStyleSheet> {
                       itemBuilder: (context, idx) {
                         final preset = ScriptureThemeCatalog.presets[idx];
                         final isSelected = _backgroundPresetId == preset.id;
+                        final colors = preset.resolveColors(context);
+                        final isDark = context.isDark;
+
                         return GestureDetector(
                           onTap: () {
                             setState(() => _backgroundPresetId = preset.id);
@@ -189,29 +191,61 @@ class _WftwStyleSheetState extends State<WftwStyleSheet> {
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                if (preset.imageUrl != null)
-                                  CachedNetworkImage(
-                                    imageUrl: preset.imageUrl!,
-                                    fit: BoxFit.cover,
-                                  )
-                                else if (preset.gradientColors != null)
+                                if (preset.isGradient)
                                   Container(
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
-                                        colors: preset.gradientColors!,
+                                        colors: colors,
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
                                       ),
                                     ),
+                                  )
+                                else
+                                  Container(
+                                    color: colors.isNotEmpty
+                                        ? colors.first
+                                        : (isDark ? tokens.scrim : tokens.background),
                                   ),
-                                if (isSelected)
-                                  Center(
-                                    child: Icon(
-                                      Icons.check_circle_rounded,
-                                      color: tokens.accent,
-                                      size: 24,
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.transparent,
+                                        (isDark ? tokens.scrim : tokens.onSurface)
+                                            .withValues(alpha: isDark ? 0.80 : 0.60),
+                                      ],
                                     ),
                                   ),
+                                ),
+                                if (isSelected)
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: CircleAvatar(
+                                      radius: 8,
+                                      backgroundColor: tokens.accent,
+                                      child: Icon(Icons.check, size: 11, color: tokens.scrim),
+                                    ),
+                                  ),
+                                Positioned(
+                                  bottom: 4,
+                                  left: 4,
+                                  right: 4,
+                                  child: Text(
+                                    preset.name,
+                                    style: TextStyle(
+                                      color: tokens.onScrim,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
                               ],
                             ),
                           ),

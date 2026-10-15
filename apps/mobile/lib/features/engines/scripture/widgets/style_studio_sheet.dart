@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_filter_state.dart';
@@ -308,7 +307,10 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
   Widget _buildLivePreviewCard(BackgroundPreset preset, dynamic versionMeta) {
     final previewText = widget.card.resolvedText ??
         '“Peace I leave with you; my peace I give you.”';
-    final textColor = ScriptureThemeCatalog.parseColor(_textColorHex);
+    Color textColor = ScriptureThemeCatalog.parseColor(_textColorHex);
+    if (!context.isDark && _textColorHex == '#FFFFFF') {
+      textColor = preset.resolveTextColor(context);
+    }
     final fontWeight = _isBold ? FontWeight.w700 : FontWeight.w400;
     final fontStyle = _isItalic ? FontStyle.italic : FontStyle.normal;
 
@@ -335,6 +337,10 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
       fontStyle: fontStyle,
     );
 
+    final colors = preset.resolveColors(context);
+    final isDark = context.isDark;
+    final scrimOpacity = isDark ? (preset.isGradient ? 0.20 : 0.0) : 0.0;
+
     return Container(
       height: 135,
       width: double.infinity,
@@ -346,7 +352,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
         ),
         boxShadow: [
           BoxShadow(
-            color: context.tokens.scrim.withValues(alpha: 0.54),
+            color: context.tokens.scrim.withValues(alpha: isDark ? 0.54 : 0.12),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -357,39 +363,37 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
         fit: StackFit.expand,
         children: [
           // Background Layer
-          if (preset.isGradient && preset.gradientColors != null)
+          if (preset.isGradient)
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: preset.gradientColors!,
+                  colors: colors,
                 ),
               ),
             )
-          else if (preset.imageUrl != null)
-            CachedNetworkImage(
-              imageUrl: preset.imageUrl!,
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) =>
-                  Container(color: context.tokens.surfaceVariant),
-            )
           else
-            Container(color: context.tokens.surface),
+            Container(
+              color: colors.isNotEmpty
+                  ? colors.first
+                  : (isDark ? context.tokens.scrim : context.tokens.background),
+            ),
 
-          // Dark Scrim Overlay
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  context.tokens.scrim.withValues(alpha: 0.6),
-                  context.tokens.scrim.withValues(alpha: 0.8),
-                ],
+          // Scrim Overlay (only where needed in dark mode)
+          if (scrimOpacity > 0.0)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    context.tokens.scrim.withValues(alpha: 0.20),
+                    context.tokens.scrim.withValues(alpha: 0.40),
+                  ],
+                ),
               ),
             ),
-          ),
 
           // Live Text & Badge
           Padding(
@@ -405,37 +409,44 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: textStyle.copyWith(
-                        shadows: [
-                          Shadow(
-                            color: context.tokens.scrim,
-                            blurRadius: 8,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
+                        shadows: isDark
+                            ? [
+                                Shadow(
+                                  color: context.tokens.scrim,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ]
+                            : null,
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: context.tokens.scrim.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: context.accent.withValues(alpha: 0.3),
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Text(
-                      '— ${widget.card.referenceLabel} (${widget.card.resolvedVersion ?? widget.filterState.activeVersionId}) —',
-                      style: TextStyle(
-                        color: context.tokens.accent,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? context.tokens.scrim.withValues(alpha: 0.5)
+                        : context.tokens.surface.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? context.accent.withValues(alpha: 0.3)
+                          : context.tokens.surfaceBorder,
+                      width: 1.0,
                     ),
                   ),
+                  child: Text(
+                    '— ${widget.card.referenceLabel} (${widget.card.resolvedVersion ?? widget.filterState.activeVersionId}) —',
+                    style: TextStyle(
+                      color: context.tokens.accent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -487,6 +498,9 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
   }
 
   Widget _buildBackgroundThumbnail(BackgroundPreset preset, bool isSelected) {
+    final colors = preset.resolveColors(context);
+    final isDark = context.isDark;
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -516,25 +530,22 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (preset.isGradient && preset.gradientColors != null)
+            if (preset.isGradient)
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: preset.gradientColors!,
+                    colors: colors,
                   ),
                 ),
               )
-            else if (preset.imageUrl != null)
-              CachedNetworkImage(
-                imageUrl: preset.imageUrl!,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) =>
-                    Container(color: context.tokens.surfaceVariant),
-              )
             else
-              Container(color: context.tokens.surface),
+              Container(
+                color: colors.isNotEmpty
+                    ? colors.first
+                    : (isDark ? context.tokens.scrim : context.tokens.background),
+              ),
 
             Container(
               decoration: BoxDecoration(
@@ -543,7 +554,7 @@ class _StyleStudioSheetState extends State<StyleStudioSheet> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    context.tokens.scrim.withValues(alpha: 0.87),
+                    (isDark ? context.tokens.scrim : context.tokens.onSurface).withValues(alpha: isDark ? 0.80 : 0.60),
                   ],
                 ),
               ),

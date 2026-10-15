@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
@@ -32,25 +31,99 @@ class WftwCardView extends StatefulWidget {
   State<WftwCardView> createState() => _WftwCardViewState();
 }
 
-class _WftwCardViewState extends State<WftwCardView> {
+class _WftwCardViewState extends State<WftwCardView>
+    with SingleTickerProviderStateMixin {
   final LocalBibleService _bibleService = LocalBibleService();
   String? _displayedText;
   String? _displayedVersion;
   DateTime _lastEdgeShift = DateTime.fromMillisecondsSinceEpoch(0);
 
+  late final AnimationController _entranceController;
+  late final Animation<double> _headerFade;
+  late final Animation<Offset> _headerSlide;
+  late final Animation<double> _textFade;
+  late final Animation<Offset> _textSlide;
+  late final Animation<double> _badgeFade;
+  late final Animation<Offset> _badgeSlide;
+
   @override
   void initState() {
     super.initState();
+
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _headerFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.0, 0.45, curve: Curves.easeOut),
+    );
+    _headerSlide = Tween<Offset>(
+      begin: const Offset(0.0, 0.04),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.0, 0.50, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _textFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.12, 0.85, curve: Curves.easeOut),
+    );
+    _textSlide = Tween<Offset>(
+      begin: const Offset(0.0, 0.05),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.12, 0.90, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _badgeFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.30, 1.0, curve: Curves.easeOut),
+    );
+    _badgeSlide = Tween<Offset>(
+      begin: const Offset(0.0, 0.06),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.30, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    if (widget.isActive) {
+      _entranceController.forward();
+    }
+
     _resolveVerseText();
   }
 
   @override
   void didUpdateWidget(covariant WftwCardView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        _entranceController.forward(from: 0.0);
+      } else {
+        _entranceController.reset();
+      }
+    }
     if (oldWidget.filterState.activeVersionId != widget.filterState.activeVersionId ||
         oldWidget.card.articleId != widget.card.articleId) {
       _resolveVerseText();
     }
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
   }
 
   Future<void> _resolveVerseText() async {
@@ -151,22 +224,36 @@ class _WftwCardViewState extends State<WftwCardView> {
     if (widget.filterState.textAlign == 'right') textAlign = TextAlign.right;
 
     final tokens = context.tokens;
+    final isDark = context.isDark;
     final mediaQuery = MediaQuery.of(context);
     final height = mediaQuery.size.height;
     final heightFactor = (height / 800.0).clamp(0.75, 1.25);
     final baseFontSize = _dynamicFontSize(primaryText, heightFactor);
     final finalFontSize = baseFontSize * widget.filterState.fontSizeScale;
 
-    final textColor = ScriptureThemeCatalog.parseColor(widget.filterState.textColorHex);
+    Color textColor = ScriptureThemeCatalog.parseColor(widget.filterState.textColorHex);
+    if (!isDark && widget.filterState.textColorHex == '#FFFFFF') {
+      textColor = preset.resolveTextColor(context);
+    }
+
+    final double scrimOpacity = isDark
+        ? (preset.isGradient ? 0.20 : 0.0)
+        : 0.0;
 
     return Stack(
       fit: StackFit.expand,
       children: [
         // 1. Background preset
-        _buildBackground(preset, tokens),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          child: KeyedSubtree(
+            key: ValueKey('${preset.id}_$isDark'),
+            child: _buildBackground(preset, tokens),
+          ),
+        ),
 
-        // 2. Scrim overlay for legibility
-        const CardScrimOverlay(),
+        // 2. Scrim overlay for legibility (only where needed in dark mode)
+        if (scrimOpacity > 0.0) CardScrimOverlay(opacity: scrimOpacity),
 
         // 3. Scrollable content canvas
         SafeArea(
@@ -191,54 +278,74 @@ class _WftwCardViewState extends State<WftwCardView> {
                             ? CrossAxisAlignment.end
                             : CrossAxisAlignment.center),
                     children: [
-                      // Article Title & Date Badge
-                      _ArticleHeaderBadge(
-                        title: widget.card.articleTitle,
-                        formattedDate: widget.card.formattedDate,
-                        onTap: widget.onReadArticleTap,
+                      // Article Title & Date Badge (Stagger 1: Entrance)
+                      FadeTransition(
+                        opacity: _headerFade,
+                        child: SlideTransition(
+                          position: _headerSlide,
+                          child: _ArticleHeaderBadge(
+                            title: widget.card.articleTitle,
+                            formattedDate: widget.card.formattedDate,
+                            onTap: widget.onReadArticleTap,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 24),
 
-                      // Verse / Excerpt Text
-                      Text(
-                        primaryText,
-                        textAlign: textAlign,
-                        softWrap: true,
-                        style: ScriptureThemeCatalog.getTextStyle(
-                          fontFamily: widget.card.customFontFamily ??
-                              widget.filterState.activeFontFamily,
-                          languageCode: lang,
-                          baseSize: finalFontSize,
-                          color: textColor,
-                          fontWeight: widget.filterState.isBold
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                          fontStyle: widget.filterState.isItalic
-                              ? FontStyle.italic
-                              : FontStyle.normal,
-                        ).copyWith(
-                          shadows: [
-                            Shadow(
-                              color: tokens.scrim,
-                              blurRadius: 18,
-                              offset: const Offset(0, 2),
+                      // Verse / Excerpt Text (Stagger 2: Upward Rise & Fade)
+                      FadeTransition(
+                        opacity: _textFade,
+                        child: SlideTransition(
+                          position: _textSlide,
+                          child: Text(
+                            primaryText,
+                            textAlign: textAlign,
+                            softWrap: true,
+                            style: ScriptureThemeCatalog.getTextStyle(
+                              fontFamily: widget.card.customFontFamily ??
+                                  widget.filterState.activeFontFamily,
+                              languageCode: lang,
+                              baseSize: finalFontSize,
+                              color: textColor,
+                              fontWeight: widget.filterState.isBold
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                              fontStyle: widget.filterState.isItalic
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
+                            ).copyWith(
+                              shadows: isDark
+                                  ? [
+                                      Shadow(
+                                        color: tokens.scrim,
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                      Shadow(
+                                        color: tokens.scrim.withValues(alpha: 0.54),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ]
+                                  : null,
                             ),
-                            Shadow(
-                              color: tokens.scrim.withValues(alpha: 0.54),
-                              blurRadius: 6,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
 
-                      // Reference Badge if primary verse is present
+                      // Reference Badge if primary verse is present (Stagger 3: Badge Entry)
                       if (widget.card.hasPrimaryVerse)
-                        _ReferenceBadge(
-                          reference: '— ${widget.card.referenceLabel}',
-                          versionId: primaryVersionId,
-                          onTap: widget.onReferenceTap,
+                        FadeTransition(
+                          opacity: _badgeFade,
+                          child: SlideTransition(
+                            position: _badgeSlide,
+                            child: _ReferenceBadge(
+                              reference: '— ${widget.card.referenceLabel}',
+                              versionId: primaryVersionId,
+                              onTap: widget.onReferenceTap,
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -258,11 +365,14 @@ class _WftwCardViewState extends State<WftwCardView> {
   }
 
   Widget _buildBackground(BackgroundPreset preset, AppTokens tokens) {
-    if (preset.isGradient && preset.gradientColors != null) {
+    final colors = preset.resolveColors(context);
+    final isDark = context.isDark;
+
+    if (preset.isGradient) {
       if (preset.isAnimatedGradient) {
         return AnimatedFluidGradient(
-          colors: preset.gradientColors!,
-          overlayOpacity: 0.35,
+          colors: colors,
+          overlayOpacity: isDark ? 0.20 : 0.0,
         );
       }
       return Container(
@@ -270,26 +380,17 @@ class _WftwCardViewState extends State<WftwCardView> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: preset.gradientColors!,
+            colors: colors,
           ),
         ),
       );
-    } else if (preset.imageUrl != null) {
-      return CachedNetworkImage(
-        imageUrl: preset.imageUrl!,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        fadeInDuration: const Duration(milliseconds: 300),
-        placeholder: (context, url) => Container(
-          color: tokens.surface,
-        ),
-        errorWidget: (context, url, error) => Container(
-          color: tokens.surface,
-        ),
+    } else {
+      return Container(
+        color: colors.isNotEmpty
+            ? colors.first
+            : (isDark ? tokens.scrim : tokens.background),
       );
     }
-    return Container(color: tokens.surface);
   }
 }
 
@@ -307,17 +408,36 @@ class _ArticleHeaderBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final isDark = context.isDark;
+
+    final badgeBg = isDark
+        ? tokens.scrim.withValues(alpha: 0.45)
+        : tokens.surface.withValues(alpha: 0.85);
+
+    final badgeBorder = isDark
+        ? tokens.surfaceBorder.withValues(alpha: 0.4)
+        : tokens.surfaceBorder;
+
+    final textColor = isDark ? tokens.onScrim : tokens.onSurface;
+    final iconColor = isDark ? tokens.onScrimMuted : tokens.onSurfaceMuted;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: tokens.scrim.withValues(alpha: 0.45),
+          color: badgeBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: tokens.surfaceBorder.withValues(alpha: 0.4),
+            color: badgeBorder,
             width: 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: tokens.scrim.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 8,
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -334,7 +454,7 @@ class _ArticleHeaderBadge extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: tokens.onScrim,
+                  color: textColor,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.3,
@@ -346,7 +466,7 @@ class _ArticleHeaderBadge extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 10,
-                color: tokens.onScrimMuted,
+                color: iconColor,
               ),
             ],
           ],
@@ -370,17 +490,35 @@ class _ReferenceBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final isDark = context.isDark;
+
+    final pillBg = isDark
+        ? tokens.scrim.withValues(alpha: 0.45)
+        : tokens.surface.withValues(alpha: 0.85);
+
+    final pillBorder = isDark
+        ? tokens.surfaceBorder.withValues(alpha: 0.35)
+        : tokens.surfaceBorder;
+
+    final pillTextColor = isDark ? tokens.onScrim : tokens.onSurface;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: tokens.scrim.withValues(alpha: 0.45),
+          color: pillBg,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: tokens.surfaceBorder.withValues(alpha: 0.35),
+            color: pillBorder,
             width: 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: tokens.scrim.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 8,
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -391,7 +529,7 @@ class _ReferenceBadge extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: tokens.onScrim,
+                  color: pillTextColor,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                   letterSpacing: 0.4,
@@ -402,7 +540,7 @@ class _ReferenceBadge extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: tokens.accent.withValues(alpha: 0.2),
+                color: tokens.accent.withValues(alpha: isDark ? 0.2 : 0.15),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -419,7 +557,7 @@ class _ReferenceBadge extends StatelessWidget {
               Icon(
                 Icons.open_in_new_rounded,
                 size: 13,
-                color: tokens.onScrimMuted,
+                color: isDark ? tokens.onScrimMuted : tokens.onSurfaceMuted,
               ),
             ],
           ],

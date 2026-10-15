@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
@@ -19,6 +20,17 @@ class ScriptureService {
   Future<void> initialize() async {
     await _localBible.initialize();
     await _offlineDb.initialize();
+  }
+
+  Future<List<String>> getInstalledVersionIds() async {
+    final ids = await _localBible.getInstalledVersionIds();
+    final usable = <String>[];
+    for (final id in ids) {
+      if (await _localBible.hasVerses(id)) {
+        usable.add(id);
+      }
+    }
+    return usable;
   }
 
   void resetRandomDeck() {
@@ -53,8 +65,12 @@ class ScriptureService {
 
       if (items.isNotEmpty) {
         const presets = ScriptureThemeCatalog.presets;
-        final List<ScriptureCard> fetchedCards = await Future.wait(
-          items.asMap().entries.map((entry) async {
+        final eagerCount = items.length > 3 ? 3 : items.length;
+        final eagerItems = items.take(eagerCount).toList();
+        final remainingItems = items.skip(eagerCount).toList();
+
+        final eagerCards = await Future.wait(
+          eagerItems.asMap().entries.map((entry) async {
             final i = entry.key;
             final item = entry.value;
             final card = ScriptureCard.fromJson(item);
@@ -68,6 +84,20 @@ class ScriptureService {
             return card;
           }),
         );
+
+        final List<ScriptureCard> fetchedCards = List.from(eagerCards);
+
+        for (var i = 0; i < remainingItems.length; i++) {
+          final item = remainingItems[i];
+          final card = ScriptureCard.fromJson(item);
+          final globalIdx = eagerCount + i;
+          if (card.backgroundPreset.isEmpty) {
+            final presetIdx = (page * limit + globalIdx) % presets.length;
+            card.customBackgroundPreset = presets[presetIdx].id;
+          }
+          fetchedCards.add(card);
+          unawaited(resolveCardText(card, activeVersionId));
+        }
 
         _cachedDeck.addAll(fetchedCards);
         return fetchedCards;

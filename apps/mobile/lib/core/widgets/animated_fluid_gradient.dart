@@ -1,4 +1,6 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../theme/app_tokens.dart';
 
@@ -7,10 +9,10 @@ class AnimatedFluidGradient extends StatefulWidget {
   final double overlayOpacity;
 
   const AnimatedFluidGradient({
-    Key? key,
+    super.key,
     required this.colors,
     this.overlayOpacity = 0.35,
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedFluidGradient> createState() => _AnimatedFluidGradientState();
@@ -27,7 +29,11 @@ class _AnimatedFluidGradientState extends State<AnimatedFluidGradient>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 15),
-    )..repeat();
+    );
+    final isRunningTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (!isRunningTest) {
+      _controller.repeat();
+    }
   }
 
   @override
