@@ -50,7 +50,8 @@ class WftwIndexEntry {
 Map<int, List<WftwIndexEntry>> groupByYear(List<WftwIndexEntry> entries) {
   final map = <int, List<WftwIndexEntry>>{};
   for (final entry in entries) {
-    final year = entry.year;
+    final year = entry.year ??
+        (entry.date.isNotEmpty ? int.tryParse(entry.date.split('-').first) : null);
     if (year == null) continue;
     (map[year] ??= []).add(entry);
   }

@@ -17,6 +17,7 @@ import '../../songs/models/song.dart';
 import '../../songs/services/songs_catalog_service.dart';
 import '../../songs/widgets/song_shelf.dart';
 import '../services/library_data_loader.dart';
+import '../widgets/library_section_header.dart';
 
 /// Library hub — one scrolling landing for everything users read:
 /// recent books (with progress), the multi-language Articles collection
@@ -49,9 +50,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<Book> _recentBooks = const [];
   List<Book> _allBooks = const [];
   Map<String, UserReadingProgress> _progressMap = const {};
-  List<WftwIndexEntry> _articlesRecent = const [];
   List<WftwIndexEntry> _allArticles = const [];
-  List<Song> _songs = const [];
   List<Song> _allSongs = const [];
   bool _loading = true;
 
@@ -136,19 +135,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       } catch (e) {
         debugPrint('Articles shelf unavailable: $e');
       }
-      final articles = allArticles.length <= _shelfCount
-          ? allArticles
-          : allArticles.sublist(0, _shelfCount);
-
       final List<Song> allSongs = [];
       try {
         allSongs.addAll(await _songsLoader());
       } catch (e) {
         debugPrint('Songs shelf unavailable: $e');
       }
-      final songs = allSongs.length <= _songShelfCount
-          ? allSongs
-          : allSongs.sublist(0, _songShelfCount);
 
       if (!mounted) return;
       _announceLanguages(books, allArticles, allSongs);
@@ -158,8 +150,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _allArticles = allArticles;
         _allSongs = allSongs;
         _progressMap = progressMap;
-        _articlesRecent = articles;
-        _songs = songs;
         _loading = false;
       });
     } catch (e) {
@@ -271,27 +261,55 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     SliverToBoxAdapter(
                       child: _buildLanguageFilter(tokens),
                     ),
-                    SliverToBoxAdapter(
-                      child: _buildBooksSection(tokens),
-                    ),
-                    if (_filteredSongs.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: SongShelf(
-                          songs: _filteredSongs,
-                          onViewAll: _openSongs,
-                          onTapSong: _openSong,
+                    if (_filteredBooks.isEmpty &&
+                        _filteredSongs.isEmpty &&
+                        _filteredArticles.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.search_off_rounded,
+                                    size: 48, color: tokens.onSurfaceMuted),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No library content found for the selected language.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      color: tokens.onSurfaceMuted,
+                                      fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    if (_articlesRecent.isNotEmpty)
+                      )
+                    else ...[
                       SliverToBoxAdapter(
-                        child: WftwShelf(
-                          entries: _filteredArticles,
-                          title: 'Articles',
-                          icon: Icons.article_outlined,
-                          onViewAll: _openArticles,
-                          onTapArticle: _openArticle,
-                        ),
+                        child: _buildBooksSection(tokens),
                       ),
+                      if (_filteredSongs.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: SongShelf(
+                            songs: _filteredSongs,
+                            onViewAll: _openSongs,
+                            onTapSong: _openSong,
+                          ),
+                        ),
+                      if (_filteredArticles.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: WftwShelf(
+                            entries: _filteredArticles,
+                            title: 'Articles',
+                            icon: Icons.article_outlined,
+                            onViewAll: _openArticles,
+                            onTapArticle: _openArticle,
+                          ),
+                        ),
+                    ],
                     const SliverToBoxAdapter(
                       child: SizedBox(height: 40),
                     ),
@@ -363,16 +381,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   List<Song> get _filteredSongs {
     final state = _langController.state;
-    if (state.isAllLanguages) return _songs;
-    return _songs.where((s) => state.includes(s.language)).toList();
+    final filtered = state.isAllLanguages
+        ? _allSongs
+        : _allSongs.where((s) => state.includes(s.language)).toList();
+    return filtered.length <= _songShelfCount
+        ? filtered
+        : filtered.sublist(0, _songShelfCount);
   }
 
   Widget _buildBooksSection(AppTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(
-          tokens,
+        LibrarySectionHeader(
           icon: Icons.collections_bookmark_outlined,
           title: 'Books',
           onViewAll: () => context.push(
@@ -390,12 +411,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 children: _filteredBooks.map((book) {
                   final progress = _progressMap[book.id];
                   return Container(
-                    width: 240,
+                    width: 230,
                     margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: tokens.surfaceVariant,
-                      borderRadius: BorderRadius.circular(12),
+                      color: tokens.surface,
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: tokens.surfaceBorder),
                     ),
                     child: InkWell(
@@ -512,50 +533,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildSectionHeader(
-    AppTokens tokens, {
-    required IconData icon,
-    required String title,
-    required VoidCallback onViewAll,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-      child: Row(
-        children: [
-          Flexible(
-            child: Row(
-              children: [
-                Icon(icon, color: tokens.accent, size: 20),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: tokens.onSurface,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: onViewAll,
-            style: TextButton.styleFrom(
-              foregroundColor: tokens.accent,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              visualDensity: VisualDensity.compact,
-            ),
-            child: const Text('View all', style: TextStyle(fontSize: 13)),
-          ),
-        ],
-      ),
     );
   }
 

@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +13,8 @@ import '../models/book_language_meta.dart';
 import '../models/user_reading_progress.dart';
 import '../services/book_service.dart';
 import '../widgets/book_card.dart';
+import '../widgets/book_download_single_sheet.dart';
+import '../widgets/book_options_sheet.dart';
 
 /// Screen displaying the Books Library organized by subject groups with search,
 /// individual book on-demand downloading, and recent reading progress.
@@ -37,6 +38,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   late final LibraryLanguagesController _langController;
   late final bool _ownsLangController;
 
+  List<Book> _allBooks = [];
   List<Book> _books = [];
   Map<String, List<Book>> _booksBySubject = {};
   Map<String, UserReadingProgress> _progressMap = {};
@@ -117,13 +119,37 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     // Register this content type's languages with the shared controller so the
     // whole library filters by one global selection.
     _langController.announceLanguages(sortedLangs);
+
+    final progressMap = <String, UserReadingProgress>{};
+    for (final p in recentProgress) {
+      progressMap[p.bookId] = p;
+    }
+
+    final recentBooks = <Book>[];
+    for (final p in recentProgress) {
+      final match = allBooks.where((b) => b.id == p.bookId).firstOrNull;
+      if (match != null) recentBooks.add(match);
+    }
+
+    if (mounted) {
+      _allBooks = allBooks;
+      _installedBookIds = installedIds;
+      _progressMap = progressMap;
+      _recentBooks = recentBooks;
+      _languages = languages;
+      _languageBookCounts = langBookCounts;
+      _applyFilters(setLoadingFalse: true);
+    }
+  }
+
+  void _applyFilters({bool setLoadingFalse = false}) {
     final langState = _langController.state;
     final isAllLanguages = langState.isAllLanguages;
 
     // Filter books by selected language(s) for subject grouping and subjects list
     final langFilteredBooks = isAllLanguages
-        ? allBooks
-        : allBooks.where((b) => langState.includes(b.language)).toList();
+        ? _allBooks
+        : _allBooks.where((b) => langState.includes(b.language)).toList();
 
     // Subjects derived only from books in the selected languages
     final subjectSet = <String>{};
@@ -160,183 +186,40 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
       map.putIfAbsent(s, () => []).add(b);
     }
 
-    final progressMap = <String, UserReadingProgress>{};
-    for (final p in recentProgress) {
-      progressMap[p.bookId] = p;
-    }
-
-    final recentBooks = <Book>[];
-    for (final p in recentProgress) {
-      final match = allBooks.where((b) => b.id == p.bookId).firstOrNull;
-      if (match != null) recentBooks.add(match);
-    }
-
     if (mounted) {
       setState(() {
-        _installedBookIds = installedIds;
+        _subjects = subjects;
         _books = books;
         _booksBySubject = map;
-        _progressMap = progressMap;
-        _recentBooks = recentBooks;
-        _subjects = subjects;
-        _languages = languages;
-        _languageBookCounts = langBookCounts;
         _totalBooksCount = langFilteredBooks.length;
-        _isLoading = false;
+        if (setLoadingFalse) {
+          _isLoading = false;
+        }
       });
     }
   }
 
   Future<void> _promptDownloadSingleBook(Book book) async {
-    final tokens = context.tokens;
-    final sizeText = book.downloadSizeFormatted.isNotEmpty
-        ? book.downloadSizeFormatted
-        : 'under 100 KB';
+    final langState = _langController.state;
+    final isAll = langState.isAllLanguages;
+    final downloadAllLabel =
+        (isAll || langState.selectedLanguages.length > 1)
+            ? (_allBooks.isNotEmpty
+                ? 'Download All ${_allBooks.length} Books'
+                : 'Download All Books')
+            : 'Download All ${BookLanguageMeta.fromCode(langState.selectedLanguages.first).englishName} Books';
 
-    final confirmed = await showAdaptiveBottomSheet<bool>(
-      context: context,
-      backgroundColor: tokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceBorder,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      width: 44,
-                      height: 64,
-                      color: tokens.surfaceVariant,
-                      child: book.coverFile.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: GitHubDataService.bookCoverUrl(
-                                  book.coverFile),
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(
-                                color: tokens.surfaceVariant,
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color:
-                                          tokens.accent.withValues(alpha: 0.6),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              errorWidget: (_, __, ___) =>
-                                  Icon(Icons.menu_book, color: tokens.accent),
-                            )
-                          : Icon(Icons.menu_book, color: tokens.accent),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          book.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: tokens.onSurface,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${book.author} • ${book.subject}',
-                          style: TextStyle(
-                              color: tokens.onSurfaceMuted, fontSize: 12),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${book.totalPages} pages • $sizeText',
-                          style: TextStyle(
-                              color: tokens.accent,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Download this book for instant offline reading. Fast download (~$sizeText).',
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: tokens.accent,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  icon: const Icon(Icons.download_rounded, size: 18),
-                  label: Text('Download & Read ($sizeText)'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  onPressed: () {
-                    Navigator.of(ctx).pop(false);
-                    final langState = _langController.state;
-                    final isAll = langState.isAllLanguages;
-                    _startDownloadAll(
-                      language: isAll || langState.selectedLanguages.length > 1
-                          ? null
-                          : langState.selectedLanguages.first,
-                    );
-                  },
-                  icon: Icon(Icons.all_inclusive_rounded,
-                      color: tokens.onSurfaceMuted, size: 16),
-                  label: Text(
-                    (_langController.state.isAllLanguages ||
-                            _langController.state.selectedLanguages.length > 1)
-                        ? 'Download All 181 Books (~13.4 MB)'
-                        : 'Download All ${BookLanguageMeta.fromCode(_langController.state.selectedLanguages.first).englishName} Books',
-                    style:
-                        TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    final confirmed = await BookDownloadSingleSheet.show(
+      context,
+      book: book,
+      downloadAllLabel: downloadAllLabel,
+      onDownloadAll: () {
+        _startDownloadAll(
+          language: isAll || langState.selectedLanguages.length > 1
+              ? null
+              : langState.selectedLanguages.first,
+        );
+      },
     );
 
     if (confirmed == true && mounted) {
@@ -376,91 +259,26 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   }
 
   void _showBookOptions(Book book) {
-    final tokens = context.tokens;
     final isInstalled = _installedBookIds.contains(book.id);
 
-    showAdaptiveBottomSheet<void>(
-      context: context,
-      backgroundColor: tokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceBorder,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text(
-                book.title,
-                style: TextStyle(
-                  color: tokens.onSurface,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'By ${book.author} • ${book.subject}',
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              if (!kIsWeb)
-                if (isInstalled)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.delete_outline_rounded,
-                        color: Theme.of(context).colorScheme.error),
-                    title: Text('Remove Download',
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error)),
-                    subtitle: Text(
-                      'Frees storage. Notes and reading progress are preserved.',
-                      style: TextStyle(
-                          color: tokens.onSurfaceMuted, fontSize: 11.5),
-                    ),
-                    onTap: () async {
-                      Navigator.of(ctx).pop();
-                      await _bookService.removeBookDownload(book.id);
-                      setState(() {
-                        _installedBookIds.remove(book.id);
-                      });
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text(
-                                  'Removed "${book.title}" from storage.')),
-                        );
-                      }
-                    },
-                  )
-                else
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.download_rounded, color: tokens.accent),
-                    title: Text('Download Book (${book.downloadSizeFormatted})',
-                        style: TextStyle(color: tokens.onSurface)),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _promptDownloadSingleBook(book);
-                    },
-                  ),
-            ],
-          ),
-        ),
-      ),
+    BookOptionsSheet.show(
+      context,
+      book: book,
+      isInstalled: isInstalled,
+      onRemoveDownload: () async {
+        await _bookService.removeBookDownload(book.id);
+        if (mounted) {
+          setState(() {
+            _installedBookIds.remove(book.id);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Removed "${book.title}" from storage.')),
+          );
+        }
+      },
+      onDownload: () => _promptDownloadSingleBook(book),
     );
   }
 
@@ -541,7 +359,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
     setState(
         () => _selectedSubject = 'All'); // Reset subject when languages change
     _langController.selectLanguages(newSelection);
-    _loadCatalog();
+    _applyFilters();
   }
 
   Widget _buildSubjectFilterChips(AppTokens tokens) {
@@ -565,7 +383,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   setState(() {
                     _selectedSubject = s;
                   });
-                  _loadCatalog();
+                  _applyFilters();
                 }
               },
               backgroundColor: tokens.surfaceVariant,
@@ -575,7 +393,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                     ? Theme.of(context).colorScheme.onPrimary
                     : tokens.onSurface,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 12.5,
+                fontSize: 13,
               ),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18)),
@@ -616,7 +434,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
-                    _loadCatalog();
+                    _applyFilters();
                   },
                 )
               : null,
@@ -625,7 +443,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
         ),
         onChanged: (val) {
           setState(() => _searchQuery = val);
-          _loadCatalog();
+          _applyFilters();
         },
       ),
     );
@@ -715,7 +533,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                               style: TextStyle(
                                 color: tokens.onSurface,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12.5,
+                                fontSize: 13.5,
                               ),
                             ),
                             const SizedBox(height: 3),
@@ -725,7 +543,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: tokens.onSurfaceMuted,
-                                fontSize: 11,
+                                fontSize: 12.5,
                               ),
                             ),
                             const SizedBox(height: 5),
@@ -785,7 +603,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   '${books.length}',
                   style: TextStyle(
                     color: tokens.accent,
-                    fontSize: 10.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -807,12 +625,15 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
               return Container(
                 width: 140,
                 margin: const EdgeInsets.only(right: 12),
-                child: BookCard(
-                  book: book,
-                  progress: _progressMap[book.id],
-                  isInstalled: isInstalled,
-                  isDownloading: isDownloading,
-                  onTap: () => _openReader(book),
+                child: GestureDetector(
+                  onLongPress: () => _showBookOptions(book),
+                  child: BookCard(
+                    book: book,
+                    progress: _progressMap[book.id],
+                    isInstalled: isInstalled,
+                    isDownloading: isDownloading,
+                    onTap: () => _openReader(book),
+                  ),
                 ),
               );
             },
@@ -850,7 +671,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   : 'Books Library • Zac Poonen',
               style: TextStyle(
                 color: tokens.onSurfaceMuted,
-                fontSize: 11.5,
+                fontSize: 12.5,
               ),
             ),
           ],
@@ -962,76 +783,107 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   ],
                 ),
               )
-            : CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: _buildSearchBar(tokens),
-                  ),
-                  SliverToBoxAdapter(
-                    child: _buildLanguageDropdown(tokens),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 8),
-                  ),
-                  SliverToBoxAdapter(
-                    child: _buildSubjectFilterChips(tokens),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 4),
-                  ),
-                  SliverToBoxAdapter(
-                    child: _buildContinueReading(tokens),
-                  ),
-
-                  // If browsing all books with subjects view enabled:
-                  if (_viewBySubjects &&
-                      _selectedSubject == 'All' &&
-                      _searchQuery.isEmpty) ...[
-                    for (final entry in _booksBySubject.entries)
-                      SliverToBoxAdapter(
-                        child:
-                            _buildSubjectShelf(entry.key, entry.value, tokens),
-                      ),
+            : RefreshIndicator(
+                onRefresh: _loadCatalog,
+                color: tokens.accent,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _buildSearchBar(tokens),
+                    ),
+                    SliverToBoxAdapter(
+                      child: _buildLanguageDropdown(tokens),
+                    ),
                     const SliverToBoxAdapter(
-                      child: SizedBox(height: 40),
+                      child: SizedBox(height: 8),
                     ),
-                  ] else ...[
-                    // Filtered or Flat Grid view
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
-                      sliver: SliverGrid(
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 170,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 14,
-                          childAspectRatio: 0.58,
-                        ),
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final book = _books[index];
-                            final isInstalled =
-                                _installedBookIds.contains(book.id);
-                            final isDownloading =
-                                _bookService.isBookDownloading(book.id);
+                    SliverToBoxAdapter(
+                      child: _buildSubjectFilterChips(tokens),
+                    ),
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: 4),
+                    ),
+                    SliverToBoxAdapter(
+                      child: _buildContinueReading(tokens),
+                    ),
 
-                            return GestureDetector(
-                              onLongPress: () => _showBookOptions(book),
-                              child: BookCard(
-                                book: book,
-                                progress: _progressMap[book.id],
-                                isInstalled: isInstalled,
-                                isDownloading: isDownloading,
-                                onTap: () => _openReader(book),
-                              ),
-                            );
-                          },
-                          childCount: _books.length,
+                    if (_books.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.search_off_rounded,
+                                    size: 40, color: tokens.onSurfaceMuted),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _searchQuery.isNotEmpty
+                                      ? 'No books match "$_searchQuery".'
+                                      : 'No books found for the selected subject or language.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      color: tokens.onSurfaceMuted,
+                                      fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    // If browsing all books with subjects view enabled:
+                    else if (_viewBySubjects &&
+                        _selectedSubject == 'All' &&
+                        _searchQuery.isEmpty) ...[
+                      for (final entry in _booksBySubject.entries)
+                        SliverToBoxAdapter(
+                          child:
+                              _buildSubjectShelf(entry.key, entry.value, tokens),
+                        ),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 40),
+                      ),
+                    ] else ...[
+                      // Filtered or Flat Grid view
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+                        sliver: SliverGrid(
+                          gridDelegate:
+                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 170,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 14,
+                            childAspectRatio: 0.58,
+                          ),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final book = _books[index];
+                              final isInstalled =
+                                  _installedBookIds.contains(book.id);
+                              final isDownloading =
+                                  _bookService.isBookDownloading(book.id);
+
+                              return GestureDetector(
+                                onLongPress: () => _showBookOptions(book),
+                                child: BookCard(
+                                  book: book,
+                                  progress: _progressMap[book.id],
+                                  isInstalled: isInstalled,
+                                  isDownloading: isDownloading,
+                                  onTap: () => _openReader(book),
+                                ),
+                              );
+                            },
+                            childCount: _books.length,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
       ),
     );
