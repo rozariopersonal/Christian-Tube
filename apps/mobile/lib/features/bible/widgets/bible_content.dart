@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../core/layout/content_width.dart';
@@ -10,6 +11,7 @@ import '../services/bible_chapter_stream.dart';
 import '../widgets/verse_item.dart';
 import '../controllers/bible_controller.dart';
 import '../../../shared/services/reader_appearance.dart';
+import '../../../core/services/bottom_bar_visibility_service.dart';
 
 class BibleContent extends StatelessWidget {
   const BibleContent({
@@ -30,12 +32,12 @@ class BibleContent extends StatelessWidget {
   final BibleController controller;
   final ItemScrollController itemScrollController;
   final ItemPositionsListener itemPositionsListener;
-  final ValueChanged<int> onVerseTap;
+  final void Function(int verseNumber, {String? book, int? chapter}) onVerseTap;
   final VoidCallback onCopy;
   final VoidCallback onShare;
   final VoidCallback onBookmark;
   final VoidCallback onClear;
-  final void Function(int verseNumber, {int initialTab}) onOpenStudyPage;
+  final void Function(int verseNumber, {int initialTab, String? book, int? chapter}) onOpenStudyPage;
   final VoidCallback onPushManager;
   final VoidCallback onRedownloadDefault;
 
@@ -60,10 +62,15 @@ class BibleContent extends StatelessWidget {
           if (notification is ScrollStartNotification &&
               notification.dragDetails != null) {
             SystemChannels.textInput.invokeMethod('TextInput.hide');
-            // Selection is NOT cleared here: it persists across scrolls within
-            // a chapter and is only auto-cleared when updateVisibleChapter
-            // detects the user crossed into a different chapter (see
-            // BibleController.updateVisibleChapter).
+            // Selection persists across scrolls and is never auto-cleared.
+          }
+          if ((notification is UserScrollNotification &&
+                  notification.direction != ScrollDirection.idle) ||
+              (notification is ScrollUpdateNotification &&
+                  notification.dragDetails != null &&
+                  notification.scrollDelta != null &&
+                  notification.scrollDelta!.abs() > 2)) {
+            BottomBarVisibilityService.instance.hideBibleNav();
           }
           return false;
         },
@@ -166,7 +173,7 @@ class BibleContent extends StatelessWidget {
                 book: bookName,
                 chapter: ref.chapter,
                 controller: controller,
-                onVerseTap: (v) {
+                onVerseTap: (v, {book, chapter}) {
                   if (controller.currentBook != bookName ||
                       controller.currentChapter != ref.chapter) {
                     controller.updateVisibleChapter(
@@ -175,7 +182,7 @@ class BibleContent extends StatelessWidget {
                       verse: v,
                     );
                   }
-                  onVerseTap(v);
+                  onVerseTap(v, book: book ?? bookName, chapter: chapter ?? ref.chapter);
                 },
                 onCopy: onCopy,
                 onShare: onShare,
@@ -224,12 +231,12 @@ class _VerseRow extends StatelessWidget {
   final String book;
   final int chapter;
   final BibleController controller;
-  final ValueChanged<int> onVerseTap;
+  final void Function(int verseNumber, {String? book, int? chapter}) onVerseTap;
   final VoidCallback onCopy;
   final VoidCallback onShare;
   final VoidCallback onBookmark;
   final VoidCallback onClear;
-  final void Function(int verseNumber, {int initialTab}) onOpenStudyPage;
+  final void Function(int verseNumber, {int initialTab, String? book, int? chapter}) onOpenStudyPage;
 
   @override
   Widget build(BuildContext context) {
@@ -242,6 +249,9 @@ class _VerseRow extends StatelessWidget {
     );
     final isCurrentCh =
         book == controller.currentBook && chapter == controller.currentChapter;
+    final isSelectedCh = (s.selectedBook != null && s.selectedChapter != null)
+        ? (book == s.selectedBook && chapter == s.selectedChapter)
+        : (book == controller.currentBook && chapter == controller.currentChapter);
     final bn = controller.bookNumber(book);
     final cid = bibleChapterId(bn, chapter);
     final crossRefs = s.loadedCrossRefs[cid]?[verse.number] ??
@@ -251,22 +261,22 @@ class _VerseRow extends StatelessWidget {
 
     return VerseItem(
       verse: verse,
-      isSelected: isCurrentCh && s.selectedVerses.contains(verse.number),
+      isSelected: isSelectedCh && s.selectedVerses.contains(verse.number),
       isHighlighted: isCurrentCh && s.highlightedVerse == verse.number,
       highlightColorIndex: s.verseHighlights[highlightKey],
       hasNote: s.verseNotes.contains(highlightKey),
       appearance: controller.appearance,
-      onVerseTap: () => onVerseTap(verse.number),
+      onVerseTap: () => onVerseTap(verse.number, book: book, chapter: chapter),
       crossReferences: crossRefs,
       backgroundNotes: backgrounds,
       resolvedTexts: isCurrentCh ? s.crossRefTexts : const {},
-      selectedCount: isCurrentCh ? s.selectedVerses.length : 0,
+      selectedCount: isSelectedCh ? s.selectedVerses.length : 0,
       onCopy: onCopy,
       onShare: onShare,
       onBookmark: onBookmark,
       onClear: onClear,
       onOpenStudyPage: (initialTab) =>
-          onOpenStudyPage(verse.number, initialTab: initialTab),
+          onOpenStudyPage(verse.number, initialTab: initialTab, book: book, chapter: chapter),
     );
   }
 }

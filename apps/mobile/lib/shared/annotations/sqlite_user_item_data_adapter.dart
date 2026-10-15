@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import 'package:mobile/core/database/database_init.dart';
 import 'user_item.dart';
 import 'user_item_data_adapter.dart';
 
@@ -49,6 +50,7 @@ class SqliteUserItemDataAdapter implements UserItemDataAdapter {
     }
     _isInitializing = true;
     try {
+      initPlatformDatabases();
       final dbPath = _databasePath ?? p.join(await getDatabasesPath(), 'christian_tube_user_items.db');
       _db = await openDatabase(
         dbPath,
@@ -60,7 +62,9 @@ class SqliteUserItemDataAdapter implements UserItemDataAdapter {
           await _createTables(db);
         },
       );
-      await _createTables(_db!);
+      if (_db != null) {
+        await _createTables(_db!);
+      }
     } catch (e) {
       debugPrint('SqliteUserItemDataAdapter initialize error: $e');
     } finally {
@@ -166,20 +170,19 @@ class SqliteUserItemDataAdapter implements UserItemDataAdapter {
   @override
   Future<void> upsertAll(String userId, List<UserItem> items) async {
     final db = await database;
-    if (db == null || items.isEmpty) return;
-    try {
-      final batch = db.batch();
-      for (final item in items) {
-        batch.insert(
-          'user_items',
-          item.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      await batch.commit(noResult: true);
-    } catch (e) {
-      debugPrint('SqliteUserItemDataAdapter upsertAll error: $e');
+    if (db == null) {
+      throw StateError('User items database is not initialized');
     }
+    if (items.isEmpty) return;
+    final batch = db.batch();
+    for (final item in items) {
+      batch.insert(
+        'user_items',
+        item.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   @override

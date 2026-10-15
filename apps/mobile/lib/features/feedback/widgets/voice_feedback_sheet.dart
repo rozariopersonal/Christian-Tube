@@ -128,7 +128,7 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final editorHeight = screenHeight * 0.60;
+    final editorHeight = (screenHeight * 0.28).clamp(120.0, 240.0);
 
     return AnimatedBuilder(
       animation: widget.controller,
@@ -139,47 +139,51 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
         final isError =
             widget.controller.submitState == FeedbackSubmitState.error;
 
-        return MaxWidthBox(
-          maxWidth: 640,
-          child: Container(
-            decoration: BoxDecoration(
-              color: tokens.surface,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border.all(color: tokens.surfaceBorder, width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: tokens.scrim.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, -4),
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: kSheetMaxWidth),
+            child: Container(
+              decoration: BoxDecoration(
+                color: tokens.surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(
+                  top: BorderSide(color: tokens.surfaceBorder, width: 1),
                 ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-                  left: 16,
-                  right: 16,
-                  top: 10,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Drag Handle
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: tokens.onSurfaceDisabled
-                              .withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(2),
+                boxShadow: [
+                  BoxShadow(
+                    color: tokens.scrim.withValues(alpha: 0.25),
+                    blurRadius: 16,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 150),
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Drag Handle
+                        Center(
+                          child: Container(
+                            width: 38,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: tokens.onSurfaceDisabled
+                                  .withValues(alpha: 0.35),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                        const SizedBox(height: 14),
 
                     // Context Chip & Listening Indicator
                     Row(
@@ -429,6 +433,8 @@ class _VoiceFeedbackSheetState extends State<VoiceFeedbackSheet> {
                       ],
                     ),
                   ],
+                ),
+                  ),
                 ),
               ),
             ),

@@ -205,7 +205,6 @@ void main() {
     });
 
     testWidgets('VerseActionBar renders as floating rounded bar without selection count row', (tester) async {
-      bool cleared = false;
       await tester.pumpWidget(
         wrapWithTokens(
           VerseActionBar(
@@ -215,9 +214,7 @@ void main() {
             onBookmark: () {},
             onHighlight: () {},
             onNote: () {},
-            onClear: () {
-              cleared = true;
-            },
+            onClear: () {},
             onStudy: () {},
           ),
         ),

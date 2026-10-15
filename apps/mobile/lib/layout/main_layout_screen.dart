@@ -106,6 +106,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
   }
 
   void _onTabSelected(int index) {
+    BottomBarVisibilityService.instance.resetBibleNav();
     if (index != 1) {
       stopAllPlatformShorts();
     }
@@ -205,6 +206,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
 
           switch (navMode) {
             case AppNavMode.bottomBar:
+              final isBiblePage = currentPath.startsWith('/bible');
+              final isHidden = isBiblePage && service.isBibleNavHidden;
               return Scaffold(
                 body: Stack(
                   fit: StackFit.expand,
@@ -217,6 +220,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
                   isDark,
                   selectedIndex,
                   isAudioPage: isAudioPage,
+                  isHidden: isHidden,
                 ),
               );
             case AppNavMode.rail:
@@ -273,6 +277,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
     bool isDark,
     int selectedIndex, {
     required bool isAudioPage,
+    bool isHidden = false,
   }) {
     final tokens = Theme.of(context).extension<AppTokens>() ??
         (isDark ? AppTokens.dark : AppTokens.light);
@@ -280,13 +285,17 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
       listenable: AudioPlayerController.instance,
       builder: (context, _) {
         final state = AudioPlayerController.instance.state;
-        return Column(
+        final hasMiniAudio = _isAudioTabEnabled &&
+            isAudioPage &&
+            state.isMiniPlayerVisible &&
+            state.hasTrack;
+
+        final barHeight = 60.0 + (hasMiniAudio ? 56.0 : 0.0);
+
+        final barContent = Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_isAudioTabEnabled &&
-                isAudioPage &&
-                state.isMiniPlayerVisible &&
-                state.hasTrack)
+            if (hasMiniAudio)
               MiniAudioPlayer(state: state),
             NavigationBarTheme(
               data: NavigationBarThemeData(
@@ -332,6 +341,28 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
               ),
             ),
           ],
+        );
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.fastOutSlowIn,
+          height: isHidden ? 0.0 : barHeight,
+          child: ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              minHeight: 0,
+              maxHeight: barHeight,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.fastOutSlowIn,
+                offset: isHidden ? const Offset(0, 1) : Offset.zero,
+                child: IgnorePointer(
+                  ignoring: isHidden,
+                  child: barContent,
+                ),
+              ),
+            ),
+          ),
         );
       },
     );
