@@ -13,47 +13,61 @@ import 'note_data_adapter.dart';
 /// reading surfaces. The `user_notes` table enforces one note per anchor via
 /// a unique index on `(feature, target_id)`.
 class SqliteNoteDataAdapter implements NoteDataAdapter {
+  final String? databasePath;
+  SqliteNoteDataAdapter({this.databasePath});
+
+  static String? overrideDbPath;
+
   Database? _db;
-  bool _isInitializing = false;
+  Future<Database?>? _openFuture;
 
   /// Unique, unduplicated rows per anchored target.
   Future<Database?> get database async {
     if (_db != null && _db!.isOpen) return _db;
-    await initialize();
-    return _db;
+    return _openDatabase();
+  }
+
+  Future<Database?> _openDatabase() {
+    if (_openFuture != null) return _openFuture!;
+    final future = Future(() async {
+      try {
+        initPlatformDatabases();
+        final dbPath = databasePath ??
+            overrideDbPath ??
+            p.join(await getDatabasesPath(), 'christian_tube_notes.db');
+        final db = await openDatabase(
+          dbPath,
+          version: 1,
+          onCreate: (db, version) async {
+            await _createTables(db);
+          },
+        );
+        _db = db;
+        return db;
+      } catch (e) {
+        debugPrint('SqliteNoteDataAdapter initialize error: $e');
+        return null;
+      } finally {
+        _openFuture = null;
+      }
+    });
+    _openFuture = future;
+    return future;
   }
 
   @override
   Future<void> initialize() async {
-    if (_db != null && _db!.isOpen) return;
-    if (_isInitializing) {
-      // Wait for the in-flight open to complete.
-      while (_isInitializing) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-      return;
-    }
-    _isInitializing = true;
-    try {
-      initPlatformDatabases();
-      final dbPath = p.join(await getDatabasesPath(), 'christian_tube_notes.db');
-      _db = await openDatabase(
-        dbPath,
-        version: 1,
-        onCreate: (db, version) async {
-          await _createTables(db);
-        },
-        onUpgrade: (db, oldVersion, newVersion) async {
-          await _createTables(db);
-        },
-      );
-      if (_db != null) {
-        await _createTables(_db!);
-      }
-    } catch (e) {
-      debugPrint('SqliteNoteDataAdapter initialize error: $e');
-    } finally {
-      _isInitializing = false;
+    await database;
+  }
+
+  Future<void> close() async {
+    _openFuture = null;
+    final db = _db;
+    _db = null;
+    if (db != null && db.isOpen) {
+      try {
+        await db.close();
+      } catch (_) {}
     }
   }
 
@@ -67,13 +81,6 @@ class SqliteNoteDataAdapter implements NoteDataAdapter {
         context_text TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
-      );
-    ''');
-    // Remove any historical duplicate anchors before ensuring the unique index.
-    await db.execute('''
-      DELETE FROM user_notes
-      WHERE rowid NOT IN (
-        SELECT max(rowid) FROM user_notes GROUP BY feature, target_id
       );
     ''');
     await db.execute('''
