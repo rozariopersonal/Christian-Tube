@@ -67,6 +67,17 @@ class GridExtents {
   static const double bibleManager = 340;
 }
 
+/// Top-level root tab paths that display the shell bottom navigation bar on compact screens.
+const Set<String> kRootTabs = {
+  '/feed',
+  '/shorts',
+  '/bible',
+  '/library',
+  '/audio',
+  '/profile',
+  '/words',
+};
+
 /// Navigation shell mode for the current window.
 enum AppNavMode {
   /// Bottom `NavigationBar` — `compact` portrait.
@@ -81,8 +92,9 @@ enum AppNavMode {
 
 /// Pure decision logic for which shell navigation to show.
 ///
-/// - `compact` portrait keeps the bottom bar; `compact` landscape shows the
-///   rail so navigation stays reachable on any device orientation.
+/// - `compact` portrait keeps the bottom bar for root tabs; sub-pages hide the
+///   bottom bar to maximize screen real estate and reading/viewing immersion.
+/// - `compact` landscape shows the rail on root tabs so navigation stays reachable.
 /// - `medium`/`expanded` always use a rail, except during fullscreen media
 ///   (shorts playing, or the landscape watch player on non-web platforms).
 /// - Explicit hides always suppress navigation.
@@ -91,14 +103,23 @@ AppNavMode resolveNavMode({
   required bool isLandscape,
   required bool isShortPlaying,
   required bool isExplicitlyHidden,
-  required bool isWatchRoute,
+  String? currentPath,
+  bool isWatchRoute = false,
   required bool isWeb,
 }) {
   if (isExplicitlyHidden || isShortPlaying) return AppNavMode.hidden;
   final isCompact = width < 600;
+  final isWatch = isWatchRoute || (currentPath?.startsWith('/watch') ?? false);
   if (isCompact) {
+    if (currentPath != null) {
+      if (!kRootTabs.contains(currentPath)) {
+        return AppNavMode.hidden;
+      }
+    } else if (isWatch) {
+      return AppNavMode.hidden;
+    }
     return isLandscape ? AppNavMode.rail : AppNavMode.bottomBar;
   }
-  final fullscreenMedia = !isWeb && isLandscape && isWatchRoute;
+  final fullscreenMedia = !isWeb && isLandscape && isWatch;
   return fullscreenMedia ? AppNavMode.hidden : AppNavMode.rail;
 }

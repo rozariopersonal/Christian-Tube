@@ -106,6 +106,7 @@ class BottomBarVisibilityService extends ChangeNotifier {
       isLandscape: isLandscape,
       isShortPlaying: _isShortPlaying,
       isExplicitlyHidden: _isExplicitlyHidden,
+      currentPath: currentPath,
       isWatchRoute: currentPath.startsWith('/watch'),
       isWeb: kIsWeb,
     );

@@ -41,6 +41,7 @@ void main() {
       bool shortPlaying = false,
       bool hidden = false,
       bool watch = false,
+      String? currentPath,
       bool web = false,
     }) =>
         resolveNavMode(
@@ -48,17 +49,26 @@ void main() {
           isLandscape: landscape,
           isShortPlaying: shortPlaying,
           isExplicitlyHidden: hidden,
+          currentPath: currentPath,
           isWatchRoute: watch,
           isWeb: web,
         );
 
-    test('compact portrait keeps the bottom bar', () {
-      expect(resolve(width: 320), AppNavMode.bottomBar);
-      expect(resolve(width: 599), AppNavMode.bottomBar);
+    test('compact portrait keeps the bottom bar for root tabs', () {
+      expect(resolve(width: 320, currentPath: '/feed'), AppNavMode.bottomBar);
+      expect(resolve(width: 599, currentPath: '/library'), AppNavMode.bottomBar);
     });
 
-    test('compact landscape shows the rail so navigation stays reachable', () {
-      expect(resolve(width: 599, landscape: true), AppNavMode.rail);
+    test('compact portrait hides bottom bar for sub-pages and watch route', () {
+      expect(resolve(width: 360, watch: true), AppNavMode.hidden);
+      expect(resolve(width: 360, currentPath: '/watch/xyz'), AppNavMode.hidden);
+      expect(resolve(width: 360, currentPath: '/search'), AppNavMode.hidden);
+      expect(resolve(width: 360, currentPath: '/books'), AppNavMode.hidden);
+      expect(resolve(width: 360, currentPath: '/books/123'), AppNavMode.hidden);
+    });
+
+    test('compact landscape shows the rail on root tabs so navigation stays reachable', () {
+      expect(resolve(width: 599, landscape: true, currentPath: '/feed'), AppNavMode.rail);
     });
 
     test('medium and expanded always use the rail', () {

@@ -181,7 +181,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
     final isDark = theme.brightness == Brightness.dark;
     final tokens = theme.extension<AppTokens>();
     final currentPath = GoRouterState.of(context).uri.path;
-    NavigationHistoryService.instance.recordTab(currentPath);
+    if (kRootTabs.contains(currentPath)) {
+      NavigationHistoryService.instance.recordTab(currentPath);
+    }
     final selectedIndex = _getSelectedIndex(currentPath);
     final isAudioPage = currentPath.startsWith('/audio');
 
@@ -200,6 +202,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
             isLandscape: isLandscape,
             isShortPlaying: service.isShortPlaying,
             isExplicitlyHidden: service.isExplicitlyHidden,
+            currentPath: currentPath,
             isWatchRoute: currentPath.startsWith('/watch'),
             isWeb: kIsWeb,
           );

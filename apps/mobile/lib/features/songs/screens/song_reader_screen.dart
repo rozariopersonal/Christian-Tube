@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/config/app_config.dart';
@@ -94,53 +93,42 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
     }
 
     if (song == null || song.id.isEmpty) {
-      return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, result) {
-          if (didPop) return;
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop(result);
-          } else {
-            context.go('/songs');
-          }
-        },
-        child: Scaffold(
+      return Scaffold(
+        backgroundColor: tokens.background,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
           backgroundColor: tokens.background,
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: tokens.background,
-            elevation: 0,
-            title: Text(
-              'Song',
-              style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold),
-            ),
+          elevation: 0,
+          title: Text(
+            'Song',
+            style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold),
           ),
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.music_off_outlined,
-                      size: 48, color: tokens.onSurfaceMuted),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Song not found',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: tokens.onSurface,
-                      fontWeight: FontWeight.bold,
-                    ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.music_off_outlined,
+                    size: 48, color: tokens.onSurfaceMuted),
+                const SizedBox(height: 16),
+                Text(
+                  'Song not found',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: tokens.onSurface,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'This song could not be loaded. It may have been removed or the link is invalid.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: tokens.onSurfaceMuted,
-                    ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This song could not be loaded. It may have been removed or the link is invalid.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: tokens.onSurfaceMuted,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -155,17 +143,7 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
             ? s.titleRoman!
             : s.title;
     final author = s.author;
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop(result);
-        } else {
-          context.go('/songs');
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: _appearance.background(tokens),
         appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -271,9 +249,8 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   /// Resolves the transliteration for verse [i], tolerating a short/mismatched
   /// [Song.versesRoman] list by treating missing entries as empty.
