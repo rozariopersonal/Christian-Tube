@@ -139,15 +139,41 @@ class _VerseTextState extends State<VerseText> {
     return Text.rich(
       TextSpan(
         children: [
-          TextSpan(
-            text: '${widget.verse.number}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: mutedTextColor,
-              fontWeight: FontWeight.bold,
-              fontSize: app.fontSize * 0.7,
-              fontFamily: fontFamily,
+          if (hasHighlight)
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.0),
+                margin: const EdgeInsets.only(right: 2.5),
+                decoration: BoxDecoration(
+                  color: Color.alphaBlend(
+                    const Color(0xFF000000).withValues(alpha: 0.28),
+                    highlightColor,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  widget.verse.verseDisplay,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: HighlightPalette.onColorFor(widget.highlightColorIndex!),
+                    fontWeight: FontWeight.bold,
+                    fontSize: app.fontSize * 0.65,
+                    fontFamily: fontFamily,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            )
+          else
+            TextSpan(
+              text: widget.verse.verseDisplay,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: mutedTextColor,
+                fontWeight: FontWeight.bold,
+                fontSize: app.fontSize * 0.7,
+                fontFamily: fontFamily,
+              ),
             ),
-          ),
           if (widget.refCount > 0)
             WidgetSpan(
               alignment: PlaceholderAlignment.top,

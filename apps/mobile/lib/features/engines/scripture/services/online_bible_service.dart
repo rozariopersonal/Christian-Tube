@@ -436,7 +436,7 @@ class OnlineBibleService {
       walk(n);
     }
 
-    final Map<int, String> finalVerses = {};
+    final Map<int, Map<String, dynamic>> finalVerses = {};
     for (final entry in rawVerses.entries) {
       final cleanText = entry.value.replaceAll(RegExp(r'\s+'), ' ').trim();
       if (cleanText.isEmpty) continue;
@@ -445,27 +445,34 @@ class OnlineBibleService {
       if (spanMatch != null) {
         final start = int.tryParse(spanMatch.group(1)!) ?? 1;
         final end = int.tryParse(spanMatch.group(2)!) ?? start;
-        for (int v = start; v <= end; v++) {
-          finalVerses[v] = cleanText;
-        }
+        finalVerses[start] = {
+          'version_id': config.versionId,
+          'book_name': bookName,
+          'book_number': bookNumber,
+          'chapter': chapter,
+          'verse': start,
+          'verse_end': end,
+          'verse_span': '$start-$end',
+          'text': cleanText,
+        };
       } else {
         final singleMatch = RegExp(r'(\d+)$').firstMatch(entry.key);
         if (singleMatch != null) {
           final v = int.tryParse(singleMatch.group(1)!) ?? 1;
-          finalVerses[v] = cleanText;
+          finalVerses[v] = {
+            'version_id': config.versionId,
+            'book_name': bookName,
+            'book_number': bookNumber,
+            'chapter': chapter,
+            'verse': v,
+            'text': cleanText,
+          };
         }
       }
     }
 
     final sortedNumbers = finalVerses.keys.toList()..sort();
-    return sortedNumbers.map((v) => {
-          'version_id': config.versionId,
-          'book_name': bookName,
-          'book_number': bookNumber,
-          'chapter': chapter,
-          'verse': v,
-          'text': finalVerses[v]!,
-        }).toList();
+    return sortedNumbers.map((v) => finalVerses[v]!).toList();
   }
 
   static Future<List<Map<String, dynamic>>> _fetchYouVersion(
@@ -497,25 +504,37 @@ class OnlineBibleService {
     final verses = <Map<String, dynamic>>[];
 
     final regex = RegExp(
-      r'<span class="yv-v" v="(\d+)"><\/span>(?:<span class="yv-vlbl">\d+<\/span>)?([\s\S]*?)(?=(?:<span class="yv-v" v="\d+"><\/span>|$))',
+      r'<span class="yv-v" v="(\d+)"><\/span>(?:<span class="yv-vlbl">([^<]+)<\/span>)?([\s\S]*?)(?=(?:<span class="yv-v" v="\d+"><\/span>|$))',
     );
 
     for (final m in regex.allMatches(html)) {
       final vNum = int.tryParse(m.group(1) ?? '1') ?? 1;
-      final rawVerseText = m.group(2) ?? '';
+      final rawLbl = m.group(2)?.trim();
+      final rawVerseText = m.group(3) ?? '';
       final text = rawVerseText
           .replaceAll(RegExp(r'<[^>]+>'), '')
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
       if (text.isNotEmpty) {
-        verses.add({
+        final verseMap = <String, dynamic>{
           'version_id': config.versionId,
           'book_name': bookName,
           'book_number': bookNumber,
           'chapter': chapter,
           'verse': vNum,
           'text': text,
-        });
+        };
+        if (rawLbl != null && rawLbl.contains(RegExp(r'[-–]'))) {
+          final spanMatch = RegExp(r'(\d+)\s*[-–]\s*(\d+)').firstMatch(rawLbl);
+          if (spanMatch != null) {
+            final start = int.tryParse(spanMatch.group(1)!) ?? vNum;
+            final end = int.tryParse(spanMatch.group(2)!) ?? start;
+            verseMap['verse'] = start;
+            verseMap['verse_end'] = end;
+            verseMap['verse_span'] = '$start-$end';
+          }
+        }
+        verses.add(verseMap);
       }
     }
 

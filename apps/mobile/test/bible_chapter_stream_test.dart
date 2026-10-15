@@ -63,6 +63,47 @@ void main() {
     expect(verses.last.text, 'third');
   });
 
+  test('chapterVersesFromRows clubs consecutive rows with identical text into single span row',
+      () {
+    final rows = [
+      {'verse': 8, 'text': 'verse 8 text'},
+      {'verse': 9, 'text': 'combined text for 9 through 11'},
+      {'verse': 10, 'text': 'combined text for 9 through 11'},
+      {'verse': 11, 'text': 'combined text for 9 through 11'},
+      {'verse': 12, 'text': 'verse 12 text'},
+    ];
+
+    final verses = chapterVersesFromRows(rows, 'MSG');
+    expect(verses, hasLength(3));
+    expect(verses[0].number, 8);
+    expect(verses[0].verseDisplay, '8');
+
+    expect(verses[1].number, 9);
+    expect(verses[1].endNumber, 11);
+    expect(verses[1].verseSpan, '9-11');
+    expect(verses[1].verseDisplay, '9-11');
+    expect(verses[1].text, 'combined text for 9 through 11');
+
+    expect(verses[2].number, 12);
+    expect(verses[2].verseDisplay, '12');
+  });
+
+  test('chapterVersesFromRows honors explicit verse_span and verse_end', () {
+    final rows = [
+      {'verse': 1, 'text': 'verse 1'},
+      {'verse': 2, 'verse_end': 6, 'verse_span': '2-6', 'text': 'verses 2 to 6'},
+      {'verse': 7, 'verse_end': 11, 'verse_span': '7-11', 'text': 'verses 7 to 11'},
+    ];
+
+    final verses = chapterVersesFromRows(rows, 'MSG');
+    expect(verses, hasLength(3));
+    expect(verses[1].number, 2);
+    expect(verses[1].endNumber, 6);
+    expect(verses[1].verseSpan, '2-6');
+    expect(verses[1].verseDisplay, '2-6');
+    expect(verses[2].verseDisplay, '7-11');
+  });
+
   test('BibleChapterStream loads, caches, and deduplicates chapters',
       () async {
     await insertJohn('WEB', [

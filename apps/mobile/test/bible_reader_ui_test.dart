@@ -13,6 +13,7 @@ import 'package:mobile/features/bible/widgets/verse_text.dart';
 import 'package:mobile/features/bible/widgets/book_chapter_selector.dart';
 import 'package:mobile/features/bible/models/verse_concept.dart';
 import 'package:mobile/features/bible/models/bible_verse.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
 
@@ -404,5 +405,57 @@ void main() {
     expect(after, 'Outfit',
         reason: 'tapping the Outfit chip did NOT live-update the verses');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('VerseText displays combined verseSpan like 9-11 without highlight box when not highlighted', (tester) async {
+    final verse = BibleVerse(
+      number: 9,
+      endNumber: 11,
+      verseSpan: '9-11',
+      text: 'You, however, are not in the realm of the flesh...',
+    );
+
+    await tester.pumpWidget(
+      wrapWithApp(
+        Scaffold(
+          body: VerseText(
+            verse: verse,
+            isSelected: false,
+            isHighlighted: false,
+            appearance: ReaderAppearance(),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('9-11'), findsOneWidget);
+    // When not highlighted, verse number is rendered in TextSpan without Container box
+    expect(find.byType(Container), findsNothing);
+  });
+
+  testWidgets('VerseText renders darker box container for verse number when highlighted', (tester) async {
+    final verse = BibleVerse(
+      number: 9,
+      endNumber: 11,
+      verseSpan: '9-11',
+      text: 'You, however, are not in the realm of the flesh...',
+    );
+
+    await tester.pumpWidget(
+      wrapWithApp(
+        Scaffold(
+          body: VerseText(
+            verse: verse,
+            isSelected: false,
+            isHighlighted: false,
+            highlightColorIndex: 0,
+            appearance: ReaderAppearance(),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('9-11'), findsOneWidget);
+    expect(find.byType(Container), findsWidgets);
   });
 }

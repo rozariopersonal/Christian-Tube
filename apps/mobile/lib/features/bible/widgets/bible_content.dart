@@ -110,11 +110,7 @@ class BibleContent extends StatelessWidget {
               final ref = verseIndex.rowToReference(index);
               final rows =
                   s.loadedChapters[bibleChapterId(ref.bookNumber, ref.chapter)];
-              if (rows == null || ref.verse > rows.length) {
-                if (rows != null) {
-                  // Chapter was loaded; row index exceeds available verses
-                  return const SizedBox.shrink();
-                }
+              if (rows == null) {
                 controller.ensureChapterVisible(ref.bookNumber, ref.chapter);
                 if (ref.verse == 1) {
                   final bookName = BookNameService.englishNameFor(ref.bookNumber);
@@ -140,9 +136,33 @@ class BibleContent extends StatelessWidget {
                   appearance: controller.appearance,
                 );
               }
+
+              // Locate the matching verse. Combined verses render once at their
+              // starting verse number; secondary verses covered by the span
+              // shrink to avoid repeating the paragraph.
+              BibleVerse? matchedVerse;
+              for (final v in rows) {
+                if (v.number == ref.verse) {
+                  matchedVerse = v;
+                  break;
+                }
+              }
               final bookName = BookNameService.englishNameFor(ref.bookNumber);
+              if (matchedVerse == null) {
+                if (ref.verse == 1) {
+                  return _ChapterHeader(
+                    chapter: ref.chapter,
+                    appearance: controller.appearance,
+                    bookName: controller.displayBookName(bookName),
+                    chapterTitle: controller.displayChapterTitle(ref.chapter),
+                    isBookStart: ref.chapter == 1,
+                  );
+                }
+                return const SizedBox.shrink();
+              }
+
               final verseWidget = _VerseRow(
-                verse: rows[ref.verse - 1],
+                verse: matchedVerse,
                 book: bookName,
                 chapter: ref.chapter,
                 controller: controller,
