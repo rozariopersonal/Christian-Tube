@@ -5,6 +5,7 @@ import 'package:mobile/core/layout/adaptivity.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
+import 'package:mobile/shared/ui/widgets/reader_appearance_action_button.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// The book reader's top app bar.
@@ -146,7 +147,14 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
                     value: 'appearance',
                     child: Row(
                       children: [
-                        Icon(Icons.text_fields_rounded, color: mutedCol, size: 20),
+                        Text(
+                          'Aa',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: tokens.accent,
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         Text('Reading settings', style: TextStyle(color: textCol)),
                       ],
@@ -166,10 +174,11 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
                 tooltip: 'Highlights & Notes',
                 onPressed: onOpenHighlights,
               ),
-              IconButton(
-                icon: Icon(Icons.text_fields_rounded, color: mutedCol, size: 21),
-                tooltip: 'Reading settings',
-                onPressed: onShowAppearance,
+              ReaderAppearanceActionButton(
+                appearance: appearance,
+                color: mutedCol,
+                fontSize: 16,
+                onBeforeOpen: onShowAppearance,
               ),
               IconButton(
                 icon: Icon(Icons.list_alt_rounded, color: mutedCol, size: 21),

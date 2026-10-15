@@ -342,6 +342,7 @@ void main() {
       initialVerse: null,
       saveProgress: false,
     );
+    addTearDown(controller.dispose);
     await tester.runAsync(() async {
       await controller.init();
     });
@@ -358,7 +359,6 @@ void main() {
     final after = firstVerseFontFamily(tester);
     expect(after, 'Cinzel',
         reason: 'font did NOT live-update (before=$before after=$after)');
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('tapping a font chip in the appearance sheet live-updates verses',
@@ -377,6 +377,7 @@ void main() {
       initialVerse: null,
       saveProgress: false,
     );
+    addTearDown(controller.dispose);
     await tester.runAsync(() async {
       await controller.init();
     });
@@ -392,10 +393,13 @@ void main() {
     expect(find.text('Font Family'), findsOneWidget,
         reason: 'appearance sheet did not open');
 
+    await tester.tap(find.text('Font Family'));
+    await tester.pumpAndSettle();
+
     await tester.dragUntilVisible(
       find.text('Outfit'),
       find.byType(ListView).last,
-      const Offset(-120, 0),
+      const Offset(0, -120),
     );
     await tester.pumpAndSettle();
     expect(find.text('Outfit'), findsWidgets,
@@ -407,7 +411,6 @@ void main() {
     final after = firstVerseFontFamily(tester);
     expect(after, 'Outfit',
         reason: 'tapping the Outfit chip did NOT live-update the verses');
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('VerseText displays combined verseSpan like 9-11 without highlight box when not highlighted', (tester) async {

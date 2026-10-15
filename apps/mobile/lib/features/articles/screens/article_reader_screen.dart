@@ -8,7 +8,9 @@ import 'package:mobile/features/books/widgets/scripture_verse_popup.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/l10n/app_localizations.dart';
-import 'package:mobile/shared/ui/reader_appearance_sheet.dart';
+import 'package:mobile/shared/services/reader_appearance.dart';
+import 'package:mobile/shared/services/reader_fonts_service.dart';
+import 'package:mobile/shared/ui/widgets/reader_appearance_action_button.dart';
 import 'package:share_plus/share_plus.dart';
 import '../controllers/article_reader_controller.dart';
 import '../models/wftw_index_entry.dart';
@@ -34,6 +36,7 @@ class ArticleReaderScreen extends StatefulWidget {
 
 class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
   late final ArticleReaderController _controller;
+  final ScrollController _scrollController = ScrollController();
   final List<TapGestureRecognizer> _recognizers = [];
 
   @override
@@ -44,6 +47,9 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
       lang: widget.lang,
       syncService: widget.syncService,
     );
+    _controller.appearance.addListener(_onAppearanceChanged);
+    ReaderFontsService.instance.addListener(_onFontsChanged);
+
     // Load localized book names so scripture references in the article's
     // language resolve to tappable verse popups.
     BookNameService().ensureLoaded().then((_) {
@@ -53,9 +59,29 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
   @override
   void dispose() {
+    _controller.appearance.removeListener(_onAppearanceChanged);
+    ReaderFontsService.instance.removeListener(_onFontsChanged);
     _disposeRecognizers();
+    _scrollController.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onAppearanceChanged() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    final ratio = maxExtent > 0 ? _scrollController.offset / maxExtent : 0.0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final newMax = _scrollController.position.maxScrollExtent;
+      if (newMax > 0) {
+        _scrollController.jumpTo((ratio * newMax).clamp(0.0, newMax));
+      }
+    });
+  }
+
+  void _onFontsChanged() {
+    if (mounted) setState(() {});
   }
 
   /// Disposes every recognizer created so far. Called before each build pass
@@ -72,16 +98,16 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     final recognizer = TapGestureRecognizer()
       ..onTap = () {
         if (parsed != null && mounted) {
-            ScriptureVersePopup.show(
-              context,
-              bookNumber: parsed.bookNumber,
-              chapter: parsed.chapter,
-              startVerse: parsed.startVerse,
-              endVerse: parsed.endVerse,
-              rawReference: refText,
-              languageCode: widget.lang,
-            );
-          }
+          ScriptureVersePopup.show(
+            context,
+            bookNumber: parsed.bookNumber,
+            chapter: parsed.chapter,
+            startVerse: parsed.startVerse,
+            endVerse: parsed.endVerse,
+            rawReference: refText,
+            languageCode: widget.lang,
+          );
+        }
       };
     _recognizers.add(recognizer);
     return recognizer;
@@ -91,21 +117,25 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     String text,
     Color textColor,
     String? fontFamily,
-    double fontSize,
-    double lineHeight,
+    ReaderAppearance appearance,
     AppTokens tokens,
   ) {
     final matches = ScriptureRefParser.scriptureRegex.allMatches(text).toList();
+    final baseStyle = TextStyle(
+      color: textColor,
+      fontSize: appearance.fontSize,
+      height: appearance.lineHeight,
+      fontFamily: fontFamily,
+      fontWeight: appearance.fontWeight,
+      fontStyle: appearance.fontStyle,
+      decoration: appearance.textDecoration,
+    );
+
     if (matches.isEmpty) {
       return [
         TextSpan(
           text: text,
-          style: TextStyle(
-            color: textColor,
-            fontSize: fontSize,
-            height: lineHeight,
-            fontFamily: fontFamily,
-          ),
+          style: baseStyle,
         ),
       ];
     }
@@ -117,12 +147,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
       if (match.start > lastMatchEnd) {
         spans.add(TextSpan(
           text: text.substring(lastMatchEnd, match.start),
-          style: TextStyle(
-            color: textColor,
-            fontSize: fontSize,
-            height: lineHeight,
-            fontFamily: fontFamily,
-          ),
+          style: baseStyle,
         ));
       }
 
@@ -131,14 +156,11 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
       spans.add(TextSpan(
         text: refText,
-        style: TextStyle(
+        style: baseStyle.copyWith(
           color: tokens.accent,
           fontWeight: FontWeight.bold,
           decoration: TextDecoration.underline,
           decorationColor: tokens.accent.withValues(alpha: 0.6),
-          fontSize: fontSize,
-          height: lineHeight,
-          fontFamily: fontFamily,
         ),
         recognizer: _makeRecognizer(parsed, refText),
       ));
@@ -149,12 +171,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     if (lastMatchEnd < text.length) {
       spans.add(TextSpan(
         text: text.substring(lastMatchEnd),
-        style: TextStyle(
-          color: textColor,
-          fontSize: fontSize,
-          height: lineHeight,
-          fontFamily: fontFamily,
-        ),
+        style: baseStyle,
       ));
     }
 
@@ -166,10 +183,10 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     final tokens = context.tokens;
 
     return ListenableBuilder(
-      listenable: _controller,
+      listenable: Listenable.merge([_controller, _controller.appearance]),
       builder: (context, _) {
         _disposeRecognizers();
-        final l10n = AppLocalizations.of(context);
+        final l10n = AppLocalizations.maybeOf(context);
         final state = _controller.state;
         final appearance = _controller.appearance;
         final fontFamily = ScriptureThemeCatalog.resolveFontFamily(
@@ -177,7 +194,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
           appearance.languageCode,
         );
 
-        final title = state.article?.title ?? widget.initialTitle ?? l10n.appTitle;
+        final title = state.article?.title ?? widget.initialTitle ?? l10n?.appTitle ?? 'Article';
 
         return Scaffold(
           backgroundColor: appearance.background(tokens),
@@ -196,26 +213,14 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
             ),
             automaticallyImplyLeading: false,
             actions: [
-              // Aa typography appearance button
-              IconButton(
-                icon: Text(
-                  'Aa',
-                  style: TextStyle(
-                    color: appearance.textColor(tokens),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                tooltip: l10n.appearance,
-                onPressed: () =>
-                    showReaderAppearanceSheet(context, appearance),
-              ),
+              // Standardized Aa typography appearance button
+              ReaderAppearanceActionButton(appearance: appearance),
 
               // Share button
               if (state.article != null)
                 IconButton(
                   icon: Icon(Icons.share_rounded, color: appearance.textColor(tokens)),
-                  tooltip: l10n.share,
+                  tooltip: l10n?.share ?? 'Share',
                   onPressed: () {
                     final article = state.article!;
                     final link = DeepLinkService.article(
@@ -228,7 +233,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                     for (final l in article.lines.take(12)) {
                       buffer.writeln(l.text);
                     }
-                    buffer.writeln('${l10n.readOnApp}: $link');
+                    buffer.writeln('${l10n?.readOnApp ?? 'Read on App'}: $link');
                     Share.share(
                       buffer.toString(),
                       subject: article.title,
@@ -247,8 +252,8 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     ArticleReaderState state,
     AppTokens tokens,
     String? fontFamily,
-    dynamic appearance,
-    AppLocalizations l10n,
+    ReaderAppearance appearance,
+    AppLocalizations? l10n,
   ) {
     if (state.isLoading) {
       return Center(
@@ -273,7 +278,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                l10n.articleReadError,
+                l10n?.articleReadError ?? 'Unable to load article',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: tokens.onSurface,
@@ -285,7 +290,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
               ElevatedButton.icon(
                 onPressed: _controller.loadArticle,
                 icon: const Icon(Icons.refresh_rounded),
-                label: Text(l10n.retry),
+                label: Text(l10n?.retry ?? 'Retry'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: tokens.accent,
                   foregroundColor: tokens.background,
@@ -304,90 +309,102 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     return Center(
       child: MaxWidthBox(
         maxWidth: kReadingMaxWidth,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOutCubic,
+          style: TextStyle(
+            color: textColor,
+            fontFamily: fontFamily,
+            fontSize: appearance.fontSize,
+            height: appearance.lineHeight,
+            fontWeight: appearance.fontWeight,
+            fontStyle: appearance.fontStyle,
+          ),
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                 sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  // Metadata: Author & Date
-                  Row(
-                    children: [
-                      Icon(Icons.person_outline_rounded, size: 16, color: mutedColor),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          article.author,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: mutedColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                  delegate: SliverChildListDelegate([
+                    // Metadata: Author & Date
+                    Row(
+                      children: [
+                        Icon(Icons.person_outline_rounded, size: 16, color: mutedColor),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            article.author,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: mutedColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Icon(Icons.calendar_today_rounded, size: 14, color: mutedColor),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          formatWftwDate(article.date),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: mutedColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                        const SizedBox(width: 12),
+                        Icon(Icons.calendar_today_rounded, size: 14, color: mutedColor),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            formatWftwDate(article.date),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: mutedColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Divider(color: appearance.surfaceBorder(tokens), height: 1),
-                  const SizedBox(height: 20),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Divider(color: appearance.surfaceBorder(tokens), height: 1),
+                    const SizedBox(height: 20),
 
-                  // Paragraphs & Headings
-                  ...article.lines.map((line) {
-                    if (line.isHeading) {
+                    // Paragraphs & Headings
+                    ...article.lines.map((line) {
+                      if (line.isHeading) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 24, bottom: 12),
+                          child: Text(
+                            line.text,
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: appearance.fontSize * 1.25,
+                              fontWeight: FontWeight.bold,
+                              height: 1.3,
+                              fontFamily: fontFamily,
+                            ),
+                          ),
+                        );
+                      }
+
                       return Padding(
-                        padding: const EdgeInsets.only(top: 24, bottom: 12),
-                        child: Text(
-                          line.text,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: appearance.fontSize * 1.25,
-                            fontWeight: FontWeight.bold,
-                            height: 1.3,
-                            fontFamily: fontFamily,
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: RichText(
+                          text: TextSpan(
+                            children: _buildSpans(
+                              line.text,
+                              textColor,
+                              fontFamily,
+                              appearance,
+                              tokens,
+                            ),
                           ),
                         ),
                       );
-                    }
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: RichText(
-                        text: TextSpan(
-                          children: _buildSpans(
-                            line.text,
-                            textColor,
-                            fontFamily,
-                            appearance.fontSize,
-                            appearance.lineHeight,
-                            tokens,
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 64),
-                ]),
+                    }),
+                    const SizedBox(height: 64),
+                  ]),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

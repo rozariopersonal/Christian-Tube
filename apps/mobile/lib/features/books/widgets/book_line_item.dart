@@ -10,6 +10,7 @@ import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/books/widgets/formatted_paragraph.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
+import 'package:mobile/shared/services/reader_fonts_service.dart';
 
 /// Renders a single source [BookLine] as one scroll item in the continuous
 /// reader.
@@ -54,8 +55,23 @@ class BookLineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: appearance,
-      builder: (context, _) => _buildContent(),
+      listenable: Listenable.merge([appearance, ReaderFontsService.instance]),
+      builder: (context, _) => AnimatedDefaultTextStyle(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInOutCubic,
+        style: TextStyle(
+          color: textColor,
+          fontFamily: ScriptureThemeCatalog.resolveFontFamily(
+            appearance.fontFamily,
+            appearance.languageCode,
+          ),
+          fontSize: appearance.fontSize,
+          height: appearance.lineHeight,
+          fontWeight: appearance.fontWeight,
+          fontStyle: appearance.fontStyle,
+        ),
+        child: _buildContent(),
+      ),
     );
   }
 

@@ -29,6 +29,7 @@ class BookReaderViewCoordinator {
         _onOpenScripture = onOpenScripture {
     _pageController = PageController(initialPage: (controller.state.currentPage - 1).clamp(0, 999999));
     itemPositionsListener.itemPositions.addListener(_onItemPositionsChanged);
+    controller.appearance.addListener(_onAppearanceChanged);
   }
 
   final BookReaderController controller;
@@ -314,11 +315,33 @@ class BookReaderViewCoordinator {
   }
 
   void dispose() {
+    controller.appearance.removeListener(_onAppearanceChanged);
     _pageController.dispose();
     for (final r in tapRecognizers) {
       r.dispose();
     }
     tapRecognizers.clear();
+  }
+
+  void _onAppearanceChanged() {
+    if (!itemScrollController.isAttached) return;
+    final positions = itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+
+    final visible = positions.where((p) => p.itemTrailingEdge > 0).toList();
+    if (visible.isEmpty) return;
+
+    visible.sort((a, b) => a.itemLeadingEdge.compareTo(b.itemLeadingEdge));
+    final topItem = visible.first;
+    final topIndex = topItem.index;
+    final topAlignment = topItem.itemLeadingEdge;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!itemScrollController.isAttached) return;
+      try {
+        itemScrollController.jumpTo(index: topIndex, alignment: topAlignment);
+      } catch (_) {}
+    });
   }
 }
 

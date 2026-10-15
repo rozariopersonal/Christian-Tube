@@ -7,6 +7,7 @@ import '../widgets/dictionaries_tab.dart';
 import '../widgets/books_tab.dart';
 import '../widgets/overview_tab.dart';
 import '../widgets/songs_tab.dart';
+import '../widgets/fonts_tab.dart';
 
 /// Single unified screen managing all offline downloads for Christian Tube:
 /// Bibles, Dictionaries, Books & Commentaries, Audio Sermons, and Songbooks.
@@ -34,9 +35,9 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 6,
+      length: 7,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 5),
+      initialIndex: widget.initialTab.clamp(0, 6),
     );
 
     if (widget.controller != null) {
@@ -100,6 +101,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
             Tab(text: 'Books & Commentaries'),
             Tab(text: 'Audio Sermons'),
             Tab(text: 'Songs & Hymns'),
+            Tab(text: 'Reader Fonts'),
           ],
         ),
       ),
@@ -115,6 +117,7 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
           BooksTab(controller: _controller),
           AudioTab(controller: _controller),
           SongsTab(controller: _controller),
+          FontsTab(controller: _controller),
         ],
       ),
     );

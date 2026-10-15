@@ -77,6 +77,7 @@ class _BibleScreenState extends State<BibleScreen> {
     }
     _itemPositionsListener.itemPositions.addListener(_onItemPositionsChanged);
     _controller.addListener(_onControllerUpdate);
+    _controller.appearance.addListener(_onAppearanceChanged);
   }
 
   @override
@@ -115,9 +116,31 @@ class _BibleScreenState extends State<BibleScreen> {
     _programmaticScrollTimer?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onItemPositionsChanged);
     _controller.removeListener(_onControllerUpdate);
+    _controller.appearance.removeListener(_onAppearanceChanged);
     if (widget.controller == null) _controller.dispose();
     BiblePassageNavigator.instance.detach(context, _moveToReference);
     super.dispose();
+  }
+
+  void _onAppearanceChanged() {
+    if (!mounted || _isProgrammaticScrolling) return;
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+
+    final visible = positions.where((p) => p.itemTrailingEdge > 0).toList();
+    if (visible.isEmpty) return;
+
+    visible.sort((a, b) => a.itemLeadingEdge.compareTo(b.itemLeadingEdge));
+    final topItem = visible.first;
+    final topIndex = topItem.index;
+    final topAlignment = topItem.itemLeadingEdge;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        _itemScrollController.jumpTo(index: topIndex, alignment: topAlignment);
+      } catch (_) {}
+    });
   }
 
   void _onItemPositionsChanged() {

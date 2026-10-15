@@ -8,6 +8,7 @@ import '../models/bible_version.dart';
 import '../controllers/bible_controller.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../shared/services/reader_appearance.dart';
+import '../../../shared/ui/widgets/reader_appearance_action_button.dart';
 
 class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
   const BibleAppBar({
@@ -67,7 +68,6 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onDownloads: onPushManager,
                 onBooks: () => context.push('/books'),
                 onBookmarks: onOpenBookmarks,
-                onSettings: onShowReadingSettings,
               ),
             ]
           : [
@@ -76,17 +76,10 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
                 icon: Icon(Icons.search, color: appearance.textColor(tokens)),
                 onPressed: onShowSearch,
               ),
-              IconButton(
-                tooltip: 'Appearance Settings',
-                icon: Text(
-                  'Aa',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: appearance.textColor(tokens),
-                  ),
-                ),
-                onPressed: onShowReadingSettings,
+              ReaderAppearanceActionButton(
+                appearance: appearance,
+                color: appearance.textColor(tokens),
+                fontSize: 18,
               ),
               _MoreMenu(
                 appearance: appearance,
@@ -94,7 +87,6 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onDownloads: onPushManager,
                 onBooks: () => context.push('/books'),
                 onBookmarks: onOpenBookmarks,
-                onSettings: onShowReadingSettings,
               ),
             ],
     );
@@ -194,7 +186,6 @@ class _MoreMenu extends StatelessWidget {
     required this.onDownloads,
     required this.onBooks,
     required this.onBookmarks,
-    required this.onSettings,
     this.onSearch,
     this.onAppearance,
   });
@@ -204,7 +195,6 @@ class _MoreMenu extends StatelessWidget {
   final VoidCallback onDownloads;
   final VoidCallback onBooks;
   final VoidCallback onBookmarks;
-  final VoidCallback onSettings;
   final VoidCallback? onSearch;
   final VoidCallback? onAppearance;
 
@@ -230,9 +220,6 @@ class _MoreMenu extends StatelessWidget {
             break;
           case 'bookmarks':
             onBookmarks();
-            break;
-          case 'settings':
-            onSettings();
             break;
         }
       },
@@ -312,13 +299,6 @@ class _MoreMenu extends StatelessWidget {
         PopupMenuItem(
           value: 'bookmarks',
           child: Text('Bookmarks',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: appearance.textColor(tokens))),
-        ),
-        PopupMenuItem(
-          value: 'settings',
-          child: Text('Reading settings',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: appearance.textColor(tokens))),

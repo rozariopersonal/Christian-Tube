@@ -10,6 +10,7 @@ import '../../dictionary/services/dictionary_download_manager.dart';
 import '../../engines/scripture/models/bible_version_meta.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../songs/services/songs_download_manager.dart';
+import '../../../shared/services/reader_fonts_service.dart';
 import '../models/downloads_state.dart';
 import '../services/storage_calculator_service.dart';
 
@@ -58,6 +59,7 @@ class DownloadsController extends ChangeNotifier {
     _songsManager.addListener(_onServiceNotification);
     _articlesManager.addListener(_onServiceNotification);
     _audioDownloadService.addListener(_onServiceNotification);
+    ReaderFontsService.instance.addListener(_onServiceNotification);
 
     unawaited(refreshAll());
   }
@@ -71,6 +73,7 @@ class DownloadsController extends ChangeNotifier {
     _songsManager.removeListener(_onServiceNotification);
     _articlesManager.removeListener(_onServiceNotification);
     _audioDownloadService.removeListener(_onServiceNotification);
+    ReaderFontsService.instance.removeListener(_onServiceNotification);
     super.dispose();
   }
 

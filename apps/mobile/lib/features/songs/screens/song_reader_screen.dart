@@ -5,18 +5,15 @@ import '../../../core/config/app_config.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/link/deep_link_service.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../features/engines/scripture/models/scripture_theme_state.dart';
 import '../../../shared/services/reader_appearance.dart';
-import '../../../shared/ui/reader_appearance_sheet.dart';
+import '../../../shared/services/reader_fonts_service.dart';
+import '../../../shared/ui/widgets/reader_appearance_action_button.dart';
 import '../models/song.dart';
 import '../services/songs_catalog_service.dart';
 import '../services/song_transliteration_controller.dart';
 
 /// Full lyrics reader for a single song.
-///
-/// Language-agnostic: primary lyrics render in the system font, which supports
-/// the song's script. For songs carrying a Latin transliteration ([Song]
-/// `titleRoman`/`versesRoman`), an optional toggle switches the visible lyric
-/// text to the transliteration — a persisted, app-wide preference.
 class SongReaderScreen extends StatefulWidget {
   final String? songId;
   final Song? initialSong;
@@ -30,6 +27,7 @@ class SongReaderScreen extends StatefulWidget {
 class _SongReaderScreenState extends State<SongReaderScreen> {
   late final SongTransliterationController _translit;
   final ReaderAppearance _appearance = ReaderAppearance();
+  final ScrollController _scrollController = ScrollController();
   Song? _song;
   bool _loading = false;
 
@@ -39,10 +37,14 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
   void initState() {
     super.initState();
     _appearance.addListener(_onAppearanceChanged);
+    ReaderFontsService.instance.addListener(_onAppearanceChanged);
     _appearance.loadFromPrefs();
     _translit = SongTransliterationController()..addListener(_onChanged);
     _translit.load();
     _song = widget.initialSong;
+    if (_song != null && _song!.language.isNotEmpty) {
+      _appearance.languageCode = _song!.language;
+    }
     if ((_song == null || _song!.verses.isEmpty) && _effectiveId.isNotEmpty) {
       _loadSong();
     }
@@ -52,7 +54,14 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
     setState(() => _loading = true);
     try {
       final loaded = await SongsCatalogService().getSong(_effectiveId);
-      if (mounted) setState(() => _song = loaded ?? widget.initialSong ?? const Song.empty());
+      if (mounted) {
+        setState(() {
+          _song = loaded ?? widget.initialSong ?? const Song.empty();
+          if (_song != null && _song!.language.isNotEmpty) {
+            _appearance.languageCode = _song!.language;
+          }
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _song = widget.initialSong ?? const Song.empty());
     } finally {
@@ -63,13 +72,27 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
   @override
   void dispose() {
     _appearance.removeListener(_onAppearanceChanged);
+    ReaderFontsService.instance.removeListener(_onAppearanceChanged);
     _translit.removeListener(_onChanged);
     _translit.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   void _onAppearanceChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    if (_scrollController.hasClients) {
+      final maxExtent = _scrollController.position.maxScrollExtent;
+      final ratio = maxExtent > 0 ? _scrollController.offset / maxExtent : 0.0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        final newMax = _scrollController.position.maxScrollExtent;
+        if (newMax > 0) {
+          _scrollController.jumpTo((ratio * newMax).clamp(0.0, newMax));
+        }
+      });
+    }
+    setState(() {});
   }
 
   void _onChanged() {
@@ -99,19 +122,18 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
           automaticallyImplyLeading: false,
           backgroundColor: tokens.background,
           elevation: 0,
-          title: Text(
-            'Song',
-            style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold),
-          ),
         ),
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.music_off_outlined,
-                    size: 48, color: tokens.onSurfaceMuted),
+                Icon(
+                  Icons.music_off_outlined,
+                  size: 48,
+                  color: tokens.onSurfaceMuted,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Song not found',
@@ -136,16 +158,19 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
     }
 
     final s = song;
-    // The Latin view shows the transliterated title; the primary view keeps
-    // the true title. Fall back to the available one when a view is missing.
     final title =
         _showTranslit && (s.titleRoman?.isNotEmpty ?? false)
             ? s.titleRoman!
             : s.title;
     final author = s.author;
+    final resolvedFamily = ScriptureThemeCatalog.resolveFontFamily(
+      _appearance.fontFamily,
+      _appearance.languageCode,
+    );
+
     return Scaffold(
-        backgroundColor: _appearance.background(tokens),
-        appBar: AppBar(
+      backgroundColor: _appearance.background(tokens),
+      appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: _appearance.surface(tokens),
         elevation: 0,
@@ -159,18 +184,7 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            tooltip: 'Reading settings',
-            icon: Text(
-              'Aa',
-              style: TextStyle(
-                color: _appearance.textColor(tokens),
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            onPressed: () => showReaderAppearanceSheet(context, _appearance),
-          ),
+          ReaderAppearanceActionButton(appearance: _appearance),
           IconButton(
             tooltip: 'Share',
             icon: Icon(Icons.share_outlined, color: _appearance.mutedTextColor(tokens), size: 21),
@@ -197,7 +211,9 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
         ],
       ),
       body: Scrollbar(
+        controller: _scrollController,
         child: SingleChildScrollView(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics(),
           ),
@@ -209,42 +225,57 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
           ),
           child: MaxWidthBox(
             maxWidth: kReadingMaxWidth,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: tokens.onSurface,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (author != null || s.collection != null) ...[
-                  const SizedBox(height: 8),
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOutCubic,
+              style: TextStyle(
+                color: _appearance.textColor(tokens),
+                fontFamily: resolvedFamily,
+                fontSize: _appearance.fontSize,
+                height: _appearance.lineHeight,
+                fontWeight: _appearance.fontWeight,
+                fontStyle: _appearance.fontStyle,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    [if (author != null) author, if (s.collection != null) s.collection!]
-                        .join(' • '),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: tokens.onSurfaceMuted,
+                    title,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: tokens.onSurface,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                  if (author != null || s.collection != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      [if (author != null) author, if (s.collection != null) s.collection!]
+                          .join(' • '),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: tokens.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  for (var i = 0; i < s.verses.length; i++) ...[
+                    _VerseBlock(
+                      number: i + 1,
+                      primaryText: s.verses[i],
+                      romanText: _showTranslit ? _romanAt(i) : null,
+                      showRoman: _showTranslit,
+                      textColor: _appearance.textColor(tokens),
+                      romanColor: _appearance.mutedTextColor(tokens),
+                      fontSize: _appearance.fontSize,
+                      lineHeight: _appearance.lineHeight,
+                      fontFamily: resolvedFamily,
+                      fontWeight: _appearance.fontWeight,
+                      fontStyle: _appearance.fontStyle,
+                      textDecoration: _appearance.textDecoration,
+                    ),
+                    if (i != s.verses.length - 1) const SizedBox(height: 16),
+                  ],
                 ],
-                const SizedBox(height: 24),
-                for (var i = 0; i < s.verses.length; i++) ...[
-                  _VerseBlock(
-                    number: i + 1,
-                    primaryText: s.verses[i],
-                    romanText: _showTranslit ? _romanAt(i) : null,
-                    showRoman: _showTranslit,
-                    textColor: _appearance.textColor(tokens),
-                    romanColor: _appearance.mutedTextColor(tokens),
-                    fontSize: _appearance.fontSize,
-                    lineHeight: _appearance.lineHeight,
-                    fontFamily: _appearance.fontFamily,
-                  ),
-                  if (i != s.verses.length - 1) const SizedBox(height: 16),
-                ],
-              ],
+              ),
             ),
           ),
         ),
@@ -271,6 +302,9 @@ class _VerseBlock extends StatelessWidget {
   final double fontSize;
   final double lineHeight;
   final String? fontFamily;
+  final FontWeight fontWeight;
+  final FontStyle fontStyle;
+  final TextDecoration textDecoration;
 
   const _VerseBlock({
     required this.number,
@@ -282,6 +316,9 @@ class _VerseBlock extends StatelessWidget {
     required this.fontSize,
     required this.lineHeight,
     this.fontFamily,
+    this.fontWeight = FontWeight.normal,
+    this.fontStyle = FontStyle.normal,
+    this.textDecoration = TextDecoration.none,
   });
 
   @override
@@ -306,6 +343,9 @@ class _VerseBlock extends StatelessWidget {
             fontSize: fontSize,
             height: lineHeight,
             fontFamily: fontFamily,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            decoration: textDecoration,
           ),
         ),
         if (showRoman && (romanText?.isNotEmpty ?? false)) ...[
