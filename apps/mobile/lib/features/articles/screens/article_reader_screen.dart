@@ -195,16 +195,16 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
             }
           },
           child: Scaffold(
-            backgroundColor: tokens.background,
+            backgroundColor: appearance.background(tokens),
             appBar: AppBar(
-              backgroundColor: tokens.surface,
+              backgroundColor: appearance.surface(tokens),
               elevation: 0,
               title: Text(
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: tokens.onSurface,
+                  color: appearance.textColor(tokens),
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -216,7 +216,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                   icon: Text(
                     'Aa',
                     style: TextStyle(
-                      color: tokens.onSurface,
+                      color: appearance.textColor(tokens),
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -229,7 +229,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                 // Share button
                 if (state.article != null)
                   IconButton(
-                    icon: Icon(Icons.share_rounded, color: tokens.onSurface),
+                    icon: Icon(Icons.share_rounded, color: appearance.textColor(tokens)),
                     tooltip: l10n.share,
                     onPressed: () {
                       final article = state.article!;
@@ -314,12 +314,12 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     }
 
     final article = state.article!;
-    final textColor = tokens.onSurface;
-    final mutedColor = tokens.onSurfaceMuted;
+    final textColor = appearance.textColor(tokens);
+    final mutedColor = appearance.mutedTextColor(tokens);
 
     return Center(
       child: MaxWidthBox(
-        maxWidth: 740,
+        maxWidth: kReadingMaxWidth,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
@@ -362,7 +362,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Divider(color: tokens.surfaceBorder, height: 1),
+                  Divider(color: appearance.surfaceBorder(tokens), height: 1),
                   const SizedBox(height: 20),
 
                   // Paragraphs & Headings

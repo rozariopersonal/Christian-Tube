@@ -461,9 +461,10 @@ async function importEnglishSongs() {
 /// `song_verses` table (one row per verse block), and two FTS5 virtual tables
 /// (`songs_fts`, `lyrics_fts`) so the app can run rich full-text search
 /// directly against the local database (metadata + lyrics, native + Roman).
-function buildSongsSqlite(songs) {
-  const dbPath = path.join(SONGS_DIR, 'songs.sqlite');
-  const gzPath = path.join(SONGS_DIR, 'songs.sqlite.gz');
+function buildSongsSqliteFor(targetDir, songs, label) {
+  ensureDir(targetDir);
+  const dbPath = path.join(targetDir, 'songs.sqlite');
+  const gzPath = path.join(targetDir, 'songs.sqlite.gz');
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
   const db = new DatabaseSync(dbPath);
@@ -549,9 +550,27 @@ function buildSongsSqlite(songs) {
   fs.writeFileSync(gzPath, gz);
   fs.unlinkSync(dbPath);
   console.log(
-    `  ✓ Wrote releases/songs/songs.sqlite.gz ` +
+    `  ✓ Wrote ${label} ` +
       `(${(gz.length / 1024 / 1024).toFixed(2)} MB gz from ${songs.length} songs)`
   );
+}
+
+function buildSongsSqlite(songs) {
+  // 1. Aggregate package
+  buildSongsSqliteFor(SONGS_DIR, songs, 'releases/songs/songs.sqlite.gz');
+
+  // 2. Per-language packages
+  const byLang = new Map();
+  for (const s of songs) {
+    const lang = (s.language || 'en').toLowerCase();
+    if (!byLang.has(lang)) byLang.set(lang, []);
+    byLang.get(lang).push(s);
+  }
+
+  for (const [lang, langSongs] of byLang.entries()) {
+    const langDir = path.join(SONGS_DIR, lang);
+    buildSongsSqliteFor(langDir, langSongs, `releases/songs/${lang}/songs.sqlite.gz`);
+  }
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -588,6 +607,28 @@ async function main() {
   ensureDir(SONGS_DIR);
   writeJson(path.join(SONGS_DIR, 'catalog.json'), catalog);
   console.log(`  ✓ Wrote releases/songs/catalog.json`);
+
+  const catalogLite = {
+    songs: deduped.map(s => ({
+      id: s.id,
+      title: s.title,
+      titleRoman: s.titleRoman || null,
+      author: s.author || null,
+      album: s.album || null,
+      collection: s.collection || null,
+      language: s.language || 'en',
+      category: s.category || null,
+      audioUrl: s.audioUrl || null
+    }))
+  };
+  writeJson(path.join(SONGS_DIR, 'catalog_lite.json'), catalogLite);
+  console.log(`  ✓ Wrote releases/songs/catalog_lite.json`);
+
+  // Write individual song files for streaming
+  for (const s of deduped) {
+    fs.writeFileSync(path.join(SONGS_DIR, `${s.id}.json`), JSON.stringify(s), 'utf8');
+  }
+  console.log(`  ✓ Wrote ${deduped.length} individual song JSON files to releases/songs/{id}.json`);
 
   buildSongsSqlite(deduped);
 

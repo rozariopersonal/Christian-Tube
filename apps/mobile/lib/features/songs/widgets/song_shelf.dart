@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_tokens.dart';
+import '../../library/widgets/library_section_header.dart';
 import '../models/song.dart';
 
 /// Horizontal songs shelf for the Library hub. Shows up to a fixed count of
@@ -20,44 +21,13 @@ class SongShelf extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-          child: Row(
-            children: [
-              Flexible(
-                child: Row(
-                  children: [
-                    Icon(Icons.music_note_rounded, color: tokens.accent, size: 20),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Songs',
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: tokens.onSurface,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: onViewAll,
-                style: TextButton.styleFrom(
-                  foregroundColor: tokens.accent,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  visualDensity: VisualDensity.compact,
-                ),
-                child: Text('View all', style: theme.textTheme.labelMedium),
-              ),
-            ],
-          ),
+        LibrarySectionHeader(
+          title: 'Songs',
+          icon: Icons.music_note_rounded,
+          onViewAll: onViewAll,
         ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,

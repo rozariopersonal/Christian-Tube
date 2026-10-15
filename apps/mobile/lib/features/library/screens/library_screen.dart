@@ -17,6 +17,7 @@ import '../../songs/models/song.dart';
 import '../../songs/services/songs_catalog_service.dart';
 import '../../songs/widgets/song_shelf.dart';
 import '../services/library_data_loader.dart';
+import '../widgets/library_section_header.dart';
 
 /// Library hub — one scrolling landing for everything users read:
 /// recent books (with progress), the multi-language Articles collection
@@ -26,6 +27,7 @@ class LibraryScreen extends StatefulWidget {
   final ArticlesCatalogLoader? articlesLoader;
   final ArticlesLanguagesLoader? languagesLoader;
   final SongsCatalogLoader? songsLoader;
+  final LibraryLanguagesController? langController;
 
   const LibraryScreen({
     super.key,
@@ -33,6 +35,7 @@ class LibraryScreen extends StatefulWidget {
     this.articlesLoader,
     this.languagesLoader,
     this.songsLoader,
+    this.langController,
   });
 
   @override
@@ -42,18 +45,15 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   late final LibraryDataLoader _loader;
   late final ArticlesCatalogLoader _articlesLoader;
-  late final ArticlesLanguagesLoader _languagesLoader;
+  late final ArticlesLanguagesLoader? _languagesLoader;
   late final SongsCatalogLoader _songsLoader;
   late final LibraryLanguagesController _langController;
 
   List<Book> _recentBooks = const [];
   List<Book> _allBooks = const [];
   Map<String, UserReadingProgress> _progressMap = const {};
-  List<WftwIndexEntry> _articlesRecent = const [];
   List<WftwIndexEntry> _allArticles = const [];
-  List<Song> _songs = const [];
   List<Song> _allSongs = const [];
-  bool _loading = true;
 
   static const int _recentBookLimit = 10;
   static const int _shelfCount = 8;
@@ -64,12 +64,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.initState();
     _loader = widget.loader ?? BookServiceLibraryLoader();
     _articlesLoader = widget.articlesLoader ??
-        () => WftwIndexService().getArticlesIndex();
-    _languagesLoader =
-        widget.languagesLoader ?? WftwIndexService().getLanguages;
+        () => WftwIndexService().getRecentArticles();
+    _languagesLoader = widget.languagesLoader;
     _songsLoader = widget.songsLoader ??
         () => SongsCatalogService().getSongs();
-    _langController = LibraryLanguagesController()
+    _langController = (widget.langController ?? LibraryLanguagesController.instance)
       ..addListener(_onLanguagesChanged);
     _loadData();
   }
@@ -104,6 +103,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _langController.announceLanguages(codes);
   }
 
+  Future<void> _refreshRecentProgress() async {
+    try {
+      final recentProgress = await _loader.getRecentProgress(
+        limit: _recentBookLimit,
+      );
+      final progressMap = <String, UserReadingProgress>{};
+      final recentBooks = <Book>[];
+      for (final p in recentProgress) {
+        progressMap[p.bookId] = p;
+        final match = _allBooks.where((b) => b.id == p.bookId).firstOrNull;
+        if (match != null) recentBooks.add(match);
+      }
+      if (mounted) {
+        setState(() {
+          _progressMap = progressMap;
+          _recentBooks = recentBooks;
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> _loadData() async {
     try {
       await _loader.initialize();
@@ -121,24 +141,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
         if (match != null) recentBooks.add(match);
       }
 
+      if (mounted) {
+        setState(() {
+          _allBooks = books;
+          _recentBooks = recentBooks;
+          _progressMap = progressMap;
+        });
+      }
+
       final List<WftwIndexEntry> allArticles = [];
       try {
         allArticles.addAll(await _articlesLoader());
-        final languages = await _languagesLoader();
-        for (final l in languages) {
-          if (l.code.isNotEmpty) {
-            // Teach the shared language registry about catalog languages it
-            // does not already know so codes are shown as names, never as raw
-            // ISO codes.
-            LanguageMeta.registerLanguage(l.code, englishName: l.name);
+        if (_languagesLoader != null) {
+          final languages = await _languagesLoader();
+          for (final l in languages) {
+            if (l.code.isNotEmpty) {
+              LanguageMeta.registerLanguage(l.code, englishName: l.name);
+            }
           }
         }
       } catch (e) {
         debugPrint('Articles shelf unavailable: $e');
       }
-      final articles = allArticles.length <= _shelfCount
-          ? allArticles
-          : allArticles.sublist(0, _shelfCount);
 
       final List<Song> allSongs = [];
       try {
@@ -146,25 +170,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
       } catch (e) {
         debugPrint('Songs shelf unavailable: $e');
       }
-      final songs = allSongs.length <= _songShelfCount
-          ? allSongs
-          : allSongs.sublist(0, _songShelfCount);
 
       if (!mounted) return;
       _announceLanguages(books, allArticles, allSongs);
       setState(() {
-        _recentBooks = recentBooks;
-        _allBooks = books;
         _allArticles = allArticles;
         _allSongs = allSongs;
-        _progressMap = progressMap;
-        _articlesRecent = articles;
-        _songs = songs;
-        _loading = false;
       });
     } catch (e) {
       debugPrint('Library load failed: $e');
-      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -208,7 +222,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await context.push(
       '/books/${book.id}?page=$targetPage&startLine=$targetLine&endLine=$targetLine',
     );
-    _loadData();
+    if (!mounted) return;
+    _refreshRecentProgress();
   }
 
   @override
@@ -248,50 +263,64 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ),
       body: MaxWidthBox(
         maxWidth: 1080,
-        child: _loading
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: tokens.accent),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Loading library...',
-                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 14),
-                    ),
-                  ],
-                ),
-              )
-            : RefreshIndicator(
-                onRefresh: _loadData,
-                color: tokens.accent,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          color: tokens.accent,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
                     SliverToBoxAdapter(
                       child: _buildLanguageFilter(tokens),
                     ),
-                    SliverToBoxAdapter(
-                      child: _buildBooksSection(tokens),
-                    ),
-                    if (_filteredSongs.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: SongShelf(
-                          songs: _filteredSongs,
-                          onViewAll: _openSongs,
-                          onTapSong: _openSong,
+                    if (_filteredBooks.isEmpty &&
+                        _filteredSongs.isEmpty &&
+                        _filteredArticles.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.search_off_rounded,
+                                    size: 48, color: tokens.onSurfaceMuted),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No library content found for the selected language.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      color: tokens.onSurfaceMuted,
+                                      fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    if (_articlesRecent.isNotEmpty)
+                      )
+                    else ...[
                       SliverToBoxAdapter(
-                        child: WftwShelf(
-                          entries: _filteredArticles,
-                          title: 'Articles',
-                          icon: Icons.article_outlined,
-                          onViewAll: _openArticles,
-                          onTapArticle: _openArticle,
-                        ),
+                        child: _buildBooksSection(tokens),
                       ),
+                      if (_filteredSongs.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: SongShelf(
+                            songs: _filteredSongs,
+                            onViewAll: _openSongs,
+                            onTapSong: _openSong,
+                          ),
+                        ),
+                      if (_filteredArticles.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: WftwShelf(
+                            entries: _filteredArticles,
+                            title: 'Articles',
+                            icon: Icons.article_outlined,
+                            onViewAll: _openArticles,
+                            onTapArticle: _openArticle,
+                          ),
+                        ),
+                    ],
                     const SliverToBoxAdapter(
                       child: SizedBox(height: 40),
                     ),
@@ -363,16 +392,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   List<Song> get _filteredSongs {
     final state = _langController.state;
-    if (state.isAllLanguages) return _songs;
-    return _songs.where((s) => state.includes(s.language)).toList();
+    final filtered = state.isAllLanguages
+        ? _allSongs
+        : _allSongs.where((s) => state.includes(s.language)).toList();
+    return filtered.length <= _songShelfCount
+        ? filtered
+        : filtered.sublist(0, _songShelfCount);
   }
 
   Widget _buildBooksSection(AppTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(
-          tokens,
+        LibrarySectionHeader(
           icon: Icons.collections_bookmark_outlined,
           title: 'Books',
           onViewAll: () => context.push(
@@ -390,12 +422,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 children: _filteredBooks.map((book) {
                   final progress = _progressMap[book.id];
                   return Container(
-                    width: 240,
+                    width: 230,
                     margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: tokens.surfaceVariant,
-                      borderRadius: BorderRadius.circular(12),
+                      color: tokens.surface,
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: tokens.surfaceBorder),
                     ),
                     child: InkWell(
@@ -512,50 +544,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildSectionHeader(
-    AppTokens tokens, {
-    required IconData icon,
-    required String title,
-    required VoidCallback onViewAll,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-      child: Row(
-        children: [
-          Flexible(
-            child: Row(
-              children: [
-                Icon(icon, color: tokens.accent, size: 20),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: tokens.onSurface,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: onViewAll,
-            style: TextButton.styleFrom(
-              foregroundColor: tokens.accent,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              visualDensity: VisualDensity.compact,
-            ),
-            child: const Text('View all', style: TextStyle(fontSize: 13)),
-          ),
-        ],
-      ),
     );
   }
 

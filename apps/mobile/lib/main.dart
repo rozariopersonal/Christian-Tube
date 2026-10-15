@@ -296,8 +296,13 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
             GoRoute(
               path: '/downloads',
               builder: (context, state) {
-                final tabStr = state.uri.queryParameters['tab'];
-                final tab = int.tryParse(tabStr ?? '0') ?? 0;
+                final tabStr = state.uri.queryParameters['tab']?.toLowerCase();
+                var tab = int.tryParse(tabStr ?? '') ?? 0;
+                if (tabStr == 'bibles' || tabStr == 'bible') tab = 1;
+                if (tabStr == 'dictionaries' || tabStr == 'dict') tab = 2;
+                if (tabStr == 'books' || tabStr == 'book') tab = 3;
+                if (tabStr == 'audio' || tabStr == 'sermons') tab = 4;
+                if (tabStr == 'songs' || tabStr == 'hymns') tab = 5;
                 return DownloadsManagerScreen(initialTab: tab);
               },
             ),

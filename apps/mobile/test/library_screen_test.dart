@@ -9,6 +9,7 @@ import 'package:mobile/features/books/models/user_reading_progress.dart';
 import 'package:mobile/features/library/screens/library_screen.dart';
 import 'package:mobile/features/library/services/library_data_loader.dart';
 import 'package:mobile/features/songs/models/song.dart';
+import 'package:mobile/shared/services/library_languages_controller.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
   tester.view.physicalSize = Size(width, height);
@@ -79,6 +80,7 @@ Widget buildLibrary({
   Future<List<WftwIndexEntry>> Function()? articlesLoader,
   Future<List<ArticleLanguage>> Function()? languagesLoader,
   Future<List<Song>> Function()? songsLoader,
+  LibraryLanguagesController? langController,
 }) {
   return MaterialApp(
     theme: testTheme(),
@@ -86,7 +88,8 @@ Widget buildLibrary({
       loader: loader,
       articlesLoader: articlesLoader,
       languagesLoader: languagesLoader,
-      songsLoader: songsLoader,
+      songsLoader: songsLoader ?? () async => const [],
+      langController: langController ?? LibraryLanguagesController({'All'}),
     ),
   );
 }
@@ -277,6 +280,8 @@ class _RoutedLibrary extends StatelessWidget {
       ),
       articlesLoader: _nullArticles,
       languagesLoader: _loadLanguages,
+      songsLoader: () async => const [],
+      langController: LibraryLanguagesController({'All'}),
     );
   }
 }

@@ -197,9 +197,9 @@ class GitHubDataService {
     final c = chapter.toString().padLeft(3, '0');
     final v = versionId.toLowerCase();
     return [
-      ...ReleaseAssets.urlsFor('study/$v/chapters/b${b}_c${c}.json'),
-      ...ReleaseAssets.urlsFor('data/study_$v/chapters/b${b}_c${c}.json'),
-      ...ReleaseAssets.urlsFor('data/study_ta_ovbsi/chapters/b${b}_c${c}.json'),
+      ...ReleaseAssets.urlsFor('study/$v/chapters/b${b}_c$c.json'),
+      ...ReleaseAssets.urlsFor('data/study_$v/chapters/b${b}_c$c.json'),
+      ...ReleaseAssets.urlsFor('data/study_ta_ovbsi/chapters/b${b}_c$c.json'),
     ];
   }
 
@@ -261,6 +261,16 @@ static List<String> wftwManifestUrls() =>
   static List<String> articlesIndexUrls() =>
       ReleaseAssets.urlsFor('articles/articles_index.json');
 
+  /// Recent articles preview (top 25-30 articles across languages, ~5-6 KB).
+  static List<String> articlesRecentUrls() =>
+      ReleaseAssets.urlsFor('articles/recent.json');
+
+  /// Per-language offline SQLite package for articles.
+  static List<String> articlesLanguageSqliteUrls(String lang) {
+    final l = lang.trim().toLowerCase();
+    return ReleaseAssets.urlsFor('articles/$l/articles.sqlite.gz');
+  }
+
   /// Language catalog (`articles/languages.json`): code, label, article count.
   static List<String> articlesLanguagesUrls() =>
       ReleaseAssets.urlsFor('articles/languages.json');
@@ -297,10 +307,24 @@ static List<String> wftwManifestUrls() =>
   static List<String> songsCatalogUrls() =>
       ReleaseAssets.urlsFor('songs/catalog.json');
 
-  /// Prebuilt SQLite catalog for offline browsing and rich FTS5 search
-  /// (optional download, mirroring the dictionaries/books sqlite packages).
+  /// Lean song catalog (metadata only, no lyrics, ~350 KB).
+  static List<String> songsCatalogLiteUrls() =>
+      ReleaseAssets.urlsFor('songs/catalog_lite.json');
+
+  /// Single song lyrics and transliteration (on-demand streaming, ~2 KB).
+  static List<String> songItemUrls(String id) =>
+      ReleaseAssets.urlsFor('songs/$id.json');
+
+  /// Prebuilt SQLite catalog for offline browsing and rich FTS5 search.
   static List<String> songsSqliteUrls() =>
       ReleaseAssets.urlsFor('songs/songs.sqlite.gz');
+
+  /// Per-language SQLite catalog for offline songs browsing and FTS5 search.
+  static List<String> songsLanguageSqliteUrls(String lang) {
+    final l = lang.trim().toLowerCase();
+    if (l.isEmpty || l == 'all') return songsSqliteUrls();
+    return ReleaseAssets.urlsFor('songs/$l/songs.sqlite.gz');
+  }
 
   // ── Reader fonts ──────────────────────────────────────────────────────────
 

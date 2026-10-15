@@ -6,6 +6,7 @@ import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/core/api/release_assets.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqflite/sqflite.dart';
 import '../models/article_data.dart';
 
 class ArticleSyncService {
@@ -30,6 +31,45 @@ class ArticleSyncService {
     return dir.path;
   }
 
+  Future<ArticleData?> _loadFromInstalledSqlite(String code, String articleId) async {
+    if (kIsWeb) return null;
+    try {
+      final dbPath = p.join(await getDatabasesPath(), 'articles_$code.sqlite');
+      final dbFile = File(dbPath);
+      if (await dbFile.exists()) {
+        final db = await openReadOnlyDatabase(dbPath);
+        final rows = await db.query(
+          'articles',
+          where: 'id = ?',
+          whereArgs: [articleId],
+          limit: 1,
+        );
+        await db.close();
+        if (rows.isNotEmpty) {
+          final row = rows.first;
+          final linesJson = row['lines_json'] as String?;
+          List<dynamic> lines = [];
+          if (linesJson != null && linesJson.isNotEmpty) {
+            try {
+              lines = jsonDecode(linesJson) as List<dynamic>;
+            } catch (_) {}
+          }
+          final map = {
+            'id': row['id'],
+            'title': row['title'],
+            'date': row['date'],
+            'author': row['author'] ?? 'Zac Poonen',
+            'lines': lines,
+          };
+          return ArticleData.fromJson(map);
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to load article from installed SQLite ($code): $e');
+    }
+    return null;
+  }
+
   Future<ArticleData?> getArticle(String articleId, {String? lang}) async {
     final code = (lang == null || lang.trim().isEmpty)
         ? 'en'
@@ -50,10 +90,17 @@ class ArticleSyncService {
       return _memoryCache[cacheKey];
     }
 
+    // 2. Check installed per-language SQLite database
+    final sqliteArticle = await _loadFromInstalledSqlite(code, articleId);
+    if (sqliteArticle != null) {
+      _memoryCache[cacheKey] = sqliteArticle;
+      return sqliteArticle;
+    }
+
     final cacheDir = await _getCacheDirectory();
     final localFile = File(p.join(cacheDir, fileName));
 
-    // 2. Check disk cache
+    // 3. Check disk cache
     if (await localFile.exists()) {
       try {
         final content = await localFile.readAsString();

@@ -424,6 +424,63 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
+  Widget _buildEmbeddedStudyContent(int verseNumber) {
+    final s = _controller.state;
+    final targetBook = s.selectedBook ?? _controller.currentBook;
+    final targetChapter = s.selectedChapter ?? _controller.currentChapter;
+    final bookNum = _controller.bookNumber(targetBook);
+    final cid = bibleChapterId(bookNum, targetChapter);
+    final chVerses = s.loadedChapters[cid] ?? s.verses;
+    final verse = chVerses.firstWhere(
+      (v) => v.number == verseNumber,
+      orElse: () => chVerses.isNotEmpty
+          ? chVerses.first
+          : BibleVerse(number: verseNumber, text: ''),
+    );
+    final verseLabel =
+        '${_controller.displayBookName(targetBook)} '
+        '$targetChapter:$verseNumber';
+    final refs = s.loadedCrossRefs[cid]?[verseNumber] ??
+        (targetBook == _controller.currentBook && targetChapter == _controller.currentChapter
+            ? (s.chapterCrossRefs[verseNumber] ?? const [])
+            : const []);
+    var notes = s.loadedBackgrounds[cid]?[verseNumber] ??
+        (targetBook == _controller.currentBook && targetChapter == _controller.currentChapter
+            ? (s.chapterBackgrounds[verseNumber] ?? const [])
+            : const []);
+    if (notes.isEmpty && s.chapterBackgrounds[0] != null) {
+      notes = s.chapterBackgrounds[0]!;
+    }
+    final bookCommentariesFuture = BookService.instance.getCommentariesForVerse(
+      bookNum, targetChapter, verseNumber,
+    );
+    return VerseStudyScreen(
+      isEmbedded: true,
+      verseText: verse.text,
+      verseLabel: verseLabel,
+      versionLabel: _controller.selectedVersion?.name,
+      versionId: _controller.selectedVersion?.shortname,
+      bookNumber: bookNum,
+      chapterNumber: targetChapter,
+      verseNumber: verseNumber,
+      references: refs,
+      resolvedTexts: s.crossRefTexts,
+      commentaryNotes: notes,
+      bookCommentariesFuture: bookCommentariesFuture,
+      baseFontSize: _controller.appearance.fontSize,
+      onTapReference: (ref) => _navigateToPassage(
+        bookNumber: ref.bookNumber,
+        chapter: ref.chapter,
+        verse: ref.verse,
+      ),
+      onTapPassage: (bookNum, chapter, verseNum) => _navigateToPassage(
+        bookNumber: bookNum,
+        chapter: chapter,
+        verse: verseNum,
+      ),
+    );
+  }
+
   // ── Clipboard / Share / Bookmark ──────────────────────────────────────
 
   void _copySelectedVerses() {
@@ -635,6 +692,7 @@ class _BibleScreenState extends State<BibleScreen> {
               left: 0,
               right: 0,
               bottom: 0,
+              top: s.selectedVerses.isNotEmpty ? 0 : null,
               child: BibleBottomNav(
                 controller: _controller,
                 onShowBookChapterSelector: _showBookChapterSelector,
@@ -650,6 +708,9 @@ class _BibleScreenState extends State<BibleScreen> {
                           book: s.selectedBook,
                           chapter: s.selectedChapter,
                         )
+                    : null,
+                studyContent: s.selectedVerses.isNotEmpty
+                    ? _buildEmbeddedStudyContent(s.selectedVerses.first)
                     : null,
               ),
             ),

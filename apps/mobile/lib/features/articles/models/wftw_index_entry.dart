@@ -1,3 +1,5 @@
+import '../../../shared/ui/language_meta.dart';
+
 /// A single Word-for-the-Week article entry in the teaching browser index.
 ///
 /// Mirrors one row of `releases/articles/wftw_index.json`, which is emitted
@@ -31,7 +33,7 @@ class WftwIndexEntry {
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? 'Untitled',
       date: json['date'] as String? ?? '',
-      lang: json['lang'] as String? ?? 'en',
+      lang: LanguageMeta.canonicalCode((json['lang'] ?? 'en').toString()),
       year: json['year'] as int?,
       bookNumber: json['bookNumber'] as int?,
       chapter: json['chapter'] as int?,
@@ -50,7 +52,8 @@ class WftwIndexEntry {
 Map<int, List<WftwIndexEntry>> groupByYear(List<WftwIndexEntry> entries) {
   final map = <int, List<WftwIndexEntry>>{};
   for (final entry in entries) {
-    final year = entry.year;
+    final year = entry.year ??
+        (entry.date.isNotEmpty ? int.tryParse(entry.date.split('-').first) : null);
     if (year == null) continue;
     (map[year] ??= []).add(entry);
   }

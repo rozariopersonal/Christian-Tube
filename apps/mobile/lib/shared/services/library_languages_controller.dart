@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,9 +12,17 @@ class LibraryLanguagesState {
   /// Every language code available across the whole library, plus 'All'.
   final List<String> availableLanguages;
 
+  /// Recent languages ordered by most recent selection (excluding 'All').
+  final List<String> recentLanguages;
+
+  /// Frequency counter for each selected language code.
+  final Map<String, int> usageCounts;
+
   const LibraryLanguagesState({
     this.selectedLanguages = const {'All'},
     this.availableLanguages = const ['All'],
+    this.recentLanguages = const [],
+    this.usageCounts = const {},
   });
 
   bool get isAllLanguages => selectedLanguages.isEmpty ||
@@ -27,13 +36,24 @@ class LibraryLanguagesState {
 
   LanguageMeta metaFor(String code) => LanguageMeta.fromCode(code);
 
+  /// Frequently used language codes ordered by count descending.
+  List<String> get frequentlyUsedLanguages {
+    final list = usageCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return list.map((e) => e.key).toList();
+  }
+
   LibraryLanguagesState copyWith({
     Set<String>? selectedLanguages,
     List<String>? availableLanguages,
+    List<String>? recentLanguages,
+    Map<String, int>? usageCounts,
   }) {
     return LibraryLanguagesState(
       selectedLanguages: selectedLanguages ?? this.selectedLanguages,
       availableLanguages: availableLanguages ?? this.availableLanguages,
+      recentLanguages: recentLanguages ?? this.recentLanguages,
+      usageCounts: usageCounts ?? this.usageCounts,
     );
   }
 }
@@ -45,43 +65,85 @@ class LibraryLanguagesState {
 /// selection so the whole library is filtered by one global choice.
 class LibraryLanguagesController extends ChangeNotifier {
   static const String _prefKeyLanguages = 'library_languages';
+  static const String _prefKeyRecent = 'library_languages_recent';
+  static const String _prefKeyUsage = 'library_languages_usage';
+
+  static final LibraryLanguagesController instance =
+      LibraryLanguagesController._internal();
 
   LibraryLanguagesState _state = const LibraryLanguagesState();
   LibraryLanguagesState get state => _state;
 
   final Set<String> _knownLanguages = <String>{};
+  final bool _isSingleton;
+  bool _isDisposed = false;
 
-  LibraryLanguagesController() {
+  LibraryLanguagesController([Set<String>? initial])
+      : _isSingleton = false {
+    if (initial != null) {
+      _state = _state.copyWith(selectedLanguages: initial);
+    } else {
+      _restore();
+    }
+  }
+
+  LibraryLanguagesController._internal()
+      : _isSingleton = true {
     _restore();
+  }
+
+  @visibleForTesting
+  static void resetInstanceForTesting() {
+    instance.reset();
   }
 
   /// Extracts a shared [LibraryLanguagesController] handed through a GoRouter
   /// `extra` payload (either the controller itself or a map carrying it under
-  /// `langController`). Returns null when absent so route-pushed screens can
-  /// fall back to a self-owned, prefs-restoring instance.
-  static LibraryLanguagesController? fromRouteExtra(Object? extra) {
+  /// `langController`). Returns the global [instance] when absent.
+  static LibraryLanguagesController fromRouteExtra(Object? extra) {
     if (extra is LibraryLanguagesController) return extra;
     if (extra is Map) {
       final v = extra['langController'];
-      return v is LibraryLanguagesController ? v : null;
+      if (v is LibraryLanguagesController) return v;
     }
-    return null;
+    return instance;
   }
 
   Future<void> _restore() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getStringList(_prefKeyLanguages);
+      final recent = prefs.getStringList(_prefKeyRecent) ?? [];
+      final usageRaw = prefs.getString(_prefKeyUsage);
+      Map<String, int> usage = {};
+      if (usageRaw != null && usageRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(usageRaw) as Map<String, dynamic>;
+          usage = decoded.map((k, v) => MapEntry(k, (v as num).toInt()));
+        } catch (_) {}
+      }
+
+      Set<String>? normalizedSelection;
       if (saved != null && saved.isNotEmpty) {
         final normalized = saved
             .map((c) => LanguageMeta.canonicalCode(c))
             .where((c) => c.isNotEmpty && c != 'all')
             .toSet();
-        if (normalized.isEmpty) return;
-        _state = _state.copyWith(selectedLanguages: normalized);
-        notifyListeners();
-        await prefs.setStringList(_prefKeyLanguages, normalized.toList());
+        if (normalized.isNotEmpty) {
+          normalizedSelection = normalized;
+          if (!setEquals(normalized, saved.toSet())) {
+            await prefs.setStringList(_prefKeyLanguages, normalized.toList());
+          }
+        }
       }
+
+      if (_isDisposed) return;
+      _state = _state.copyWith(
+        selectedLanguages: normalizedSelection ?? _state.selectedLanguages,
+        recentLanguages: recent,
+        usageCounts: usage,
+      );
+      notifyListeners();
     } catch (e) {
       debugPrint('Language restore failed: $e');
     }
@@ -114,11 +176,32 @@ class LibraryLanguagesController extends ChangeNotifier {
         .map((c) => c == 'all' ? 'All' : c)
         .toSet();
     final valid = normalized.isEmpty ? {'All'} : normalized;
-    _state = _state.copyWith(selectedLanguages: valid);
+
+    final newRecent = List<String>.from(_state.recentLanguages);
+    final newUsage = Map<String, int>.from(_state.usageCounts);
+
+    for (final code in valid) {
+      if (code.toLowerCase() == 'all') continue;
+      newRecent.remove(code);
+      newRecent.insert(0, code);
+      newUsage[code] = (newUsage[code] ?? 0) + 1;
+    }
+    while (newRecent.length > 5) {
+      newRecent.removeLast();
+    }
+
+    _state = _state.copyWith(
+      selectedLanguages: valid,
+      recentLanguages: newRecent,
+      usageCounts: newUsage,
+    );
     notifyListeners();
+
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_prefKeyLanguages, valid.toList());
+      await prefs.setStringList(_prefKeyRecent, newRecent);
+      await prefs.setString(_prefKeyUsage, jsonEncode(newUsage));
     } catch (e) {
       debugPrint('Language save failed: $e');
     }
@@ -127,4 +210,16 @@ class LibraryLanguagesController extends ChangeNotifier {
   void reset() {
     selectLanguages({'All'});
   }
+
+  @override
+  // ignore: must_call_super
+  void dispose() {
+    _isDisposed = true;
+    if (_isSingleton) {
+      // Singleton controller persists across the application lifecycle.
+      return;
+    }
+    super.dispose();
+  }
 }
+

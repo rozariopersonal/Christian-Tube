@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
@@ -139,7 +140,11 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       debugPrint('Error flushing reading progress: $e');
     } finally {
       if (mounted) {
-        Navigator.of(context).pop(result);
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(result);
+        } else {
+          context.go('/books');
+        }
       }
     }
   }
