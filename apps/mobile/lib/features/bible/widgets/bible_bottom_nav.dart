@@ -17,6 +17,7 @@ class BibleBottomNav extends StatelessWidget {
     required this.onNote,
     required this.onClear,
     required this.onStudy,
+    this.studyContent,
   });
 
   final BibleController controller;
@@ -28,6 +29,7 @@ class BibleBottomNav extends StatelessWidget {
   final VoidCallback onNote;
   final VoidCallback onClear;
   final VoidCallback? onStudy;
+  final Widget? studyContent;
 
   @override
   Widget build(BuildContext context) {
@@ -35,22 +37,29 @@ class BibleBottomNav extends StatelessWidget {
     final appearance = controller.appearance;
 
     if (s.selectedVerses.isNotEmpty) {
-      return SafeArea(
-        top: false,
-        child: MaxWidthBox(
-          maxWidth: 640,
-          child: VerseActionBar(
-            selectedCount: s.selectedVerses.length,
-            appearance: appearance,
-            onCopy: onCopy,
-            onShare: onShare,
-            onBookmark: onBookmark,
-            onHighlight: onHighlight,
-            onNote: onNote,
-            onClear: onClear,
-            onStudy: onStudy,
-          ),
-        ),
+      final book = s.selectedBook ?? controller.currentBook;
+      final chapter = s.selectedChapter ?? controller.currentChapter;
+      final sortedVerses = s.selectedVerses.toList()..sort();
+      final verseLabel = sortedVerses.length == 1
+          ? '${controller.displayBookName(book)} $chapter:${sortedVerses.first}'
+          : '${controller.displayBookName(book)} $chapter:${sortedVerses.first}-${sortedVerses.last} (${sortedVerses.length} verses)';
+
+      return VerseActionBar(
+        selectedCount: s.selectedVerses.length,
+        appearance: appearance,
+        onCopy: onCopy,
+        onShare: onShare,
+        onBookmark: onBookmark,
+        onHighlight: onHighlight,
+        onHighlightColor: (color) => controller.applyHighlight(color),
+        onRemoveHighlight: () => controller.removeHighlight(),
+        currentColorIndex: s.highlightColorForSelection,
+        hasHighlight: s.selectionHasHighlight,
+        verseLabel: verseLabel,
+        studyContent: studyContent,
+        onNote: onNote,
+        onClear: onClear,
+        onStudy: onStudy,
       );
     }
     return _ChapterNav(

@@ -204,7 +204,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('VerseActionBar renders as floating rounded bar without selection count row', (tester) async {
+    testWidgets('VerseActionBar renders as 3-stage draggable sheet', (tester) async {
       await tester.pumpWidget(
         wrapWithTokens(
           VerseActionBar(
@@ -221,28 +221,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify no selection count row exists
-      expect(find.text('2 selected'), findsNothing);
-      expect(find.text('1 selected'), findsNothing);
-
-      // Verify actions exist
+      // Stage 1 (Peek): Copy, Share, and quick color dots are present
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Share'), findsOneWidget);
-      expect(find.text('Bookmark'), findsOneWidget);
-      expect(find.text('Highlight'), findsOneWidget);
-      expect(find.text('Note'), findsOneWidget);
-      expect(find.text('Study'), findsOneWidget);
-
-      // Verify close button is removed
-      expect(find.byTooltip('Deselect all'), findsNothing);
-      expect(find.byIcon(Icons.close_rounded), findsNothing);
-
-      // Verify rounded container exists without border and with BackdropFilter glass effect
-      final container = tester.widget<Container>(find.byType(Container).first);
-      final decoration = container.decoration as BoxDecoration;
-      expect(decoration.borderRadius, equals(BorderRadius.circular(20)));
-      expect(decoration.border, isNull);
+      expect(find.bySemanticsLabel('Highlight color'), findsWidgets);
       expect(find.byType(BackdropFilter), findsOneWidget);
+
+      // Expand to Stage 2 by dragging up
+      await tester.drag(find.text('Share'), const Offset(0, -280));
+      await tester.pumpAndSettle();
+
+      // Stage 2: Bookmark, Note, and full Highlight grid are revealed
+      expect(find.text('Bookmark'), findsOneWidget);
+      expect(find.text('Note'), findsOneWidget);
+      expect(find.text('Highlight'), findsOneWidget);
     });
   });
 }
