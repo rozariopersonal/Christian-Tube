@@ -7,7 +7,8 @@ import 'package:mobile/features/engines/scripture/services/online_bible_service.
 class _AllowAllHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context);
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (cert, host, port) => true;
   }
 }
 
