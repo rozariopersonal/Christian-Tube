@@ -41,6 +41,7 @@ class VerseStudyScreen extends StatefulWidget {
   final int initialTab;
   final void Function(CrossReference)? onTapReference;
   final void Function(int bookNumber, int chapter, int verse)? onTapPassage;
+  final bool isEmbedded;
 
   const VerseStudyScreen({
     super.key,
@@ -59,6 +60,7 @@ class VerseStudyScreen extends StatefulWidget {
     this.initialTab = 0,
     this.onTapReference,
     this.onTapPassage,
+    this.isEmbedded = false,
   });
 
   @override
@@ -1000,6 +1002,17 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final safeInitialTab = (widget.initialTab >= 0 && widget.initialTab < 3) ? widget.initialTab : 0;
+
+    if (widget.isEmbedded) {
+      return DefaultTabController(
+        length: 3,
+        initialIndex: safeInitialTab,
+        child: Material(
+          color: tokens.background,
+          child: _buildLayout(context),
+        ),
+      );
+    }
 
     return DefaultTabController(
       length: 3,
