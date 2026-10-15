@@ -37,6 +37,7 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({
       BibleRecentVersionsService.keyRecentVersions: ['NIV', 'TAOBVSI', 'HIN_HCV'],
+      BibleRecentVersionsService.keyVersionFrequency: '{"TAOBVSI": 10, "NIV": 5, "HIN_HCV": 2}',
     });
   });
 
@@ -56,10 +57,27 @@ void main() {
         expect(tester.takeException(), isNull,
             reason: 'overflow/exception at $width');
         expect(find.text('Bible Translation'), findsOneWidget);
+        expect(find.text('FREQUENTLY USED'), findsOneWidget);
         expect(find.text('RECENTLY USED'), findsOneWidget);
       },
     );
   }
+
+  testWidgets('displays frequently used bibles on top in frequency order', (tester) async {
+    setSurfaceSize(tester, 400, 800);
+    await tester.pumpWidget(_embed(BibleVersionPickerModal(
+      activeVersionId: 'NIV',
+      installedIdsOverride: const {'NIV', 'TAOBVSI', 'HIN_HCV', 'NASB'},
+      onSelectVersion: (_) {},
+      onOpenManager: () {},
+    )));
+    await tester.pumpAndSettle();
+
+    // Verify FREQUENTLY USED section exists on top
+    expect(find.text('FREQUENTLY USED'), findsOneWidget);
+    expect(find.text('10 reads'), findsOneWidget);
+    expect(find.text('5 reads'), findsOneWidget);
+  });
 
   testWidgets('displays recently used bibles in exact order', (tester) async {
     setSurfaceSize(tester, 400, 800);
@@ -94,14 +112,14 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify language headers exist (scroll as needed for lazy ListView)
+    final verticalScrollable = find.byType(Scrollable).last;
+    await tester.scrollUntilVisible(find.text('ENGLISH'), 100, scrollable: verticalScrollable);
     expect(find.text('ENGLISH'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('TAMIL'), 100, scrollable: verticalScrollable);
     expect(find.text('TAMIL'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('HINDI'), 100, scrollable: verticalScrollable);
     expect(find.text('HINDI'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('TELUGU'),
-      100,
-      scrollable: find.byType(Scrollable).last,
-    );
+    await tester.scrollUntilVisible(find.text('TELUGU'), 100, scrollable: verticalScrollable);
     expect(find.text('TELUGU'), findsOneWidget);
   });
 

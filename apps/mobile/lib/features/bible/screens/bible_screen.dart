@@ -505,9 +505,9 @@ class _BibleScreenState extends State<BibleScreen> {
     if (selected.isEmpty) return;
 
     final label = selected.length == 1
-        ? '${_controller.currentBook} ${_controller.currentChapter}:${selected.first.number}'
+        ? '${_controller.currentBook} ${_controller.currentChapter}:${selected.first.verseDisplay}'
         : '${_controller.currentBook} ${_controller.currentChapter}:'
-            '${selected.first.number}-${selected.last.number}';
+            '${selected.first.number}-${selected.last.endNumber ?? selected.last.number}';
 
     final result = await HighlightColorPicker.show(
       context,

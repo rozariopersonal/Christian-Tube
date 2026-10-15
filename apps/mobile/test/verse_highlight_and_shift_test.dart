@@ -241,10 +241,12 @@ void main() {
       await tester.tap(find.byTooltip('Deselect all'));
       expect(cleared, isTrue);
 
-      // Verify rounded container exists
+      // Verify rounded container exists without border and with BackdropFilter glass effect
       final container = tester.widget<Container>(find.byType(Container).first);
       final decoration = container.decoration as BoxDecoration;
       expect(decoration.borderRadius, equals(BorderRadius.circular(20)));
+      expect(decoration.border, isNull);
+      expect(find.byType(BackdropFilter), findsOneWidget);
     });
   });
 }

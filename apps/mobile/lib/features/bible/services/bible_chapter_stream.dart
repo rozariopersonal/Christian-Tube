@@ -15,21 +15,69 @@ List<BibleVerse> chapterVersesFromRows(
   List<Map<String, dynamic>> rows,
   String versionId,
 ) {
-  final byNumber = <int, String>{
-    for (final m in rows)
-      if (m['verse'] is num && m['text'] is String)
-        (m['verse'] as num).toInt(): m['text'] as String,
-  };
-  final numbers = byNumber.keys.toList()..sort();
+  if (rows.isEmpty) return const [];
+
+  final sorted = List<Map<String, dynamic>>.from(rows)
+    ..sort((a, b) {
+      final va = (a['verse'] as num?)?.toInt() ?? 0;
+      final vb = (b['verse'] as num?)?.toInt() ?? 0;
+      return va.compareTo(vb);
+    });
+
   final verses = <BibleVerse>[];
-  for (final n in numbers) {
-    final text = byNumber[n];
-    if (text == null) continue;
-    verses.add(BibleVerse(
-      number: n,
-      text: text,
-      versionLabel: versionId,
-    ));
+  var i = 0;
+  while (i < sorted.length) {
+    final current = sorted[i];
+    final vNum = (current['verse'] as num?)?.toInt() ?? 1;
+    final text = (current['text'] as String?)?.trim() ?? '';
+    final rawSpan = current['verse_span'] as String?;
+    final rawEnd = (current['verse_end'] as num?)?.toInt();
+
+    if (rawSpan != null || (rawEnd != null && rawEnd > vNum)) {
+      final endNum = rawEnd ?? vNum;
+      final span = rawSpan ?? '$vNum-$endNum';
+      verses.add(BibleVerse(
+        number: vNum,
+        endNumber: endNum,
+        verseSpan: span,
+        text: text,
+        versionLabel: versionId,
+      ));
+      i++;
+      continue;
+    }
+
+    // Check for consecutive rows with identical text (de-duplicating combined paragraphs)
+    var j = i + 1;
+    while (j < sorted.length) {
+      final next = sorted[j];
+      final nextNum = (next['verse'] as num?)?.toInt() ?? 0;
+      final nextText = (next['text'] as String?)?.trim() ?? '';
+      if (text.isNotEmpty && nextText == text && nextNum == vNum + (j - i)) {
+        j++;
+      } else {
+        break;
+      }
+    }
+
+    if (j > i + 1) {
+      final endNum = vNum + (j - i - 1);
+      verses.add(BibleVerse(
+        number: vNum,
+        endNumber: endNum,
+        verseSpan: '$vNum-$endNum',
+        text: text,
+        versionLabel: versionId,
+      ));
+      i = j;
+    } else {
+      verses.add(BibleVerse(
+        number: vNum,
+        text: text,
+        versionLabel: versionId,
+      ));
+      i++;
+    }
   }
   return verses;
 }

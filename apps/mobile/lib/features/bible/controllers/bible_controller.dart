@@ -143,7 +143,7 @@ class BibleControllerState {
     if (selectedVerses.isEmpty) return '';
     return verses
         .where((v) => selectedVerses.contains(v.number))
-        .map((v) => '$prefix[${v.number}] ${v.text}')
+        .map((v) => '$prefix[${v.verseDisplay}] ${v.text}')
         .join('\n');
   }
 
@@ -1282,10 +1282,14 @@ class BibleController extends ChangeNotifier {
     final bn = bookNumber(b);
     final rows = _state.loadedChapters[bibleChapterId(bn, c)];
     if (rows != null) {
-      final v = rows.where((v) => v.number == verseNumber).firstOrNull;
+      final v = rows.where((v) =>
+          v.number == verseNumber ||
+          (verseNumber >= v.number && verseNumber <= (v.endNumber ?? v.number))).firstOrNull;
       if (v != null) return v.text;
     }
-    final v = _state.verses.where((v) => v.number == verseNumber).firstOrNull;
+    final v = _state.verses.where((v) =>
+        v.number == verseNumber ||
+        (verseNumber >= v.number && verseNumber <= (v.endNumber ?? v.number))).firstOrNull;
     return v?.text ?? '';
   }
 

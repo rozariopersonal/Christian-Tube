@@ -112,13 +112,14 @@ void main() {
       expect((v16!['text'] as String).toLowerCase(), contains('begotten son'));
     }, timeout: const Timeout(Duration(seconds: 25)));
 
-    test('fetches Genesis 1 (book 1, ch 1) for MSG with span expansion', () async {
+    test('fetches Genesis 1 (book 1, ch 1) for MSG with clubbed verse spans', () async {
       final verses = await OnlineBibleService.fetchLiveChapter('MSG', 1, 1);
       expect(verses, isNotEmpty);
-      expect(verses.length, greaterThan(15));
+      expect(verses.length, greaterThan(5));
       final v1 = verses.where((v) => v['verse'] == 1).firstOrNull;
       expect(v1, isNotNull);
       expect((v1!['text'] as String).isNotEmpty, isTrue);
+      expect(v1['verse_span'], isNotNull);
     }, timeout: const Timeout(Duration(seconds: 25)));
   });
 
