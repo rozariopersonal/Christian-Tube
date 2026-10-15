@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../shared/services/library_languages_controller.dart';
+import '../../../shared/ui/language_dropdown.dart';
 import '../../../shared/ui/language_meta.dart';
 import '../models/wftw_index_entry.dart';
 import '../services/wftw_index_service.dart';
@@ -64,6 +65,11 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
       final loader = widget.loader ?? WftwIndexService().getArticlesIndex;
       final entries = await loader();
       if (!mounted) return;
+      final languages = <String>{};
+      for (final e in entries) {
+        if (e.lang.isNotEmpty) languages.add(e.lang);
+      }
+      _langController.announceLanguages(languages);
       setState(() {
         _entries = entries;
         _loading = false;
@@ -91,6 +97,16 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
     return langFiltered
         .where((e) => e.title.toLowerCase().contains(q))
         .toList();
+  }
+
+  Map<String, int> get _languageCounts {
+    final counts = <String, int>{'All': _entries.length};
+    for (final e in _entries) {
+      final code = LanguageMeta.canonicalCode(e.lang);
+      if (code.isEmpty || code == 'all') continue;
+      counts[code] = (counts[code] ?? 0) + 1;
+    }
+    return counts;
   }
 
   String get _countLabel {
@@ -130,6 +146,13 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
               ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh, color: tokens.onSurfaceMuted, size: 21),
+            tooltip: 'Refresh articles',
+            onPressed: _loadEntries,
+          ),
+        ],
       ),
       body: _buildBody(tokens),
     );
@@ -183,11 +206,18 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
 
     return MaxWidthBox(
       maxWidth: 1080,
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: RefreshIndicator(
+        onRefresh: _loadEntries,
+        color: tokens.accent,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: _buildLanguageFilter(tokens),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: TextField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _query = value),
@@ -271,6 +301,23 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
             ],
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
+      ),
+    ),
+    );
+  }
+
+  Widget _buildLanguageFilter(AppTokens tokens) {
+    final langState = _langController.state;
+    if (langState.availableLanguages.length <= 1) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: LanguageDropdown(
+        selectedLanguages: langState.selectedLanguages,
+        availableLanguages: langState.availableLanguages,
+        itemCounts: _languageCounts,
+        onLanguagesSelected: _langController.selectLanguages,
+        itemNoun: 'articles',
+        headerTitle: 'Articles by Language',
       ),
     );
   }

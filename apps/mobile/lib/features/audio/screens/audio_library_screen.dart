@@ -56,10 +56,7 @@ class _AudioLibraryScreenState extends State<AudioLibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tokens = theme.extension<AppTokens>() ??
-        (theme.brightness == Brightness.dark
-            ? AppTokens.dark
-            : AppTokens.light);
+    final tokens = context.tokens;
 
     return ListenableBuilder(
       listenable: _controller,

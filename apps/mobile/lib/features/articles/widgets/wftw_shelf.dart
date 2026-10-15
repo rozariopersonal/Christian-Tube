@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_tokens.dart';
+import '../../library/widgets/library_section_header.dart';
 import '../models/wftw_index_entry.dart';
 
 /// Horizontal "Word for the Week" teaching shelf for the Books library.
@@ -29,41 +30,10 @@ class WftwShelf extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-          child: Row(
-            children: [
-              Flexible(
-                child: Row(
-                  children: [
-                    Icon(icon, color: tokens.accent, size: 20),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        title,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: tokens.onSurface,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: onViewAll,
-                style: TextButton.styleFrom(
-                  foregroundColor: tokens.accent,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  visualDensity: VisualDensity.compact,
-                ),
-                child: const Text('View all', style: TextStyle(fontSize: 13)),
-              ),
-            ],
-          ),
+        LibrarySectionHeader(
+          title: title,
+          icon: icon,
+          onViewAll: onViewAll,
         ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,

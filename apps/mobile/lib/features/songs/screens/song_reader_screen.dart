@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/link/deep_link_service.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../shared/services/reader_appearance.dart';
+import '../../../shared/ui/reader_appearance_sheet.dart';
 import '../models/song.dart';
 import '../services/songs_catalog_service.dart';
 import '../services/song_transliteration_controller.dart';
@@ -27,6 +30,7 @@ class SongReaderScreen extends StatefulWidget {
 
 class _SongReaderScreenState extends State<SongReaderScreen> {
   late final SongTransliterationController _translit;
+  final ReaderAppearance _appearance = ReaderAppearance();
   Song? _song;
   bool _loading = false;
 
@@ -35,6 +39,8 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
   @override
   void initState() {
     super.initState();
+    _appearance.addListener(_onAppearanceChanged);
+    _appearance.loadFromPrefs();
     _translit = SongTransliterationController()..addListener(_onChanged);
     _translit.load();
     _song = widget.initialSong;
@@ -57,9 +63,14 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
 
   @override
   void dispose() {
+    _appearance.removeListener(_onAppearanceChanged);
     _translit.removeListener(_onChanged);
     _translit.dispose();
     super.dispose();
+  }
+
+  void _onAppearanceChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onChanged() {
@@ -83,41 +94,53 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
     }
 
     if (song == null || song.id.isEmpty) {
-      return Scaffold(
-        backgroundColor: tokens.background,
-        appBar: AppBar(
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(result);
+          } else {
+            context.go('/songs');
+          }
+        },
+        child: Scaffold(
           backgroundColor: tokens.background,
-          elevation: 0,
-          title: Text(
-            'Song',
-            style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold),
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            backgroundColor: tokens.background,
+            elevation: 0,
+            title: Text(
+              'Song',
+              style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold),
+            ),
           ),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.music_off_outlined,
-                    size: 48, color: tokens.onSurfaceMuted),
-                const SizedBox(height: 16),
-                Text(
-                  'Song not found',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: tokens.onSurface,
-                    fontWeight: FontWeight.bold,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.music_off_outlined,
+                      size: 48, color: tokens.onSurfaceMuted),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Song not found',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: tokens.onSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'This song could not be loaded. It may have been removed or the link is invalid.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: tokens.onSurfaceMuted,
+                  const SizedBox(height: 8),
+                  Text(
+                    'This song could not be loaded. It may have been removed or the link is invalid.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: tokens.onSurfaceMuted,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -132,23 +155,47 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
             ? s.titleRoman!
             : s.title;
     final author = s.author;
-
-    return Scaffold(
-      backgroundColor: tokens.background,
-      appBar: AppBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(result);
+        } else {
+          context.go('/songs');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: _appearance.background(tokens),
+        appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: tokens.background,
+        backgroundColor: _appearance.surface(tokens),
         elevation: 0,
         title: Text(
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: _appearance.textColor(tokens),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         actions: [
           IconButton(
+            tooltip: 'Reading settings',
+            icon: Text(
+              'Aa',
+              style: TextStyle(
+                color: _appearance.textColor(tokens),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            onPressed: () => showReaderAppearanceSheet(context, _appearance),
+          ),
+          IconButton(
             tooltip: 'Share',
-            icon: Icon(Icons.share_outlined, color: tokens.onSurfaceMuted, size: 21),
+            icon: Icon(Icons.share_outlined, color: _appearance.mutedTextColor(tokens), size: 21),
             onPressed: () {
               final link = DeepLinkService.song(s.id);
               Share.share(
@@ -211,8 +258,11 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
                     primaryText: s.verses[i],
                     romanText: _showTranslit ? _romanAt(i) : null,
                     showRoman: _showTranslit,
-                    textColor: tokens.onSurface,
-                    romanColor: tokens.onSurfaceMuted,
+                    textColor: _appearance.textColor(tokens),
+                    romanColor: _appearance.mutedTextColor(tokens),
+                    fontSize: _appearance.fontSize,
+                    lineHeight: _appearance.lineHeight,
+                    fontFamily: _appearance.fontFamily,
                   ),
                   if (i != s.verses.length - 1) const SizedBox(height: 16),
                 ],
@@ -221,8 +271,9 @@ class _SongReaderScreenState extends State<SongReaderScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   /// Resolves the transliteration for verse [i], tolerating a short/mismatched
   /// [Song.versesRoman] list by treating missing entries as empty.
@@ -240,6 +291,9 @@ class _VerseBlock extends StatelessWidget {
   final bool showRoman;
   final Color textColor;
   final Color romanColor;
+  final double fontSize;
+  final double lineHeight;
+  final String? fontFamily;
 
   const _VerseBlock({
     required this.number,
@@ -248,6 +302,9 @@ class _VerseBlock extends StatelessWidget {
     required this.showRoman,
     required this.textColor,
     required this.romanColor,
+    required this.fontSize,
+    required this.lineHeight,
+    this.fontFamily,
   });
 
   @override
@@ -267,19 +324,23 @@ class _VerseBlock extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           primaryText,
-          style: theme.textTheme.bodyLarge?.copyWith(
+          style: TextStyle(
             color: textColor,
-            height: 1.7,
+            fontSize: fontSize,
+            height: lineHeight,
+            fontFamily: fontFamily,
           ),
         ),
         if (showRoman && (romanText?.isNotEmpty ?? false)) ...[
           const SizedBox(height: 6),
           Text(
             romanText!,
-            style: theme.textTheme.bodyMedium?.copyWith(
+            style: TextStyle(
               color: romanColor,
-              height: 1.55,
+              fontSize: fontSize * 0.9,
+              height: lineHeight * 0.95,
               fontStyle: FontStyle.italic,
+              fontFamily: fontFamily,
             ),
           ),
         ],
