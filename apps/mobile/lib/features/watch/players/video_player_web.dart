@@ -94,7 +94,6 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
   late String _viewId;
   StreamSubscription? _msgSub;
   StreamSubscription? _fullScreenSub;
-  final List<Timer> _resumeTimers = [];
 
   @override
   void initState() {
@@ -110,30 +109,12 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
     if (oldWidget.videoId != widget.videoId) {
       _initView();
     }
-    if (oldWidget.isFullScreen != widget.isFullScreen) {
-      _scheduleResume();
-    }
-  }
-
-  void _scheduleResume() {
-    resumePlatformMainVideo();
-    for (final delayMs in [150, 350, 600]) {
-      _resumeTimers.add(Timer(Duration(milliseconds: delayMs), () {
-        if (mounted) {
-          resumePlatformMainVideo();
-        }
-      }));
-    }
   }
 
   @override
   void dispose() {
     _msgSub?.cancel();
     _fullScreenSub?.cancel();
-    for (final timer in _resumeTimers) {
-      timer.cancel();
-    }
-    _resumeTimers.clear();
     super.dispose();
   }
 
@@ -245,7 +226,6 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
           key: const ValueKey('video_fullscreen_toggle'),
           onTap: () {
             widget.onToggleFullScreen?.call();
-            _scheduleResume();
           },
           borderRadius: BorderRadius.circular(4),
           child: Container(
