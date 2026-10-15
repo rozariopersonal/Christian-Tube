@@ -126,4 +126,29 @@ class AudioLocalLibrary {
     ids.remove(trackId);
     await prefs.setStringList(_registryKey, ids);
   }
+
+  /// Removes an entire downloaded series directory and purges its series registration.
+  Future<void> removeSeries(String seriesId) async {
+    try {
+      final dir = await _seriesDir(seriesId);
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } catch (_) {}
+
+    final prefs = await SharedPreferences.getInstance();
+    final series = prefs.getStringList(_registrySeriesKey) ?? [];
+    series.remove(seriesId);
+    await prefs.setStringList(_registrySeriesKey, series);
+  }
+
+  /// Clears all downloaded audio files from disk and resets registries.
+  Future<void> removeAll() async {
+    try {
+      final base = await _baseDir();
+      if (await base.exists()) await base.delete(recursive: true);
+    } catch (_) {}
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_registryKey);
+    await prefs.remove(_registrySeriesKey);
+  }
 }
