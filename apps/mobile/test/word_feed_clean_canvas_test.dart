@@ -188,6 +188,37 @@ void main() {
       expect(cardTapped, isTrue);
     });
 
+    testWidgets('tapping reference badge triggers onReferenceTap, not onCardTap', (tester) async {
+      bool cardTapped = false;
+      bool referenceTapped = false;
+
+      await tester.pumpWidget(
+        _wrapWithTheme(
+          ScriptureCardView(
+            card: testCard,
+            filterState: testFilter,
+            isActive: true,
+            onCardTap: () => cardTapped = true,
+            onReferenceTap: () => referenceTapped = true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap on the reference badge
+      await tester.tap(find.text('— John 3:16'));
+      await tester.pumpAndSettle();
+
+      expect(referenceTapped, isTrue);
+      expect(cardTapped, isFalse);
+
+      // Now tap on the card body text
+      await tester.tap(find.textContaining('loved the world'));
+      await tester.pumpAndSettle();
+
+      expect(cardTapped, isTrue);
+    });
+
     testWidgets('renders cleanly across breakpoints (320, 600, 840, 1400) without overflow', (tester) async {
       for (final width in [320.0, 600.0, 840.0, 1400.0]) {
         await tester.pumpWidget(

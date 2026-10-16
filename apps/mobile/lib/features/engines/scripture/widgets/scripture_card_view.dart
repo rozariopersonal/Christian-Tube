@@ -39,7 +39,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
   String? _displayedVersion;
   bool _isResolving = false;
   String? _lastAttemptedVersion;
-  DateTime _lastEdgeShift = DateTime.fromMillisecondsSinceEpoch(0);
   double _edgeDragDelta = 0;
 
   late final AnimationController _entranceController;
@@ -49,6 +48,9 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
   late final Animation<Offset> _textSlide;
   late final Animation<double> _badgeFade;
   late final Animation<Offset> _badgeSlide;
+
+  bool _hasScrollableText = false;
+  final ScrollController _textScrollController = ScrollController();
 
   @override
   void initState() {
@@ -163,6 +165,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
   @override
   void dispose() {
     _entranceController.dispose();
+    _textScrollController.dispose();
     super.dispose();
   }
 
@@ -180,48 +183,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
     }
   }
 
-  // Scroll-past-edge detection: when the card's text overflows the screen,
-  // continuing the drag past the top/bottom edge pages to the prev/next card.
-  bool _handleScrollNotification(ScrollNotification notification) {
-    if (widget.onEdgePageShift == null) return false;
-
-    // Fast path: direct overscroll bounce
-    if (notification is OverscrollNotification) {
-      if (DateTime.now().difference(_lastEdgeShift).inMilliseconds < 350) {
-        return false;
-      }
-      if (notification.overscroll > 8) {
-        _lastEdgeShift = DateTime.now();
-        widget.onEdgePageShift!(1);
-        return true;
-      } else if (notification.overscroll < -8) {
-        _lastEdgeShift = DateTime.now();
-        widget.onEdgePageShift!(-1);
-        return true;
-      }
-    }
-
-    if (notification is! ScrollUpdateNotification ||
-        notification.dragDetails == null) {
-      return false;
-    }
-    final metrics = notification.metrics;
-    if (metrics.maxScrollExtent <= 0) return false;
-    if (DateTime.now().difference(_lastEdgeShift).inMilliseconds < 350) {
-      return false;
-    }
-    final delta = notification.dragDetails!.primaryDelta ?? 0;
-    if (delta < -2 && metrics.pixels >= metrics.maxScrollExtent - 2) {
-      _lastEdgeShift = DateTime.now();
-      widget.onEdgePageShift!(1);
-      return true;
-    } else if (delta > 2 && metrics.pixels <= 2) {
-      _lastEdgeShift = DateTime.now();
-      widget.onEdgePageShift!(-1);
-      return true;
-    }
-    return false;
-  }
 
   Future<void> _checkAndResolveVersion() async {
     // Guard against concurrent resolutions for the same version / redundant retries
@@ -364,7 +325,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
         ? BibleDownloadManager.getMeta(comparisonVersionId)
         : null;
 
-    final screenWidth = MediaQuery.sizeOf(context).width;
     final screenHeight = MediaQuery.sizeOf(context).height;
     final heightFactor = (screenHeight / 800.0).clamp(0.75, 1.15);
 
@@ -425,10 +385,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
       fontStyle: fontStyle,
     );
 
-    final verticalPadding = (screenHeight * 0.05).clamp(24.0, 56.0);
-
-    // Clean symmetric padding: full screen space dedicated to scripture
-    final double horizontalPad = (screenWidth * 0.06).clamp(16.0, 36.0);
 
     final double scrimOpacity = context.isDark
         ? (preset.isGradient ? 0.20 : 0.0)
@@ -437,144 +393,206 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. Background Layer with Smooth Animated Crossfade
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          switchInCurve: Curves.easeInOut,
-          switchOutCurve: Curves.easeInOut,
-          child: KeyedSubtree(
-            key: ValueKey('${preset.id}_${context.isDark}'),
-            child: _buildBackground(preset),
-          ),
-        ),
-
-        // 2. Readability Gradient Scrim (only where needed)
-        if (scrimOpacity > 0.0) CardScrimOverlay(opacity: scrimOpacity),
-
-        // 3. Typographic Content Canvas (Scroll-safe, centered, zero-overflow)
-        GestureDetector(
-          onTap: widget.onCardTap,
-          behavior: HitTestBehavior.translucent,
+        // 1. Floating Scripture Card Container (Background scoped strictly inside)
+        Positioned.fill(
+          top: 60.0,
+          bottom: 20.0,
+          left: 16.0,
+          right: 16.0,
           child: Center(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _handleScrollNotification,
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 680),
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: horizontalPad,
-                      right: horizontalPad,
-                      top: verticalPadding + 44.0,
-                      bottom: verticalPadding + 68.0,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 580),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: tokens.surfaceBorder,
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: tokens.scrim
+                          .withValues(alpha: context.isDark ? 0.35 : 0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      // Opening Quote Mark (Stagger 1: Entrance Scale & Fade)
-                      FadeTransition(
-                        opacity: _quoteFade,
-                        child: ScaleTransition(
-                          scale: _quoteScale,
-                          child: Text(
-                            '"',
-                            style: TextStyle(
-                              fontSize: 48,
-                              height: 0.8,
-                              fontFamily: 'serif',
-                              color: context.accent.withValues(alpha: 0.9),
-                              shadows: context.isDark
-                                  ? [
-                                      Shadow(
-                                        color: tokens.scrim.withValues(alpha: 0.87),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                          ),
+                      // A. Wallpaper / Gradient Background Layer (scoped strictly inside card)
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 400),
+                        switchInCurve: Curves.easeInOut,
+                        switchOutCurve: Curves.easeInOut,
+                        child: KeyedSubtree(
+                          key: ValueKey('${preset.id}_${context.isDark}'),
+                          child: _buildBackground(preset),
                         ),
                       ),
-                      const SizedBox(height: 8),
 
-                      // Primary Verse Body Text (Stagger 2: Upward Rise & Fade)
-                      FadeTransition(
-                        opacity: _textFade,
-                        child: SlideTransition(
-                          position: _textSlide,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 250),
-                            transitionBuilder: (child, animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(0.0, 0.04),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: child,
-                                ),
-                              );
+                      // B. Readability Gradient Scrim
+                      if (scrimOpacity > 0.0) CardScrimOverlay(opacity: scrimOpacity),
+
+                      // C. Typographic Content Canvas
+                      GestureDetector(
+                        onTap: widget.onCardTap,
+                        behavior: HitTestBehavior.translucent,
+                        child: Center(
+                          child: NotificationListener<ScrollMetricsNotification>(
+                            onNotification: (notification) {
+                              final canScroll = notification.metrics.maxScrollExtent > 4.0;
+                              if (canScroll != _hasScrollableText) {
+                                setState(() {
+                                  _hasScrollableText = canScroll;
+                                });
+                              }
+                              return false;
                             },
-                            child: Text(
-                              primaryText,
-                              key: ValueKey(
-                                  '${primaryVersionId}_${primaryText.hashCode}_${widget.filterState.textColorHex}_${activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.isBold}_${widget.filterState.isItalic}_${widget.filterState.textAlign}'),
-                              textAlign: textAlign,
-                              softWrap: true,
-                              textWidthBasis: TextWidthBasis.parent,
-                              style: textStyle.copyWith(
-                                color: textColor,
-                                shadows: textShadows,
+                            child: SingleChildScrollView(
+                              controller: _textScrollController,
+                              physics: _hasScrollableText
+                                  ? const ClampingScrollPhysics()
+                                  : const NeverScrollableScrollPhysics(),
+                              padding: const EdgeInsets.only(
+                                left: 20,
+                                right: 20,
+                                top: 28,
+                                bottom: 64, // Space for pinned reference badge
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Opening Quote Mark (Stagger 1)
+                                  FadeTransition(
+                                    opacity: _quoteFade,
+                                    child: ScaleTransition(
+                                      scale: _quoteScale,
+                                      child: Text(
+                                        '"',
+                                        style: TextStyle(
+                                          fontSize: 48,
+                                          height: 0.8,
+                                          fontFamily: 'serif',
+                                          color: context.accent.withValues(alpha: 0.9),
+                                          shadows: context.isDark
+                                              ? [
+                                                  Shadow(
+                                                    color: tokens.scrim.withValues(alpha: 0.87),
+                                                    blurRadius: 12,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ]
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  // Primary Verse Body Text (Stagger 2)
+                                  FadeTransition(
+                                    opacity: _textFade,
+                                    child: SlideTransition(
+                                      position: _textSlide,
+                                      child: AnimatedSwitcher(
+                                        duration: const Duration(milliseconds: 250),
+                                        transitionBuilder: (child, animation) {
+                                          return FadeTransition(
+                                            opacity: animation,
+                                            child: SlideTransition(
+                                              position: Tween<Offset>(
+                                                begin: const Offset(0.0, 0.04),
+                                                end: Offset.zero,
+                                              ).animate(animation),
+                                              child: child,
+                                            ),
+                                          );
+                                        },
+                                        child: Text(
+                                          primaryText,
+                                          key: ValueKey(
+                                              '${primaryVersionId}_${primaryText.hashCode}_${widget.filterState.textColorHex}_${activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.isBold}_${widget.filterState.isItalic}_${widget.filterState.textAlign}'),
+                                          textAlign: textAlign,
+                                          softWrap: true,
+                                          textWidthBasis: TextWidthBasis.parent,
+                                          style: textStyle.copyWith(
+                                            color: textColor,
+                                            shadows: textShadows,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (comparisonText != null &&
+                                      comparisonVersionId != null) ...[
+                                    const SizedBox(height: 18),
+                                    Divider(
+                                      color: context.tokens.onSurfaceDisabled.withValues(alpha: 0.3),
+                                      height: 1,
+                                      indent: 40,
+                                      endIndent: 40,
+                                    ),
+                                    const SizedBox(height: 14),
+
+                                    // Secondary Verse Body Text
+                                    FadeTransition(
+                                      opacity: _badgeFade,
+                                      child: SlideTransition(
+                                        position: _badgeSlide,
+                                        child: Text(
+                                          comparisonText,
+                                          textAlign: textAlign,
+                                          softWrap: true,
+                                          textWidthBasis: TextWidthBasis.parent,
+                                          style: ScriptureThemeCatalog.getTextStyle(
+                                            fontFamily: activeFontFamily,
+                                            languageCode:
+                                                comparisonMeta?.languageCode ?? 'en',
+                                            baseSize: comparisonFontSize,
+                                            color: context.isDark
+                                                ? tokens.onScrim.withValues(alpha: 0.88)
+                                                : tokens.onSurfaceMuted,
+                                            fontWeight: FontWeight.w400,
+                                            fontStyle: FontStyle.italic,
+                                          ).copyWith(shadows: textShadows),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ),
                         ),
                       ),
-                        if (comparisonText != null &&
-                            comparisonVersionId != null) ...[
-                          const SizedBox(height: 20),
-                          Divider(
-                            color: context.tokens.onSurfaceDisabled.withValues(alpha: 0.3),
-                            height: 1,
-                            indent: 60,
-                            endIndent: 60,
-                          ),
-                          const SizedBox(height: 16),
 
-                          // Secondary Verse Body Text (smaller, subdued)
-                          FadeTransition(
+                      // D. Pinned Bottom Reference Badge (inside card)
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 12.0,
+                        child: Center(
+                          child: FadeTransition(
                             opacity: _badgeFade,
                             child: SlideTransition(
                               position: _badgeSlide,
-                              child: Text(
-                                comparisonText,
-                                textAlign: textAlign,
-                                softWrap: true,
-                                textWidthBasis: TextWidthBasis.parent,
-                                style: ScriptureThemeCatalog.getTextStyle(
-                                  fontFamily: activeFontFamily,
-                                  languageCode:
-                                      comparisonMeta?.languageCode ?? 'en',
-                                  baseSize: comparisonFontSize,
-                                  color: context.isDark
-                                      ? tokens.onScrim.withValues(alpha: 0.88)
-                                      : tokens.onSurfaceMuted,
-                                  fontWeight: FontWeight.w400,
-                                  fontStyle: FontStyle.italic,
-                                ).copyWith(shadows: textShadows),
+                              child: _ReferenceBadge(
+                                reference: '— ${widget.card.referenceLabel}',
+                                versionId: primaryVersionId,
+                                comparisonVersionId: comparisonVersionId,
+                                onTap: widget.onReferenceTap ?? widget.onCardTap,
                               ),
                             ),
                           ),
-                        ],
-                      ],
-                    ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -582,36 +600,12 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
           ),
         ),
 
-        // 4. Fixed Stationary Bottom Reference Badge (Always stays on screen!)
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 24.0,
-          child: SafeArea(
-            top: false,
-            child: Center(
-              child: FadeTransition(
-                opacity: _badgeFade,
-                child: SlideTransition(
-                  position: _badgeSlide,
-                  child: _ReferenceBadge(
-                    reference: '— ${widget.card.referenceLabel}',
-                    versionId: primaryVersionId,
-                    comparisonVersionId: comparisonVersionId,
-                    onTap: widget.onCardTap ?? widget.onReferenceTap,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // 5. Left & Right Edge-Margin Swipe Zones (Instant vertical paging)
+        // 2. Left & Right Edge-Margin Swipe Zones (Outside card / edge-paging fallback)
         Positioned(
           left: 0,
-          top: 72,
-          bottom: 72,
-          width: 44,
+          top: 60,
+          bottom: 20,
+          width: 36,
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onVerticalDragStart: (_) => _edgeDragDelta = 0,
@@ -630,9 +624,9 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
         ),
         Positioned(
           right: 0,
-          top: 72,
-          bottom: 72,
-          width: 44,
+          top: 60,
+          bottom: 20,
+          width: 36,
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onVerticalDragStart: (_) => _edgeDragDelta = 0,
@@ -820,9 +814,9 @@ class _ReferenceBadge extends StatelessWidget {
                 if (onTap != null) ...[
                   const SizedBox(width: 5),
                   Icon(
-                    Icons.tune_rounded,
+                    Icons.menu_book_rounded,
                     size: 13,
-                    color: isDark ? tokens.onScrimMuted : tokens.onSurfaceMuted,
+                    color: accent,
                   ),
                 ],
               ],
