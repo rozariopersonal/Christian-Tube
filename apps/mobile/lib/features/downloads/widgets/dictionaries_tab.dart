@@ -5,7 +5,7 @@ import '../../../../core/theme/app_tokens.dart';
 import '../../dictionary/services/dictionary_download_manager.dart';
 import '../controllers/downloads_controller.dart';
 
-class DictionariesTab extends StatelessWidget {
+class DictionariesTab extends StatefulWidget {
   final DownloadsController controller;
 
   const DictionariesTab({
@@ -14,13 +14,34 @@ class DictionariesTab extends StatelessWidget {
   });
 
   @override
+  State<DictionariesTab> createState() => _DictionariesTabState();
+}
+
+class _DictionariesTabState extends State<DictionariesTab> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(text: widget.controller.state.dictSearch);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final itemExtent = (130.0 * textScale.clamp(1.0, 1.6)).toDouble();
 
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, _) {
-        final state = controller.state;
+        final state = widget.controller.state;
         var dicts = state.dictionaries.toList();
 
         // Category Filter
@@ -52,11 +73,19 @@ class DictionariesTab extends StatelessWidget {
         // Installed Only Filter
         if (state.onlyInstalled) {
           dicts = dicts
-              .where((d) => controller.isDictInstalled(d.id))
+              .where((d) => widget.controller.isDictInstalled(d.id))
               .toList();
         }
 
         final isWide = ScreenClass.of(context).isMediumOrExpanded;
+
+        // Keep local search controller in sync if cleared externally
+        if (_searchController.text != state.dictSearch) {
+          _searchController.value = TextEditingValue(
+            text: state.dictSearch,
+            selection: TextSelection.collapsed(offset: state.dictSearch.length),
+          );
+        }
 
         return MaxWidthBox(
           child: CustomScrollView(
@@ -94,9 +123,8 @@ class DictionariesTab extends StatelessWidget {
 
                     // Search Field
                     TextField(
-                      controller: TextEditingController(text: state.dictSearch)
-                        ..selection = TextSelection.collapsed(offset: state.dictSearch.length),
-                      onChanged: controller.setDictSearch,
+                      controller: _searchController,
+                      onChanged: widget.controller.setDictSearch,
                       style: TextStyle(color: tokens.onSurface, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'Search dictionaries by language or name…',
@@ -105,7 +133,10 @@ class DictionariesTab extends StatelessWidget {
                         suffixIcon: state.dictSearch.isNotEmpty
                             ? IconButton(
                                 icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 18),
-                                onPressed: () => controller.setDictSearch(''),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  widget.controller.setDictSearch('');
+                                },
                               )
                             : null,
                         isDense: true,
@@ -134,7 +165,7 @@ class DictionariesTab extends StatelessWidget {
                               child: FilterChip(
                                 label: Text(opt),
                                 selected: state.dictFilter == opt,
-                                onSelected: (_) => controller.setDictFilter(opt),
+                                onSelected: (_) => widget.controller.setDictFilter(opt),
                                 selectedColor: tokens.accent.withValues(alpha: 0.2),
                                 checkmarkColor: tokens.accent,
                                 labelStyle: TextStyle(
@@ -154,7 +185,7 @@ class DictionariesTab extends StatelessWidget {
                                 color: state.onlyInstalled ? tokens.accent : tokens.onSurfaceMuted),
                             label: const Text('Downloaded Only'),
                             selected: state.onlyInstalled,
-                            onSelected: (_) => controller.toggleOnlyInstalled(),
+                            onSelected: (_) => widget.controller.toggleOnlyInstalled(),
                             selectedColor: tokens.accent.withValues(alpha: 0.2),
                             checkmarkColor: tokens.accent,
                             labelStyle: TextStyle(
@@ -171,16 +202,56 @@ class DictionariesTab extends StatelessWidget {
                 ),
               ),
 
-              // Dictionaries Grid / List
-              if (isWide)
+              // Empty state or Dictionaries Grid / List
+              if (dicts.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off_rounded,
+                              size: 48, color: tokens.onSurfaceMuted.withValues(alpha: 0.5)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No dictionaries found',
+                            style: TextStyle(
+                                color: tokens.onSurface,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Try adjusting your search query or category filter.',
+                            style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () {
+                              _searchController.clear();
+                              widget.controller.setDictSearch('');
+                              widget.controller.setDictFilter('All');
+                              if (widget.controller.state.onlyInstalled) {
+                                widget.controller.toggleOnlyInstalled();
+                              }
+                            },
+                            child: const Text('Reset Filters'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (isWide)
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                       maxCrossAxisExtent: GridExtents.bibleManager,
                       mainAxisSpacing: 10,
                       crossAxisSpacing: 10,
-                      mainAxisExtent: 130,
+                      mainAxisExtent: itemExtent,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _buildDictionaryItem(context, dicts[index], tokens),
@@ -210,9 +281,9 @@ class DictionariesTab extends StatelessWidget {
   }
 
   Widget _buildDictionaryItem(BuildContext context, DictionaryMeta dict, AppTokens tokens) {
-    final isInstalled = controller.isDictInstalled(dict.id);
-    final isDownloading = controller.isDictDownloading(dict.id);
-    final progress = controller.getDictProgress(dict.id);
+    final isInstalled = widget.controller.isDictInstalled(dict.id);
+    final isDownloading = widget.controller.isDictDownloading(dict.id);
+    final progress = widget.controller.getDictProgress(dict.id);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -300,7 +371,7 @@ class DictionariesTab extends StatelessWidget {
                       ),
                     );
                     if (confirm == true) {
-                      await controller.deleteDictionary(dict.id);
+                      await widget.controller.deleteDictionary(dict.id);
                     }
                   },
                 )
@@ -318,7 +389,7 @@ class DictionariesTab extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     visualDensity: VisualDensity.compact,
                   ),
-                  onPressed: () => controller.downloadDictionary(dict.id),
+                  onPressed: () => widget.controller.downloadDictionary(dict.id),
                   child: const Text('Download', style: TextStyle(fontSize: 12)),
                 ),
             ],

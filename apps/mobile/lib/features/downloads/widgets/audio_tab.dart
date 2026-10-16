@@ -16,6 +16,9 @@ class AudioTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final itemExtent = (95.0 * textScale.clamp(1.0, 1.6)).toDouble();
 
     return ListenableBuilder(
       listenable: controller,
@@ -100,7 +103,7 @@ class AudioTab extends StatelessWidget {
                                   },
                                   icon: const Icon(Icons.delete_sweep_rounded, size: 18),
                                   label: const Text('Clear All'),
-                                  style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                                  style: TextButton.styleFrom(foregroundColor: colorScheme.error),
                                 ),
                             ],
                           ),
@@ -163,11 +166,11 @@ class AudioTab extends StatelessWidget {
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                       maxCrossAxisExtent: GridExtents.bibleManager,
                       mainAxisSpacing: 10,
                       crossAxisSpacing: 10,
-                      mainAxisExtent: 95,
+                      mainAxisExtent: itemExtent,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _buildAudioSeriesItem(context, audioSeries[index], tokens),

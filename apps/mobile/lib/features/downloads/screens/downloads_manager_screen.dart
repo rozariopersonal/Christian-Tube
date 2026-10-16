@@ -46,10 +46,38 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
       _controller = DownloadsController();
       _ownsController = true;
     }
+    _controller.addListener(_onControllerChange);
+  }
+
+  void _onControllerChange() {
+    final error = _controller.state.errorMessage;
+    if (error != null && error.isNotEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Theme.of(context).colorScheme.onError,
+            onPressed: () => _controller.clearError(),
+          ),
+        ),
+      );
+      _controller.clearError();
+    }
+  }
+
+  @override
+  void didUpdateWidget(DownloadsManagerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      _navigateToTab(widget.initialTab.clamp(0, 6));
+    }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onControllerChange);
     _tabController.dispose();
     if (_ownsController) {
       _controller.dispose();

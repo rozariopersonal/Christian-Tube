@@ -70,6 +70,8 @@ class BookService extends ChangeNotifier {
       _adapter.downloadSingleBook(bookId, language: language);
   Future<void> removeBookDownload(String bookId) =>
       _adapter.removeBookDownload(bookId);
+  Future<void> removeAllBooks() =>
+      _adapter.removeAllBooks();
   Future<bool> downloadAndInstall({String? language}) =>
       _adapter.downloadAndInstall(language: language);
   Future<bool> isInstalled() => _adapter.isInstalled();

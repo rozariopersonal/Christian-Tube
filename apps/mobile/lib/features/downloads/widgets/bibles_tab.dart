@@ -7,7 +7,7 @@ import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/widgets/bible_version_info_sheet.dart';
 import '../controllers/downloads_controller.dart';
 
-class BiblesTab extends StatelessWidget {
+class BiblesTab extends StatefulWidget {
   final DownloadsController controller;
 
   const BiblesTab({
@@ -16,13 +16,34 @@ class BiblesTab extends StatelessWidget {
   });
 
   @override
+  State<BiblesTab> createState() => _BiblesTabState();
+}
+
+class _BiblesTabState extends State<BiblesTab> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(text: widget.controller.state.bibleSearch);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final itemExtent = (112.0 * textScale.clamp(1.0, 1.6)).toDouble();
 
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, _) {
-        final state = controller.state;
+        final state = widget.controller.state;
         var bibles = state.bibles.toList();
 
         // Language Filter
@@ -68,11 +89,19 @@ class BiblesTab extends StatelessWidget {
         // Only Installed Filter
         if (state.onlyInstalled) {
           bibles = bibles
-              .where((b) => controller.isBibleInstalled(b.id))
+              .where((b) => widget.controller.isBibleInstalled(b.id))
               .toList();
         }
 
         final isWide = ScreenClass.of(context).isMediumOrExpanded;
+
+        // Keep local search controller in sync if cleared externally
+        if (_searchController.text != state.bibleSearch) {
+          _searchController.value = TextEditingValue(
+            text: state.bibleSearch,
+            selection: TextSelection.collapsed(offset: state.bibleSearch.length),
+          );
+        }
 
         return MaxWidthBox(
           child: CustomScrollView(
@@ -124,9 +153,8 @@ class BiblesTab extends StatelessWidget {
 
                     // Search Field
                     TextField(
-                      controller: TextEditingController(text: state.bibleSearch)
-                        ..selection = TextSelection.collapsed(offset: state.bibleSearch.length),
-                      onChanged: controller.setBibleSearch,
+                      controller: _searchController,
+                      onChanged: widget.controller.setBibleSearch,
                       style: TextStyle(color: tokens.onSurface, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'Search translations, language, abbreviation…',
@@ -135,7 +163,10 @@ class BiblesTab extends StatelessWidget {
                         suffixIcon: state.bibleSearch.isNotEmpty
                             ? IconButton(
                                 icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 18),
-                                onPressed: () => controller.setBibleSearch(''),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  widget.controller.setBibleSearch('');
+                                },
                               )
                             : null,
                         isDense: true,
@@ -164,7 +195,7 @@ class BiblesTab extends StatelessWidget {
                               child: FilterChip(
                                 label: Text(opt),
                                 selected: state.bibleLanguageFilter == opt,
-                                onSelected: (_) => controller.setBibleLanguageFilter(opt),
+                                onSelected: (_) => widget.controller.setBibleLanguageFilter(opt),
                                 selectedColor: tokens.accent.withValues(alpha: 0.2),
                                 checkmarkColor: tokens.accent,
                                 labelStyle: TextStyle(
@@ -184,7 +215,7 @@ class BiblesTab extends StatelessWidget {
                                 color: state.onlyInstalled ? tokens.accent : tokens.onSurfaceMuted),
                             label: const Text('Downloaded Only'),
                             selected: state.onlyInstalled,
-                            onSelected: (_) => controller.toggleOnlyInstalled(),
+                            onSelected: (_) => widget.controller.toggleOnlyInstalled(),
                             selectedColor: tokens.accent.withValues(alpha: 0.2),
                             checkmarkColor: tokens.accent,
                             labelStyle: TextStyle(
@@ -201,16 +232,56 @@ class BiblesTab extends StatelessWidget {
                 ),
               ),
 
-              // Bibles Grid / List
-              if (isWide)
+              // Empty state or Grid / List
+              if (bibles.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off_rounded,
+                              size: 48, color: tokens.onSurfaceMuted.withValues(alpha: 0.5)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No translations found',
+                            style: TextStyle(
+                                color: tokens.onSurface,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Try adjusting your search query or language filter.',
+                            style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () {
+                              _searchController.clear();
+                              widget.controller.setBibleSearch('');
+                              widget.controller.setBibleLanguageFilter('All');
+                              if (widget.controller.state.onlyInstalled) {
+                                widget.controller.toggleOnlyInstalled();
+                              }
+                            },
+                            child: const Text('Reset Filters'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (isWide)
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                       maxCrossAxisExtent: GridExtents.bibleManager,
                       mainAxisSpacing: 10,
                       crossAxisSpacing: 10,
-                      mainAxisExtent: 110,
+                      mainAxisExtent: itemExtent,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _buildBibleItem(context, bibles[index], tokens),
@@ -290,7 +361,7 @@ class BiblesTab extends StatelessWidget {
   }
 
   Widget _buildStudyDbCard(BuildContext context, AppTokens tokens) {
-    final state = controller.state;
+    final state = widget.controller.state;
     final isInstalled = state.studyDbInstalled;
     final isDownloading = state.isStudyDbDownloading;
     final progress = state.studyDbProgress;
@@ -364,7 +435,7 @@ class BiblesTab extends StatelessWidget {
                       ),
                     );
                     if (confirm == true) {
-                      await controller.deleteStudyDb();
+                      await widget.controller.deleteStudyDb();
                     }
                   },
                 ),
@@ -378,7 +449,7 @@ class BiblesTab extends StatelessWidget {
                 )
               else
                 FilledButton.tonal(
-                  onPressed: () => controller.downloadStudyDb(),
+                  onPressed: () => widget.controller.downloadStudyDb(),
                   child: const Text('Download'),
                 ),
             ],
@@ -401,9 +472,9 @@ class BiblesTab extends StatelessWidget {
   }
 
   Widget _buildBibleItem(BuildContext context, BibleVersionMeta bible, AppTokens tokens) {
-    final isInstalled = controller.isBibleInstalled(bible.id);
-    final isDownloading = controller.isBibleDownloading(bible.id);
-    final progress = controller.getBibleProgress(bible.id);
+    final isInstalled = widget.controller.isBibleInstalled(bible.id);
+    final isDownloading = widget.controller.isBibleDownloading(bible.id);
+    final progress = widget.controller.getBibleProgress(bible.id);
     final isDefault = bible.id == BibleDownloadManager.defaultVersionId;
 
     return Container(
@@ -497,7 +568,7 @@ class BiblesTab extends StatelessWidget {
                       ),
                     );
                     if (confirm == true) {
-                      await controller.deleteBible(bible.id);
+                      await widget.controller.deleteBible(bible.id);
                     }
                   },
                 )
@@ -505,7 +576,7 @@ class BiblesTab extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   child: Text(
-                    (!controller.isBibleIndeterminate(bible.id) && progress > 0)
+                    (!widget.controller.isBibleIndeterminate(bible.id) && progress > 0)
                         ? '${(progress * 100).toInt()}%'
                         : 'Downloading…',
                     style: TextStyle(color: tokens.accent, fontWeight: FontWeight.bold, fontSize: 11.5),
@@ -517,7 +588,7 @@ class BiblesTab extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     visualDensity: VisualDensity.compact,
                   ),
-                  onPressed: () => controller.downloadBible(bible),
+                  onPressed: () => widget.controller.downloadBible(bible),
                   child: const Text('Download', style: TextStyle(fontSize: 12)),
                 ),
             ],
@@ -527,7 +598,7 @@ class BiblesTab extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: controller.isBibleIndeterminate(bible.id)
+                value: widget.controller.isBibleIndeterminate(bible.id)
                     ? null
                     : (progress > 0 ? progress : null),
                 backgroundColor: tokens.surfaceVariant,

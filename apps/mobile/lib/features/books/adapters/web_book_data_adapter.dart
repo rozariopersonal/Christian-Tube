@@ -54,6 +54,9 @@ class WebBookDataAdapter implements BookDataAdapter {
   Future<void> removeBookDownload(String bookId) async {}
 
   @override
+  Future<void> removeAllBooks() async {}
+
+  @override
   Future<bool> downloadAndInstall({String? language}) async => true;
 
   @override

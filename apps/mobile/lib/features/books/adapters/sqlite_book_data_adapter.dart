@@ -253,6 +253,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   Future<bool> downloadSingleBook(String bookId, {String? language}) async {
     if (_downloadingBookIds.contains(bookId)) return false;
     _downloadingBookIds.add(bookId);
+    downloadProgress.value = 0.01;
 
     try {
       final db = await database;
@@ -360,6 +361,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       return false;
     } finally {
       _downloadingBookIds.remove(bookId);
+      downloadProgress.value = 0.0;
     }
   }
 
@@ -380,6 +382,25 @@ class SqliteBookDataAdapter implements BookDataAdapter {
     } catch (e) {
       debugPrint('Error removing book $bookId: $e');
     }
+  }
+
+  /// Completely removes the books database from local storage to free disk space.
+  @override
+  Future<void> removeAllBooks() async {
+    if (kIsWeb) return;
+    if (_db != null) {
+      await _db!.close();
+      _db = null;
+    }
+    final dbPath = overrideDbPath ??
+        p.join(await getDatabasesPath(), 'christian_tube_books.db');
+    final file = File(dbPath);
+    if (await file.exists()) await file.delete();
+    for (final sfx in const ['-wal', '-shm']) {
+      final side = File('$dbPath$sfx');
+      if (await side.exists()) await side.delete();
+    }
+    await initialize();
   }
 
   /// Downloads and installs `books.sqlite.gz` from release CDN mirrors if not bundled.
@@ -549,7 +570,8 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       final count = Sqflite.firstIntValue(
         await db.rawQuery('SELECT COUNT(*) FROM books'),
       );
-      return (count ?? 0) > 0;
+      // Require at least 100 books to qualify as the full library bundle installed
+      return (count ?? 0) >= 100;
     } catch (_) {
       return false;
     }

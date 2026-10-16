@@ -5,7 +5,7 @@ import '../../../../core/theme/app_tokens.dart';
 import '../../books/models/book.dart';
 import '../controllers/downloads_controller.dart';
 
-class BooksTab extends StatelessWidget {
+class BooksTab extends StatefulWidget {
   final DownloadsController controller;
 
   const BooksTab({
@@ -14,13 +14,34 @@ class BooksTab extends StatelessWidget {
   });
 
   @override
+  State<BooksTab> createState() => _BooksTabState();
+}
+
+class _BooksTabState extends State<BooksTab> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(text: widget.controller.state.bookSearch);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final itemExtent = (112.0 * textScale.clamp(1.0, 1.6)).toDouble();
 
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, _) {
-        final state = controller.state;
+        final state = widget.controller.state;
         var books = state.books.toList();
 
         // Extract available languages for filter chips
@@ -54,11 +75,19 @@ class BooksTab extends StatelessWidget {
         // Installed Only Filter
         if (state.onlyInstalled) {
           books = books
-              .where((b) => controller.isBookInstalled(b.id))
+              .where((b) => widget.controller.isBookInstalled(b.id))
               .toList();
         }
 
         final isWide = ScreenClass.of(context).isMediumOrExpanded;
+
+        // Keep local search controller in sync if cleared externally
+        if (_searchController.text != state.bookSearch) {
+          _searchController.value = TextEditingValue(
+            text: state.bookSearch,
+            selection: TextSelection.collapsed(offset: state.bookSearch.length),
+          );
+        }
 
         return MaxWidthBox(
           child: CustomScrollView(
@@ -68,14 +97,17 @@ class BooksTab extends StatelessWidget {
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     // Complete Library Bundle Card
-                    _buildLibraryBundleCard(tokens),
+                    _buildLibraryBundleCard(context, tokens),
+                    const SizedBox(height: 16),
+
+                    // Offline Articles Section Card
+                    _buildArticlesCard(context, tokens),
                     const SizedBox(height: 20),
 
                     // Search Field
                     TextField(
-                      controller: TextEditingController(text: state.bookSearch)
-                        ..selection = TextSelection.collapsed(offset: state.bookSearch.length),
-                      onChanged: controller.setBookSearch,
+                      controller: _searchController,
+                      onChanged: widget.controller.setBookSearch,
                       style: TextStyle(color: tokens.onSurface, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'Search books by title, author, or topic…',
@@ -84,7 +116,10 @@ class BooksTab extends StatelessWidget {
                         suffixIcon: state.bookSearch.isNotEmpty
                             ? IconButton(
                                 icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 18),
-                                onPressed: () => controller.setBookSearch(''),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  widget.controller.setBookSearch('');
+                                },
                               )
                             : null,
                         isDense: true,
@@ -113,7 +148,7 @@ class BooksTab extends StatelessWidget {
                               child: FilterChip(
                                 label: Text(lang),
                                 selected: state.bookLanguageFilter == lang,
-                                onSelected: (_) => controller.setBookLanguageFilter(lang),
+                                onSelected: (_) => widget.controller.setBookLanguageFilter(lang),
                                 selectedColor: tokens.accent.withValues(alpha: 0.2),
                                 checkmarkColor: tokens.accent,
                                 labelStyle: TextStyle(
@@ -133,7 +168,7 @@ class BooksTab extends StatelessWidget {
                                 color: state.onlyInstalled ? tokens.accent : tokens.onSurfaceMuted),
                             label: const Text('Downloaded Only'),
                             selected: state.onlyInstalled,
-                            onSelected: (_) => controller.toggleOnlyInstalled(),
+                            onSelected: (_) => widget.controller.toggleOnlyInstalled(),
                             selectedColor: tokens.accent.withValues(alpha: 0.2),
                             checkmarkColor: tokens.accent,
                             labelStyle: TextStyle(
@@ -171,16 +206,56 @@ class BooksTab extends StatelessWidget {
                 ),
               ),
 
-              // Books Grid / List (Lazy virtualized)
-              if (isWide)
+              // Empty state or Books Grid / List
+              if (books.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off_rounded,
+                              size: 48, color: tokens.onSurfaceMuted.withValues(alpha: 0.5)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No books found',
+                            style: TextStyle(
+                                color: tokens.onSurface,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Try adjusting your search query or language filter.',
+                            style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () {
+                              _searchController.clear();
+                              widget.controller.setBookSearch('');
+                              widget.controller.setBookLanguageFilter('All');
+                              if (widget.controller.state.onlyInstalled) {
+                                widget.controller.toggleOnlyInstalled();
+                              }
+                            },
+                            child: const Text('Reset Filters'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (isWide)
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                       maxCrossAxisExtent: GridExtents.bibleManager,
                       mainAxisSpacing: 10,
                       crossAxisSpacing: 10,
-                      mainAxisExtent: 105,
+                      mainAxisExtent: itemExtent,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _buildBookItem(context, books[index], tokens),
@@ -209,8 +284,8 @@ class BooksTab extends StatelessWidget {
     );
   }
 
-  Widget _buildLibraryBundleCard(AppTokens tokens) {
-    final state = controller.state;
+  Widget _buildLibraryBundleCard(BuildContext context, AppTokens tokens) {
+    final state = widget.controller.state;
     final isInstalled = state.booksBundleInstalled;
     final isDownloading = state.isBooksBundleDownloading;
     final progress = state.booksBundleProgress;
@@ -285,8 +360,37 @@ class BooksTab extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton(
-                  onPressed: controller.downloadBooksBundle,
+                  onPressed: widget.controller.downloadBooksBundle,
                   child: const Text('Re-sync'),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(Icons.delete_outline, color: tokens.onSurfaceMuted),
+                  tooltip: 'Delete complete books bundle',
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete Books Library?'),
+                        content: const Text(
+                          'This will remove all 181 offline books and commentaries from local storage.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await widget.controller.deleteBooksBundle();
+                    }
+                  },
                 ),
               ],
             )
@@ -310,7 +414,7 @@ class BooksTab extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: controller.downloadBooksBundle,
+                onPressed: widget.controller.downloadBooksBundle,
                 icon: const Icon(Icons.download_rounded, size: 18),
                 label: const Text('Download Complete Books & Commentaries (~13.4 MB)'),
                 style: FilledButton.styleFrom(
@@ -325,9 +429,137 @@ class BooksTab extends StatelessWidget {
     );
   }
 
+  Widget _buildArticlesCard(BuildContext context, AppTokens tokens) {
+    final state = widget.controller.state;
+    final installed = state.installedArticleLanguages;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tokens.surfaceVariant,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tokens.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.article_rounded, color: tokens.accent, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Offline Articles Packages',
+                  style: TextStyle(
+                    color: tokens.onSurface,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Precompiled topical teaching articles by Zac Poonen for zero-latency offline reading.',
+            style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              _buildArticlePackageTile(
+                context,
+                code: 'en',
+                label: 'English Articles (~4.2 MB)',
+                isInstalled: installed.contains('en'),
+                tokens: tokens,
+              ),
+              _buildArticlePackageTile(
+                context,
+                code: 'ta',
+                label: 'Tamil Articles (~5.1 MB)',
+                isInstalled: installed.contains('ta'),
+                tokens: tokens,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArticlePackageTile(
+    BuildContext context, {
+    required String code,
+    required String label,
+    required bool isInstalled,
+    required AppTokens tokens,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: tokens.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: tokens.surfaceBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isInstalled ? Icons.check_circle : Icons.download_rounded,
+            size: 16,
+            color: isInstalled ? tokens.accent : tokens.onSurfaceMuted,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: tokens.onSurface,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (isInstalled)
+            InkWell(
+              onTap: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text('Remove $label?'),
+                    content: const Text('Offline articles for this language will be deleted.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await widget.controller.deleteArticlesLanguage(code);
+                }
+              },
+              child: Icon(Icons.close_rounded, size: 16, color: tokens.onSurfaceMuted),
+            )
+          else
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => widget.controller.downloadArticlesLanguage(code),
+              child: const Text('Download', style: TextStyle(fontSize: 11)),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBookItem(BuildContext context, Book book, AppTokens tokens) {
-    final isInstalled = controller.isBookInstalled(book.id);
-    final isDownloading = controller.isBookDownloading(book.id);
+    final isInstalled = widget.controller.isBookInstalled(book.id);
+    final isDownloading = widget.controller.isBookDownloading(book.id);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -401,7 +633,7 @@ class BooksTab extends StatelessWidget {
                   ),
                 );
                 if (confirm == true) {
-                  await controller.deleteBook(book.id);
+                  await widget.controller.deleteBook(book.id);
                 }
               },
             )
@@ -417,7 +649,7 @@ class BooksTab extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 visualDensity: VisualDensity.compact,
               ),
-              onPressed: () => controller.downloadSingleBook(book.id, language: book.language),
+              onPressed: () => widget.controller.downloadSingleBook(book.id, language: book.language),
               child: const Text('Download', style: TextStyle(fontSize: 12)),
             ),
         ],

@@ -16,6 +16,7 @@ class OverviewTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListenableBuilder(
       listenable: controller,
@@ -96,35 +97,45 @@ class OverviewTab extends StatelessWidget {
                           height: 8,
                           child: Row(
                             children: [
-                              if (storage.audioBytes > 0)
+                              if (storage.biblesBytes > 0)
                                 Expanded(
-                                  flex: (storage.shareOf(storage.audioBytes) * 100).toInt().clamp(1, 100),
-                                  child: Container(color: Colors.amber),
-                                ),
-                              if (storage.booksBytes > 0)
-                                Expanded(
-                                  flex: (storage.shareOf(storage.booksBytes) * 100).toInt().clamp(1, 100),
-                                  child: Container(color: Colors.teal),
+                                  flex: (storage.shareOf(storage.biblesBytes) * 100).toInt().clamp(1, 100),
+                                  child: Container(color: colorScheme.primary),
                                 ),
                               if (storage.dictionariesBytes > 0)
                                 Expanded(
                                   flex: (storage.shareOf(storage.dictionariesBytes) * 100).toInt().clamp(1, 100),
-                                  child: Container(color: Colors.purple),
+                                  child: Container(color: colorScheme.secondary),
                                 ),
-                              if (storage.biblesBytes > 0)
+                              if (storage.booksBytes > 0)
                                 Expanded(
-                                  flex: (storage.shareOf(storage.biblesBytes) * 100).toInt().clamp(1, 100),
+                                  flex: (storage.shareOf(storage.booksBytes) * 100).toInt().clamp(1, 100),
+                                  child: Container(color: colorScheme.tertiary),
+                                ),
+                              if (storage.audioBytes > 0)
+                                Expanded(
+                                  flex: (storage.shareOf(storage.audioBytes) * 100).toInt().clamp(1, 100),
                                   child: Container(color: tokens.accent),
                                 ),
                               if (storage.songsBytes > 0)
                                 Expanded(
                                   flex: (storage.shareOf(storage.songsBytes) * 100).toInt().clamp(1, 100),
-                                  child: Container(color: Colors.orange),
+                                  child: Container(color: colorScheme.error.withValues(alpha: 0.8)),
                                 ),
                               if (storage.fontsBytes > 0)
                                 Expanded(
                                   flex: (storage.shareOf(storage.fontsBytes) * 100).toInt().clamp(1, 100),
-                                  child: Container(color: Colors.pinkAccent),
+                                  child: Container(color: colorScheme.outline),
+                                ),
+                              if (storage.studyDbBytes > 0)
+                                Expanded(
+                                  flex: (storage.shareOf(storage.studyDbBytes) * 100).toInt().clamp(1, 100),
+                                  child: Container(color: colorScheme.inversePrimary),
+                                ),
+                              if (storage.articlesBytes > 0)
+                                Expanded(
+                                  flex: (storage.shareOf(storage.articlesBytes) * 100).toInt().clamp(1, 100),
+                                  child: Container(color: colorScheme.primaryContainer),
                                 ),
                             ],
                           ),
@@ -180,6 +191,22 @@ class OverviewTab extends StatelessWidget {
                           tokens: tokens,
                           onTap: () => onNavigateToTab(6),
                         ),
+                        if (storage.studyDbBytes > 0 || state.studyDbInstalled)
+                          _buildStatChip(
+                            icon: Icons.hub_rounded,
+                            label: 'Study DB (${storage.studyDbFormatted})',
+                            isReady: true,
+                            tokens: tokens,
+                            onTap: () => onNavigateToTab(1),
+                          ),
+                        if (storage.articlesCount > 0)
+                          _buildStatChip(
+                            icon: Icons.article_rounded,
+                            label: '${storage.articlesCount} Articles (${storage.articlesFormatted})',
+                            isReady: true,
+                            tokens: tokens,
+                            onTap: () => onNavigateToTab(3),
+                          ),
                       ],
                     ),
                   ],

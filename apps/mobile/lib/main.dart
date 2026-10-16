@@ -301,6 +301,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 if (tabStr == 'books' || tabStr == 'book') tab = 3;
                 if (tabStr == 'audio' || tabStr == 'sermons') tab = 4;
                 if (tabStr == 'songs' || tabStr == 'hymns') tab = 5;
+                if (tabStr == 'fonts' || tabStr == 'font') tab = 6;
                 return DownloadsManagerScreen(initialTab: tab);
               },
             ),

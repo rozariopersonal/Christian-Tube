@@ -45,11 +45,12 @@ void main() {
         expect(find.widgetWithText(Tab, 'Books & Commentaries'), findsOneWidget);
         expect(find.widgetWithText(Tab, 'Audio Sermons'), findsOneWidget);
         expect(find.widgetWithText(Tab, 'Songs & Hymns'), findsOneWidget);
+        expect(find.widgetWithText(Tab, 'Reader Fonts'), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
     });
 
-    testWidgets('Can switch across all 6 tabs smoothly',
+    testWidgets('Can switch across all 7 tabs smoothly',
         (tester) async {
       tester.view.physicalSize = const Size(800, 800);
       tester.view.devicePixelRatio = 1.0;
@@ -95,6 +96,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Offline Songbook & Hymns'), findsOneWidget);
 
+      // Switch to Reader Fonts
+      await tester.tap(find.widgetWithText(Tab, 'Reader Fonts'));
+      await tester.pumpAndSettle();
+      expect(find.text('Reader Fonts & Typography'), findsOneWidget);
+
       expect(tester.takeException(), isNull);
     });
 
@@ -117,6 +123,9 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(tester.takeException(), isNull);
+
+      // Drain internal sqflite connection lock timer
+      await tester.pump(const Duration(seconds: 11));
     });
   });
 }
