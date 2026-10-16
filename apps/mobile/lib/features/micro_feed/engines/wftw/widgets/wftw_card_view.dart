@@ -373,6 +373,7 @@ class _WftwCardViewState extends State<WftwCardView>
         return AnimatedFluidGradient(
           colors: colors,
           overlayOpacity: isDark ? 0.20 : 0.0,
+          animate: widget.isActive,
         );
       }
       return Container(

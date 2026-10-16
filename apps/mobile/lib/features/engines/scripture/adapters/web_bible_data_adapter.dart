@@ -13,6 +13,7 @@ class WebBibleDataAdapter implements BibleDataAdapter {
   final Map<String, String> _webVerses = {};
   final Set<String> _webInstalledVersions = {};
   final Map<String, List<Map<String, dynamic>>> _liveChapterCache = {};
+  final Map<String, String> _resolvedPassageCache = {};
 
   static const _cdnVersions = {
     'ASV', 'BBE', 'DIODATI', 'ELBERFELDER', 'ELBERFELDER1905', 'HIN_IRV',
@@ -679,6 +680,10 @@ class WebBibleDataAdapter implements BibleDataAdapter {
     int? endVerse,
   }) {
     final end = endVerse ?? startVerse;
+    final passageKey = '${versionId.toLowerCase()}_${bookNumber}_${chapter}_${startVerse}_$end';
+    final cachedPassage = _resolvedPassageCache[passageKey];
+    if (cachedPassage != null) return cachedPassage;
+
     final List<String> parts = [];
     for (int v = startVerse; v <= end; v++) {
       final key = '${versionId}_${bookNumber}_${chapter}_$v';
@@ -686,7 +691,11 @@ class WebBibleDataAdapter implements BibleDataAdapter {
         parts.add(_webVerses[key]!);
       }
     }
-    if (parts.isNotEmpty) return parts.join(' ');
+    if (parts.isNotEmpty) {
+      final text = parts.join(' ');
+      _resolvedPassageCache[passageKey] = text;
+      return text;
+    }
     return null;
   }
 
@@ -699,6 +708,10 @@ class WebBibleDataAdapter implements BibleDataAdapter {
     int? endVerse,
   }) async {
     final end = endVerse ?? startVerse;
+    final passageKey = '${versionId.toLowerCase()}_${bookNumber}_${chapter}_${startVerse}_$end';
+    final cachedPassage = _resolvedPassageCache[passageKey];
+    if (cachedPassage != null) return cachedPassage;
+
     final List<String> parts = [];
     for (int v = startVerse; v <= end; v++) {
       final key = '${versionId}_${bookNumber}_${chapter}_$v';
@@ -706,7 +719,12 @@ class WebBibleDataAdapter implements BibleDataAdapter {
         parts.add(_webVerses[key]!);
       }
     }
-    if (parts.isNotEmpty) return parts.join(' ');
+    if (parts.isNotEmpty) {
+      final text = parts.join(' ');
+      _resolvedPassageCache[passageKey] = text;
+      return text;
+    }
+
     final bookName = BookNameService.englishBookNames.length >= bookNumber
         ? BookNameService.englishBookNames[bookNumber - 1]
         : '';
@@ -717,7 +735,11 @@ class WebBibleDataAdapter implements BibleDataAdapter {
           .map((v) => (v['text'] as String?)?.trim() ?? '')
           .where((t) => t.isNotEmpty)
           .toList();
-      if (filtered.isNotEmpty) return filtered.join(' ');
+      if (filtered.isNotEmpty) {
+        final text = filtered.join(' ');
+        _resolvedPassageCache[passageKey] = text;
+        return text;
+      }
     }
     return null;
   }
