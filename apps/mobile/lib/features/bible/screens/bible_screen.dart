@@ -491,16 +491,22 @@ class _BibleScreenState extends State<BibleScreen> {
       commentaryNotes: notes,
       bookCommentariesFuture: bookCommentariesFuture,
       baseFontSize: _controller.appearance.fontSize,
-      onTapReference: (ref) => _navigateToPassage(
-        bookNumber: ref.bookNumber,
-        chapter: ref.chapter,
-        verse: ref.verse,
-      ),
-      onTapPassage: (bookNum, chapter, verseNum) => _navigateToPassage(
-        bookNumber: bookNum,
-        chapter: chapter,
-        verse: verseNum,
-      ),
+      onTapReference: (ref) {
+        _controller.clearSelection();
+        _navigateToPassage(
+          bookNumber: ref.bookNumber,
+          chapter: ref.chapter,
+          verse: ref.verse,
+        );
+      },
+      onTapPassage: (bookNum, chapter, verseNum) {
+        _controller.clearSelection();
+        _navigateToPassage(
+          bookNumber: bookNum,
+          chapter: chapter,
+          verse: verseNum,
+        );
+      },
     );
   }
 
@@ -521,9 +527,10 @@ class _BibleScreenState extends State<BibleScreen> {
     if (s.selectedVerses.isEmpty) return;
     final book = s.selectedBook ?? _controller.currentBook;
     final chapter = s.selectedChapter ?? _controller.currentChapter;
+    final bookDisplay = _controller.displayBookName(book);
     final header = _controller.selectedVersion != null
-        ? '$book $chapter · ${_controller.selectedVersion!.shortname}'
-        : '$book $chapter';
+        ? '$bookDisplay $chapter · ${_controller.selectedVersion!.shortname}'
+        : '$bookDisplay $chapter';
     final text = s.selectedText();
     final firstVerse = s.selectedVerses.first;
     final link = DeepLinkService.bible(
