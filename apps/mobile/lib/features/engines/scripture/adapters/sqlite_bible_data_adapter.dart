@@ -15,6 +15,7 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
   final String? overrideDbPath;
   final Map<String, List<Map<String, dynamic>>> _liveChapterCache = {};
   final Map<String, List<List<int>>> _liveCountsCache = {};
+  final Map<String, String> _resolvedPassageCache = {};
 
   SqliteBibleDataAdapter({this.overrideDbPath});
 
@@ -414,16 +415,24 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     required int startVerse,
     int? endVerse,
   }) {
+    final end = endVerse ?? startVerse;
+    final passageKey = '${versionId.toLowerCase()}_${bookNumber}_${chapter}_${startVerse}_$end';
+    final cachedPassage = _resolvedPassageCache[passageKey];
+    if (cachedPassage != null) return cachedPassage;
+
     final cacheKey = '${versionId.toLowerCase()}_${bookNumber}_$chapter';
     final cached = _liveChapterCache[cacheKey];
     if (cached != null && cached.isNotEmpty) {
-      final end = endVerse ?? startVerse;
       final filtered = cached
           .where((v) => (v['verse'] as int) >= startVerse && (v['verse'] as int) <= end)
           .map((v) => (v['text'] as String?)?.trim() ?? '')
           .where((t) => t.isNotEmpty)
           .toList();
-      if (filtered.isNotEmpty) return filtered.join(' ');
+      if (filtered.isNotEmpty) {
+        final text = filtered.join(' ');
+        _resolvedPassageCache[passageKey] = text;
+        return text;
+      }
     }
     return null;
   }
@@ -437,6 +446,10 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     int? endVerse,
   }) async {
     final end = endVerse ?? startVerse;
+    final passageKey = '${versionId.toLowerCase()}_${bookNumber}_${chapter}_${startVerse}_$end';
+    final cachedPassage = _resolvedPassageCache[passageKey];
+    if (cachedPassage != null) return cachedPassage;
+
     if (_db == null) await initialize();
     if (_db != null && _db!.isOpen) {
       final results = await _db!.query(
@@ -447,7 +460,9 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         orderBy: 'verse ASC',
       );
       if (results.isNotEmpty) {
-        return results.map((r) => r['text'] as String).join(' ');
+        final text = results.map((r) => r['text'] as String).join(' ');
+        _resolvedPassageCache[passageKey] = text;
+        return text;
       }
     }
 
@@ -461,7 +476,11 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
           .map((v) => (v['text'] as String?)?.trim() ?? '')
           .where((t) => t.isNotEmpty)
           .toList();
-      if (filtered.isNotEmpty) return filtered.join(' ');
+      if (filtered.isNotEmpty) {
+        final text = filtered.join(' ');
+        _resolvedPassageCache[passageKey] = text;
+        return text;
+      }
     }
     return null;
   }

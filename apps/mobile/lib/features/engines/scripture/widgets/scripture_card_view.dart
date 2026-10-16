@@ -7,7 +7,6 @@ import '../models/scripture_card.dart';
 import '../models/scripture_filter_state.dart';
 import '../models/scripture_theme_state.dart';
 import '../services/bible_download_manager.dart';
-import '../services/scripture_image_exporter.dart';
 import '../services/scripture_service.dart';
 
 class ScriptureCardView extends StatefulWidget {
@@ -124,9 +123,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
         _checkAndResolveVersion();
       }
     }
-    if (widget.isActive) {
-      _pregenerateImage();
-    }
     final comparison = widget.filterState.comparisonVersionId;
     if (comparison != null && widget.card.comparisonVersion != comparison) {
       _resolveComparison();
@@ -157,9 +153,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
                 widget.filterState.comparisonVersionId)) {
       _resolveComparison();
     }
-    if (widget.isActive && (!oldWidget.isActive || oldWidget.filterState != widget.filterState)) {
-      _pregenerateImage();
-    }
   }
 
   @override
@@ -183,7 +176,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
     }
   }
 
-
   Future<void> _checkAndResolveVersion() async {
     // Guard against concurrent resolutions for the same version / redundant retries
     if (_isResolving) return;
@@ -203,7 +195,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
             _displayedText = syncText;
             _displayedVersion = targetVersion;
           });
-          _pregenerateImage();
         }
         return;
       }
@@ -215,7 +206,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
             _displayedText = widget.card.resolvedText;
             _displayedVersion = targetVersion;
           });
-          _pregenerateImage();
         } else {
           // If resolution failed to obtain targetVersion, reset attempt so it can retry
           _lastAttemptedVersion = null;
@@ -226,40 +216,6 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
     } finally {
       _isResolving = false;
     }
-  }
-
-  void _pregenerateImage() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final targetVersion = widget.filterState.activeVersionId;
-      final isDark = context.isDark;
-      final currentKey =
-          '${widget.card.id}_${targetVersion}_${widget.filterState.activeFontFamily}_${widget.filterState.fontSizeScale}_${widget.filterState.textColorHex}_${widget.card.activeBackground}_$isDark';
-      if (widget.card.precomputedImageKey == currentKey &&
-          widget.card.precomputedImageBytes != null) {
-        return;
-      }
-
-      Future.microtask(() async {
-        try {
-          final bytes = await ScriptureGraphicGenerator.generateStoryImage(
-            card: widget.card,
-            activeVersionId: targetVersion,
-            fontFamily: widget.filterState.activeFontFamily,
-            fontSizeScale: widget.filterState.fontSizeScale,
-            textColorHex: widget.filterState.textColorHex,
-            isBold: widget.filterState.isBold,
-            isItalic: widget.filterState.isItalic,
-            textAlign: widget.filterState.textAlign,
-            isDark: isDark,
-          );
-          if (mounted) {
-            widget.card.precomputedImageBytes = bytes;
-            widget.card.precomputedImageKey = currentKey;
-          }
-        } catch (_) {}
-      });
-    });
   }
 
 
@@ -654,10 +610,12 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
     );
   }
 
+  static final RegExp _whitespaceRegExp = RegExp(r'\s+');
+
   double _dynamicFontSize(String text, double heightFactor) {
     // Auto-calculate dynamic font size based on verse text length, longest
     // word, screen height & user scale
-    final words = text.split(RegExp(r'\s+'));
+    final words = text.split(_whitespaceRegExp);
     int maxWordLength = 0;
     for (final w in words) {
       if (w.length > maxWordLength) maxWordLength = w.length;
@@ -685,6 +643,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
         return AnimatedFluidGradient(
           colors: colors,
           overlayOpacity: context.isDark ? 0.20 : 0.0,
+          animate: widget.isActive,
         );
       }
       return Container(

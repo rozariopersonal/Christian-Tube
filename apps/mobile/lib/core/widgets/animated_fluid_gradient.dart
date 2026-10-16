@@ -7,11 +7,13 @@ import '../theme/app_tokens.dart';
 class AnimatedFluidGradient extends StatefulWidget {
   final List<Color> colors;
   final double overlayOpacity;
+  final bool animate;
 
   const AnimatedFluidGradient({
     super.key,
     required this.colors,
     this.overlayOpacity = 0.35,
+    this.animate = true,
   });
 
   @override
@@ -31,8 +33,21 @@ class _AnimatedFluidGradientState extends State<AnimatedFluidGradient>
       duration: const Duration(seconds: 15),
     );
     final isRunningTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
-    if (!isRunningTest) {
+    if (!isRunningTest && widget.animate) {
       _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(AnimatedFluidGradient oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final isRunningTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (!isRunningTest && widget.animate != oldWidget.animate) {
+      if (widget.animate) {
+        _controller.repeat();
+      } else {
+        _controller.stop();
+      }
     }
   }
 

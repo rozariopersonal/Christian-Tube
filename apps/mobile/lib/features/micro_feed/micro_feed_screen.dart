@@ -79,6 +79,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
           _isLoading = false;
           _feedPageIndex = 1;
         });
+        _preloadUpcomingCards(0);
       }
     } catch (e) {
       if (mounted && generation == _loadGeneration) {
@@ -107,6 +108,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
           _items.addAll(more);
           _feedPageIndex++;
         });
+        _preloadUpcomingCards(_currentPage);
       }
     } catch (_) {
       // Ignored for infinite scroll seamless feel
@@ -207,6 +209,35 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
   void _openManager() {
     context.push('/bible-manager');
+  }
+
+  void _preloadUpcomingCards(int currentIndex) {
+    if (widget.engine is! ScriptureEngine) return;
+    final scriptureEngine = widget.engine as ScriptureEngine;
+    if (_filterState is! ScriptureFilterState) return;
+    final scriptureState = _filterState as ScriptureFilterState;
+    final versionId = scriptureState.activeVersionId;
+    final comparisonVersionId = scriptureState.comparisonVersionId;
+
+    // Look ahead 2 cards and back 1 card
+    final indicesToPreload = [
+      currentIndex + 1,
+      currentIndex + 2,
+      currentIndex - 1,
+    ];
+
+    for (final idx in indicesToPreload) {
+      if (idx >= 0 && idx < _items.length) {
+        final item = _items[idx];
+        if (item is ScriptureCard) {
+          scriptureEngine.resolveCard(
+            item,
+            versionId,
+            comparisonVersionId: comparisonVersionId,
+          );
+        }
+      }
+    }
   }
 
   // Scroll-past-edge paging fallback for long text: when a card's content is
@@ -428,6 +459,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
             itemCount: _items.length,
             onPageChanged: (index) {
               setState(() => _currentPage = index);
+              _preloadUpcomingCards(index);
               if (index >= _items.length - 3) {
                 _loadMoreItems();
               }

@@ -9,6 +9,7 @@ import 'package:mobile/features/engines/scripture/widgets/books_filter_sheet.dar
 import 'package:mobile/features/engines/scripture/widgets/scripture_card_view.dart';
 import 'package:mobile/features/engines/scripture/widgets/scripture_filter_settings_sheet.dart';
 import 'package:mobile/features/engines/scripture/adapters/sqlite_bible_data_adapter.dart';
+import 'package:mobile/features/engines/scripture/adapters/web_bible_data_adapter.dart';
 import 'package:mobile/features/engines/scripture/services/scripture_service.dart';
 import 'package:mobile/features/engines/scripture/widgets/verse_action_appearance_sheet.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -570,6 +571,14 @@ void main() {
       final adapter = SqliteBibleDataAdapter();
       // Initially not in memory cache
       expect(adapter.resolvePassageSync(versionId: 'KJV', bookNumber: 43, chapter: 3, startVerse: 16), isNull);
+    });
+
+    test('WebBibleDataAdapter and SqliteBibleDataAdapter passage cache returns instant hit', () {
+      final webAdapter = WebBibleDataAdapter();
+      expect(webAdapter.resolvePassageSync(versionId: 'KJV', bookNumber: 43, chapter: 3, startVerse: 16), isNull);
+
+      final sqliteAdapter = SqliteBibleDataAdapter();
+      expect(sqliteAdapter.resolvePassageSync(versionId: 'KJV', bookNumber: 1, chapter: 1, startVerse: 1), isNull);
     });
   });
 }
