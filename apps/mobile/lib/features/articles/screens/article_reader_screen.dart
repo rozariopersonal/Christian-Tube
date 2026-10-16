@@ -5,6 +5,7 @@ import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/books/widgets/scripture_verse_popup.dart';
+import 'package:mobile/features/dictionary/widgets/glossary_entry_sheet.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -37,7 +38,7 @@ class ArticleReaderScreen extends StatefulWidget {
 class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
   late final ArticleReaderController _controller;
   final ScrollController _scrollController = ScrollController();
-  final List<TapGestureRecognizer> _recognizers = [];
+  final List<GestureRecognizer> _recognizers = [];
 
   @override
   void initState() {
@@ -132,12 +133,9 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     );
 
     if (matches.isEmpty) {
-      return [
-        TextSpan(
-          text: text,
-          style: baseStyle,
-        ),
-      ];
+      final spans = <InlineSpan>[];
+      _addWordSpans(spans, text, baseStyle);
+      return spans;
     }
 
     final spans = <InlineSpan>[];
@@ -145,10 +143,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
     for (final match in matches) {
       if (match.start > lastMatchEnd) {
-        spans.add(TextSpan(
-          text: text.substring(lastMatchEnd, match.start),
-          style: baseStyle,
-        ));
+        _addWordSpans(spans, text.substring(lastMatchEnd, match.start), baseStyle);
       }
 
       final refText = match.group(0)!;
@@ -169,13 +164,43 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     }
 
     if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastMatchEnd),
-        style: baseStyle,
-      ));
+      _addWordSpans(spans, text.substring(lastMatchEnd), baseStyle);
     }
 
     return spans;
+  }
+
+  void _addWordSpans(List<InlineSpan> spans, String chunk, TextStyle style) {
+    final tokens = chunk.split(RegExp(r'(\s+)'));
+    for (final token in tokens) {
+      if (token.isEmpty) continue;
+      if (RegExp(r'^\s+$').hasMatch(token)) {
+        spans.add(TextSpan(text: token, style: style));
+        continue;
+      }
+      final clean = token.replaceAll(
+        RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''),
+        '',
+      );
+      if (clean.isEmpty) {
+        spans.add(TextSpan(text: token, style: style));
+        continue;
+      }
+
+      final recognizer = LongPressGestureRecognizer()
+        ..onLongPress = () {
+          if (mounted) {
+            GlossaryEntrySheet.show(context, word: clean);
+          }
+        };
+      _recognizers.add(recognizer);
+
+      spans.add(TextSpan(
+        text: token,
+        style: style,
+        recognizer: recognizer,
+      ));
+    }
   }
 
   @override

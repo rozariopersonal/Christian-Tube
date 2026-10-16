@@ -72,6 +72,15 @@ class DictionaryDownloadManager extends ChangeNotifier {
       description: 'Hebrew and Greek concordances with root definitions and Strong numbers.',
       isBiblical: true,
     ),
+    DictionaryMeta(
+      id: 'ta_glossary',
+      name: 'வேதாகம சொல்லகராதி (Classical Lexicon)',
+      language: 'Tamil (Biblical)',
+      languageCode: 'ta',
+      sizeDisplay: '14.6 MB',
+      description: '17,200+ classical biblical terms with Greek/Hebrew lemmas, Strong numbers, modern terms, and scripture citations.',
+      isBiblical: true,
+    ),
     // Easily supportable global languages
     DictionaryMeta(
       id: 'es',
