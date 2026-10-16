@@ -204,7 +204,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('VerseActionBar renders as 3-stage draggable sheet', (tester) async {
+    testWidgets('VerseActionBar renders as 2-stage sheet with full actions and palette on mount', (tester) async {
       await tester.pumpWidget(
         wrapWithTokens(
           VerseActionBar(
@@ -221,20 +221,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Stage 1 (Peek): Copy, Share, and quick color dots are present
+      // Level 1: Copy, Share, Bookmark, Note, and full Highlight grid are present immediately
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Share'), findsOneWidget);
-      expect(find.bySemanticsLabel('Highlight color'), findsWidgets);
-      expect(find.byType(BackdropFilter), findsOneWidget);
-
-      // Expand to Stage 2 by dragging up
-      await tester.drag(find.text('Share'), const Offset(0, -280));
-      await tester.pumpAndSettle();
-
-      // Stage 2: Bookmark, Note, and full Highlight grid are revealed
       expect(find.text('Bookmark'), findsOneWidget);
       expect(find.text('Note'), findsOneWidget);
       expect(find.text('Highlight'), findsOneWidget);
+      expect(find.bySemanticsLabel('Highlight color'), findsWidgets);
+      expect(find.byType(BackdropFilter), findsOneWidget);
     });
   });
 }
