@@ -189,7 +189,7 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
     if (_isResolving) return;
     final targetVersion = widget.filterState.activeVersionId;
     if (_displayedVersion == targetVersion && _displayedText != null) return;
-    if (_lastAttemptedVersion == targetVersion) return;
+    if (_lastAttemptedVersion == targetVersion && widget.card.resolvedVersion == targetVersion) return;
 
     _lastAttemptedVersion = targetVersion;
     _isResolving = true;
@@ -210,12 +210,19 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
 
       await _service.resolveCardText(widget.card, targetVersion);
       if (mounted) {
-        setState(() {
-          _displayedText = widget.card.resolvedText;
-          _displayedVersion = widget.card.resolvedVersion ?? targetVersion;
-        });
-        _pregenerateImage();
+        if (widget.card.resolvedVersion == targetVersion && widget.card.resolvedText != null) {
+          setState(() {
+            _displayedText = widget.card.resolvedText;
+            _displayedVersion = targetVersion;
+          });
+          _pregenerateImage();
+        } else {
+          // If resolution failed to obtain targetVersion, reset attempt so it can retry
+          _lastAttemptedVersion = null;
+        }
       }
+    } catch (_) {
+      _lastAttemptedVersion = null;
     } finally {
       _isResolving = false;
     }

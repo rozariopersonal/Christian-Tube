@@ -414,6 +414,17 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     required int startVerse,
     int? endVerse,
   }) {
+    final cacheKey = '${versionId.toLowerCase()}_${bookNumber}_$chapter';
+    final cached = _liveChapterCache[cacheKey];
+    if (cached != null && cached.isNotEmpty) {
+      final end = endVerse ?? startVerse;
+      final filtered = cached
+          .where((v) => (v['verse'] as int) >= startVerse && (v['verse'] as int) <= end)
+          .map((v) => (v['text'] as String?)?.trim() ?? '')
+          .where((t) => t.isNotEmpty)
+          .toList();
+      if (filtered.isNotEmpty) return filtered.join(' ');
+    }
     return null;
   }
 
@@ -427,30 +438,30 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
   }) async {
     final end = endVerse ?? startVerse;
     if (_db == null) await initialize();
-    if (_db == null) return null;
-    final results = await _db!.query(
-      'verses',
-      columns: ['text'],
-      where: 'LOWER(version_id) = ? AND book_number = ? AND chapter = ? AND verse >= ? AND verse <= ?',
-      whereArgs: [versionId.toLowerCase(), bookNumber, chapter, startVerse, end],
-      orderBy: 'verse ASC',
-    );
-    if (results.isNotEmpty) {
-      return results.map((r) => r['text'] as String).join(' ');
-    }
-    if (OnlineBibleService.isOnlineVersion(versionId)) {
-      final bookName = BookNameService.englishBookNames.length >= bookNumber
-          ? BookNameService.englishBookNames[bookNumber - 1]
-          : '';
-      if (bookName.isNotEmpty) {
-        final chapterVerses = await getChapter(versionId, bookName, chapter);
-        final filtered = chapterVerses
-            .where((v) => (v['verse'] as int) >= startVerse && (v['verse'] as int) <= end)
-            .map((v) => (v['text'] as String?)?.trim() ?? '')
-            .where((t) => t.isNotEmpty)
-            .toList();
-        if (filtered.isNotEmpty) return filtered.join(' ');
+    if (_db != null && _db!.isOpen) {
+      final results = await _db!.query(
+        'verses',
+        columns: ['text'],
+        where: 'LOWER(version_id) = ? AND book_number = ? AND chapter = ? AND verse >= ? AND verse <= ?',
+        whereArgs: [versionId.toLowerCase(), bookNumber, chapter, startVerse, end],
+        orderBy: 'verse ASC',
+      );
+      if (results.isNotEmpty) {
+        return results.map((r) => r['text'] as String).join(' ');
       }
+    }
+
+    final bookName = BookNameService.englishBookNames.length >= bookNumber
+        ? BookNameService.englishBookNames[bookNumber - 1]
+        : '';
+    if (bookName.isNotEmpty) {
+      final chapterVerses = await getChapter(versionId, bookName, chapter);
+      final filtered = chapterVerses
+          .where((v) => (v['verse'] as int) >= startVerse && (v['verse'] as int) <= end)
+          .map((v) => (v['text'] as String?)?.trim() ?? '')
+          .where((t) => t.isNotEmpty)
+          .toList();
+      if (filtered.isNotEmpty) return filtered.join(' ');
     }
     return null;
   }

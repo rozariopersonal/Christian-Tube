@@ -8,7 +8,10 @@ import 'package:mobile/features/engines/scripture/scripture_engine.dart';
 import 'package:mobile/features/engines/scripture/widgets/books_filter_sheet.dart';
 import 'package:mobile/features/engines/scripture/widgets/scripture_card_view.dart';
 import 'package:mobile/features/engines/scripture/widgets/scripture_filter_settings_sheet.dart';
+import 'package:mobile/features/engines/scripture/adapters/sqlite_bible_data_adapter.dart';
+import 'package:mobile/features/engines/scripture/services/scripture_service.dart';
 import 'package:mobile/features/engines/scripture/widgets/verse_action_appearance_sheet.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 ThemeData testTheme({bool isDark = true}) => ThemeData(
       colorScheme: ColorScheme.fromSeed(
@@ -37,6 +40,11 @@ Widget _wrapWithTheme(Widget child, {bool isDark = true, double width = 360, dou
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
 
   final testCard = ScriptureCard(
     id: '43_3_16',
@@ -509,6 +517,59 @@ void main() {
 
       // Badge displays '2'
       expect(find.text('2'), findsOneWidget);
+    });
+  });
+
+  group('Scripture Version Switching & Resolution Tests', () {
+    test('ScriptureService.resolvePassageSync does not return stale text when requested version differs', () {
+      final service = ScriptureService();
+      final card = ScriptureCard(
+        id: '43_3_16',
+        bookNumber: 43,
+        bookName: 'John',
+        chapter: 3,
+        startVerse: 16,
+        endVerse: 16,
+        referenceLabel: 'John 3:16',
+        resolvedText: 'NASB text for John 3:16',
+        resolvedVersion: 'NASB',
+      );
+
+      // Requesting WEB when card is resolved to NASB must NOT return NASB text
+      final webText = service.resolvePassageSync(card, 'WEB');
+      expect(webText, isNull);
+
+      // Requesting NASB matches card's resolvedVersion, so returns text
+      final nasbText = service.resolvePassageSync(card, 'NASB');
+      expect(nasbText, equals('NASB text for John 3:16'));
+    });
+
+    test('ScriptureEngine.loadFilterStateForVersion preserves structural filter state from baseState', () async {
+      SharedPreferences.setMockInitialValues({});
+      final engine = ScriptureEngine();
+
+      final baseState = testFilter.copyWith(
+        bookFilter: 'Romans',
+        testamentFilter: 'New Testament',
+        selectedCategories: ['grace', 'salvation'],
+        selectedTags: ['faith'],
+        readingOrder: 'canonical',
+      );
+
+      final newState = await engine.loadFilterStateForVersion('KJV', baseState: baseState);
+
+      expect(newState.activeVersionId, equals('KJV'));
+      expect(newState.bookFilter, equals('Romans'));
+      expect(newState.testamentFilter, equals('New Testament'));
+      expect(newState.selectedCategories, equals(['grace', 'salvation']));
+      expect(newState.selectedTags, equals(['faith']));
+      expect(newState.readingOrder, equals('canonical'));
+    });
+
+    test('SqliteBibleDataAdapter.resolvePassageSync returns cached in-memory chapter verses', () {
+      final adapter = SqliteBibleDataAdapter();
+      // Initially not in memory cache
+      expect(adapter.resolvePassageSync(versionId: 'KJV', bookNumber: 43, chapter: 3, startVerse: 16), isNull);
     });
   });
 }

@@ -78,7 +78,10 @@ class ScriptureEngine
     _service.resetRandomDeck();
   }
 
-  Future<ScriptureFilterState> loadFilterStateForVersion(String versionId) async {
+  Future<ScriptureFilterState> loadFilterStateForVersion(
+    String versionId, {
+    ScriptureFilterState? baseState,
+  }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final meta = BibleDownloadManager.getMeta(versionId);
@@ -89,7 +92,7 @@ class ScriptureEngine
 
       final savedScale = prefs.getDouble('pref_bible_${lang}_font_scale') ??
           prefs.getDouble('pref_bible_font_scale') ??
-          _cachedFilterState.fontSizeScale;
+          (baseState?.fontSizeScale ?? _cachedFilterState.fontSizeScale);
       final savedFont = prefs.getString('pref_bible_${lang}_font_family') ??
           (lang == 'en'
               ? prefs.getString('pref_bible_font_family')
@@ -97,22 +100,23 @@ class ScriptureEngine
           defaultFont;
       final savedColor = prefs.getString('pref_bible_${lang}_text_color') ??
           prefs.getString('pref_bible_text_color') ??
-          _cachedFilterState.textColorHex;
+          (baseState?.textColorHex ?? _cachedFilterState.textColorHex);
       final savedBold = prefs.getBool('pref_bible_${lang}_is_bold') ??
           prefs.getBool('pref_bible_is_bold') ??
-          _cachedFilterState.isBold;
+          (baseState?.isBold ?? _cachedFilterState.isBold);
       final savedItalic = prefs.getBool('pref_bible_${lang}_is_italic') ??
           prefs.getBool('pref_bible_is_italic') ??
-          _cachedFilterState.isItalic;
+          (baseState?.isItalic ?? _cachedFilterState.isItalic);
       final savedAlign = prefs.getString('pref_bible_${lang}_text_align') ??
           prefs.getString('pref_bible_text_align') ??
-          _cachedFilterState.textAlign;
+          (baseState?.textAlign ?? _cachedFilterState.textAlign);
       final savedBg = prefs.getString('pref_bible_${lang}_bg_preset') ??
           prefs.getString('pref_bible_bg_preset') ??
-          _cachedFilterState.backgroundPreset;
-      final savedComparison = prefs.getString('pref_bible_comparison_version');
+          (baseState?.backgroundPreset ?? _cachedFilterState.backgroundPreset);
+      final savedComparison = prefs.getString('pref_bible_comparison_version') ??
+          baseState?.comparisonVersionId;
 
-      return ScriptureFilterState(
+      return (baseState ?? _cachedFilterState).copyWith(
         activeVersionId: versionId,
         fontSizeScale: savedScale,
         activeFontFamily: savedFont,
@@ -124,7 +128,7 @@ class ScriptureEngine
         comparisonVersionId: savedComparison,
       );
     } catch (_) {
-      return ScriptureFilterState(activeVersionId: versionId);
+      return (baseState ?? _cachedFilterState).copyWith(activeVersionId: versionId);
     }
   }
 
@@ -263,8 +267,10 @@ class ScriptureEngine
               builder: (ctx) => BibleVersionPickerModal(
                 activeVersionId: filterState.activeVersionId,
                 onSelectVersion: (newVersionId) async {
-                  final newState =
-                      await loadFilterStateForVersion(newVersionId);
+                  final newState = await loadFilterStateForVersion(
+                    newVersionId,
+                    baseState: filterState,
+                  );
                   await _savePreferences(newState);
                   onFilterChanged(newState);
                 },
