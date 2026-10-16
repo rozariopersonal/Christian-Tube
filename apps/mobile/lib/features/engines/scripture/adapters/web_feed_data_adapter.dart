@@ -70,12 +70,19 @@ class WebFeedDataAdapter implements FeedDataAdapter {
   @override
   Future<List<Map<String, dynamic>>> getRandomItems(
     int limit, {
+    int offset = 0,
     String? bookFilter,
     String? testamentFilter,
+    List<String>? categoryFilter,
+    List<String>? tagFilter,
+    String order = 'random',
     List<String>? excludeIds,
   }) async {
     if (_cachedFeed == null) await initialize();
     if (_cachedFeed == null || _cachedFeed!.isEmpty) return [];
+
+    final hasCategories = categoryFilter != null && categoryFilter.isNotEmpty;
+    final hasTags = tagFilter != null && tagFilter.isNotEmpty;
 
     var filtered = _cachedFeed!.where((item) {
       if (bookFilter != null && bookFilter.isNotEmpty && bookFilter != 'All Books') {
@@ -86,13 +93,40 @@ class WebFeedDataAdapter implements FeedDataAdapter {
         if (testamentFilter == 'Old Testament' && bookNumber > 39) return false;
         if (testamentFilter == 'New Testament' && bookNumber < 40) return false;
       }
-      if (excludeIds != null && excludeIds.isNotEmpty) {
+      if (hasCategories && hasTags) {
+        final catMatch = categoryFilter.contains(item['category']);
+        final List<dynamic> itemTags = item['tags'] as List<dynamic>? ?? [];
+        final tagMatch = itemTags.any((t) => tagFilter.contains(t.toString()));
+        if (!catMatch && !tagMatch) return false;
+      } else if (hasCategories) {
+        if (!categoryFilter.contains(item['category'])) return false;
+      } else if (hasTags) {
+        final List<dynamic> itemTags = item['tags'] as List<dynamic>? ?? [];
+        if (!itemTags.any((t) => tagFilter.contains(t.toString()))) return false;
+      }
+
+      if (excludeIds != null && excludeIds.isNotEmpty && order == 'random') {
         if (excludeIds.contains(item['id'].toString())) return false;
       }
       return true;
     }).toList();
 
-    filtered.shuffle(Random());
-    return filtered.take(limit).toList();
+    if (order == 'canonical') {
+      filtered.sort((a, b) {
+        final b1 = (a['bookNumber'] as int?) ?? 0;
+        final b2 = (b['bookNumber'] as int?) ?? 0;
+        if (b1 != b2) return b1.compareTo(b2);
+        final c1 = (a['chapter'] as int?) ?? 0;
+        final c2 = (b['chapter'] as int?) ?? 0;
+        if (c1 != c2) return c1.compareTo(c2);
+        final s1 = (a['startVerse'] as int?) ?? 0;
+        final s2 = (b['startVerse'] as int?) ?? 0;
+        return s1.compareTo(s2);
+      });
+      return filtered.skip(offset).take(limit).toList();
+    } else {
+      filtered.shuffle(Random());
+      return filtered.take(limit).toList();
+    }
   }
 }
