@@ -176,10 +176,9 @@ class ScriptureService {
     );
     if (localText != null) return localText;
 
-    // 2. If requesting WEB (or matched resolved version), return known text
-    if (versionId.toUpperCase() == 'WEB' ||
-        (card.resolvedVersion != null &&
-            card.resolvedVersion!.toUpperCase() == versionId.toUpperCase())) {
+    // 2. If card's already resolved text matches the requested version, return it
+    if (card.resolvedVersion != null &&
+        card.resolvedVersion!.toUpperCase() == versionId.toUpperCase()) {
       return card.resolvedText;
     }
 
@@ -190,9 +189,12 @@ class ScriptureService {
     final originalDbText = card.resolvedText;
     final text = await _fetchTextForVersion(card, versionId);
 
-    card.resolvedText = text ?? originalDbText;
-    card.resolvedVersion =
-        text != null ? versionId : (originalDbText != null ? card.resolvedVersion : null);
+    if (text != null && text.isNotEmpty) {
+      card.resolvedText = text;
+      card.resolvedVersion = versionId;
+    } else if (card.resolvedVersion == null && originalDbText != null) {
+      card.resolvedText = originalDbText;
+    }
   }
 
   Future<String?> _fetchTextForVersion(ScriptureCard card, String versionId) async {

@@ -147,16 +147,44 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
       final activeChanged = oldScriptureState.activeVersionId != newVersionId;
       final comparisonChanged = oldScriptureState.comparisonVersionId !=
           newScriptureState.comparisonVersionId;
-      for (final item in _items) {
-        if (item is ScriptureCard) {
-          if (activeChanged) {
+      if (activeChanged) {
+        final total = _items.length;
+        final currentIdx = _currentPage.clamp(0, total > 0 ? total - 1 : 0);
+        final eagerIndices = <int>{
+          currentIdx,
+          if (currentIdx + 1 < total) currentIdx + 1,
+          if (currentIdx - 1 >= 0) currentIdx - 1,
+        };
+
+        for (final idx in eagerIndices) {
+          final item = _items[idx];
+          if (item is ScriptureCard) {
             item.customFontFamily = null;
             scriptureEngine.resolveCard(item, newVersionId).then((_) {
-              if (mounted) {
+              if (mounted) setState(() {});
+            });
+          }
+        }
+
+        // Defer and batch the rest with a gentle throttle to protect API quotas
+        Future.microtask(() async {
+          for (var i = 0; i < total; i++) {
+            if (eagerIndices.contains(i)) continue;
+            final item = _items[i];
+            if (item is ScriptureCard) {
+              item.customFontFamily = null;
+              await scriptureEngine.resolveCard(item, newVersionId);
+              if (mounted && i % 3 == 0) {
                 setState(() {});
               }
-            });
-          } else if (comparisonChanged) {
+              await Future<void>.delayed(const Duration(milliseconds: 60));
+            }
+          }
+          if (mounted) setState(() {});
+        });
+      } else if (comparisonChanged) {
+        for (final item in _items) {
+          if (item is ScriptureCard) {
             scriptureEngine
                 .resolveCardComparison(
                     item, newScriptureState.comparisonVersionId)

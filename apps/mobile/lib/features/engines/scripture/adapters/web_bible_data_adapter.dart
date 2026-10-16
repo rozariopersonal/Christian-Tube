@@ -707,19 +707,17 @@ class WebBibleDataAdapter implements BibleDataAdapter {
       }
     }
     if (parts.isNotEmpty) return parts.join(' ');
-    if (OnlineBibleService.isOnlineVersion(versionId)) {
-      final bookName = BookNameService.englishBookNames.length >= bookNumber
-          ? BookNameService.englishBookNames[bookNumber - 1]
-          : '';
-      if (bookName.isNotEmpty) {
-        final chapterVerses = await getChapter(versionId, bookName, chapter);
-        final filtered = chapterVerses
-            .where((v) => (v['verse'] as int) >= startVerse && (v['verse'] as int) <= end)
-            .map((v) => (v['text'] as String?)?.trim() ?? '')
-            .where((t) => t.isNotEmpty)
-            .toList();
-        if (filtered.isNotEmpty) return filtered.join(' ');
-      }
+    final bookName = BookNameService.englishBookNames.length >= bookNumber
+        ? BookNameService.englishBookNames[bookNumber - 1]
+        : '';
+    if (bookName.isNotEmpty) {
+      final chapterVerses = await getChapter(versionId, bookName, chapter);
+      final filtered = chapterVerses
+          .where((v) => (v['verse'] as int) >= startVerse && (v['verse'] as int) <= end)
+          .map((v) => (v['text'] as String?)?.trim() ?? '')
+          .where((t) => t.isNotEmpty)
+          .toList();
+      if (filtered.isNotEmpty) return filtered.join(' ');
     }
     return null;
   }
