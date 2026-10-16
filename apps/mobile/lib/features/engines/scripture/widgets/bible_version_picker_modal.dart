@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/bible_version_meta.dart';
 import '../services/bible_download_manager.dart';
@@ -223,19 +225,42 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
       }
     }
 
-    return Container(
-      constraints: BoxConstraints(maxHeight: screenHeight * 0.85),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag Handle
-          Center(
+    final isDark = context.isDark;
+
+    return MaxWidthBox(
+      maxWidth: kSheetMaxWidth,
+      child: Container(
+        constraints: BoxConstraints(maxHeight: screenHeight * 0.85),
+        decoration: BoxDecoration(
+          color: isDark
+              ? tokens.surface.withValues(alpha: 0.94)
+              : tokens.surface.withValues(alpha: 0.98),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(
+            top: BorderSide(color: tokens.surfaceBorder, width: 1.0),
+            left: BorderSide(color: tokens.surfaceBorder, width: 0.5),
+            right: BorderSide(color: tokens.surfaceBorder, width: 0.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: tokens.scrim.withValues(alpha: isDark ? 0.45 : 0.12),
+              blurRadius: 20,
+              offset: const Offset(0, -6),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Drag Handle
+                  Center(
             child: Container(
               width: 38,
               height: 4,
@@ -489,7 +514,11 @@ class _BibleVersionPickerModalState extends State<BibleVersionPickerModal> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+),
+),
+);
   }
 
   Widget _buildSectionHeader({

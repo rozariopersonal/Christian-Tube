@@ -1,14 +1,12 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/engines/base_feed_engine.dart';
-import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/features/bible/models/bible_reference.dart';
 import 'package:mobile/features/bible/services/bible_passage_navigator.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
-import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models/scripture_card.dart';
 import 'models/scripture_filter_state.dart';
@@ -19,9 +17,10 @@ import 'services/saved_scripture_service.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
 import 'widgets/bible_version_picker_modal.dart';
-import 'widgets/compare_version_picker_sheet.dart';
+import 'widgets/books_filter_sheet.dart';
 import 'widgets/scripture_card_view.dart';
-import 'widgets/style_studio_sheet.dart';
+import 'widgets/verse_action_appearance_sheet.dart';
+import '../../shorts/widgets/shorts_chrome.dart';
 
 class ScriptureEngine
     implements BaseFeedEngine<ScriptureCard, ScriptureFilterState> {
@@ -238,35 +237,13 @@ class ScriptureEngine
     ValueChanged<ScriptureFilterState> onFilterChanged,
     VoidCallback onOpenManager,
   ) {
-    const testaments = ['All', 'Old Testament', 'New Testament'];
-    const otBooks = [
-      'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy', 'Joshua', 'Judges', 'Ruth', 
-      '1 Samuel', '2 Samuel', '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra', 
-      'Nehemiah', 'Esther', 'Job', 'Psalms', 'Proverbs', 'Ecclesiastes', 'Song of Solomon', 
-      'Isaiah', 'Jeremiah', 'Lamentations', 'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos', 
-      'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk', 'Zephaniah', 'Haggai', 'Zechariah', 'Malachi'
-    ];
-    const ntBooks = [
-      'Matthew', 'Mark', 'Luke', 'John', 'Acts', 'Romans', '1 Corinthians', '2 Corinthians', 
-      'Galatians', 'Ephesians', 'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians', 
-      '1 Timothy', '2 Timothy', 'Titus', 'Philemon', 'Hebrews', 'James', '1 Peter', '2 Peter', 
-      '1 John', '2 John', '3 John', 'Jude', 'Revelation'
-    ];
-    
-    List<String> availableBooks = ['All Books'];
-    if (filterState.testamentFilter == 'Old Testament') {
-      availableBooks.addAll(otBooks);
-    } else if (filterState.testamentFilter == 'New Testament') {
-      availableBooks.addAll(ntBooks);
-    } else {
-      availableBooks.addAll(otBooks);
-      availableBooks.addAll(ntBooks);
-    }
-
     final tokens = context.tokens;
+    final isDark = context.isDark;
+    final hasBookFilter = filterState.bookFilter != null;
 
-    final onScrim = tokens.onScrim;
-    final onScrimMuted = tokens.onScrimMuted;
+    final pillBg = isDark
+        ? tokens.scrim.withValues(alpha: 0.50)
+        : tokens.surface.withValues(alpha: 0.85);
 
     return Row(
       children: [
@@ -276,7 +253,7 @@ class ScriptureEngine
             physics: const BouncingScrollPhysics(),
             child: Row(
               children: [
-                // 1. Version Picker Pill
+                // 1. Version Picker Pill (Theme-aware & Frosted)
                 GestureDetector(
                   onTap: () {
                     showAdaptiveBottomSheet(
@@ -286,7 +263,8 @@ class ScriptureEngine
                       builder: (ctx) => BibleVersionPickerModal(
                         activeVersionId: filterState.activeVersionId,
                         onSelectVersion: (newVersionId) async {
-                          final newState = await loadFilterStateForVersion(newVersionId);
+                          final newState =
+                              await loadFilterStateForVersion(newVersionId);
                           await _savePreferences(newState);
                           onFilterChanged(newState);
                         },
@@ -294,157 +272,140 @@ class ScriptureEngine
                       ),
                     );
                   },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: tokens.scrim.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: tokens.surfaceBorder,
-                        width: 1.0,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: tokens.scrim.withValues(alpha: 0.3),
-                          blurRadius: 6,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.menu_book_rounded,
-                          size: 15,
-                          color: tokens.accent,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          filterState.activeVersionId,
-                          style: TextStyle(
-                            color: onScrim,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: pillBg,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: tokens.surfaceBorder,
+                            width: 1.0,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: context.shortsChromeShadow
+                                  .withValues(alpha: isDark ? 0.3 : 0.08),
+                              blurRadius: 6,
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 16,
-                          color: onScrimMuted,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.menu_book_rounded,
+                              size: 15,
+                              color: tokens.accent,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              filterState.activeVersionId,
+                              style: TextStyle(
+                                color: context.shortsChromeFg,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: context.shortsChromeFgMuted,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
 
-                // 2. Testament Picker Pill
-                PopupMenuButton<String>(
-                  color: tokens.surface,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  onSelected: (value) {
-                    final newTestament = value == 'All' ? null : value;
-                    // Reset book if testament changes
-                    final newState = filterState.copyWith(
-                      testamentFilter: newTestament,
-                      clearTestamentFilter: value == 'All',
-                      clearBookFilter: true, // Book needs to be reset if testament changes
-                    );
-                    _savePreferences(newState);
-                    onFilterChanged(newState);
-                  },
-                  itemBuilder: (context) {
-                    return testaments.map((t) {
-                      return PopupMenuItem<String>(
-                        value: t,
-                        child: Text(t, style: TextStyle(color: tokens.onSurface)),
-                      );
-                    }).toList();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: tokens.scrim.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: tokens.surfaceBorder,
-                        width: 1.0,
+                // 2. Books Filter Pill (Adaptive BooksFilterSheet replacing legacy PopupMenuButton)
+                GestureDetector(
+                  onTap: () {
+                    showAdaptiveBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (ctx) => BooksFilterSheet(
+                        activeBook: filterState.bookFilter,
+                        activeTestament: filterState.testamentFilter,
+                        onSelectBook: (newBook) {
+                          final newState = filterState.copyWith(
+                            bookFilter: newBook,
+                            clearBookFilter: newBook == null,
+                          );
+                          _savePreferences(newState);
+                          onFilterChanged(newState);
+                        },
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          filterState.testamentFilter ?? 'All',
-                          style: TextStyle(
-                            color: onScrim,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 16,
-                          color: onScrimMuted,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                // 3. Book Picker Pill
-                PopupMenuButton<String>(
-                  color: tokens.surface,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  constraints: const BoxConstraints(maxHeight: 350),
-                  onSelected: (value) {
-                    final newBook = value == 'All Books' ? null : value;
-                    final newState = filterState.copyWith(
-                      bookFilter: newBook,
-                      clearBookFilter: value == 'All Books',
                     );
-                    _savePreferences(newState);
-                    onFilterChanged(newState);
                   },
-                  itemBuilder: (context) {
-                    return availableBooks.map((b) {
-                      return PopupMenuItem<String>(
-                        value: b,
-                        child: Text(b, style: TextStyle(color: tokens.onSurface)),
-                      );
-                    }).toList();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: tokens.scrim.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: tokens.surfaceBorder,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          filterState.bookFilter ?? 'All Books',
-                          style: TextStyle(
-                            color: onScrim,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: hasBookFilter
+                              ? context.accent.withValues(
+                                  alpha: isDark ? 0.25 : 0.15)
+                              : pillBg,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: hasBookFilter
+                                ? context.accent.withValues(alpha: 0.6)
+                                : tokens.surfaceBorder,
+                            width: 1.0,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: context.shortsChromeShadow
+                                  .withValues(alpha: isDark ? 0.3 : 0.08),
+                              blurRadius: 6,
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 16,
-                          color: onScrimMuted,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.auto_stories_rounded,
+                              size: 15,
+                              color: hasBookFilter
+                                  ? context.accent
+                                  : context.shortsChromeFgMuted,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              filterState.bookFilter ??
+                                  (filterState.testamentFilter ?? 'All Books'),
+                              style: TextStyle(
+                                color: hasBookFilter
+                                    ? context.accent
+                                    : context.shortsChromeFg,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: hasBookFilter
+                                  ? context.accent
+                                  : context.shortsChromeFgMuted,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -454,7 +415,7 @@ class ScriptureEngine
         ),
         const SizedBox(width: 8),
 
-        // 4. Saved Verses Quick Access
+        // 3. Saved Verses Quick Access Pill
         ValueListenableBuilder<int>(
           valueListenable: SavedScriptureService().savedCountNotifier,
           builder: (context, count, _) {
@@ -462,42 +423,49 @@ class ScriptureEngine
               onTap: () {
                 context.push('/saved-scriptures');
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: tokens.scrim.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: count > 0
-                        ? tokens.accent.withValues(alpha: 0.6)
-                        : tokens.surfaceBorder,
-                    width: 1.0,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      count > 0
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
-                      color: count > 0
-                          ? tokens.accent
-                          : onScrimMuted,
-                      size: 16,
-                    ),
-                    if (count > 0) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        '$count',
-                        style: TextStyle(
-                          color: tokens.accent,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: pillBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: count > 0
+                            ? context.accent.withValues(alpha: 0.6)
+                            : tokens.surfaceBorder,
+                        width: 1.0,
                       ),
-                    ],
-                  ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          count > 0
+                              ? Icons.bookmark_rounded
+                              : Icons.bookmark_border_rounded,
+                          color: count > 0
+                              ? context.accent
+                              : context.shortsChromeFgMuted,
+                          size: 16,
+                        ),
+                        if (count > 0) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '$count',
+                            style: TextStyle(
+                              color: context.accent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             );
@@ -515,6 +483,8 @@ class ScriptureEngine
     bool isActive,
     GlobalKey repaintBoundaryKey, {
     ValueChanged<int>? onEdgePageShift,
+    ValueChanged<ScriptureFilterState>? onFilterChanged,
+    VoidCallback? onRefreshCard,
   }) {
     return ScriptureCardView(
       key: ValueKey(
@@ -523,6 +493,30 @@ class ScriptureEngine
       filterState: filterState,
       isActive: isActive,
       onEdgePageShift: onEdgePageShift,
+      onCardTap: () {
+        showAdaptiveBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          barrierColor: context.tokens.scrim.withValues(alpha: 0.25),
+          isScrollControlled: true,
+          builder: (ctx) => VerseActionAppearanceSheet(
+            card: item,
+            filterState: filterState,
+            repaintBoundaryKey: repaintBoundaryKey,
+            onFilterChanged: (newState) {
+              _savePreferences(newState);
+              if (onFilterChanged != null) {
+                onFilterChanged(newState);
+              }
+            },
+            onRefreshCard: () {
+              if (onRefreshCard != null) {
+                onRefreshCard();
+              }
+            },
+          ),
+        );
+      },
       onReferenceTap: () => _openInBibleReader(context, item, filterState),
     );
   }
@@ -568,151 +562,7 @@ class ScriptureEngine
     VoidCallback onRefreshCard,
     ValueChanged<ScriptureFilterState> onFilterChanged,
   ) {
-    final tokens = context.tokens;
-
-    return [
-      // 1. Share Image Button
-      CardActionButton(
-        icon: Icons.share_rounded,
-        label: 'Share',
-        onTap: () => ScriptureImageExporter.captureAndShare(
-          context: context,
-          boundaryKey: repaintBoundaryKey,
-          card: item,
-          activeVersionId: filterState.activeVersionId,
-          fontFamily: filterState.activeFontFamily,
-          fontSizeScale: filterState.fontSizeScale,
-          textColorHex: filterState.textColorHex,
-          isBold: filterState.isBold,
-          isItalic: filterState.isItalic,
-          textAlign: filterState.textAlign,
-        ),
-      ),
-
-      // 2. Style & Theme Studio
-      CardActionButton(
-        icon: Icons.palette_outlined,
-        label: 'Style',
-        onTap: () {
-          showAdaptiveBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            barrierColor: tokens.scrim.withValues(alpha: 0.25),
-            isScrollControlled: true,
-            builder: (ctx) => StyleStudioSheet(
-              card: item,
-              filterState: filterState,
-              onFilterChanged: (newState) {
-                _savePreferences(newState);
-                onFilterChanged(newState);
-                onRefreshCard();
-              },
-              onRefreshCard: onRefreshCard,
-            ),
-          );
-        },
-      ),
-
-      // 2b. Compare Version
-      CardActionButton(
-        icon: filterState.comparisonVersionId == null
-            ? Icons.compare_arrows_rounded
-            : Icons.compare_rounded,
-        iconColor: filterState.comparisonVersionId != null
-            ? tokens.accent
-            : tokens.onScrim,
-        label: filterState.comparisonVersionId ?? 'Compare',
-        onTap: () {
-          showAdaptiveBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            barrierColor: tokens.scrim.withValues(alpha: 0.25),
-            isScrollControlled: true,
-            builder: (ctx) => CompareVersionPickerSheet(
-              activeVersionId: filterState.activeVersionId,
-              currentComparisonId: filterState.comparisonVersionId,
-              onSelectComparison: (comparisonId) {
-                final newState = filterState.copyWith(
-                  comparisonVersionId: comparisonId,
-                  clearComparisonVersion: comparisonId == null,
-                );
-                _savePreferences(newState);
-                onFilterChanged(newState);
-              },
-            ),
-          );
-        },
-      ),
-
-      // 3. Copy Scripture Text
-      CardActionButton(
-        icon: Icons.copy_rounded,
-        label: 'Copy',
-        onTap: () async {
-          final link = DeepLinkService.bible(
-            book: item.bookName,
-            chapter: item.chapter,
-            verse: item.startVerse,
-          );
-          final text =
-              '“${item.resolvedText ?? ""}”\n\n— ${item.referenceLabel} (${item.resolvedVersion ?? filterState.activeVersionId})\n\n$link';
-          await Clipboard.setData(ClipboardData(text: text));
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Scripture copied to clipboard!',
-                  style: TextStyle(color: tokens.onSurface),
-                ),
-                backgroundColor: tokens.surfaceElevated,
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        },
-      ),
-
-      // 4. Bookmark / Favorite
-      CardActionButton(
-        icon: item.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-        iconColor: item.isSaved ? tokens.accent : tokens.onScrim,
-        label: item.isSaved ? 'Saved' : 'Save',
-        onTap: () async {
-          final isNowSaved = await SavedScriptureService().toggleSave(
-            item,
-            filterState.activeVersionId,
-          );
-          item.isSaved = isNowSaved;
-          onRefreshCard();
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  isNowSaved
-                      ? 'Saved ${item.referenceLabel} to favorites!'
-                      : 'Removed from favorites',
-                  style: TextStyle(color: tokens.onSurface),
-                ),
-                backgroundColor: tokens.surfaceElevated,
-                duration: const Duration(seconds: 3),
-                behavior: SnackBarBehavior.floating,
-                action: isNowSaved
-                    ? SnackBarAction(
-                        label: 'View Saved',
-                        textColor: tokens.accent,
-                        onPressed: () {
-                          context.push('/saved-scriptures');
-                        },
-                      )
-                    : null,
-              ),
-            );
-          }
-        },
-      ),
-    ];
+    return const [];
   }
 
   @override

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/link/deep_link_service.dart';
 import '../models/scripture_card.dart';
 import '../models/scripture_theme_state.dart';
@@ -25,8 +26,9 @@ class ScriptureGraphicGenerator {
     bool isDark = true,
     int width = 1080,
     int height = 1920,
-    String appName = 'ChristianApp',
+    String? appName,
   }) async {
+    final effectiveAppName = appName ?? AppConfig.appName;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(
       recorder,
@@ -90,10 +92,10 @@ class ScriptureGraphicGenerator {
     double baseFontSize =
         (60.0 - (length / 22.0)).clamp(32.0, 60.0) * fontSizeScale;
 
-    // Adapt font size for long compound words so they never break
+    // Adapt font size for long compound words with gentle penalty
     if (maxWordLength > 12) {
-      final penalty = (maxWordLength - 12) * 1.4;
-      baseFontSize = (baseFontSize - penalty).clamp(26.0, 60.0);
+      final penalty = (maxWordLength - 12) * 0.4;
+      baseFontSize = (baseFontSize - penalty).clamp(32.0, 60.0);
     }
 
     Color textColor = ScriptureThemeCatalog.parseColor(textColorHex);
@@ -240,7 +242,7 @@ class ScriptureGraphicGenerator {
     // 4. Draw Official Brand Watermark
     final watermarkPainter = TextPainter(
       text: TextSpan(
-        text: '✦  $appName Words',
+        text: '✦  $effectiveAppName Words',
         style: TextStyle(
           color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E),
           fontSize: 24,
@@ -277,8 +279,9 @@ class ScriptureImageExporter {
     bool isBold = false,
     bool isItalic = false,
     String textAlign = 'center',
-    String appName = 'ChristianApp',
+    String? appName,
   }) async {
+    final effectiveAppName = appName ?? AppConfig.appName;
     try {
       final isDark = context != null
           ? (Theme.of(context).brightness == Brightness.dark)
@@ -302,7 +305,7 @@ class ScriptureImageExporter {
           isItalic: isItalic,
           textAlign: textAlign,
           isDark: isDark,
-          appName: appName,
+          appName: effectiveAppName,
         );
         card.precomputedImageBytes = pngBytes;
         card.precomputedImageKey = currentKey;
@@ -315,7 +318,7 @@ class ScriptureImageExporter {
       final shareText =
           '“${card.resolvedText ?? ""}”\n\n— ${card.referenceLabel} (${card.resolvedVersion ?? activeVersionId})\n\n'
           '${DeepLinkService.bible(book: card.bookName, chapter: card.chapter, verse: card.startVerse)}\n\n'
-          'Shared via $appName';
+          'Shared via $effectiveAppName';
 
       // 2. Directly show the native / platform Share Dialog with the pre-created image!
       final xFile = XFile.fromData(
@@ -364,7 +367,7 @@ class ScriptureImageExporter {
             isItalic: isItalic,
             textAlign: textAlign,
             isDark: isDark,
-            appName: appName,
+            appName: effectiveAppName,
           );
       await saveOrDownloadFile(pngBytes, fileName);
     }
