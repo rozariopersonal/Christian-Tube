@@ -102,7 +102,9 @@ class FontFamilyTile extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: resolvedName,
                             fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: appearance.fontWeight,
+                            fontStyle: appearance.fontStyle,
+                            decoration: appearance.textDecoration,
                             color: tokens.accent,
                           ),
                         ),
@@ -116,9 +118,12 @@ class FontFamilyTile extends StatelessWidget {
                           children: [
                             Text(
                               currentOption.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: textCol,
                                 fontWeight: FontWeight.bold,
+                                fontStyle: appearance.fontStyle,
                                 fontSize: 14,
                                 fontFamily: resolvedName,
                               ),

@@ -21,6 +21,7 @@ class LineSpacingSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final textCol = appearance.textColor(tokens);
     final mutedCol = appearance.mutedTextColor(tokens);
     final borderCol = appearance.surfaceBorder(tokens);
     final bgCol = appearance.surfaceVariant(tokens);
@@ -30,17 +31,31 @@ class LineSpacingSelector extends StatelessWidget {
       builder: (context, _) {
         final current = appearance.lineHeight;
         final selectedStop = _closestStop(current);
+        final stopName = selectedStop == 0 ? 'Tight' : (selectedStop == 1 ? 'Standard' : 'Relaxed');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Line Spacing',
-              style: TextStyle(
-                color: mutedCol,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Line Spacing',
+                  style: TextStyle(
+                    color: mutedCol,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  stopName,
+                  style: TextStyle(
+                    color: textCol,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Container(
@@ -151,7 +166,7 @@ class _SpacingOption extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 2),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
@@ -161,7 +176,7 @@ class _SpacingOption extends StatelessWidget {
                   size: iconSize,
                   color: isSelected ? activeFg : inactiveFg.withValues(alpha: 0.7),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 3),
                 Flexible(
                   child: Text(
                     label,
@@ -169,7 +184,7 @@ class _SpacingOption extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: isSelected ? activeFg : inactiveFg,
-                      fontSize: 12.0,
+                      fontSize: 11.5,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     ),
                   ),

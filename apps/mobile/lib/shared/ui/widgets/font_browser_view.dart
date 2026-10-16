@@ -74,20 +74,6 @@ class _FontBrowserViewState extends State<FontBrowserView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (screen.isCompact) ...[
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: borderCol,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-        ],
-
         // Header with Back navigation and Title
         Row(
           children: [
@@ -168,32 +154,38 @@ class _FontBrowserViewState extends State<FontBrowserView> {
 
         const SizedBox(height: 12),
 
-        // Specimen List
+        // Specimen List with instant reactive selection
         Expanded(
-          child: ListView.separated(
-            itemCount: filteredFonts.length,
-            padding: const EdgeInsets.only(top: 4, bottom: 20),
-            physics: const BouncingScrollPhysics(),
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final font = filteredFonts[index];
-              final isSelected = font.id == widget.appearance.fontFamily;
+          child: ListenableBuilder(
+            listenable: widget.appearance,
+            builder: (context, _) {
+              return ListView.separated(
+                itemCount: filteredFonts.length,
+                padding: const EdgeInsets.only(top: 4, bottom: 20),
+                physics: const BouncingScrollPhysics(),
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final font = filteredFonts[index];
+                  final isSelected = font.id == widget.appearance.fontFamily;
 
-              return FontSpecimenCard(
-                fontOption: font,
-                languageCode: widget.appearance.languageCode,
-                isSelected: isSelected,
-                appearance: widget.appearance,
-                onSelect: () {
-                  widget.appearance.fontFamily = font.id;
-                  final family = ScriptureThemeCatalog.resolveFontFamily(
-                    font.id,
-                    font.languageCode ?? widget.appearance.languageCode,
+                  return FontSpecimenCard(
+                    fontOption: font,
+                    languageCode: widget.appearance.languageCode,
+                    isSelected: isSelected,
+                    appearance: widget.appearance,
+                    onSelect: () {
+                      widget.appearance.fontFamily = font.id;
+                      final family = ScriptureThemeCatalog.resolveFontFamily(
+                        font.id,
+                        font.languageCode ?? widget.appearance.languageCode,
+                      );
+                      if (family != null) {
+                        ReaderFontsService.instance.ensureFamily(family);
+                      }
+                      setState(() {});
+                      widget.onFontSelected?.call();
+                    },
                   );
-                  if (family != null) {
-                    ReaderFontsService.instance.ensureFamily(family);
-                  }
-                  widget.onFontSelected?.call();
                 },
               );
             },
