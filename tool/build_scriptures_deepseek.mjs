@@ -623,8 +623,13 @@ function chunkWordsFeed(allRecords) {
   }
   const byLetterDir = path.join(WORDS_FEED_DIR, 'by_letter');
   const topicsDir = path.join(WORDS_FEED_DIR, 'topics');
-  if (!fs.existsSync(byLetterDir)) fs.mkdirSync(byLetterDir, { recursive: true });
-  if (!fs.existsSync(topicsDir)) fs.mkdirSync(topicsDir, { recursive: true });
+
+  // Clean out stale files in by_letter and topics
+  if (fs.existsSync(byLetterDir)) fs.rmSync(byLetterDir, { recursive: true, force: true });
+  if (fs.existsSync(topicsDir)) fs.rmSync(topicsDir, { recursive: true, force: true });
+
+  fs.mkdirSync(byLetterDir, { recursive: true });
+  fs.mkdirSync(topicsDir, { recursive: true });
 
   // Top 365 daily devotionals
   const daily = allRecords.slice(0, 365).map((item, idx) => ({
