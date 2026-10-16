@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/highlight_palette.dart';
 import '../../../features/engines/scripture/models/scripture_theme_state.dart';
+import '../../dictionary/widgets/glossary_entry_sheet.dart';
 import '../models/bible_verse.dart';
 import '../../../shared/services/reader_appearance.dart';
 import '../../../shared/services/reader_fonts_service.dart';
@@ -37,9 +39,18 @@ class VerseText extends StatefulWidget {
 
 class _VerseTextState extends State<VerseText> {
   late final ValueNotifier<bool> _hoverNotifier = ValueNotifier<bool>(false);
+  final List<GestureRecognizer> _recognizers = [];
+
+  void _disposeRecognizers() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+  }
 
   @override
   void dispose() {
+    _disposeRecognizers();
     _hoverNotifier.dispose();
     super.dispose();
   }
@@ -137,6 +148,17 @@ class _VerseTextState extends State<VerseText> {
         ? HighlightPalette.onColorFor(widget.highlightColorIndex!).withValues(alpha: 0.85)
         : theme.colorScheme.primary.withValues(alpha: 0.7);
 
+    _disposeRecognizers();
+    final bodyStyle = theme.textTheme.bodyLarge?.copyWith(
+      height: app.lineHeight,
+      fontSize: app.fontSize,
+      fontFamily: fontFamily,
+      color: bodyTextColor,
+      fontWeight: app.fontWeight,
+      fontStyle: app.fontStyle,
+      decoration: app.textDecoration,
+    );
+
     return Text.rich(
       TextSpan(
         children: [
@@ -211,18 +233,8 @@ class _VerseTextState extends State<VerseText> {
                 ),
               ),
             ),
-          TextSpan(
-            text: ' ${widget.verse.text}',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              height: app.lineHeight,
-              fontSize: app.fontSize,
-              fontFamily: fontFamily,
-              color: bodyTextColor,
-              fontWeight: app.fontWeight,
-              fontStyle: app.fontStyle,
-              decoration: app.textDecoration,
-            ),
-          ),
+          const TextSpan(text: ' '),
+          ..._buildWordSpans(widget.verse.text, bodyStyle ?? const TextStyle()),
         ],
       ),
       strutStyle: StrutStyle(
@@ -232,5 +244,40 @@ class _VerseTextState extends State<VerseText> {
         forceStrutHeight: false,
       ),
     );
+  }
+
+  List<InlineSpan> _buildWordSpans(String verseText, TextStyle baseStyle) {
+    final spans = <InlineSpan>[];
+    final tokens = verseText.split(RegExp(r'(\s+)'));
+    for (final token in tokens) {
+      if (token.isEmpty) continue;
+      if (RegExp(r'^\s+$').hasMatch(token)) {
+        spans.add(TextSpan(text: token, style: baseStyle));
+        continue;
+      }
+      final clean = token.replaceAll(
+        RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''),
+        '',
+      );
+      if (clean.isEmpty) {
+        spans.add(TextSpan(text: token, style: baseStyle));
+        continue;
+      }
+
+      final recognizer = LongPressGestureRecognizer()
+        ..onLongPress = () {
+          if (mounted) {
+            GlossaryEntrySheet.show(context, word: clean);
+          }
+        };
+      _recognizers.add(recognizer);
+
+      spans.add(TextSpan(
+        text: token,
+        style: baseStyle,
+        recognizer: recognizer,
+      ));
+    }
+    return spans;
   }
 }

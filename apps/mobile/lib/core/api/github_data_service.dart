@@ -225,8 +225,15 @@ class GitHubDataService {
 
   // ── Dictionaries ──────────────────────────────────────────────────────────
 
-  static List<String> dictionarySqliteUrls(String dictId) =>
-      ReleaseAssets.urlsFor('dictionaries/dict_$dictId.sqlite.gz');
+  static List<String> dictionarySqliteUrls(String dictId) {
+    if (dictId == 'ta_glossary' || dictId == 'taobvsi_glossary') {
+      return [
+        ...ReleaseAssets.urlsFor('dictionaries/dict_$dictId.sqlite.gz'),
+        ...ReleaseAssets.urlsFor('study/taobvsi/taobvsi_glossary.sqlite.gz'),
+      ];
+    }
+    return ReleaseAssets.urlsFor('dictionaries/dict_$dictId.sqlite.gz');
+  }
 
   /// `book_names.json` — localized book names for all Bible versions.
   static List<String> bookNamesUrls() =>
