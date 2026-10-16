@@ -256,6 +256,8 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
     bool isActive,
     GlobalKey repaintBoundaryKey, {
     ValueChanged<int>? onEdgePageShift,
+    ValueChanged<WftwFilterState>? onFilterChanged,
+    VoidCallback? onRefreshCard,
   }) {
     return WftwCardView(
       key: ValueKey(

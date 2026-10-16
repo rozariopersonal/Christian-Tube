@@ -303,37 +303,61 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
     if (_items.isEmpty && _errorMessage == null) {
       return Scaffold(
         backgroundColor: context.tokens.scrim,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.auto_stories_rounded,
-                  color: context.tokens.onScrimMuted,
-                  size: 54,
+        body: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.auto_stories_rounded,
+                      color: context.tokens.onScrimMuted,
+                      size: 54,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No verses matched your filters yet.',
+                      style: TextStyle(
+                          color: context.tokens.onScrimMuted, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        _onFilterChanged(widget.engine.initialFilterState);
+                      },
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Reset to All Books'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: context.accent,
+                        foregroundColor: context.tokens.scrim,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'No verses matched your filters yet.',
-                  style: TextStyle(
-                      color: context.tokens.onScrimMuted, fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: _initializeAndLoad,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: context.accent,
-                    foregroundColor: context.tokens.scrim,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: widget.engine.buildTopControls(
+                        context,
+                        _filterState,
+                        _onFilterChanged,
+                        _openManager,
+                      ) ??
+                      const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -343,6 +367,21 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
     final currentItem = hasValidCurrentItem ? _items[_currentPage] : null;
     final currentBoundaryKey =
         hasValidCurrentItem ? _getKeyForIndex(_currentPage) : null;
+
+    final sideActions = (currentItem != null && currentBoundaryKey != null)
+        ? widget.engine.buildSideActions(
+            context,
+            currentItem,
+            _filterState,
+            currentBoundaryKey,
+            () => setState(() {}),
+            _onFilterChanged,
+          )
+        : const <Widget>[];
+
+    final bottomBar = (currentItem != null)
+        ? widget.engine.buildBottomBar(context, currentItem)
+        : null;
 
     return Scaffold(
       backgroundColor: context.tokens.scrim,
@@ -374,6 +413,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   isCurrent,
                   boundaryKey,
                   onEdgePageShift: _onEdgePageShift,
+                  onFilterChanged: _onFilterChanged,
+                  onRefreshCard: () => setState(() {}),
                 ),
               );
             },
@@ -399,8 +440,8 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
             ),
           ),
 
-          // 3. Fixed Stationary Right Side Action Column (Doesn't slide on swipe)
-          if (currentItem != null && currentBoundaryKey != null)
+          // 3. Fixed Stationary Right Side Action Column (Only if engine has side actions)
+          if (sideActions.isNotEmpty)
             Positioned(
               top: 120,
               right: 14,
@@ -411,14 +452,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: widget.engine.buildSideActions(
-                        context,
-                        currentItem,
-                        _filterState,
-                        currentBoundaryKey,
-                        () => setState(() {}),
-                        _onFilterChanged,
-                      ),
+                      children: sideActions,
                     ),
                   ),
                 ),
@@ -426,14 +460,13 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
             ),
 
           // 4. Fixed Stationary Bottom Context Slot
-          if (currentItem != null)
+          if (bottomBar != null)
             Positioned(
               left: 16,
-              right: 80,
+              right: 16,
               bottom: 24,
               child: SafeArea(
-                child: widget.engine.buildBottomBar(context, currentItem) ??
-                    const SizedBox.shrink(),
+                child: bottomBar,
               ),
             ),
         ],
