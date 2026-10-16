@@ -181,7 +181,8 @@ class _VerseActionAppearanceSheetState extends State<VerseActionAppearanceSheet>
       verse = mapping['startVerse'] ?? verse;
     }
 
-    Navigator.pop(context); // Dismiss sheet first
+    final nav = Navigator.of(context);
+    nav.pop(); // Dismiss sheet first
 
     BiblePassageNavigator.instance.navigateTo(
       BibleReference(
@@ -190,7 +191,7 @@ class _VerseActionAppearanceSheetState extends State<VerseActionAppearanceSheet>
         verse: verse,
         versionId: versionId,
       ),
-      context: context,
+      context: nav.context,
     );
   }
 
@@ -256,15 +257,35 @@ class _VerseActionAppearanceSheetState extends State<VerseActionAppearanceSheet>
                             color: tokens.accent, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            '${widget.card.referenceLabel} • ${widget.card.resolvedVersion ?? widget.filterState.activeVersionId}',
-                            style: TextStyle(
-                              color: tokens.onSurface,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          child: InkWell(
+                            onTap: _openInReader,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      '${widget.card.referenceLabel} • ${widget.card.resolvedVersion ?? widget.filterState.activeVersionId}',
+                                      style: TextStyle(
+                                        color: tokens.onSurface,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: tokens.onSurfaceMuted,
+                                  ),
+                                ],
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         IconButton(

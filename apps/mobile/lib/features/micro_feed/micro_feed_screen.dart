@@ -209,7 +209,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
     if (_isLoading) {
       if (widget.engine is ScriptureEngine) {
         return Scaffold(
-          backgroundColor: context.tokens.scrim,
+          backgroundColor: context.tokens.background,
           body: Center(
             child: ValueListenableBuilder<double>(
               valueListenable: OfflineFeedDatabase().downloadProgress,
@@ -229,7 +229,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                               : 'Setting up offline engine...')
                           : 'Loading feed...',
                       style: TextStyle(
-                        color: context.tokens.onScrimMuted,
+                        color: context.tokens.onSurfaceMuted,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 0.5,
@@ -257,7 +257,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
       }
 
       return Scaffold(
-        backgroundColor: context.tokens.scrim,
+        backgroundColor: context.tokens.background,
         body: Center(
           child: CircularProgressIndicator(
             color: context.accent,
@@ -269,7 +269,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
     if (_errorMessage != null && _items.isEmpty) {
       return Scaffold(
-        backgroundColor: context.tokens.scrim,
+        backgroundColor: context.tokens.background,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -278,14 +278,14 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
               children: [
                 Icon(
                   Icons.signal_wifi_connected_no_internet_4_rounded,
-                  color: context.tokens.onScrimMuted,
+                  color: context.tokens.onSurfaceMuted,
                   size: 54,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   _errorMessage!,
                   style: TextStyle(
-                      color: context.tokens.onScrimMuted, fontSize: 16),
+                      color: context.tokens.onSurfaceMuted, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -295,7 +295,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   label: const Text('Refresh'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: context.accent,
-                    foregroundColor: context.tokens.scrim,
+                    foregroundColor: context.tokens.background,
                   ),
                 ),
               ],
@@ -307,7 +307,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
 
     if (_items.isEmpty && _errorMessage == null) {
       return Scaffold(
-        backgroundColor: context.tokens.scrim,
+        backgroundColor: context.tokens.background,
         body: Stack(
           children: [
             Center(
@@ -318,14 +318,14 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                   children: [
                     Icon(
                       Icons.auto_stories_rounded,
-                      color: context.tokens.onScrimMuted,
+                      color: context.tokens.onSurfaceMuted,
                       size: 54,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'No verses matched your filters yet.',
                       style: TextStyle(
-                          color: context.tokens.onScrimMuted, fontSize: 16),
+                          color: context.tokens.onSurfaceMuted, fontSize: 16),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
@@ -337,7 +337,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
                       label: const Text('Reset to All Books'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: context.accent,
-                        foregroundColor: context.tokens.scrim,
+                        foregroundColor: context.tokens.background,
                       ),
                     ),
                   ],
@@ -389,7 +389,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
         : null;
 
     return Scaffold(
-      backgroundColor: context.tokens.scrim,
+      backgroundColor: context.tokens.background,
       body: Stack(
         children: [
           // 1. Vertical PageView (ONLY content cards slide)
