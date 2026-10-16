@@ -6,10 +6,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/api/github_data_service.dart';
+import 'package:mobile/core/api/release_assets.dart';
 import 'feed_data_adapter.dart';
 
 class SqliteFeedDataAdapter implements FeedDataAdapter {
+  static const String _revisionPrefsKey = 'feed_db_revision';
   Database? _db;
   @override
   final ValueNotifier<double> downloadProgress = ValueNotifier(0.0);
@@ -22,6 +25,10 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
       final dbPath = join(appSupportDir.path, 'feed.db');
       final dbExists = await File(dbPath).exists();
       
+      final prefs = await SharedPreferences.getInstance();
+      final lastRevision = prefs.getString(_revisionPrefsKey);
+      final currentRev = ReleaseAssets.revision;
+
       bool shouldRebuild = !dbExists;
 
       if (dbExists) {
@@ -30,7 +37,7 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
           final count = Sqflite.firstIntValue(await tempDb.rawQuery('SELECT COUNT(*) FROM feed'));
           await tempDb.close();
           
-          if (count == null || count == 0) {
+          if (count == null || count == 0 || (currentRev.isNotEmpty && lastRevision != currentRev)) {
             shouldRebuild = true;
           }
         } catch (e) {
@@ -43,6 +50,9 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
           await deleteDatabase(dbPath);
         }
         await _downloadAndBuildDatabase(dbPath);
+        if (currentRev.isNotEmpty) {
+          await prefs.setString(_revisionPrefsKey, currentRev);
+        }
       }
 
       _db = await openDatabase(dbPath);
