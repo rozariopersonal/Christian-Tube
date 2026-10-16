@@ -51,14 +51,22 @@ class OfflineFeedDatabase {
 
   Future<List<Map<String, dynamic>>> getRandomItems(
     int limit, {
+    int offset = 0,
     String? bookFilter,
     String? testamentFilter,
+    List<String>? categoryFilter,
+    List<String>? tagFilter,
+    String order = 'random',
     List<String>? excludeIds,
   }) async {
     return _adapter.getRandomItems(
       limit,
+      offset: offset,
       bookFilter: bookFilter,
       testamentFilter: testamentFilter,
+      categoryFilter: categoryFilter,
+      tagFilter: tagFilter,
+      order: order,
       excludeIds: excludeIds,
     );
   }

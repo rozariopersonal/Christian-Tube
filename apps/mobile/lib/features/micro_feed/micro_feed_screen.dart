@@ -128,9 +128,14 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
       final newScriptureState = newFilterState as ScriptureFilterState;
 
       // If structural feed filters changed, we must clear and reload the feed
-      if (oldScriptureState.bookFilter != newScriptureState.bookFilter ||
-          oldScriptureState.testamentFilter !=
-              newScriptureState.testamentFilter) {
+      final structuralChanged =
+          oldScriptureState.bookFilter != newScriptureState.bookFilter ||
+          oldScriptureState.testamentFilter != newScriptureState.testamentFilter ||
+          oldScriptureState.readingOrder != newScriptureState.readingOrder ||
+          oldScriptureState.selectedCategories != newScriptureState.selectedCategories ||
+          oldScriptureState.selectedTags != newScriptureState.selectedTags;
+
+      if (structuralChanged) {
         // Drop the seen-cards history so cards from the previous filter can return
         scriptureEngine.resetRandomDeck();
         _initializeAndLoad();

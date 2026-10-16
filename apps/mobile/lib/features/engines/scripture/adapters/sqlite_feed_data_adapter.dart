@@ -153,8 +153,12 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
   @override
   Future<List<Map<String, dynamic>>> getRandomItems(
     int limit, {
+    int offset = 0,
     String? bookFilter,
     String? testamentFilter,
+    List<String>? categoryFilter,
+    List<String>? tagFilter,
+    String order = 'random',
     List<String>? excludeIds,
   }) async {
     if (_db == null) await initialize();
@@ -176,13 +180,38 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
       }
     }
 
-    if (excludeIds != null && excludeIds.isNotEmpty) {
+    final hasCategories = categoryFilter != null && categoryFilter.isNotEmpty;
+    final hasTags = tagFilter != null && tagFilter.isNotEmpty;
+
+    if (hasCategories && hasTags) {
+      final categoryPlaceholders = List.filled(categoryFilter.length, '?').join(', ');
+      final tagClauses = List.filled(tagFilter.length, 'tags LIKE ?').join(' OR ');
+      query += ' AND (category IN ($categoryPlaceholders) OR ($tagClauses))';
+      args.addAll(categoryFilter);
+      args.addAll(tagFilter.map((t) => '%"$t"%'));
+    } else if (hasCategories) {
+      final categoryPlaceholders = List.filled(categoryFilter.length, '?').join(', ');
+      query += ' AND category IN ($categoryPlaceholders)';
+      args.addAll(categoryFilter);
+    } else if (hasTags) {
+      final tagClauses = List.filled(tagFilter.length, 'tags LIKE ?').join(' OR ');
+      query += ' AND ($tagClauses)';
+      args.addAll(tagFilter.map((t) => '%"$t"%'));
+    }
+
+    if (excludeIds != null && excludeIds.isNotEmpty && order == 'random') {
       query += ' AND id NOT IN (${List.filled(excludeIds.length, '?').join(', ')})';
       args.addAll(excludeIds);
     }
 
-    query += ' ORDER BY RANDOM() LIMIT ?';
-    args.add(limit);
+    if (order == 'canonical') {
+      query += ' ORDER BY bookNumber ASC, chapter ASC, startVerse ASC LIMIT ? OFFSET ?';
+      args.add(limit);
+      args.add(offset);
+    } else {
+      query += ' ORDER BY RANDOM() LIMIT ?';
+      args.add(limit);
+    }
 
     final result = await _db!.rawQuery(query, args);
     

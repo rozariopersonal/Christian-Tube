@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:mobile/core/engines/base_feed_engine.dart';
 import 'package:mobile/features/bible/models/bible_reference.dart';
 import 'package:mobile/features/bible/services/bible_passage_navigator.dart';
@@ -17,9 +16,9 @@ import 'services/saved_scripture_service.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
 import 'widgets/bible_version_picker_modal.dart';
-import 'widgets/books_filter_sheet.dart';
 import 'widgets/scripture_card_view.dart';
 import 'widgets/verse_action_appearance_sheet.dart';
+import 'widgets/scripture_filter_settings_sheet.dart';
 import '../../shorts/widgets/shorts_chrome.dart';
 
 class ScriptureEngine
@@ -181,6 +180,9 @@ class ScriptureEngine
       limit: limit,
       bookFilter: filterState.bookFilter,
       testamentFilter: filterState.testamentFilter,
+      categories: filterState.selectedCategories,
+      tags: filterState.selectedTags,
+      order: filterState.readingOrder,
     );
     final savedService = SavedScriptureService();
     for (final c in cards) {
@@ -239,237 +241,313 @@ class ScriptureEngine
   ) {
     final tokens = context.tokens;
     final isDark = context.isDark;
-    final hasBookFilter = filterState.bookFilter != null;
+    final activeCount = filterState.activeFilterCount;
+    final hasActiveFilter = activeCount > 0;
 
     final pillBg = isDark
         ? tokens.scrim.withValues(alpha: 0.50)
         : tokens.surface.withValues(alpha: 0.85);
 
+    final fontScalePct = (filterState.fontSizeScale * 100).round();
+
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                // 1. Version Picker Pill (Theme-aware & Frosted)
-                GestureDetector(
-                  onTap: () {
-                    showAdaptiveBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (ctx) => BibleVersionPickerModal(
-                        activeVersionId: filterState.activeVersionId,
-                        onSelectVersion: (newVersionId) async {
-                          final newState =
-                              await loadFilterStateForVersion(newVersionId);
-                          await _savePreferences(newState);
-                          onFilterChanged(newState);
-                        },
-                        onOpenManager: onOpenManager,
-                      ),
-                    );
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: pillBg,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: tokens.surfaceBorder,
-                            width: 1.0,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: context.shortsChromeShadow
-                                  .withValues(alpha: isDark ? 0.3 : 0.08),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.menu_book_rounded,
-                              size: 15,
-                              color: tokens.accent,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              filterState.activeVersionId,
-                              style: TextStyle(
-                                color: context.shortsChromeFg,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 16,
-                              color: context.shortsChromeFgMuted,
-                            ),
-                          ],
-                        ),
+        // 1. Version Picker Pill (Theme-aware & Frosted)
+        GestureDetector(
+          onTap: () {
+            showAdaptiveBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              isScrollControlled: true,
+              builder: (ctx) => BibleVersionPickerModal(
+                activeVersionId: filterState.activeVersionId,
+                onSelectVersion: (newVersionId) async {
+                  final newState =
+                      await loadFilterStateForVersion(newVersionId);
+                  await _savePreferences(newState);
+                  onFilterChanged(newState);
+                },
+                onOpenManager: onOpenManager,
+              ),
+            );
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: pillBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: tokens.surfaceBorder,
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: context.shortsChromeShadow
+                          .withValues(alpha: isDark ? 0.3 : 0.08),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.menu_book_rounded,
+                      size: 15,
+                      color: tokens.accent,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      filterState.activeVersionId,
+                      style: TextStyle(
+                        color: context.shortsChromeFg,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
                       ),
                     ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 16,
+                      color: context.shortsChromeFgMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // 2. Right Controls Cluster: Font Size Stepper Pill + Settings & Filter Button
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Quick Font Size Stepper Pill [ A- | 100% | A+ ]
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: pillBg,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: tokens.surfaceBorder,
+                      width: 1.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: context.shortsChromeShadow
+                            .withValues(alpha: isDark ? 0.3 : 0.08),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // A-
+                      InkWell(
+                        onTap: filterState.fontSizeScale > 0.8
+                            ? () {
+                                final newScale = (filterState.fontSizeScale - 0.1)
+                                    .clamp(0.8, 1.5);
+                                final newState = filterState.copyWith(
+                                    fontSizeScale: double.parse(
+                                        newScale.toStringAsFixed(1)));
+                                _savePreferences(newState);
+                                onFilterChanged(newState);
+                              }
+                            : null,
+                        borderRadius: const BorderRadius.horizontal(
+                            left: Radius.circular(20)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                          child: Text(
+                            'A-',
+                            style: TextStyle(
+                              color: filterState.fontSizeScale > 0.8
+                                  ? context.shortsChromeFg
+                                  : context.shortsChromeFgMuted,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 16,
+                        color: tokens.surfaceBorder,
+                      ),
+                      // Percentage (tapping resets to 100%)
+                      InkWell(
+                        onTap: () {
+                          if (filterState.fontSizeScale != 1.0) {
+                            final newState =
+                                filterState.copyWith(fontSizeScale: 1.0);
+                            _savePreferences(newState);
+                            onFilterChanged(newState);
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                          child: Text(
+                            '$fontScalePct%',
+                            style: TextStyle(
+                              color: filterState.fontSizeScale != 1.0
+                                  ? tokens.accent
+                                  : context.shortsChromeFgMuted,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 16,
+                        color: tokens.surfaceBorder,
+                      ),
+                      // A+
+                      InkWell(
+                        onTap: filterState.fontSizeScale < 1.5
+                            ? () {
+                                final newScale = (filterState.fontSizeScale + 0.1)
+                                    .clamp(0.8, 1.5);
+                                final newState = filterState.copyWith(
+                                    fontSizeScale: double.parse(
+                                        newScale.toStringAsFixed(1)));
+                                _savePreferences(newState);
+                                onFilterChanged(newState);
+                              }
+                            : null,
+                        borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(20)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                          child: Text(
+                            'A+',
+                            style: TextStyle(
+                              color: filterState.fontSizeScale < 1.5
+                                  ? context.shortsChromeFg
+                                  : context.shortsChromeFgMuted,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
+              ),
+            ),
+            const SizedBox(width: 8),
 
-                // 2. Books Filter Pill (Adaptive BooksFilterSheet replacing legacy PopupMenuButton)
-                GestureDetector(
-                  onTap: () {
-                    showAdaptiveBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (ctx) => BooksFilterSheet(
-                        activeBook: filterState.bookFilter,
-                        activeTestament: filterState.testamentFilter,
-                        onSelectBook: (newBook) {
-                          final newState = filterState.copyWith(
-                            bookFilter: newBook,
-                            clearBookFilter: newBook == null,
-                          );
-                          _savePreferences(newState);
-                          onFilterChanged(newState);
-                        },
-                      ),
-                    );
-                  },
-                  child: ClipRRect(
+            // Settings & Filter Button with Badge
+            GestureDetector(
+              onTap: () {
+                showAdaptiveBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (ctx) => ScriptureFilterSettingsSheet(
+                    filterState: filterState,
+                    onApply: (newState) async {
+                      await _savePreferences(newState);
+                      onFilterChanged(newState);
+                    },
+                  ),
+                );
+              },
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 7),
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
-                          color: hasBookFilter
-                              ? context.accent.withValues(
-                                  alpha: isDark ? 0.25 : 0.15)
+                          color: hasActiveFilter
+                              ? tokens.accent.withValues(
+                                  alpha: isDark ? 0.25 : 0.18)
                               : pillBg,
-                          borderRadius: BorderRadius.circular(20),
+                          shape: BoxShape.circle,
                           border: Border.all(
-                            color: hasBookFilter
-                                ? context.accent.withValues(alpha: 0.6)
+                            color: hasActiveFilter
+                                ? tokens.accent.withValues(alpha: 0.6)
                                 : tokens.surfaceBorder,
                             width: 1.0,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: context.shortsChromeShadow
-                                  .withValues(alpha: isDark ? 0.3 : 0.08),
+                              color: hasActiveFilter
+                                  ? tokens.accent.withValues(alpha: 0.25)
+                                  : context.shortsChromeShadow
+                                      .withValues(alpha: isDark ? 0.3 : 0.08),
                               blurRadius: 6,
                             ),
                           ],
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.auto_stories_rounded,
-                              size: 15,
-                              color: hasBookFilter
-                                  ? context.accent
-                                  : context.shortsChromeFgMuted,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              filterState.bookFilter ??
-                                  (filterState.testamentFilter ?? 'All Books'),
-                              style: TextStyle(
-                                color: hasBookFilter
-                                    ? context.accent
-                                    : context.shortsChromeFg,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 16,
-                              color: hasBookFilter
-                                  ? context.accent
-                                  : context.shortsChromeFgMuted,
+                        child: Center(
+                          child: Icon(
+                            Icons.tune_rounded,
+                            size: 18,
+                            color: hasActiveFilter
+                                ? tokens.accent
+                                : context.shortsChromeFg,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (hasActiveFilter)
+                    Positioned(
+                      top: -3,
+                      right: -3,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: tokens.accent,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: tokens.accent.withValues(alpha: 0.5),
+                              blurRadius: 4,
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        // 3. Saved Verses Quick Access Pill
-        ValueListenableBuilder<int>(
-          valueListenable: SavedScriptureService().savedCountNotifier,
-          builder: (context, count, _) {
-            return GestureDetector(
-              onTap: () {
-                context.push('/saved-scriptures');
-              },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: pillBg,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: count > 0
-                            ? context.accent.withValues(alpha: 0.6)
-                            : tokens.surfaceBorder,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          count > 0
-                              ? Icons.bookmark_rounded
-                              : Icons.bookmark_border_rounded,
-                          color: count > 0
-                              ? context.accent
-                              : context.shortsChromeFgMuted,
-                          size: 16,
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
                         ),
-                        if (count > 0) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            '$count',
+                        child: Center(
+                          child: Text(
+                            '$activeCount',
                             style: TextStyle(
-                              color: context.accent,
+                              color: tokens.background,
+                              fontSize: 9.5,
                               fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                              height: 1.0,
                             ),
                           ),
-                        ],
-                      ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                ],
               ),
-            );
-          },
+            ),
+          ],
         ),
       ],
     );
