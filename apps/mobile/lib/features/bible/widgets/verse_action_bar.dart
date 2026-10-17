@@ -163,91 +163,62 @@ class _VerseActionBarState extends State<VerseActionBar>
             _currentHeight = _stage == VerseSheetStage.study ? studyH : expandedH;
           }
 
-          final double backdropAlpha =
-              _stage == VerseSheetStage.study ? 0.45 : 0.22;
-
           final sheetColor = isDark
               ? tokens.surface.withValues(alpha: 0.94)
               : tokens.surface.withValues(alpha: 0.96);
 
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Dimmed backdrop (active in both stages: tap to collapse study or dismiss expanded)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (_stage == VerseSheetStage.study) {
-                      _animateTo(
-                          VerseSheetStage.expanded, maxHeight, bottomInset);
-                    } else {
-                      widget.onClear?.call();
-                    }
-                  },
-                  child: Container(
-                    color: tokens.scrim.withValues(alpha: backdropAlpha),
-                  ),
-                ),
-              ),
-
-              // Fixed height sheet container (discrete tap interaction, no drag gestures)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: _currentHeight,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: MaxWidthBox(
-                    maxWidth: 640,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: sheetColor,
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(22)),
-                        border: Border(
-                          top: BorderSide(
-                              color: tokens.surfaceBorder, width: 0.8),
-                          left: BorderSide(
-                              color: tokens.surfaceBorder, width: 0.5),
-                          right: BorderSide(
-                              color: tokens.surfaceBorder, width: 0.5),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: tokens.scrim
-                                .withValues(alpha: isDark ? 0.40 : 0.16),
-                            blurRadius: 18,
-                            spreadRadius: 2,
-                            offset: const Offset(0, -4),
-                          ),
-                        ],
+          return Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              height: _currentHeight,
+              width: double.infinity,
+              child: MaxWidthBox(
+                maxWidth: 640,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: sheetColor,
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(22)),
+                    border: Border(
+                      top: BorderSide(
+                          color: tokens.surfaceBorder, width: 0.8),
+                      left: BorderSide(
+                          color: tokens.surfaceBorder, width: 0.5),
+                      right: BorderSide(
+                          color: tokens.surfaceBorder, width: 0.5),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: tokens.scrim
+                            .withValues(alpha: isDark ? 0.40 : 0.16),
+                        blurRadius: 18,
+                        spreadRadius: 2,
+                        offset: const Offset(0, -4),
                       ),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(22)),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: SafeArea(
-                              top: false,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.max,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  const SizedBox(height: 10),
-                                  Expanded(
-                                    child: _stage == VerseSheetStage.expanded
-                                        ? _buildExpandedStage(
-                                            context, tokens, maxHeight, bottomInset)
-                                        : _buildStudyStage(
-                                            context, tokens, maxHeight, bottomInset),
-                                  ),
-                                ],
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(22)),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: SafeArea(
+                          top: false,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.max,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(height: 10),
+                              Expanded(
+                                child: _stage == VerseSheetStage.expanded
+                                    ? _buildExpandedStage(
+                                        context, tokens, maxHeight, bottomInset)
+                                    : _buildStudyStage(
+                                        context, tokens, maxHeight, bottomInset),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),
@@ -255,7 +226,7 @@ class _VerseActionBarState extends State<VerseActionBar>
                   ),
                 ),
               ),
-            ],
+            ),
           );
         },
       ),
