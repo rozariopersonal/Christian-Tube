@@ -77,8 +77,8 @@ class DictionaryDownloadManager extends ChangeNotifier {
       name: 'வேதாகம சொல்லகராதி (Classical Lexicon)',
       language: 'Tamil (Biblical)',
       languageCode: 'ta',
-      sizeDisplay: '14.6 MB',
-      description: '17,200+ classical biblical terms with Greek/Hebrew lemmas, Strong numbers, modern terms, and scripture citations.',
+      sizeDisplay: '16.9 MB',
+      description: '20,100+ classical biblical terms with Greek/Hebrew lemmas, Strong numbers, modern terms, and scripture citations.',
       isBiblical: true,
     ),
     // Easily supportable global languages
