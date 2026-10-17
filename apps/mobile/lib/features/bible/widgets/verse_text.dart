@@ -248,10 +248,10 @@ class _VerseTextState extends State<VerseText> {
 
   List<InlineSpan> _buildWordSpans(String verseText, TextStyle baseStyle) {
     final spans = <InlineSpan>[];
-    final tokens = verseText.split(RegExp(r'(\s+)'));
-    for (final token in tokens) {
-      if (token.isEmpty) continue;
-      if (RegExp(r'^\s+$').hasMatch(token)) {
+    final matches = RegExp(r'\S+|\s+').allMatches(verseText);
+    for (final match in matches) {
+      final token = match.group(0)!;
+      if (token.trim().isEmpty) {
         spans.add(TextSpan(text: token, style: baseStyle));
         continue;
       }

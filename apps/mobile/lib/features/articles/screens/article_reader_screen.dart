@@ -171,10 +171,10 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
   }
 
   void _addWordSpans(List<InlineSpan> spans, String chunk, TextStyle style) {
-    final tokens = chunk.split(RegExp(r'(\s+)'));
-    for (final token in tokens) {
-      if (token.isEmpty) continue;
-      if (RegExp(r'^\s+$').hasMatch(token)) {
+    final matches = RegExp(r'\S+|\s+').allMatches(chunk);
+    for (final match in matches) {
+      final token = match.group(0)!;
+      if (token.trim().isEmpty) {
         spans.add(TextSpan(text: token, style: style));
         continue;
       }
