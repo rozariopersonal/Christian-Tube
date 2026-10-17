@@ -88,10 +88,10 @@ void main() {
 
       await tester.pumpWidget(
         wrapWithApp(
-          AdaptiveSheetFrame(
+          const AdaptiveSheetFrame(
             maxHeightFactor: 0.50,
-            contentPadding: const EdgeInsets.all(24),
-            child: const Text('Custom Config Sheet'),
+            contentPadding: EdgeInsets.all(24),
+            child: Text('Custom Config Sheet'),
           ),
         ),
       );

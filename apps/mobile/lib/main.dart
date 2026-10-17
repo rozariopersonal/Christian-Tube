@@ -315,11 +315,13 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                 final bookId = state.pathParameters['id'] ?? '';
                 final qp = state.uri.queryParameters;
                 final page = int.tryParse(qp['page'] ?? '');
+                final line = int.tryParse(qp['line'] ?? '');
                 final startLine = int.tryParse(qp['startLine'] ?? '');
                 final endLine = int.tryParse(qp['endLine'] ?? '');
                 return BookReaderScreen(
                   bookId: bookId,
                   initialPage: page,
+                  initialLine: line,
                   highlightStartLine: startLine,
                   highlightEndLine: endLine,
                 );

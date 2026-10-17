@@ -48,6 +48,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   late final ArticlesLanguagesLoader? _languagesLoader;
   late final SongsCatalogLoader _songsLoader;
   late final LibraryLanguagesController _langController;
+  late final bool _ownsLangController;
 
   List<Book> _recentBooks = const [];
   List<Book> _allBooks = const [];
@@ -68,6 +69,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _languagesLoader = widget.languagesLoader;
     _songsLoader = widget.songsLoader ??
         () => SongsCatalogService().getSongs();
+    _ownsLangController = widget.langController != null &&
+        widget.langController != LibraryLanguagesController.instance;
     _langController = (widget.langController ?? LibraryLanguagesController.instance)
       ..addListener(_onLanguagesChanged);
     _loadData();
@@ -76,7 +79,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   void dispose() {
     _langController.removeListener(_onLanguagesChanged);
-    _langController.dispose();
+    if (_ownsLangController) {
+      _langController.dispose();
+    }
     super.dispose();
   }
 
@@ -125,61 +130,66 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _loadData() async {
+    List<Book> books = const [];
+    List<Book> recentBooks = const [];
+    Map<String, UserReadingProgress> progressMap = const {};
+
     try {
       await _loader.initialize();
-
-      final books = await _loader.getBooks();
+      books = await _loader.getBooks();
       final recentProgress = await _loader.getRecentProgress(
         limit: _recentBookLimit,
       );
 
-      final progressMap = <String, UserReadingProgress>{};
-      final recentBooks = <Book>[];
+      final pMap = <String, UserReadingProgress>{};
+      final rBooks = <Book>[];
       for (final p in recentProgress) {
-        progressMap[p.bookId] = p;
+        pMap[p.bookId] = p;
         final match = books.where((b) => b.id == p.bookId).firstOrNull;
-        if (match != null) recentBooks.add(match);
+        if (match != null) rBooks.add(match);
       }
+      progressMap = pMap;
+      recentBooks = rBooks;
+    } catch (e) {
+      debugPrint('Books shelf unavailable: $e');
+    }
 
-      if (mounted) {
-        setState(() {
-          _allBooks = books;
-          _recentBooks = recentBooks;
-          _progressMap = progressMap;
-        });
-      }
+    if (mounted) {
+      setState(() {
+        _allBooks = books;
+        _recentBooks = recentBooks;
+        _progressMap = progressMap;
+      });
+    }
 
-      final List<WftwIndexEntry> allArticles = [];
-      try {
-        allArticles.addAll(await _articlesLoader());
-        if (_languagesLoader != null) {
-          final languages = await _languagesLoader();
-          for (final l in languages) {
-            if (l.code.isNotEmpty) {
-              LanguageMeta.registerLanguage(l.code, englishName: l.name);
-            }
+    final List<WftwIndexEntry> allArticles = [];
+    try {
+      allArticles.addAll(await _articlesLoader());
+      if (_languagesLoader != null) {
+        final languages = await _languagesLoader();
+        for (final l in languages) {
+          if (l.code.isNotEmpty) {
+            LanguageMeta.registerLanguage(l.code, englishName: l.name);
           }
         }
-      } catch (e) {
-        debugPrint('Articles shelf unavailable: $e');
       }
-
-      final List<Song> allSongs = [];
-      try {
-        allSongs.addAll(await _songsLoader());
-      } catch (e) {
-        debugPrint('Songs shelf unavailable: $e');
-      }
-
-      if (!mounted) return;
-      _announceLanguages(books, allArticles, allSongs);
-      setState(() {
-        _allArticles = allArticles;
-        _allSongs = allSongs;
-      });
     } catch (e) {
-      debugPrint('Library load failed: $e');
+      debugPrint('Articles shelf unavailable: $e');
     }
+
+    final List<Song> allSongs = [];
+    try {
+      allSongs.addAll(await _songsLoader());
+    } catch (e) {
+      debugPrint('Songs shelf unavailable: $e');
+    }
+
+    if (!mounted) return;
+    _announceLanguages(books, allArticles, allSongs);
+    setState(() {
+      _allArticles = allArticles;
+      _allSongs = allSongs;
+    });
   }
 
   void _openReader(Book book) async {
@@ -219,8 +229,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
       targetLine = shouldResume ? progress.currentLine : 1;
     }
 
+    final lineParam = (targetLine != null && targetLine > 1) ? '&line=$targetLine' : '';
     await context.push(
-      '/books/${book.id}?page=$targetPage&startLine=$targetLine&endLine=$targetLine',
+      '/books/${book.id}?page=$targetPage$lineParam',
     );
     if (!mounted) return;
     _refreshRecentProgress();
@@ -272,9 +283,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     SliverToBoxAdapter(
                       child: _buildLanguageFilter(tokens),
                     ),
-                    if (_filteredBooks.isEmpty &&
-                        _filteredSongs.isEmpty &&
-                        _filteredArticles.isEmpty)
+                    if (!_hasAnyContentForLanguage)
                       SliverFillRemaining(
                         hasScrollBody: false,
                         child: Center(
@@ -299,9 +308,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         ),
                       )
                     else ...[
-                      SliverToBoxAdapter(
-                        child: _buildBooksSection(tokens),
-                      ),
+                      if (_catalogBooksForLanguage.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: _buildBooksSection(tokens),
+                        ),
                       if (_filteredSongs.isNotEmpty)
                         SliverToBoxAdapter(
                           child: SongShelf(
@@ -372,6 +382,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
   int get _allItemCount =>
       _allBooks.length + _allArticles.length + _allSongs.length;
 
+  List<Book> get _catalogBooksForLanguage {
+    final state = _langController.state;
+    if (state.isAllLanguages) return _allBooks;
+    return _allBooks
+        .where((b) => state.includes(b.language))
+        .toList();
+  }
+
+  bool get _hasAnyContentForLanguage =>
+      _catalogBooksForLanguage.isNotEmpty ||
+      _filteredSongs.isNotEmpty ||
+      _filteredArticles.isNotEmpty;
+
   List<Book> get _filteredBooks {
     final state = _langController.state;
     if (state.isAllLanguages) return _recentBooks;
@@ -413,92 +436,92 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ),
         if (_filteredBooks.isNotEmpty)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: _filteredBooks.map((book) {
-                  final progress = _progressMap[book.id];
-                  return Container(
-                    width: 230,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: tokens.surface,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: tokens.surfaceBorder),
-                    ),
-                    child: InkWell(
-                      onTap: () => _openReader(book),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              width: 48,
-                              height: 72,
-                              color: tokens.surface,
-                              child: book.coverFile.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl:
-                                          GitHubDataService.bookCoverUrl(book.coverFile),
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) =>
-                                          Container(color: tokens.surface),
-                                      errorWidget: (context, url, error) => Icon(
-                                          Icons.menu_book, color: tokens.accent, size: 22),
-                                    )
-                                  : Icon(Icons.menu_book, color: tokens.accent, size: 22),
-                            ),
+          SizedBox(
+            height: 96,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _filteredBooks.length,
+              itemBuilder: (context, index) {
+                final book = _filteredBooks[index];
+                final progress = _progressMap[book.id];
+                return Container(
+                  width: 230,
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: tokens.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: tokens.surfaceBorder),
+                  ),
+                  child: InkWell(
+                    onTap: () => _openReader(book),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            width: 48,
+                            height: 72,
+                            color: tokens.surface,
+                            child: book.coverFile.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl:
+                                        GitHubDataService.bookCoverUrl(book.coverFile),
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, __) =>
+                                        Container(color: tokens.surface),
+                                    errorWidget: (context, url, error) => Icon(
+                                        Icons.menu_book, color: tokens.accent, size: 22),
+                                  )
+                                : Icon(Icons.menu_book, color: tokens.accent, size: 22),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  book.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: tokens.onSurface,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12.5,
-                                  ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                book.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: tokens.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
                                 ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${book.author} • p. ${progress?.currentPage ?? 1}/${book.totalPages}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: tokens.onSurfaceMuted,
-                                    fontSize: 13,
-                                  ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${book.author} • p. ${progress?.currentPage ?? 1}/${book.totalPages}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: tokens.onSurfaceMuted,
+                                  fontSize: 13,
                                 ),
-                                const SizedBox(height: 5),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(3),
-                                  child: LinearProgressIndicator(
-                                    value: progress?.completionPercent ?? 0.0,
-                                    minHeight: 3.5,
-                                    backgroundColor: tokens.surface,
-                                    valueColor:
-                                        AlwaysStoppedAnimation<Color>(tokens.accent),
-                                  ),
+                              ),
+                              const SizedBox(height: 5),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: progress?.completionPercent ?? 0.0,
+                                  minHeight: 3.5,
+                                  backgroundColor: tokens.surface,
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(tokens.accent),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                );
+              },
             ),
           )
         else
@@ -561,8 +584,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   void _openArticle(WftwIndexEntry entry) {
     final lang = entry.lang == 'en' ? null : entry.lang;
+    final uri = lang != null
+        ? Uri(path: '/article/${entry.id}', queryParameters: {'lang': lang}).toString()
+        : '/article/${entry.id}';
     context.push(
-      '/article/${entry.id}',
+      uri,
       extra: {'title': entry.title, if (lang != null) 'lang': lang},
     );
   }

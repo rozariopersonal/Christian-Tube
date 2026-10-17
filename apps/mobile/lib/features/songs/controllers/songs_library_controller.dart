@@ -49,21 +49,24 @@ class SongsViewState {
 class SongsLibraryController extends ChangeNotifier {
   final SongsCatalogService _service;
   final LibraryLanguagesController _langController;
-  late final bool _ownsLangController;
 
   SongsViewState _state = const SongsViewState();
   SongsViewState get state => _state;
 
-  /// The shared language controller backing the browse filter. When no
-  /// controller is supplied (route-pushed), one is created and owned here.
+  /// The shared language controller backing the browse filter.
   LibraryLanguagesController get languageController => _langController;
+
+  List<Song>? _lastSongs;
+  Set<String>? _lastLangs;
+  String? _lastQuery;
+  SongGroupMode? _lastGroupMode;
+  List<SongCollection>? _cachedGroupedSongs;
 
   SongsLibraryController({
     SongsCatalogService? service,
     LibraryLanguagesController? langController,
   })  : _service = service ?? SongsCatalogService(),
-        _langController = langController ?? LibraryLanguagesController(),
-        _ownsLangController = langController == null {
+        _langController = langController ?? LibraryLanguagesController.instance {
     _langController.addListener(_onLanguageChanged);
     load();
   }
@@ -75,7 +78,6 @@ class SongsLibraryController extends ChangeNotifier {
   @override
   void dispose() {
     _langController.removeListener(_onLanguageChanged);
-    if (_ownsLangController) _langController.dispose();
     super.dispose();
   }
 
@@ -151,6 +153,15 @@ class SongsLibraryController extends ChangeNotifier {
   }
 
   List<SongCollection> get groupedSongs {
+    final langs = _langController.state.selectedLanguages;
+    if (_cachedGroupedSongs != null &&
+        _lastSongs == _state.songs &&
+        _lastQuery == _state.query &&
+        _lastGroupMode == _state.groupMode &&
+        setEquals(_lastLangs, langs)) {
+      return _cachedGroupedSongs!;
+    }
+
     final songs = searchResults;
     final Map<String, List<Song>> groups = {};
     final Map<String, String?> subtitles = {};
@@ -177,12 +188,19 @@ class SongsLibraryController extends ChangeNotifier {
     }
 
     final sortedKeys = groups.keys.toList()..sort();
-    return sortedKeys
+    final result = sortedKeys
         .map((k) => SongCollection(
               label: k,
               subtitle: subtitles[k],
               songs: groups[k]!,
             ))
         .toList();
+
+    _lastSongs = _state.songs;
+    _lastQuery = _state.query;
+    _lastGroupMode = _state.groupMode;
+    _lastLangs = Set.of(langs);
+    _cachedGroupedSongs = result;
+    return result;
   }
 }

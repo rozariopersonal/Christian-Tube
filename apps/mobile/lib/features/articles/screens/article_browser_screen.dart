@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,26 +30,30 @@ class ArticleBrowserScreen extends StatefulWidget {
 class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
   final TextEditingController _searchController = TextEditingController();
   late final LibraryLanguagesController _langController;
-  late final bool _ownsLangController;
 
   List<WftwIndexEntry> _entries = const [];
   bool _loading = true;
   String? _error;
   String _query = '';
 
+  Timer? _searchDebounceTimer;
+  String? _lastFilterQuery;
+  Set<String>? _lastFilterLangs;
+  List<WftwIndexEntry>? _lastFiltered;
+  Map<int, List<WftwIndexEntry>>? _cachedByYear;
+
   @override
   void initState() {
     super.initState();
-    _ownsLangController = widget.langController == null;
-    _langController = (widget.langController ?? LibraryLanguagesController())
+    _langController = (widget.langController ?? LibraryLanguagesController.instance)
       ..addListener(_onLanguagesChanged);
     _loadEntries();
   }
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
     _langController.removeListener(_onLanguagesChanged);
-    if (_ownsLangController) _langController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -120,8 +126,11 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
 
   void _openArticle(WftwIndexEntry entry) {
     final lang = entry.lang == 'en' ? null : entry.lang;
+    final uri = lang != null
+        ? Uri(path: '/article/${entry.id}', queryParameters: {'lang': lang}).toString()
+        : '/article/${entry.id}';
     context.push(
-      '/article/${entry.id}',
+      uri,
       extra: {'title': entry.title, if (lang != null) 'lang': lang},
     );
   }
@@ -201,8 +210,7 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
       );
     }
 
-    final filtered = _filtered;
-    final byYear = groupByYear(filtered);
+    final byYear = _resolveByYear();
 
     return MaxWidthBox(
       maxWidth: 1080,
@@ -220,7 +228,15 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: TextField(
                 controller: _searchController,
-                onChanged: (value) => setState(() => _query = value),
+                onChanged: (value) {
+                  _searchDebounceTimer?.cancel();
+                  _searchDebounceTimer =
+                      Timer(const Duration(milliseconds: 250), () {
+                    if (mounted) {
+                      setState(() => _query = value);
+                    }
+                  });
+                },
                 decoration: InputDecoration(
                   hintText: 'Search articles...',
                   prefixIcon: const Icon(Icons.search_rounded),
@@ -229,6 +245,7 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
                       : IconButton(
                           icon: const Icon(Icons.clear_rounded),
                           onPressed: () {
+                            _searchDebounceTimer?.cancel();
                             _searchController.clear();
                             setState(() => _query = '');
                           },
@@ -320,5 +337,21 @@ class _ArticleBrowserScreenState extends State<ArticleBrowserScreen> {
         headerTitle: 'Articles by Language',
       ),
     );
+  }
+
+  Map<int, List<WftwIndexEntry>> _resolveByYear() {
+    final filtered = _filtered;
+    final langs = _langController.state.selectedLanguages;
+    if (_cachedByYear != null &&
+        _lastFilterQuery == _query &&
+        setEquals(_lastFilterLangs, langs) &&
+        _lastFiltered == _entries) {
+      return _cachedByYear!;
+    }
+    _lastFilterQuery = _query;
+    _lastFilterLangs = Set.of(langs);
+    _lastFiltered = _entries;
+    _cachedByYear = groupByYear(filtered);
+    return _cachedByYear!;
   }
 }
