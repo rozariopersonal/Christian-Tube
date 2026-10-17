@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
@@ -133,9 +134,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     );
 
     if (matches.isEmpty) {
-      final spans = <InlineSpan>[];
-      _addWordSpans(spans, text, baseStyle);
-      return spans;
+      return [TextSpan(text: text, style: baseStyle)];
     }
 
     final spans = <InlineSpan>[];
@@ -143,7 +142,10 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
     for (final match in matches) {
       if (match.start > lastMatchEnd) {
-        _addWordSpans(spans, text.substring(lastMatchEnd, match.start), baseStyle);
+        spans.add(TextSpan(
+          text: text.substring(lastMatchEnd, match.start),
+          style: baseStyle,
+        ));
       }
 
       final refText = match.group(0)!;
@@ -164,43 +166,13 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     }
 
     if (lastMatchEnd < text.length) {
-      _addWordSpans(spans, text.substring(lastMatchEnd), baseStyle);
+      spans.add(TextSpan(
+        text: text.substring(lastMatchEnd),
+        style: baseStyle,
+      ));
     }
 
     return spans;
-  }
-
-  void _addWordSpans(List<InlineSpan> spans, String chunk, TextStyle style) {
-    final matches = RegExp(r'\S+|\s+').allMatches(chunk);
-    for (final match in matches) {
-      final token = match.group(0)!;
-      if (token.trim().isEmpty) {
-        spans.add(TextSpan(text: token, style: style));
-        continue;
-      }
-      final clean = token.replaceAll(
-        RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''),
-        '',
-      );
-      if (clean.isEmpty) {
-        spans.add(TextSpan(text: token, style: style));
-        continue;
-      }
-
-      final recognizer = LongPressGestureRecognizer()
-        ..onLongPress = () {
-          if (mounted) {
-            GlossaryEntrySheet.show(context, word: clean);
-          }
-        };
-      _recognizers.add(recognizer);
-
-      spans.add(TextSpan(
-        text: token,
-        style: style,
-        recognizer: recognizer,
-      ));
-    }
   }
 
   @override
@@ -345,10 +317,52 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
             fontWeight: appearance.fontWeight,
             fontStyle: appearance.fontStyle,
           ),
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+          child: SelectionArea(
+            contextMenuBuilder: (context, selectableRegionState) {
+              String selectedText = '';
+              try {
+                final dynamic dyn = selectableRegionState;
+                final dynamic content = dyn.getSelectedContent();
+                if (content != null &&
+                    content.plainText != null &&
+                    (content.plainText as String).trim().isNotEmpty) {
+                  selectedText = (content.plainText as String).trim();
+                }
+              } catch (_) {}
+
+              return AdaptiveTextSelectionToolbar.buttonItems(
+                anchors: selectableRegionState.contextMenuAnchors,
+                buttonItems: [
+                  ContextMenuButtonItem(
+                    label: 'Define',
+                    onPressed: () {
+                      selectableRegionState.hideToolbar();
+                      final words = selectedText
+                          .split(RegExp(r'\s+'))
+                          .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
+                          .where((w) => w.isNotEmpty)
+                          .toList();
+                      final lookupWord =
+                          words.isNotEmpty ? words.first : selectedText;
+                      GlossaryEntrySheet.show(context, word: lookupWord);
+                    },
+                  ),
+                  ContextMenuButtonItem(
+                    label: 'Copy',
+                    onPressed: () {
+                      selectableRegionState.hideToolbar();
+                      if (selectedText.isNotEmpty) {
+                        Clipboard.setData(ClipboardData(text: selectedText));
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(),
+              slivers: [
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                 sliver: SliverList(
@@ -411,8 +425,8 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: RichText(
-                          text: TextSpan(
+                        child: Text.rich(
+                          TextSpan(
                             children: _buildSpans(
                               line.text,
                               textColor,
@@ -430,6 +444,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

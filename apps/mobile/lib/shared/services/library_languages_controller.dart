@@ -214,11 +214,11 @@ class LibraryLanguagesController extends ChangeNotifier {
   @override
   // ignore: must_call_super
   void dispose() {
-    _isDisposed = true;
     if (_isSingleton) {
       // Singleton controller persists across the application lifecycle.
       return;
     }
+    _isDisposed = true;
     super.dispose();
   }
 }

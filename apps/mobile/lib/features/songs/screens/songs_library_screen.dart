@@ -35,6 +35,7 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
   late final SongsLibraryController _controller;
   final TextEditingController _searchController = TextEditingController();
   final SongsDownloadManager _downloadManager = SongsDownloadManager();
+  Timer? _searchDebounceTimer;
 
   @override
   void initState() {
@@ -48,6 +49,7 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
     _searchController.dispose();
     _controller.dispose();
     super.dispose();
@@ -236,7 +238,14 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: TextField(
         controller: _searchController,
-        onChanged: _controller.setSearchQuery,
+        onChanged: (val) {
+          _searchDebounceTimer?.cancel();
+          _searchDebounceTimer = Timer(const Duration(milliseconds: 250), () {
+            if (mounted) {
+              _controller.setSearchQuery(val);
+            }
+          });
+        },
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: 'Search songs, authors, lyrics…',
@@ -252,6 +261,7 @@ class _SongsLibraryScreenState extends State<SongsLibraryScreen> {
                 icon: Icon(Icons.clear, color: tokens.onSurfaceMuted),
                 tooltip: 'Clear search',
                 onPressed: () {
+                  _searchDebounceTimer?.cancel();
                   _searchController.clear();
                   _controller.setSearchQuery('');
                 },

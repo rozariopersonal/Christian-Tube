@@ -76,8 +76,8 @@ class BookCoverFallback extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Colors.white.withValues(alpha: 0.18),
-                      Colors.black.withValues(alpha: 0.4),
+                      tokens.onSurface.withValues(alpha: 0.18),
+                      tokens.scrim.withValues(alpha: 0.4),
                     ],
                   ),
                 ),

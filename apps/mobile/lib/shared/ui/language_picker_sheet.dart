@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/layout/adaptivity.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../services/library_languages_controller.dart';
 import 'language_list_tile.dart';
@@ -442,9 +443,13 @@ class _LanguagePickerSheetState extends State<LanguagePickerSheet> {
                       label: Text(
                         isAll
                             ? 'Apply (All Languages)'
-                            : 'Apply (${_currentSelection.length} Languages • '
-                                '${_calculateSelectedCount()} '
-                                '${_capitalize(countNoun(widget.itemNoun, _calculateSelectedCount()))})',
+                            : (ScreenClass.of(context) == ScreenClass.compact
+                                ? 'Apply (${_currentSelection.length})'
+                                : 'Apply (${_currentSelection.length} Languages • '
+                                    '${_calculateSelectedCount()} '
+                                    '${_capitalize(countNoun(widget.itemNoun, _calculateSelectedCount()))})'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.bold,

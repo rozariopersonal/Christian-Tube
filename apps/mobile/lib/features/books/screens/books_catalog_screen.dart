@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -36,7 +37,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   late final LibraryLanguagesController _langController;
-  late final bool _ownsLangController;
+  Timer? _searchDebounceTimer;
 
   List<Book> _allBooks = [];
   List<Book> _books = [];
@@ -59,8 +60,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
   @override
   void initState() {
     super.initState();
-    _ownsLangController = widget.langController == null;
-    _langController = (widget.langController ?? LibraryLanguagesController())
+    _langController = (widget.langController ?? LibraryLanguagesController.instance)
       ..addListener(_onLanguagesChanged);
     _bookService.addListener(_onServiceUpdate);
     _loadSavedPrefs();
@@ -68,15 +68,17 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
     _langController.removeListener(_onLanguagesChanged);
-    if (_ownsLangController) _langController.dispose();
     _bookService.removeListener(_onServiceUpdate);
     _searchController.dispose();
     super.dispose();
   }
 
   void _onLanguagesChanged() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      _applyFilters();
+    }
   }
 
   void _onServiceUpdate() {
@@ -321,12 +323,28 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
       targetLine = shouldResume ? progress.currentLine : 1;
     }
 
+    final lineParam = (targetLine != null && targetLine > 1) ? '&line=$targetLine' : '';
     await context.push(
-      '/books/${book.id}?page=$targetPage&startLine=$targetLine&endLine=$targetLine',
+      '/books/${book.id}?page=$targetPage$lineParam',
     );
 
-    // Refresh progress on return
-    _loadCatalog();
+    // Refresh progress on return without reloading full catalog
+    final recentProgress = await _bookService.getRecentProgress(limit: 5);
+    final progressMap = <String, UserReadingProgress>{};
+    for (final p in recentProgress) {
+      progressMap[p.bookId] = p;
+    }
+    final recentBooks = <Book>[];
+    for (final p in recentProgress) {
+      final match = _allBooks.where((b) => b.id == p.bookId).firstOrNull;
+      if (match != null) recentBooks.add(match);
+    }
+    if (mounted) {
+      setState(() {
+        _progressMap = progressMap;
+        _recentBooks = recentBooks;
+      });
+    }
   }
 
   Widget _buildLanguageDropdown(AppTokens tokens) {
@@ -432,6 +450,7 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                   icon:
                       Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 17),
                   onPressed: () {
+                    _searchDebounceTimer?.cancel();
                     _searchController.clear();
                     setState(() => _searchQuery = '');
                     _applyFilters();
@@ -442,8 +461,13 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
           contentPadding: const EdgeInsets.symmetric(vertical: 11),
         ),
         onChanged: (val) {
-          setState(() => _searchQuery = val);
-          _applyFilters();
+          _searchDebounceTimer?.cancel();
+          _searchDebounceTimer = Timer(const Duration(milliseconds: 250), () {
+            if (mounted) {
+              setState(() => _searchQuery = val);
+              _applyFilters();
+            }
+          });
         },
       ),
     );
@@ -475,7 +499,9 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
           ),
         ),
         SizedBox(
-          height: 120,
+          height: 120.0 +
+              (MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 2.0) - 1.0) *
+                  40,
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -612,7 +638,9 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
           ),
         ),
         SizedBox(
-          height: 255,
+          height: 255.0 +
+              (MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 2.0) - 1.0) *
+                  55,
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -852,11 +880,14 @@ class _BooksCatalogScreenState extends State<BooksCatalogScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
                         sliver: SliverGrid(
                           gridDelegate:
-                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                              SliverGridDelegateWithMaxCrossAxisExtent(
                             maxCrossAxisExtent: 170,
                             mainAxisSpacing: 16,
                             crossAxisSpacing: 14,
-                            childAspectRatio: 0.58,
+                            childAspectRatio: 0.58 /
+                                MediaQuery.textScalerOf(context)
+                                    .scale(1.0)
+                                    .clamp(1.0, 1.8),
                           ),
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {

@@ -225,8 +225,8 @@ class _BookTocSheetState extends State<BookTocSheet> {
                                   color: isCurrentChapter
                                       ? (tokens.accent.computeLuminance() >
                                             0.45
-                                          ? Colors.black
-                                          : Colors.white)
+                                          ? tokens.scrim
+                                          : tokens.onSurface)
                                       : tokens.onSurfaceMuted,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
