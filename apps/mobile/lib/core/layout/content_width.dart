@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../theme/app_tokens.dart';
 import 'adaptivity.dart';
 
 /// Preferred readable measure for scrollable list/grid content.
@@ -82,15 +83,24 @@ class MaxWidthBox extends StatelessWidget {
   }
 }
 
+/// Default animation style for all bottom sheets in the application:
+/// Smooth decelerated entrance (320ms easeOutCubic) and brisk exit (240ms easeInCubic).
+const AnimationStyle kDefaultSheetAnimationStyle = AnimationStyle(
+  duration: Duration(milliseconds: 320),
+  reverseDuration: Duration(milliseconds: 240),
+  curve: Curves.easeOutCubic,
+  reverseCurve: Curves.easeInCubic,
+);
+
 /// Max width for modal bottom sheets on `medium`+ screens.
 const double kSheetMaxWidth = 640;
 
 /// `showModalBottomSheet` that honors the adaptive rule: on `compact` the
-/// sheet behaves exactly as before; on `medium`/`expanded` the sheet body is
-/// capped at [kSheetMaxWidth] and centered over the viewport.
+/// sheet behaves as an anchored bottom sheet; on `medium`/`expanded` the sheet body is
+/// capped at [kSheetMaxWidth] and centered over the viewport without background stretching.
 ///
-/// Call this wherever a bottom sheet is shown from shared content so the
-/// app-wide rule is applied consistently.
+/// Uses [kDefaultSheetAnimationStyle] for smooth, physically-grounded deceleration
+/// (320ms easeOutCubic) to eliminate jarring "flying popup" effects.
 Future<T?> showAdaptiveBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -101,39 +111,79 @@ Future<T?> showAdaptiveBottomSheet<T>({
   ShapeBorder? shape,
   bool isDismissible = true,
   bool isEnableDrag = true,
+  bool showDragHandle = false,
+  BoxConstraints? constraints,
+  AnimationStyle? sheetAnimationStyle,
 }) {
+  final tokens = Theme.of(context).extension<AppTokens>();
+  final resolvedBarrierColor = barrierColor ??
+      (tokens != null
+          ? tokens.scrim.withValues(alpha: 0.32)
+          : Colors.black.withValues(alpha: 0.32));
+
   if (ScreenClass.of(context).isCompact) {
     return showModalBottomSheet<T>(
       context: context,
-      builder: builder,
+      builder: (sheetContext) {
+        return Align(
+          alignment: Alignment.bottomCenter,
+          heightFactor: 1.0,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.90,
+            ),
+            child: Builder(builder: builder),
+          ),
+        );
+      },
       isScrollControlled: isScrollControlled,
       useSafeArea: useSafeArea,
       backgroundColor: backgroundColor,
-      barrierColor: barrierColor,
+      barrierColor: resolvedBarrierColor,
       shape: shape,
       isDismissible: isDismissible,
       enableDrag: isEnableDrag,
+      showDragHandle: showDragHandle,
+      constraints: constraints,
+      sheetAnimationStyle: sheetAnimationStyle ?? kDefaultSheetAnimationStyle,
     );
   }
 
+  // On medium & expanded screens: clamp width to kSheetMaxWidth and prevent
+  // full-width background surface leakage by keeping route transparent.
   return showModalBottomSheet<T>(
     context: context,
     builder: (sheetContext) {
       final child = Builder(builder: builder);
       return Align(
         alignment: Alignment.bottomCenter,
+        heightFactor: 1.0,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: kSheetMaxWidth),
-          child: child,
+          constraints: BoxConstraints(
+            maxWidth: kSheetMaxWidth,
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.90,
+          ),
+          child: backgroundColor != null
+              ? Material(
+                  color: backgroundColor,
+                  shape: shape,
+                  clipBehavior: Clip.antiAlias,
+                  child: child,
+                )
+              : child,
         ),
       );
     },
     isScrollControlled: isScrollControlled,
     useSafeArea: useSafeArea,
-    backgroundColor: backgroundColor,
-    barrierColor: barrierColor,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    barrierColor: resolvedBarrierColor,
     shape: shape,
     isDismissible: isDismissible,
     enableDrag: isEnableDrag,
+    showDragHandle: showDragHandle,
+    constraints: constraints ?? const BoxConstraints(maxWidth: kSheetMaxWidth),
+    sheetAnimationStyle: sheetAnimationStyle ?? kDefaultSheetAnimationStyle,
   );
 }

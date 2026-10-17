@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/utils/formatters.dart';
@@ -140,9 +139,9 @@ class VideoCard extends StatelessWidget {
                     if (onOptionTap != null) {
                       onOptionTap!();
                     } else {
-                      showAdaptiveBottomSheet(
-                        context: context,
-                        builder: (ctx) => VideoOptionsBottomSheet(video: video),
+                      VideoOptionsBottomSheet.show(
+                        context,
+                        video: video,
                       );
                     }
                   },
@@ -247,9 +246,9 @@ class VideoGridCard extends StatelessWidget {
                   if (onOptionTap != null) {
                     onOptionTap!();
                   } else {
-                    showAdaptiveBottomSheet(
-                      context: context,
-                      builder: (ctx) => VideoOptionsBottomSheet(video: video),
+                    VideoOptionsBottomSheet.show(
+                      context,
+                      video: video,
                     );
                   }
                 },

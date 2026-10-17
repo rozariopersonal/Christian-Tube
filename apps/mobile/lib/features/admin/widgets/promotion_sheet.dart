@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/layout/adaptive_sheet_frame.dart';
+import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/promotion_status.dart';
 import '../services/release_promotion_service.dart';
@@ -10,7 +12,7 @@ class PromotionSheet extends StatefulWidget {
 
   static Future<void> show(BuildContext context,
       {ReleasePromotionService? service}) {
-    return showModalBottomSheet(
+    return showAdaptiveBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -89,36 +91,13 @@ class _PromotionSheetState extends State<PromotionSheet> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isExpanded = screenWidth >= 600;
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: isExpanded ? 640 : double.infinity,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: tokens.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: tokens.surfaceBorder),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle
-              const SizedBox(height: 12),
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: tokens.onSurfaceDisabled.withAlpha(80),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
+    return AdaptiveSheetFrame(
+      maxHeightFactor: 0.85,
+      showDragHandle: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
 
               // Header
               Padding(
@@ -177,8 +156,6 @@ class _PromotionSheetState extends State<PromotionSheet> {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 

@@ -732,7 +732,6 @@ class _BibleScreenState extends State<BibleScreen> {
               left: 0,
               right: 0,
               bottom: 0,
-              top: s.selectedVerses.isNotEmpty ? 0 : null,
               child: BibleBottomNav(
                 controller: _controller,
                 onShowBookChapterSelector: _showBookChapterSelector,

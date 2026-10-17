@@ -79,7 +79,7 @@ void main() {
       expect(pickedColor, equals(0));
     });
 
-    testWidgets('tapping close [X] or backdrop triggers onClear dismissal', (tester) async {
+    testWidgets('tapping close [X] triggers onClear dismissal and does not block outside taps', (tester) async {
       tester.view.physicalSize = const Size(360 * 2, 640 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -110,10 +110,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(clearCount, equals(1));
 
-      // Tap backdrop outside sheet container (at top of screen)
+      // Tapping outside sheet container (at top of screen) does not hit a blocking backdrop
       await tester.tapAt(const Offset(180, 50));
       await tester.pumpAndSettle();
-      expect(clearCount, equals(2));
+      expect(clearCount, equals(1));
     });
 
     testWidgets('tapping Open Verse Study expands to Level 2 and collapse button returns to Level 1', (tester) async {

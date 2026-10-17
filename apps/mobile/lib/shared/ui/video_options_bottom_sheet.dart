@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/models/video.dart';
 import '../../core/config/app_config.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/link/deep_link_service.dart';
 import '../../core/theme/app_tokens.dart';
 
@@ -17,17 +18,34 @@ class VideoOptionsBottomSheet extends StatelessWidget {
     this.onAddToWatchPlan,
   });
 
+  static Future<void> show(
+    BuildContext context, {
+    required Video video,
+    VoidCallback? onSaveToPlaylist,
+    VoidCallback? onAddToWatchPlan,
+  }) {
+    final tokens = context.tokens;
+    return showAdaptiveBottomSheet(
+      context: context,
+      backgroundColor: tokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => VideoOptionsBottomSheet(
+        video: video,
+        onSaveToPlaylist: onSaveToPlaylist,
+        onAddToWatchPlan: onAddToWatchPlan,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: SafeArea(
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -35,7 +53,7 @@ class VideoOptionsBottomSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: tokens.onSurfaceDisabled,
+                color: tokens.onSurfaceDisabled.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),

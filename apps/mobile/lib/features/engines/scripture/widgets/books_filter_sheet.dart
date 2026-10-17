@@ -1,6 +1,5 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../../core/layout/content_width.dart';
+import '../../../../core/layout/adaptive_sheet_frame.dart';
 import '../../../../core/theme/app_tokens.dart';
 
 class BooksFilterSheet extends StatefulWidget {
@@ -75,8 +74,6 @@ class _BooksFilterSheetState extends State<BooksFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final isDark = context.isDark;
-    final screenHeight = MediaQuery.sizeOf(context).height;
 
     final books = _getBooksForSegment();
     final filtered = _query.isEmpty
@@ -85,39 +82,13 @@ class _BooksFilterSheetState extends State<BooksFilterSheet> {
 
     final isAllSelected = widget.activeBook == null || widget.activeBook == 'All Books';
 
-    return MaxWidthBox(
-      maxWidth: kSheetMaxWidth,
-      child: Container(
-        constraints: BoxConstraints(maxHeight: screenHeight * 0.85),
-        decoration: BoxDecoration(
-          color: isDark
-              ? tokens.surface.withValues(alpha: 0.94)
-              : tokens.surface.withValues(alpha: 0.98),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(
-            top: BorderSide(color: tokens.surfaceBorder, width: 1.0),
-            left: BorderSide(color: tokens.surfaceBorder, width: 0.5),
-            right: BorderSide(color: tokens.surfaceBorder, width: 0.5),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: tokens.scrim.withValues(alpha: isDark ? 0.45 : 0.12),
-              blurRadius: 20,
-              offset: const Offset(0, -6),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+    return AdaptiveSheetFrame(
+      maxHeightFactor: 0.85,
+      showDragHandle: false,
+      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
                     // 1. Drag Handle
                     Center(
                       child: Container(
@@ -285,11 +256,6 @@ class _BooksFilterSheetState extends State<BooksFilterSheet> {
                     ),
                   ],
                 ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
