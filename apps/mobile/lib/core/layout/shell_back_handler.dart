@@ -45,6 +45,15 @@ class ShellBackHandler extends StatelessWidget {
     }
 
 
+    // Bible reader bottom bar override (if main tab nav was hidden on scroll, restore it first).
+    if (path.startsWith('/bible')) {
+      final service = BottomBarVisibilityService.instance;
+      if (service.isBibleNavHidden) {
+        service.showBibleNav();
+        return;
+      }
+    }
+
     // 3. In-shell subpage fallback routing (when entered via direct replace/deep link).
     if (path.startsWith('/channels') ||
         path.startsWith('/search') ||

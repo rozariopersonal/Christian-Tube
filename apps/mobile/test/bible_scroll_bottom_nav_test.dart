@@ -133,20 +133,32 @@ void main() {
       expect(controller.state.selectedChapter, isNull);
     });
 
-    test('PopScope logic respects selection state', () {
-      // Selection state drives canPop directly since nav is always visible:
-      bool canPop(Set<int> selectedVerses) {
-        return selectedVerses.isEmpty;
+    test('PopScope logic respects isBibleNavHidden and selection state', () {
+      final service = BottomBarVisibilityService.instance;
+      service.resetBibleNav();
+      expect(service.isBibleNavHidden, isFalse);
+
+      // Selection state and isBibleNavHidden drive canPop:
+      bool canPop(Set<int> selectedVerses, bool isNavHidden) {
+        return selectedVerses.isEmpty && !isNavHidden;
       }
 
       // Default: canPop is true
-      expect(canPop({}), isTrue);
+      expect(canPop({}, service.isBibleNavHidden), isTrue);
+
+      // When scrolled, main tab nav hides: canPop is false
+      service.hideBibleNav();
+      expect(canPop({}, service.isBibleNavHidden), isFalse);
+
+      // First back calls showBibleNav:
+      service.showBibleNav();
+      expect(service.isBibleNavHidden, isFalse);
+
+      // Now canPop is true: second back navigates to previous
+      expect(canPop({}, service.isBibleNavHidden), isTrue);
 
       // When verses are selected: canPop is false (first back clears selection)
-      expect(canPop({1, 2}), isFalse);
-
-      // Once selection is cleared: canPop is true
-      expect(canPop({}), isTrue);
+      expect(canPop({1, 2}, service.isBibleNavHidden), isFalse);
     });
 
     testWidgets('BibleBottomNav renders as floating rounded bar with accent color and onPrimary foreground', (tester) async {
