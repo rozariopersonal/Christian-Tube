@@ -17,6 +17,7 @@ abstract class BookDataAdapter {
   Future<Set<String>> getInstalledBookIds();
   Future<bool> downloadSingleBook(String bookId, {String? language});
   Future<void> removeBookDownload(String bookId);
+  Future<void> removeAllBooks();
   Future<bool> downloadAndInstall({String? language});
   Future<bool> isInstalled();
   Future<Book?> getBook(String id);

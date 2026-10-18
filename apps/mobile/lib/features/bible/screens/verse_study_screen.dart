@@ -1113,7 +1113,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
         if (!_isStudyDbDownloaded)
           InkWell(
             onTap: () {
-              context.push('/downloads');
+              context.push('/downloads?tab=bibles');
             },
             child: Container(
               margin: const EdgeInsets.only(bottom: 16),
@@ -1262,7 +1262,7 @@ class _VerseStudyScreenState extends State<VerseStudyScreen> {
                 ],
                 OutlinedButton.icon(
                   onPressed: () {
-                    context.push('/downloads');
+                    context.push('/downloads?tab=dictionaries');
                   },
                   icon: const Icon(Icons.download_for_offline_rounded, size: 16),
                   label: const Text('Download Tamil Vedagama Agarathi'),

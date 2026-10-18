@@ -54,6 +54,9 @@ class WebBookDataAdapter implements BookDataAdapter {
   Future<void> removeBookDownload(String bookId) async {}
 
   @override
+  Future<void> removeAllBooks() async {}
+
+  @override
   Future<bool> downloadAndInstall({String? language}) async => true;
 
   @override
@@ -288,6 +291,10 @@ class WebBookDataAdapter implements BookDataAdapter {
               }).toList();
 
               if (lines.isNotEmpty) {
+                if (_liveChapterLinesCache.length > 50) {
+                  _liveChapterLinesCache.remove(_liveChapterLinesCache.keys.first);
+                }
+                _liveChapterLinesCache[cacheKey] = lines;
                 // Pre-populate _livePageCache cleanly without duplicates
                 final pageMap = <int, List<BookLine>>{};
                 for (final l in lines) {
@@ -296,6 +303,9 @@ class WebBookDataAdapter implements BookDataAdapter {
                 for (final entry in pageMap.entries) {
                   entry.value.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
                   final pageKey = '${bookId}_${entry.key}';
+                  if (_livePageCache.length > 100) {
+                    _livePageCache.remove(_livePageCache.keys.first);
+                  }
                   _livePageCache[pageKey] = entry.value;
                 }
                 return lines;

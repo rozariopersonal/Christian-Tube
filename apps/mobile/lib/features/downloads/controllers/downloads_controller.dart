@@ -30,6 +30,7 @@ class DownloadsController extends ChangeNotifier {
   DownloadsState get state => _state;
 
   bool _isDisposed = false;
+  Timer? _storageDebounce;
 
   DownloadsController({
     BibleDownloadManager? bibleManager,
@@ -74,6 +75,7 @@ class DownloadsController extends ChangeNotifier {
     _articlesManager.removeListener(_onServiceNotification);
     _audioDownloadService.removeListener(_onServiceNotification);
     ReaderFontsService.instance.removeListener(_onServiceNotification);
+    _storageDebounce?.cancel();
     super.dispose();
   }
 
@@ -81,6 +83,30 @@ class DownloadsController extends ChangeNotifier {
     if (_isDisposed) return;
     _syncServiceProgress();
     notifyListeners();
+
+    _storageDebounce?.cancel();
+    _storageDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (!_isDisposed) {
+        unawaited(_refreshStorageOnly());
+      }
+    });
+  }
+
+  Future<void> _refreshStorageOnly() async {
+    try {
+      final storage = await _storageService.calculateBreakdown(
+        bibleManager: _bibleManager,
+        dictManager: _dictManager,
+        bookService: _bookService,
+        songsManager: _songsManager,
+        articlesManager: _articlesManager,
+      );
+      final audioSeries = await _storageService.scanDownloadedAudioSeries();
+      if (!_isDisposed) {
+        _state = _state.copyWith(storage: storage, audioSeries: audioSeries);
+        notifyListeners();
+      }
+    } catch (_) {}
   }
 
   void _syncServiceProgress() {
@@ -178,6 +204,11 @@ class DownloadsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearError() {
+    _state = _state.copyWith(clearError: true);
+    notifyListeners();
+  }
+
   // --- Bible Operations ---
 
   bool isBibleInstalled(String id) => _bibleManager.isInstalled(id);
@@ -220,11 +251,16 @@ class DownloadsController extends ChangeNotifier {
   // --- Book Operations ---
 
   bool isBookInstalled(String id) =>
-      _state.installedBookIds.contains(id) || _state.booksBundleInstalled;
+      _state.installedBookIds.contains(id);
   bool isBookDownloading(String id) => _bookService.isBookDownloading(id);
 
   Future<void> downloadBooksBundle() async {
     await _bookService.downloadAndInstall();
+    await refreshAll();
+  }
+
+  Future<void> deleteBooksBundle() async {
+    await _bookService.removeAllBooks();
     await refreshAll();
   }
 
@@ -292,8 +328,11 @@ class DownloadsController extends ChangeNotifier {
         isStudyDbDownloading: false,
         studyDbInstalled: true,
       );
-    } catch (_) {
-      _state = _state.copyWith(isStudyDbDownloading: false);
+    } catch (e) {
+      _state = _state.copyWith(
+        isStudyDbDownloading: false,
+        errorMessage: 'Failed to download study database: $e',
+      );
     }
     await refreshAll();
   }
@@ -357,8 +396,11 @@ class DownloadsController extends ChangeNotifier {
         coreBundleProgress: 1.0,
         isCoreBundleDownloading: false,
       );
-    } catch (_) {
-      _state = _state.copyWith(isCoreBundleDownloading: false);
+    } catch (e) {
+      _state = _state.copyWith(
+        isCoreBundleDownloading: false,
+        errorMessage: 'Failed to complete core bundle download: $e',
+      );
     }
     await refreshAll();
   }

@@ -117,10 +117,16 @@ class _BookChapterSelectorState extends State<BookChapterSelector> with SingleTi
                         ),
                       ),
                       onTap: () {
+                        final maxChapters = bibleBooks[book] ?? 1;
                         setState(() {
                           _selectedBook = book;
+                          if (_selectedChapter > maxChapters) {
+                            _selectedChapter = 1;
+                            _chapterVerses = null;
+                          }
                         });
                         _tabController.animateTo(1);
+                        if (widget.loadVerses != null) _loadVersesForSelection();
                       },
                     );
                   },

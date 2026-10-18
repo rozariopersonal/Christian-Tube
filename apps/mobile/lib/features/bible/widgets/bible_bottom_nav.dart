@@ -97,101 +97,113 @@ class _ChapterNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final bg = appearance.background(tokens);
-    final textCol = appearance.textColor(tokens);
-    final mutedCol = appearance.mutedTextColor(tokens);
-    final borderCol = appearance.surfaceBorder(tokens);
+    final accent = context.accent;
+    final onAccent = Theme.of(context).colorScheme.onPrimary;
+    final mutedCol = onAccent.withValues(alpha: 0.78);
+    final disabledCol = onAccent.withValues(alpha: 0.38);
 
     return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        border: Border(top: BorderSide(color: borderCol, width: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: tokens.scrim.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
+      color: appearance.background(tokens),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: 56,
-          child: MaxWidthBox(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
-            children: [
-              Semantics(
-                label: 'Previous chapter',
-                button: true,
-                child: IconButton(
-                  onPressed: canFetchPrev ? onPrev : null,
-                  tooltip: 'Previous chapter',
-                  icon: const Icon(Icons.chevron_left_rounded, size: 30),
-                  color:
-                      canFetchPrev ? textCol : mutedCol.withValues(alpha: 0.35),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Center(
+            child: MaxWidthBox(
+              maxWidth: 420,
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: tokens.scrim.withValues(alpha: 0.22),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Semantics(
-                    label: 'Book and chapter selector: $currentBookLabel',
-                    button: true,
-                    child: InkWell(
-                      onTap: onShowBookChapterSelector,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                currentBookLabel,
-                                style: TextStyle(
-                                  color: textCol,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 2),
-                              child: Icon(Icons.arrow_drop_down,
-                                  size: 20, color: mutedCol),
-                            ),
-                          ],
+                child: Material(
+                  color: Colors.transparent,
+                  child: Row(
+                    children: [
+                      Semantics(
+                        label: 'Previous chapter',
+                        button: true,
+                        child: IconButton(
+                          onPressed: canFetchPrev ? onPrev : null,
+                          tooltip: 'Previous chapter',
+                          icon: const Icon(Icons.chevron_left_rounded, size: 28),
+                          color: canFetchPrev ? onAccent : disabledCol,
+                          splashRadius: 20,
                         ),
                       ),
-                    ),
+                      Expanded(
+                        child: Center(
+                          child: Semantics(
+                            label: 'Book and chapter selector: $currentBookLabel',
+                            button: true,
+                            child: InkWell(
+                              onTap: onShowBookChapterSelector,
+                              borderRadius: BorderRadius.circular(20),
+                              splashColor: onAccent.withValues(alpha: 0.16),
+                              highlightColor: onAccent.withValues(alpha: 0.12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        currentBookLabel,
+                                        style: TextStyle(
+                                          color: onAccent,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 4),
+                                      child: Icon(
+                                        Icons.arrow_drop_down,
+                                        size: 20,
+                                        color: mutedCol,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Semantics(
+                        label: 'Next chapter',
+                        button: true,
+                        child: IconButton(
+                          onPressed: canFetchNext ? onNext : null,
+                          tooltip: 'Next chapter',
+                          icon: const Icon(Icons.chevron_right_rounded, size: 28),
+                          color: canFetchNext ? onAccent : disabledCol,
+                          splashRadius: 20,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              Semantics(
-                label: 'Next chapter',
-                button: true,
-                child: IconButton(
-                  onPressed: canFetchNext ? onNext : null,
-                  tooltip: 'Next chapter',
-                  icon: const Icon(Icons.chevron_right_rounded, size: 30),
-                  color:
-                      canFetchNext ? textCol : mutedCol.withValues(alpha: 0.35),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  ),
-);
-}
+    );
+  }
 }

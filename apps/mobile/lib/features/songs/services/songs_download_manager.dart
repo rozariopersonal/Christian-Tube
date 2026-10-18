@@ -10,6 +10,8 @@ import 'package:sqflite/sqflite.dart';
 import '../../../../core/api/github_data_service.dart';
 import '../adapters/sqlite_songs_catalog_adapter.dart';
 
+List<int> _gzipDecompress(List<int> bytes) => gzip.decode(bytes);
+
 /// Owns the optional offline songs package lifecycle: download the prebuilt
 /// `songs.sqlite.gz` from the releases repo, install it into the app databases
 /// directory, detect installation, and delete it on demand.
@@ -115,7 +117,7 @@ class SongsDownloadManager extends ChangeNotifier {
       }
 
       final compressed = await File(tempGz).readAsBytes();
-      final decompressed = gzip.decode(compressed);
+      final decompressed = await compute(_gzipDecompress, compressed);
 
       final target = File(await _dbPath());
       if (await target.exists()) {

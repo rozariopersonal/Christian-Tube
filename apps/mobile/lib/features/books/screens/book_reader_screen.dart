@@ -43,6 +43,7 @@ import '../widgets/scripture_verse_popup.dart';
 class BookReaderScreen extends StatefulWidget {
   final String bookId;
   final int? initialPage;
+  final int? initialLine;
   final int? highlightStartLine;
   final int? highlightEndLine;
 
@@ -55,6 +56,7 @@ class BookReaderScreen extends StatefulWidget {
     super.key,
     required this.bookId,
     this.initialPage,
+    this.initialLine,
     this.highlightStartLine,
     this.highlightEndLine,
     this.useContinuous = true,
@@ -84,6 +86,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       BookService.instance,
       widget.bookId,
       initialPage: widget.initialPage,
+      initialLine: widget.initialLine,
       highlightStartLine: widget.highlightStartLine,
       useContinuous: widget.useContinuous,
     );

@@ -59,13 +59,6 @@ class BookReaderViewCoordinator {
       blockKeys[ReadingBlockKey.of(page, startLine)] ??= GlobalKey();
 
   TapGestureRecognizer createScriptureRecognizer(ParsedScriptureRef? parsed, String refText) {
-    if (tapRecognizers.length > 200) {
-      final old = tapRecognizers.sublist(0, 100);
-      tapRecognizers.removeRange(0, 100);
-      for (final r in old) {
-        r.dispose();
-      }
-    }
     final recognizer = TapGestureRecognizer()
       ..onTap = () {
         _onOpenScripture(parsed, refText);

@@ -35,18 +35,26 @@ class FontSpecimenCard extends StatelessWidget {
       fontOption.languageCode ?? languageCode,
     );
 
+    final effectiveSelected = appearance != null
+        ? appearance!.fontFamily == fontOption.id
+        : isSelected;
+
+    final listenable = appearance != null
+        ? Listenable.merge([ReaderFontsService.instance, appearance!])
+        : ReaderFontsService.instance;
+
     return ListenableBuilder(
-      listenable: ReaderFontsService.instance,
+      listenable: listenable,
       builder: (context, _) {
         final service = ReaderFontsService.instance;
         final isFamilyReady = resolvedFamily != null && service.isReady(resolvedFamily);
         final isFamilyLoading = resolvedFamily != null && service.isLoading(resolvedFamily);
         final isInstalled = resolvedFamily != null && service.isFamilyInstalledSync(resolvedFamily);
 
-        final cardBg = isSelected
+        final cardBg = effectiveSelected
             ? tokens.accent.withValues(alpha: 0.12)
             : tokens.surface;
-        final borderCol = isSelected
+        final borderCol = effectiveSelected
             ? tokens.accent
             : tokens.surfaceBorder;
 
@@ -63,7 +71,7 @@ class FontSpecimenCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: borderCol,
-                  width: isSelected ? 1.8 : 1.0,
+                  width: effectiveSelected ? 1.8 : 1.0,
                 ),
               ),
               child: Column(
@@ -88,7 +96,7 @@ class FontSpecimenCard extends StatelessWidget {
                             fontFamily: isFamilyReady ? resolvedFamily : null,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isSelected ? tokens.accent : tokens.onSurface,
+                            color: effectiveSelected ? tokens.accent : tokens.onSurface,
                           ),
                         ),
                       ),
@@ -102,7 +110,7 @@ class FontSpecimenCard extends StatelessWidget {
                             Text(
                               fontOption.name,
                               style: TextStyle(
-                                color: isSelected ? tokens.accent : tokens.onSurface,
+                                color: effectiveSelected ? tokens.accent : tokens.onSurface,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                                 fontFamily: isFamilyReady ? resolvedFamily : null,
@@ -161,7 +169,7 @@ class FontSpecimenCard extends StatelessWidget {
                           isLoading: isFamilyLoading,
                           showDeleteWhenInstalled: true,
                         )
-                      else if (isSelected)
+                      else if (effectiveSelected)
                         Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
@@ -225,6 +233,9 @@ class FontSpecimenCard extends StatelessWidget {
           fontFamily: resolvedFamily,
           fontSize: 15,
           height: 1.5,
+          fontWeight: appearance?.fontWeight ?? FontWeight.normal,
+          fontStyle: appearance?.fontStyle ?? FontStyle.normal,
+          decoration: appearance?.textDecoration ?? TextDecoration.none,
           color: tokens.onSurface,
         ),
       ),

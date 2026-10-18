@@ -284,7 +284,7 @@ class _InlineDictionaryPopoverState extends State<InlineDictionaryPopover> {
                                   OutlinedButton.icon(
                                     onPressed: () {
                                       Navigator.of(context).pop();
-                                      context.push('/downloads');
+                                      context.push('/downloads?tab=dictionaries');
                                     },
                                     icon: const Icon(Icons.download_for_offline_rounded, size: 16),
                                     label: const Text('Manage Offline Dictionaries'),

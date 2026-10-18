@@ -63,6 +63,7 @@ class DownloadsState {
   final String bookSearch;
   final String bookLanguageFilter;
   final bool onlyInstalled;
+  final String? errorMessage;
 
   const DownloadsState({
     this.storage = const StorageBreakdown(),
@@ -92,6 +93,7 @@ class DownloadsState {
     this.bookSearch = '',
     this.bookLanguageFilter = 'All',
     this.onlyInstalled = false,
+    this.errorMessage,
   });
 
   DownloadsState copyWith({
@@ -122,6 +124,8 @@ class DownloadsState {
     String? bookSearch,
     String? bookLanguageFilter,
     bool? onlyInstalled,
+    String? errorMessage,
+    bool clearError = false,
   }) {
     return DownloadsState(
       storage: storage ?? this.storage,
@@ -155,6 +159,7 @@ class DownloadsState {
       bookSearch: bookSearch ?? this.bookSearch,
       bookLanguageFilter: bookLanguageFilter ?? this.bookLanguageFilter,
       onlyInstalled: onlyInstalled ?? this.onlyInstalled,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 }

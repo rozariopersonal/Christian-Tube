@@ -162,9 +162,10 @@ class BookReaderController extends ChangeNotifier {
     this._bookService,
     this._bookId, {
     int? initialPage,
+    int? initialLine,
     int? highlightStartLine,
     this.useContinuous = false,
-  })  : _requestedStartLine = highlightStartLine,
+  })  : _requestedStartLine = initialLine ?? highlightStartLine,
         pageLoader = PageLoader(_bookService, _bookId),
         appearance = ReaderAppearance(),
         continuousStream = BookChapterStream(_bookService, _bookId) {
@@ -178,8 +179,9 @@ class BookReaderController extends ChangeNotifier {
       nextPages: <int>[startPage],
       useContinuous: useContinuous,
     );
-    if (highlightStartLine != null) {
-      _state = _state.copyWith(lastReadLine: highlightStartLine);
+    final targetLine = initialLine ?? highlightStartLine;
+    if (targetLine != null) {
+      _state = _state.copyWith(lastReadLine: targetLine);
     }
   }
 

@@ -20,6 +20,8 @@ import '../models/book_line.dart';
 import '../models/book_scripture_link.dart';
 import '../models/user_reading_progress.dart';
 
+List<int> _gzipDecompress(List<int> bytes) => gzip.decode(bytes);
+
 /// Service managing the local SQLite books database, reading progress,
 /// highlights, and scripture commentary cross-references.
 class SqliteBookDataAdapter implements BookDataAdapter {
@@ -253,6 +255,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
   Future<bool> downloadSingleBook(String bookId, {String? language}) async {
     if (_downloadingBookIds.contains(bookId)) return false;
     _downloadingBookIds.add(bookId);
+    downloadProgress.value = 0.01;
 
     try {
       final db = await database;
@@ -305,9 +308,9 @@ class SqliteBookDataAdapter implements BookDataAdapter {
         throw Exception('Failed to download book package for "$bookId" from server.');
       }
 
-      // Decompress
+      // Decompress in background isolate
       final compressedBytes = await File(tempGz).readAsBytes();
-      final decompressed = gzip.decode(compressedBytes);
+      final decompressed = await compute(_gzipDecompress, compressedBytes);
       await File(tempSqlite).writeAsBytes(decompressed, flush: true);
 
       // Read from single book SQLite
@@ -360,6 +363,7 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       return false;
     } finally {
       _downloadingBookIds.remove(bookId);
+      downloadProgress.value = 0.0;
     }
   }
 
@@ -380,6 +384,25 @@ class SqliteBookDataAdapter implements BookDataAdapter {
     } catch (e) {
       debugPrint('Error removing book $bookId: $e');
     }
+  }
+
+  /// Completely removes the books database from local storage to free disk space.
+  @override
+  Future<void> removeAllBooks() async {
+    if (kIsWeb) return;
+    if (_db != null) {
+      await _db!.close();
+      _db = null;
+    }
+    final dbPath = overrideDbPath ??
+        p.join(await getDatabasesPath(), 'christian_tube_books.db');
+    final file = File(dbPath);
+    if (await file.exists()) await file.delete();
+    for (final sfx in const ['-wal', '-shm']) {
+      final side = File('$dbPath$sfx');
+      if (await side.exists()) await side.delete();
+    }
+    await initialize();
   }
 
   /// Downloads and installs `books.sqlite.gz` from release CDN mirrors if not bundled.
@@ -447,9 +470,9 @@ class SqliteBookDataAdapter implements BookDataAdapter {
         } catch (_) {}
       }
 
-      // Decompress
+      // Decompress in background isolate
       final compressedBytes = await File(tempGzPath).readAsBytes();
-      final decompressed = gzip.decode(compressedBytes);
+      final decompressed = await compute(_gzipDecompress, compressedBytes);
 
       final isAllLanguages = language == null ||
           language.trim().isEmpty ||
@@ -549,7 +572,8 @@ class SqliteBookDataAdapter implements BookDataAdapter {
       final count = Sqflite.firstIntValue(
         await db.rawQuery('SELECT COUNT(*) FROM books'),
       );
-      return (count ?? 0) > 0;
+      // Require at least 100 books to qualify as the full library bundle installed
+      return (count ?? 0) >= 100;
     } catch (_) {
       return false;
     }
@@ -1049,6 +1073,9 @@ class SqliteBookDataAdapter implements BookDataAdapter {
               }).toList();
 
               if (lines.isNotEmpty) {
+                if (_liveChapterLinesCache.length > 50) {
+                  _liveChapterLinesCache.remove(_liveChapterLinesCache.keys.first);
+                }
                 _liveChapterLinesCache[cacheKey] = lines;
                 // Pre-populate _livePageCache cleanly without duplicates
                 final pageMap = <int, List<BookLine>>{};
@@ -1058,6 +1085,9 @@ class SqliteBookDataAdapter implements BookDataAdapter {
                 for (final entry in pageMap.entries) {
                   entry.value.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
                   final pageKey = '${bookId}_${entry.key}';
+                  if (_livePageCache.length > 100) {
+                    _livePageCache.remove(_livePageCache.keys.first);
+                  }
                   _livePageCache[pageKey] = entry.value;
                 }
                 return lines;

@@ -1,10 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/books/widgets/scripture_verse_popup.dart';
+import 'package:mobile/features/dictionary/widgets/glossary_entry_sheet.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -37,7 +39,7 @@ class ArticleReaderScreen extends StatefulWidget {
 class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
   late final ArticleReaderController _controller;
   final ScrollController _scrollController = ScrollController();
-  final List<TapGestureRecognizer> _recognizers = [];
+  final List<GestureRecognizer> _recognizers = [];
 
   @override
   void initState() {
@@ -132,12 +134,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     );
 
     if (matches.isEmpty) {
-      return [
-        TextSpan(
-          text: text,
-          style: baseStyle,
-        ),
-      ];
+      return [TextSpan(text: text, style: baseStyle)];
     }
 
     final spans = <InlineSpan>[];
@@ -320,10 +317,52 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
             fontWeight: appearance.fontWeight,
             fontStyle: appearance.fontStyle,
           ),
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+          child: SelectionArea(
+            contextMenuBuilder: (context, selectableRegionState) {
+              String selectedText = '';
+              try {
+                final dynamic dyn = selectableRegionState;
+                final dynamic content = dyn.getSelectedContent();
+                if (content != null &&
+                    content.plainText != null &&
+                    (content.plainText as String).trim().isNotEmpty) {
+                  selectedText = (content.plainText as String).trim();
+                }
+              } catch (_) {}
+
+              return AdaptiveTextSelectionToolbar.buttonItems(
+                anchors: selectableRegionState.contextMenuAnchors,
+                buttonItems: [
+                  ContextMenuButtonItem(
+                    label: 'Define',
+                    onPressed: () {
+                      selectableRegionState.hideToolbar();
+                      final words = selectedText
+                          .split(RegExp(r'\s+'))
+                          .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
+                          .where((w) => w.isNotEmpty)
+                          .toList();
+                      final lookupWord =
+                          words.isNotEmpty ? words.first : selectedText;
+                      GlossaryEntrySheet.show(context, word: lookupWord);
+                    },
+                  ),
+                  ContextMenuButtonItem(
+                    label: 'Copy',
+                    onPressed: () {
+                      selectableRegionState.hideToolbar();
+                      if (selectedText.isNotEmpty) {
+                        Clipboard.setData(ClipboardData(text: selectedText));
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(),
+              slivers: [
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                 sliver: SliverList(
@@ -386,8 +425,8 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: RichText(
-                          text: TextSpan(
+                        child: Text.rich(
+                          TextSpan(
                             children: _buildSpans(
                               line.text,
                               textColor,
@@ -405,6 +444,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

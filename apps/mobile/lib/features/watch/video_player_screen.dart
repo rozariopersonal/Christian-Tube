@@ -916,9 +916,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           label: 'Save',
           onTap: () {
             if (_video != null) {
-              showAdaptiveBottomSheet(
-                context: context,
-                builder: (ctx) => VideoOptionsBottomSheet(video: _video!),
+              VideoOptionsBottomSheet.show(
+                context,
+                video: _video!,
               );
             }
           },

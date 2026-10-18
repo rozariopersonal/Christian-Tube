@@ -12,6 +12,9 @@ class ScriptureFilterState extends BaseFeedFilterState {
   final String? bookFilter;
   final String? testamentFilter;
   final String? comparisonVersionId;
+  final String readingOrder; // 'random', 'canonical', 'bookmarked'
+  final List<String> selectedCategories;
+  final List<String> selectedTags;
 
   const ScriptureFilterState({
     this.activeVersionId = 'NASB',
@@ -25,7 +28,20 @@ class ScriptureFilterState extends BaseFeedFilterState {
     this.bookFilter,
     this.testamentFilter,
     this.comparisonVersionId,
+    this.readingOrder = 'random',
+    this.selectedCategories = const [],
+    this.selectedTags = const [],
   });
+
+  int get activeFilterCount {
+    int count = 0;
+    if (readingOrder != 'random') count++;
+    if (testamentFilter != null && testamentFilter != 'All') count++;
+    if (bookFilter != null && bookFilter != 'All Books') count++;
+    count += selectedCategories.length;
+    count += selectedTags.length;
+    return count;
+  }
 
   ScriptureFilterState copyWith({
     String? activeVersionId,
@@ -39,6 +55,9 @@ class ScriptureFilterState extends BaseFeedFilterState {
     String? bookFilter,
     String? testamentFilter,
     String? comparisonVersionId,
+    String? readingOrder,
+    List<String>? selectedCategories,
+    List<String>? selectedTags,
     bool clearBookFilter = false,
     bool clearTestamentFilter = false,
     bool clearComparisonVersion = false,
@@ -57,6 +76,9 @@ class ScriptureFilterState extends BaseFeedFilterState {
       comparisonVersionId: clearComparisonVersion
           ? null
           : (comparisonVersionId ?? this.comparisonVersionId),
+      readingOrder: readingOrder ?? this.readingOrder,
+      selectedCategories: selectedCategories ?? this.selectedCategories,
+      selectedTags: selectedTags ?? this.selectedTags,
     );
   }
 
@@ -75,7 +97,19 @@ class ScriptureFilterState extends BaseFeedFilterState {
           backgroundPreset == other.backgroundPreset &&
           bookFilter == other.bookFilter &&
           testamentFilter == other.testamentFilter &&
-          comparisonVersionId == other.comparisonVersionId;
+          comparisonVersionId == other.comparisonVersionId &&
+          readingOrder == other.readingOrder &&
+          _listEquals(selectedCategories, other.selectedCategories) &&
+          _listEquals(selectedTags, other.selectedTags);
+
+  static bool _listEquals(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 
   @override
   int get hashCode => Object.hash(
@@ -90,5 +124,8 @@ class ScriptureFilterState extends BaseFeedFilterState {
         bookFilter,
         testamentFilter,
         comparisonVersionId,
+        readingOrder,
+        Object.hashAll(selectedCategories),
+        Object.hashAll(selectedTags),
       );
 }

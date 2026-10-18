@@ -12,8 +12,8 @@ Widget wrapWithTheme(Widget child) {
 }
 
 void main() {
-  group('VerseActionBar 3-Stage Bottom Sheet', () {
-    testWidgets('renders Stage 1 Peek state with quick colors and share/copy buttons', (tester) async {
+  group('VerseActionBar 2-Stage Bottom Sheet', () {
+    testWidgets('renders Level 1 Expanded state with full actions and 15-color grid on mount', (tester) async {
       tester.view.physicalSize = const Size(360 * 2, 640 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -23,6 +23,8 @@ void main() {
 
       bool copied = false;
       bool shared = false;
+      bool bookmarked = false;
+      bool noted = false;
       int? pickedColor;
 
       await tester.pumpWidget(
@@ -32,20 +34,25 @@ void main() {
             verseLabel: 'John 3:16',
             onCopy: () => copied = true,
             onShare: () => shared = true,
-            onBookmark: () {},
+            onBookmark: () => bookmarked = true,
             onHighlight: () {},
             onHighlightColor: (c) => pickedColor = c,
-            onNote: () {},
+            onNote: () => noted = true,
             onClear: () {},
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // Stage 1 elements
+      // Level 1: Actions, header, and 15-color palette are immediately visible without dragging
       expect(find.byType(VerseActionBar), findsOneWidget);
+      expect(find.text('John 3:16'), findsOneWidget);
       expect(find.text('Share'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
+      expect(find.text('Bookmark'), findsOneWidget);
+      expect(find.text('Note'), findsOneWidget);
+      expect(find.text('Highlight'), findsOneWidget);
+      expect(find.text('Open Verse Study'), findsOneWidget);
 
       // Tap Copy
       await tester.tap(find.text('Copy'));
@@ -55,14 +62,24 @@ void main() {
       await tester.tap(find.text('Share'));
       expect(shared, isTrue);
 
-      // Tap first color dot (Mustard - index 0)
+      // Tap Bookmark
+      await tester.tap(find.text('Bookmark'));
+      expect(bookmarked, isTrue);
+
+      // Tap Note
+      await tester.tap(find.text('Note'));
+      expect(noted, isTrue);
+
+      // All 15 highlight swatches are rendered
       final colorDots = find.bySemanticsLabel('Highlight color');
-      expect(colorDots, findsWidgets);
+      expect(colorDots, findsNWidgets(HighlightPalette.count));
+
+      // Tap first color dot
       await tester.tap(colorDots.first);
       expect(pickedColor, equals(0));
     });
 
-    testWidgets('swiping down from Peek triggers onClear dismissal', (tester) async {
+    testWidgets('tapping close [X] triggers onClear dismissal and does not block outside taps', (tester) async {
       tester.view.physicalSize = const Size(360 * 2, 640 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -70,7 +87,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      bool cleared = false;
+      int clearCount = 0;
 
       await tester.pumpWidget(
         wrapWithTheme(
@@ -82,75 +99,24 @@ void main() {
             onBookmark: () {},
             onHighlight: () {},
             onNote: () {},
-            onClear: () => cleared = true,
+            onClear: () => clearCount++,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // Drag downward on the sheet by 60px
-      await tester.drag(find.text('Share'), const Offset(0, 60));
+      // Tap [X] (deselect icon)
+      await tester.tap(find.byTooltip('Deselect'));
       await tester.pumpAndSettle();
+      expect(clearCount, equals(1));
 
-      expect(cleared, isTrue);
+      // Tapping outside sheet container (at top of screen) does not hit a blocking backdrop
+      await tester.tapAt(const Offset(180, 50));
+      await tester.pumpAndSettle();
+      expect(clearCount, equals(1));
     });
 
-    testWidgets('expanding to Stage 2 reveals actions row and full 15-color grid', (tester) async {
-      tester.view.physicalSize = const Size(360 * 2, 640 * 2);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      int? pickedColor;
-      bool removedHighlight = false;
-
-      await tester.pumpWidget(
-        wrapWithTheme(
-          VerseActionBar(
-            selectedCount: 1,
-            verseLabel: 'Romans 8:1',
-            hasHighlight: true,
-            currentColorIndex: 2,
-            onCopy: () {},
-            onShare: () {},
-            onBookmark: () {},
-            onHighlight: () {},
-            onHighlightColor: (c) => pickedColor = c,
-            onRemoveHighlight: () => removedHighlight = true,
-            onNote: () {},
-            onClear: () {},
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Drag upward on the sheet to expand to Stage 2
-      await tester.drag(find.text('Share'), const Offset(0, -280));
-      await tester.pumpAndSettle();
-
-      // Header and actions
-      expect(find.text('Romans 8:1'), findsOneWidget);
-      expect(find.text('Bookmark'), findsOneWidget);
-      expect(find.text('Note'), findsOneWidget);
-      expect(find.text('Highlight'), findsOneWidget);
-      expect(find.text('Remove highlight'), findsOneWidget);
-
-      // All 15 highlight color dots in grid
-      final allSwatches = find.bySemanticsLabel('Highlight color');
-      expect(allSwatches, findsNWidgets(HighlightPalette.count));
-
-      // Tap remove highlight
-      await tester.tap(find.text('Remove highlight'));
-      expect(removedHighlight, isTrue);
-
-      // Tap another color
-      await tester.tap(allSwatches.at(5));
-      expect(pickedColor, equals(5));
-    });
-
-    testWidgets('expanding to Stage 3 reveals study content', (tester) async {
+    testWidgets('tapping Open Verse Study expands to Level 2 and collapse button returns to Level 1', (tester) async {
       tester.view.physicalSize = const Size(360 * 2, 640 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -175,34 +141,73 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Expand to Stage 2 via drag up
-      await tester.drag(find.text('Share'), const Offset(0, -280));
+      // On mount: Level 1 content visible, study content not rendered yet
+      expect(find.text('Bookmark'), findsOneWidget);
+      expect(find.text('Custom Study Hub View'), findsNothing);
+
+      // Tap prompt to open Level 2 (Study)
+      await tester.tap(find.byKey(VerseActionBar.studyPromptKey));
       await tester.pumpAndSettle();
 
-      // Tap prompt to expand to Stage 3
-      await tester.tap(find.byKey(VerseActionBar.studyPromptKey), warnIfMissed: false);
-      await tester.pumpAndSettle();
-
-      // Stage 3 content visible
+      // Level 2 content visible
       expect(find.text('Study · John 3:16'), findsOneWidget);
       expect(find.text('Custom Study Hub View'), findsOneWidget);
       expect(find.byKey(VerseActionBar.collapseStudyKey), findsOneWidget);
 
-      // Tap collapse returns to Stage 2
-      await tester.tap(find.byKey(VerseActionBar.collapseStudyKey), warnIfMissed: false);
+      // Tap collapse returns to Level 1
+      await tester.tap(find.byKey(VerseActionBar.collapseStudyKey));
       await tester.pumpAndSettle();
 
       expect(find.text('Custom Study Hub View'), findsNothing);
       expect(find.text('Bookmark'), findsOneWidget);
     });
 
-    testWidgets('renders without overflow at 320dp width', (tester) async {
-      tester.view.physicalSize = const Size(320 * 2, 640 * 2);
+    testWidgets('system back gesture in Level 2 collapses to Level 1', (tester) async {
+      tester.view.physicalSize = const Size(360 * 2, 640 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
+
+      bool cleared = false;
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseActionBar(
+            selectedCount: 1,
+            verseLabel: 'John 3:16',
+            onCopy: () {},
+            onShare: () {},
+            onBookmark: () {},
+            onHighlight: () {},
+            onNote: () {},
+            onClear: () => cleared = true,
+            studyContent: const Center(child: Text('Custom Study Hub View')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Open Level 2
+      await tester.tap(find.byKey(VerseActionBar.studyPromptKey));
+      await tester.pumpAndSettle();
+      expect(find.text('Custom Study Hub View'), findsOneWidget);
+
+      // Trigger system back
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      // Collapsed back to Level 1, did not unselect verses
+      expect(find.text('Custom Study Hub View'), findsNothing);
+      expect(find.text('Bookmark'), findsOneWidget);
+      expect(cleared, isFalse);
+    });
+
+    testWidgets('renders without overflow at 320dp width and in phone landscape (640x360)', (tester) async {
+      // 1. Compact portrait 320dp width
+      tester.view.physicalSize = const Size(320 * 2, 640 * 2);
+      tester.view.devicePixelRatio = 2.0;
 
       await tester.pumpWidget(
         wrapWithTheme(
@@ -222,6 +227,30 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byType(VerseActionBar), findsOneWidget);
+
+      // 2. Phone landscape 640x360 (must not throw ArgumentError in clamp)
+      tester.view.physicalSize = const Size(640 * 2, 360 * 2);
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseActionBar(
+            selectedCount: 1,
+            verseLabel: 'Romans 8:28',
+            onCopy: () {},
+            onShare: () {},
+            onBookmark: () {},
+            onHighlight: () {},
+            onNote: () {},
+            onClear: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(VerseActionBar), findsOneWidget);
+
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
     });
   });
 }

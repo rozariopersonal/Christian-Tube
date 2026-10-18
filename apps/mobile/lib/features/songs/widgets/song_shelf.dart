@@ -29,26 +29,26 @@ class SongShelf extends StatelessWidget {
           icon: Icons.music_note_rounded,
           onViewAll: onViewAll,
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: songs.map((song) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: SizedBox(
-                    width: 220,
-                    child: _SongShelfTile(
-                      song: song,
-                      tokens: tokens,
-                      onTap: () => onTapSong(song),
-                    ),
+        SizedBox(
+          height: 124.0 + (MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 2.0) - 1.0) * 40,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: songs.length,
+            itemBuilder: (context, index) {
+              final song = songs[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: SizedBox(
+                  width: 220,
+                  child: _SongShelfTile(
+                    song: song,
+                    tokens: tokens,
+                    onTap: () => onTapSong(song),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -83,6 +83,7 @@ class _SongShelfTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
                 width: 30,
@@ -93,32 +94,29 @@ class _SongShelfTile extends StatelessWidget {
                 ),
                 child: Icon(Icons.music_note_rounded, color: tokens.accent, size: 17),
               ),
-              const Spacer(),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      song.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: tokens.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: tokens.onSurface,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      song.author ?? song.collection ?? 'Song',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: tokens.onSurfaceMuted,
-                      ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    song.author ?? song.collection ?? 'Song',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: tokens.onSurfaceMuted,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),

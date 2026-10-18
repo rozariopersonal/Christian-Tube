@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/downloads/controllers/downloads_controller.dart';
 import 'package:mobile/features/downloads/models/storage_breakdown.dart';
@@ -11,6 +13,11 @@ void main() {
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    const channel = MethodChannel('plugins.flutter.io/path_provider');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+      return Directory.systemTemp.path;
+    });
   });
 
   setUp(() {
@@ -86,6 +93,16 @@ void main() {
     test('protects default base Bible translation from deletion', () async {
       final result = await controller.deleteBible(BibleDownloadManager.defaultVersionId);
       expect(result, isFalse, reason: 'Default version must be protected');
+    });
+
+    test('isBookInstalled strictly checks installedBookIds', () {
+      expect(controller.isBookInstalled('unknown_book'), isFalse);
+    });
+
+    test('error state and clearError work as expected', () {
+      expect(controller.state.errorMessage, isNull);
+      controller.clearError();
+      expect(controller.state.errorMessage, isNull);
     });
   });
 }

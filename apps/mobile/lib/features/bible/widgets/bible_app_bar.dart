@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/layout/adaptivity.dart';
-import '../../../core/layout/content_width.dart';
+import '../../../shared/ui/bible_version_pill.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
-import '../../engines/scripture/widgets/bible_version_picker_modal.dart';
 import '../models/bible_version.dart';
 import '../controllers/bible_controller.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -44,7 +43,6 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? _VersionPicker(
               selectedVersion: s.selectedVersion!,
               versions: s.versions,
-              appearance: appearance,
               tokens: tokens,
               onSelect: controller.selectVersion,
               onManage: onPushManager,
@@ -97,7 +95,6 @@ class _VersionPicker extends StatelessWidget {
   const _VersionPicker({
     required this.selectedVersion,
     required this.versions,
-    required this.appearance,
     required this.tokens,
     required this.onSelect,
     required this.onManage,
@@ -105,76 +102,31 @@ class _VersionPicker extends StatelessWidget {
 
   final BibleVersion selectedVersion;
   final List<BibleVersion> versions;
-  final ReaderAppearance appearance;
   final AppTokens tokens;
   final ValueChanged<BibleVersion> onSelect;
   final VoidCallback onManage;
 
-  void _openPicker(BuildContext context) {
-    // Ensure the manager's cached ids are in sync with the controller's
-    // installed versions before the modal builds.
-    BibleDownloadManager().refreshInstalledList();
-
-    final overrideIds = versions.map((v) => v.shortname).toSet();
-
-    showAdaptiveBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => BibleVersionPickerModal(
-        activeVersionId: selectedVersion.shortname,
-        installedIdsOverride: overrideIds,
-        onSelectVersion: (newVersionId) {
-          final version = versions.firstWhere(
-            (v) => v.shortname == newVersionId,
-            orElse: () {
-              final meta = BibleDownloadManager.getMeta(newVersionId);
-              return BibleVersion(
-                id: newVersionId,
-                name: meta.name,
-                shortname: newVersionId,
-                description: meta.description,
-                lang: meta.languageCode,
-              );
-            },
-          );
-          onSelect(version);
-        },
-        onOpenManager: onManage,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Version',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => _openPicker(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  selectedVersion.shortname,
-                  style: TextStyle(
-                    color: appearance.textColor(tokens),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-              Icon(Icons.arrow_drop_down,
-                  size: 20, color: appearance.mutedTextColor(tokens)),
-            ],
-          ),
-        ),
-      ),
+    return BibleVersionPill(
+      activeVersionId: selectedVersion.shortname,
+      onOpenManager: onManage,
+      onSelectVersion: (newVersionId) {
+        final version = versions.firstWhere(
+          (v) => v.shortname == newVersionId,
+          orElse: () {
+            final meta = BibleDownloadManager.getMeta(newVersionId);
+            return BibleVersion(
+              id: newVersionId,
+              name: meta.name,
+              shortname: newVersionId,
+              description: meta.description,
+              lang: meta.languageCode,
+            );
+          },
+        );
+        onSelect(version);
+      },
     );
   }
 }

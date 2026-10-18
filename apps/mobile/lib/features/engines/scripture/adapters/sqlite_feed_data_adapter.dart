@@ -6,10 +6,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/api/github_data_service.dart';
+import 'package:mobile/core/api/release_assets.dart';
 import 'feed_data_adapter.dart';
 
 class SqliteFeedDataAdapter implements FeedDataAdapter {
+  static const String _revisionPrefsKey = 'feed_db_revision';
   Database? _db;
   @override
   final ValueNotifier<double> downloadProgress = ValueNotifier(0.0);
@@ -22,6 +25,10 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
       final dbPath = join(appSupportDir.path, 'feed.db');
       final dbExists = await File(dbPath).exists();
       
+      final prefs = await SharedPreferences.getInstance();
+      final lastRevision = prefs.getString(_revisionPrefsKey);
+      final currentRev = ReleaseAssets.revision;
+
       bool shouldRebuild = !dbExists;
 
       if (dbExists) {
@@ -30,7 +37,7 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
           final count = Sqflite.firstIntValue(await tempDb.rawQuery('SELECT COUNT(*) FROM feed'));
           await tempDb.close();
           
-          if (count == null || count == 0) {
+          if (count == null || count == 0 || (currentRev.isNotEmpty && lastRevision != currentRev)) {
             shouldRebuild = true;
           }
         } catch (e) {
@@ -43,6 +50,9 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
           await deleteDatabase(dbPath);
         }
         await _downloadAndBuildDatabase(dbPath);
+        if (currentRev.isNotEmpty) {
+          await prefs.setString(_revisionPrefsKey, currentRev);
+        }
       }
 
       _db = await openDatabase(dbPath);
@@ -143,8 +153,12 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
   @override
   Future<List<Map<String, dynamic>>> getRandomItems(
     int limit, {
+    int offset = 0,
     String? bookFilter,
     String? testamentFilter,
+    List<String>? categoryFilter,
+    List<String>? tagFilter,
+    String order = 'random',
     List<String>? excludeIds,
   }) async {
     if (_db == null) await initialize();
@@ -166,13 +180,38 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
       }
     }
 
-    if (excludeIds != null && excludeIds.isNotEmpty) {
+    final hasCategories = categoryFilter != null && categoryFilter.isNotEmpty;
+    final hasTags = tagFilter != null && tagFilter.isNotEmpty;
+
+    if (hasCategories && hasTags) {
+      final categoryPlaceholders = List.filled(categoryFilter.length, '?').join(', ');
+      final tagClauses = List.filled(tagFilter.length, 'tags LIKE ?').join(' OR ');
+      query += ' AND (category IN ($categoryPlaceholders) OR ($tagClauses))';
+      args.addAll(categoryFilter);
+      args.addAll(tagFilter.map((t) => '%"$t"%'));
+    } else if (hasCategories) {
+      final categoryPlaceholders = List.filled(categoryFilter.length, '?').join(', ');
+      query += ' AND category IN ($categoryPlaceholders)';
+      args.addAll(categoryFilter);
+    } else if (hasTags) {
+      final tagClauses = List.filled(tagFilter.length, 'tags LIKE ?').join(' OR ');
+      query += ' AND ($tagClauses)';
+      args.addAll(tagFilter.map((t) => '%"$t"%'));
+    }
+
+    if (excludeIds != null && excludeIds.isNotEmpty && order == 'random') {
       query += ' AND id NOT IN (${List.filled(excludeIds.length, '?').join(', ')})';
       args.addAll(excludeIds);
     }
 
-    query += ' ORDER BY RANDOM() LIMIT ?';
-    args.add(limit);
+    if (order == 'canonical') {
+      query += ' ORDER BY bookNumber ASC, chapter ASC, startVerse ASC LIMIT ? OFFSET ?';
+      args.add(limit);
+      args.add(offset);
+    } else {
+      query += ' ORDER BY RANDOM() LIMIT ?';
+      args.add(limit);
+    }
 
     final result = await _db!.rawQuery(query, args);
     

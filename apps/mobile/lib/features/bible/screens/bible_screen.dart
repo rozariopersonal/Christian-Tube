@@ -491,16 +491,22 @@ class _BibleScreenState extends State<BibleScreen> {
       commentaryNotes: notes,
       bookCommentariesFuture: bookCommentariesFuture,
       baseFontSize: _controller.appearance.fontSize,
-      onTapReference: (ref) => _navigateToPassage(
-        bookNumber: ref.bookNumber,
-        chapter: ref.chapter,
-        verse: ref.verse,
-      ),
-      onTapPassage: (bookNum, chapter, verseNum) => _navigateToPassage(
-        bookNumber: bookNum,
-        chapter: chapter,
-        verse: verseNum,
-      ),
+      onTapReference: (ref) {
+        _controller.clearSelection();
+        _navigateToPassage(
+          bookNumber: ref.bookNumber,
+          chapter: ref.chapter,
+          verse: ref.verse,
+        );
+      },
+      onTapPassage: (bookNum, chapter, verseNum) {
+        _controller.clearSelection();
+        _navigateToPassage(
+          bookNumber: bookNum,
+          chapter: chapter,
+          verse: verseNum,
+        );
+      },
     );
   }
 
@@ -521,9 +527,10 @@ class _BibleScreenState extends State<BibleScreen> {
     if (s.selectedVerses.isEmpty) return;
     final book = s.selectedBook ?? _controller.currentBook;
     final chapter = s.selectedChapter ?? _controller.currentChapter;
+    final bookDisplay = _controller.displayBookName(book);
     final header = _controller.selectedVersion != null
-        ? '$book $chapter · ${_controller.selectedVersion!.shortname}'
-        : '$book $chapter';
+        ? '$bookDisplay $chapter · ${_controller.selectedVersion!.shortname}'
+        : '$bookDisplay $chapter';
     final text = s.selectedText();
     final firstVerse = s.selectedVerses.first;
     final link = DeepLinkService.bible(
@@ -678,19 +685,14 @@ class _BibleScreenState extends State<BibleScreen> {
     final tokens = context.tokens;
     final appearance = _controller.appearance;
     return ListenableBuilder(
-      listenable: Listenable.merge([appearance, BottomBarVisibilityService.instance]),
+      listenable: appearance,
       builder: (context, _) {
-        final isNavHidden = BottomBarVisibilityService.instance.isBibleNavHidden;
         return PopScope(
-          canPop: s.selectedVerses.isEmpty && !isNavHidden,
+          canPop: s.selectedVerses.isEmpty,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             if (s.selectedVerses.isNotEmpty) {
               _controller.clearSelection();
-              return;
-            }
-            if (BottomBarVisibilityService.instance.isBibleNavHidden) {
-              BottomBarVisibilityService.instance.showBibleNav();
               return;
             }
           },
@@ -706,47 +708,62 @@ class _BibleScreenState extends State<BibleScreen> {
         body: Stack(
           children: [
             Positioned.fill(
-              child: BibleContent(
-                controller: _controller,
-                itemScrollController: _itemScrollController,
-                itemPositionsListener: _itemPositionsListener,
-                onVerseTap: (v, {book, chapter}) =>
-                    _controller.toggleVerseSelection(v, book: book, chapter: chapter),
-                onCopy: _copySelectedVerses,
-                onShare: _shareSelectedVerses,
-                onBookmark: _bookmarkSelectedVerses,
-                onClear: _controller.clearSelection,
-                onOpenStudyPage: _openVerseStudyScreen,
-                onPushManager: _pushManager,
-                onRedownloadDefault: _controller.redownloadDefault,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: BibleContent(
+                      controller: _controller,
+                      itemScrollController: _itemScrollController,
+                      itemPositionsListener: _itemPositionsListener,
+                      onVerseTap: (v, {book, chapter}) =>
+                          _controller.toggleVerseSelection(v, book: book, chapter: chapter),
+                      onCopy: _copySelectedVerses,
+                      onShare: _shareSelectedVerses,
+                      onBookmark: _bookmarkSelectedVerses,
+                      onClear: _controller.clearSelection,
+                      onOpenStudyPage: _openVerseStudyScreen,
+                      onPushManager: _pushManager,
+                      onRedownloadDefault: _controller.redownloadDefault,
+                    ),
+                  ),
+                  if (s.selectedVerses.isEmpty)
+                    BibleBottomNav(
+                      controller: _controller,
+                      onShowBookChapterSelector: _showBookChapterSelector,
+                      onCopy: _copySelectedVerses,
+                      onShare: _shareSelectedVerses,
+                      onBookmark: _bookmarkSelectedVerses,
+                      onHighlight: _highlightSelectedVerses,
+                      onNote: _openNoteEditor,
+                      onClear: _controller.clearSelection,
+                      onStudy: null,
+                      studyContent: null,
+                    ),
+                ],
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              top: s.selectedVerses.isNotEmpty ? 0 : null,
-              child: BibleBottomNav(
-                controller: _controller,
-                onShowBookChapterSelector: _showBookChapterSelector,
-                onCopy: _copySelectedVerses,
-                onShare: _shareSelectedVerses,
-                onBookmark: _bookmarkSelectedVerses,
-                onHighlight: _highlightSelectedVerses,
-                onNote: _openNoteEditor,
-                onClear: _controller.clearSelection,
-                onStudy: s.selectedVerses.isNotEmpty
-                    ? () => _openVerseStudyScreen(
-                          s.selectedVerses.first,
-                          book: s.selectedBook,
-                          chapter: s.selectedChapter,
-                        )
-                    : null,
-                studyContent: s.selectedVerses.isNotEmpty
-                    ? _buildEmbeddedStudyContent(s.selectedVerses.first)
-                    : null,
+            if (s.selectedVerses.isNotEmpty)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: BibleBottomNav(
+                  controller: _controller,
+                  onShowBookChapterSelector: _showBookChapterSelector,
+                  onCopy: _copySelectedVerses,
+                  onShare: _shareSelectedVerses,
+                  onBookmark: _bookmarkSelectedVerses,
+                  onHighlight: _highlightSelectedVerses,
+                  onNote: _openNoteEditor,
+                  onClear: _controller.clearSelection,
+                  onStudy: () => _openVerseStudyScreen(
+                    s.selectedVerses.first,
+                    book: s.selectedBook,
+                    chapter: s.selectedChapter,
+                  ),
+                  studyContent: _buildEmbeddedStudyContent(s.selectedVerses.first),
+                ),
               ),
-            ),
           ],
         ),
       ),

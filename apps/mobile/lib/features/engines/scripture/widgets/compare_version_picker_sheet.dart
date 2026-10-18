@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/layout/adaptive_sheet_frame.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../services/bible_download_manager.dart';
 
@@ -25,27 +26,14 @@ class CompareVersionPickerSheet extends StatelessWidget {
         .where((v) => installedIds.contains(v.id) && v.id != activeVersionId)
         .toList();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+    return AdaptiveSheetFrame(
+      maxHeightFactor: 0.70,
+      showDragHandle: true,
+      contentPadding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: tokens.onSurfaceDisabled,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

@@ -35,26 +35,26 @@ class WftwShelf extends StatelessWidget {
           icon: icon,
           onViewAll: onViewAll,
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: entries.map((entry) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: SizedBox(
-                    width: 210,
-                    child: _WftwShelfTile(
-                      entry: entry,
-                      tokens: tokens,
-                      onTap: () => onTapArticle(entry),
-                    ),
+        SizedBox(
+          height: 124.0 + (MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 2.0) - 1.0) * 40,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: entries.length,
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: SizedBox(
+                  width: 210,
+                  child: _WftwShelfTile(
+                    entry: entry,
+                    tokens: tokens,
+                    onTap: () => onTapArticle(entry),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -88,6 +88,7 @@ class _WftwShelfTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
@@ -104,22 +105,27 @@ class _WftwShelfTile extends StatelessWidget {
                   Icon(Icons.arrow_outward_rounded, color: tokens.onSurfaceMuted, size: 16),
                 ],
               ),
-              const Spacer(),
-              Text(
-                entry.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: tokens.onSurface,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                formatWftwDate(entry.date),
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    entry.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tokens.onSurface,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formatWftwDate(entry.date),
+                    style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
+                  ),
+                ],
               ),
             ],
           ),

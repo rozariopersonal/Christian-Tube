@@ -48,6 +48,8 @@ abstract class BaseFeedEngine<T, F extends BaseFeedFilterState> {
     bool isActive,
     GlobalKey repaintBoundaryKey, {
     ValueChanged<int>? onEdgePageShift,
+    ValueChanged<F>? onFilterChanged,
+    VoidCallback? onRefreshCard,
   });
 
   /// Builds the Right Side Action Column slot (e.g., Share, Style, Copy, Bookmark).

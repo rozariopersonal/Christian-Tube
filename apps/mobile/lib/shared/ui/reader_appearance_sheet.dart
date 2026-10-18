@@ -33,93 +33,121 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
     return SafeArea(
       top: false,
       bottom: true,
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOutCubic,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            transitionBuilder: (child, animation) {
-              final inFromRight = child.key == const ValueKey('level2');
-              final offset = inFromRight
-                  ? Tween<Offset>(begin: const Offset(0.2, 0), end: Offset.zero)
-                  : Tween<Offset>(begin: const Offset(-0.2, 0), end: Offset.zero);
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(position: offset.animate(animation), child: child),
-              );
-            },
-            child: flowState.isDrillDown
-                ? SizedBox(
-                    key: const ValueKey('level2'),
-                    height: level2Height,
-                    child: FontBrowserView(
-                      appearance: appearance,
-                      onBack: () => setModalState(() => flowState.isDrillDown = false),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Anchored drag handle for compact screens (static across drill-down transitions)
+            if (screen.isCompact) ...[
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: borderCol,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment.topCenter,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                layoutBuilder: (currentChild, previousChildren) => Stack(
+                  alignment: Alignment.topCenter,
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                ),
+                transitionBuilder: (child, animation) {
+                  final isLevel2 = child.key == const ValueKey('level2');
+                  final inFromRight = flowState.isDrillDown ? isLevel2 : !isLevel2;
+                  final offset = inFromRight
+                      ? Tween<Offset>(begin: const Offset(0.12, 0), end: Offset.zero)
+                      : Tween<Offset>(begin: const Offset(-0.12, 0), end: Offset.zero);
+                  return FadeTransition(
+                    opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+                    child: SlideTransition(
+                      position: offset.animate(
+                        CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+                      ),
+                      child: child,
                     ),
-                  )
-                : SingleChildScrollView(
-                    key: const ValueKey('level1'),
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (screen.isCompact) ...[
-                          Center(
-                            child: Container(
-                              width: 40,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: borderCol,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  );
+                },
+                child: flowState.isDrillDown
+                    ? SizedBox(
+                        key: const ValueKey('level2'),
+                        height: level2Height,
+                        child: FontBrowserView(
+                          appearance: appearance,
+                          onBack: () => setModalState(() => flowState.isDrillDown = false),
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        key: const ValueKey('level1'),
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Reading Appearance',
-                              style: TextStyle(
-                                color: textCol,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'Reading Appearance',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: textCol,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                                if (!screen.isCompact)
+                                  IconButton(
+                                    icon: Icon(Icons.close, size: 20, color: mutedCol),
+                                    onPressed: () => Navigator.of(ctx).pop(),
+                                  ),
+                              ],
                             ),
-                            if (!screen.isCompact)
-                              IconButton(
-                                icon: Icon(Icons.close, size: 20, color: mutedCol),
-                                onPressed: () => Navigator.of(ctx).pop(),
-                              ),
+                            const SizedBox(height: 16),
+
+                            // Formatting Bar: [ B ] [ I ] [ U ]
+                            TextFormattingBar(appearance: appearance),
+                            const SizedBox(height: 16),
+
+                            // Font Family Tile (Level 1 Drill-Down Trigger)
+                            FontFamilyTile(
+                              appearance: appearance,
+                              onTap: () => setModalState(() => flowState.isDrillDown = true),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Font Size Stepper + Slider
+                            FontSizeStepperSlider(appearance: appearance),
+                            const SizedBox(height: 16),
+
+                            // Line Spacing Selector (Tight, Standard, Relaxed)
+                            LineSpacingSelector(appearance: appearance),
                           ],
                         ),
-                        const SizedBox(height: 16),
-
-                        // Formatting Bar: [ B ] [ I ] [ U ]
-                        TextFormattingBar(appearance: appearance),
-                        const SizedBox(height: 18),
-
-                        // Font Family Tile (Level 1 Drill-Down Trigger)
-                        FontFamilyTile(
-                          appearance: appearance,
-                          onTap: () => setModalState(() => flowState.isDrillDown = true),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Font Size Stepper + Slider
-                        FontSizeStepperSlider(appearance: appearance),
-                        const SizedBox(height: 18),
-
-                        // Line Spacing Selector (Tight, Standard, Relaxed)
-                        LineSpacingSelector(appearance: appearance),
-                      ],
-                    ),
-                  ),
-          ),
+                      ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -151,17 +179,23 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
   } else {
     showDialog<void>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: sheetBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: StatefulBuilder(
-            builder: (context, setModalState) => buildSheetContent(ctx, setModalState, flowState),
+      builder: (ctx) {
+        final screenHeight = MediaQuery.sizeOf(ctx).height;
+        return Dialog(
+          backgroundColor: sheetBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 520,
+              maxHeight: math.min(screenHeight * 0.88, 620.0),
+            ),
+            child: StatefulBuilder(
+              builder: (context, setModalState) => buildSheetContent(ctx, setModalState, flowState),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

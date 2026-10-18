@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../dictionary/widgets/inline_dictionary_popover.dart';
+import '../../dictionary/widgets/glossary_entry_sheet.dart';
 
 /// Builds the reader's text-selection toolbar (Highlight / Define / Copy).
 ///
@@ -43,7 +43,7 @@ Widget buildReaderSelectionToolbar(
               .where((w) => w.isNotEmpty)
               .toList();
           final lookupWord = words.isNotEmpty ? words.first : selectedText;
-          InlineDictionaryPopover.show(context, word: lookupWord);
+          GlossaryEntrySheet.show(context, word: lookupWord);
         },
       ),
       ContextMenuButtonItem(

@@ -10,7 +10,7 @@ import 'package:mobile/features/bible/services/bible_passage_navigator.dart';
 import 'package:mobile/features/engines/scripture/services/bible_download_manager.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
-import 'package:mobile/features/engines/scripture/widgets/bible_version_picker_modal.dart';
+import 'package:mobile/shared/ui/bible_version_pill.dart';
 import 'package:mobile/features/micro_feed/widgets/card_action_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
@@ -143,52 +143,17 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          // 1. Version Picker Pill
-          GestureDetector(
-            onTap: () {
-              showAdaptiveBottomSheet(
-                context: context,
-                backgroundColor: Colors.transparent,
-                isScrollControlled: true,
-                builder: (ctx) => BibleVersionPickerModal(
-                  activeVersionId: filterState.activeVersionId,
-                  onSelectVersion: (newVersionId) {
-                    final newState =
-                        filterState.copyWith(activeVersionId: newVersionId);
-                    _cachedFilterState = newState;
-                    onFilterChanged(newState);
-                  },
-                  onOpenManager: onOpenManager,
-                ),
-              );
+          // 1. Version Picker Pill (Accent-themed and Frosted)
+          BibleVersionPill(
+            activeVersionId: filterState.activeVersionId,
+            isFrosted: true,
+            onOpenManager: onOpenManager,
+            onSelectVersion: (newVersionId) {
+              final newState =
+                  filterState.copyWith(activeVersionId: newVersionId);
+              _cachedFilterState = newState;
+              onFilterChanged(newState);
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                color: tokens.scrim.withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: tokens.surfaceBorder, width: 1.0),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    filterState.activeVersionId,
-                    style: TextStyle(
-                      color: onScrim,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 16,
-                    color: onScrimMuted,
-                  ),
-                ],
-              ),
-            ),
           ),
           const Spacer(),
 
@@ -256,6 +221,8 @@ class WftwFeedEngine implements BaseFeedEngine<WftwCard, WftwFilterState> {
     bool isActive,
     GlobalKey repaintBoundaryKey, {
     ValueChanged<int>? onEdgePageShift,
+    ValueChanged<WftwFilterState>? onFilterChanged,
+    VoidCallback? onRefreshCard,
   }) {
     return WftwCardView(
       key: ValueKey(

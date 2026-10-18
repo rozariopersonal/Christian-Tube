@@ -5,6 +5,7 @@ import '../models/scripture_theme_state.dart';
 import 'local_bible_service.dart';
 import 'offline_feed_database.dart';
 import 'remote_bible_api_service.dart';
+import 'saved_scripture_service.dart';
 
 class ScriptureService {
   static final ScriptureService _instance = ScriptureService._internal();
@@ -44,8 +45,42 @@ class ScriptureService {
     String? category,
     String? bookFilter,
     String? testamentFilter,
+    List<String>? categories,
+    List<String>? tags,
+    String order = 'random',
   }) async {
     try {
+      if (order == 'bookmarked') {
+        await SavedScriptureService().initialize();
+        var saved = SavedScriptureService().getSavedCards();
+        if (bookFilter != null && bookFilter.isNotEmpty && bookFilter != 'All Books') {
+          saved = saved.where((c) => c.bookName == bookFilter).toList();
+        }
+        if (testamentFilter != null && testamentFilter.isNotEmpty && testamentFilter != 'All') {
+          if (testamentFilter == 'Old Testament') {
+            saved = saved.where((c) => c.bookNumber <= 39).toList();
+          } else if (testamentFilter == 'New Testament') {
+            saved = saved.where((c) => c.bookNumber >= 40).toList();
+          }
+        }
+        final hasCats = categories != null && categories.isNotEmpty;
+        final hasTags = tags != null && tags.isNotEmpty;
+        if (hasCats && hasTags) {
+          saved = saved.where((c) => categories.contains(c.category) || c.tags.any((t) => tags.contains(t))).toList();
+        } else if (hasCats) {
+          saved = saved.where((c) => categories.contains(c.category)).toList();
+        } else if (hasTags) {
+          saved = saved.where((c) => c.tags.any((t) => tags.contains(t))).toList();
+        }
+        final start = page * limit;
+        if (start >= saved.length) return [];
+        final pageCards = saved.skip(start).take(limit).toList();
+        for (final card in pageCards) {
+          await resolveCardText(card, activeVersionId);
+        }
+        return pageCards;
+      }
+
       // Exclude already-served cards (bounded window) so infinite-scroll pages
       // never repeat verses until the deck is intentionally reset.
       final seenIds = _cachedDeck.length > 800
@@ -56,10 +91,16 @@ class ScriptureService {
               .toSet()
           : _cachedDeck.map((c) => c.id).whereType<String>().toSet();
 
+      final effectiveCategories = categories ?? (category != null ? [category] : null);
+
       final items = await _offlineDb.getRandomItems(
         limit,
+        offset: page * limit,
         bookFilter: bookFilter,
         testamentFilter: testamentFilter,
+        categoryFilter: effectiveCategories,
+        tagFilter: tags,
+        order: order,
         excludeIds: seenIds.toList(),
       );
 
@@ -135,10 +176,9 @@ class ScriptureService {
     );
     if (localText != null) return localText;
 
-    // 2. If requesting WEB (or matched resolved version), return known text
-    if (versionId.toUpperCase() == 'WEB' ||
-        (card.resolvedVersion != null &&
-            card.resolvedVersion!.toUpperCase() == versionId.toUpperCase())) {
+    // 2. If card's already resolved text matches the requested version, return it
+    if (card.resolvedVersion != null &&
+        card.resolvedVersion!.toUpperCase() == versionId.toUpperCase()) {
       return card.resolvedText;
     }
 
@@ -149,9 +189,12 @@ class ScriptureService {
     final originalDbText = card.resolvedText;
     final text = await _fetchTextForVersion(card, versionId);
 
-    card.resolvedText = text ?? originalDbText;
-    card.resolvedVersion =
-        text != null ? versionId : (originalDbText != null ? card.resolvedVersion : null);
+    if (text != null && text.isNotEmpty) {
+      card.resolvedText = text;
+      card.resolvedVersion = versionId;
+    } else if (card.resolvedVersion == null && originalDbText != null) {
+      card.resolvedText = originalDbText;
+    }
   }
 
   Future<String?> _fetchTextForVersion(ScriptureCard card, String versionId) async {
