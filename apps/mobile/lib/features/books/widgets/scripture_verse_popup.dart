@@ -11,6 +11,7 @@ import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
 import '../../bible/models/bible_reference.dart';
 import '../../bible/services/bible_passage_navigator.dart';
+import '../../../../shared/ui/bible_version_pill.dart';
 
 /// Modal popover or dialog displaying verse text when an inline scripture
 /// reference is tapped inside a book.
@@ -254,18 +255,6 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
     return null;
   }
 
-  /// All catalog versions, installed ones first, then grouped by language.
-  List<BibleVersionMeta> get _versionOptions {
-    final installed = _installedIds.toSet();
-    final sorted = [...BibleDownloadManager.catalog]..sort((a, b) {
-        final installedA = installed.contains(a.id) ? 0 : 1;
-        final installedB = installed.contains(b.id) ? 0 : 1;
-        if (installedA != installedB) return installedA - installedB;
-        return a.language.compareTo(b.language);
-      });
-    return sorted;
-  }
-
   void _openInBible() {
     Navigator.of(context).pop();
     BiblePassageNavigator.instance.navigateTo(
@@ -333,71 +322,13 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    PopupMenuButton<String>(
-                      onSelected: _reload,
-                      tooltip: 'Choose translation',
-                      position: PopupMenuPosition.over,
-                      itemBuilder: (context) => [
-                        for (final meta in _versionOptions)
-                          PopupMenuItem<String>(
-                            value: meta.id,
-                            height: 44,
-                            child: Row(
-                              children: [
-                                if (_versionName == meta.id)
-                                  Icon(Icons.check,
-                                      size: 16, color: tokens.accent)
-                                else
-                                  const SizedBox(width: 16),
-                                if (_installedIds.contains(meta.id))
-                                  Icon(Icons.download_done_rounded,
-                                      size: 14, color: tokens.onSurfaceMuted)
-                                else
-                                  const SizedBox(width: 14),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    meta.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: _versionName == meta.id
-                                          ? tokens.accent
-                                          : tokens.onSurface,
-                                      fontSize: 13.5,
-                                      fontWeight: _versionName == meta.id
-                                          ? FontWeight.bold
-                                          : FontWeight.w400,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 130),
-                            child: Text(
-                              _versionName.isEmpty ? 'Select version' : _versionName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: tokens.onSurfaceMuted,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          Icon(
-                            Icons.arrow_drop_down_rounded,
-                            size: 18,
-                            color: tokens.onSurfaceMuted,
-                          ),
-                        ],
-                      ),
+                    const SizedBox(height: 4),
+                    BibleVersionPill(
+                      activeVersionId: _versionName.isEmpty ? 'BSB' : _versionName,
+                      onSelectVersion: _reload,
+                      showLeadingIcon: false,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                      fontSize: 11.5,
                     ),
                   ],
                 ),

@@ -15,7 +15,7 @@ import 'services/online_bible_service.dart';
 import 'services/saved_scripture_service.dart';
 import 'services/scripture_image_exporter.dart';
 import 'services/scripture_service.dart';
-import 'widgets/bible_version_picker_modal.dart';
+import '../../../shared/ui/bible_version_pill.dart';
 import 'widgets/scripture_card_view.dart';
 import 'widgets/verse_action_appearance_sheet.dart';
 import 'widgets/scripture_filter_settings_sheet.dart';
@@ -257,76 +257,19 @@ class ScriptureEngine
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // 1. Version Picker Pill (Theme-aware & Frosted)
-        GestureDetector(
-          onTap: () {
-            showAdaptiveBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              isScrollControlled: true,
-              builder: (ctx) => BibleVersionPickerModal(
-                activeVersionId: filterState.activeVersionId,
-                onSelectVersion: (newVersionId) async {
-                  final newState = await loadFilterStateForVersion(
-                    newVersionId,
-                    baseState: filterState,
-                  );
-                  await _savePreferences(newState);
-                  onFilterChanged(newState);
-                },
-                onOpenManager: onOpenManager,
-              ),
+        // 1. Version Picker Pill (Theme-aware, Frosted, and Accent-themed)
+        BibleVersionPill(
+          activeVersionId: filterState.activeVersionId,
+          isFrosted: true,
+          onOpenManager: onOpenManager,
+          onSelectVersion: (newVersionId) async {
+            final newState = await loadFilterStateForVersion(
+              newVersionId,
+              baseState: filterState,
             );
+            await _savePreferences(newState);
+            onFilterChanged(newState);
           },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(
-                  color: pillBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: tokens.surfaceBorder,
-                    width: 1.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: context.shortsChromeShadow
-                          .withValues(alpha: isDark ? 0.3 : 0.08),
-                      blurRadius: 6,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.menu_book_rounded,
-                      size: 15,
-                      color: tokens.accent,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      filterState.activeVersionId,
-                      style: TextStyle(
-                        color: context.shortsChromeFg,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 16,
-                      color: context.shortsChromeFgMuted,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ),
 
         // 2. Right Controls Cluster: Font Size Stepper Pill + Settings & Filter Button
