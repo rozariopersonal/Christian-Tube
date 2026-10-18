@@ -209,6 +209,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
 
           switch (navMode) {
             case AppNavMode.bottomBar:
+              final isBiblePage = currentPath.startsWith('/bible');
+              final isHidden = isBiblePage && service.isBibleNavHidden;
               return Scaffold(
                 body: Stack(
                   fit: StackFit.expand,
@@ -221,6 +223,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
                   isDark,
                   selectedIndex,
                   isAudioPage: isAudioPage,
+                  isHidden: isHidden,
                 ),
               );
             case AppNavMode.rail:
