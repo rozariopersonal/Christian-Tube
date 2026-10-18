@@ -685,14 +685,19 @@ class _BibleScreenState extends State<BibleScreen> {
     final tokens = context.tokens;
     final appearance = _controller.appearance;
     return ListenableBuilder(
-      listenable: appearance,
+      listenable: Listenable.merge([appearance, BottomBarVisibilityService.instance]),
       builder: (context, _) {
+        final isNavHidden = BottomBarVisibilityService.instance.isBibleNavHidden;
         return PopScope(
-          canPop: s.selectedVerses.isEmpty,
+          canPop: s.selectedVerses.isEmpty && !isNavHidden,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             if (s.selectedVerses.isNotEmpty) {
               _controller.clearSelection();
+              return;
+            }
+            if (BottomBarVisibilityService.instance.isBibleNavHidden) {
+              BottomBarVisibilityService.instance.showBibleNav();
               return;
             }
           },
