@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../core/layout/content_width.dart';
@@ -11,7 +10,6 @@ import '../services/bible_chapter_stream.dart';
 import '../widgets/verse_item.dart';
 import '../controllers/bible_controller.dart';
 import '../../../shared/services/reader_appearance.dart';
-import '../../../core/services/bottom_bar_visibility_service.dart';
 
 class BibleContent extends StatelessWidget {
   const BibleContent({
@@ -64,14 +62,6 @@ class BibleContent extends StatelessWidget {
             SystemChannels.textInput.invokeMethod('TextInput.hide');
             // Selection persists across scrolls and is never auto-cleared.
           }
-          if ((notification is UserScrollNotification &&
-                  notification.direction != ScrollDirection.idle) ||
-              (notification is ScrollUpdateNotification &&
-                  notification.dragDetails != null &&
-                  notification.scrollDelta != null &&
-                  notification.scrollDelta!.abs() > 2)) {
-            BottomBarVisibilityService.instance.hideBibleNav();
-          }
           return false;
         },
         child: ScrollablePositionedList.builder(
@@ -79,7 +69,7 @@ class BibleContent extends StatelessWidget {
           itemPositionsListener: itemPositionsListener,
           itemCount: itemCount,
           minCacheExtent: 300,
-          padding: const EdgeInsets.only(top: 16, bottom: 128),
+          padding: const EdgeInsets.only(top: 16, bottom: 24),
           itemBuilder: (context, index) {
               if (index < 0 || index >= itemCount) return const SizedBox.shrink();
               if (!isWholeBible) {
