@@ -1,10 +1,13 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/core/services/bottom_bar_visibility_service.dart';
 import 'package:mobile/features/bible/controllers/bible_controller.dart';
+import 'package:mobile/features/bible/widgets/bible_bottom_nav.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
 
@@ -130,29 +133,127 @@ void main() {
       expect(controller.state.selectedChapter, isNull);
     });
 
-    test('PopScope logic respects isBibleNavHidden and selection state', () {
-      final service = BottomBarVisibilityService.instance;
-      service.resetBibleNav();
-      expect(service.isBibleNavHidden, isFalse);
-
-      // Selection state and isBibleNavHidden drive canPop:
-      bool canPop(Set<int> selectedVerses, bool isNavHidden) {
-        return selectedVerses.isEmpty && !isNavHidden;
+    test('PopScope logic respects selection state', () {
+      // Selection state drives canPop directly since nav is always visible:
+      bool canPop(Set<int> selectedVerses) {
+        return selectedVerses.isEmpty;
       }
 
       // Default: canPop is true
-      expect(canPop({}, service.isBibleNavHidden), isTrue);
+      expect(canPop({}), isTrue);
 
-      // When scrolled, nav hides: canPop is false
-      service.hideBibleNav();
-      expect(canPop({}, service.isBibleNavHidden), isFalse);
+      // When verses are selected: canPop is false (first back clears selection)
+      expect(canPop({1, 2}), isFalse);
 
-      // First back calls showBibleNav:
-      service.showBibleNav();
-      expect(service.isBibleNavHidden, isFalse);
+      // Once selection is cleared: canPop is true
+      expect(canPop({}), isTrue);
+    });
 
-      // Now canPop is true: second back navigates to previous
-      expect(canPop({}, service.isBibleNavHidden), isTrue);
+    testWidgets('BibleBottomNav renders as floating rounded bar with accent color and onPrimary foreground', (tester) async {
+      final controller = BibleController(
+        initialVersionId: 'WEB',
+        initialBook: 'John',
+        initialChapter: 3,
+        initialVerse: null,
+        saveProgress: false,
+      );
+      await tester.runAsync(() async {
+        await controller.init();
+      });
+
+      const testAccent = Color(0xFF6366F1);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: testAccent, primary: testAccent),
+            extensions: [AppTokens.light.copyWith(accent: testAccent)],
+          ),
+          home: Scaffold(
+            body: BibleBottomNav(
+              controller: controller,
+              onShowBookChapterSelector: () {},
+              onCopy: () {},
+              onShare: () {},
+              onBookmark: () {},
+              onHighlight: () {},
+              onNote: () {},
+              onClear: () {},
+              onStudy: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Find the floating rounded pill container
+      final containerFinder = find.byWidgetPredicate((widget) {
+        if (widget is Container && widget.decoration is BoxDecoration) {
+          final dec = widget.decoration as BoxDecoration;
+          return dec.color == testAccent && dec.borderRadius == BorderRadius.circular(24);
+        }
+        return false;
+      });
+      expect(containerFinder, findsOneWidget);
+
+      // Verify book and chapter label is present
+      expect(find.text('John 3'), findsOneWidget);
+
+      // Verify previous and next chapter buttons
+      expect(find.bySemanticsLabel('Previous chapter'), findsOneWidget);
+      expect(find.bySemanticsLabel('Next chapter'), findsOneWidget);
+    });
+
+    testWidgets('BibleBottomNav renders without overflow across 320, 600, 840, 1400dp viewports', (tester) async {
+      final controller = BibleController(
+        initialVersionId: 'WEB',
+        initialBook: 'John',
+        initialChapter: 3,
+        initialVerse: null,
+        saveProgress: false,
+      );
+      await tester.runAsync(() async {
+        await controller.init();
+      });
+
+      for (final width in [320.0, 600.0, 840.0, 1400.0]) {
+        tester.view.physicalSize = Size(width * 2, 800 * 2);
+        tester.view.devicePixelRatio = 2.0;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData.dark().copyWith(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFFF59E0B),
+                primary: const Color(0xFFF59E0B),
+                brightness: Brightness.dark,
+              ),
+              extensions: const [AppTokens.dark],
+            ),
+            home: Scaffold(
+              body: BibleBottomNav(
+                controller: controller,
+                onShowBookChapterSelector: () {},
+                onCopy: () {},
+                onShare: () {},
+                onBookmark: () {},
+                onHighlight: () {},
+                onNote: () {},
+                onClear: () {},
+                onStudy: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull, reason: 'Overflow occurred at $width dp');
+        expect(find.text('John 3'), findsOneWidget);
+      }
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
     });
   });
 }
