@@ -400,5 +400,84 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
+
+    testWidgets('drag cancellation properly resets drag state and restores height without freezing or hanging', (tester) async {
+      tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      bool cleared = false;
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseActionBar(
+            selectedCount: 1,
+            verseLabel: 'John 3:16',
+            onCopy: () {},
+            onShare: () {},
+            onBookmark: () {},
+            onHighlight: () {},
+            onNote: () {},
+            onClear: () => cleared = true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Start drag downward on the header, move slightly, then cancel
+      final gesture = await tester.startGesture(const Offset(180, 300));
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+
+      // Did not trigger onClear, and did not freeze: sheet is still active and interactive
+      expect(cleared, isFalse);
+      expect(find.byType(VerseActionBar), findsOneWidget);
+      expect(find.text('John 3:16'), findsOneWidget);
+
+      // Verify it is still responsive: tap close button dismisses cleanly
+      await tester.tap(find.byKey(VerseActionBar.closeButtonKey));
+      await tester.pumpAndSettle();
+      expect(cleared, isTrue);
+    });
+
+    testWidgets('dragging down on dedicated top drag handle smoothly dismisses sheet', (tester) async {
+      tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      bool cleared = false;
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseActionBar(
+            selectedCount: 1,
+            verseLabel: 'John 3:16',
+            onCopy: () {},
+            onShare: () {},
+            onBookmark: () {},
+            onHighlight: () {},
+            onNote: () {},
+            onClear: () => cleared = true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Drag downward starting on top drag handle / header
+      final closeBtn = find.byKey(VerseActionBar.closeButtonKey);
+      final headerCenter = tester.getCenter(closeBtn);
+      await tester.dragFrom(Offset(headerCenter.dx - 40, headerCenter.dy), const Offset(0, 250));
+      await tester.pumpAndSettle();
+
+      expect(cleared, isTrue);
+    });
   });
 }
