@@ -267,5 +267,80 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
     });
+
+    testWidgets('Bottom bar slides down without resizing body on scroll in bible reader', (tester) async {
+      final service = BottomBarVisibilityService.instance;
+      service.resetBibleNav();
+
+      double bodyHeight = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [AppTokens.light],
+          ),
+          home: Scaffold(
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    bodyHeight = constraints.maxHeight;
+                    return const SizedBox.expand();
+                  },
+                ),
+              ],
+            ),
+            bottomNavigationBar: ListenableBuilder(
+              listenable: service,
+              builder: (context, _) {
+                final isHidden = service.isBibleNavHidden;
+                const barHeight = 60.0;
+                return SizedBox(
+                  height: barHeight,
+                  child: ClipRect(
+                    child: AnimatedSlide(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.fastOutSlowIn,
+                      offset: isHidden ? const Offset(0, 1) : Offset.zero,
+                      child: IgnorePointer(
+                        ignoring: isHidden,
+                        child: Container(height: barHeight, color: Colors.blue),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialHeight = bodyHeight;
+      expect(initialHeight, greaterThan(0));
+
+      // Scroll triggers hideBibleNav:
+      service.hideBibleNav();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Body height must remain 100% constant (no body resize, no navigator push-down):
+      expect(bodyHeight, equals(initialHeight));
+
+      // The slide offset animates to Offset(0, 1):
+      final animatedSlideFinder = find.byType(AnimatedSlide);
+      expect(animatedSlideFinder, findsOneWidget);
+      final slideWidget = tester.widget<AnimatedSlide>(animatedSlideFinder);
+      expect(slideWidget.offset, equals(const Offset(0, 1)));
+
+      // Restoring tab bar:
+      service.showBibleNav();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(bodyHeight, equals(initialHeight));
+      final restoredSlide = tester.widget<AnimatedSlide>(animatedSlideFinder);
+      expect(restoredSlide.offset, equals(Offset.zero));
+    });
   });
 }
+
