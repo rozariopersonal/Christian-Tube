@@ -204,6 +204,154 @@ void main() {
       expect(cleared, isFalse);
     });
 
+    testWidgets('dragging upward on expanded sheet expands to Level 2 (study mode)', (tester) async {
+      tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseActionBar(
+            selectedCount: 1,
+            verseLabel: 'John 3:16',
+            onCopy: () {},
+            onShare: () {},
+            onBookmark: () {},
+            onHighlight: () {},
+            onNote: () {},
+            onClear: () {},
+            studyContent: const Center(child: Text('Custom Study Hub View')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Custom Study Hub View'), findsNothing);
+
+      // Drag upward on the study prompt card
+      await tester.drag(find.text('Open Verse Study'), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      // Expanded to study mode
+      expect(find.text('Custom Study Hub View'), findsOneWidget);
+      expect(find.text('Study · John 3:16'), findsOneWidget);
+    });
+
+    testWidgets('dragging downward on expanded sheet dismisses sheet and triggers onClear', (tester) async {
+      tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      bool cleared = false;
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseActionBar(
+            selectedCount: 1,
+            verseLabel: 'John 3:16',
+            onCopy: () {},
+            onShare: () {},
+            onBookmark: () {},
+            onHighlight: () {},
+            onNote: () {},
+            onClear: () => cleared = true,
+            studyContent: const Center(child: Text('Custom Study Hub View')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Drag downward on the header
+      await tester.drag(find.text('John 3:16'), const Offset(0, 300));
+      await tester.pumpAndSettle();
+
+      expect(cleared, isTrue);
+    });
+
+    testWidgets('dragging downward on study header collapses back to expanded stage', (tester) async {
+      tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseActionBar(
+            selectedCount: 1,
+            verseLabel: 'John 3:16',
+            onCopy: () {},
+            onShare: () {},
+            onBookmark: () {},
+            onHighlight: () {},
+            onNote: () {},
+            onClear: () {},
+            studyContent: const Center(child: Text('Custom Study Hub View')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap to open study stage
+      await tester.tap(find.byKey(VerseActionBar.studyPromptKey));
+      await tester.pumpAndSettle();
+      expect(find.text('Custom Study Hub View'), findsOneWidget);
+
+      // Drag downward on the study header
+      await tester.drag(find.text('Study · John 3:16'), const Offset(0, 350));
+      await tester.pumpAndSettle();
+
+      // Collapsed back to expanded stage
+      expect(find.text('Custom Study Hub View'), findsNothing);
+      expect(find.text('Bookmark'), findsOneWidget);
+    });
+
+    testWidgets('tapping close [X] in study stage triggers onClear dismissal', (tester) async {
+      tester.view.physicalSize = const Size(360 * 2, 640 * 2);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      bool cleared = false;
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          VerseActionBar(
+            selectedCount: 1,
+            verseLabel: 'John 3:16',
+            onCopy: () {},
+            onShare: () {},
+            onBookmark: () {},
+            onHighlight: () {},
+            onNote: () {},
+            onClear: () => cleared = true,
+            studyContent: const Center(child: Text('Custom Study Hub View')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap to open study stage
+      await tester.tap(find.byKey(VerseActionBar.studyPromptKey));
+      await tester.pumpAndSettle();
+      expect(find.text('Custom Study Hub View'), findsOneWidget);
+
+      // Tap close [X] button in study header
+      await tester.tap(find.byKey(VerseActionBar.closeButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(cleared, isTrue);
+    });
+
     testWidgets('renders without overflow at 320dp width and in phone landscape (640x360)', (tester) async {
       // 1. Compact portrait 320dp width
       tester.view.physicalSize = const Size(320 * 2, 640 * 2);

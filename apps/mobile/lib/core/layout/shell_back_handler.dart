@@ -19,7 +19,29 @@ class ShellBackHandler extends StatelessWidget {
 
   const ShellBackHandler({super.key, required this.path, required this.child});
 
+  static final List<bool Function()> _interceptors = [];
+
+  /// Registers an active in-shell back interceptor (e.g. for sheets, selection, modals).
+  ///
+  /// Interceptors are called in reverse order (most recently registered first).
+  /// If an interceptor returns `true`, the back event is considered handled and
+  /// back processing terminates immediately.
+  static VoidCallback registerInterceptor(bool Function() interceptor) {
+    _interceptors.add(interceptor);
+    return () => _interceptors.remove(interceptor);
+  }
+
+  @visibleForTesting
+  static void resetInterceptors() => _interceptors.clear();
+
   void _handleBack(BuildContext context) {
+    // 0. Active in-shell overlays / dialogs / sheets (AGENTS.md Hierarchy step 1)
+    for (final interceptor in _interceptors.reversed.toList()) {
+      if (interceptor()) {
+        return;
+      }
+    }
+
     // 1. If an inner route can pop on the active navigator, pop it first.
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();

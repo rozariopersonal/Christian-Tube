@@ -24,6 +24,7 @@ import '../services/bible_passage_navigator.dart';
 import '../widgets/bible_app_bar.dart';
 import '../widgets/bible_content.dart';
 import '../widgets/bible_bottom_nav.dart';
+import '../widgets/verse_action_bar.dart';
 import '../../../core/services/bottom_bar_visibility_service.dart';
 
 class BibleScreen extends StatefulWidget {
@@ -59,6 +60,7 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _isProgrammaticScrolling = false;
   Timer? _highlightTimer;
   Timer? _programmaticScrollTimer;
+  VerseSheetStage _sheetStage = VerseSheetStage.expanded;
 
   @override
   void initState() {
@@ -174,6 +176,9 @@ class _BibleScreenState extends State<BibleScreen> {
     if (!mounted) return;
     setState(() {});
     final s = _controller.state;
+    if (s.selectedVerses.isEmpty && _sheetStage != VerseSheetStage.expanded) {
+      _sheetStage = VerseSheetStage.expanded;
+    }
     if (s.isLoading) return;
 
     final target = _controller.consumeScrollTargetIfReady();
@@ -687,11 +692,13 @@ class _BibleScreenState extends State<BibleScreen> {
     return ListenableBuilder(
       listenable: Listenable.merge([appearance, BottomBarVisibilityService.instance]),
       builder: (context, _) {
-        final isNavHidden = BottomBarVisibilityService.instance.isBibleNavHidden;
         return PopScope(
-          canPop: s.selectedVerses.isEmpty && !isNavHidden,
+          canPop: false,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
+            if (_sheetStage == VerseSheetStage.study) {
+              return;
+            }
             if (s.selectedVerses.isNotEmpty) {
               _controller.clearSelection();
               return;
@@ -767,6 +774,11 @@ class _BibleScreenState extends State<BibleScreen> {
                     chapter: s.selectedChapter,
                   ),
                   studyContent: _buildEmbeddedStudyContent(s.selectedVerses.first),
+                  onStageChanged: (stage) {
+                    if (_sheetStage != stage) {
+                      setState(() => _sheetStage = stage);
+                    }
+                  },
                 ),
               ),
           ],
