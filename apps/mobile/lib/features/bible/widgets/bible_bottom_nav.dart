@@ -18,6 +18,7 @@ class BibleBottomNav extends StatelessWidget {
     required this.onClear,
     required this.onStudy,
     this.studyContent,
+    this.onStageChanged,
   });
 
   final BibleController controller;
@@ -30,6 +31,7 @@ class BibleBottomNav extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback? onStudy;
   final Widget? studyContent;
+  final ValueChanged<VerseSheetStage>? onStageChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +62,7 @@ class BibleBottomNav extends StatelessWidget {
         onNote: onNote,
         onClear: onClear,
         onStudy: onStudy,
+        onStageChanged: onStageChanged,
       );
     }
     return _ChapterNav(
