@@ -268,48 +268,62 @@ void main() {
       });
     });
 
-    testWidgets('Bottom bar slides down without resizing body on scroll in bible reader', (tester) async {
+    testWidgets('Bottom bar slides down and collapses to safe-area so bible navigator moves to the bottom, and expands back up when restored', (tester) async {
       final service = BottomBarVisibilityService.instance;
       service.resetBibleNav();
 
       double bodyHeight = 0;
+      const bottomInset = 34.0;
+      const tabContentHeight = 60.0;
+      const barHeight = tabContentHeight + bottomInset;
+
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(
             extensions: const [AppTokens.light],
           ),
-          home: Scaffold(
-            body: Stack(
-              fit: StackFit.expand,
-              children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    bodyHeight = constraints.maxHeight;
-                    return const SizedBox.expand();
-                  },
-                ),
-              ],
-            ),
-            bottomNavigationBar: ListenableBuilder(
-              listenable: service,
-              builder: (context, _) {
-                final isHidden = service.isBibleNavHidden;
-                const barHeight = 60.0;
-                return SizedBox(
-                  height: barHeight,
-                  child: ClipRect(
-                    child: AnimatedSlide(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.fastOutSlowIn,
-                      offset: isHidden ? const Offset(0, 1) : Offset.zero,
-                      child: IgnorePointer(
-                        ignoring: isHidden,
-                        child: Container(height: barHeight, color: Colors.blue),
+          home: MediaQuery(
+            data: const MediaQueryData(padding: EdgeInsets.only(bottom: bottomInset)),
+            child: Scaffold(
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      bodyHeight = constraints.maxHeight;
+                      return const SizedBox.expand();
+                    },
+                  ),
+                ],
+              ),
+              bottomNavigationBar: ListenableBuilder(
+                listenable: service,
+                builder: (context, _) {
+                  final isHidden = service.isBibleNavHidden;
+                  final targetHeight = isHidden ? bottomInset : barHeight;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.fastOutSlowIn,
+                    height: targetHeight,
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.topCenter,
+                        minHeight: 0,
+                        maxHeight: barHeight,
+                        child: AnimatedSlide(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.fastOutSlowIn,
+                          offset: isHidden ? const Offset(0, 1) : Offset.zero,
+                          child: IgnorePointer(
+                            ignoring: isHidden,
+                            child: Container(height: barHeight, color: Colors.blue),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -324,8 +338,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      // Body height must remain 100% constant (no body resize, no navigator push-down):
-      expect(bodyHeight, equals(initialHeight));
+      // Body expands downwards by tabContentHeight (60.0), moving the Bible navigator to the bottom:
+      expect(bodyHeight, equals(initialHeight + tabContentHeight));
 
       // The slide offset animates to Offset(0, 1):
       final animatedSlideFinder = find.byType(AnimatedSlide);
@@ -337,6 +351,8 @@ void main() {
       service.showBibleNav();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
+
+      // Body contracts back, moving the Bible navigator back up to rest above tabs:
       expect(bodyHeight, equals(initialHeight));
       final restoredSlide = tester.widget<AnimatedSlide>(animatedSlideFinder);
       expect(restoredSlide.offset, equals(Offset.zero));

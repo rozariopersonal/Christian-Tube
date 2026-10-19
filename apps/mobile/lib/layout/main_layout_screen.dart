@@ -347,16 +347,25 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
           ],
         );
 
-        return SizedBox(
-          height: barHeight,
+        final targetHeight = isHidden ? bottomPadding : barHeight;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.fastOutSlowIn,
+          height: targetHeight,
+          color: tokens.background,
           child: ClipRect(
-            child: AnimatedSlide(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.fastOutSlowIn,
-              offset: isHidden ? const Offset(0, 1) : Offset.zero,
-              child: IgnorePointer(
-                ignoring: isHidden,
-                child: barContent,
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              minHeight: 0,
+              maxHeight: barHeight,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.fastOutSlowIn,
+                offset: isHidden ? const Offset(0, 1) : Offset.zero,
+                child: IgnorePointer(
+                  ignoring: isHidden,
+                  child: barContent,
+                ),
               ),
             ),
           ),
