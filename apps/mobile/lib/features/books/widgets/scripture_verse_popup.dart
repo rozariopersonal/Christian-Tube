@@ -270,33 +270,42 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final screen = ScreenClass.of(context);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final maxSheetHeight = screen.isCompact
+        ? MediaQuery.sizeOf(context).height * 0.75
+        : 520.0;
     final bookName = _bookName.isEmpty ? BookNameService.englishNameFor(widget.bookNumber) : _bookName;
     final citation = widget.endVerse != null && widget.endVerse != widget.startVerse
         ? '$bookName ${widget.chapter}:${widget.startVerse}-${widget.endVerse}'
         : '$bookName ${widget.chapter}:${widget.startVerse}';
 
     return Container(
+      constraints: BoxConstraints(maxHeight: maxSheetHeight),
       decoration: BoxDecoration(
         color: tokens.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: screen.isCompact
+            ? const BorderRadius.vertical(top: Radius.circular(20))
+            : BorderRadius.circular(18),
       ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottomInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 14),
-              decoration: BoxDecoration(
-                color: tokens.surfaceBorder,
-                borderRadius: BorderRadius.circular(2),
+          // Drag handle (compact bottom sheet only)
+          if (screen.isCompact)
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: tokens.surfaceBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
 
           // Header
           Row(
@@ -343,45 +352,49 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
           Divider(color: tokens.surfaceBorder, height: 1),
           const SizedBox(height: 16),
 
-          // Verse Content
-          if (_isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          else if (_verseText != null && _verseText!.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: tokens.surfaceVariant.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: tokens.surfaceBorder),
-              ),
-              child: Text(
-                '“$_verseText”',
-                style: TextStyle(
-                  color: tokens.onSurface,
-                  fontSize: 15.5,
-                  height: 1.6,
-                  fontFamily: 'serif',
-                ),
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: tokens.surfaceVariant,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Could not load verse text. Tap below to read in Bible.',
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13.5),
-              ),
-            ),
-          const SizedBox(height: 18),
+          // Verse Content (Scrollable)
+          Flexible(
+            child: _isLoading
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: _verseText != null && _verseText!.isNotEmpty
+                        ? Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: tokens.surfaceVariant.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: tokens.surfaceBorder),
+                            ),
+                            child: Text(
+                              '“$_verseText”',
+                              style: TextStyle(
+                                color: tokens.onSurface,
+                                fontSize: 15.5,
+                                height: 1.6,
+                                fontFamily: 'serif',
+                              ),
+                            ),
+                          )
+                        : Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: tokens.surfaceVariant,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Could not load verse text. Tap below to read in Bible.',
+                              style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13.5),
+                            ),
+                          ),
+                  ),
+          ),
+          const SizedBox(height: 16),
 
           // Action Button
           SizedBox(
