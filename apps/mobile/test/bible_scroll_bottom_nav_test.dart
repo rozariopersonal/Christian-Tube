@@ -20,6 +20,9 @@ void main() {
     databaseFactory = databaseFactoryFfi;
     SharedPreferences.setMockInitialValues({});
     await BookNameService().ensureLoaded();
+    BookNameService().namesByVersion['taobvsi'] = {
+      '66': 'வெளிப்படுத்தின விசேஷம்',
+    };
   });
 
   setUp(() async {
@@ -52,6 +55,23 @@ void main() {
           'chapter': 4,
           'verse': v,
           'text': 'Chapter 4 Verse $v',
+        },
+    ]);
+    await service.registerInstalledVersion(
+      id: 'TAOBVSI',
+      name: 'Tamil Bible',
+      language: 'Tamil',
+      languageCode: 'ta',
+      sizeDisplay: '1 MB',
+    );
+    await service.insertVerses('TAOBVSI', [
+      for (var v = 1; v <= 5; v++)
+        {
+          'bookNumber': 66,
+          'bookName': 'Revelation',
+          'chapter': 22,
+          'verse': v,
+          'text': 'வசனம் $v',
         },
     ]);
   });
@@ -261,6 +281,58 @@ void main() {
 
         expect(tester.takeException(), isNull, reason: 'Overflow occurred at $width dp');
         expect(find.text('John 3'), findsOneWidget);
+      }
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+    });
+
+    testWidgets('BibleBottomNav renders long book titles (e.g. Tamil Revelation) without overflow across compact viewports', (tester) async {
+      final controller = BibleController(
+        initialVersionId: 'TAOBVSI',
+        initialBook: 'Revelation',
+        initialChapter: 22,
+        initialVerse: null,
+        saveProgress: false,
+      );
+      await tester.runAsync(() async {
+        await controller.init();
+      });
+
+      for (final width in [320.0, 360.0, 400.0, 600.0, 840.0]) {
+        tester.view.physicalSize = Size(width * 2, 800 * 2);
+        tester.view.devicePixelRatio = 2.0;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF6366F1),
+                primary: const Color(0xFF6366F1),
+              ),
+              extensions: const [AppTokens.light],
+            ),
+            home: Scaffold(
+              body: BibleBottomNav(
+                controller: controller,
+                onShowBookChapterSelector: () {},
+                onCopy: () {},
+                onShare: () {},
+                onBookmark: () {},
+                onHighlight: () {},
+                onNote: () {},
+                onClear: () {},
+                onStudy: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull, reason: 'Overflow occurred at $width dp with long Tamil title');
+        expect(find.text('வெளிப்படுத்தின விசேஷம் 22'), findsOneWidget);
+        expect(find.byType(FittedBox), findsWidgets);
       }
       addTearDown(() {
         tester.view.resetPhysicalSize();
