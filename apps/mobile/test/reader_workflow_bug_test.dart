@@ -100,6 +100,110 @@ void main() {
       expect(ScriptureRefParser.parse('page 5:12'), isNull);
       expect(ScriptureRefParser.parse('see table 1:4'), isNull);
       expect(ScriptureRefParser.parse('rule 3:2'), isNull);
+      expect(ScriptureRefParser.parse('Chapter 1'), isNull);
+      expect(ScriptureRefParser.parse('April 15'), isNull);
+    });
+
+    test('parses compact period citations without whitespace (Psa.73:25, Lk.5:8)', () {
+      final p1 = ScriptureRefParser.parse('Psa.73:25');
+      expect(p1, isNotNull);
+      expect(p1!.bookNumber, equals(19));
+      expect(p1.chapter, equals(73));
+      expect(p1.startVerse, equals(25));
+
+      final p2 = ScriptureRefParser.parse('Isa.6:1-5');
+      expect(p2, isNotNull);
+      expect(p2!.bookNumber, equals(23));
+      expect(p2.chapter, equals(6));
+      expect(p2.startVerse, equals(1));
+      expect(p2.endVerse, equals(5));
+
+      final p3 = ScriptureRefParser.parse('Lk.5:8');
+      expect(p3, isNotNull);
+      expect(p3!.bookNumber, equals(42));
+      expect(p3.chapter, equals(5));
+      expect(p3.startVerse, equals(8));
+
+      final p4 = ScriptureRefParser.parse('Rev.1:17');
+      expect(p4, isNotNull);
+      expect(p4!.bookNumber, equals(66));
+      expect(p4.chapter, equals(1));
+      expect(p4.startVerse, equals(17));
+
+      final p5 = ScriptureRefParser.parse('1Jn.1:9');
+      expect(p5, isNotNull);
+      expect(p5!.bookNumber, equals(62));
+      expect(p5.chapter, equals(1));
+      expect(p5.startVerse, equals(9));
+    });
+
+    test('parses Roman numerals for numbered epistles (I Cor, II Tim)', () {
+      final p1 = ScriptureRefParser.parse('I Cor 13:4-7');
+      expect(p1, isNotNull);
+      expect(p1!.bookNumber, equals(46));
+      expect(p1.chapter, equals(13));
+      expect(p1.startVerse, equals(4));
+      expect(p1.endVerse, equals(7));
+
+      final p2 = ScriptureRefParser.parse('II Tim 2:15');
+      expect(p2, isNotNull);
+      expect(p2!.bookNumber, equals(55));
+      expect(p2.chapter, equals(2));
+      expect(p2.startVerse, equals(15));
+    });
+
+    test('parses Tamil references with inflectional suffix', () {
+      final p = ScriptureRefParser.parse('எபேசியர் 1:17,18-ல்');
+      expect(p, isNotNull);
+      expect(p!.bookNumber, equals(49));
+      expect(p.chapter, equals(1));
+      expect(p.startVerse, equals(17));
+    });
+
+    test('tokenize separates false positives from true references', () {
+      const input = 'Chapter 1 Repentance: see page 5:12, but read John 3:16 and Psa.73:25 for truth.';
+      final tokens = ScriptureRefParser.tokenize(input);
+
+      final refs = tokens.where((t) => t.isReference).toList();
+      expect(refs.length, equals(2));
+      expect(refs[0].text, equals('John 3:16'));
+      expect(refs[0].ref!.bookNumber, equals(43));
+      expect(refs[1].text, equals('Psa.73:25'));
+      expect(refs[1].ref!.bookNumber, equals(19));
+
+      // Non-scripture like "Chapter 1" and "page 5:12" must stay in non-reference tokens
+      final prose = tokens.where((t) => !t.isReference).map((t) => t.text).join();
+      expect(prose.contains('Chapter 1'), isTrue);
+      expect(prose.contains('page 5:12'), isTrue);
+    });
+
+    test('tokenize parses preprocessed [ref:b.c.s-e|text] tags in O(N) pass', () {
+      const input = 'Read [ref:43.3.16|John 3:16] and [ref:46.13.4-7|1 Cor 13:4-7] daily.';
+      final tokens = ScriptureRefParser.tokenize(input);
+
+      expect(tokens.length, equals(5));
+      expect(tokens[0].text, equals('Read '));
+      expect(tokens[0].isReference, isFalse);
+
+      expect(tokens[1].text, equals('John 3:16'));
+      expect(tokens[1].isReference, isTrue);
+      expect(tokens[1].ref!.bookNumber, equals(43));
+      expect(tokens[1].ref!.chapter, equals(3));
+      expect(tokens[1].ref!.startVerse, equals(16));
+      expect(tokens[1].ref!.endVerse, isNull);
+
+      expect(tokens[2].text, equals(' and '));
+      expect(tokens[2].isReference, isFalse);
+
+      expect(tokens[3].text, equals('1 Cor 13:4-7'));
+      expect(tokens[3].isReference, isTrue);
+      expect(tokens[3].ref!.bookNumber, equals(46));
+      expect(tokens[3].ref!.chapter, equals(13));
+      expect(tokens[3].ref!.startVerse, equals(4));
+      expect(tokens[3].ref!.endVerse, equals(7));
+
+      expect(tokens[4].text, equals(' daily.'));
+      expect(tokens[4].isReference, isFalse);
     });
 
     test('does not match single-letter words before colon', () {

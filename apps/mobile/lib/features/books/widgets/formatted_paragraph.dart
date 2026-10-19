@@ -35,46 +35,28 @@ class FormattedParagraphBuilder {
       appearance.fontFamily,
       appearance.languageCode,
     );
-    final matches = ScriptureRefParser.scriptureRegex.allMatches(pageText).toList();
-
-    if (matches.isEmpty) {
-      final spans = <InlineSpan>[];
-      _appendSpansWithHighlights(spans, pageText, textColor, fontFamily, appearance, highlights);
-      return spans;
-    }
+    final textTokens = ScriptureRefParser.tokenize(pageText);
 
     final spans = <InlineSpan>[];
-    int lastMatchEnd = 0;
 
-    for (final match in matches) {
-      if (match.start > lastMatchEnd) {
-        final chunk = pageText.substring(lastMatchEnd, match.start);
-        _appendSpansWithHighlights(spans, chunk, textColor, fontFamily, appearance, highlights);
+    for (final token in textTokens) {
+      if (token.isReference && token.ref != null) {
+        spans.add(TextSpan(
+          text: token.text,
+          style: TextStyle(
+            color: tokens.accent,
+            fontWeight: FontWeight.bold,
+            decoration: TextDecoration.underline,
+            decorationColor: tokens.accent.withValues(alpha: 0.6),
+            fontSize: appearance.fontSize,
+            height: appearance.lineHeight,
+            fontFamily: fontFamily,
+          ),
+          recognizer: makeRecognizer(token.ref, token.text),
+        ));
+      } else {
+        _appendSpansWithHighlights(spans, token.text, textColor, fontFamily, appearance, highlights);
       }
-
-      final refText = match.group(0)!;
-      final parsed = ScriptureRefParser.parse(refText);
-
-      spans.add(TextSpan(
-        text: refText,
-        style: TextStyle(
-          color: tokens.accent,
-          fontWeight: FontWeight.bold,
-          decoration: TextDecoration.underline,
-          decorationColor: tokens.accent.withValues(alpha: 0.6),
-          fontSize: appearance.fontSize,
-          height: appearance.lineHeight,
-          fontFamily: fontFamily,
-        ),
-        recognizer: makeRecognizer(parsed, refText),
-      ));
-
-      lastMatchEnd = match.end;
-    }
-
-    if (lastMatchEnd < pageText.length) {
-      final chunk = pageText.substring(lastMatchEnd);
-      _appendSpansWithHighlights(spans, chunk, textColor, fontFamily, appearance, highlights);
     }
 
     return spans;
