@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api/github_data_service.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../engines/scripture/models/bible_version_meta.dart';
+import '../../engines/scripture/services/bible_recent_versions_service.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
@@ -26,6 +28,9 @@ class ScriptureVersePopup extends StatefulWidget {
   /// the popup prefers an installed Bible version in that language over the
   /// first-installed version so non-English readers see matching scripture.
   final String? languageCode;
+
+  static const String prefLastVersionPrefix = 'reader_scripture_last_version_';
+  static const String prefLastVersionGlobal = 'reader_scripture_last_version';
 
   const ScriptureVersePopup({
     super.key,
@@ -102,6 +107,18 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
     _loadVerse();
   }
 
+  @override
+  void didUpdateWidget(ScriptureVersePopup oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bookNumber != widget.bookNumber ||
+        oldWidget.chapter != widget.chapter ||
+        oldWidget.startVerse != widget.startVerse ||
+        oldWidget.endVerse != widget.endVerse ||
+        oldWidget.languageCode != widget.languageCode) {
+      _loadVerse();
+    }
+  }
+
   Future<String?> _fetchVerseFromCdn({
     required String versionId,
     required int bookNumber,
@@ -146,13 +163,18 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
 
   Future<void> _loadVerse() async {
     await _bibleService.initialize();
-    _installedIds = await _bibleService.getInstalledVersionIds();
-    await _reload(_preferredVersion(_installedIds));
+    final version = await _resolveInitialVersion();
+    if (mounted) {
+      setState(() {
+        _versionName = version;
+      });
+    }
+    await _reload(version, isInitial: true);
   }
 
   /// Loads verse text (and the localized book name) for [versionId],
-  /// falling back to WEB on the local DB and then streaming from the CDN.
-  Future<void> _reload(String versionId) async {
+  /// streaming from the CDN if not stored locally.
+  Future<void> _reload(String versionId, {bool isInitial = false}) async {
     if (versionId == _versionName && (_verseText?.isNotEmpty ?? false)) {
       return;
     }
@@ -164,6 +186,18 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
       });
     }
 
+    // Persist chosen version so subsequent scripture taps in books/articles
+    // remember and honor the user's selection.
+    if (!isInitial) {
+      final lang = _normalizeLang(widget.languageCode ?? '');
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('${ScriptureVersePopup.prefLastVersionPrefix}$lang', versionId);
+        await prefs.setString(ScriptureVersePopup.prefLastVersionGlobal, versionId);
+        await BibleRecentVersionsService().recordRecentVersion(versionId);
+      } catch (_) {}
+    }
+
     var text = await _bibleService.resolvePassage(
       versionId: versionId,
       bookNumber: widget.bookNumber,
@@ -172,10 +206,10 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
       endVerse: widget.endVerse,
     );
 
-    // Fallback to WEB if translation missing in local database
+    // Live CDN streaming fallback if not stored in local SQLite
     if (text == null || text.isEmpty) {
-      text = await _bibleService.resolvePassage(
-        versionId: 'WEB',
+      text = await _fetchVerseFromCdn(
+        versionId: versionId,
         bookNumber: widget.bookNumber,
         chapter: widget.chapter,
         startVerse: widget.startVerse,
@@ -183,10 +217,28 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
       );
     }
 
-    // Live CDN streaming fallback if not stored in local SQLite
+    // If requested translation unavailable, fallback to NASB then WEB
+    if (text == null || text.isEmpty) {
+      text = await _bibleService.resolvePassage(
+        versionId: 'NASB',
+        bookNumber: widget.bookNumber,
+        chapter: widget.chapter,
+        startVerse: widget.startVerse,
+        endVerse: widget.endVerse,
+      );
+    }
     if (text == null || text.isEmpty) {
       text = await _fetchVerseFromCdn(
-        versionId: versionId,
+        versionId: 'NASB',
+        bookNumber: widget.bookNumber,
+        chapter: widget.chapter,
+        startVerse: widget.startVerse,
+        endVerse: widget.endVerse,
+      );
+    }
+    if (text == null || text.isEmpty) {
+      text = await _bibleService.resolvePassage(
+        versionId: 'WEB',
         bookNumber: widget.bookNumber,
         chapter: widget.chapter,
         startVerse: widget.startVerse,
@@ -212,39 +264,72 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
     }
   }
 
-  /// Picks the initial version. When [ScriptureVersePopup.languageCode] is
-  /// provided (e.g. the article's language), an installed catalog version
-  /// matching that language wins; otherwise the first installed version is
-  /// used, falling back to 'BSB' streaming when nothing is installed.
-  String _preferredVersion(List<String> installed) {
+  /// Determines the initial Bible version:
+  /// 1. Uses the user's last chosen version for this language if remembered.
+  /// 2. If English, defaults to 'NASB' per requirement.
+  /// 3. For other languages, prefers an installed version matching that language.
+  /// 4. Otherwise, picks the first matching catalog version for that language.
+  /// 5. Global fallback to 'NASB'.
+  Future<String> _resolveInitialVersion() async {
     final lang = _normalizeLang(widget.languageCode ?? '');
-    if (lang.isNotEmpty) {
-      for (final id in installed) {
-        final meta = _metaFor(id);
-        if (meta != null && _normalizeLang(meta.languageCode) == lang) {
-          return id;
-        }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('${ScriptureVersePopup.prefLastVersionPrefix}$lang');
+      if (saved != null && saved.trim().isNotEmpty) {
+        return saved.trim();
+      }
+    } catch (_) {}
+
+    if (lang == 'eng') {
+      return 'NASB';
+    }
+
+    if (_installedIds.isEmpty) {
+      try {
+        _installedIds = await _bibleService.getInstalledVersionIds();
+      } catch (_) {}
+    }
+    for (final id in _installedIds) {
+      final meta = _metaFor(id);
+      if (meta != null && _normalizeLang(meta.languageCode) == lang) {
+        return id;
       }
     }
-    return installed.isNotEmpty ? installed.first : 'BSB';
+
+    for (final meta in BibleDownloadManager.catalog) {
+      if (_normalizeLang(meta.languageCode) == lang) {
+        return meta.id;
+      }
+    }
+
+    return 'NASB';
   }
 
   /// Normalizes short article/library codes to the catalog's full ISO-like
-  /// language codes (e.g. `ta` -> `tam`, `hi` -> `hin`).
+  /// language codes (e.g. `ta` -> `tam`, `hi` -> `hin`, `en` -> `eng`).
   String _normalizeLang(String code) {
-    switch (code.trim().toLowerCase()) {
+    final clean = code.trim().toLowerCase();
+    if (clean.isEmpty || clean == 'en' || clean == 'eng') {
+      return 'eng';
+    }
+    switch (clean) {
       case 'ta':
+      case 'tam':
         return 'tam';
       case 'hi':
+      case 'hin':
         return 'hin';
       case 'te':
+      case 'tel':
         return 'tel';
       case 'kn':
+      case 'kan':
         return 'kan';
       case 'ml':
+      case 'mal':
         return 'mal';
       default:
-        return code.trim().toLowerCase();
+        return clean;
     }
   }
 
@@ -333,7 +418,7 @@ class _ScriptureVersePopupState extends State<ScriptureVersePopup> {
                     ),
                     const SizedBox(height: 4),
                     BibleVersionPill(
-                      activeVersionId: _versionName.isEmpty ? 'BSB' : _versionName,
+                      activeVersionId: _versionName.isEmpty ? 'NASB' : _versionName,
                       onSelectVersion: _reload,
                       showLeadingIcon: false,
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),

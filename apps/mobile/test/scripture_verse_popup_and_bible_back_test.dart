@@ -13,6 +13,7 @@ import 'package:mobile/features/books/widgets/scripture_verse_popup.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
 import 'package:mobile/l10n/app_localizations.dart';
+import 'package:mobile/shared/ui/bible_version_pill.dart';
 
 ThemeData _testTheme() => ThemeData(
       colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
@@ -182,6 +183,88 @@ void main() {
 
       expect(find.text('Open in Bible Reader'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('defaults to NASB for English reader when no prior choice was saved', (tester) async {
+      await tester.pumpWidget(
+        _wrapWithApp(
+          const ScriptureVersePopup(
+            bookNumber: 43,
+            chapter: 3,
+            startVerse: 16,
+            rawReference: 'John 3:16',
+            languageCode: 'en',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('NASB'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('remembers last chosen version and applies it to subsequent English popups', (tester) async {
+      await tester.runAsync(() async {
+        // 1. First open: verify NASB default
+        await tester.pumpWidget(
+          _wrapWithApp(
+            const ScriptureVersePopup(
+              bookNumber: 43,
+              chapter: 3,
+              startVerse: 16,
+              rawReference: 'John 3:16',
+              languageCode: 'en',
+            ),
+          ),
+        );
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.text('NASB'), findsOneWidget);
+
+        // 2. Select KJV via BibleVersionPill's onSelectVersion callback
+        final pill = tester.widget<BibleVersionPill>(find.byType(BibleVersionPill));
+        pill.onSelectVersion?.call('KJV');
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // Verify that SharedPreferences saved 'KJV' for 'eng'
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('${ScriptureVersePopup.prefLastVersionPrefix}eng'), 'KJV');
+
+        // Clean up first popup
+        await tester.pumpWidget(_wrapWithApp(const SizedBox.shrink()));
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+
+        // 3. Open another verse reference in English reader
+        await tester.pumpWidget(
+          _wrapWithApp(
+            const ScriptureVersePopup(
+              key: ValueKey('second_popup'),
+              bookNumber: 19,
+              chapter: 23,
+              startVerse: 1,
+              rawReference: 'Psalm 23:1',
+              languageCode: 'en',
+            ),
+          ),
+        );
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // Verifies KJV is now remembered and active!
+        expect(find.text('KJV'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        // Allow any background tasks on isolate to settle before tearDown
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      });
     });
   });
 
