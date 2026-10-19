@@ -122,7 +122,6 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     ReaderAppearance appearance,
     AppTokens tokens,
   ) {
-    final matches = ScriptureRefParser.scriptureRegex.allMatches(text).toList();
     final baseStyle = TextStyle(
       color: textColor,
       fontSize: appearance.fontSize,
@@ -133,43 +132,27 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
       decoration: appearance.textDecoration,
     );
 
-    if (matches.isEmpty) {
-      return [TextSpan(text: text, style: baseStyle)];
-    }
-
+    final textTokens = ScriptureRefParser.tokenize(text);
     final spans = <InlineSpan>[];
-    int lastMatchEnd = 0;
 
-    for (final match in matches) {
-      if (match.start > lastMatchEnd) {
+    for (final token in textTokens) {
+      if (token.isReference && token.ref != null) {
         spans.add(TextSpan(
-          text: text.substring(lastMatchEnd, match.start),
+          text: token.text,
+          style: baseStyle.copyWith(
+            color: tokens.accent,
+            fontWeight: FontWeight.bold,
+            decoration: TextDecoration.underline,
+            decorationColor: tokens.accent.withValues(alpha: 0.6),
+          ),
+          recognizer: _makeRecognizer(token.ref, token.text),
+        ));
+      } else {
+        spans.add(TextSpan(
+          text: token.text,
           style: baseStyle,
         ));
       }
-
-      final refText = match.group(0)!;
-      final parsed = ScriptureRefParser.parse(refText);
-
-      spans.add(TextSpan(
-        text: refText,
-        style: baseStyle.copyWith(
-          color: tokens.accent,
-          fontWeight: FontWeight.bold,
-          decoration: TextDecoration.underline,
-          decorationColor: tokens.accent.withValues(alpha: 0.6),
-        ),
-        recognizer: _makeRecognizer(parsed, refText),
-      ));
-
-      lastMatchEnd = match.end;
-    }
-
-    if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastMatchEnd),
-        style: baseStyle,
-      ));
     }
 
     return spans;

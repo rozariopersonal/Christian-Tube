@@ -106,6 +106,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
             startVerse: parsed.startVerse,
             endVerse: parsed.endVerse,
             rawReference: refText,
+            languageCode: _controller.state.book?.language ??
+                _controller.appearance.languageCode,
           );
         }
       },
