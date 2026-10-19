@@ -80,6 +80,7 @@ class _VerseActionBarState extends State<VerseActionBar>
   double _dragStartY = 0.0;
   double _dragStartHeight = 0.0;
   bool _isDragging = false;
+  bool _isDismissing = false;
 
   @override
   void initState() {
@@ -97,6 +98,15 @@ class _VerseActionBarState extends State<VerseActionBar>
       });
     _backInterceptorRemover =
         ShellBackHandler.registerInterceptor(_handleBackAction);
+  }
+
+  @override
+  void didUpdateWidget(covariant VerseActionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedCount == 0 || widget.selectedCount != oldWidget.selectedCount) {
+      _isDismissing = false;
+      _isDragging = false;
+    }
   }
 
   @override
@@ -161,6 +171,8 @@ class _VerseActionBarState extends State<VerseActionBar>
   }
 
   void _dismissSheet(double maxHeight, double bottomInset) {
+    if (_isDismissing) return;
+    _isDismissing = true;
     _animController.stop();
     _heightAnimation = Tween<double>(
       begin: _currentHeight,
@@ -200,22 +212,28 @@ class _VerseActionBarState extends State<VerseActionBar>
     final studyH = _targetHeightFor(VerseSheetStage.study, maxHeight, bottomInset);
 
     if (_stage == VerseSheetStage.expanded) {
-      if (velocity < -250 || _currentHeight > expandedH + 45) {
+      if (velocity < -200 || _currentHeight > expandedH + 40) {
         _animateTo(VerseSheetStage.study, maxHeight, bottomInset);
-      } else if (velocity > 250 || _currentHeight < expandedH * 0.75) {
+      } else if (velocity > 180 || _currentHeight < expandedH - 45) {
         _dismissSheet(maxHeight, bottomInset);
       } else {
         _animateTo(VerseSheetStage.expanded, maxHeight, bottomInset);
       }
     } else {
-      if (velocity > 850 || _currentHeight < expandedH * 0.65) {
+      if (velocity > 350 || _currentHeight < expandedH * 0.7) {
         _dismissSheet(maxHeight, bottomInset);
-      } else if (velocity > 250 || _currentHeight < (studyH + expandedH) / 2) {
+      } else if (velocity > 180 || _currentHeight < (studyH + expandedH) / 2) {
         _animateTo(VerseSheetStage.expanded, maxHeight, bottomInset);
       } else {
         _animateTo(VerseSheetStage.study, maxHeight, bottomInset);
       }
     }
+  }
+
+  void _onDragCancel(double maxHeight, double bottomInset) {
+    if (!mounted || _isDismissing) return;
+    _isDragging = false;
+    _animateTo(_stage, maxHeight, bottomInset);
   }
 
   @override
@@ -245,7 +263,7 @@ class _VerseActionBarState extends State<VerseActionBar>
           final studyH =
               _targetHeightFor(VerseSheetStage.study, maxHeight, bottomInset);
 
-          if (!_isDragging && !_animController.isAnimating) {
+          if (!_isDragging && !_animController.isAnimating && !_isDismissing) {
             _currentHeight = _stage == VerseSheetStage.study ? studyH : expandedH;
           }
 
@@ -301,11 +319,10 @@ class _VerseActionBarState extends State<VerseActionBar>
                                       _onDragUpdate(d, maxHeight, bottomInset),
                                   onVerticalDragEnd: (d) =>
                                       _onDragEnd(d, maxHeight, bottomInset),
-                                  child: SingleChildScrollView(
-                                    physics: const ClampingScrollPhysics(),
-                                    child: _buildExpandedStage(
-                                        context, tokens, maxHeight, bottomInset),
-                                  ),
+                                  onVerticalDragCancel: () =>
+                                      _onDragCancel(maxHeight, bottomInset),
+                                  child: _buildExpandedStage(
+                                      context, tokens, maxHeight, bottomInset),
                                 )
                               : _buildStudyStage(
                                   context, tokens, maxHeight, bottomInset),
@@ -323,9 +340,87 @@ class _VerseActionBarState extends State<VerseActionBar>
   }
 
   /// LEVEL 1: Expanded Sheet
-  /// Context header with close button, Action Row (Share, Copy, Bookmark, Note),
-  /// Highlight Grid (15 Colors), and pull-up Verse Study section below highlight.
+  /// Separates dedicated drag header from scrollable action body to eliminate
+  /// gesture conflicts and ensure fluid downward swipe dismissal.
   Widget _buildExpandedStage(
+    BuildContext context,
+    AppTokens tokens,
+    double maxHeight,
+    double bottomInset,
+  ) {
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Dedicated top drag handle and context header
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragStart: _onDragStart,
+            onVerticalDragUpdate: (d) =>
+                _onDragUpdate(d, maxHeight, bottomInset),
+            onVerticalDragEnd: (d) =>
+                _onDragEnd(d, maxHeight, bottomInset),
+            onVerticalDragCancel: () =>
+                _onDragCancel(maxHeight, bottomInset),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Top drag handle indicator with generous touch target
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 6),
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: tokens.onSurfaceMuted.withValues(alpha: 0.38),
+                        borderRadius: BorderRadius.circular(2.5),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Header Row: Reference & Close [X] Button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.verseLabel ??
+                              '${widget.selectedCount} verse${widget.selectedCount == 1 ? '' : 's'} selected',
+                          style: TextStyle(
+                            color: tokens.onSurface,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (widget.onClear != null)
+                        IconButton(
+                          key: VerseActionBar.closeButtonKey,
+                          icon: Icon(Icons.close_rounded,
+                              size: 20, color: tokens.onSurfaceMuted),
+                          tooltip: 'Deselect',
+                          onPressed: widget.onClear,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildExpandedBody(context, tokens, maxHeight, bottomInset),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedBody(
     BuildContext context,
     AppTokens tokens,
     double maxHeight,
@@ -334,48 +429,6 @@ class _VerseActionBarState extends State<VerseActionBar>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Top drag handle indicator
-        Center(
-          child: Container(
-            margin: const EdgeInsets.only(top: 8, bottom: 4),
-            width: 38,
-            height: 4.5,
-            decoration: BoxDecoration(
-              color: tokens.onSurfaceMuted.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(2.5),
-            ),
-          ),
-        ),
-
-        // Header Row: Reference & Close [X] Button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.verseLabel ??
-                      '${widget.selectedCount} verse${widget.selectedCount == 1 ? '' : 's'} selected',
-                  style: TextStyle(
-                    color: tokens.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (widget.onClear != null)
-                IconButton(
-                  key: VerseActionBar.closeButtonKey,
-                  icon: Icon(Icons.close_rounded,
-                      size: 20, color: tokens.onSurfaceMuted),
-                  tooltip: 'Deselect',
-                  onPressed: widget.onClear,
-                ),
-            ],
-          ),
-        ),
 
         const SizedBox(height: 2),
 
@@ -558,17 +611,21 @@ class _VerseActionBarState extends State<VerseActionBar>
               _onDragUpdate(d, maxHeight, bottomInset),
           onVerticalDragEnd: (d) =>
               _onDragEnd(d, maxHeight, bottomInset),
+          onVerticalDragCancel: () =>
+              _onDragCancel(maxHeight, bottomInset),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 8, bottom: 4),
-                  width: 38,
-                  height: 4.5,
-                  decoration: BoxDecoration(
-                    color: tokens.onSurfaceMuted.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(2.5),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 6),
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: tokens.onSurfaceMuted.withValues(alpha: 0.38),
+                      borderRadius: BorderRadius.circular(2.5),
+                    ),
                   ),
                 ),
               ),
