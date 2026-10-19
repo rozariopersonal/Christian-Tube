@@ -692,8 +692,12 @@ class _BibleScreenState extends State<BibleScreen> {
     return ListenableBuilder(
       listenable: Listenable.merge([appearance, BottomBarVisibilityService.instance]),
       builder: (context, _) {
+        final isNavHidden = BottomBarVisibilityService.instance.isBibleNavHidden;
+        final hasInScreenInterception = _sheetStage == VerseSheetStage.study ||
+            s.selectedVerses.isNotEmpty ||
+            isNavHidden;
         return PopScope(
-          canPop: false,
+          canPop: !hasInScreenInterception,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             if (_sheetStage == VerseSheetStage.study) {
@@ -705,6 +709,10 @@ class _BibleScreenState extends State<BibleScreen> {
             }
             if (BottomBarVisibilityService.instance.isBibleNavHidden) {
               BottomBarVisibilityService.instance.showBibleNav();
+              return;
+            }
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
               return;
             }
           },
