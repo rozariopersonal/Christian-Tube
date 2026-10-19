@@ -57,24 +57,31 @@ class BibleContent extends StatelessWidget {
     final isWholeBible = verseIndex != null;
     return MaxWidthBox(
       maxWidth: kReadingMaxWidth,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollStartNotification &&
-              notification.dragDetails != null) {
-            SystemChannels.textInput.invokeMethod('TextInput.hide');
-            // Selection persists across scrolls and is never auto-cleared.
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          if (s.selectedVerses.isNotEmpty) {
+            onClear();
           }
-          if ((notification is UserScrollNotification &&
-                  notification.direction != ScrollDirection.idle) ||
-              (notification is ScrollUpdateNotification &&
-                  notification.dragDetails != null &&
-                  notification.scrollDelta != null &&
-                  notification.scrollDelta!.abs() > 2)) {
-            BottomBarVisibilityService.instance.hideBibleNav();
-          }
-          return false;
         },
-        child: ScrollablePositionedList.builder(
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification is ScrollStartNotification &&
+                notification.dragDetails != null) {
+              SystemChannels.textInput.invokeMethod('TextInput.hide');
+              // Selection persists across scrolls and is never auto-cleared.
+            }
+            if ((notification is UserScrollNotification &&
+                    notification.direction != ScrollDirection.idle) ||
+                (notification is ScrollUpdateNotification &&
+                    notification.dragDetails != null &&
+                    notification.scrollDelta != null &&
+                    notification.scrollDelta!.abs() > 2)) {
+              BottomBarVisibilityService.instance.hideBibleNav();
+            }
+            return false;
+          },
+          child: ScrollablePositionedList.builder(
           itemScrollController: itemScrollController,
           itemPositionsListener: itemPositionsListener,
           itemCount: itemCount,
@@ -209,7 +216,8 @@ class BibleContent extends StatelessWidget {
             },
           ),
         ),
-      );
+      ),
+    );
   }
 }
 
