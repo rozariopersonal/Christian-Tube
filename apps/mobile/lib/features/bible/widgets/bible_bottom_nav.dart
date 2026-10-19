@@ -110,10 +110,10 @@ class _ChapterNav extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Center(
             child: MaxWidthBox(
-              maxWidth: 420,
+              maxWidth: 460,
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
@@ -139,7 +139,9 @@ class _ChapterNav extends StatelessWidget {
                           tooltip: 'Previous chapter',
                           icon: const Icon(Icons.chevron_left_rounded, size: 28),
                           color: canFetchPrev ? onAccent : disabledCol,
-                          splashRadius: 20,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(width: 36, height: 48),
+                          splashRadius: 18,
                         ),
                       ),
                       Expanded(
@@ -154,7 +156,7 @@ class _ChapterNav extends StatelessWidget {
                               highlightColor: onAccent.withValues(alpha: 0.12),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                                  horizontal: 6,
                                   vertical: 6,
                                 ),
                                 child: Row(
@@ -162,22 +164,25 @@ class _ChapterNav extends StatelessWidget {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Flexible(
-                                      child: Text(
-                                        currentBookLabel,
-                                        style: TextStyle(
-                                          color: onAccent,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          currentBookLabel,
+                                          style: TextStyle(
+                                            color: onAccent,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                            letterSpacing: -0.2,
+                                          ),
+                                          maxLines: 1,
                                         ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
                                       ),
                                     ),
                                     Padding(
-                                      padding: const EdgeInsets.only(left: 4),
+                                      padding: const EdgeInsets.only(left: 2),
                                       child: Icon(
                                         Icons.arrow_drop_down,
-                                        size: 20,
+                                        size: 18,
                                         color: mutedCol,
                                       ),
                                     ),
@@ -196,7 +201,9 @@ class _ChapterNav extends StatelessWidget {
                           tooltip: 'Next chapter',
                           icon: const Icon(Icons.chevron_right_rounded, size: 28),
                           color: canFetchNext ? onAccent : disabledCol,
-                          splashRadius: 20,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(width: 36, height: 48),
+                          splashRadius: 18,
                         ),
                       ),
                     ],
