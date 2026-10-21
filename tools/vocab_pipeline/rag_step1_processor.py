@@ -37,36 +37,19 @@ PROGRESS_MD = os.environ.get("PROGRESS_MD", "releases/study/taobvsi/WORDS_PROGRE
 
 CHUNK_SIZE_VERSES = 1  # 1 verse per chunk guarantees deterministic, sub-30s local GPU turns
 
-SYSTEM_PROMPT = """You are an expert biblical lexicographer specializing in the classical Protestant Tamil Bible (TAOVBSI).
-Your task is STEP 1: Fast contextual word-by-word mapping with short definitions.
+PROMPT_FILE = os.environ.get(
+    "PROMPT_FILE",
+    os.path.join(os.path.dirname(__file__), "prompts", "step1_system_prompt.md")
+)
 
-For every input token in order:
-1. If the word's meaning in this verse matches an existing candidate in 'known_lexicon', reuse its 'entry_id', 'canonical', 'english_word', 'modern_equivalent', and short 'definition_ta'.
-2. If it is a new word or a different contextual meaning, generate:
-   - 'canonical': Clean root Tamil headword (e.g. 'ஆதி', 'சிருஷ்டி', 'வானம்').
-   - 'definition_ta': A concise, clear 1-sentence Tamil definition.
-   - 'modern_equivalent': The everyday spoken/written modern Tamil equivalent (e.g. 'தொடக்கத்தில்', 'படைத்தார்', 'விண்வெளி/வானம்').
-   - 'english_word': The standard English biblical equivalent (e.g. 'In the beginning', 'created', 'the heavens').
+def load_system_prompt() -> str:
+    if os.path.exists(PROMPT_FILE):
+        with open(PROMPT_FILE, "r", encoding="utf-8") as fp:
+            return fp.read().strip()
+    raise FileNotFoundError(f"Prompt file not found at {PROMPT_FILE}")
 
-CRITICAL RULES:
-- Output an entry for EVERY input token in exact order. Never skip any token.
-- Use classical Protestant register (தேவன், கர்த்தர், வேதாகமம், பரிசுத்தம்; NEVER இறைவன்/புனித).
-- Keep definitions crisp (1 sentence only).
+SYSTEM_PROMPT = load_system_prompt()
 
-Output format:
-{
-  "words": [
-    {
-      "verse": <num>,
-      "word": "<surface_token>",
-      "canonical": "<canonical_root>",
-      "definition_ta": "<short_1_sentence_tamil_definition>",
-      "modern_equivalent": "<everyday_modern_tamil_word>",
-      "english_word": "<english_biblical_word>"
-    }
-  ]
-}
-"""
 
 def log(msg: str):
     print(msg, flush=True)
