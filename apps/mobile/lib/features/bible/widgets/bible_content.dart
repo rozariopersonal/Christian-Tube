@@ -285,6 +285,8 @@ class _VerseRow extends StatelessWidget {
       onClear: onClear,
       onOpenStudyPage: (initialTab) =>
           onOpenStudyPage(verse.number, initialTab: initialTab, book: book, chapter: chapter),
+      bookNumber: bn,
+      chapter: chapter,
     );
   }
 }

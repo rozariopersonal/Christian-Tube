@@ -203,6 +203,12 @@ class GitHubDataService {
     ];
   }
 
+  /// Live per-chapter contextual interlinear words for a Bible version.
+  static List<String> wordsChapterUrls(
+          String versionId, int bookNumber, int chapter) =>
+      ReleaseAssets.urlsFor(
+          'study/${versionId.toLowerCase()}/words/$bookNumber/$chapter.json');
+
   /// Offline SQLite for a Bible version''s study data (optional download).
   static List<String> studySqliteUrls(String versionId) {
     final v = versionId.toLowerCase();

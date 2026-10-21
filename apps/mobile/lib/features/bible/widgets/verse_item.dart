@@ -37,6 +37,8 @@ class VerseItem extends StatelessWidget {
   final VoidCallback? onBookmark;
   final VoidCallback? onClear;
   final void Function(int initialTab)? onOpenStudyPage;
+  final int? bookNumber;
+  final int? chapter;
 
   const VerseItem({
     super.key,
@@ -56,6 +58,8 @@ class VerseItem extends StatelessWidget {
     this.onBookmark,
     this.onClear,
     this.onOpenStudyPage,
+    this.bookNumber,
+    this.chapter,
   });
 
   @override
@@ -70,6 +74,8 @@ class VerseItem extends StatelessWidget {
       refCount: crossReferences.length,
       commentaryCount: backgroundNotes.length,
       hasNote: hasNote,
+      bookNumber: bookNumber,
+      chapter: chapter,
     );
   }
 }

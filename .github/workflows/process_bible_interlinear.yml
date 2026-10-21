@@ -1,0 +1,107 @@
+name: Process Bible Contextual Interlinear
+
+on:
+  schedule:
+    # Runs every 2 hours to steadily process chapters within Gemini Free Tier limits
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      auto_next:
+        description: 'Auto-find next incomplete chapter across the whole Bible'
+        type: boolean
+        default: true
+      book:
+        description: 'Target book number (1 = Genesis, used if auto_next is false)'
+        required: false
+        default: '1'
+      start_chapter:
+        description: 'Starting chapter (used if auto_next is false)'
+        required: false
+        default: '1'
+      max_chapters:
+        description: 'Max chapters to process in this run'
+        required: false
+        default: '4'
+
+permissions:
+  contents: write
+
+jobs:
+  process-interlinear:
+    name: Generate Contextual Interlinear Words
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout Repository with Submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Contextual Interlinear Generator
+        env:
+          # Hardcoded API Key for autonomous execution on Free Tier
+          GEMINI_API_KEY: "AIzaSyD04_odTE5jVUZ8yDTCZ7kkaNETo0QCgSk"
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto_next }}" = "false" ]; then
+            python tools/vocab_pipeline/run_contextual_interlinear.py --book ${{ inputs.book }} --start-chapter ${{ inputs.start_chapter }} --max-chapters ${{ inputs.max_chapters }}
+          else
+            python tools/vocab_pipeline/run_contextual_interlinear.py --auto-next --max-chapters ${{ inputs.max_chapters || 4 }}
+          fi
+
+      - name: Ensure SQLite DB and Gzip Distribution Synced
+        run: |
+          python tools/vocab_pipeline/sync_words_to_sqlite.py
+
+      - name: Commit and Push Releases Updates
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          MAIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          push_head() {
+            local token="$1"
+            local remote
+            remote=$(git remote get-url origin)
+            git config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+            git -c credential.helper= push "https://x-access-token:${token}@${remote#https://}" HEAD:main
+          }
+
+          cd releases
+          if [ -n "$(git status --porcelain study/taobvsi/ dictionaries/ manifest.json)" ]; then
+            echo "Changes detected in releases/. Committing to releases repository..."
+            git add study/taobvsi/ dictionaries/ manifest.json
+            git commit -m "feat(study): update contextual interlinear words and taobvsi glossary [skip ci]"
+            push_head "${RELEASES_TOKEN}" || {
+              echo "::error::Push to Christian-Tube-Releases failed. Ensure RELEASE_PAT has write access to releases repository."
+              exit 1
+            }
+
+            cd ..
+            git add releases
+            if [ -n "$(git status --porcelain releases)" ]; then
+              git commit -m "chore(releases): update data submodule pointer [skip ci]"
+              push_head "${MAIN_TOKEN}"
+            fi
+
+            # Purge jsDelivr cache for manifest
+            echo "Purging jsDelivr edge cache for manifest.json..."
+            curl -s "https://purge.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/manifest.json" || true
+
+            echo "Contextual interlinear words & SQLite DB successfully synced and pushed!" >> $GITHUB_STEP_SUMMARY
+          else
+            cd ..
+            echo "No data changes detected. Everything is up to date."
+            echo "Zero changes in releases/." >> $GITHUB_STEP_SUMMARY
+          fi

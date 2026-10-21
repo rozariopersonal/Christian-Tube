@@ -19,6 +19,8 @@ class VerseText extends StatefulWidget {
   final int refCount;
   final int commentaryCount;
   final bool hasNote;
+  final int? bookNumber;
+  final int? chapter;
 
   const VerseText({
     super.key,
@@ -31,6 +33,8 @@ class VerseText extends StatefulWidget {
     this.refCount = 0,
     this.commentaryCount = 0,
     this.hasNote = false,
+    this.bookNumber,
+    this.chapter,
   });
 
   @override
@@ -267,7 +271,13 @@ class _VerseTextState extends State<VerseText> {
       final recognizer = LongPressGestureRecognizer()
         ..onLongPress = () {
           if (mounted) {
-            GlossaryEntrySheet.show(context, word: clean);
+            GlossaryEntrySheet.show(
+              context,
+              word: clean,
+              book: widget.bookNumber,
+              chapter: widget.chapter,
+              verse: widget.verse.number,
+            );
           }
         };
       _recognizers.add(recognizer);

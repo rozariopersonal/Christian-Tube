@@ -10,11 +10,17 @@ import '../services/glossary_service.dart';
 class GlossaryEntrySheet extends StatefulWidget {
   final String word;
   final GlossaryEntry? initialEntry;
+  final int? book;
+  final int? chapter;
+  final int? verse;
 
   const GlossaryEntrySheet({
     super.key,
     required this.word,
     this.initialEntry,
+    this.book,
+    this.chapter,
+    this.verse,
   });
 
   /// Presents the glossary entry popup for [word].
@@ -22,6 +28,9 @@ class GlossaryEntrySheet extends StatefulWidget {
     BuildContext context, {
     required String word,
     GlossaryEntry? initialEntry,
+    int? book,
+    int? chapter,
+    int? verse,
   }) async {
     final screen = ScreenClass.of(context);
     if (screen.isCompact) {
@@ -32,6 +41,9 @@ class GlossaryEntrySheet extends StatefulWidget {
         builder: (_) => GlossaryEntrySheet(
           word: word,
           initialEntry: initialEntry,
+          book: book,
+          chapter: chapter,
+          verse: verse,
         ),
       );
     } else {
@@ -45,6 +57,9 @@ class GlossaryEntrySheet extends StatefulWidget {
             child: GlossaryEntrySheet(
               word: word,
               initialEntry: initialEntry,
+              book: book,
+              chapter: chapter,
+              verse: verse,
             ),
           ),
         ),
@@ -100,15 +115,16 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
 
     try {
       final installed = await _glossaryService.isInstalled();
-      GlossaryEntry? result;
-
-      if (installed) {
-        result = await _glossaryService.lookup(query);
-      }
+      final result = await _glossaryService.lookup(
+        query,
+        book: widget.book,
+        chapter: widget.chapter,
+        verse: widget.verse,
+      );
 
       if (mounted) {
         setState(() {
-          _isDbInstalled = installed;
+          _isDbInstalled = installed || result != null;
           _entry = result;
           _isLoading = false;
         });
@@ -741,6 +757,47 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
                 ),
             ],
           ),
+          if (entry.rootDefinitionTa != null && entry.rootDefinitionTa!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              entry.rootDefinitionTa!,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: tokens.onSurface,
+              ),
+            ),
+          ],
+          if (entry.rootDefinitionEn != null && entry.rootDefinitionEn!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              entry.rootDefinitionEn!,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                fontStyle: FontStyle.italic,
+                color: tokens.onSurfaceMuted,
+              ),
+            ),
+          ],
+          if (entry.originalContext != null && entry.originalContext!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: tokens.surfaceVariant.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'பயன்பாடு: ${entry.originalContext!}',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: tokens.onSurfaceMuted,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
