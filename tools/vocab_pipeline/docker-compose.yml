@@ -7,6 +7,7 @@ services:
     volumes:
       - ../../releases:/app/releases
       - ./prompts:/app/prompts
+      - ./rag_step1_processor.py:/app/rag_step1_processor.py
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=gemma4:12b
@@ -14,5 +15,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://host.docker.internal:11434/api/version', timeout=5)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     command: ["--all", "--book", "1", "--start-chapter", "1"]
-
