@@ -47,8 +47,7 @@ jobs:
 
       - name: Run Contextual Interlinear Generator
         env:
-          # Hardcoded API Key for autonomous execution on Free Tier
-          GEMINI_API_KEY: "AIzaSyD04_odTE5jVUZ8yDTCZ7kkaNETo0QCgSk"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           set -e
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto_next }}" = "false" ]; then

@@ -9,7 +9,7 @@ from datetime import datetime
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyD04_odTE5jVUZ8yDTCZ7kkaNETo0QCgSk")
+API_KEY = os.environ.get("GEMINI_API_KEY", "")
 MODEL_NAME = "models/gemini-3.1-flash-lite"
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_NAME}:generateContent?key={API_KEY}"
 
@@ -322,6 +322,10 @@ if __name__ == "__main__":
     log("CONTEXTUAL INTERLINEAR GENERATOR (FREE TIER)")
     log("=" * 80)
     
+    if not API_KEY:
+        log("ERROR: GEMINI_API_KEY environment variable is not set. Please provide a valid Gemini API key.")
+        sys.exit(1)
+        
     if args.auto_next:
         run_auto_next(max_chapters=args.max_chapters or 3)
     else:
