@@ -13,4 +13,4 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-    command: ["--book", "1", "--start-chapter", "11"]
+    command: ["--all", "--book", "1", "--start-chapter", "11"]

@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir requests
 
 # Copy pipeline scripts
 COPY rag_step1_processor.py /app/rag_step1_processor.py
-COPY sync_words_to_sqlite.py /app/sync_words_to_sqlite.py
+
 
 # Entrypoint default runs all or specific book via arguments
 ENTRYPOINT ["python", "-u", "/app/rag_step1_processor.py"]

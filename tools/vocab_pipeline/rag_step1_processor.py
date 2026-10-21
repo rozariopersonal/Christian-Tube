@@ -197,7 +197,7 @@ class RAGGlossaryDB:
 
 db = RAGGlossaryDB(SQLITE_PATH)
 
-def call_ollama(prompt: str, timeout: int = 90) -> dict:
+def call_ollama(prompt: str, timeout: int = 300) -> dict:
     payload = {
         "model": MODEL_NAME,
         "messages": [
@@ -345,9 +345,10 @@ def run_book(book_num: int, start_chapter: int = 1):
     for ch in range(start_chapter, total_chapters + 1):
         process_chapter(book_num, ch)
 
-def run_all_bible():
-    for b in range(1, 67):
-        run_book(b, start_chapter=1)
+def run_all_bible(start_book: int = 1, start_chapter: int = 1):
+    for b in range(start_book, 67):
+        ch = start_chapter if b == start_book else 1
+        run_book(b, start_chapter=ch)
 
 if __name__ == "__main__":
     import argparse
@@ -363,6 +364,7 @@ if __name__ == "__main__":
     log("=" * 80)
 
     if args.all:
-        run_all_bible()
+        run_all_bible(start_book=args.book, start_chapter=args.start_chapter)
     else:
         run_book(args.book, start_chapter=args.start_chapter)
+

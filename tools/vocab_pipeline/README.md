@@ -1,66 +1,49 @@
-# TAOVBSI Classical Tamil Vocabulary Extraction Pipeline
+# Step 1 Contextual Bible RAG Vocabulary Pipeline
 
-An automated, fail-safe linguistic pipeline designed to extract **100% of the vocabulary** from the Classical Tamil Bible (TAOVBSI Version), cross-reference it against existing glossary databases, and prepare batch definitions for **DeepSeek-V3**.
-
----
-
-## 1. Why This Pipeline Was Built
-
-When DeepSeek was previously prompted to read Bible chapters and define words directly, it missed up to **55% of unique vocabulary** due to attention bias, token limits, and selective recall.
-
-This pipeline fixes that by introducing **Deterministic Preprocessing**:
-1. **100% Token Coverage:** Python reads every single word in every verse.
-2. **Agglutination Normalizer:** Strips case markers (`-ஐ`, `-ஆல்`, `-கு`, `-இல்`, `-உடைய`) and clitics (`-உம்`, `-ஏ`, `-ஓ`), grouping surface variants under their canonical root lemma.
-3. **Inverted "Default-to-Keep" Filter:**
-   - Drops 764 scraped classical Tamil stopwords (pronouns, conjunctions, particles, auxiliaries).
-   - Any borderline word is classified by a local model (Ollama) strictly for `common: true`.
-   - **Crucial Rule:** Any word not confirmed as a common filler **defaults to KEEP (definition-worthy)**.
-4. **Existing DB Cross-Check:** Automatically connects to `releases/study/taobvsi/taobvsi_glossary.sqlite` to identify words already defined, outputting only the **genuinely missed words** for DeepSeek.
+Containerized sequential 1-pass sense scanner for the Protestant Classical Tamil Bible (TAOVBSI).
 
 ---
 
-## 2. Directory Structure
+## 1. Overview & Strategy
 
+Step 1 processes every verse token sequentially in exact order with 100% complete coverage:
+* **Unique Sense Resolution via RAG**: Looks up known senses in `releases/study/taobvsi/taobvsi_glossary.sqlite`. If an existing entry matches the contextual sense of the word, it reuses its entry id, canonical root, and definition. If new or distinct, it generates a new sense entry.
+* **Compact, Shippable Fields**:
+  - `word`: Exact surface token in verse flow.
+  - `canonical`: Base/root Tamil headword.
+  - `definition_ta`: Concise 1-sentence Tamil definition.
+  - `modern_equivalent`: Everyday spoken/written modern Tamil equivalent.
+  - `english_word`: Biblical English equivalent.
+* **Decoupled Architecture**:
+  - **Step 1 (Now)**: Rapid full-Bible scan with short definitions and modern equivalents (ready for immediate release).
+  - **Step 2 (Future)**: Hebrew & Greek Strong's concordance alignment (`strongs`, `original_lemma`).
+  - **Step 3 (Future)**: Christ-centered New Covenant devotional expositions.
+
+---
+
+## 2. Running with Docker Compose
+
+Ensure Ollama is running on the host with `gemma4:12b`:
+```powershell
+$env:OLLAMA_MODELS="D:\models"; ollama serve
 ```
-tools/vocab_pipeline/
-├── taovbsi_sample.json             # Mock test data (Genesis 1:1-5 & John 3:16)
-├── stopwords_scraper.py            # Scrapes high-frequency functional words across the Bible
-├── common_stopwords.py             # 764 classical Tamil stopwords (auto-generated)
-├── common_words_blacklist.json     # JSON dump of scraped stopwords
-├── morphology.py                   # Tamil Unicode cleaner & classical suffix normalizer
-├── ollama_filter.py                # Inverted local model tagger (Ollama)
-├── pipeline.py                     # Main orchestrator CLI
-├── unique_words_with_references.json # Master output with verse tracking
-└── missed_words_for_deepseek.json  # Clean payload with verse context for DeepSeek
+
+### Start the Service in Background
+```bash
+docker compose -f tools/vocab_pipeline/docker-compose.yml up -d --build
+```
+
+### View Live Logs
+```bash
+docker compose -f tools/vocab_pipeline/docker-compose.yml logs -f
+```
+
+### Stop the Service
+```bash
+docker compose -f tools/vocab_pipeline/docker-compose.yml down
 ```
 
 ---
 
-## 3. CLI Usage
-
-All commands run from the repository root or inside `tools/vocab_pipeline/`:
-
-### A. Run against the Mock Sample (Genesis 1:1-5 & John 3:16)
-```bash
-python tools/vocab_pipeline/pipeline.py --sample
-```
-
-### B. Run against a Single Book (e.g. Ruth, Book 8)
-```bash
-python tools/vocab_pipeline/pipeline.py --book 8
-```
-
-### C. Run with Local Ollama Linguistic Tagging
-```bash
-python tools/vocab_pipeline/pipeline.py --sample --ollama --model gemma2:2b
-```
-
-### D. Run against the Entire Bible (All 66 Books, 1,189 Chapters)
-```bash
-python tools/vocab_pipeline/pipeline.py --all
-```
-
-### E. Re-scrape Common Stopwords across the Bible
-```bash
-python tools/vocab_pipeline/stopwords_scraper.py
-```
+## 3. Real-Time Tracking
+Progress is recorded to `releases/study/taobvsi/WORDS_PROGRESS.md` with current book, chapter, verse chunk, and total parsed word count.
