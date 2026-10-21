@@ -56,7 +56,12 @@ class RAGGlossaryDB:
         self._init_db()
 
     def get_conn(self):
-        return sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=60)
+        conn.execute("PRAGMA journal_mode=DELETE")
+        conn.execute("PRAGMA busy_timeout=60000")
+        return conn
+
+
 
     def _init_db(self):
         with self.get_conn() as conn:
@@ -96,6 +101,11 @@ class RAGGlossaryDB:
                 )
             """)
             conn.commit()
+            try:
+                c.execute("ALTER TABLE verse_words ADD COLUMN modern_equivalent TEXT")
+                conn.commit()
+            except sqlite3.OperationalError:
+                pass
 
     def retrieve_candidates(self, tokens: list[str]) -> dict:
         rag_dict = {}
@@ -255,10 +265,17 @@ def call_ollama_with_fault_tolerance(prompt: str, expected_tokens: int, raw_toke
                 parsed = json.loads(content)
                 words = parsed.get("words", [])
 
-                dt = time.time() - t0
-                TELEMETRY["total_generation_seconds"] += dt
-                TELEMETRY["total_tokens_generated"] += len(words) * 25
+                eval_count = data.get("eval_count", 0)
+                eval_dur_ns = data.get("eval_duration", 0)
+                if eval_count > 0 and eval_dur_ns > 0:
+                    TELEMETRY["total_tokens_generated"] += eval_count
+                    TELEMETRY["total_generation_seconds"] += (eval_dur_ns / 1e9)
+                else:
+                    dt = time.time() - t0
+                    TELEMETRY["total_generation_seconds"] += dt
+                    TELEMETRY["total_tokens_generated"] += len(words) * 85
                 TELEMETRY["consecutive_errors"] = 0
+
 
                 if len(words) == expected_tokens:
                     return words
@@ -305,16 +322,14 @@ def call_ollama_with_fault_tolerance(prompt: str, expected_tokens: int, raw_toke
 def update_telemetry_and_progress(current_book: int, current_ch: int, current_chunk: str, status: str = "RUNNING"):
     all_files = glob.glob(os.path.join(BASE_WORDS_DIR, "*", "*.json"))
     completed_chapters = len([f for f in all_files if not f.endswith(".partial.json")])
-    total_words = 0
-    for f in all_files:
-        if f.endswith(".partial.json"):
-            continue
-        try:
-            with open(f, "r", encoding="utf-8") as fp:
-                d = json.load(fp)
-                total_words += len(d.get("words", []))
-        except Exception:
-            pass
+    # Count total words parsed directly from SQLite verse_words for live per-verse progress
+    try:
+        with db.get_conn() as conn:
+            c = conn.cursor()
+            total_words = c.execute("SELECT count(*) FROM verse_words").fetchone()[0]
+    except Exception:
+        total_words = 0
+
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     avg_speed = 0.0
