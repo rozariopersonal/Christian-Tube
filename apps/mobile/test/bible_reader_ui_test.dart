@@ -7,6 +7,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/bible/controllers/bible_controller.dart';
 import 'package:mobile/features/bible/screens/bible_screen.dart';
+import 'package:mobile/features/bible/screens/verse_study_screen.dart';
 import 'package:mobile/features/bible/widgets/verse_concept_card.dart';
 import 'package:mobile/features/bible/widgets/verse_action_bar.dart';
 import 'package:mobile/features/bible/widgets/verse_text.dart';
@@ -133,14 +134,18 @@ void main() {
     final verseWidgets = find.byType(VerseText);
     expect(verseWidgets, findsWidgets);
     await tester.tap(verseWidgets.at(0), warnIfMissed: false);
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
 
     expect(find.byType(VerseActionBar), findsOneWidget);
     expect(find.text('1 selected'), findsNothing);
+    expect(controller.state.selectedVerses, {1});
 
-    // Tap verse 2
+    // Scroll the reader so verse 2 is above the action sheet before tapping.
+    await tester.drag(verseWidgets.at(0), const Offset(0, -120));
+    await tester.pumpAndSettle();
     await tester.tap(verseWidgets.at(1), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 500));
+    expect(controller.state.selectedVerses, {1, 2});
 
     expect(find.byType(VerseActionBar), findsOneWidget);
     expect(find.text('2 selected'), findsNothing);
@@ -149,11 +154,50 @@ void main() {
     // Deselect verses by tapping them
     await tester.tap(verseWidgets.at(1), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 500));
+    expect(controller.state.selectedVerses, {1});
     await tester.tap(verseWidgets.at(0), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(VerseActionBar), findsNothing);
     expect(find.byTooltip('Previous chapter'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  testWidgets('Study button opens the selected verse on its own route and Back preserves selection',
+      (tester) async {
+    final controller = BibleController(
+      initialVersionId: 'WEB',
+      initialBook: 'John',
+      initialChapter: 3,
+      initialVerse: null,
+      saveProgress: false,
+    );
+    await tester.runAsync(controller.init);
+    await tester.pumpWidget(wrapWithApp(BibleScreen(controller: controller)));
+    await tester.pumpAndSettle();
+    controller.toggleVerseSelection(3);
+    await tester.pumpAndSettle();
+    expect(find.byType(VerseStudyScreen), findsNothing);
+
+    await tester.tap(find.byKey(VerseActionBar.studyPromptKey));
+    // Study loads asynchronously; its loading indicator intentionally animates.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final study = tester.widget<VerseStudyScreen>(find.byType(VerseStudyScreen));
+    expect(study.bookNumber, 43);
+    expect(study.chapterNumber, 3);
+    expect(study.verseNumber, 3);
+    expect(study.verseText, contains('verse 3 of John 3'));
+    expect(find.text('Study (John 3:3)'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(VerseStudyScreen), findsNothing);
+    expect(controller.state.selectedVerses, {3});
+    expect(find.byKey(VerseActionBar.studyPromptKey).hitTestable(), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
   });
 
   testWidgets('VerseConceptCard renders at 320dp and detects Hebrew RTL vs Greek LTR', (tester) async {

@@ -204,7 +204,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('VerseActionBar renders as 2-stage sheet with full actions and palette on mount', (tester) async {
+    testWidgets('VerseActionBar renders actions, palette and a separate Study button', (tester) async {
       await tester.pumpWidget(
         wrapWithTokens(
           VerseActionBar(
@@ -221,14 +221,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Level 1: Copy, Share, Bookmark, Note, and full Highlight grid are present immediately
+      // The sheet contains actions; Study opens through an explicit button.
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Share'), findsOneWidget);
       expect(find.text('Bookmark'), findsOneWidget);
       expect(find.text('Note'), findsOneWidget);
       expect(find.text('Highlight'), findsOneWidget);
       expect(find.bySemanticsLabel('Highlight color'), findsWidgets);
-      expect(find.byType(BackdropFilter), findsOneWidget);
+      expect(find.text('Open Verse Study'), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsNothing);
     });
   });
 }
