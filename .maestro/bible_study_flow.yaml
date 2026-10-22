@@ -9,55 +9,47 @@ appId: org.rozario.christiantube.mobile
 # 1. Navigate to Bible Tab
 - tapOn:
     id: "tab_Bible"
-- assertVisible:
-    text: ".*"
+- extendedWaitUntil:
+    visible: "Bible Translation:.*"
+    timeout: 60000
 
-# 2. Change Bible Version
-- tapOn:
-    point: 90%, 10% # Assuming version selector is in app bar right
-- tapOn: "KJV" # Pick a common version
+# 2. Select a known English translation using accessible controls.
+- tapOn: "Bible Translation:.*"
+- tapOn: "Search translation, code, or language..."
+- inputText: "KJV"
+- tapOn: "(?s)KJV.*King James Version.*"
 
 # 3. Open Book/Chapter Picker
-- tapOn:
-    point: 50%, 10%
+- tapOn: "Book and chapter selector:.*"
 
 # 4. Select a book and chapter
 - tapOn: "Genesis"
 - tapOn: "1"
-
-# 5. Verify verse renders
-- assertVisible:
-    text: "1"
-
-# 6. Tap verse 1 to open Study/Context Menu
+- extendedWaitUntil:
+    visible: "1"
+    timeout: 60000
 - tapOn: "1"
+
+# 5. Wait for the streamed chapter, then select verse 1.
+- extendedWaitUntil:
+    visible: '1\s*'
+    timeout: 60000
+- tapOn: '1\s*'
+
+# 7. Open Verse Study using its explicit button (never by swiping the sheet).
+- assertVisible: "Open Verse Study"
+- tapOn: "Open Verse Study"
 - assertVisible:
-    text: ".*"
+    text: "Study .*"
+- assertVisible: "(?s)Concepts.*"
+- assertVisible:
+    text: "(?s)References .*"
 
-# 7. Apply Highlight
-- tapOn: "Highlight"
-  optional: true
-# Pick color
-- tapOn:
-    point: 20%, 80% 
+# 8. Back returns to the reader with the verse selection intact.
+- pressKey: Back
+- assertVisible: "Open Verse Study"
+- assertVisible: "Highlight"
 
-# 8. Add Note
-- tapOn: "Note"
-  optional: true
-- inputText: "This is a test note."
-- tapOn: "Save"
-  optional: true
-
-# 9. Read Cross References
-- tapOn: "Cross References"
-  optional: true
-- swipe:
-    direction: UP
-
-# 10. Read Dictionary
-- tapOn: "Dictionary"
-  optional: true
-- swipe:
-    direction: UP
-
-- pressKey: Back # Close study sheet
+# 9. Back dismisses the selection before leaving the reader.
+- pressKey: Back
+- assertNotVisible: "Open Verse Study"
