@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../core/layout/content_width.dart';
 import '../../../core/models/user_preference.dart';
@@ -11,6 +10,7 @@ import '../../../shared/ui/bible_version_native_names.dart';
 import '../../auth/auth_service.dart';
 import '../../channels/channel_service.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
+import '../../../shared/ui/channel_follow_tile.dart';
 
 class ContentPreferencesScreen extends StatefulWidget {
   final AuthService authService;
@@ -266,7 +266,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
   // -------------------------------------------------------------
   Widget _buildShortsChannelsTab(BuildContext context) {
     return _buildChannelTab(
-      title: 'Subscribed Shorts Creators',
+      title: 'Followed Shorts Channels',
       subtitle: 'Creators whose short-form devotionals appear in your shorts feed.',
       isShorts: true,
     );
@@ -353,82 +353,29 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final ch = filtered[index];
-                final isSubscribed = selectedIds.contains(ch.id);
+                  final isFollowed = selectedIds.contains(ch.id);
 
-                return Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: tokens.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSubscribed ? context.accent : tokens.surfaceBorder,
-                      width: isSubscribed ? 1.5 : 1.0,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundImage: ch.avatarUrl.isNotEmpty
-                            ? CachedNetworkImageProvider(ch.avatarUrl)
-                            : null,
-                        child: ch.avatarUrl.isEmpty
-                            ? Text(ch.name.substring(0, 1))
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              ch.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                            Text(
-                              '${ch.subscriberCount} subscribers',
-                              style: TextStyle(fontSize: 11, color: tokens.onSurfaceMuted),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isSubscribed
-                              ? context.accent
-                              : tokens.surfaceVariant,
-                          foregroundColor: isSubscribed
-                              ? Colors.white
-                              : tokens.onSurface,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        onPressed: () {
-                          final currentList = List<String>.from(selectedIds);
-                          if (isSubscribed) {
-                            currentList.remove(ch.id);
-                          } else {
-                            currentList.add(ch.id);
-                          }
-                          if (isShorts) {
-                            _updatePreferences(_currentPref.copyWith(shortsChannelIds: currentList));
-                          } else {
-                            _updatePreferences(_currentPref.copyWith(videoChannelIds: currentList));
-                          }
-                        },
-                        child: Text(
-                          isSubscribed ? 'Following' : 'Follow',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
+                  return ChannelFollowTile(
+                    channelId: ch.id,
+                    title: ch.name,
+                    avatarUrl: ch.avatarUrl,
+                    subscriberCount: ch.subscriberCount,
+                    videoCount: ch.videoCount,
+                    isFollowed: isFollowed,
+                    onToggleFollow: () {
+                      final currentList = List<String>.from(selectedIds);
+                      if (isFollowed) {
+                        currentList.remove(ch.id);
+                      } else {
+                        currentList.add(ch.id);
+                      }
+                      if (isShorts) {
+                        _updatePreferences(_currentPref.copyWith(shortsChannelIds: currentList));
+                      } else {
+                        _updatePreferences(_currentPref.copyWith(videoChannelIds: currentList));
+                      }
+                    },
+                  );
               },
             ),
           ),

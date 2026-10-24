@@ -49,10 +49,12 @@ class ChannelService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoadingRequests => _isLoadingRequests;
   Set<String> get subscribedChannelIds => _subscribedIds;
+  Set<String> get followedChannelIds => _subscribedIds;
 
   bool isSubscribed(String channelId) => _subscribedIds.contains(channelId);
+  bool isFollowing(String channelId) => isSubscribed(channelId);
 
-  /// Names of the currently subscribed channels (trimmed). Other features
+  /// Names of the currently subscribed/followed channels (trimmed). Other features
   /// (audio YouTube tab) bridge channel subscriptions to their own data by
   /// name, so names are remembered whenever they are learned — from the
   /// backend subscription payload, the channel list, or persisted prefs.
@@ -64,6 +66,10 @@ class ChannelService extends ChangeNotifier {
     }
     return names;
   }
+  Set<String> get followedChannelNames => subscribedChannelNames;
+
+  void toggleFollow(String channelId) => toggleSubscribe(channelId);
+  Future<void> loadFollowing() => loadSubscriptions();
 
   void _rememberChannelName(String? id, String? name) {
     if (id == null || id.isEmpty) return;

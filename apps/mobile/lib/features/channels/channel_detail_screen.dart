@@ -193,18 +193,19 @@ class _ChannelDetailScreenState extends State<ChannelDetailScreen>
           ElevatedButton.icon(
             onPressed: () {
               setState(() {
-                _channelService.toggleSubscribe(ch.id);
-                _channel = ch.copyWith(isSubscribed: !ch.isSubscribed);
+                _channelService.toggleFollow(ch.id);
+                _channel = ch.copyWith(isFollowed: !ch.isFollowed);
               });
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: ch.isSubscribed ? tokens.surfaceVariant : Theme.of(context).colorScheme.primary,
-              foregroundColor: ch.isSubscribed ? tokens.onSurface : Theme.of(context).colorScheme.onPrimary,
+              backgroundColor: ch.isFollowed ? tokens.surfaceVariant : context.accent,
+              foregroundColor: ch.isFollowed ? tokens.onSurface : tokens.onScrim,
+              elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             ),
-            icon: Icon(ch.isSubscribed ? Icons.notifications_active : Icons.add_alert),
-            label: Text(ch.isSubscribed ? 'Subscribed' : 'Subscribe'),
+            icon: Icon(ch.isFollowed ? Icons.check : Icons.add, size: 18),
+            label: Text(ch.isFollowed ? 'Following' : 'Follow'),
           ),
           const SizedBox(height: 8),
         ],
