@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -21,6 +22,21 @@ export class UsersController {
     @Body() body: { id: string; email: string; displayName?: string; photoUrl?: string },
   ) {
     return this.usersService.syncUser(body);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('preferences')
+  async getPreferences(@CurrentUser() user: CurrentUserType) {
+    return this.usersService.getPreferences(user.userId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Put('preferences')
+  async savePreferences(
+    @CurrentUser() user: CurrentUserType,
+    @Body() body: any,
+  ) {
+    return this.usersService.savePreferences(user.userId, body);
   }
 
   @UseGuards(AuthGuard)

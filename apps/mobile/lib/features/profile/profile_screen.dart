@@ -616,6 +616,22 @@ class ProfileScreen extends StatelessWidget {
                   },
                 ),
 
+                // Content & Feed Preferences Section
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  leading: const Icon(Icons.tune_rounded),
+                  title: const Text('Content & Feed Preferences',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  subtitle: const Text(
+                      'Languages, video & shorts channels, Bible translations',
+                      style: TextStyle(fontSize: 13)),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () {
+                    context.push('/preferences');
+                  },
+                ),
+
                 // Settings Section
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),

@@ -26,8 +26,11 @@ import 'features/profile/admin_users_screen.dart';
 import 'features/profile/playlist_detail_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/settings_screen.dart';
+import 'features/profile/screens/content_preferences_screen.dart';
 import 'features/profile/subscriptions_screen.dart';
 import 'features/profile/user_service.dart';
+import 'features/onboarding/screens/onboarding_screen.dart';
+import 'core/services/user_preference_service.dart';
 import 'features/search/search_screen.dart';
 import 'features/shorts/shorts_feed_screen.dart';
 import 'features/user_items/services/user_item_sync_service.dart';
@@ -71,6 +74,7 @@ void main() async {
   // before the first frame so book covers / fonts render at the current
   // revision instead of a stale cached copy.
   await ReleaseRevision.load();
+  await UserPreferenceService().initialize();
 
   // Run secondary initializations in background to eliminate startup blank screen
   NotificationService().initialize().catchError((e) => debugPrint('Notification init error: $e'));
@@ -112,6 +116,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
   final AuthService _authService = AuthService();
   final UserService _userService = UserService();
   final ChannelService _channelService = ChannelService();
+  final UserPreferenceService _preferenceService = UserPreferenceService();
 
   late final GoRouter _router;
 
@@ -124,16 +129,26 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
     UserItemSyncService.instance.attachTo(_authService);
     _channelService.attachToAuth(_authService);
 
+    final initialLoc =
+        _preferenceService.hasCompletedOnboarding ? '/feed' : '/onboarding';
+
     _router = GoRouter(
-      initialLocation: '/feed',
+      initialLocation: initialLoc,
       redirect: (context, state) {
         if (state.matchedLocation == '/' || state.matchedLocation.isEmpty) {
-          return '/feed';
+          return _preferenceService.hasCompletedOnboarding ? '/feed' : '/onboarding';
         }
         return null;
       },
       errorBuilder: (context, state) => const _NotFoundScreen(),
       routes: [
+        GoRoute(
+          path: '/onboarding',
+          builder: (context, state) => OnboardingScreen(
+            authService: _authService,
+            themeService: _themeService,
+          ),
+        ),
         ShellRoute(
           builder: (context, state, child) {
             return MainLayoutScreen(authService: _authService, child: child);
@@ -363,6 +378,13 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
               path: '/settings',
               builder: (context, state) =>
                   SettingsScreen(themeService: _themeService),
+            ),
+            GoRoute(
+              path: '/preferences',
+              builder: (context, state) => ContentPreferencesScreen(
+                authService: _authService,
+                themeService: _themeService,
+              ),
             ),
             GoRoute(
               path: '/admin-users',

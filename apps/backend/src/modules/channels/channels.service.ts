@@ -20,21 +20,35 @@ export class ChannelsService {
     return adminEmails.includes(email.trim().toLowerCase());
   }
 
-  async findAll() {
+  async findAll(type?: 'VIDEO' | 'SHORT' | 'ALL') {
     const channels = await this.prisma.channel.findMany({
       where: { isActive: true },
       include: {
         _count: {
           select: { videos: true },
         },
+        videos: {
+          where: { type: 'SHORT' },
+          select: { id: true },
+          take: 1,
+        },
       },
       orderBy: { name: 'asc' },
     });
 
-    return channels.map((c) => ({
+    const mapped = channels.map((c: any) => ({
       ...c,
-      videoCount: c._count.videos,
+      videoCount: c._count?.videos ?? 0,
+      hasShorts: Array.isArray(c.videos) && c.videos.length > 0,
     }));
+
+    if (type === 'SHORT') {
+      return mapped.filter((c) => c.hasShorts);
+    }
+    if (type === 'VIDEO') {
+      return mapped.filter((c) => c.videoCount > 0);
+    }
+    return mapped;
   }
 
   async findOne(id: string) {
