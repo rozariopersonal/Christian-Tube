@@ -4,6 +4,8 @@ import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/scripture_filter_state.dart';
 import 'books_filter_sheet.dart';
+import '../../../../core/services/lockscreen_word_feed_service.dart';
+import '../../../../core/services/user_preference_service.dart';
 
 class ScriptureFilterSettingsSheet extends StatefulWidget {
   final ScriptureFilterState filterState;
@@ -321,6 +323,12 @@ class _ScriptureFilterSettingsSheetState
                             _buildSectionHeader('FONT SIZE ADJUSTMENT', tokens),
                             const SizedBox(height: 8),
                             _buildFontSizeStudio(tokens),
+                            const SizedBox(height: 18),
+
+                            // Section G: Lock Screen Feed
+                            _buildSectionHeader('LOCK SCREEN FEED', tokens),
+                            const SizedBox(height: 8),
+                            _buildLockScreenFeedControl(tokens),
                             const SizedBox(height: 16),
                           ],
                         ),
@@ -780,6 +788,83 @@ class _ScriptureFilterSettingsSheetState
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLockScreenFeedControl(AppTokens tokens) {
+    return ListenableBuilder(
+      listenable: LockScreenWordFeedService.instance,
+      builder: (context, _) {
+        final lockService = LockScreenWordFeedService.instance;
+        final isEnabled = lockService.isEnabled;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: tokens.surfaceVariant.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isEnabled
+                  ? tokens.accent.withValues(alpha: 0.5)
+                  : tokens.surfaceBorder,
+              width: 1.0,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.screen_lock_portrait_rounded,
+                size: 22,
+                color: isEnabled ? tokens.accent : tokens.onSurfaceMuted,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pin Filters to Lock Screen',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: tokens.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Displays continuous scripture cards on lock screen matching these filters',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: tokens.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: isEnabled,
+                activeThumbColor: tokens.accent,
+                onChanged: (val) async {
+                  if (val) {
+                    await lockService.enable(
+                        intervalMinutes: lockService.intervalMinutes);
+                  } else {
+                    await lockService.disable();
+                  }
+                  final prefService = UserPreferenceService.instance;
+                  await prefService.savePreferences(
+                    prefService.preferences.copyWith(
+                      lockScreenWordFeedEnabled: val,
+                      lockScreenRefreshIntervalMinutes:
+                          lockService.intervalMinutes,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

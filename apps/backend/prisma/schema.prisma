@@ -229,9 +229,33 @@ model User {
   updatedAt     DateTime              @updatedAt
   subscriptions ChannelSubscription[]
   shortCreations ShortCreation[]
+  preference    UserPreference?
 
   @@index([isBlocked])
   @@index([email])
+}
+
+model UserPreference {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  languages              String[] @default(["en"])
+  videoChannelIds        String[] @default([])
+  shortsChannelIds       String[] @default([])
+  primaryBibleVersionId  String?  @default("NASB")
+  bibleVersionIds        String[] @default([])
+  themeMode              String?  @default("system")
+  accentColor            String?  @default("blue")
+  dailyReminderEnabled             Boolean  @default(false)
+  dailyReminderTime                String?  @default("07:00")
+  lockScreenWordFeedEnabled        Boolean  @default(false)
+  lockScreenRefreshIntervalMinutes Int      @default(60)
+  hasCompletedOnboarding           Boolean  @default(false)
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model MicroFeedItem {

@@ -26,8 +26,11 @@ import 'features/profile/admin_users_screen.dart';
 import 'features/profile/playlist_detail_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/settings_screen.dart';
+import 'features/profile/screens/content_preferences_screen.dart';
 import 'features/profile/subscriptions_screen.dart';
 import 'features/profile/user_service.dart';
+import 'features/onboarding/screens/onboarding_screen.dart';
+import 'core/services/user_preference_service.dart';
 import 'features/search/search_screen.dart';
 import 'features/shorts/shorts_feed_screen.dart';
 import 'features/user_items/services/user_item_sync_service.dart';
@@ -48,6 +51,7 @@ import 'features/articles/screens/article_browser_screen.dart';
 import 'features/articles/screens/article_reader_screen.dart';
 import 'features/songs/models/song.dart';
 import 'core/database/database_init.dart';
+import 'core/services/lockscreen_word_feed_service.dart';
 import 'shared/services/note_service.dart';
 import 'features/songs/screens/song_reader_screen.dart';
 import 'features/songs/screens/songs_library_screen.dart';
@@ -71,9 +75,11 @@ void main() async {
   // before the first frame so book covers / fonts render at the current
   // revision instead of a stale cached copy.
   await ReleaseRevision.load();
+  await UserPreferenceService().initialize();
 
   // Run secondary initializations in background to eliminate startup blank screen
   NotificationService().initialize().catchError((e) => debugPrint('Notification init error: $e'));
+  LockScreenWordFeedService.instance.initialize().catchError((e) => debugPrint('LockScreenWordFeedService init error: $e'));
   NoteService.instance.initialize().catchError((e) => debugPrint('NoteService init error: $e'));
   if (kMicroFeedEnabled) {
     try {
@@ -112,6 +118,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
   final AuthService _authService = AuthService();
   final UserService _userService = UserService();
   final ChannelService _channelService = ChannelService();
+  final UserPreferenceService _preferenceService = UserPreferenceService();
 
   late final GoRouter _router;
 
@@ -124,16 +131,26 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
     UserItemSyncService.instance.attachTo(_authService);
     _channelService.attachToAuth(_authService);
 
+    final initialLoc =
+        _preferenceService.hasCompletedOnboarding ? '/feed' : '/onboarding';
+
     _router = GoRouter(
-      initialLocation: '/feed',
+      initialLocation: initialLoc,
       redirect: (context, state) {
         if (state.matchedLocation == '/' || state.matchedLocation.isEmpty) {
-          return '/feed';
+          return _preferenceService.hasCompletedOnboarding ? '/feed' : '/onboarding';
         }
         return null;
       },
       errorBuilder: (context, state) => const _NotFoundScreen(),
       routes: [
+        GoRoute(
+          path: '/onboarding',
+          builder: (context, state) => OnboardingScreen(
+            authService: _authService,
+            themeService: _themeService,
+          ),
+        ),
         ShellRoute(
           builder: (context, state, child) {
             return MainLayoutScreen(authService: _authService, child: child);
@@ -365,6 +382,13 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                   SettingsScreen(themeService: _themeService),
             ),
             GoRoute(
+              path: '/preferences',
+              builder: (context, state) => ContentPreferencesScreen(
+                authService: _authService,
+                themeService: _themeService,
+              ),
+            ),
+            GoRoute(
               path: '/admin-users',
               builder: (context, state) =>
                   AdminUsersScreen(userService: _userService),
@@ -408,6 +432,17 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
     );
     BiblePassageNavigator.instance.init(_router);
     DeepLinkController.instance.attach(_router);
+    NotificationService.onNotificationPayload = (payload) {
+      _router.push(payload);
+    };
+    NotificationService().plugin.getNotificationAppLaunchDetails().then((details) {
+      final payload = details?.notificationResponse?.payload;
+      if (details?.didNotificationLaunchApp == true && payload != null && payload.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _router.push(payload);
+        });
+      }
+    });
   }
 
   @override

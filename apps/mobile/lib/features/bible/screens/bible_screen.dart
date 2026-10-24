@@ -24,7 +24,6 @@ import '../services/bible_passage_navigator.dart';
 import '../widgets/bible_app_bar.dart';
 import '../widgets/bible_content.dart';
 import '../widgets/bible_bottom_nav.dart';
-import '../widgets/verse_action_bar.dart';
 import '../../../core/services/bottom_bar_visibility_service.dart';
 
 class BibleScreen extends StatefulWidget {
@@ -60,7 +59,6 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _isProgrammaticScrolling = false;
   Timer? _highlightTimer;
   Timer? _programmaticScrollTimer;
-  VerseSheetStage _sheetStage = VerseSheetStage.expanded;
 
   @override
   void initState() {
@@ -176,9 +174,6 @@ class _BibleScreenState extends State<BibleScreen> {
     if (!mounted) return;
     setState(() {});
     final s = _controller.state;
-    if (s.selectedVerses.isEmpty && _sheetStage != VerseSheetStage.expanded) {
-      _sheetStage = VerseSheetStage.expanded;
-    }
     if (s.isLoading) return;
 
     final target = _controller.consumeScrollTargetIfReady();
@@ -452,69 +447,6 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
-  Widget _buildEmbeddedStudyContent(int verseNumber) {
-    final s = _controller.state;
-    final targetBook = s.selectedBook ?? _controller.currentBook;
-    final targetChapter = s.selectedChapter ?? _controller.currentChapter;
-    final bookNum = _controller.bookNumber(targetBook);
-    final cid = bibleChapterId(bookNum, targetChapter);
-    final chVerses = s.loadedChapters[cid] ?? s.verses;
-    final verse = chVerses.firstWhere(
-      (v) => v.number == verseNumber,
-      orElse: () => chVerses.isNotEmpty
-          ? chVerses.first
-          : BibleVerse(number: verseNumber, text: ''),
-    );
-    final verseLabel =
-        '${_controller.displayBookName(targetBook)} '
-        '$targetChapter:$verseNumber';
-    final refs = s.loadedCrossRefs[cid]?[verseNumber] ??
-        (targetBook == _controller.currentBook && targetChapter == _controller.currentChapter
-            ? (s.chapterCrossRefs[verseNumber] ?? const [])
-            : const []);
-    var notes = s.loadedBackgrounds[cid]?[verseNumber] ??
-        (targetBook == _controller.currentBook && targetChapter == _controller.currentChapter
-            ? (s.chapterBackgrounds[verseNumber] ?? const [])
-            : const []);
-    if (notes.isEmpty && s.chapterBackgrounds[0] != null) {
-      notes = s.chapterBackgrounds[0]!;
-    }
-    final bookCommentariesFuture = BookService.instance.getCommentariesForVerse(
-      bookNum, targetChapter, verseNumber,
-    );
-    return VerseStudyScreen(
-      isEmbedded: true,
-      verseText: verse.text,
-      verseLabel: verseLabel,
-      versionLabel: _controller.selectedVersion?.name,
-      versionId: _controller.selectedVersion?.shortname,
-      bookNumber: bookNum,
-      chapterNumber: targetChapter,
-      verseNumber: verseNumber,
-      references: refs,
-      resolvedTexts: s.crossRefTexts,
-      commentaryNotes: notes,
-      bookCommentariesFuture: bookCommentariesFuture,
-      baseFontSize: _controller.appearance.fontSize,
-      onTapReference: (ref) {
-        _controller.clearSelection();
-        _navigateToPassage(
-          bookNumber: ref.bookNumber,
-          chapter: ref.chapter,
-          verse: ref.verse,
-        );
-      },
-      onTapPassage: (bookNum, chapter, verseNum) {
-        _controller.clearSelection();
-        _navigateToPassage(
-          bookNumber: bookNum,
-          chapter: chapter,
-          verse: verseNum,
-        );
-      },
-    );
-  }
-
   // ── Clipboard / Share / Bookmark ──────────────────────────────────────
 
   void _copySelectedVerses() {
@@ -693,16 +625,11 @@ class _BibleScreenState extends State<BibleScreen> {
       listenable: Listenable.merge([appearance, BottomBarVisibilityService.instance]),
       builder: (context, _) {
         final isNavHidden = BottomBarVisibilityService.instance.isBibleNavHidden;
-        final hasInScreenInterception = _sheetStage == VerseSheetStage.study ||
-            s.selectedVerses.isNotEmpty ||
-            isNavHidden;
+        final hasInScreenInterception = s.selectedVerses.isNotEmpty || isNavHidden;
         return PopScope(
           canPop: !hasInScreenInterception,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
-            if (_sheetStage == VerseSheetStage.study) {
-              return;
-            }
             if (s.selectedVerses.isNotEmpty) {
               _controller.clearSelection();
               return;
@@ -757,16 +684,12 @@ class _BibleScreenState extends State<BibleScreen> {
                       onNote: _openNoteEditor,
                       onClear: _controller.clearSelection,
                       onStudy: null,
-                      studyContent: null,
                     ),
                 ],
               ),
             ),
             if (s.selectedVerses.isNotEmpty)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
+              Positioned.fill(
                 child: BibleBottomNav(
                   controller: _controller,
                   onShowBookChapterSelector: _showBookChapterSelector,
@@ -781,12 +704,6 @@ class _BibleScreenState extends State<BibleScreen> {
                     book: s.selectedBook,
                     chapter: s.selectedChapter,
                   ),
-                  studyContent: _buildEmbeddedStudyContent(s.selectedVerses.first),
-                  onStageChanged: (stage) {
-                    if (_sheetStage != stage) {
-                      setState(() => _sheetStage = stage);
-                    }
-                  },
                 ),
               ),
           ],

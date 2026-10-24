@@ -1,0 +1,17 @@
+{
+  "id": "arulrozario/taobvsi-vocab-pipeline",
+  "title": "TAOBVSI Vocab Pipeline",
+  "code_file": "taobvsi_pipeline.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "dataset_sources": [
+    "arulrozario/taobvsi-bible-base-data"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

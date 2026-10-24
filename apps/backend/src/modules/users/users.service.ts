@@ -43,9 +43,112 @@ export class UsersService {
         isBlocked: false,
         lastLoginAt: new Date(),
       },
+      include: {
+        preference: true,
+      },
     });
 
     return user;
+  }
+
+  async getPreferences(userId: string) {
+    let pref = await this.prisma.userPreference.findUnique({
+      where: { userId },
+    });
+    if (!pref) {
+      pref = await this.prisma.userPreference.create({
+        data: {
+          userId,
+          languages: ['en'],
+          videoChannelIds: [],
+          shortsChannelIds: [],
+          primaryBibleVersionId: 'NASB',
+          bibleVersionIds: ['NASB'],
+          hasCompletedOnboarding: false,
+        },
+      });
+    }
+    return pref;
+  }
+
+  async savePreferences(
+    userId: string,
+    data: {
+      languages?: string[];
+      videoChannelIds?: string[];
+      shortsChannelIds?: string[];
+      primaryBibleVersionId?: string;
+      bibleVersionIds?: string[];
+      themeMode?: string;
+      accentColor?: string;
+      dailyReminderEnabled?: boolean;
+      dailyReminderTime?: string;
+      lockScreenWordFeedEnabled?: boolean;
+      lockScreenRefreshIntervalMinutes?: number;
+      hasCompletedOnboarding?: boolean;
+    },
+  ) {
+    const pref = await this.prisma.userPreference.upsert({
+      where: { userId },
+      update: {
+        ...(data.languages !== undefined && { languages: data.languages }),
+        ...(data.videoChannelIds !== undefined && { videoChannelIds: data.videoChannelIds }),
+        ...(data.shortsChannelIds !== undefined && { shortsChannelIds: data.shortsChannelIds }),
+        ...(data.primaryBibleVersionId !== undefined && { primaryBibleVersionId: data.primaryBibleVersionId }),
+        ...(data.bibleVersionIds !== undefined && { bibleVersionIds: data.bibleVersionIds }),
+        ...(data.themeMode !== undefined && { themeMode: data.themeMode }),
+        ...(data.accentColor !== undefined && { accentColor: data.accentColor }),
+        ...(data.dailyReminderEnabled !== undefined && { dailyReminderEnabled: data.dailyReminderEnabled }),
+        ...(data.dailyReminderTime !== undefined && { dailyReminderTime: data.dailyReminderTime }),
+        ...(data.lockScreenWordFeedEnabled !== undefined && { lockScreenWordFeedEnabled: data.lockScreenWordFeedEnabled }),
+        ...(data.lockScreenRefreshIntervalMinutes !== undefined && { lockScreenRefreshIntervalMinutes: data.lockScreenRefreshIntervalMinutes }),
+        ...(data.hasCompletedOnboarding !== undefined && { hasCompletedOnboarding: data.hasCompletedOnboarding }),
+      },
+      create: {
+        userId,
+        languages: data.languages || ['en'],
+        videoChannelIds: data.videoChannelIds || [],
+        shortsChannelIds: data.shortsChannelIds || [],
+        primaryBibleVersionId: data.primaryBibleVersionId || 'NASB',
+        bibleVersionIds: data.bibleVersionIds || [],
+        themeMode: data.themeMode || 'system',
+        accentColor: data.accentColor || 'blue',
+        dailyReminderEnabled: data.dailyReminderEnabled ?? false,
+        dailyReminderTime: data.dailyReminderTime || '07:00',
+        lockScreenWordFeedEnabled: data.lockScreenWordFeedEnabled ?? false,
+        lockScreenRefreshIntervalMinutes: data.lockScreenRefreshIntervalMinutes || 60,
+        hasCompletedOnboarding: data.hasCompletedOnboarding ?? true,
+      },
+    });
+
+    // Synchronize channel subscriptions so video and shorts subscriptions are active in the feed
+    const allChannelIds = Array.from(
+      new Set([...(pref.videoChannelIds || []), ...(pref.shortsChannelIds || [])]),
+    );
+
+    if (allChannelIds.length > 0) {
+      try {
+        for (const channelId of allChannelIds) {
+          await this.prisma.channelSubscription.upsert({
+            where: {
+              userId_channelId: {
+                userId,
+                channelId,
+              },
+            },
+            update: {},
+            create: {
+              userId,
+              channelId,
+            },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to synchronize channel subscriptions: ${err}`);
+      }
+    }
+
+    return pref;
   }
 
   async findAll(query?: { search?: string }) {
