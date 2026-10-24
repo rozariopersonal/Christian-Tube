@@ -28,12 +28,16 @@ class ShortsFeedScreen extends StatefulWidget {
   final String? initialShortId;
   final int? initialIndex;
   final AuthService? authService;
+  final ChannelService? channelService;
+  final CommunityShortsController? communityController;
 
   const ShortsFeedScreen({
     super.key,
     this.initialShortId,
     this.initialIndex,
     this.authService,
+    this.channelService,
+    this.communityController,
   });
 
   @override
@@ -42,11 +46,11 @@ class ShortsFeedScreen extends StatefulWidget {
 
 class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   final ShortsOrchestratorService _orchestrator = ShortsOrchestratorService();
-  final CommunityShortsController _communityController =
-      CommunityShortsController();
-  final ChannelService _channelService = ChannelService();
-  final ScrollController _communityScrollController = ScrollController();
+  late final ChannelService _channelService =
+      widget.channelService ?? ChannelService();
   late final AuthService _authService = widget.authService ?? AuthService();
+  late final CommunityShortsController _communityController;
+  final ScrollController _communityScrollController = ScrollController();
 
   ShortsViewTab _activeTab = ShortsViewTab.community;
 
@@ -55,14 +59,33 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   int? _selectedCreationIndex;
 
   StreamSubscription<void>? _shortsResetSub;
+  bool _hasFetchedInitialShorts = false;
 
   @override
   void initState() {
     super.initState();
-    _communityController.fetchShorts().then((_) {
-      if (mounted) _applyInitialTarget();
+    _communityController = widget.communityController ??
+        CommunityShortsController(
+          isAuthenticated: _authService.isAuthenticated,
+          subscribedChannelIds: _channelService.subscribedChannelIds,
+        );
+
+    final bool waitingForInitialSubs = _authService.isAuthenticated &&
+        _channelService.subscribedChannelIds.isEmpty;
+
+    if (!waitingForInitialSubs) {
+      _hasFetchedInitialShorts = true;
+      _communityController.fetchShorts().then((_) {
+        if (mounted) _applyInitialTarget();
+      });
+    }
+
+    _loadChannelContext().then((_) {
+      if (waitingForInitialSubs && mounted) {
+        _applyInitialTarget();
+      }
     });
-    _loadChannelContext();
+
     _channelService.addListener(_onChannelContextChanged);
     _authService.addListener(_onAuthContextChanged);
     _orchestrator.fetchCloudCreations();
@@ -77,6 +100,10 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     await _channelService.loadSubscriptions();
     if (!mounted) return;
     await _pushSubscriptionContext();
+    if (!_hasFetchedInitialShorts) {
+      _hasFetchedInitialShorts = true;
+      await _communityController.fetchShorts();
+    }
   }
 
   void _onChannelContextChanged() {
@@ -165,7 +192,9 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     BottomBarVisibilityService.instance.setShortPlaying(false);
     _communityScrollController.removeListener(_onCommunityScroll);
     _communityScrollController.dispose();
-    _communityController.dispose();
+    if (widget.communityController == null) {
+      _communityController.dispose();
+    }
     super.dispose();
   }
 

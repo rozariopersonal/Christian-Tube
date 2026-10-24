@@ -18,7 +18,7 @@ class ChannelService extends ChangeNotifier {
   late final Dio _dio;
 
   ChannelService._internal({Dio? dio}) : _dio = dio ?? ApiClient().dio {
-    loadSubscriptions();
+    _loadFromPrefs();
   }
 
   @visibleForTesting
@@ -74,6 +74,9 @@ class ChannelService extends ChangeNotifier {
 
   Future<void> loadSubscriptions() async {
     if (_isAuthenticated) {
+      if (_subscribedIds.isEmpty) {
+        await _loadFromPrefs();
+      }
       await _loadFromBackend();
     } else {
       await _loadFromPrefs();

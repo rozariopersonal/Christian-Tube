@@ -55,11 +55,19 @@ void main() {
   late RecordingAdapter adapter;
   late ApiClient apiClient;
 
-  CommunityShortsController buildController({List<String>? responses}) {
+  CommunityShortsController buildController({
+    List<String>? responses,
+    bool isAuthenticated = false,
+    Set<String> subscribedChannelIds = const {},
+  }) {
     adapter = RecordingAdapter(responses ?? []);
     apiClient = ApiClient();
     apiClient.dio.httpClientAdapter = adapter;
-    return CommunityShortsController(apiClient: apiClient);
+    return CommunityShortsController(
+      apiClient: apiClient,
+      isAuthenticated: isAuthenticated,
+      subscribedChannelIds: subscribedChannelIds,
+    );
   }
 
   setUp(() {
@@ -217,6 +225,34 @@ void main() {
       );
       expect(controller.activeCacheKey, 'ct_cached_community_shorts');
       expect(adapter.requests[1].queryParameters['channelIds'], isNull);
+    });
+
+    test('constructor initialized with subscriptions queries subscribed channels immediately', () async {
+      final controller = buildController(
+        responses: ['[]'],
+        isAuthenticated: true,
+        subscribedChannelIds: {'enA'},
+      );
+      await _settle();
+
+      await controller.fetchShorts();
+
+      expect(adapter.requests, hasLength(1));
+      final params = adapter.requests.single.queryParameters;
+      expect(params['type'], 'SHORT');
+      expect(params['channelIds'], 'enA');
+    });
+
+    test('constructor initialized with subscriptions loads scoped cache instead of generic all cache', () async {
+      final controller = buildController(
+        responses: [],
+        isAuthenticated: true,
+        subscribedChannelIds: {'enA'},
+      );
+      await _settle();
+
+      expect(controller.activeCacheKey, isNot('ct_cached_community_shorts'));
+      expect(controller.activeCacheKey, startsWith('ct_cached_community_shorts_sub_'));
     });
   });
 }
