@@ -4,6 +4,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/user.dart';
+import '../../core/models/user_preference.dart';
+import '../../core/services/user_preference_service.dart';
 import '../../core/config/app_config.dart';
 
 class AuthService extends ChangeNotifier {
@@ -204,12 +206,28 @@ class AuthService extends ChangeNotifier {
   void _syncUserWithBackend(User user) {
     Future.microtask(() async {
       try {
-        await _apiClient.dio.post(
+        final response = await _apiClient.dio.post(
           '/user/sync',
           data: user.toJson(),
         );
+        if (response.statusCode == 200 && response.data != null) {
+          final prefData = response.data['preference'];
+          if (prefData != null && prefData is Map) {
+            final cloudPref = UserPreference.fromJson(
+              Map<String, dynamic>.from(prefData),
+            );
+            await UserPreferenceService.instance.savePreferences(
+              cloudPref,
+              auth: this,
+              syncWithBackend: false,
+            );
+          } else {
+            await UserPreferenceService.instance.fetchPreferences(auth: this);
+          }
+        }
       } catch (e) {
         debugPrint('Backend user sync non-blocking error: $e');
+        UserPreferenceService.instance.fetchPreferences(auth: this).catchError((_) => const UserPreference());
       }
     });
   }
@@ -258,6 +276,7 @@ class AuthService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('current_user');
     await prefs.remove('auth_token');
+    await UserPreferenceService.instance.clearForSignOut();
     notifyListeners();
   }
 }

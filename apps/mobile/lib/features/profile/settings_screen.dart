@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
@@ -273,6 +274,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             widget.themeService.setLanguage(lang.code),
                       );
                     }).toList(),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // SECTION: CONTENT & FEED PREFERENCES
+                _buildSectionHeader(
+                    'Content & Feed Preferences', theme.colorScheme.primary),
+                Card(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.tune_rounded,
+                            color: theme.colorScheme.primary),
+                        title: const Text('Content & Channel Preferences',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: const Text(
+                            'Languages, video channels, shorts creators, and Bible translations'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/preferences'),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: Icon(Icons.auto_awesome_rounded,
+                            color: theme.colorScheme.primary),
+                        title: const Text('Re-run Onboarding Setup'),
+                        subtitle: const Text('Launch guided initial configuration wizard'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/onboarding'),
+                      ),
+                    ],
                   ),
                 ),
 

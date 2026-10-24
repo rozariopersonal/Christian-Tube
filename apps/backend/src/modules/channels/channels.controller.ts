@@ -9,8 +9,8 @@ export class ChannelsController {
   constructor(private readonly channelsService: ChannelsService) {}
 
   @Get()
-  async getChannels() {
-    return this.channelsService.findAll();
+  async getChannels(@Query('type') type?: 'VIDEO' | 'SHORT' | 'ALL') {
+    return this.channelsService.findAll(type);
   }
 
   @Get('check-admin')

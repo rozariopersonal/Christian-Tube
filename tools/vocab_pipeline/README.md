@@ -1,66 +1,76 @@
-# TAOVBSI Classical Tamil Vocabulary Extraction Pipeline
+# Protestant Tamil Bible Vocabulary Builder Pipeline
 
-An automated, fail-safe linguistic pipeline designed to extract **100% of the vocabulary** from the Classical Tamil Bible (TAOVBSI Version), cross-reference it against existing glossary databases, and prepare batch definitions for **DeepSeek-V3**.
-
----
-
-## 1. Why This Pipeline Was Built
-
-When DeepSeek was previously prompted to read Bible chapters and define words directly, it missed up to **55% of unique vocabulary** due to attention bias, token limits, and selective recall.
-
-This pipeline fixes that by introducing **Deterministic Preprocessing**:
-1. **100% Token Coverage:** Python reads every single word in every verse.
-2. **Agglutination Normalizer:** Strips case markers (`-ஐ`, `-ஆல்`, `-கு`, `-இல்`, `-உடைய`) and clitics (`-உம்`, `-ஏ`, `-ஓ`), grouping surface variants under their canonical root lemma.
-3. **Inverted "Default-to-Keep" Filter:**
-   - Drops 764 scraped classical Tamil stopwords (pronouns, conjunctions, particles, auxiliaries).
-   - Any borderline word is classified by a local model (Ollama) strictly for `common: true`.
-   - **Crucial Rule:** Any word not confirmed as a common filler **defaults to KEEP (definition-worthy)**.
-4. **Existing DB Cross-Check:** Automatically connects to `releases/study/taobvsi/taobvsi_glossary.sqlite` to identify words already defined, outputting only the **genuinely missed words** for DeepSeek.
+Sequential normalized vocabulary builder and contextual lexicon engine for the Protestant Classical Tamil Bible (TAOVBSI - பரிசுத்த வேதாகமம்).
 
 ---
 
-## 2. Directory Structure
+## 1. Architecture Overview
 
+### Normalized 2-Table Schema (`taobvsi_glossary.sqlite`)
+1. **`unique_words`** (~95,000 distinct surface words):
+   * `(id, surface_form, pos, canonical, modern_equivalent, english_word, definition_ta, created_at)`
+   * Unique constraint: `UNIQUE(surface_form, pos)`
+   * Zero redundancy: Each distinct word form in context is defined **only once**.
+2. **`verse_tokens`** (418,550 occurrences):
+   * `(book, chapter, verse, word_index, raw_token, word_id)`
+   * Lean integer foreign key referencing `unique_words(id)`.
+   * Preserves exact verse punctuation and flow.
+
+### Outputs
+* **SQLite Database**: `releases/study/taobvsi/taobvsi_glossary.sqlite`
+* **Consolidated CSV**: `releases/study/taobvsi/taobvsi_verse_words.csv` (joins both tables in sequential order for human auditing)
+* **Per-Chapter JSON**: `releases/study/taobvsi/words/{book}/{chapter}.json`
+* **Live Dashboard**: `releases/study/taobvsi/WORDS_PROGRESS.md` (refreshed every 5s)
+
+---
+
+## 2. Hardware Acceleration: Intel Arc GPU (Vulkan)
+
+For PCs with an **Intel Arc GPU** (e.g. Intel Core Ultra with Arc Pro Graphics), Ollama's standard Windows launcher falls back to CPU due to a DXGI 2 GB virtual aperture reporting bug.
+
+We bypass this limitation using the native **Vulkan 1.4 backend** (`ggml-vulkan.dll`), granting the model access to the **54.4 GB unified system RAM heap**:
+* **CPU Evaluation**: ~1.45 tokens/second
+* **Intel Arc Vulkan Evaluation**: **~6.30 tokens/second (4.3x speedup)**
+
+### Starting the Intel Arc Vulkan Server
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/vocab_pipeline/start_arc_vulkan_server.ps1
 ```
-tools/vocab_pipeline/
-├── taovbsi_sample.json             # Mock test data (Genesis 1:1-5 & John 3:16)
-├── stopwords_scraper.py            # Scrapes high-frequency functional words across the Bible
-├── common_stopwords.py             # 764 classical Tamil stopwords (auto-generated)
-├── common_words_blacklist.json     # JSON dump of scraped stopwords
-├── morphology.py                   # Tamil Unicode cleaner & classical suffix normalizer
-├── ollama_filter.py                # Inverted local model tagger (Ollama)
-├── pipeline.py                     # Main orchestrator CLI
-├── unique_words_with_references.json # Master output with verse tracking
-└── missed_words_for_deepseek.json  # Clean payload with verse context for DeepSeek
+*(Or double-click `tools/vocab_pipeline/start_arc_vulkan_server.bat`)*.
+
+See detailed documentation in [INTEL_ARC_VULKAN_ACCELERATION.md](file:///d:/Projects/Christian-Tube/tools/vocab_pipeline/INTEL_ARC_VULKAN_ACCELERATION.md).
+
+---
+
+## 3. Running the Vocabulary Processor
+
+The processor auto-detects whether you are running standard Ollama or the high-speed Intel Arc Vulkan server:
+
+### Direct Python Execution
+```powershell
+python tools/vocab_pipeline/bible_vocab_processor.py --start-book 1 --start-chapter 1
+```
+
+### Export Consolidated CSV Only
+To re-generate or audit the consolidated CSV from the SQLite database:
+```powershell
+python tools/vocab_pipeline/bible_vocab_processor.py --export-csv-only
+```
+
+### Running with Docker Compose
+```bash
+docker compose -f tools/vocab_pipeline/docker-compose.yml up -d --build
+```
+To view live logs:
+```bash
+docker compose -f tools/vocab_pipeline/docker-compose.yml logs -f
 ```
 
 ---
 
-## 3. CLI Usage
-
-All commands run from the repository root or inside `tools/vocab_pipeline/`:
-
-### A. Run against the Mock Sample (Genesis 1:1-5 & John 3:16)
-```bash
-python tools/vocab_pipeline/pipeline.py --sample
-```
-
-### B. Run against a Single Book (e.g. Ruth, Book 8)
-```bash
-python tools/vocab_pipeline/pipeline.py --book 8
-```
-
-### C. Run with Local Ollama Linguistic Tagging
-```bash
-python tools/vocab_pipeline/pipeline.py --sample --ollama --model gemma2:2b
-```
-
-### D. Run against the Entire Bible (All 66 Books, 1,189 Chapters)
-```bash
-python tools/vocab_pipeline/pipeline.py --all
-```
-
-### E. Re-scrape Common Stopwords across the Bible
-```bash
-python tools/vocab_pipeline/stopwords_scraper.py
-```
+## 4. Real-Time Tracking
+The processor maintains a real-time Markdown dashboard in `releases/study/taobvsi/WORDS_PROGRESS.md` tracking:
+* Completed chapters and verses
+* Unique surface words defined vs total target (95,634)
+* Compounding cache hit rate (0ms instant resolution)
+* Accurate remaining ETA based on the Unique Word Model
