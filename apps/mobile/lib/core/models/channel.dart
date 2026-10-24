@@ -11,6 +11,7 @@ class Channel {
 
   String get name => title;
   String get thumbnail => avatarUrl;
+  bool get isFollowed => isSubscribed;
 
   const Channel({
     required this.id,
@@ -33,6 +34,7 @@ class Channel {
     int? subscriberCount,
     int? videoCount,
     bool? isSubscribed,
+    bool? isFollowed,
     String? language,
   }) {
     return Channel(
@@ -43,7 +45,7 @@ class Channel {
       bannerUrl: bannerUrl ?? this.bannerUrl,
       subscriberCount: subscriberCount ?? this.subscriberCount,
       videoCount: videoCount ?? this.videoCount,
-      isSubscribed: isSubscribed ?? this.isSubscribed,
+      isSubscribed: isFollowed ?? isSubscribed ?? this.isSubscribed,
       language: language ?? this.language,
     );
   }
