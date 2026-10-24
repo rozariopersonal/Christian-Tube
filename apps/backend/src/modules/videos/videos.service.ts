@@ -255,7 +255,44 @@ export class VideosService {
     query: VideoQuery,
     vector: number[],
   ): Promise<string[]> {
-    return [];
+    const filters = this.buildBaseFilterSql(query);
+
+    const modelIdx = filters.params.length + 1;
+    const versionIdx = modelIdx + 1;
+    const vecIdx = versionIdx + 1;
+    const vectorLiteral = `[${vector.join(',')}]`;
+    const rawParams = [
+      ...filters.params,
+      this.embeddingService.modelName,
+      this.embeddingService.modelVersion,
+      vectorLiteral,
+    ];
+
+    const vectorSql = `
+      SELECT v.id
+      FROM "Video" v
+      JOIN "VideoEmbedding" ve ON ve."videoId" = v.id
+      JOIN "Channel" c ON c.id = v."channelId"
+      WHERE c."isActive" = true
+        ${filters.clause}
+        AND ve."model" = $${modelIdx}
+        AND ve."version" = $${versionIdx}
+      ORDER BY ve.embedding <=> $${vecIdx}::vector
+      LIMIT 100
+    `;
+
+    try {
+      const rows: { id: string }[] = await this.prisma.$queryRawUnsafe(
+        vectorSql,
+        ...rawParams,
+      );
+      return rows.map((r) => r.id);
+    } catch (e: any) {
+      this.logger.warn(
+        `Vector search failed, using keyword only: ${e.message}`,
+      );
+      return [];
+    }
   }
 
   private async keywordSearch(query: VideoQuery): Promise<string[]> {

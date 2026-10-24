@@ -328,15 +328,10 @@ describe('EmbeddingService', () => {
   });
 
   describe('reconcilePendingEmbeddings', () => {
-    it('re-queues completed embeddings whose version does not match', async () => {
+    it('is disabled as embeddings are managed by the embedder worker', async () => {
       const { service, prisma } = makeService();
-      prisma.$executeRawUnsafe.mockResolvedValue(7);
       await service.reconcilePendingEmbeddings();
-      expect(prisma.$executeRawUnsafe).toHaveBeenCalledTimes(1);
-      const [sql, version] = prisma.$executeRawUnsafe.mock.calls[0];
-      expect(sql).toContain(`'status', 'pending'`);
-      expect(sql).toContain(`NULLIF("embedding"->>'version', '')::integer <> $1`);
-      expect(version).toBe(1);
+      expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
     });
 
     it('does nothing when disabled', async () => {
