@@ -33,8 +33,17 @@ class CommunityShortsController extends ChangeNotifier {
   Set<String> _subscribedChannelIds = const {};
   Set<String>? _candidateChannelIds;
 
-  CommunityShortsController({ApiClient? apiClient})
-      : apiClient = apiClient ?? ApiClient() {
+  CommunityShortsController({
+    ApiClient? apiClient,
+    bool isAuthenticated = false,
+    Set<String> subscribedChannelIds = const {},
+  })  : apiClient = apiClient ?? ApiClient(),
+        _isAuthenticated = isAuthenticated,
+        _subscribedChannelIds = subscribedChannelIds {
+    _candidateChannelIds = resolveSubscribedChannelIds(
+      isAuthenticated: isAuthenticated,
+      subscribedChannelIds: subscribedChannelIds,
+    );
     _loadCachedShorts();
   }
 
