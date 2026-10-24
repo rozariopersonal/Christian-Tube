@@ -17,8 +17,6 @@ class BibleBottomNav extends StatelessWidget {
     required this.onNote,
     required this.onClear,
     required this.onStudy,
-    this.studyContent,
-    this.onStageChanged,
   });
 
   final BibleController controller;
@@ -30,8 +28,6 @@ class BibleBottomNav extends StatelessWidget {
   final VoidCallback onNote;
   final VoidCallback onClear;
   final VoidCallback? onStudy;
-  final Widget? studyContent;
-  final ValueChanged<VerseSheetStage>? onStageChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -58,11 +54,9 @@ class BibleBottomNav extends StatelessWidget {
         currentColorIndex: s.highlightColorForSelection,
         hasHighlight: s.selectionHasHighlight,
         verseLabel: verseLabel,
-        studyContent: studyContent,
         onNote: onNote,
         onClear: onClear,
         onStudy: onStudy,
-        onStageChanged: onStageChanged,
       );
     }
     return _ChapterNav(
