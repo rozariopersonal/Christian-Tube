@@ -20,6 +20,7 @@ import 'widgets/scripture_card_view.dart';
 import 'widgets/verse_action_appearance_sheet.dart';
 import 'widgets/scripture_filter_settings_sheet.dart';
 import '../../shorts/widgets/shorts_chrome.dart';
+import '../../../core/services/lockscreen_word_feed_service.dart';
 
 class ScriptureEngine
     implements BaseFeedEngine<ScriptureCard, ScriptureFilterState> {
@@ -166,6 +167,10 @@ class ScriptureEngine
       if (lang == 'en') {
         await prefs.setString('pref_bible_font_family', state.activeFontFamily);
       }
+    } catch (_) {}
+
+    try {
+      LockScreenWordFeedService.instance.onFilterStateChanged(state);
     } catch (_) {}
   }
 

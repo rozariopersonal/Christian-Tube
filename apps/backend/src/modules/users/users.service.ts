@@ -83,6 +83,8 @@ export class UsersService {
       accentColor?: string;
       dailyReminderEnabled?: boolean;
       dailyReminderTime?: string;
+      lockScreenWordFeedEnabled?: boolean;
+      lockScreenRefreshIntervalMinutes?: number;
       hasCompletedOnboarding?: boolean;
     },
   ) {
@@ -98,6 +100,8 @@ export class UsersService {
         ...(data.accentColor !== undefined && { accentColor: data.accentColor }),
         ...(data.dailyReminderEnabled !== undefined && { dailyReminderEnabled: data.dailyReminderEnabled }),
         ...(data.dailyReminderTime !== undefined && { dailyReminderTime: data.dailyReminderTime }),
+        ...(data.lockScreenWordFeedEnabled !== undefined && { lockScreenWordFeedEnabled: data.lockScreenWordFeedEnabled }),
+        ...(data.lockScreenRefreshIntervalMinutes !== undefined && { lockScreenRefreshIntervalMinutes: data.lockScreenRefreshIntervalMinutes }),
         ...(data.hasCompletedOnboarding !== undefined && { hasCompletedOnboarding: data.hasCompletedOnboarding }),
       },
       create: {
@@ -111,6 +115,8 @@ export class UsersService {
         accentColor: data.accentColor || 'blue',
         dailyReminderEnabled: data.dailyReminderEnabled ?? false,
         dailyReminderTime: data.dailyReminderTime || '07:00',
+        lockScreenWordFeedEnabled: data.lockScreenWordFeedEnabled ?? false,
+        lockScreenRefreshIntervalMinutes: data.lockScreenRefreshIntervalMinutes || 60,
         hasCompletedOnboarding: data.hasCompletedOnboarding ?? true,
       },
     });

@@ -1,5 +1,15 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../config/app_config.dart';
+import 'lockscreen_word_feed_service.dart';
+
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse response) {
+  if (response.actionId == LockScreenWordFeedService.actionNextWord) {
+    LockScreenWordFeedService.instance.rotateNextWord();
+  } else if (response.actionId == LockScreenWordFeedService.actionBookmark) {
+    LockScreenWordFeedService.instance.toggleBookmarkCurrentWord();
+  }
+}
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -7,6 +17,9 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin get plugin => _notificationsPlugin;
+
+  static void Function(String payload)? onNotificationPayload;
 
   Future<void> initialize() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -18,9 +31,21 @@ class NotificationService {
 
     await _notificationsPlugin.initialize(
       initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Handle notification tap
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
+        if (response.actionId == LockScreenWordFeedService.actionNextWord) {
+          await LockScreenWordFeedService.instance.rotateNextWord();
+          return;
+        }
+        if (response.actionId == LockScreenWordFeedService.actionBookmark) {
+          await LockScreenWordFeedService.instance.toggleBookmarkCurrentWord();
+          return;
+        }
+        final payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          onNotificationPayload?.call(payload);
+        }
       },
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
 
     // Request notification permission for Android 13+ (API 33+) to allow lockscreen media controls

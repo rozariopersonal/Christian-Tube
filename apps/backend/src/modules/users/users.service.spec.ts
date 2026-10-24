@@ -102,6 +102,8 @@ describe('UsersService', () => {
         videoChannelIds: ['c1', 'c2'],
         shortsChannelIds: ['c2', 'c3'],
         primaryBibleVersionId: 'TAOBVSI',
+        lockScreenWordFeedEnabled: true,
+        lockScreenRefreshIntervalMinutes: 30,
         hasCompletedOnboarding: true,
       };
       prisma.userPreference.upsert.mockResolvedValue(savedPref);
@@ -112,12 +114,18 @@ describe('UsersService', () => {
         videoChannelIds: ['c1', 'c2'],
         shortsChannelIds: ['c2', 'c3'],
         primaryBibleVersionId: 'TAOBVSI',
+        lockScreenWordFeedEnabled: true,
+        lockScreenRefreshIntervalMinutes: 30,
         hasCompletedOnboarding: true,
       });
 
       expect(prisma.userPreference.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: 'u1' },
+          update: expect.objectContaining({
+            lockScreenWordFeedEnabled: true,
+            lockScreenRefreshIntervalMinutes: 30,
+          }),
         }),
       );
       expect(prisma.channelSubscription.upsert).toHaveBeenCalledTimes(3); // c1, c2, c3 unique

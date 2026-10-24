@@ -51,6 +51,7 @@ import 'features/articles/screens/article_browser_screen.dart';
 import 'features/articles/screens/article_reader_screen.dart';
 import 'features/songs/models/song.dart';
 import 'core/database/database_init.dart';
+import 'core/services/lockscreen_word_feed_service.dart';
 import 'shared/services/note_service.dart';
 import 'features/songs/screens/song_reader_screen.dart';
 import 'features/songs/screens/songs_library_screen.dart';
@@ -78,6 +79,7 @@ void main() async {
 
   // Run secondary initializations in background to eliminate startup blank screen
   NotificationService().initialize().catchError((e) => debugPrint('Notification init error: $e'));
+  LockScreenWordFeedService.instance.initialize().catchError((e) => debugPrint('LockScreenWordFeedService init error: $e'));
   NoteService.instance.initialize().catchError((e) => debugPrint('NoteService init error: $e'));
   if (kMicroFeedEnabled) {
     try {
@@ -430,6 +432,17 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
     );
     BiblePassageNavigator.instance.init(_router);
     DeepLinkController.instance.attach(_router);
+    NotificationService.onNotificationPayload = (payload) {
+      _router.push(payload);
+    };
+    NotificationService().plugin.getNotificationAppLaunchDetails().then((details) {
+      final payload = details?.notificationResponse?.payload;
+      if (details?.didNotificationLaunchApp == true && payload != null && payload.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _router.push(payload);
+        });
+      }
+    });
   }
 
   @override

@@ -7,6 +7,7 @@ import '../../shared/services/library_languages_controller.dart';
 import '../../features/bible/services/bible_settings_service.dart';
 import '../../features/channels/channel_service.dart';
 import '../../features/auth/auth_service.dart';
+import 'lockscreen_word_feed_service.dart';
 
 class UserPreferenceService extends ChangeNotifier {
   static const String _prefStorageKey = 'ct_user_preferences_v1';
@@ -98,7 +99,7 @@ class UserPreferenceService extends ChangeNotifier {
     // 1. Persist locally
     await _saveToLocal(newPreferences);
 
-    // 2. Apply to runtime controllers (library languages, bible, channels)
+    // 2. Apply to runtime controllers (library languages, bible, channels, lockscreen)
     await applyToRuntimeControllers(newPreferences);
 
     // 3. Sync to backend if authenticated
@@ -164,6 +165,19 @@ class UserPreferenceService extends ChangeNotifier {
       final channelService = ChannelService();
       await channelService.loadSubscriptions();
     } catch (_) {}
+
+    // 4. Lock screen word feed
+    try {
+      if (pref.lockScreenWordFeedEnabled) {
+        await LockScreenWordFeedService.instance.enable(
+          intervalMinutes: pref.lockScreenRefreshIntervalMinutes,
+        );
+      } else {
+        await LockScreenWordFeedService.instance.disable();
+      }
+    } catch (e) {
+      debugPrint('Failed to sync LockScreenWordFeedService: $e');
+    }
   }
 
   Future<void> _saveToLocal(UserPreference pref) async {
