@@ -3,10 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bible-vocab-rag-step1
+    container_name: bible-vocab-processor
     volumes:
       - ../../releases:/app/releases
       - ./prompts:/app/prompts
+      - ./bible_vocab_processor.py:/app/bible_vocab_processor.py
       - ./rag_step1_processor.py:/app/rag_step1_processor.py
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
@@ -21,4 +22,4 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-    command: ["--all", "--book", "1", "--start-chapter", "1"]
+    command: ["--start-book", "1", "--start-chapter", "1"]
