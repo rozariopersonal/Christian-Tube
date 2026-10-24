@@ -8,6 +8,8 @@ import '../../shared/ui/language_meta.dart';
 import '../update/update_service.dart';
 import '../feedback/widgets/voice_feedback_sheet.dart';
 import 'widgets/app_share_dialog.dart';
+import '../../core/services/lockscreen_word_feed_service.dart';
+import '../../core/services/user_preference_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final ThemeService themeService;
@@ -308,6 +310,136 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // SECTION: LOCK SCREEN WORD FEED
+                _buildSectionHeader(
+                    'Lock Screen Word Feed', theme.colorScheme.primary),
+                ListenableBuilder(
+                  listenable: Listenable.merge([
+                    LockScreenWordFeedService.instance,
+                    UserPreferenceService.instance,
+                  ]),
+                  builder: (context, _) {
+                    final lockService = LockScreenWordFeedService.instance;
+                    final prefService = UserPreferenceService.instance;
+                    final isEnabled = lockService.isEnabled;
+                    final interval = lockService.intervalMinutes;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SwitchListTile(
+                            secondary: Icon(
+                              Icons.screen_lock_portrait_rounded,
+                              color: isEnabled ? theme.colorScheme.primary : null,
+                            ),
+                            title: const Text(
+                              'Display on Lock Screen',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: const Text(
+                              'Show ongoing scripture cards on your lock screen matching active Word Feed filters',
+                            ),
+                            value: isEnabled,
+                            activeThumbColor: theme.colorScheme.primary,
+                            onChanged: (val) async {
+                              if (val) {
+                                await lockService.enable(intervalMinutes: interval);
+                              } else {
+                                await lockService.disable();
+                              }
+                              await prefService.savePreferences(
+                                prefService.preferences.copyWith(
+                                  lockScreenWordFeedEnabled: val,
+                                  lockScreenRefreshIntervalMinutes: interval,
+                                ),
+                              );
+                            },
+                          ),
+                          if (isEnabled) ...[
+                            const Divider(height: 1),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                              child: Text(
+                                'Rotation Frequency:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.tokens.onSurfaceMuted,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  {'min': 15, 'label': '15m'},
+                                  {'min': 30, 'label': '30m'},
+                                  {'min': 60, 'label': '1 Hour'},
+                                  {'min': 120, 'label': '2 Hours'},
+                                  {'min': 240, 'label': '4 Hours'},
+                                  {'min': 0, 'label': 'Manual Only'},
+                                ].map((opt) {
+                                  final mins = opt['min'] as int;
+                                  final label = opt['label'] as String;
+                                  final isSelected = interval == mins;
+                                  return ChoiceChip(
+                                    label: Text(label),
+                                    selected: isSelected,
+                                    selectedColor: theme.colorScheme.primary
+                                        .withValues(alpha: 0.2),
+                                    onSelected: (_) async {
+                                      await lockService.setIntervalMinutes(mins);
+                                      await prefService.savePreferences(
+                                        prefService.preferences.copyWith(
+                                          lockScreenRefreshIntervalMinutes: mins,
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            ListTile(
+                              leading: Icon(Icons.refresh_rounded, color: theme.colorScheme.primary),
+                              title: const Text('Refresh Lock Screen Word Now'),
+                              subtitle: const Text('Fetch and display a new passage immediately'),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () async {
+                                await lockService.rotateNextWord();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Lock screen card refreshed!'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+                              child: Text(
+                                'Tip: On your lock screen, you can tap "Next Word", "Read Chapter", or "Bookmark" directly without unlocking your phone.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontStyle: FontStyle.italic,
+                                  color: context.tokens.onSurfaceMuted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 12),

@@ -11,6 +11,8 @@ class UserPreference {
   final String accentColor;
   final bool dailyReminderEnabled;
   final String dailyReminderTime;
+  final bool lockScreenWordFeedEnabled;
+  final int lockScreenRefreshIntervalMinutes;
   final bool hasCompletedOnboarding;
 
   const UserPreference({
@@ -23,6 +25,8 @@ class UserPreference {
     this.accentColor = 'blue',
     this.dailyReminderEnabled = false,
     this.dailyReminderTime = '07:00',
+    this.lockScreenWordFeedEnabled = false,
+    this.lockScreenRefreshIntervalMinutes = 60,
     this.hasCompletedOnboarding = false,
   });
 
@@ -49,6 +53,9 @@ class UserPreference {
       accentColor: (json['accentColor'] as String?) ?? 'blue',
       dailyReminderEnabled: json['dailyReminderEnabled'] == true,
       dailyReminderTime: (json['dailyReminderTime'] as String?) ?? '07:00',
+      lockScreenWordFeedEnabled: json['lockScreenWordFeedEnabled'] == true,
+      lockScreenRefreshIntervalMinutes:
+          (json['lockScreenRefreshIntervalMinutes'] as num?)?.toInt() ?? 60,
       hasCompletedOnboarding: json['hasCompletedOnboarding'] == true,
     );
   }
@@ -64,6 +71,8 @@ class UserPreference {
       'accentColor': accentColor,
       'dailyReminderEnabled': dailyReminderEnabled,
       'dailyReminderTime': dailyReminderTime,
+      'lockScreenWordFeedEnabled': lockScreenWordFeedEnabled,
+      'lockScreenRefreshIntervalMinutes': lockScreenRefreshIntervalMinutes,
       'hasCompletedOnboarding': hasCompletedOnboarding,
     };
   }
@@ -78,6 +87,8 @@ class UserPreference {
     String? accentColor,
     bool? dailyReminderEnabled,
     String? dailyReminderTime,
+    bool? lockScreenWordFeedEnabled,
+    int? lockScreenRefreshIntervalMinutes,
     bool? hasCompletedOnboarding,
   }) {
     return UserPreference(
@@ -91,6 +102,10 @@ class UserPreference {
       accentColor: accentColor ?? this.accentColor,
       dailyReminderEnabled: dailyReminderEnabled ?? this.dailyReminderEnabled,
       dailyReminderTime: dailyReminderTime ?? this.dailyReminderTime,
+      lockScreenWordFeedEnabled:
+          lockScreenWordFeedEnabled ?? this.lockScreenWordFeedEnabled,
+      lockScreenRefreshIntervalMinutes:
+          lockScreenRefreshIntervalMinutes ?? this.lockScreenRefreshIntervalMinutes,
       hasCompletedOnboarding:
           hasCompletedOnboarding ?? this.hasCompletedOnboarding,
     );
@@ -110,6 +125,9 @@ class UserPreference {
           accentColor == other.accentColor &&
           dailyReminderEnabled == other.dailyReminderEnabled &&
           dailyReminderTime == other.dailyReminderTime &&
+          lockScreenWordFeedEnabled == other.lockScreenWordFeedEnabled &&
+          lockScreenRefreshIntervalMinutes ==
+              other.lockScreenRefreshIntervalMinutes &&
           hasCompletedOnboarding == other.hasCompletedOnboarding;
 
   @override
@@ -123,6 +141,8 @@ class UserPreference {
         accentColor,
         dailyReminderEnabled,
         dailyReminderTime,
+        lockScreenWordFeedEnabled,
+        lockScreenRefreshIntervalMinutes,
         hasCompletedOnboarding,
       );
 }

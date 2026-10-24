@@ -35,6 +35,8 @@ void main() {
         'accentColor': 'emerald',
         'dailyReminderEnabled': true,
         'dailyReminderTime': '06:30',
+        'lockScreenWordFeedEnabled': true,
+        'lockScreenRefreshIntervalMinutes': 30,
         'hasCompletedOnboarding': true,
       };
 
@@ -48,6 +50,8 @@ void main() {
       expect(pref.accentColor, equals('emerald'));
       expect(pref.dailyReminderEnabled, isTrue);
       expect(pref.dailyReminderTime, equals('06:30'));
+      expect(pref.lockScreenWordFeedEnabled, isTrue);
+      expect(pref.lockScreenRefreshIntervalMinutes, equals(30));
       expect(pref.hasCompletedOnboarding, isTrue);
 
       final exported = pref.toJson();
