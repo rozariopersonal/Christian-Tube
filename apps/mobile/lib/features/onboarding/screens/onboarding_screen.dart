@@ -14,6 +14,7 @@ import '../../auth/auth_service.dart';
 import '../../channels/channel_service.dart';
 import '../../engines/scripture/models/bible_version_meta.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
+import '../../../shared/ui/channel_follow_tile.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final AuthService authService;
@@ -100,7 +101,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (_selectedVideoChannels.isEmpty && _channelService.channels.isNotEmpty) {
           final topChannels = _channelService.channels.take(4).map((c) => c.id).toSet();
           _selectedVideoChannels.addAll(topChannels);
-          _selectedShortsChannels.addAll(topChannels);
+          final shortsPool = _channelService.shortsChannels;
+          final topShorts = (shortsPool.isNotEmpty ? shortsPool : _channelService.channels)
+              .take(4)
+              .map((c) => c.id)
+              .toSet();
+          _selectedShortsChannels.addAll(topShorts);
         }
       });
     }
@@ -760,7 +766,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       },
       onSelectAll: () {
         setState(() {
-          _selectedShortsChannels.addAll(_channelService.channels.map((c) => c.id));
+          final pool = _channelService.shortsChannels;
+          _selectedShortsChannels.addAll(pool.map((c) => c.id));
         });
       },
       onClearAll: () {
@@ -782,7 +789,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     bool isShorts = false,
   }) {
     final tokens = context.tokens;
-    final channels = _channelService.channels;
+    final channels = isShorts
+        ? _channelService.shortsChannels
+        : _channelService.channels;
 
     final query = _channelSearch.trim().toLowerCase();
     final filtered = query.isEmpty
@@ -835,7 +844,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           else if (filtered.isEmpty)
             Expanded(
               child: Center(
-                child: Text('No channels found', style: TextStyle(color: tokens.onSurfaceMuted)),
+                child: Text(
+                  isShorts
+                      ? 'No channels with shorts found'
+                      : 'No channels found',
+                  style: TextStyle(color: tokens.onSurfaceMuted),
+                ),
               ),
             )
           else
@@ -847,92 +861,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   final ch = filtered[index];
                   final isFollowed = selectedIds.contains(ch.id);
 
-                  return Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: tokens.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isFollowed ? context.accent : tokens.surfaceBorder,
-                        width: isFollowed ? 1.5 : 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundImage: ch.avatarUrl.isNotEmpty
-                              ? CachedNetworkImageProvider(ch.avatarUrl)
-                              : null,
-                          child: ch.avatarUrl.isEmpty
-                              ? Text(ch.name.substring(0, 1))
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      ch.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                    ),
-                                  ),
-                                  if (isShorts) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Text(
-                                        'SHORTS',
-                                        style: TextStyle(
-                                          color: Colors.red,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${ch.subscriberCount} subscribers • ${ch.videoCount} videos',
-                                style: TextStyle(fontSize: 12, color: tokens.onSurfaceMuted),
-                              ),
-                            ],
-                          ),
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isFollowed
-                                ? context.accent
-                                : tokens.surfaceVariant,
-                            foregroundColor: isFollowed
-                                ? Colors.white
-                                : tokens.onSurface,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
+                  return ChannelFollowTile(
+                    channelId: ch.id,
+                    title: ch.name,
+                    avatarUrl: ch.avatarUrl,
+                    subscriberCount: ch.subscriberCount,
+                    videoCount: ch.videoCount,
+                    isFollowed: isFollowed,
+                    badge: isShorts
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                          ),
-                          onPressed: () => onToggle(ch.id),
-                          child: Text(
-                            isFollowed ? 'Following' : 'Follow',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
+                            child: const Text(
+                              'SHORTS',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )
+                        : null,
+                    onToggleFollow: () => onToggle(ch.id),
                   );
                 },
               ),

@@ -5,6 +5,7 @@ import '../../core/layout/content_width.dart';
 import '../../core/models/channel_request.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../shared/ui/channel_card.dart';
+import '../../shared/ui/channel_follow_tile.dart';
 import '../auth/auth_service.dart';
 import 'channel_service.dart';
 import 'channel_detail_screen.dart';
@@ -27,6 +28,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
   final ChannelService _channelService = ChannelService();
   final AuthService _authService = AuthService();
   late TabController _tabController;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -68,7 +70,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                isAdmin ? 'Channel Administration' : 'Subscriptions',
+                isAdmin ? 'Channel Administration' : 'Channels',
                 maxLines: 1,
                 style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 20),
               ),
@@ -197,6 +199,15 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
       );
     }
 
+    final query = _searchQuery.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? channels
+        : channels.where((c) {
+            final name = (c.name ?? '').toString().toLowerCase();
+            final desc = (c.description ?? '').toString().toLowerCase();
+            return name.contains(query) || desc.contains(query);
+          }).toList();
+
     final screenClass = ScreenClass.of(context);
     final isCompact = screenClass == ScreenClass.compact;
     final crossAxisCount = isCompact ? 1 : (screenClass == ScreenClass.medium ? 2 : 3);
@@ -204,88 +215,108 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
     return RefreshIndicator(
       onRefresh: () async => _channelService.fetchChannels(),
       child: MaxWidthBox(
-        child: GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            mainAxisExtent: kChannelCardGridExtent,
-          ),
-          itemCount: channels.length,
-          itemBuilder: (context, index) {
-            final ch = channels[index];
-            final isSubscribed = ch.isSubscribed;
-
-            final subscribeButton = ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isSubscribed
-                    ? context.tokens.surfaceVariant
-                    : Theme.of(context).colorScheme.primary,
-                foregroundColor: isSubscribed
-                    ? context.tokens.onSurfaceMuted
-                    : Theme.of(context).colorScheme.onPrimary,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              ),
-              onPressed: () => _channelService.toggleSubscribe(ch.id),
-              icon: Icon(
-                isSubscribed ? Icons.notifications_active : Icons.add,
-                size: 16,
-              ),
-              label: Text(
-                isSubscribed ? 'Subscribed' : 'Subscribe',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-            );
-
-            final adminMenu = isAdmin ? PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              onSelected: (val) {
-                if (val == 'delete') {
-                  _confirmDeleteChannel(context, ch.id, ch.name);
-                }
-              },
-              itemBuilder: (ctx) => [
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 20),
-                      const SizedBox(width: 8),
-                      Text('Remove Channel', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                    ],
-                  ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search channels...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => setState(() => _searchQuery = ''),
+                        )
+                      : null,
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: context.tokens.surfaceVariant,
                 ),
-              ],
-            ) : null;
-
-            return ChannelCard(
-              title: ch.name,
-              description: ch.description,
-              avatarUrl: ch.avatarUrl,
-              bannerUrl: ch.bannerUrl,
-              subscriberCount: ch.subscriberCount,
-              videoCount: ch.videoCount,
-              language: ch.language,
-              isCompact: isCompact,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ChannelDetailScreen(channelId: ch.id),
-                  ),
-                );
-              },
-              actionButton: subscribeButton,
-              trailingMenu: adminMenu,
-            );
-          },
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No matching channels found',
+                        style: TextStyle(color: context.tokens.onSurfaceMuted),
+                      ),
+                    )
+                  : (isCompact
+                      ? ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            return _buildChannelTile(context, filtered[index], isAdmin);
+                          },
+                        )
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            mainAxisExtent: 72,
+                          ),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            return _buildChannelTile(context, filtered[index], isAdmin);
+                          },
+                        )),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildChannelTile(BuildContext context, dynamic ch, bool isAdmin) {
+    final adminMenu = isAdmin
+        ? PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onSelected: (val) {
+              if (val == 'delete') {
+                _confirmDeleteChannel(context, ch.id, ch.name);
+              }
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Remove Channel', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ],
+                ),
+              ),
+            ],
+          )
+        : null;
+
+    return ChannelFollowTile(
+      channelId: ch.id,
+      title: ch.name,
+      avatarUrl: ch.avatarUrl,
+      subscriberCount: ch.subscriberCount,
+      videoCount: ch.videoCount,
+      isFollowed: ch.isSubscribed,
+      trailingMenu: adminMenu,
+      onToggleFollow: () => _channelService.toggleFollow(ch.id),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChannelDetailScreen(channelId: ch.id),
+          ),
+        );
+      },
     );
   }
 
@@ -656,25 +687,23 @@ class _AddChannelBottomSheetState extends State<_AddChannelBottomSheet> {
                           subs = int.tryParse(r['subscriberCount'].toString()) ?? 0;
                         }
                         
-                        return SizedBox(
-                          height: 250,
-                          child: ChannelCard(
-                            title: r['name'] ?? 'Unknown Channel',
-                            description: r['description'],
-                            avatarUrl: r['thumbnail'] ?? '',
-                            subscriberCount: subs,
-                            isCompact: true,
-                            actionButton: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
-                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                              ),
-                              onPressed: () {
-                                Navigator.pop(context);
-                                widget.onAddDirect(r['id'] ?? '', r['name'] ?? '');
-                              },
-                              child: const Text('Add to Instance'),
+                        return ChannelFollowTile(
+                          channelId: r['id'] ?? '',
+                          title: r['name'] ?? 'Unknown Channel',
+                          avatarUrl: r['thumbnail'] ?? '',
+                          subscriberCount: subs,
+                          actionButton: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              minimumSize: const Size(0, 36),
                             ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              widget.onAddDirect(r['id'] ?? '', r['name'] ?? '');
+                            },
+                            child: const Text('Add to Instance', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                         );
                       },
@@ -789,25 +818,23 @@ class _RequestChannelBottomSheetState extends State<_RequestChannelBottomSheet> 
                             subs = int.tryParse(r['subscriberCount'].toString()) ?? 0;
                           }
                           
-                          return SizedBox(
-                            height: 250,
-                            child: ChannelCard(
-                              title: r['name'] ?? 'Unknown Channel',
-                              description: r['description'],
-                              avatarUrl: r['thumbnail'] ?? '',
-                              subscriberCount: subs,
-                              isCompact: true,
-                              actionButton: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).colorScheme.primary,
-                                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                                ),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  widget.onSubmitRequest(r['id'] ?? '', r['name'] ?? '');
-                                },
-                                child: const Text('Request Channel'),
+                          return ChannelFollowTile(
+                            channelId: r['id'] ?? '',
+                            title: r['name'] ?? 'Unknown Channel',
+                            avatarUrl: r['thumbnail'] ?? '',
+                            subscriberCount: subs,
+                            actionButton: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                minimumSize: const Size(0, 36),
                               ),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                widget.onSubmitRequest(r['id'] ?? '', r['name'] ?? '');
+                              },
+                              child: const Text('Request Channel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                             ),
                           );
                         },
