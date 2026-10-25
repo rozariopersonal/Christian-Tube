@@ -35,7 +35,8 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
 
   late UserPreference _currentPref;
   bool _isSaving = false;
-  String _channelSearch = '';
+  String _videoChannelSearch = '';
+  String _shortsChannelSearch = '';
   String _languageSearch = '';
 
   @override
@@ -43,15 +44,21 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _currentPref = _preferenceService.preferences;
+    _channelService.addListener(_onChannelsChanged);
     _channelService.fetchChannels();
     _preferenceService.addListener(_onPrefChanged);
   }
 
   @override
   void dispose() {
+    _channelService.removeListener(_onChannelsChanged);
     _preferenceService.removeListener(_onPrefChanged);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onChannelsChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onPrefChanged() {
@@ -285,7 +292,17 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
         ? _currentPref.shortsChannelIds
         : _currentPref.videoChannelIds;
 
-    final query = _channelSearch.trim().toLowerCase();
+    if (_channelService.isLoading && channels.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final search = isShorts ? _shortsChannelSearch : _videoChannelSearch;
+    final query = search.trim().toLowerCase();
     final filtered = query.isEmpty
         ? channels
         : channels.where((c) {
@@ -321,7 +338,15 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                     filled: true,
                     fillColor: tokens.surfaceVariant,
                   ),
-                  onChanged: (val) => setState(() => _channelSearch = val),
+                  onChanged: (val) {
+                    setState(() {
+                      if (isShorts) {
+                        _shortsChannelSearch = val;
+                      } else {
+                        _videoChannelSearch = val;
+                      }
+                    });
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -333,15 +358,28 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                   } else {
                     _updatePreferences(_currentPref.copyWith(videoChannelIds: allIds));
                   }
+                  _channelService.seedSubscribedIds(allIds.toSet());
                 },
                 child: const Text('All'),
               ),
               TextButton(
                 onPressed: () {
                   if (isShorts) {
+                    final removedIds = List<String>.from(_currentPref.shortsChannelIds);
                     _updatePreferences(_currentPref.copyWith(shortsChannelIds: []));
+                    for (final id in removedIds) {
+                      if (!_currentPref.videoChannelIds.contains(id) && _channelService.isFollowed(id)) {
+                        _channelService.toggleFollow(id);
+                      }
+                    }
                   } else {
+                    final removedIds = List<String>.from(_currentPref.videoChannelIds);
                     _updatePreferences(_currentPref.copyWith(videoChannelIds: []));
+                    for (final id in removedIds) {
+                      if (!_currentPref.shortsChannelIds.contains(id) && _channelService.isFollowed(id)) {
+                        _channelService.toggleFollow(id);
+                      }
+                    }
                   }
                 },
                 child: const Text('Clear'),
@@ -382,8 +420,18 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                       }
                       if (isShorts) {
                         _updatePreferences(_currentPref.copyWith(shortsChannelIds: currentList));
+                        if (!isFollowed && !_channelService.isFollowed(ch.id)) {
+                          _channelService.toggleFollow(ch.id);
+                        } else if (isFollowed && !_currentPref.videoChannelIds.contains(ch.id) && _channelService.isFollowed(ch.id)) {
+                          _channelService.toggleFollow(ch.id);
+                        }
                       } else {
                         _updatePreferences(_currentPref.copyWith(videoChannelIds: currentList));
+                        if (!isFollowed && !_channelService.isFollowed(ch.id)) {
+                          _channelService.toggleFollow(ch.id);
+                        } else if (isFollowed && !_currentPref.shortsChannelIds.contains(ch.id) && _channelService.isFollowed(ch.id)) {
+                          _channelService.toggleFollow(ch.id);
+                        }
                       }
                     },
                   );
