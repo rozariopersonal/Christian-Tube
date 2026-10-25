@@ -73,8 +73,11 @@ class Channel {
       parsedVideos = int.tryParse(json['video_count'].toString()) ?? 0;
     }
 
-    final bool hasShorts = json['hasShorts'] == true ||
-        json['has_shorts'] == true ||
+    final rawHasShorts = json['hasShorts'] ?? json['has_shorts'];
+    final bool hasShorts = rawHasShorts == true ||
+        rawHasShorts == 1 ||
+        rawHasShorts == 'true' ||
+        rawHasShorts == '1' ||
         (json['shortsCount'] != null &&
             (int.tryParse(json['shortsCount'].toString()) ?? 0) > 0);
 

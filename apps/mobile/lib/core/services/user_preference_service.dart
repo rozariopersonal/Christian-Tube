@@ -136,6 +136,38 @@ class UserPreferenceService extends ChangeNotifier {
     await savePreferences(updated, auth: auth, syncWithBackend: syncWithBackend);
   }
 
+  /// Synchronizes a follow/unfollow action into the local UserPreference.
+  void syncChannelFollowState(
+    String channelId,
+    bool isFollowed, {
+    bool hasShorts = true,
+    bool? targetVideo,
+    bool? targetShorts,
+  }) {
+    final videoList = List<String>.from(_preferences.videoChannelIds);
+    final shortsList = List<String>.from(_preferences.shortsChannelIds);
+
+    final affectVideo = targetVideo ?? true;
+    final affectShorts = targetShorts ?? hasShorts;
+
+    if (isFollowed) {
+      if (affectVideo && !videoList.contains(channelId)) videoList.add(channelId);
+      if (affectShorts && !shortsList.contains(channelId)) shortsList.add(channelId);
+    } else {
+      if (affectVideo) videoList.remove(channelId);
+      if (affectShorts) shortsList.remove(channelId);
+    }
+
+    if (!listEquals(videoList, _preferences.videoChannelIds) ||
+        !listEquals(shortsList, _preferences.shortsChannelIds)) {
+      final updated = _preferences.copyWith(
+        videoChannelIds: videoList,
+        shortsChannelIds: shortsList,
+      );
+      savePreferences(updated, syncWithBackend: false);
+    }
+  }
+
   /// Propagates saved preferences to the app's specialized controllers.
   Future<void> applyToRuntimeControllers(UserPreference pref) async {
     // 1. Library and audio content languages
@@ -160,9 +192,13 @@ class UserPreferenceService extends ChangeNotifier {
       }
     }
 
-    // 3. Refresh channel subscriptions in ChannelService
+    // 3. Seed and refresh channel subscriptions in ChannelService
     try {
       final channelService = ChannelService();
+      final allFollowed = {...pref.videoChannelIds, ...pref.shortsChannelIds};
+      if (allFollowed.isNotEmpty) {
+        channelService.seedSubscribedIds(allFollowed);
+      }
       await channelService.loadSubscriptions();
     } catch (_) {}
 

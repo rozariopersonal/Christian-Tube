@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/services/user_preference_service.dart';
 import 'package:mobile/features/auth/auth_service.dart';
 import 'package:mobile/features/channels/channel_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -324,6 +325,70 @@ void main() {
       expect(service.shortsChannels, hasLength(1));
       expect(service.shortsChannels.first.id, 'c2');
       expect(service.shortsChannels.first.hasShorts, isTrue);
+    });
+
+    test('seedSubscribedIds merges new channels and notifies listeners', () async {
+      final adapter = StubAdapter();
+      final service = ChannelService.forTesting(dio: testDio(adapter));
+      int notifyCount = 0;
+      service.addListener(() => notifyCount++);
+
+      service.seedSubscribedIds({'c1', 'c2'});
+      expect(service.subscribedChannelIds, {'c1', 'c2'});
+      expect(notifyCount, 1);
+
+      // Calling with existing IDs does not trigger another notification
+      service.seedSubscribedIds({'c1'});
+      expect(notifyCount, 1);
+    });
+
+    test('toggleSubscribe syncs follow state to UserPreference', () async {
+      final adapter = StubAdapter();
+      final service = ChannelService.forTesting(dio: testDio(adapter));
+
+      service.toggleSubscribe('c1');
+      await settle();
+
+      final pref = UserPreferenceService.instance.preferences;
+      expect(pref.videoChannelIds, contains('c1'));
+      expect(pref.shortsChannelIds, contains('c1'));
+
+      service.toggleSubscribe('c1');
+      await settle();
+
+      final updatedPref = UserPreferenceService.instance.preferences;
+      expect(updatedPref.videoChannelIds, isNot(contains('c1')));
+      expect(updatedPref.shortsChannelIds, isNot(contains('c1')));
+    });
+
+    test('loadSubscriptions merges backend IDs with existing local IDs without wiping them', () async {
+      final adapter = StubAdapter();
+      adapter.onFetch = (options) {
+        if (options.path.contains('/subscriptions')) {
+          return ResponseBody.fromString(
+            jsonEncode({'channelIds': ['backend_c1']}),
+            200,
+            headers: {
+              Headers.contentTypeHeader: [Headers.jsonContentType],
+            },
+          );
+        }
+        return ResponseBody.fromString('{}', 200, headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        });
+      };
+
+      final auth = StubAuth(true);
+      final service = ChannelService.forTesting(
+        dio: testDio(adapter),
+        authService: auth,
+      );
+
+      service.seedSubscribedIds({'local_c1'});
+      expect(service.subscribedChannelIds, {'local_c1'});
+
+      await service.loadSubscriptions();
+      expect(service.subscribedChannelIds, containsAll(['local_c1', 'backend_c1']));
     });
   });
 }
