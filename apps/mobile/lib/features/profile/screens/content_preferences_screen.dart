@@ -278,7 +278,9 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
     required bool isShorts,
   }) {
     final tokens = context.tokens;
-    final channels = _channelService.channels;
+    final channels = isShorts
+        ? _channelService.shortsChannels
+        : _channelService.channels;
     final selectedIds = isShorts
         ? _currentPref.shortsChannelIds
         : _currentPref.videoChannelIds;
@@ -348,7 +350,16 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: ListView.separated(
+            child: filtered.isEmpty
+                ? Center(
+                    child: Text(
+                      isShorts
+                          ? 'No channels with shorts found'
+                          : 'No channels found',
+                      style: TextStyle(color: tokens.onSurfaceMuted),
+                    ),
+                  )
+                : ListView.separated(
               itemCount: filtered.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {

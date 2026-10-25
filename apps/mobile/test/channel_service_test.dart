@@ -291,5 +291,39 @@ void main() {
       expect(ok, isFalse);
       expect(service.channels, isEmpty);
     });
+
+    test('shortsChannels filters to only channels with hasShorts true', () async {
+      final adapter = StubAdapter(
+        onFetch: (options) {
+          if (options.path.contains('/channels')) {
+            return jsonResponse(
+              jsonEncode([
+                {
+                  'id': 'c1',
+                  'title': 'Long Sermons Only',
+                  'avatarUrl': 'https://example.com/1.png',
+                  'hasShorts': false,
+                },
+                {
+                  'id': 'c2',
+                  'title': 'Short Devotionals Channel',
+                  'avatarUrl': 'https://example.com/2.png',
+                  'hasShorts': true,
+                },
+              ]),
+              200,
+            );
+          }
+          return jsonResponse('{}', 200);
+        },
+      );
+      final service = ChannelService.forTesting(dio: testDio(adapter));
+      await service.fetchChannels();
+
+      expect(service.channels, hasLength(2));
+      expect(service.shortsChannels, hasLength(1));
+      expect(service.shortsChannels.first.id, 'c2');
+      expect(service.shortsChannels.first.hasShorts, isTrue);
+    });
   });
 }

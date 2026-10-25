@@ -171,5 +171,40 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
     });
+
+    testWidgets('Shorts Channels tab shows empty state when no channels have shorts', (tester) async {
+      tester.view.physicalSize = const Size(360 * 2, 800 * 2);
+      tester.view.devicePixelRatio = 2.0;
+
+      final authService = AuthService();
+      final themeService = ThemeService();
+
+      await tester.pumpWidget(
+        buildTestApp(
+          ContentPreferencesScreen(
+            authService: authService,
+            themeService: themeService,
+          ),
+          themeService: themeService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final shortsTab = find.text('Shorts Channels');
+      expect(shortsTab, findsOneWidget);
+      await tester.ensureVisible(shortsTab);
+      await tester.pumpAndSettle();
+      await tester.tap(shortsTab);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Followed Shorts Channels'), findsOneWidget);
+      expect(find.text('No channels with shorts found'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+    });
   });
 }

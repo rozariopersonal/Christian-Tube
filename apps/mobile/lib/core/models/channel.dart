@@ -8,6 +8,7 @@ class Channel {
   final int videoCount;
   final bool isSubscribed;
   final String? language;
+  final bool hasShorts;
 
   String get name => title;
   String get thumbnail => avatarUrl;
@@ -23,6 +24,7 @@ class Channel {
     this.videoCount = 0,
     this.isSubscribed = false,
     this.language,
+    this.hasShorts = false,
   });
 
   Channel copyWith({
@@ -36,6 +38,7 @@ class Channel {
     bool? isSubscribed,
     bool? isFollowed,
     String? language,
+    bool? hasShorts,
   }) {
     return Channel(
       id: id ?? this.id,
@@ -47,6 +50,7 @@ class Channel {
       videoCount: videoCount ?? this.videoCount,
       isSubscribed: isFollowed ?? isSubscribed ?? this.isSubscribed,
       language: language ?? this.language,
+      hasShorts: hasShorts ?? this.hasShorts,
     );
   }
 
@@ -69,6 +73,11 @@ class Channel {
       parsedVideos = int.tryParse(json['video_count'].toString()) ?? 0;
     }
 
+    final bool hasShorts = json['hasShorts'] == true ||
+        json['has_shorts'] == true ||
+        (json['shortsCount'] != null &&
+            (int.tryParse(json['shortsCount'].toString()) ?? 0) > 0);
+
     return Channel(
       id: json['id'] ?? json['channelId'] ?? json['_id'] ?? '',
       title: json['title'] ?? json['name'] ?? json['channelTitle'] ?? 'Channel',
@@ -79,6 +88,7 @@ class Channel {
       videoCount: parsedVideos,
       isSubscribed: json['isSubscribed'] ?? json['is_subscribed'] ?? false,
       language: json['language'],
+      hasShorts: hasShorts,
     );
   }
 
@@ -93,6 +103,7 @@ class Channel {
       'videoCount': videoCount,
       'isSubscribed': isSubscribed,
       'language': language,
+      'hasShorts': hasShorts,
     };
   }
 }

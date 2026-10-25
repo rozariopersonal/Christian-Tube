@@ -45,6 +45,8 @@ class ChannelService extends ChangeNotifier {
   final Map<String, String> _channelNamesById = {};
 
   List<Channel> get channels => _channels;
+  List<Channel> get shortsChannels =>
+      _channels.where((c) => c.hasShorts).toList();
   List<Map<String, dynamic>> get channelRequests => _channelRequests;
   bool get isLoading => _isLoading;
   bool get isLoadingRequests => _isLoadingRequests;

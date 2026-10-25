@@ -101,7 +101,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (_selectedVideoChannels.isEmpty && _channelService.channels.isNotEmpty) {
           final topChannels = _channelService.channels.take(4).map((c) => c.id).toSet();
           _selectedVideoChannels.addAll(topChannels);
-          _selectedShortsChannels.addAll(topChannels);
+          final shortsPool = _channelService.shortsChannels;
+          final topShorts = (shortsPool.isNotEmpty ? shortsPool : _channelService.channels)
+              .take(4)
+              .map((c) => c.id)
+              .toSet();
+          _selectedShortsChannels.addAll(topShorts);
         }
       });
     }
@@ -761,7 +766,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       },
       onSelectAll: () {
         setState(() {
-          _selectedShortsChannels.addAll(_channelService.channels.map((c) => c.id));
+          final pool = _channelService.shortsChannels;
+          _selectedShortsChannels.addAll(pool.map((c) => c.id));
         });
       },
       onClearAll: () {
@@ -783,7 +789,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     bool isShorts = false,
   }) {
     final tokens = context.tokens;
-    final channels = _channelService.channels;
+    final channels = isShorts
+        ? _channelService.shortsChannels
+        : _channelService.channels;
 
     final query = _channelSearch.trim().toLowerCase();
     final filtered = query.isEmpty
@@ -836,7 +844,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           else if (filtered.isEmpty)
             Expanded(
               child: Center(
-                child: Text('No channels found', style: TextStyle(color: tokens.onSurfaceMuted)),
+                child: Text(
+                  isShorts
+                      ? 'No channels with shorts found'
+                      : 'No channels found',
+                  style: TextStyle(color: tokens.onSurfaceMuted),
+                ),
               ),
             )
           else
