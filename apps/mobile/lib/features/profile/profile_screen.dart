@@ -590,11 +590,11 @@ class ProfileScreen extends StatelessWidget {
 
                 const Divider(height: 24),
 
-                // Subscriptions Section
+                // Followed Channels Section
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  leading: const Icon(Icons.subscriptions_outlined),
-                  title: const Text('Your Subscriptions',
+                  leading: const Icon(Icons.check_circle_outline),
+                  title: const Text('Followed Channels',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   trailing: const Icon(Icons.chevron_right, size: 20),

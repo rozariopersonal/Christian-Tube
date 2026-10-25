@@ -7,6 +7,7 @@ import '../../core/api/api_client.dart';
 import '../../core/models/channel.dart';
 import '../../core/models/channel_request.dart';
 import '../auth/auth_service.dart';
+import '../../core/services/user_preference_service.dart';
 
 class ChannelService extends ChangeNotifier {
   static final ChannelService _instance = ChannelService._internal();
@@ -25,6 +26,16 @@ class ChannelService extends ChangeNotifier {
   ChannelService.forTesting({Dio? dio, AuthService? authService})
       : _dio = dio ?? ApiClient().dio {
     attachToAuth(authService);
+  }
+
+  @visibleForTesting
+  void setChannelsForTesting(List<Channel> channels) {
+    _channels = channels;
+    for (final ch in channels) {
+      _rememberChannelName(ch.id, ch.name);
+    }
+    _syncSubscriptionStatus();
+    notifyListeners();
   }
 
   void attachToAuth(AuthService? authService) {
@@ -55,6 +66,7 @@ class ChannelService extends ChangeNotifier {
 
   bool isSubscribed(String channelId) => _subscribedIds.contains(channelId);
   bool isFollowing(String channelId) => isSubscribed(channelId);
+  bool isFollowed(String channelId) => isFollowing(channelId);
 
   /// Names of the currently subscribed/followed channels (trimmed). Other features
   /// (audio YouTube tab) bridge channel subscriptions to their own data by
@@ -72,6 +84,24 @@ class ChannelService extends ChangeNotifier {
 
   void toggleFollow(String channelId) => toggleSubscribe(channelId);
   Future<void> loadFollowing() => loadSubscriptions();
+
+  /// Seeds initial followed channel IDs (e.g. from onboarding or user preferences).
+  void seedSubscribedIds(Set<String> ids) {
+    if (ids.isEmpty) return;
+    final newIds = ids.difference(_subscribedIds);
+    final merged = {..._subscribedIds, ...ids};
+    if (merged.length != _subscribedIds.length) {
+      _subscribedIds = merged;
+      _syncSubscriptionStatus();
+      _saveToPrefs();
+      notifyListeners();
+    }
+    if (_isAuthenticated && newIds.isNotEmpty) {
+      for (final id in newIds) {
+        _syncSubscriptionToBackend(id, true, false);
+      }
+    }
+  }
 
   void _rememberChannelName(String? id, String? name) {
     if (id == null || id.isEmpty) return;
@@ -106,13 +136,14 @@ class ChannelService extends ChangeNotifier {
                 ?.whereType<String>()
                 .toSet() ??
             const <String>{};
-        _subscribedIds = channelIds;
+        final localOnlyIds = _subscribedIds.difference(channelIds);
+        _subscribedIds = {..._subscribedIds, ...channelIds};
 
         final subscribedChannels = response.data['channels'];
         if (subscribedChannels is List) {
           for (final entry in subscribedChannels.whereType<Map>()) {
             final id = entry['id'];
-            if (id is String && channelIds.contains(id)) {
+            if (id is String && _subscribedIds.contains(id)) {
               _rememberChannelName(id, entry['name'] as String?);
             }
           }
@@ -120,6 +151,12 @@ class ChannelService extends ChangeNotifier {
 
         await _saveToPrefs();
         _syncSubscriptionStatus();
+
+        if (_isAuthenticated && localOnlyIds.isNotEmpty) {
+          for (final id in localOnlyIds) {
+            _syncSubscriptionToBackend(id, true, false);
+          }
+        }
       }
     } catch (e) {
       debugPrint('Error loading subscriptions from backend: $e');
@@ -189,8 +226,8 @@ class ChannelService extends ChangeNotifier {
         final dynamic raw = response.data;
         final List<dynamic> list = raw is List ? raw : (raw['channels'] ?? raw['data'] ?? []);
         _channels = list
-            .whereType<Map<String, dynamic>>()
-            .map((c) => Channel.fromJson(c))
+            .whereType<Map>()
+            .map((c) => Channel.fromJson(Map<String, dynamic>.from(c)))
             .toList();
 
         for (final ch in _channels) {
@@ -378,6 +415,19 @@ class ChannelService extends ChangeNotifier {
     _applySubscriptionState(channelId, willSubscribe);
     _saveToPrefs();
     notifyListeners();
+
+    // Synchronize into UserPreference so video & shorts channels stay in sync
+    final ch = _channels.cast<Channel?>().firstWhere(
+          (c) => c?.id == channelId,
+          orElse: () => null,
+        );
+    try {
+      UserPreferenceService.instance.syncChannelFollowState(
+        channelId,
+        willSubscribe,
+        hasShorts: ch?.hasShorts ?? true,
+      );
+    } catch (_) {}
 
     if (_isAuthenticated) {
       _syncSubscriptionToBackend(channelId, willSubscribe, wasSubscribed);

@@ -102,10 +102,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           final topChannels = _channelService.channels.take(4).map((c) => c.id).toSet();
           _selectedVideoChannels.addAll(topChannels);
           final shortsPool = _channelService.shortsChannels;
-          final topShorts = (shortsPool.isNotEmpty ? shortsPool : _channelService.channels)
-              .take(4)
-              .map((c) => c.id)
-              .toSet();
+          final topShorts = shortsPool.take(4).map((c) => c.id).toSet();
           _selectedShortsChannels.addAll(topShorts);
         }
       });
@@ -127,7 +124,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeInOutCubic,
       );
-      setState(() => _currentStep++);
+      setState(() {
+        _currentStep++;
+        _channelSearch = '';
+      });
     } else {
       _finishOnboarding();
     }
@@ -139,7 +139,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeInOutCubic,
       );
-      setState(() => _currentStep--);
+      setState(() {
+        _currentStep--;
+        _channelSearch = '';
+      });
     }
   }
 
@@ -176,6 +179,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         auth: widget.authService,
         syncWithBackend: widget.authService.isAuthenticated,
       );
+
+      // Seed ChannelService so subscribed feeds immediately display channels
+      _channelService.seedSubscribedIds({
+        ..._selectedVideoChannels,
+        ..._selectedShortsChannels,
+      });
 
       // 4. Mark completion and proceed to feed
       if (mounted) {
@@ -872,13 +881,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ? Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.15),
+                              color: Theme.of(context).colorScheme.error.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text(
+                            child: Text(
                               'SHORTS',
                               style: TextStyle(
-                                color: Colors.red,
+                                color: Theme.of(context).colorScheme.error,
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),

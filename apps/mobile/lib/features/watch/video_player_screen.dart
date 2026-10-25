@@ -755,13 +755,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ),
             const SizedBox(width: 8),
 
-            // Subscribe Button
+            // Follow Button
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    isSubscribed ? tokens.surfaceVariant : tokens.onSurface,
+                    isSubscribed ? tokens.surfaceVariant : context.accent,
                 foregroundColor:
-                    isSubscribed ? tokens.onSurfaceMuted : tokens.surface,
+                    isSubscribed ? tokens.onSurface : tokens.onScrim,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -773,19 +773,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               ),
               onPressed: () {
                 if (_video?.channelId.isNotEmpty == true) {
-                  _channelService.toggleSubscribe(_video!.channelId);
+                  _channelService.toggleFollow(_video!.channelId);
                 }
               },
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isSubscribed ? Icons.notifications_active : Icons.add,
+                    isSubscribed ? Icons.check : Icons.add,
                     size: 15,
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    isSubscribed ? 'Subscribed' : 'Subscribe',
+                    isSubscribed ? 'Following' : 'Follow',
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.bold),
                   ),

@@ -357,7 +357,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Subscribe to channels in our curated library to build your personalized feed.',
+                'Follow channels in our curated library to build your personalized feed.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,

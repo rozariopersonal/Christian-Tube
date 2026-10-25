@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../core/utils/formatters.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/layout/content_width.dart';
-import '../../shared/ui/channel_avatar.dart';
+import '../../shared/ui/channel_follow_tile.dart';
+import '../channels/channel_detail_screen.dart';
 import '../channels/channel_service.dart';
 
 class SubscriptionsScreen extends StatelessWidget {
@@ -14,7 +14,7 @@ class SubscriptionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Subscriptions'),
+        title: const Text('Followed Channels'),
         automaticallyImplyLeading: false,
       ),
       body: AnimatedBuilder(
@@ -30,15 +30,15 @@ class SubscriptionsScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.subscriptions_outlined, size: 56, color: context.tokens.onSurfaceDisabled),
+                    Icon(Icons.check_circle_outline, size: 56, color: context.tokens.onSurfaceDisabled),
                     const SizedBox(height: 16),
                     const Text(
-                      'No Subscriptions',
+                      'No Followed Channels',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Browse the Channels tab to find and subscribe to channels.',
+                      'Browse the Channels tab to discover and follow channels.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 13),
                     ),
@@ -50,58 +50,29 @@ class SubscriptionsScreen extends StatelessWidget {
 
           return MaxWidthBox(
             child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: subs.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final channel = subs[index];
-              return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: context.tokens.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: context.tokens.surfaceBorder,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    ChannelAvatar(
-                      avatarUrl: channel.avatarUrl,
-                      channelTitle: channel.title,
-                      radius: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            channel.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${Formatters.formatSubscribers(channel.subscriberCount)} subscribers',
-                            style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
-                          ),
-                        ],
+              padding: const EdgeInsets.all(16),
+              itemCount: subs.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final channel = subs[index];
+                return ChannelFollowTile(
+                  channelId: channel.id,
+                  title: channel.title,
+                  avatarUrl: channel.avatarUrl,
+                  subscriberCount: channel.subscriberCount,
+                  videoCount: channel.videoCount,
+                  isFollowed: true,
+                  onToggleFollow: () => channelService.toggleFollow(channel.id),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChannelDetailScreen(channelId: channel.id),
                       ),
-                    ),
-                    OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.error,
-                        side: BorderSide(color: Theme.of(context).colorScheme.error),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      ),
-                      onPressed: () => channelService.toggleSubscribe(channel.id),
-                      child: const Text('Unsubscribe', style: TextStyle(fontSize: 12)),
-                    ),
-                  ],
-                ),
-              );
-            },
+                    );
+                  },
+                );
+              },
             ),
           );
         },
