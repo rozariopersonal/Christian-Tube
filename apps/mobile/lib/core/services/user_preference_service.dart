@@ -229,9 +229,14 @@ class UserPreferenceService extends ChangeNotifier {
     // 4. Lock screen word feed
     try {
       if (pref.lockScreenWordFeedEnabled) {
-        await LockScreenWordFeedService.instance.enable(
+        final enabled = await LockScreenWordFeedService.instance.enable(
           intervalMinutes: pref.lockScreenRefreshIntervalMinutes,
         );
+        if (!enabled && _preferences.lockScreenWordFeedEnabled) {
+          _preferences = _preferences.copyWith(lockScreenWordFeedEnabled: false);
+          await _saveToLocal(_preferences);
+          notifyListeners();
+        }
       } else {
         await LockScreenWordFeedService.instance.disable();
       }
