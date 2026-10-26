@@ -90,6 +90,7 @@ class _VerseActionAppearanceSheetState extends State<VerseActionAppearanceSheet>
       isBold: _isBold,
       isItalic: _isItalic,
       textAlign: _textAlign,
+      accentColor: context.accent,
     );
   }
 

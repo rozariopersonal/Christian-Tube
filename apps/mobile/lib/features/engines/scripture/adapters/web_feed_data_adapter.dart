@@ -51,6 +51,7 @@ class WebFeedDataAdapter implements FeedDataAdapter {
               'category': item['category'],
               'backgroundPreset': item['backgroundPreset'],
               'tags': item['tags'] ?? [], // Already decoded on web JSON
+              'verseMappings': item['verseMappings'],
               'isFeatured': item['isFeatured'] == true,
             };
           }).toList();

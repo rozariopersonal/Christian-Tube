@@ -409,8 +409,12 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
                             onNotification: (notification) {
                               final canScroll = notification.metrics.maxScrollExtent > 4.0;
                               if (canScroll != _hasScrollableText) {
-                                setState(() {
-                                  _hasScrollableText = canScroll;
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted) {
+                                    setState(() {
+                                      _hasScrollableText = canScroll;
+                                    });
+                                  }
                                 });
                               }
                               return false;

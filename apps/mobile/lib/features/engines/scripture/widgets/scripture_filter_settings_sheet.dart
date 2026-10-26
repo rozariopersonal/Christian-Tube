@@ -845,12 +845,6 @@ class _ScriptureFilterSettingsSheetState
                 value: isEnabled,
                 activeThumbColor: tokens.accent,
                 onChanged: (val) async {
-                  if (val) {
-                    await lockService.enable(
-                        intervalMinutes: lockService.intervalMinutes);
-                  } else {
-                    await lockService.disable();
-                  }
                   final prefService = UserPreferenceService.instance;
                   await prefService.savePreferences(
                     prefService.preferences.copyWith(
