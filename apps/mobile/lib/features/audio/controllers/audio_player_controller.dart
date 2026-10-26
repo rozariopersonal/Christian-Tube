@@ -81,7 +81,9 @@ class AudioPlayerController extends ChangeNotifier {
         }
       }
 
-      _schedulePositionSave();
+      if (_state.currentTrack != null) {
+        _schedulePositionSave();
+      }
     });
 
     _durSub = _playbackService.durationStream.listen((dur) {
@@ -494,6 +496,7 @@ class AudioPlayerController extends ChangeNotifier {
   }
 
   void _schedulePositionSave() {
+    if (_state.currentTrack == null) return;
     _positionSaveDebounce?.cancel();
     _positionSaveDebounce = Timer(const Duration(seconds: 3), () {
       final track = _state.currentTrack;

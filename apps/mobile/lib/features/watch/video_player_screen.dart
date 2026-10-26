@@ -117,12 +117,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _checkAudioTrack() async {
-    final track = await AudioCatalogService().findTrackByYoutubeId(_activeVideoId);
-    if (mounted) {
-      setState(() {
-        _matchedAudioTrack = track;
-      });
-    }
+    try {
+      final track = await AudioCatalogService().findTrackByYoutubeId(_activeVideoId);
+      if (mounted) {
+        setState(() {
+          _matchedAudioTrack = track;
+        });
+      }
+    } catch (_) {}
   }
 
   void _playNextInPlaylist() {
