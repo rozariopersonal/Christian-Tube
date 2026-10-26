@@ -21,6 +21,7 @@ import 'widgets/verse_action_appearance_sheet.dart';
 import 'widgets/scripture_filter_settings_sheet.dart';
 import '../../shorts/widgets/shorts_chrome.dart';
 import '../../../core/services/lockscreen_word_feed_service.dart';
+import '../../../core/services/user_preference_service.dart';
 
 class ScriptureEngine
     implements BaseFeedEngine<ScriptureCard, ScriptureFilterState> {
@@ -54,7 +55,10 @@ class ScriptureEngine
     }
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedVersion = prefs.getString('pref_bible_version');
+      final userPrefVersion =
+          UserPreferenceService.instance.preferences.primaryBibleVersionId;
+      final savedVersion = prefs.getString('pref_bible_version') ??
+          (userPrefVersion.isNotEmpty ? userPrefVersion : null);
 
       // Check downloaded bibles that contain verse text
       final installedIds = await _service.getInstalledVersionIds();

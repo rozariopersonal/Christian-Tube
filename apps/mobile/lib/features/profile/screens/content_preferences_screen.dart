@@ -545,10 +545,10 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                               color: context.primary,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Text(
+                            child: Text(
                               'PRIMARY',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: Theme.of(context).colorScheme.onPrimary,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),

@@ -43,4 +43,23 @@ void main() {
 
     expect(card.id, '43_3_16');
   });
+
+  test('ScriptureCard serializes and restores customFontFamily', () {
+    final card = ScriptureCard(
+      id: 'custom_1',
+      bookNumber: 1,
+      bookName: 'Genesis',
+      chapter: 1,
+      startVerse: 1,
+      endVerse: 1,
+      referenceLabel: 'Genesis 1:1',
+      customFontFamily: 'Cinzel',
+    );
+
+    final json = card.toJson();
+    expect(json['customFontFamily'], 'Cinzel');
+
+    final restored = ScriptureCard.fromJson(json);
+    expect(restored.customFontFamily, 'Cinzel');
+  });
 }
