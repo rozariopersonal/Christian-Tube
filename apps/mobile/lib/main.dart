@@ -437,8 +437,15 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
       _router.push(payload);
     };
     NotificationService().plugin.getNotificationAppLaunchDetails().then((details) {
-      final payload = details?.notificationResponse?.payload;
-      if (details?.didNotificationLaunchApp == true && payload != null && payload.isNotEmpty) {
+      final response = details?.notificationResponse;
+      final payload = response?.payload;
+      final actionId = response?.actionId;
+      if (details?.didNotificationLaunchApp == true &&
+          payload != null &&
+          payload.isNotEmpty &&
+          (actionId == null ||
+              actionId.isEmpty ||
+              actionId == LockScreenWordFeedService.actionReadChapter)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _router.push(payload);
         });

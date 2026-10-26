@@ -348,11 +348,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             value: isEnabled,
                             activeThumbColor: theme.colorScheme.primary,
                             onChanged: (val) async {
-                              if (val) {
-                                await lockService.enable(intervalMinutes: interval);
-                              } else {
-                                await lockService.disable();
-                              }
                               await prefService.savePreferences(
                                 prefService.preferences.copyWith(
                                   lockScreenWordFeedEnabled: val,

@@ -619,6 +619,7 @@ class ScriptureEngine
       isBold: _cachedFilterState.isBold,
       isItalic: _cachedFilterState.isItalic,
       textAlign: _cachedFilterState.textAlign,
+      accentColor: context.accent,
     );
   }
 }

@@ -116,6 +116,7 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
             category TEXT,
             backgroundPreset TEXT,
             tags TEXT,
+            verseMappings TEXT,
             isFeatured INTEGER
           )
         ''');
@@ -138,6 +139,9 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
         'category': item['category'],
         'backgroundPreset': item['backgroundPreset'],
         'tags': jsonEncode(item['tags'] ?? []),
+        'verseMappings': item['verseMappings'] != null
+            ? jsonEncode(item['verseMappings'])
+            : null,
         'isFeatured': item['isFeatured'] == true ? 1 : 0,
       });
     }
@@ -218,6 +222,9 @@ class SqliteFeedDataAdapter implements FeedDataAdapter {
     return result.map((row) {
       final map = Map<String, dynamic>.from(row);
       map['tags'] = jsonDecode(map['tags'] as String? ?? '[]');
+      map['verseMappings'] = map['verseMappings'] != null
+          ? jsonDecode(map['verseMappings'] as String)
+          : null;
       map['isFeatured'] = (map['isFeatured'] as int) == 1;
       return map;
     }).toList();
