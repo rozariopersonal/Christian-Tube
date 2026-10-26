@@ -3,8 +3,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/services/lockscreen_word_feed_service.dart';
-import 'package:mobile/core/services/user_preference_service.dart';
 import 'package:mobile/core/models/user_preference.dart';
+import 'package:mobile/core/services/user_preference_service.dart';
 import 'package:mobile/features/bible/services/bible_bookmark_service.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_card.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_filter_state.dart';
@@ -41,6 +41,7 @@ class FakeFlutterLocalNotificationsPlugin extends Fake
 }
 
 class FakeScriptureService extends Fake implements ScriptureService {
+  bool returnEmpty = false;
   ScriptureCard mockCard = ScriptureCard(
     id: 'test_card_1',
     bookName: 'John',
@@ -69,6 +70,7 @@ class FakeScriptureService extends Fake implements ScriptureService {
     List<String>? tags,
     String order = 'random',
   }) async {
+    if (returnEmpty) return [];
     return [mockCard];
   }
 
@@ -144,6 +146,12 @@ void main() {
 
       final androidDetails = fakeNotifications.lastShownDetails?.android;
       expect(androidDetails, isNotNull);
+      expect(androidDetails?.channelId, equals(LockScreenWordFeedService.notificationChannelId));
+      expect(androidDetails?.importance, equals(Importance.defaultImportance));
+      expect(androidDetails?.priority, equals(Priority.defaultPriority));
+      expect(androidDetails?.playSound, isFalse);
+      expect(androidDetails?.enableVibration, isFalse);
+      expect(androidDetails?.channelShowBadge, isFalse);
       expect(androidDetails?.visibility, equals(NotificationVisibility.public));
       expect(androidDetails?.ongoing, isTrue);
       expect(androidDetails?.actions, isNotNull);
@@ -249,6 +257,35 @@ void main() {
       expect(service.intervalMinutes, equals(45));
       expect(service.currentCard?.referenceLabel, equals('John 3:16'));
       expect(fakeNotifications.lastShownId, equals(LockScreenWordFeedService.notificationId));
+    });
+
+    test('publishes immediate fallback seed card when offline DB returns empty cards', () async {
+      fakeScriptureService.returnEmpty = true;
+      final service = LockScreenWordFeedService.forTesting(
+        notificationsPlugin: fakeNotifications,
+        scriptureService: fakeScriptureService,
+        bookmarkService: fakeBookmarkService,
+      );
+
+      await service.enable(intervalMinutes: 60);
+
+      expect(service.isEnabled, isTrue);
+      expect(service.currentCard, isNotNull);
+      expect(service.currentCard?.referenceLabel, equals('John 3:16'));
+      expect(service.currentCard?.resolvedText, contains('loved the world'));
+      expect(fakeNotifications.lastShownId, equals(LockScreenWordFeedService.notificationId));
+      expect(fakeNotifications.lastShownTitle, contains('John 3:16'));
+    });
+
+    test('checkAndRequestPermission returns true in test environment', () async {
+      final service = LockScreenWordFeedService.forTesting(
+        notificationsPlugin: fakeNotifications,
+        scriptureService: fakeScriptureService,
+        bookmarkService: fakeBookmarkService,
+      );
+
+      final hasPermission = await service.checkAndRequestPermission();
+      expect(hasPermission, isTrue);
     });
   });
 
