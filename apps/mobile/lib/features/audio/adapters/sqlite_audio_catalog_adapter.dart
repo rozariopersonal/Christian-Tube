@@ -23,8 +23,12 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
 
   Future<String> _resolveDbPath() async {
     if (dbPathOverride != null) return dbPathOverride!;
-    final dir = await getDatabasesPath();
-    return p.join(dir, defaultFileName);
+    try {
+      final dir = await getDatabasesPath();
+      return p.join(dir, defaultFileName);
+    } catch (_) {
+      return defaultFileName;
+    }
   }
 
   Future<bool> get isInitialized async {
@@ -368,32 +372,38 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
 
   /// Finds a single track by associated YouTube video ID from the local mirror.
   Future<AudioTrack?> findTrackByYoutubeId(String videoId) async {
-    final db = await _getDb();
-    final res = await db.query('tracks', where: 'youtubeVideoId = ?', whereArgs: [videoId], limit: 1);
-    if (res.isEmpty) return null;
-    final t = res.first;
-    final rawPub = t['publishedAt'] as int?;
-    return AudioTrack(
-      id: t['id'] as String,
-      seriesId: t['seriesId'] as String,
-      seriesTitle: t['seriesTitle'] as String? ?? '',
-      title: t['title'] as String,
-      speaker: t['speaker'] as String? ?? 'Zac Poonen',
-      durationSeconds: t['durationSeconds'] as int,
-      audioUrl: t['audioUrl'] as String,
-      streamUrl: t['streamUrl'] as String?,
-      fallbackUrl: t['fallbackUrl'] as String?,
-      coverUrl: t['coverUrl'] as String?,
-      thumbnailUrl: t['thumbnailUrl'] as String?,
-      youtubeVideoId: t['youtubeVideoId'] as String?,
-      channelName: t['channelName'] as String?,
-      publishedAt: rawPub != null
-          ? DateTime.fromMillisecondsSinceEpoch(rawPub).toIso8601String()
-          : null,
-      scriptureBook: t['scriptureBook'] as String?,
-      scriptureChapter: t['scriptureChapter'] as int?,
-      scriptureVerse: t['scriptureVerse'] as int?,
-    );
+    if (kIsWeb) return null;
+    try {
+      if (!await isInitialized) return null;
+      final db = await _getDb();
+      final res = await db.query('tracks', where: 'youtubeVideoId = ?', whereArgs: [videoId], limit: 1);
+      if (res.isEmpty) return null;
+      final t = res.first;
+      final rawPub = t['publishedAt'] as int?;
+      return AudioTrack(
+        id: t['id'] as String,
+        seriesId: t['seriesId'] as String,
+        seriesTitle: t['seriesTitle'] as String? ?? '',
+        title: t['title'] as String,
+        speaker: t['speaker'] as String? ?? 'Zac Poonen',
+        durationSeconds: t['durationSeconds'] as int,
+        audioUrl: t['audioUrl'] as String,
+        streamUrl: t['streamUrl'] as String?,
+        fallbackUrl: t['fallbackUrl'] as String?,
+        coverUrl: t['coverUrl'] as String?,
+        thumbnailUrl: t['thumbnailUrl'] as String?,
+        youtubeVideoId: t['youtubeVideoId'] as String?,
+        channelName: t['channelName'] as String?,
+        publishedAt: rawPub != null
+            ? DateTime.fromMillisecondsSinceEpoch(rawPub).toIso8601String()
+            : null,
+        scriptureBook: t['scriptureBook'] as String?,
+        scriptureChapter: t['scriptureChapter'] as int?,
+        scriptureVerse: t['scriptureVerse'] as int?,
+      );
+    } catch (_) {
+      return null;
+    }
   }
   
   @override
