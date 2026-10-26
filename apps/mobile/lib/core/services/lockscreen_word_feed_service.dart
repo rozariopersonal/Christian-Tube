@@ -218,6 +218,10 @@ class LockScreenWordFeedService extends ChangeNotifier {
         await prefs.setInt(_prefKeyCanonicalOffset, 0);
         await rotateNextWord(filterOverride);
         return;
+      } else if (filters.readingOrder == 'bookmarked') {
+        final fallbackFilters = filters.copyWith(readingOrder: 'random');
+        await rotateNextWord(fallbackFilters);
+        return;
       }
     } catch (e) {
       debugPrint('LockScreenWordFeedService rotateNextWord error: $e');

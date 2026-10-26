@@ -209,6 +209,8 @@ class UserPreferenceService extends ChangeNotifier {
             lastVersion: pref.primaryBibleVersionId,
           ),
         );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('pref_bible_version', pref.primaryBibleVersionId);
       } catch (e) {
         debugPrint('Failed to set preferred Bible version: $e');
       }

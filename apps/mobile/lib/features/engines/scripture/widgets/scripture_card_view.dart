@@ -222,7 +222,11 @@ class _ScriptureCardViewState extends State<ScriptureCardView>
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final preset = ScriptureThemeCatalog.getPreset(widget.card.activeBackground);
+    final activeBg = widget.card.customBackgroundPreset ??
+        (widget.filterState.backgroundPreset.isNotEmpty
+            ? widget.filterState.backgroundPreset
+            : widget.card.backgroundPreset);
+    final preset = ScriptureThemeCatalog.getPreset(activeBg);
     final targetVersion = widget.filterState.activeVersionId;
 
     String primaryText;

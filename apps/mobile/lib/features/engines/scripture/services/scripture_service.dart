@@ -112,17 +112,17 @@ class ScriptureService {
         return pageCards;
       }
 
-      // Exclude already-served cards (bounded window) so infinite-scroll pages
-      // never repeat verses until the deck is intentionally reset.
-      final seenIds = _cachedDeck.length > 800
+      // Exclude already-served cards (bounded window of at most 200 items to stay safely below
+      // SQLite host variable limits on Android) so infinite-scroll pages do not repeat verses until exhausted.
+      final seenIds = _cachedDeck.length > 200
           ? _cachedDeck
-              .skip(_cachedDeck.length - 800)
+              .skip(_cachedDeck.length - 200)
               .map((c) => c.id)
               .whereType<String>()
               .toSet()
           : _cachedDeck.map((c) => c.id).whereType<String>().toSet();
 
-      final items = await _offlineDb.getRandomItems(
+      var items = await _offlineDb.getRandomItems(
         limit,
         offset: page * limit,
         bookFilter: bookFilter,
@@ -132,6 +132,23 @@ class ScriptureService {
         order: order,
         excludeIds: seenIds.toList(),
       );
+
+      // If random query returned empty because all available cards matching the filter
+      // were already in seenIds, recycle the deck and re-query without excludeIds so
+      // infinite scrolling and lockscreen word feed rotation never freeze.
+      if (items.isEmpty && seenIds.isNotEmpty && order == 'random') {
+        _cachedDeck.clear();
+        items = await _offlineDb.getRandomItems(
+          limit,
+          offset: page * limit,
+          bookFilter: bookFilter,
+          testamentFilter: testamentFilter,
+          categoryFilter: effectiveCategories,
+          tagFilter: effectiveTags,
+          order: order,
+          excludeIds: const [],
+        );
+      }
 
       if (items.isNotEmpty) {
         const presets = ScriptureThemeCatalog.presets;
