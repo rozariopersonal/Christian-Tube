@@ -241,9 +241,10 @@ class AuthService extends ChangeNotifier {
     final name = (customName != null && customName.trim().isNotEmpty)
         ? customName.trim()
         : '${AppConfig.appName} Member';
-    final email = (customEmail != null && customEmail.trim().isNotEmpty)
+    final hasCustomEmail = customEmail != null && customEmail.trim().isNotEmpty;
+    final email = hasCustomEmail
         ? customEmail.trim()
-        : 'admin@centumacademy.org';
+        : 'guest_$id@guest.local';
 
     final user = User(
       id: id,
@@ -259,7 +260,11 @@ class AuthService extends ChangeNotifier {
     await prefs.setString('auth_token', user.idToken ?? '');
 
     _syncUserWithBackend(user);
-    await checkIsAdmin(user.email);
+    if (hasCustomEmail) {
+      await checkIsAdmin(user.email);
+    } else {
+      _isAdmin = false;
+    }
 
     _isLoading = false;
     notifyListeners();

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mobile/core/models/user_preference.dart';
+import 'package:mobile/core/services/user_preference_service.dart';
 import 'package:mobile/core/theme/theme_service.dart';
 import 'package:mobile/features/auth/auth_service.dart';
 import 'package:mobile/features/onboarding/screens/onboarding_screen.dart';
@@ -199,6 +201,90 @@ void main() {
 
       expect(find.text('Followed Shorts Channels'), findsOneWidget);
       expect(find.text('No channels with shorts found'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+    });
+  });
+
+  group('Onboarding Bug Fixes & Edge Cases Tests', () {
+    test('guest sign in generates unique guest identity without admin privilege', () async {
+      final auth = AuthService();
+      final user = await auth.signInAsGuest();
+
+      expect(user.email, startsWith('guest_user_'));
+      expect(user.email, endsWith('@guest.local'));
+      expect(auth.isAdmin, isFalse);
+      expect(user.email, isNot(equals('admin@centumacademy.org')));
+    });
+
+    test('device onboarding completion flag persists across sign out', () async {
+      final prefService = UserPreferenceService.forTesting(
+        initial: const UserPreference(hasCompletedOnboarding: true),
+      );
+      expect(prefService.hasCompletedOnboarding, isTrue);
+
+      await prefService.clearForSignOut();
+      // Even though user preferences were reset, device completion flag stays true
+      expect(prefService.hasCompletedOnboarding, isTrue);
+    });
+
+    testWidgets('renders all onboarding steps across 320px viewport without overflow', (tester) async {
+      tester.view.physicalSize = const Size(320 * 2, 800 * 2);
+      tester.view.devicePixelRatio = 2.0;
+
+      final authService = AuthService();
+      final themeService = ThemeService();
+
+      await tester.pumpWidget(
+        buildTestApp(
+          OnboardingScreen(
+            authService: authService,
+            themeService: themeService,
+          ),
+          themeService: themeService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Step 0: Welcome
+      expect(find.textContaining('Welcome to'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Advance to Step 1: Languages
+      final guestButton = find.widgetWithText(ElevatedButton, 'Continue as Guest');
+      expect(guestButton, findsOneWidget);
+      await tester.tap(guestButton);
+      await tester.pumpAndSettle();
+      expect(find.text('Select Content Languages'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Advance to Step 2: Video Channels
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Follow Video Channels'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Advance to Step 3: Shorts Channels
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Follow Shorts Channels'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Advance to Step 4: Bible Versions
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Preferred Bible Translations'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Advance to Step 5: Personalization
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Personalize Your App'), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Get Started'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       addTearDown(() {

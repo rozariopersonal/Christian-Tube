@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
-import '../../../core/models/user_preference.dart';
 import '../../../core/services/user_preference_service.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/theme_service.dart';
@@ -35,6 +36,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final ChannelService _channelService = ChannelService();
   final UserPreferenceService _preferenceService = UserPreferenceService();
 
+  late final TextEditingController _languageSearchController;
+  late final TextEditingController _channelSearchController;
+
   int _currentStep = 0;
   static const int _totalSteps = 6;
 
@@ -61,10 +65,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _isSaving = false;
   bool _channelsLoaded = false;
   bool _hasRestoredExisting = false;
+  bool _isCheckingPrefs = false;
 
   @override
   void initState() {
     super.initState();
+    _languageSearchController = TextEditingController();
+    _channelSearchController = TextEditingController();
     _selectedColorTheme = widget.themeService.colorTheme;
     _selectedThemeMode = widget.themeService.themeMode;
     _isAmoled = widget.themeService.isAmoled;
@@ -82,6 +89,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     widget.authService.removeListener(_onAuthChanged);
+    _languageSearchController.dispose();
+    _channelSearchController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -110,11 +119,62 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _checkExistingPreferences() async {
-    final pref = await _preferenceService.fetchPreferences(auth: widget.authService);
-    if (pref.hasCompletedOnboarding && mounted) {
-      setState(() {
-        _hasRestoredExisting = true;
-      });
+    if (_isCheckingPrefs) return;
+    _isCheckingPrefs = true;
+
+    try {
+      final pref = await _preferenceService.fetchPreferences(auth: widget.authService);
+      if (!mounted) return;
+
+      if (pref.languages.isNotEmpty) {
+        _selectedLanguages.clear();
+        _selectedLanguages.addAll(pref.languages);
+      }
+      if (pref.videoChannelIds.isNotEmpty) {
+        _selectedVideoChannels.clear();
+        _selectedVideoChannels.addAll(pref.videoChannelIds);
+      }
+      if (pref.shortsChannelIds.isNotEmpty) {
+        _selectedShortsChannels.clear();
+        _selectedShortsChannels.addAll(pref.shortsChannelIds);
+      }
+      if (pref.primaryBibleVersionId.isNotEmpty) {
+        _primaryBibleVersion = pref.primaryBibleVersionId;
+      }
+      if (pref.bibleVersionIds.isNotEmpty) {
+        _selectedBibleVersions.clear();
+        _selectedBibleVersions.addAll(pref.bibleVersionIds);
+      }
+      if (pref.themeMode.isNotEmpty) {
+        _selectedThemeMode = pref.themeMode == 'dark'
+            ? ThemeMode.dark
+            : pref.themeMode == 'light'
+                ? ThemeMode.light
+                : ThemeMode.system;
+      }
+      if (pref.accentColor.isNotEmpty) {
+        _selectedColorTheme = AppColorTheme.values.firstWhere(
+          (c) =>
+              c.toString().split('.').last.toLowerCase() ==
+                  pref.accentColor.toLowerCase() ||
+              c.name.toLowerCase() == pref.accentColor.toLowerCase(),
+          orElse: () => _selectedColorTheme,
+        );
+      }
+      _dailyReminderEnabled = pref.dailyReminderEnabled;
+      _dailyReminderTime = pref.dailyReminderTime;
+
+      if (pref.hasCompletedOnboarding) {
+        setState(() {
+          _hasRestoredExisting = true;
+        });
+      } else {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error checking existing preferences: $e');
+    } finally {
+      _isCheckingPrefs = false;
     }
   }
 
@@ -127,6 +187,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       setState(() {
         _currentStep++;
         _channelSearch = '';
+        _channelSearchController.clear();
       });
     } else {
       _finishOnboarding();
@@ -142,6 +203,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       setState(() {
         _currentStep--;
         _channelSearch = '';
+        _channelSearchController.clear();
       });
     }
   }
@@ -150,8 +212,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() => _isSaving = true);
 
     try {
-      // 1. Construct final preference object
-      final finalPref = UserPreference(
+      // 1. Construct final preference object using copyWith to preserve settings
+      final existingPref = _preferenceService.preferences;
+      final finalPref = existingPref.copyWith(
         languages: _selectedLanguages.toList(),
         videoChannelIds: _selectedVideoChannels.toList(),
         shortsChannelIds: _selectedShortsChannels.toList(),
@@ -162,7 +225,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             : _selectedThemeMode == ThemeMode.light
                 ? 'light'
                 : 'system',
-        accentColor: _selectedColorTheme.name.toLowerCase(),
+        accentColor: _selectedColorTheme.toString().split('.').last,
         dailyReminderEnabled: _dailyReminderEnabled,
         dailyReminderTime: _dailyReminderTime,
         hasCompletedOnboarding: true,
@@ -210,10 +273,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final tokens = context.tokens;
 
     return PopScope(
-      canPop: _currentStep == 0,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _currentStep > 0) {
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (_currentStep > 0) {
           _previousStep();
+        } else {
+          final shouldExit = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Exit Setup?'),
+              content: const Text(
+                'Are you sure you want to exit setup? You can complete it anytime.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Exit'),
+                ),
+              ],
+            ),
+          );
+          if (shouldExit == true) {
+            SystemNavigator.pop();
+          }
         }
       },
       child: Scaffold(
@@ -402,7 +489,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () => context.go('/feed'),
+                      onPressed: () async {
+                        await widget.themeService.setColorTheme(_selectedColorTheme);
+                        await widget.themeService.setThemeMode(_selectedThemeMode);
+                        await widget.themeService.setAmoled(_isAmoled);
+                        await _preferenceService.markOnboardingComplete(
+                          auth: widget.authService,
+                          syncWithBackend: false,
+                        );
+                        if (mounted) context.go('/feed');
+                      },
                       child: const Text('Go Directly to Feed'),
                     ),
                   ),
@@ -604,6 +700,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 12),
           TextField(
+            controller: _languageSearchController,
             decoration: InputDecoration(
               hintText: 'Search languages (e.g. Tamil, Hindi, English)...',
               prefixIcon: const Icon(Icons.search, size: 20),
@@ -714,12 +811,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }).toList();
 
     if (available.isNotEmpty) {
-      if (!available.any((b) => b.id.toUpperCase() == _primaryBibleVersion.toUpperCase())) {
+      final availableIds = available.map((b) => b.id.toUpperCase()).toSet();
+      // Prune any selected versions that belong to deselected languages
+      _selectedBibleVersions.removeWhere(
+        (id) => !availableIds.contains(id.toUpperCase()),
+      );
+
+      // Ensure primary version is valid and present in selected bibles
+      if (!availableIds.contains(_primaryBibleVersion.toUpperCase())) {
         _primaryBibleVersion = available.first.id;
-        _selectedBibleVersions
-          ..clear()
-          ..add(available.first.id);
       }
+      _selectedBibleVersions.add(_primaryBibleVersion);
     }
   }
 
@@ -823,6 +925,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               Expanded(
                 child: TextField(
+                  controller: _channelSearchController,
                   decoration: InputDecoration(
                     hintText: 'Search channels...',
                     prefixIcon: const Icon(Icons.search, size: 20),
@@ -849,6 +952,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (!_channelsLoaded && channels.isEmpty)
             const Expanded(
               child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_channelsLoaded && channels.isEmpty)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.wifi_off_rounded, size: 40, color: tokens.onSurfaceMuted),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Unable to load channels',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: tokens.onSurface),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Check your connection or retry to discover channels.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: tokens.onSurfaceMuted),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry'),
+                        onPressed: () {
+                          setState(() => _channelsLoaded = false);
+                          _loadChannels();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             )
           else if (filtered.isEmpty)
             Expanded(
@@ -877,6 +1014,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     subscriberCount: ch.subscriberCount,
                     videoCount: ch.videoCount,
                     isFollowed: isFollowed,
+                    onTap: () => onToggle(ch.id),
                     badge: isShorts
                         ? Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -940,10 +1078,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           if (candidateBibles.isEmpty)
             Expanded(
               child: Center(
-                child: Text(
-                  'No Bible translations found for your selected languages. Please go back and select English or other supported languages.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: tokens.onSurfaceMuted),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.menu_book_outlined, size: 44, color: tokens.onSurfaceMuted),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No Bibles in Selected Languages',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'We do not currently offer standalone translations in your selected language(s). You can add English to select from popular translations like NASB, ESV, and NIV.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: tokens.onSurfaceMuted),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: context.accent,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Add English Bibles'),
+                        onPressed: () {
+                          setState(() {
+                            _selectedLanguages.add('en');
+                            _updateBibleVersionsForLanguages();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             )
@@ -992,64 +1160,69 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                             child: ListTile(
                               dense: true,
-                            onTap: () {
-                              setState(() {
-                                _primaryBibleVersion = b.id;
-                                _selectedBibleVersions.add(b.id);
-                              });
-                            },
-                            title: Row(
-                              children: [
-                                Text(
-                                  b.id,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    b.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                              onTap: () {
+                                setState(() {
+                                  _primaryBibleVersion = b.id;
+                                  _selectedBibleVersions.add(b.id);
+                                });
+                              },
+                              title: Row(
+                                children: [
+                                  Text(
+                                    b.id,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                   ),
-                                ),
-                              ],
-                            ),
-                            subtitle: nativeScript.isNotEmpty && nativeScript != b.name
-                                ? Text(
-                                    nativeScript,
-                                    style: TextStyle(fontSize: 11, color: tokens.onSurfaceMuted),
-                                  )
-                                : null,
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (isPrimary)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: context.primary,
-                                      borderRadius: BorderRadius.circular(10),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      b.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 12),
                                     ),
-                                    child: const Text(
-                                      'PRIMARY',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
+                                  ),
+                                ],
+                              ),
+                              subtitle: nativeScript.isNotEmpty && nativeScript != b.name
+                                  ? Text(
+                                      nativeScript,
+                                      style: TextStyle(fontSize: 11, color: tokens.onSurfaceMuted),
+                                    )
+                                  : null,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isPrimary)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: context.primary,
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
+                                      child: const Text(
+                                        'PRIMARY',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    TextButton(
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _primaryBibleVersion = b.id;
+                                          _selectedBibleVersions.add(b.id);
+                                        });
+                                      },
+                                      child: const Text('Set Primary', style: TextStyle(fontSize: 11)),
                                     ),
-                                  )
-                                else
-                                  TextButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _primaryBibleVersion = b.id;
-                                        _selectedBibleVersions.add(b.id);
-                                      });
-                                    },
-                                    child: const Text('Set Primary', style: TextStyle(fontSize: 12)),
-                                  ),
                                 Checkbox(
                                   value: isChecked,
                                   activeColor: context.primary,
@@ -1314,11 +1487,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 onPressed: _isSaving
                     ? null
-                    : () {
+                    : () async {
                         if (_currentStep == 0 && !widget.authService.isAuthenticated) {
                           // Allow continue as guest
-                          widget.authService.signInAsGuest();
-                          _nextStep();
+                          await widget.authService.signInAsGuest();
+                          if (mounted) _nextStep();
                         } else {
                           _nextStep();
                         }
@@ -1332,17 +1505,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : Text(
-                        isLastStep
-                            ? 'Complete & Start Exploring'
-                            : _currentStep == 0
-                                ? (widget.authService.isAuthenticated
-                                    ? 'Continue'
-                                    : 'Continue as Guest')
-                                : 'Continue',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          isLastStep
+                              ? (ScreenClass.of(context).isCompact
+                                  ? 'Get Started'
+                                  : 'Complete & Start Exploring')
+                              : _currentStep == 0
+                                  ? (widget.authService.isAuthenticated
+                                      ? 'Continue'
+                                      : 'Continue as Guest')
+                                  : 'Continue',
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
               ),

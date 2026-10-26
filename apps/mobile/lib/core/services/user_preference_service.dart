@@ -11,6 +11,7 @@ import 'lockscreen_word_feed_service.dart';
 
 class UserPreferenceService extends ChangeNotifier {
   static const String _prefStorageKey = 'ct_user_preferences_v1';
+  static const String _deviceOnboardingCompletedKey = 'ct_device_onboarding_completed_v1';
   static final UserPreferenceService _instance = UserPreferenceService._internal();
   factory UserPreferenceService() => _instance;
   static UserPreferenceService get instance => _instance;
@@ -19,9 +20,11 @@ class UserPreferenceService extends ChangeNotifier {
   UserPreference _preferences = const UserPreference();
   bool _isLoading = false;
   bool _isInitialized = false;
+  bool _deviceOnboardingCompleted = false;
 
   UserPreference get preferences => _preferences;
-  bool get hasCompletedOnboarding => _preferences.hasCompletedOnboarding;
+  bool get hasCompletedOnboarding =>
+      _deviceOnboardingCompleted || _preferences.hasCompletedOnboarding;
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
 
@@ -31,18 +34,29 @@ class UserPreferenceService extends ChangeNotifier {
   }
 
   @visibleForTesting
-  UserPreferenceService.forTesting({ApiClient? apiClient, UserPreference? initial})
-      : _apiClient = apiClient ?? ApiClient(),
+  UserPreferenceService.forTesting({
+    ApiClient? apiClient,
+    UserPreference? initial,
+    bool? deviceOnboardingCompleted,
+  })  : _apiClient = apiClient ?? ApiClient(),
         _preferences = initial ?? const UserPreference(),
+        _deviceOnboardingCompleted = deviceOnboardingCompleted ??
+            (initial?.hasCompletedOnboarding ?? false),
         _isInitialized = true;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
     try {
       final prefs = await SharedPreferences.getInstance();
+      _deviceOnboardingCompleted =
+          prefs.getBool(_deviceOnboardingCompletedKey) ?? false;
       final raw = prefs.getString(_prefStorageKey);
       if (raw != null && raw.isNotEmpty) {
         _preferences = UserPreference.fromJson(jsonDecode(raw));
+      }
+      if (_preferences.hasCompletedOnboarding && !_deviceOnboardingCompleted) {
+        _deviceOnboardingCompleted = true;
+        await prefs.setBool(_deviceOnboardingCompletedKey, true);
       }
     } catch (e) {
       debugPrint('UserPreferenceService init error: $e');
@@ -98,6 +112,14 @@ class UserPreferenceService extends ChangeNotifier {
 
     // 1. Persist locally
     await _saveToLocal(newPreferences);
+
+    if (newPreferences.hasCompletedOnboarding && !_deviceOnboardingCompleted) {
+      _deviceOnboardingCompleted = true;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_deviceOnboardingCompletedKey, true);
+      } catch (_) {}
+    }
 
     // 2. Apply to runtime controllers (library languages, bible, channels, lockscreen)
     await applyToRuntimeControllers(newPreferences);
@@ -214,6 +236,17 @@ class UserPreferenceService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to sync LockScreenWordFeedService: $e');
     }
+
+    // 5. Theme and Accent Color synchronization
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (pref.themeMode.isNotEmpty) {
+        await prefs.setString('theme_mode_preference', pref.themeMode);
+      }
+      if (pref.accentColor.isNotEmpty) {
+        await prefs.setString('theme_color_preference', pref.accentColor);
+      }
+    } catch (_) {}
   }
 
   Future<void> _saveToLocal(UserPreference pref) async {
