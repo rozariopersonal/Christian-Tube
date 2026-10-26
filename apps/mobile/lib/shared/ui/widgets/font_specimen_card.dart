@@ -117,44 +117,48 @@ class FontSpecimenCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            Row(
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 6,
+                              runSpacing: 4,
                               children: [
-                                Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: tokens.surfaceVariant,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      fontOption.subtitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: tokens.onSurfaceMuted,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: tokens.surfaceVariant,
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
-                                ),
-                                if (isInstalled) ...[
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    Icons.check_circle_rounded,
-                                    size: 13,
-                                    color: tokens.accent,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    'Installed',
+                                  child: Text(
+                                    fontOption.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: tokens.accent,
+                                      color: tokens.onSurfaceMuted,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                ],
+                                ),
+                                if (isInstalled)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle_rounded,
+                                        size: 13,
+                                        color: tokens.accent,
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        'Installed',
+                                        style: TextStyle(
+                                          color: tokens.accent,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                               ],
                             ),
                           ],
