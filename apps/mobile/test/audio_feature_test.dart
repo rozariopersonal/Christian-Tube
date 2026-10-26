@@ -227,5 +227,94 @@ void main() {
       expect(find.byIcon(Icons.play_circle_filled), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('MiniAudioPlayer in bottom navigation bar does not push tabs down or overflow', (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      const track = AudioTrack(
+        id: 'track_test',
+        title: 'Genesis - Part 1: The Creation',
+        seriesId: 'ttb',
+        seriesTitle: 'Through The Bible',
+        speaker: 'Zac Poonen',
+        durationSeconds: 3000,
+        audioUrl: 'https://example.com/test.mp3',
+      );
+
+      const state = AudioPlayerState(
+        currentTrack: track,
+        status: AudioPlaybackStatus.playing,
+        position: Duration(minutes: 10),
+        duration: Duration(minutes: 50),
+        isMiniPlayerVisible: true,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTokens.dark],
+          ),
+          home: Scaffold(
+            body: const Center(child: Text('Content')),
+            bottomNavigationBar: Builder(
+              builder: (context) {
+                final bottomPadding = MediaQuery.paddingOf(context).bottom;
+                final barHeight = 60.0 + kMiniAudioPlayerHeight + bottomPadding;
+
+                final barContent = Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const MiniAudioPlayer(state: state),
+                    NavigationBarTheme(
+                      data: const NavigationBarThemeData(
+                        height: 60,
+                        indicatorColor: Colors.transparent,
+                      ),
+                      child: NavigationBar(
+                        selectedIndex: 0,
+                        destinations: const [
+                          NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
+                          NavigationDestination(icon: Icon(Icons.book), label: 'Bible'),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  height: barHeight,
+                  child: ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.bottomCenter,
+                      minHeight: 0,
+                      maxHeight: barHeight,
+                      child: barContent,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(MiniAudioPlayer), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+
+      final navBarRect = tester.getRect(find.byType(NavigationBar));
+      // NavigationBar should sit flush at the bottom of the 800px viewport
+      expect(navBarRect.bottom, equals(800.0));
+      expect(navBarRect.height, equals(60.0));
+
+      final miniPlayerRect = tester.getRect(find.byType(MiniAudioPlayer));
+      // MiniAudioPlayer sits directly atop the 60dp navigation bar
+      expect(miniPlayerRect.bottom, equals(navBarRect.top));
+    });
   });
 }

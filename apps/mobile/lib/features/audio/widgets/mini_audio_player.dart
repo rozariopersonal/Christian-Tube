@@ -6,6 +6,9 @@ import '../controllers/audio_player_controller.dart';
 import '../models/playback_state.dart';
 import 'full_audio_player_sheet.dart';
 
+/// Standard height reserved for the floating mini audio player.
+const double kMiniAudioPlayerHeight = 72.0;
+
 /// Persistent floating mini-player docked right above the bottom navigation bar.
 ///
 /// Supports tap to expand full player, horizontal swipe for previous/next track,
@@ -29,15 +32,17 @@ class MiniAudioPlayer extends StatelessWidget {
             ? AppTokens.dark
             : AppTokens.light);
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
-        child: SafeArea(
-          top: false,
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return SizedBox(
+      height: kMiniAudioPlayerHeight,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Semantics(
               label: 'Now playing: ${track.title} by ${track.speaker}',
               button: true,
@@ -76,9 +81,9 @@ class MiniAudioPlayer extends StatelessWidget {
                         // Drag handle hint
                         Center(
                           child: Container(
-                            margin: const EdgeInsets.only(top: 6),
-                            width: 32,
-                            height: 4,
+                            margin: const EdgeInsets.only(top: 4),
+                            width: 30,
+                            height: 3,
                             decoration: BoxDecoration(
                               color: tokens.onSurfaceMuted.withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(2),
@@ -86,15 +91,15 @@ class MiniAudioPlayer extends StatelessWidget {
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           child: Row(
                             children: [
                               // Thumbnail
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
                                 child: Container(
-                                  width: 44,
-                                  height: 44,
+                                  width: 40,
+                                  height: 40,
                                   color: tokens.surfaceVariant,
                                   child: track.displayImageUrl != null
                                       ? CachedNetworkImage(
@@ -103,17 +108,17 @@ class MiniAudioPlayer extends StatelessWidget {
                                           errorWidget: (_, __, ___) => Icon(
                                             Icons.headphones,
                                             color: theme.colorScheme.primary,
-                                            size: 24,
+                                            size: 22,
                                           ),
                                         )
                                       : Icon(
                                           Icons.headphones,
                                           color: theme.colorScheme.primary,
-                                          size: 24,
+                                          size: 22,
                                         ),
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 8),
 
                               // Title & Speaker
                               Expanded(
@@ -130,7 +135,7 @@ class MiniAudioPlayer extends StatelessWidget {
                                         color: tokens.onSurface,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
+                                    const SizedBox(height: 1),
                                     Text(
                                       '${track.speaker} • ${track.seriesTitle}',
                                       maxLines: 1,
@@ -146,12 +151,12 @@ class MiniAudioPlayer extends StatelessWidget {
                               // Play/Pause button
                               if (state.isLoading)
                                 SizedBox(
-                                  width: 40,
-                                  height: 40,
+                                  width: 36,
+                                  height: 36,
                                   child: Center(
                                     child: SizedBox(
-                                      width: 22,
-                                      height: 22,
+                                      width: 20,
+                                      height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2.5,
                                         color: theme.colorScheme.primary,
@@ -165,10 +170,16 @@ class MiniAudioPlayer extends StatelessWidget {
                                     state.isPlaying
                                         ? Icons.pause_circle_filled
                                         : Icons.play_circle_filled,
-                                    size: 34,
+                                    size: 32,
                                     color: theme.colorScheme.primary,
                                   ),
                                   tooltip: state.isPlaying ? 'Pause' : 'Play',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 36,
+                                    minHeight: 36,
+                                  ),
                                   onPressed: () =>
                                       AudioPlayerController.instance.togglePlayPause(),
                                 ),
@@ -177,15 +188,15 @@ class MiniAudioPlayer extends StatelessWidget {
                               IconButton(
                                 icon: Icon(
                                   Icons.close_rounded,
-                                  size: 20,
+                                  size: 18,
                                   color: tokens.onSurfaceMuted,
                                 ),
                                 tooltip: 'Close player',
                                 visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.all(6),
+                                padding: const EdgeInsets.all(4),
                                 constraints: const BoxConstraints(
-                                  minWidth: 32,
-                                  minHeight: 32,
+                                  minWidth: 28,
+                                  minHeight: 28,
                                 ),
                                 onPressed: () {
                                   if (state.isPlaying) {
@@ -201,7 +212,7 @@ class MiniAudioPlayer extends StatelessWidget {
                         // Hairline Progress Bar
                         LinearProgressIndicator(
                           value: state.progress,
-                          minHeight: 2.5,
+                          minHeight: 2.0,
                           backgroundColor: tokens.surfaceVariant,
                           valueColor: AlwaysStoppedAnimation<Color>(
                             theme.colorScheme.primary,
@@ -216,6 +227,7 @@ class MiniAudioPlayer extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
