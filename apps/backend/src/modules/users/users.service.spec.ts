@@ -20,6 +20,7 @@ describe('UsersService', () => {
       },
       channelSubscription: {
         upsert: jest.fn(),
+        deleteMany: jest.fn(),
       },
     };
     configService = {

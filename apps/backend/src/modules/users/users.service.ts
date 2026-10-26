@@ -126,21 +126,35 @@ export class UsersService {
       new Set([...(pref.videoChannelIds || []), ...(pref.shortsChannelIds || [])]),
     );
 
-    if (allChannelIds.length > 0) {
+    if (data.videoChannelIds !== undefined || data.shortsChannelIds !== undefined) {
       try {
-        for (const channelId of allChannelIds) {
-          await this.prisma.channelSubscription.upsert({
-            where: {
-              userId_channelId: {
+        if (allChannelIds.length > 0) {
+          for (const channelId of allChannelIds) {
+            await this.prisma.channelSubscription.upsert({
+              where: {
+                userId_channelId: {
+                  userId,
+                  channelId,
+                },
+              },
+              update: {},
+              create: {
                 userId,
                 channelId,
               },
-            },
-            update: {},
-            create: {
-              userId,
-              channelId,
-            },
+            });
+          }
+          if (this.prisma.channelSubscription.deleteMany) {
+            await this.prisma.channelSubscription.deleteMany({
+              where: {
+                userId,
+                channelId: { notIn: allChannelIds },
+              },
+            });
+          }
+        } else if (this.prisma.channelSubscription.deleteMany) {
+          await this.prisma.channelSubscription.deleteMany({
+            where: { userId },
           });
         }
       } catch (err) {
