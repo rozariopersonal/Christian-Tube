@@ -351,13 +351,7 @@ class AudioLibraryController extends ChangeNotifier {
     // Check cloud for playback updates across devices in background
     AudioPlayerController.instance.syncWithCloud();
 
-    // Sync the local SQLite mirror from the NestJS backend. An explicit
-    // refresh pulls the full catalog (no `since` cursor) so a mirror frozen
-    // by a drifted cursor is rebuilt.
     final syncManager = AudioSyncManager(_catalogService.localAdapter);
-    syncManager.syncCatalog(fullRefresh: forceRefresh).catchError((e) {
-      debugPrint('Background sync failed: $e');
-    });
 
     if (forceRefresh) {
       // On explicit refresh: refresh the dataset revision FIRST so CDN URLs
@@ -369,11 +363,10 @@ class AudioLibraryController extends ChangeNotifier {
       try {
         await syncManager.syncCatalog(fullRefresh: true);
       } catch (e) {
-        debugPrint('Audio sync failed during force refresh: $e');
+        debugPrint('Explicit sync failed: $e');
       }
     } else {
-      // Background catalog sync from NestJS to Local SQLite (best effort).
-      syncManager.syncCatalog().catchError((e) {
+      syncManager.syncCatalog(fullRefresh: false).catchError((e) {
         debugPrint('Background sync failed: $e');
       });
     }
@@ -432,7 +425,7 @@ class AudioLibraryController extends ChangeNotifier {
 
   void setSearchQuery(String query) {
     if (_state.searchQuery == query) return;
-    _state = _state.copyWith(searchQuery: query);
+    _state = _state.copyWith(searchQuery: query, clearAsyncSearchResults: true);
     notifyListeners();
     
     if (query.trim().isNotEmpty) {
@@ -447,7 +440,11 @@ class AudioLibraryController extends ChangeNotifier {
       _state = _state.copyWith(asyncSearchResults: results);
       notifyListeners();
     } catch (_) {
-      // Fallback to in-memory filter if error
+      // Clear async search results on error so old query results don't linger
+      if (!_disposed && _state.searchQuery == query) {
+        _state = _state.copyWith(clearAsyncSearchResults: true);
+        notifyListeners();
+      }
     }
   }
 
@@ -475,6 +472,7 @@ class AudioLibraryController extends ChangeNotifier {
       selectedCategory: 'All',
       searchQuery: '',
       viewMode: AudioViewMode.featured,
+      clearAsyncSearchResults: true,
     );
     notifyListeners();
     _langController.reset();

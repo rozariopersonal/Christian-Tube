@@ -27,6 +27,13 @@ export class AudioController {
     return { data };
   }
 
+  @Get('track-by-youtube/:videoId')
+  @Header('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400')
+  async getTrackByYoutubeId(@Param('videoId') videoId: string) {
+    const data = await this.audioService.findTrackByYoutubeId(videoId);
+    return { data };
+  }
+
   @Get('stream/:id')
   async getAudioStream(@Param('id') id: string, @Res() res: Response) {
     const token = this.configService.get<string>('AUDIO_COM_TOKEN');

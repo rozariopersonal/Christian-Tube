@@ -13,7 +13,7 @@ import 'audio_catalog_adapter.dart';
 class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
   static const String defaultFileName = 'audio_sync.sqlite';
   static const String syncedPrefKey = 'audio_sqlite_synced';
-  static const int schemaVersion = 4;
+  static const int schemaVersion = 5;
 
   final String? dbPathOverride;
   Database? _db;
@@ -94,6 +94,9 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
             fallbackUrl TEXT,
             coverUrl TEXT,
             thumbnailUrl TEXT,
+            youtubeVideoId TEXT,
+            channelName TEXT,
+            publishedAt INTEGER,
             scriptureBook TEXT,
             scriptureChapter INTEGER,
             scriptureVerse INTEGER,
@@ -144,6 +147,13 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
         ''');
 
         await db.execute('''
+          CREATE TRIGGER series_ad AFTER DELETE ON series BEGIN
+            INSERT INTO series_fts(series_fts, rowid, id, title, description, speaker, category, language) 
+            VALUES('delete', old.rowid, old.id, old.title, old.description, old.speaker, old.category, old.language);
+          END;
+        ''');
+
+        await db.execute('''
           CREATE TRIGGER tracks_ai AFTER INSERT ON tracks BEGIN
             INSERT INTO tracks_fts(rowid, id, title, speaker, seriesTitle) 
             VALUES (new.rowid, new.id, new.title, new.speaker, new.seriesTitle);
@@ -175,6 +185,25 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
           await db.execute('ALTER TABLE series ADD COLUMN channelId TEXT');
           await db.execute('ALTER TABLE series ADD COLUMN channelName TEXT');
           await db.execute('ALTER TABLE series ADD COLUMN channelThumbnail TEXT');
+        }
+        if (oldVersion < 5) {
+          try {
+            await db.execute('ALTER TABLE tracks ADD COLUMN youtubeVideoId TEXT');
+          } catch (_) {}
+          try {
+            await db.execute('ALTER TABLE tracks ADD COLUMN channelName TEXT');
+          } catch (_) {}
+          try {
+            await db.execute('ALTER TABLE tracks ADD COLUMN publishedAt INTEGER');
+          } catch (_) {}
+          try {
+            await db.execute('''
+              CREATE TRIGGER IF NOT EXISTS series_ad AFTER DELETE ON series BEGIN
+                INSERT INTO series_fts(series_fts, rowid, id, title, description, speaker, category, language) 
+                VALUES('delete', old.rowid, old.id, old.title, old.description, old.speaker, old.category, old.language);
+              END;
+            ''');
+          } catch (_) {}
         }
       },
     );
@@ -223,6 +252,11 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
           'fallbackUrl': track.fallbackUrl,
           'coverUrl': track.coverUrl,
           'thumbnailUrl': track.thumbnailUrl,
+          'youtubeVideoId': track.youtubeVideoId,
+          'channelName': track.channelName ?? series.channelName,
+          'publishedAt': track.publishedAt != null
+              ? DateTime.tryParse(track.publishedAt!)?.millisecondsSinceEpoch
+              : null,
           'scriptureBook': track.scriptureBook,
           'scriptureChapter': track.scriptureChapter,
           'scriptureVerse': track.scriptureVerse,
@@ -287,22 +321,30 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
     final row = seriesRes.first;
     
     final tracksRes = await db.query('tracks', where: 'seriesId = ?', whereArgs: [seriesId]);
-    final tracks = tracksRes.map((t) => AudioTrack(
-      id: t['id'] as String,
-      seriesId: t['seriesId'] as String,
-      seriesTitle: t['seriesTitle'] as String? ?? row['title'] as String,
-      title: t['title'] as String,
-      speaker: t['speaker'] as String? ?? 'Zac Poonen',
-      durationSeconds: t['durationSeconds'] as int,
-      audioUrl: t['audioUrl'] as String,
-      streamUrl: t['streamUrl'] as String?,
-      fallbackUrl: t['fallbackUrl'] as String?,
-      coverUrl: t['coverUrl'] as String?,
-      thumbnailUrl: t['thumbnailUrl'] as String?,
-      scriptureBook: t['scriptureBook'] as String?,
-      scriptureChapter: t['scriptureChapter'] as int?,
-      scriptureVerse: t['scriptureVerse'] as int?,
-    )).toList();
+    final tracks = tracksRes.map((t) {
+      final rawPub = t['publishedAt'] as int?;
+      return AudioTrack(
+        id: t['id'] as String,
+        seriesId: t['seriesId'] as String,
+        seriesTitle: t['seriesTitle'] as String? ?? row['title'] as String,
+        title: t['title'] as String,
+        speaker: t['speaker'] as String? ?? 'Zac Poonen',
+        durationSeconds: t['durationSeconds'] as int,
+        audioUrl: t['audioUrl'] as String,
+        streamUrl: t['streamUrl'] as String?,
+        fallbackUrl: t['fallbackUrl'] as String?,
+        coverUrl: t['coverUrl'] as String?,
+        thumbnailUrl: t['thumbnailUrl'] as String?,
+        youtubeVideoId: t['youtubeVideoId'] as String?,
+        channelName: t['channelName'] as String? ?? row['channelName'] as String?,
+        publishedAt: rawPub != null
+            ? DateTime.fromMillisecondsSinceEpoch(rawPub).toIso8601String()
+            : null,
+        scriptureBook: t['scriptureBook'] as String?,
+        scriptureChapter: t['scriptureChapter'] as int?,
+        scriptureVerse: t['scriptureVerse'] as int?,
+      );
+    }).toList();
     
     return AudioSeries(
       id: row['id'] as String,
@@ -317,7 +359,40 @@ class SqliteAudioCatalogAdapter implements AudioCatalogAdapter {
           ? DateTime.fromMillisecondsSinceEpoch(
               row['latestPublishedAt'] as int)
           : null,
+      channelId: row['channelId'] as String?,
+      channelName: row['channelName'] as String?,
+      channelThumbnail: row['channelThumbnail'] as String?,
       tracks: tracks,
+    );
+  }
+
+  /// Finds a single track by associated YouTube video ID from the local mirror.
+  Future<AudioTrack?> findTrackByYoutubeId(String videoId) async {
+    final db = await _getDb();
+    final res = await db.query('tracks', where: 'youtubeVideoId = ?', whereArgs: [videoId], limit: 1);
+    if (res.isEmpty) return null;
+    final t = res.first;
+    final rawPub = t['publishedAt'] as int?;
+    return AudioTrack(
+      id: t['id'] as String,
+      seriesId: t['seriesId'] as String,
+      seriesTitle: t['seriesTitle'] as String? ?? '',
+      title: t['title'] as String,
+      speaker: t['speaker'] as String? ?? 'Zac Poonen',
+      durationSeconds: t['durationSeconds'] as int,
+      audioUrl: t['audioUrl'] as String,
+      streamUrl: t['streamUrl'] as String?,
+      fallbackUrl: t['fallbackUrl'] as String?,
+      coverUrl: t['coverUrl'] as String?,
+      thumbnailUrl: t['thumbnailUrl'] as String?,
+      youtubeVideoId: t['youtubeVideoId'] as String?,
+      channelName: t['channelName'] as String?,
+      publishedAt: rawPub != null
+          ? DateTime.fromMillisecondsSinceEpoch(rawPub).toIso8601String()
+          : null,
+      scriptureBook: t['scriptureBook'] as String?,
+      scriptureChapter: t['scriptureChapter'] as int?,
+      scriptureVerse: t['scriptureVerse'] as int?,
     );
   }
   

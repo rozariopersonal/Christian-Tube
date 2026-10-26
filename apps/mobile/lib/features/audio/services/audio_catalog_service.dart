@@ -15,7 +15,6 @@ class AudioCatalogService {
   final RemoteAudioCatalogAdapter _remoteAdapter;
   
   static final Map<String, AudioTrack> _youtubeIdCache = {};
-  static bool _isCacheLoaded = false;
 
   AudioCatalogService({
     http.Client? client,
@@ -36,33 +35,33 @@ class AudioCatalogService {
   void invalidateCaches() {
     RemoteAudioCatalogAdapter.invalidateCache();
     _youtubeIdCache.clear();
-    _isCacheLoaded = false;
   }
 
   /// Look up an audio track by its associated YouTube Video ID.
-  /// Caches the Audio.com uploads series in memory for instant subsequent lookups.
+  /// Directly queries the backend endpoint with offline fallback to the local SQLite mirror.
   Future<AudioTrack?> findTrackByYoutubeId(String videoId) async {
-    if (!_isCacheLoaded) {
-      try {
-        final catalog = await getCatalog();
-        final seriesFutures = catalog.map((s) => getSeries(s.id));
-        final allSeries = await Future.wait(seriesFutures);
-
-        for (final series in allSeries) {
-          if (series != null) {
-            for (final track in series.tracks) {
-              if (track.youtubeVideoId != null && track.youtubeVideoId!.isNotEmpty) {
-                _youtubeIdCache[track.youtubeVideoId!] = track;
-              }
-            }
-          }
-        }
-        _isCacheLoaded = true;
-      } catch (_) {
-        // Ignore errors; cache stays empty or partial
-      }
+    if (videoId.isEmpty) return null;
+    if (_youtubeIdCache.containsKey(videoId)) {
+      return _youtubeIdCache[videoId];
     }
-    return _youtubeIdCache[videoId];
+
+    try {
+      final remoteTrack = await _remoteAdapter.fetchTrackByYoutubeId(videoId);
+      if (remoteTrack != null) {
+        _youtubeIdCache[videoId] = remoteTrack;
+        return remoteTrack;
+      }
+    } catch (_) {}
+
+    try {
+      final localTrack = await _localAdapter.findTrackByYoutubeId(videoId);
+      if (localTrack != null) {
+        _youtubeIdCache[videoId] = localTrack;
+        return localTrack;
+      }
+    } catch (_) {}
+
+    return null;
   }
 
   /// Loads the top-level audio catalog from the backend database.

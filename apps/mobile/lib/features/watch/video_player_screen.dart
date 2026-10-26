@@ -89,6 +89,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    AudioPlayerController.instance.pause();
     _activeVideoId = widget.videoId;
     _video = widget.initialVideo;
     _playlist = widget.playlist != null ? List.from(widget.playlist!) : [];

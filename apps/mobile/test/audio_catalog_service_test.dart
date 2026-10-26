@@ -69,5 +69,28 @@ void main() {
       expect(results.single.id, 'hit');
       verify(() => remote.search('zac')).called(1);
     });
+
+    test('findTrackByYoutubeId directly queries remote adapter', () async {
+      const track = AudioTrack(
+        id: 't_yt',
+        title: 'Video Track',
+        seriesId: 's1',
+        seriesTitle: 'Series 1',
+        speaker: 'Zac Poonen',
+        youtubeVideoId: 'video_123',
+        durationSeconds: 120,
+        audioUrl: 'https://example.com/audio.mp3',
+      );
+      when(() => remote.fetchTrackByYoutubeId('video_123'))
+          .thenAnswer((_) async => track);
+
+      final found = await service.findTrackByYoutubeId('video_123');
+
+      expect(found, isNotNull);
+      expect(found!.id, 't_yt');
+      expect(found.youtubeVideoId, 'video_123');
+      verify(() => remote.fetchTrackByYoutubeId('video_123')).called(1);
+      verifyNever(() => local.findTrackByYoutubeId(any()));
+    });
   });
 }

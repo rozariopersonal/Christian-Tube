@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/layout/content_width.dart';
@@ -231,14 +232,25 @@ class _AudioChannelCard extends StatelessWidget {
                     ),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: series.coverUrl != null && series.coverUrl!.isNotEmpty
-                      ? Image.network(
-                          series.coverUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              _buildFallbackIcon(tokens),
-                        )
-                      : _buildFallbackIcon(tokens),
+                  child: () {
+                    final avatarUrl = (series.channelThumbnail != null &&
+                            series.channelThumbnail!.isNotEmpty)
+                        ? series.channelThumbnail
+                        : (series.coverUrl != null &&
+                                series.coverUrl!.isNotEmpty
+                            ? series.coverUrl
+                            : null);
+                    if (avatarUrl == null) return _buildFallbackIcon(tokens);
+                    return CachedNetworkImage(
+                      imageUrl: avatarUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) =>
+                          _buildFallbackIcon(tokens),
+                      placeholder: (context, url) => Container(
+                        color: tokens.surfaceVariant,
+                      ),
+                    );
+                  }(),
                 ),
                 const SizedBox(height: 8),
                 
