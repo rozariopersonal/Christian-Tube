@@ -1,13 +1,15 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../config/app_config.dart';
 import 'lockscreen_word_feed_service.dart';
 
 @pragma('vm:entry-point')
-void notificationTapBackground(NotificationResponse response) {
+Future<void> notificationTapBackground(NotificationResponse response) async {
+  WidgetsFlutterBinding.ensureInitialized();
   if (response.actionId == LockScreenWordFeedService.actionNextWord) {
-    LockScreenWordFeedService.instance.rotateNextWord();
+    await LockScreenWordFeedService.instance.rotateNextWord();
   } else if (response.actionId == LockScreenWordFeedService.actionBookmark) {
-    LockScreenWordFeedService.instance.toggleBookmarkCurrentWord();
+    await LockScreenWordFeedService.instance.toggleBookmarkCurrentWord();
   }
 }
 

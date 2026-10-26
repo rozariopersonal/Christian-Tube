@@ -9,6 +9,8 @@ import '../../features/bible/services/bible_bookmark_service.dart';
 import '../../features/engines/scripture/models/scripture_card.dart';
 import '../../features/engines/scripture/models/scripture_filter_state.dart';
 import '../../features/engines/scripture/scripture_engine.dart';
+import '../../features/engines/scripture/services/book_name_service.dart';
+import '../../features/engines/scripture/services/saved_scripture_service.dart';
 import '../../features/engines/scripture/services/scripture_service.dart';
 import 'notification_service.dart';
 
@@ -31,6 +33,7 @@ class LockScreenWordFeedService extends ChangeNotifier {
   static const String _prefKeyEnabled = 'lockscreen_wordfeed_enabled_v1';
   static const String _prefKeyInterval = 'lockscreen_wordfeed_interval_v1';
   static const String _prefKeyCurrentCard = 'lockscreen_wordfeed_current_card_v1';
+  static const String _prefKeyCanonicalOffset = 'lockscreen_wordfeed_canonical_offset_v1';
 
   static LockScreenWordFeedService _instance =
       LockScreenWordFeedService._internal();
@@ -109,6 +112,8 @@ class LockScreenWordFeedService extends ChangeNotifier {
 
   /// Enables the lock screen word feed and publishes the initial card.
   Future<void> enable({int intervalMinutes = 60}) async {
+    final wasEnabled = _isEnabled;
+    final prevInterval = _intervalMinutes;
     _isEnabled = true;
     _intervalMinutes = intervalMinutes;
 
@@ -117,7 +122,9 @@ class LockScreenWordFeedService extends ChangeNotifier {
     await prefs.setInt(_prefKeyInterval, intervalMinutes);
 
     _startPeriodicTimer();
-    await rotateNextWord();
+    if (!wasEnabled || prevInterval != intervalMinutes || _currentCard == null) {
+      await rotateNextWord();
+    }
     notifyListeners();
   }
 
@@ -171,8 +178,16 @@ class LockScreenWordFeedService extends ChangeNotifier {
       final filters = filterOverride ?? ScriptureEngine().initialFilterState;
       final versionId = filters.activeVersionId;
 
+      int page = 0;
+      final isCanonical = filters.readingOrder == 'canonical';
+      final prefs = await SharedPreferences.getInstance();
+      if (isCanonical) {
+        page = prefs.getInt(_prefKeyCanonicalOffset) ?? 0;
+      }
+
       final cards = await _scriptureService.fetchCards(
         activeVersionId: versionId,
+        page: page,
         limit: 1,
         bookFilter: filters.bookFilter,
         testamentFilter: filters.testamentFilter,
@@ -191,12 +206,18 @@ class LockScreenWordFeedService extends ChangeNotifier {
         _isCurrentBookmarked = await _checkIfBookmarked(card);
 
         // Persist current card for crash resilience & offline viewing
-        final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_prefKeyCurrentCard, jsonEncode(card.toJson()));
+        if (isCanonical) {
+          await prefs.setInt(_prefKeyCanonicalOffset, page + 1);
+        }
 
         if (_isEnabled) {
           await _publishNotification(card, isBookmarked: _isCurrentBookmarked);
         }
+      } else if (isCanonical && page > 0) {
+        await prefs.setInt(_prefKeyCanonicalOffset, 0);
+        await rotateNextWord(filterOverride);
+        return;
       }
     } catch (e) {
       debugPrint('LockScreenWordFeedService rotateNextWord error: $e');
@@ -208,6 +229,15 @@ class LockScreenWordFeedService extends ChangeNotifier {
 
   /// Toggles the bookmark status of the currently displayed word directly.
   Future<void> toggleBookmarkCurrentWord() async {
+    if (_currentCard == null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cardJson = prefs.getString(_prefKeyCurrentCard);
+        if (cardJson != null && cardJson.isNotEmpty) {
+          _currentCard = ScriptureCard.fromJson(jsonDecode(cardJson));
+        }
+      } catch (_) {}
+    }
     final card = _currentCard;
     if (card == null) return;
 
@@ -222,6 +252,20 @@ class LockScreenWordFeedService extends ChangeNotifier {
         verse: card.startVerse,
         text: card.resolvedText ?? '',
       );
+
+      try {
+        final savedService = SavedScriptureService();
+        await savedService.initialize();
+        if (isBookmarked) {
+          if (!savedService.isSaved(card.id)) {
+            await savedService.toggleSave(card, versionId);
+          }
+        } else {
+          if (savedService.isSaved(card.id)) {
+            await savedService.removeCard(card.id);
+          }
+        }
+      } catch (_) {}
 
       _isCurrentBookmarked = isBookmarked;
       card.isSaved = isBookmarked;
@@ -243,6 +287,10 @@ class LockScreenWordFeedService extends ChangeNotifier {
 
   Future<bool> _checkIfBookmarked(ScriptureCard card) async {
     try {
+      final savedService = SavedScriptureService();
+      await savedService.initialize();
+      if (savedService.isSaved(card.id)) return true;
+
       final versionId = card.resolvedVersion ??
           ScriptureEngine().initialFilterState.activeVersionId;
       return await _bookmarkService.isBookmarked(
@@ -267,9 +315,22 @@ class LockScreenWordFeedService extends ChangeNotifier {
     final text = card.resolvedText ?? '';
     final category = card.category.isNotEmpty ? card.category : 'Daily Bread';
 
+    int bookNumber = card.bookNumber;
+    int chapter = card.chapter;
+    int verse = card.startVerse;
+    String bookName = card.bookName;
+
+    final mapping = card.verseMappings?[versionId];
+    if (mapping is Map) {
+      bookNumber = mapping['bookNumber'] ?? bookNumber;
+      chapter = mapping['chapter'] ?? chapter;
+      verse = mapping['startVerse'] ?? verse;
+      bookName = mapping['bookName'] ?? BookNameService.englishNameFor(bookNumber);
+    }
+
     // Deep link route payload into the Bible chapter & verse
     final payload =
-        '/bible?book=${Uri.encodeComponent(card.bookName)}&chapter=${card.chapter}&verse=${card.startVerse}&version=${Uri.encodeComponent(versionId)}';
+        '/bible?book=${Uri.encodeComponent(bookName)}&chapter=$chapter&verse=$verse&version=${Uri.encodeComponent(versionId)}';
 
     final androidDetails = AndroidNotificationDetails(
       '${AppConfig.instanceId}_lockscreen_word_feed',

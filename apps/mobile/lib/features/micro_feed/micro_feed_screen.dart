@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/engines/base_feed_engine.dart';
@@ -78,7 +79,11 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
           _items = items;
           _isLoading = false;
           _feedPageIndex = 1;
+          _currentPage = 0;
         });
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(0);
+        }
         _preloadUpcomingCards(0);
       }
     } catch (e) {
@@ -134,10 +139,14 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
           oldScriptureState.bookFilter != newScriptureState.bookFilter ||
           oldScriptureState.testamentFilter != newScriptureState.testamentFilter ||
           oldScriptureState.readingOrder != newScriptureState.readingOrder ||
-          oldScriptureState.selectedCategories != newScriptureState.selectedCategories ||
-          oldScriptureState.selectedTags != newScriptureState.selectedTags;
+          !listEquals(oldScriptureState.selectedCategories, newScriptureState.selectedCategories) ||
+          !listEquals(oldScriptureState.selectedTags, newScriptureState.selectedTags);
 
       if (structuralChanged) {
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(0);
+        }
+        _currentPage = 0;
         // Drop the seen-cards history so cards from the previous filter can return
         scriptureEngine.resetRandomDeck();
         _initializeAndLoad();

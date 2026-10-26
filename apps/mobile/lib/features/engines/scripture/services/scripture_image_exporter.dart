@@ -27,8 +27,10 @@ class ScriptureGraphicGenerator {
     int width = 1080,
     int height = 1920,
     String? appName,
+    Color? accentColor,
   }) async {
     final effectiveAppName = appName ?? AppConfig.appName;
+    final effectiveAccent = accentColor ?? AppConfig.accentColor;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(
       recorder,
@@ -136,7 +138,7 @@ class ScriptureGraphicGenerator {
         style: TextStyle(
           fontSize: 96,
           fontFamily: 'serif',
-          color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706),
+          color: effectiveAccent,
           height: 0.8,
         ),
       ),
@@ -173,7 +175,7 @@ class ScriptureGraphicGenerator {
       text: TextSpan(
         text: refText,
         style: TextStyle(
-          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E),
+          color: effectiveAccent,
           fontSize: 28,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.2,
@@ -228,8 +230,7 @@ class ScriptureGraphicGenerator {
     canvas.drawRRect(badgeRect, badgeBgPaint);
 
     final badgeBorderPaint = Paint()
-      ..color = (isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706))
-          .withValues(alpha: 0.5)
+      ..color = effectiveAccent.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     canvas.drawRRect(badgeRect, badgeBorderPaint);
@@ -244,7 +245,7 @@ class ScriptureGraphicGenerator {
       text: TextSpan(
         text: '✦  $effectiveAppName Words',
         style: TextStyle(
-          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E),
+          color: effectiveAccent,
           fontSize: 24,
           fontWeight: FontWeight.w600,
           letterSpacing: 2.5,
@@ -280,14 +281,20 @@ class ScriptureImageExporter {
     bool isItalic = false,
     String textAlign = 'center',
     String? appName,
+    Color? accentColor,
   }) async {
     final effectiveAppName = appName ?? AppConfig.appName;
+    final isDark = context != null
+        ? (Theme.of(context).brightness == Brightness.dark)
+        : true;
+    final effectiveAccent = accentColor ??
+        (context != null
+            ? Theme.of(context).colorScheme.primary
+            : AppConfig.accentColor);
+
     try {
-      final isDark = context != null
-          ? (Theme.of(context).brightness == Brightness.dark)
-          : true;
       final currentKey =
-          '${card.id}_${activeVersionId}_${fontFamily}_${fontSizeScale}_${textColorHex}_${card.activeBackground}_$isDark';
+          '${card.id}_${activeVersionId}_${fontFamily}_${fontSizeScale}_${textColorHex}_${card.activeBackground}_${isDark}_${effectiveAccent.hashCode}';
 
       // 1. Use pre-created image from memory (0ms instant) or generate if not ready
       Uint8List pngBytes;
@@ -306,6 +313,7 @@ class ScriptureImageExporter {
           textAlign: textAlign,
           isDark: isDark,
           appName: effectiveAppName,
+          accentColor: effectiveAccent,
         );
         card.precomputedImageBytes = pngBytes;
         card.precomputedImageKey = currentKey;
@@ -327,10 +335,25 @@ class ScriptureImageExporter {
         name: fileName,
       );
 
+      Rect? sharePositionOrigin;
+      if (boundaryKey.currentContext != null) {
+        final box =
+            boundaryKey.currentContext!.findRenderObject() as RenderBox?;
+        if (box != null && box.hasSize) {
+          sharePositionOrigin = box.localToGlobal(Offset.zero) & box.size;
+        }
+      } else if (context != null) {
+        final box = context.findRenderObject() as RenderBox?;
+        if (box != null && box.hasSize) {
+          sharePositionOrigin = box.localToGlobal(Offset.zero) & box.size;
+        }
+      }
+
       final result = await Share.shareXFiles(
         [xFile],
         text: shareText,
         subject: card.referenceLabel,
+        sharePositionOrigin: sharePositionOrigin,
       );
 
       // On Web desktop where native share API is unavailable or dismissed, provide direct seamless download & clipboard copy
@@ -349,9 +372,6 @@ class ScriptureImageExporter {
       }
     } catch (e) {
       debugPrint('Error triggering share dialog: $e');
-      final isDark = context != null
-          ? (Theme.of(context).brightness == Brightness.dark)
-          : true;
       final sanitizedRef =
           card.referenceLabel.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
       final fileName =
@@ -368,6 +388,7 @@ class ScriptureImageExporter {
             textAlign: textAlign,
             isDark: isDark,
             appName: effectiveAppName,
+            accentColor: effectiveAccent,
           );
       await saveOrDownloadFile(pngBytes, fileName);
     }

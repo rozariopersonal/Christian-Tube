@@ -50,6 +50,28 @@ class ScriptureService {
     String order = 'random',
   }) async {
     try {
+      List<String>? effectiveCategories;
+      List<String>? effectiveTags = tags != null ? List<String>.from(tags) : null;
+
+      final inputCategories =
+          categories ?? (category != null ? [category] : null);
+      if (inputCategories != null && inputCategories.isNotEmpty) {
+        effectiveCategories = [];
+        for (final cat in inputCategories) {
+          if (cat == 'prayer') {
+            effectiveCategories.add('prayer');
+            effectiveCategories.add('consecration');
+          } else if (cat == 'courage') {
+            effectiveTags ??= [];
+            if (!effectiveTags.contains('courage')) {
+              effectiveTags.add('courage');
+            }
+          } else {
+            effectiveCategories.add(cat);
+          }
+        }
+      }
+
       if (order == 'bookmarked') {
         await SavedScriptureService().initialize();
         var saved = SavedScriptureService().getSavedCards();
@@ -63,14 +85,23 @@ class ScriptureService {
             saved = saved.where((c) => c.bookNumber >= 40).toList();
           }
         }
-        final hasCats = categories != null && categories.isNotEmpty;
-        final hasTags = tags != null && tags.isNotEmpty;
-        if (hasCats && hasTags) {
-          saved = saved.where((c) => categories.contains(c.category) || c.tags.any((t) => tags.contains(t))).toList();
-        } else if (hasCats) {
-          saved = saved.where((c) => categories.contains(c.category)).toList();
-        } else if (hasTags) {
-          saved = saved.where((c) => c.tags.any((t) => tags.contains(t))).toList();
+        final filterCats = effectiveCategories;
+        final filterTags = effectiveTags;
+        if (filterCats != null &&
+            filterCats.isNotEmpty &&
+            filterTags != null &&
+            filterTags.isNotEmpty) {
+          saved = saved
+              .where((c) =>
+                  filterCats.contains(c.category) ||
+                  c.tags.any((t) => filterTags.contains(t)))
+              .toList();
+        } else if (filterCats != null && filterCats.isNotEmpty) {
+          saved = saved.where((c) => filterCats.contains(c.category)).toList();
+        } else if (filterTags != null && filterTags.isNotEmpty) {
+          saved = saved
+              .where((c) => c.tags.any((t) => filterTags.contains(t)))
+              .toList();
         }
         final start = page * limit;
         if (start >= saved.length) return [];
@@ -91,15 +122,13 @@ class ScriptureService {
               .toSet()
           : _cachedDeck.map((c) => c.id).whereType<String>().toSet();
 
-      final effectiveCategories = categories ?? (category != null ? [category] : null);
-
       final items = await _offlineDb.getRandomItems(
         limit,
         offset: page * limit,
         bookFilter: bookFilter,
         testamentFilter: testamentFilter,
         categoryFilter: effectiveCategories,
-        tagFilter: tags,
+        tagFilter: effectiveTags,
         order: order,
         excludeIds: seenIds.toList(),
       );
