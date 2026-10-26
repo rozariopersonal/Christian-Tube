@@ -293,7 +293,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
             state.hasTrack;
 
         final bottomPadding = MediaQuery.paddingOf(context).bottom;
-        final barHeight = 60.0 + (hasMiniAudio ? 56.0 : 0.0) + bottomPadding;
+        final barHeight = 60.0 +
+            (hasMiniAudio ? kMiniAudioPlayerHeight : 0.0) +
+            bottomPadding;
 
         final barContent = Column(
           mainAxisSize: MainAxisSize.min,
@@ -354,7 +356,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
           color: tokens.background,
           child: ClipRect(
             child: OverflowBox(
-              alignment: Alignment.topCenter,
+              alignment: Alignment.bottomCenter,
               minHeight: 0,
               maxHeight: barHeight,
               child: AnimatedSlide(
