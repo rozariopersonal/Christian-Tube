@@ -19,6 +19,7 @@ import 'widgets/shorts_tab_chip.dart';
 import 'widgets/shorts_chrome.dart';
 import 'services/shorts_dialog_service.dart';
 import 'services/community_shorts_controller.dart';
+import '../audio/controllers/audio_player_controller.dart';
 
 enum ShortsViewTab {
   community,
@@ -168,6 +169,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   void _openCommunityShortAt(int index) {
     if (index < 0 || index >= _communityController.shorts.length) return;
+    AudioPlayerController.instance.pause();
     setState(() {
       _selectedCommunityIndex = index;
     });
@@ -176,6 +178,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   void _openCreationShortAt(int index) {
     final list = _orchestrator.localShorts;
     if (index < 0 || index >= list.length) return;
+    AudioPlayerController.instance.pause();
     setState(() {
       _selectedCreationIndex = index;
     });

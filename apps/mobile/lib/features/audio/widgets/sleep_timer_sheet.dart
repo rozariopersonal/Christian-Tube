@@ -39,6 +39,13 @@ Future<void> showSleepTimerSheet(BuildContext context) {
                 },
               ),
               _SleepTimerOption(
+                label: 'End of current track',
+                onTap: () {
+                  AudioPlayerController.instance.setSleepTimer(null, stopAtEndOfTrack: true);
+                  Navigator.of(ctx).pop();
+                },
+              ),
+              _SleepTimerOption(
                 label: '15 minutes',
                 onTap: () {
                   AudioPlayerController.instance.setSleepTimer(15);

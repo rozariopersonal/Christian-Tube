@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../core/config/app_config.dart';
 import '../models/audio_series.dart';
+import '../models/audio_track.dart';
 import 'audio_catalog_adapter.dart';
 import 'seed_audio_catalog.dart';
 
@@ -176,5 +177,21 @@ class RemoteAudioCatalogAdapter implements AudioCatalogAdapter {
       }
     }
     return [];
+  }
+
+  /// Directly fetches an AudioTrack by its associated YouTube Video ID.
+  Future<AudioTrack?> fetchTrackByYoutubeId(String videoId) async {
+    final url = Uri.parse('${AppConfig.apiBaseUrl}/api/audio/track-by-youtube/$videoId');
+    try {
+      final res = await _client.get(url).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final map = body['data'] as Map<String, dynamic>?;
+        if (map != null) {
+          return AudioTrack.fromJson(map);
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 }

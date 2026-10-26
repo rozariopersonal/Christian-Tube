@@ -14,6 +14,8 @@ class AudioPlaybackService {
   final AudioLocalLibrary _localLibrary;
 
   StreamSubscription? _becomingNoisySubscription;
+  StreamSubscription? _interruptionSubscription;
+  bool _playOnInterruptionEnd = false;
 
   AudioPlaybackService({AudioPlayer? player, AudioLocalLibrary? localLibrary})
       : _player = player ?? AudioPlayer(),
@@ -43,6 +45,36 @@ class AudioPlaybackService {
       _becomingNoisySubscription = session.becomingNoisyEventStream.listen((_) {
         pause();
       });
+      _interruptionSubscription?.cancel();
+      _interruptionSubscription = session.interruptionEventStream.listen((event) {
+        if (event.begin) {
+          switch (event.type) {
+            case AudioInterruptionType.duck:
+              setVolume(0.3);
+              break;
+            case AudioInterruptionType.pause:
+            case AudioInterruptionType.unknown:
+              final wasPlaying = isPlaying;
+              pause();
+              _playOnInterruptionEnd = wasPlaying;
+              break;
+          }
+        } else {
+          switch (event.type) {
+            case AudioInterruptionType.duck:
+              setVolume(1.0);
+              break;
+            case AudioInterruptionType.pause:
+              if (_playOnInterruptionEnd) {
+                _playOnInterruptionEnd = false;
+                play();
+              }
+              break;
+            case AudioInterruptionType.unknown:
+              break;
+          }
+        }
+      });
       _isSessionConfigured = true;
     } catch (_) {
       // Ignored if unsupported on current test environment
@@ -60,12 +92,13 @@ class AudioPlaybackService {
         ? Duration(seconds: initialPositionSec)
         : Duration.zero;
 
+    final imageUrl = track.displayImageUrl;
     final mediaItem = MediaItem(
       id: track.id,
       album: track.speaker.isNotEmpty ? track.speaker : 'ChristianTube',
       title: track.title,
       artist: track.speaker,
-      artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+      artUri: (imageUrl != null && imageUrl.isNotEmpty) ? Uri.tryParse(imageUrl) : null,
       extras: {'youtubeVideoId': track.youtubeVideoId},
     );
 
@@ -137,6 +170,7 @@ class AudioPlaybackService {
 
   Future<void> dispose() async {
     _becomingNoisySubscription?.cancel();
+    _interruptionSubscription?.cancel();
     await _player.dispose();
   }
 }

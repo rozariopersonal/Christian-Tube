@@ -369,22 +369,30 @@ export class AudioService implements OnModuleInit {
       // individual track row changed, so mobile never keeps a stale trackCount.
       const changedSeries = await this.prisma.audioSeries.findMany({
         where: { updatedAt: { gt: date } },
+        include: { channel: { select: { name: true, thumbnail: true } } },
         orderBy: { updatedAt: 'desc' },
       });
       const newTracks = await this.prisma.audioTrack.findMany({
         where: { updatedAt: { gt: date } },
-        include: { series: true },
+        include: { series: { include: { channel: { select: { name: true, thumbnail: true } } } } },
       });
       // The mobile app expects a list of AudioSeries with tracks populated
       const seriesMap = new Map<string, any>();
-      for (const series of changedSeries) {
-        seriesMap.set(series.id, { ...series, tracks: [] });
+      for (const { channel, ...series } of changedSeries) {
+        seriesMap.set(series.id, {
+          ...series,
+          channelName: channel?.name ?? null,
+          channelThumbnail: channel?.thumbnail ?? null,
+          tracks: [],
+        });
       }
       for (const track of newTracks) {
         if (!seriesMap.has(track.seriesId)) {
-          const series = track.series;
+          const { channel, ...series } = track.series;
           seriesMap.set(track.seriesId, {
             ...series,
+            channelName: channel?.name ?? null,
+            channelThumbnail: channel?.thumbnail ?? null,
             tracks: [],
           });
         }
@@ -693,6 +701,47 @@ export class AudioService implements OnModuleInit {
         scriptureChapter: track.scriptureChapter,
         scriptureVerse: track.scriptureVerse,
       })),
+    };
+  }
+
+  /**
+   * Directly finds a track by its associated YouTube Video ID.
+   * Returns null if not found.
+   */
+  async findTrackByYoutubeId(videoId: string) {
+    if (!videoId) return null;
+    const track = await this.prisma.audioTrack.findFirst({
+      where: { youtubeVideoId: videoId },
+      include: {
+        series: {
+          include: {
+            channel: { select: { name: true, thumbnail: true } },
+          },
+        },
+      },
+    });
+    if (!track) return null;
+
+    return {
+      id: track.id,
+      seriesId: track.seriesId,
+      seriesTitle: track.series?.title ?? '',
+      title: track.title,
+      speaker: track.speaker,
+      durationSeconds: track.durationSeconds,
+      audioUrl: track.audioUrl,
+      streamUrl: track.streamUrl,
+      fallbackUrl: track.fallbackUrl,
+      coverUrl: track.ifCoverUrl,
+      ifCoverUrl: track.ifCoverUrl,
+      thumbnailUrl: track.thumbnailUrl,
+      youtubeVideoId: track.youtubeVideoId,
+      scriptureBook: track.scriptureBook,
+      scriptureChapter: track.scriptureChapter,
+      scriptureVerse: track.scriptureVerse,
+      channelId: track.series?.channelId ?? null,
+      channelName: track.series?.channel?.name ?? null,
+      channelThumbnail: track.series?.channel?.thumbnail ?? null,
     };
   }
 }

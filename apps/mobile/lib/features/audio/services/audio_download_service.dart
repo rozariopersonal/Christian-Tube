@@ -7,12 +7,15 @@ import 'audio_local_library.dart';
 
 /// Status of a single track's download within a series/batch.
 enum AudioDownloadStatus {
-  id,
+  idle,
   queued,
   downloading,
   completed,
   paused,
-  failed,
+  failed;
+
+  /// Backward-compatible alias for [idle].
+  static const AudioDownloadStatus id = AudioDownloadStatus.idle;
 }
 
 /// Immutable per-track download snapshot broadcast to the UI.
@@ -27,7 +30,7 @@ class AudioDownloadEntry {
 
   const AudioDownloadEntry({
     required this.track,
-    this.status = AudioDownloadStatus.id,
+    this.status = AudioDownloadStatus.idle,
     this.progress = 0.0,
     this.bytesReceived = 0,
     this.bytesTotal = 0,
@@ -313,33 +316,58 @@ class AudioDownloadService extends ChangeNotifier {
       final headers = <String, dynamic>{};
       if (fetchOffset > 0) headers['Range'] = 'bytes=$fetchOffset-';
 
-      try {
-        final response = await dio.download(
-          url,
-          partialFile.path,
-          options: Options(headers: headers),
-          cancelToken: cancelToken,
-          onReceiveProgress: _reportProgress(track, offset: fetchOffset),
+      Future<bool> streamToFile(Response<ResponseBody> response, int offset) async {
+        final body = response.data;
+        if (body == null) return false;
+        final raf = await partialFile.open(
+          mode: offset > 0 ? FileMode.writeOnlyAppend : FileMode.write,
         );
-        // A server that ignores Range replies 200 with the whole body appended
-        // after the existing partial bytes → corrupted file. Detect and redo.
+        try {
+          int received = 0;
+          final total =
+              int.tryParse(response.headers.value(Headers.contentLengthHeader) ?? '') ?? -1;
+          final progress = _reportProgress(track, offset: offset);
+          await for (final chunk in body.stream) {
+            await raf.writeFrom(chunk);
+            received += chunk.length;
+            progress(received, total);
+          }
+          return true;
+        } finally {
+          await raf.close();
+        }
+      }
+
+      try {
+        final response = await dio.get<ResponseBody>(
+          url,
+          options: Options(headers: headers, responseType: ResponseType.stream),
+          cancelToken: cancelToken,
+        );
+
+        // A server that ignores Range replies 200 with the whole body. Detect and redo from zero.
         if (fetchOffset > 0 && !_isPartialFromOffset(response, fetchOffset)) {
           try {
             await partialFile.delete();
           } catch (_) {}
           fetchOffset = 0;
-          await dio.download(
+          final fullResponse = await dio.get<ResponseBody>(
             url,
-            partialFile.path,
+            options: Options(responseType: ResponseType.stream),
             cancelToken: cancelToken,
-            onReceiveProgress: _reportProgress(track, offset: 0),
           );
+          final ok = await streamToFile(fullResponse, 0);
+          return ok ? _FetchResult.success : _FetchResult.failed;
         }
-        return _FetchResult.success;
+
+        final ok = await streamToFile(response, fetchOffset);
+        return ok ? _FetchResult.success : _FetchResult.failed;
       } on DioException catch (e) {
         if (e.type == DioExceptionType.cancel) {
           try {
-            await partialFile.delete();
+            if (await partialFile.exists() && await partialFile.length() < 64 * 1024) {
+              await partialFile.delete();
+            }
           } catch (_) {}
           return _FetchResult.cancelled;
         }
@@ -349,17 +377,19 @@ class AudioDownloadService extends ChangeNotifier {
             await partialFile.delete();
           } catch (_) {}
           try {
-            await dio.download(
+            final retryResponse = await dio.get<ResponseBody>(
               url,
-              partialFile.path,
+              options: Options(responseType: ResponseType.stream),
               cancelToken: cancelToken,
-              onReceiveProgress: _reportProgress(track, offset: 0),
             );
-            return _FetchResult.success;
+            final ok = await streamToFile(retryResponse, 0);
+            return ok ? _FetchResult.success : _FetchResult.failed;
           } on DioException catch (e2) {
             if (e2.type == DioExceptionType.cancel) {
               try {
-                await partialFile.delete();
+                if (await partialFile.exists() && await partialFile.length() < 64 * 1024) {
+                  await partialFile.delete();
+                }
               } catch (_) {}
               return _FetchResult.cancelled;
             }

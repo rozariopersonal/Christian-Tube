@@ -62,6 +62,7 @@ class AudioLocalLibrary {
 
   /// Full on-disk path where [track] should be (or is) stored.
   Future<String> pathFor(AudioTrack track) async {
+    if (kIsWeb) return '';
     final dir = await _seriesDir(track.seriesId);
     final ext = _extensionFor(track);
     return p.join(dir.path, '${_safeSegment(track.id)}.$ext');
@@ -112,6 +113,7 @@ class AudioLocalLibrary {
 
   /// Removes a track from the registry and deletes its file from disk.
   Future<void> removeDownloaded(String trackId, AudioTrack track) async {
+    if (kIsWeb) return;
     final file = File(await pathFor(track));
     try {
       if (await file.exists()) await file.delete();
@@ -129,6 +131,7 @@ class AudioLocalLibrary {
 
   /// Removes an entire downloaded series directory and purges its series and track registrations.
   Future<void> removeSeries(String seriesId) async {
+    if (kIsWeb) return;
     try {
       final dir = await _seriesDir(seriesId);
       if (await dir.exists()) {
@@ -154,6 +157,7 @@ class AudioLocalLibrary {
 
   /// Clears all downloaded audio files from disk and resets registries.
   Future<void> removeAll() async {
+    if (kIsWeb) return;
     try {
       final base = await _baseDir();
       if (await base.exists()) await base.delete(recursive: true);

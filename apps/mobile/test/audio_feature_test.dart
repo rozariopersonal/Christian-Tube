@@ -34,7 +34,7 @@ void main() {
         scriptureVerse: 1,
       );
 
-      expect(track.formattedDuration, '61:05');
+      expect(track.formattedDuration, '1:01:05');
       expect(track.hasScripture, isTrue);
       expect(track.scriptureRefText, 'GEN 1:1');
 
@@ -129,6 +129,17 @@ void main() {
 
       controller.setSleepTimer(null);
       expect(controller.state.sleepTimerRemainingSeconds, isNull);
+    });
+
+    test('setSleepTimer with stopAtEndOfTrack updates state and clears properly', () {
+      final controller = AudioPlayerController();
+
+      controller.setSleepTimer(null, stopAtEndOfTrack: true);
+      expect(controller.state.stopAtEndOfTrack, isTrue);
+      expect(controller.state.sleepTimerRemainingSeconds, isNull);
+
+      controller.setSleepTimer(null, stopAtEndOfTrack: false);
+      expect(controller.state.stopAtEndOfTrack, isFalse);
     });
   });
 

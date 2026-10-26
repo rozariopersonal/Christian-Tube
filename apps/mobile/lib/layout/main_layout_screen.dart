@@ -249,7 +249,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
                               ],
                             ),
                           ),
-                          if (_isAudioTabEnabled && isAudioPage)
+                          if (_isAudioTabEnabled)
                             ListenableBuilder(
                               listenable: AudioPlayerController.instance,
                               builder: (context, _) {
@@ -279,7 +279,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
   Widget _buildBottomBar(
     bool isDark,
     int selectedIndex, {
-    required bool isAudioPage,
+    bool isAudioPage = false,
     bool isHidden = false,
   }) {
     final tokens = Theme.of(context).extension<AppTokens>() ??
@@ -289,7 +289,6 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
       builder: (context, _) {
         final state = AudioPlayerController.instance.state;
         final hasMiniAudio = _isAudioTabEnabled &&
-            isAudioPage &&
             state.isMiniPlayerVisible &&
             state.hasTrack;
 
