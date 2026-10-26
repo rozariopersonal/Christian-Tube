@@ -17,6 +17,7 @@ class VerseActionSheetBody extends StatelessWidget {
     this.onRemoveHighlight,
     this.currentColorIndex,
     this.hasHighlight = false,
+    this.isBookmarked = false,
   });
 
   final VoidCallback onCopy;
@@ -28,6 +29,7 @@ class VerseActionSheetBody extends StatelessWidget {
   final VoidCallback? onRemoveHighlight;
   final int? currentColorIndex;
   final bool hasHighlight;
+  final bool isBookmarked;
 
   @override
   Widget build(BuildContext context) {
@@ -50,8 +52,10 @@ class VerseActionSheetBody extends StatelessWidget {
                   onTap: onShare),
               _Action(icon: Icons.copy_rounded, label: 'Copy', onTap: onCopy),
               _Action(
-                  icon: Icons.bookmark_add_outlined,
-                  label: 'Bookmark',
+                  icon: isBookmarked
+                      ? Icons.bookmark_rounded
+                      : Icons.bookmark_add_outlined,
+                  label: isBookmarked ? 'Bookmarked' : 'Bookmark',
                   onTap: onBookmark),
               _Action(
                   icon: Icons.edit_note_rounded, label: 'Note', onTap: onNote),
@@ -65,30 +69,33 @@ class VerseActionSheetBody extends StatelessWidget {
             alignment: WrapAlignment.center,
             children: [
               for (var i = 0; i < HighlightPalette.count; i++)
-                Semantics(
-                  label: 'Highlight color',
-                  button: true,
-                  selected: currentColorIndex == i,
-                  child: InkResponse(
-                    onTap: () => onHighlightColor != null
-                        ? onHighlightColor!(i)
-                        : onHighlight(),
-                    radius: AppDimens.xl,
-                    child: SizedBox.square(
-                      dimension: AppDimens.minTouchTarget,
-                      child: Center(
-                        child: Container(
-                          width: AppDimens.xxl,
-                          height: AppDimens.xxl,
-                          decoration: BoxDecoration(
-                            color: HighlightPalette.colorFor(i),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: tokens.surfaceBorder),
+                Tooltip(
+                  message: HighlightPalette.nameFor(i),
+                  child: Semantics(
+                    label: 'Highlight color',
+                    button: true,
+                    selected: currentColorIndex == i,
+                    child: InkResponse(
+                      onTap: () => onHighlightColor != null
+                          ? onHighlightColor!(i)
+                          : onHighlight(),
+                      radius: AppDimens.xl,
+                      child: SizedBox.square(
+                        dimension: AppDimens.minTouchTarget,
+                        child: Center(
+                          child: Container(
+                            width: AppDimens.xxl,
+                            height: AppDimens.xxl,
+                            decoration: BoxDecoration(
+                              color: HighlightPalette.colorFor(i),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: tokens.surfaceBorder),
+                            ),
+                            child: currentColorIndex == i
+                                ? Icon(Icons.check,
+                                    color: HighlightPalette.onColorFor(i))
+                                : null,
                           ),
-                          child: currentColorIndex == i
-                              ? Icon(Icons.check,
-                                  color: HighlightPalette.onColorFor(i))
-                              : null,
                         ),
                       ),
                     ),

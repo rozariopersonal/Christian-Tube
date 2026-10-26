@@ -61,6 +61,7 @@ class BibleControllerState {
     this.counts = const BibleVerseCounts([]),
     this.loadedChapters = const {},
     this.verseNotes = const {},
+    this.bookmarkedVerses = const {},
     this.index,
   });
 
@@ -108,6 +109,9 @@ class BibleControllerState {
   /// Canonical keys (`book:chapter:verse`) of verses that have a user note.
   /// Drives the small note indicator in the verse gutter.
   final Set<String> verseNotes;
+
+  /// Canonical keys (`versionId:book:chapter:verse`) of verses bookmarked by the user.
+  final Set<String> bookmarkedVerses;
 
   /// Whole-Bible row index derived from [counts]; null when counts are absent.
   final BibleVerseIndex? index;
@@ -158,6 +162,21 @@ class BibleControllerState {
   /// Canonical map key for a verse's highlight lookup.
   static String verseHighlightKey(String book, int chapter, int verse) =>
       '$book:$chapter:$verse';
+
+  /// Canonical key for a bookmarked verse lookup.
+  static String bookmarkKey(
+          String versionId, String book, int chapter, int verse) =>
+      '$versionId:$book:$chapter:$verse';
+
+  /// True when every currently selected verse has an active bookmark.
+  bool get selectionIsBookmarked {
+    if (selectedVerses.isEmpty || selectedVersion == null) return false;
+    final book = selectedBook ?? currentBook;
+    final chapter = selectedChapter ?? currentChapter;
+    final vId = selectedVersion!.shortname;
+    return selectedVerses.every((v) =>
+        bookmarkedVerses.contains(bookmarkKey(vId, book, chapter, v)));
+  }
 }
 
 /// Convenience extension to reduce per-call boilerplate when constructing
@@ -193,6 +212,7 @@ extension _StateCopy on BibleControllerState {
     BibleVerseCounts? counts,
     Map<int, List<BibleVerse>>? loadedChapters,
     Set<String>? verseNotes,
+    Set<String>? bookmarkedVerses,
     BibleVerseIndex? index,
   }) =>
       BibleControllerState(
@@ -224,6 +244,7 @@ extension _StateCopy on BibleControllerState {
         counts: counts ?? this.counts,
         loadedChapters: loadedChapters ?? this.loadedChapters,
         verseNotes: verseNotes ?? this.verseNotes,
+        bookmarkedVerses: bookmarkedVerses ?? this.bookmarkedVerses,
         index: index ?? this.index,
       );
 }
@@ -543,6 +564,7 @@ class BibleController extends ChangeNotifier {
       await _loadVersions();
       await _loadSettings();
       _applyInitialJump();
+      _loadBookmarks();
       if (_state.selectedVersion != null) {
         await _loadChapter();
       }
@@ -1207,17 +1229,26 @@ class BibleController extends ChangeNotifier {
     try {
       var added = 0;
       var removed = 0;
+      final updatedBookmarks = Set<String>.from(_state.bookmarkedVerses);
+      final vId = _state.selectedVersion!.shortname;
       for (final v in selected) {
+        final key = BibleControllerState.bookmarkKey(vId, book, chapter, v.number);
         final isNowBookmarked = await _bookmarkService.toggle(
-          versionId: _state.selectedVersion!.shortname,
+          versionId: vId,
           book: book,
           chapter: chapter,
           verse: v.number,
           text: v.text,
         );
-        if (isNowBookmarked) added++;
-        if (!isNowBookmarked) removed++;
+        if (isNowBookmarked) {
+          added++;
+          updatedBookmarks.add(key);
+        } else {
+          removed++;
+          updatedBookmarks.remove(key);
+        }
       }
+      _update((s) => s.copyWith(bookmarkedVerses: updatedBookmarks));
       clearSelection();
       _lastBookmarkMessage = added > removed
           ? '$added verse${added == 1 ? '' : 's'} bookmarked'
@@ -1227,6 +1258,21 @@ class BibleController extends ChangeNotifier {
     } catch (e) {
       debugPrint('BibleController toggleBookmarkSelected error: $e');
       _lastBookmarkMessage = 'Failed to update bookmarks';
+    }
+  }
+
+  Future<void> _loadBookmarks() async {
+    try {
+      final bookmarks = await _bookmarkService.loadBookmarks();
+      if (_disposed) return;
+      final set = <String>{};
+      for (final b in bookmarks) {
+        set.add(BibleControllerState.bookmarkKey(
+            b.versionId, b.book, b.chapter, b.verse));
+      }
+      _update((s) => s.copyWith(bookmarkedVerses: set));
+    } catch (e) {
+      debugPrint('BibleController _loadBookmarks error: $e');
     }
   }
 

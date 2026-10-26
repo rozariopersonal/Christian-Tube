@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/layout/shell_back_handler.dart';
 import 'package:mobile/core/theme/highlight_palette.dart';
+import 'package:mobile/features/bible/models/bible_verse.dart';
 import 'package:mobile/features/bible/widgets/verse_action_bar.dart';
 
 Widget sheet(
@@ -13,6 +14,8 @@ Widget sheet(
     VoidCallback? onNote,
     ValueChanged<int>? onColor,
     bool hasHighlight = false,
+    bool isBookmarked = false,
+    String? studyLabel,
     VoidCallback? onRemove}) {
   return VerseActionBar(
     verseLabel: 'John 3:16',
@@ -25,6 +28,8 @@ Widget sheet(
     onStudy: onStudy ?? () {},
     onHighlightColor: onColor,
     hasHighlight: hasHighlight,
+    isBookmarked: isBookmarked,
+    studyLabel: studyLabel,
     onRemoveHighlight: onRemove,
   );
 }
@@ -162,7 +167,37 @@ void main() {
     expect(tester.getTopLeft(find.text('John 3:16')), before);
     expect(clearCount, 0);
     await tester.tap(find.byKey(VerseActionBar.closeButtonKey));
+    await tester.pumpAndSettle();
     expect(clearCount, 1);
+  });
+
+  test('formatVerseNumbers groups consecutive numbers and comma-separates non-consecutive', () {
+    expect(formatVerseNumbers([]), '');
+    expect(formatVerseNumbers([1]), '1');
+    expect(formatVerseNumbers([1, 2, 3]), '1-3');
+    expect(formatVerseNumbers([1, 5]), '1, 5');
+    expect(formatVerseNumbers([1, 2, 4, 5, 6, 9]), '1-2, 4-6, 9');
+    expect(formatVerseNumbers([5, 1, 3, 2]), '1-3, 5');
+  });
+
+  testWidgets('displays Bookmarked and filled icon when isBookmarked is true', (tester) async {
+    await mount(tester, sheet(isBookmarked: true));
+    expect(find.text('Bookmarked'), findsOneWidget);
+    expect(find.byIcon(Icons.bookmark_rounded), findsOneWidget);
+    expect(find.text('Bookmark'), findsNothing);
+  });
+
+  testWidgets('renders custom multi-verse studyLabel when provided', (tester) async {
+    await mount(tester, sheet(studyLabel: 'Open Verse Study (v. 16)'));
+    expect(find.text('Open Verse Study (v. 16)'), findsOneWidget);
+  });
+
+  testWidgets('highlight color swatches expose accessible names', (tester) async {
+    await mount(tester, sheet());
+    expect(HighlightPalette.names.length, 15);
+    expect(HighlightPalette.nameFor(0), 'Mustard');
+    expect(HighlightPalette.nameFor(14), 'Navy');
+    expect(find.byTooltip('Mustard'), findsOneWidget);
   });
 
   for (final width in [320.0, 600.0, 840.0, 1400.0]) {
