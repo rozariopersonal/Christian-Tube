@@ -117,35 +117,52 @@ class _FontsTabState extends State<FontsTab> {
                       const SizedBox(height: 16),
 
                       // Batch Download Action Row
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          FilledButton.icon(
-                            onPressed: _isBatchDownloading
-                                ? null
-                                : () => _downloadBatch(category: 'reading'),
-                            icon: const Icon(Icons.download_rounded, size: 16),
-                            label: const Text('Download Reading Fonts (~1.2 MB)'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: tokens.accent,
-                              foregroundColor: tokens.background,
-                              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: _isBatchDownloading
-                                ? null
-                                : () => _downloadBatch(category: 'display'),
-                            icon: const Icon(Icons.palette_outlined, size: 16),
-                            label: const Text('Download Display Fonts (~1.5 MB)'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: tokens.accent,
-                              side: BorderSide(color: tokens.accent),
-                              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isCompact = constraints.maxWidth < 360;
+                          return Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              SizedBox(
+                                width: isCompact ? double.infinity : null,
+                                child: FilledButton.icon(
+                                  onPressed: _isBatchDownloading
+                                      ? null
+                                      : () => _downloadBatch(category: 'reading'),
+                                  icon: const Icon(Icons.download_rounded, size: 16),
+                                  label: const Text(
+                                    'Download Reading Fonts (~1.2 MB)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: tokens.accent,
+                                    foregroundColor: tokens.background,
+                                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: isCompact ? double.infinity : null,
+                                child: OutlinedButton.icon(
+                                  onPressed: _isBatchDownloading
+                                      ? null
+                                      : () => _downloadBatch(category: 'display'),
+                                  icon: const Icon(Icons.palette_outlined, size: 16),
+                                  label: const Text(
+                                    'Download Display Fonts (~1.5 MB)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: tokens.accent,
+                                    side: BorderSide(color: tokens.accent),
+                                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),

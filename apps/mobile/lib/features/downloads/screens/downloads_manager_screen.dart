@@ -102,6 +102,8 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
         elevation: 0,
         title: Text(
           'Offline Library & Downloads',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: tokens.onSurface,
             fontWeight: FontWeight.bold,
