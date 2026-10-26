@@ -26,7 +26,9 @@ class VerseActionBar extends StatefulWidget {
     this.onRemoveHighlight,
     this.currentColorIndex,
     this.hasHighlight = false,
+    this.isBookmarked = false,
     this.verseLabel,
+    this.studyLabel,
   });
 
   final int selectedCount;
@@ -43,7 +45,9 @@ class VerseActionBar extends StatefulWidget {
   final VoidCallback? onRemoveHighlight;
   final int? currentColorIndex;
   final bool hasHighlight;
+  final bool isBookmarked;
   final String? verseLabel;
+  final String? studyLabel;
 
   static const studyPromptKey = Key('verse_sheet_study_prompt');
   static const closeButtonKey = Key('verse_sheet_close_button');
@@ -170,7 +174,7 @@ class _VerseActionBarState extends State<VerseActionBar>
                                   if (widget.onClear != null)
                                     IconButton(
                                       key: VerseActionBar.closeButtonKey,
-                                      onPressed: widget.onClear,
+                                      onPressed: _dismiss,
                                       tooltip: 'Deselect',
                                       icon: const Icon(Icons.close_rounded),
                                     ),
@@ -189,6 +193,7 @@ class _VerseActionBarState extends State<VerseActionBar>
                                   onRemoveHighlight: widget.onRemoveHighlight,
                                   currentColorIndex: widget.currentColorIndex,
                                   hasHighlight: widget.hasHighlight,
+                                  isBookmarked: widget.isBookmarked,
                                 ),
                               ),
                             ),
@@ -204,7 +209,7 @@ class _VerseActionBarState extends State<VerseActionBar>
                                     onPressed: widget.onStudy,
                                     icon:
                                         const Icon(Icons.auto_stories_outlined),
-                                    label: const Text('Open Verse Study'),
+                                    label: Text(widget.studyLabel ?? 'Open Verse Study'),
                                   ),
                                 ),
                               ),

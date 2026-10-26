@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../shared/services/reader_appearance.dart';
+import '../models/bible_verse.dart';
 import '../widgets/verse_action_bar.dart';
 import '../controllers/bible_controller.dart';
 
@@ -40,7 +41,10 @@ class BibleBottomNav extends StatelessWidget {
       final sortedVerses = s.selectedVerses.toList()..sort();
       final verseLabel = sortedVerses.length == 1
           ? '${controller.displayBookName(book)} $chapter:${sortedVerses.first}'
-          : '${controller.displayBookName(book)} $chapter:${sortedVerses.first}-${sortedVerses.last} (${sortedVerses.length} verses)';
+          : '${controller.displayBookName(book)} $chapter:${formatVerseNumbers(sortedVerses)} (${sortedVerses.length} verses)';
+      final studyLabel = sortedVerses.length > 1
+          ? 'Open Verse Study (v. ${sortedVerses.first})'
+          : 'Open Verse Study';
 
       return VerseActionBar(
         selectedCount: s.selectedVerses.length,
@@ -53,7 +57,9 @@ class BibleBottomNav extends StatelessWidget {
         onRemoveHighlight: () => controller.removeHighlight(),
         currentColorIndex: s.highlightColorForSelection,
         hasHighlight: s.selectionHasHighlight,
+        isBookmarked: s.selectionIsBookmarked,
         verseLabel: verseLabel,
+        studyLabel: studyLabel,
         onNote: onNote,
         onClear: onClear,
         onStudy: onStudy,

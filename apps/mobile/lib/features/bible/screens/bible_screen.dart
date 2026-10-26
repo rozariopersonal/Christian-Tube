@@ -452,9 +452,19 @@ class _BibleScreenState extends State<BibleScreen> {
   void _copySelectedVerses() {
     final s = _controller.state;
     if (s.selectedVerses.isEmpty) return;
+    final count = s.selectedVerses.length;
     Clipboard.setData(ClipboardData(text: s.selectedText())).then((_) {
       if (mounted) {
         _controller.clearSelection();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(count == 1
+                ? 'Verse copied to clipboard'
+                : '$count verses copied to clipboard'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     });
   }
@@ -511,10 +521,10 @@ class _BibleScreenState extends State<BibleScreen> {
         .toList();
     if (selected.isEmpty) return;
 
+    final selectedNumbers = selected.map((v) => v.number).toList()..sort();
     final label = selected.length == 1
         ? '${_controller.displayBookName(book)} $chapter:${selected.first.verseDisplay}'
-        : '${_controller.displayBookName(book)} $chapter:'
-            '${selected.first.number}-${selected.last.endNumber ?? selected.last.number}';
+        : '${_controller.displayBookName(book)} $chapter:${formatVerseNumbers(selectedNumbers)}';
 
     final result = await HighlightColorPicker.show(
       context,
