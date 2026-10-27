@@ -115,6 +115,7 @@ class DownloadsController extends ChangeNotifier {
       isBooksBundleDownloading: _bookService.isDownloading,
       booksBundleProgress: _bookService.downloadProgress,
       installedArticleLanguages: _articlesManager.installedLanguages,
+      downloadingArticleLanguages: _articlesManager.downloadingLanguages,
       songsInstalled: _songsManager.isInstalled,
       isSongsDownloading: _songsManager.isDownloading,
       songsProgress: _songsManager.downloadProgress,
@@ -159,6 +160,7 @@ class DownloadsController extends ChangeNotifier {
       isBooksBundleDownloading: _bookService.isDownloading,
       booksBundleProgress: _bookService.downloadProgress,
       installedArticleLanguages: _articlesManager.installedLanguages,
+      downloadingArticleLanguages: _articlesManager.downloadingLanguages,
       songsInstalled: _songsManager.isInstalled,
       isSongsDownloading: _songsManager.isDownloading,
       songsProgress: _songsManager.downloadProgress,
@@ -298,6 +300,8 @@ class DownloadsController extends ChangeNotifier {
       _articlesManager.getProgress(lang);
 
   Future<void> downloadArticlesLanguage(String lang) async {
+    _syncServiceProgress();
+    notifyListeners();
     await _articlesManager.downloadLanguage(lang);
     await refreshAll();
   }
@@ -401,6 +405,260 @@ class DownloadsController extends ChangeNotifier {
         isCoreBundleDownloading: false,
         errorMessage: 'Failed to complete core bundle download: $e',
       );
+    }
+    await refreshAll();
+  }
+
+  // --- Active Queue & In-Flight Tracking ---
+
+  bool get isAnyDownloading {
+    if (_state.isCoreBundleDownloading || _state.isStudyDbDownloading) return true;
+    if (_bibleManager.downloadingIds.isNotEmpty) return true;
+    if (_dictManager.downloadingIds.isNotEmpty) return true;
+    if (_bookService.isDownloading) return true;
+    if (_songsManager.isDownloading) return true;
+    if (_articlesManager.downloadingLanguages.isNotEmpty) return true;
+    return false;
+  }
+
+  int get activeDownloadsCount {
+    var count = 0;
+    if (_state.isCoreBundleDownloading) count++;
+    if (_state.isStudyDbDownloading) count++;
+    count += _bibleManager.downloadingIds.length;
+    count += _dictManager.downloadingIds.length;
+    if (_bookService.isDownloading) count++;
+    if (_songsManager.isDownloading) count++;
+    count += _articlesManager.downloadingLanguages.length;
+    return count;
+  }
+
+  double get overallDownloadProgress {
+    var totalProgress = 0.0;
+    var totalCount = 0;
+
+    if (_state.isCoreBundleDownloading) {
+      totalProgress += _state.coreBundleProgress;
+      totalCount++;
+    }
+    if (_state.isStudyDbDownloading) {
+      totalProgress += _state.studyDbProgress;
+      totalCount++;
+    }
+    for (final v in _bibleManager.downloadingIds) {
+      totalProgress += _bibleManager.getProgress(v);
+      totalCount++;
+    }
+    for (final d in _dictManager.downloadingIds) {
+      totalProgress += _dictManager.getProgress(d);
+      totalCount++;
+    }
+    if (_bookService.isDownloading) {
+      totalProgress += _bookService.downloadProgress;
+      totalCount++;
+    }
+    if (_songsManager.isDownloading) {
+      totalProgress += _songsManager.downloadProgress;
+      totalCount++;
+    }
+    for (final a in _articlesManager.downloadingLanguages) {
+      totalProgress += _articlesManager.getProgress(a);
+      totalCount++;
+    }
+
+    if (totalCount == 0) return 0.0;
+    return (totalProgress / totalCount).clamp(0.0, 1.0);
+  }
+
+  String get activeDownloadsSummary {
+    final items = <String>[];
+    if (_state.isCoreBundleDownloading) items.add('Core Study Bundle');
+    if (_state.isStudyDbDownloading) items.add('Study DB');
+    for (final v in _bibleManager.downloadingIds) {
+      items.add('$v Bible');
+    }
+    for (final d in _dictManager.downloadingIds) {
+      items.add('$d Dictionary');
+    }
+    if (_bookService.isDownloading) items.add('Books Library');
+    if (_songsManager.isDownloading) items.add('Songbook');
+    for (final a in _articlesManager.downloadingLanguages) {
+      items.add('$a Articles');
+    }
+
+    if (items.isEmpty) return 'No active downloads';
+    if (items.length == 1) return 'Downloading ${items.first}';
+    return 'Downloading ${items.first} + ${items.length - 1} more';
+  }
+
+  int get firstActiveCategoryTabIndex {
+    if (_bibleManager.downloadingIds.isNotEmpty || _state.isStudyDbDownloading) return 1;
+    if (_dictManager.downloadingIds.isNotEmpty) return 2;
+    if (_bookService.isDownloading || _articlesManager.downloadingLanguages.isNotEmpty) return 3;
+    if (_songsManager.isDownloading) return 5;
+    return 0;
+  }
+
+  // --- Language-First Offline Packs ---
+
+  static const List<({String code, String name, String nativeName, String bibleId, String? dictId, String? artLang, bool includeSongs, String sizeDisplay})> languagePacks = [
+    (
+      code: 'ta',
+      name: 'Tamil Pack',
+      nativeName: 'தமிழ் பேக்',
+      bibleId: 'taobvsi',
+      dictId: 'ta_glossary',
+      artLang: 'ta',
+      includeSongs: true,
+      sizeDisplay: '~43 MB',
+    ),
+    (
+      code: 'hi',
+      name: 'Hindi Pack',
+      nativeName: 'हिन्दी पैक',
+      bibleId: 'hin_irv',
+      dictId: 'hi',
+      artLang: 'hi',
+      includeSongs: false,
+      sizeDisplay: '~14 MB',
+    ),
+    (
+      code: 'en',
+      name: 'English Study Pack',
+      nativeName: 'English Pack',
+      bibleId: 'kjv',
+      dictId: 'eastons',
+      artLang: 'en',
+      includeSongs: true,
+      sizeDisplay: '~24 MB',
+    ),
+    (
+      code: 'te',
+      name: 'Telugu Pack',
+      nativeName: 'తెలుగు ప్యాక్',
+      bibleId: 'tel_irv',
+      dictId: 'te',
+      artLang: 'te',
+      includeSongs: false,
+      sizeDisplay: '~16 MB',
+    ),
+    (
+      code: 'ml',
+      name: 'Malayalam Pack',
+      nativeName: 'മലയാളം പായ്ക്ക്',
+      bibleId: 'mal_irv',
+      dictId: 'ml',
+      artLang: 'ml',
+      includeSongs: true,
+      sizeDisplay: '~17 MB',
+    ),
+    (
+      code: 'de',
+      name: 'German Pack',
+      nativeName: 'Deutsch-Paket',
+      bibleId: 'elberfelder',
+      dictId: 'de',
+      artLang: 'de',
+      includeSongs: false,
+      sizeDisplay: '~13 MB',
+    ),
+  ];
+
+  bool isLanguagePackInstalled(String langCode) {
+    final pack = languagePacks.firstWhere((p) => p.code == langCode, orElse: () => languagePacks.first);
+    final bibleInstalled = _bibleManager.isInstalled(pack.bibleId);
+    final dictInstalled = pack.dictId == null || _dictManager.isInstalled(pack.dictId!);
+    final artInstalled = pack.artLang == null || _articlesManager.isInstalled(pack.artLang!);
+    return bibleInstalled && dictInstalled && artInstalled;
+  }
+
+  bool isLanguagePackDownloading(String langCode) {
+    final pack = languagePacks.firstWhere((p) => p.code == langCode, orElse: () => languagePacks.first);
+    if (_bibleManager.isDownloading(pack.bibleId)) return true;
+    if (pack.dictId != null && _dictManager.isDownloading(pack.dictId!)) return true;
+    if (pack.artLang != null && _articlesManager.isDownloading(pack.artLang!)) return true;
+    return false;
+  }
+
+  Future<void> downloadLanguagePack(String langCode) async {
+    final pack = languagePacks.firstWhere((p) => p.code == langCode, orElse: () => languagePacks.first);
+
+    final bibleMeta = BibleDownloadManager.getMeta(pack.bibleId);
+    if (!bibleMeta.isOnlineOnly && !_bibleManager.isInstalled(pack.bibleId)) {
+      unawaited(_bibleManager.downloadVersion(bibleMeta));
+    }
+    if (pack.dictId != null && !_dictManager.isInstalled(pack.dictId!)) {
+      unawaited(_dictManager.downloadDictionary(pack.dictId!));
+    }
+    if (pack.artLang != null && !_articlesManager.isInstalled(pack.artLang!)) {
+      unawaited(_articlesManager.downloadLanguage(pack.artLang!));
+    }
+    if (pack.includeSongs && !_songsManager.isInstalled) {
+      unawaited(_songsManager.download());
+    }
+    _syncServiceProgress();
+    notifyListeners();
+  }
+
+  // --- Batch Operations ---
+
+  Future<void> batchDownloadBibles(List<BibleVersionMeta> bibles) async {
+    for (final b in bibles) {
+      if (!b.isOnlineOnly && !_bibleManager.isInstalled(b.id)) {
+        await _bibleManager.downloadVersion(b);
+      }
+    }
+    await refreshAll();
+  }
+
+  Future<void> batchDeleteBibles(List<String> ids) async {
+    for (final id in ids) {
+      if (id.toUpperCase() != BibleDownloadManager.defaultVersionId.toUpperCase()) {
+        await _bibleManager.removeVersion(id);
+      }
+    }
+    await refreshAll();
+  }
+
+  Future<void> batchDownloadBooks(List<({String id, String? language})> items) async {
+    for (final item in items) {
+      if (!_state.installedBookIds.contains(item.id)) {
+        await _bookService.downloadSingleBook(item.id, language: item.language);
+      }
+    }
+    await refreshAll();
+  }
+
+  Future<void> batchDeleteBooks(List<String> bookIds) async {
+    for (final id in bookIds) {
+      await _bookService.removeBookDownload(id);
+    }
+    await refreshAll();
+  }
+
+  // --- Smart Storage Cleaner ---
+
+  Future<void> smartClean({
+    bool clearAudio = false,
+    bool clearFonts = false,
+    bool clearArticles = false,
+    List<String>? dictIdsToDelete,
+  }) async {
+    if (clearAudio) {
+      await _audioLibrary.removeAll();
+    }
+    if (clearFonts) {
+      await ReaderFontsService.instance.removeAllDownloadedFonts();
+    }
+    if (clearArticles) {
+      for (final lang in _articlesManager.installedLanguages.toList()) {
+        await _articlesManager.deleteLanguage(lang);
+      }
+    }
+    if (dictIdsToDelete != null) {
+      for (final id in dictIdsToDelete) {
+        await _dictManager.deleteDictionary(id);
+      }
     }
     await refreshAll();
   }

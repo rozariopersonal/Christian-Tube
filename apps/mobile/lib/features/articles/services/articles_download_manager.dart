@@ -22,6 +22,7 @@ class ArticlesDownloadManager extends ChangeNotifier {
   bool _isInitialized = false;
 
   Set<String> get installedLanguages => Set.unmodifiable(_installedLanguages);
+  Set<String> get downloadingLanguages => Set.unmodifiable(_downloadingLanguages);
 
   bool isInstalled(String lang) =>
       _installedLanguages.contains(lang.trim().toLowerCase());

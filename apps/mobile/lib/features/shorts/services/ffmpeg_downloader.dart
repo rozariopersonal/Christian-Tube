@@ -115,8 +115,8 @@ class FfmpegDownloader {
     }
 
     if (payload == null) {
-      throw 'Could not download the media engine. Please check your '
-          'connection and try creating the short again.';
+      throw 'Native FFmpeg binary package is currently unavailable for on-device encoding. '
+          'Please ensure an internet connection is available or try creating the short again.';
     }
     final String finalPayload = payload;
 

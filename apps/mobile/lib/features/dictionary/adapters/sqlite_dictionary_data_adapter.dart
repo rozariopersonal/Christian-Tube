@@ -404,6 +404,26 @@ class SqliteDictionaryDataAdapter implements DictionaryDataAdapter {
       final sourceName = meta?.name ?? 'Dictionary';
 
       try {
+        if (dictId == 'ta_glossary' || dictId == 'taobvsi_glossary') {
+          final gRows = await db.query(
+            'glossary_entries',
+            where: 'headword = ? COLLATE NOCASE',
+            whereArgs: [cleaned],
+            limit: 5,
+          );
+          for (final row in gRows) {
+            final defTa = row['definition_ta'] as String? ?? '';
+            final defEn = row['definition_en'] as String? ?? '';
+            results.add(DictionaryEntry(
+              headword: row['headword'] as String? ?? cleaned,
+              definition: defTa.isNotEmpty ? defTa : defEn,
+              partOfSpeech: row['pos_ta'] as String? ?? '',
+              source: sourceName,
+            ));
+          }
+          continue;
+        }
+
         var rows = await db.query(
           'dictionary_entries',
           where: 'headword = ? COLLATE NOCASE',

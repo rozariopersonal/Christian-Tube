@@ -833,6 +833,28 @@ def process_chapter(book_num: int, chapter_num: int) -> bool:
         log(f"[CHAPTER COMPLETED] Book {book_num}:{chapter_num} finished ({len(chapter_words)} words)!")
     return True
 
+def format_human_duration(seconds: float) -> str:
+    """Formats seconds into concise, human-friendly units (e.g. '1 day, 4 hrs, 20 mins' or '45 mins, 12s')."""
+    total_sec = max(0, int(seconds))
+    if total_sec < 60:
+        return f"{total_sec}s"
+    days = total_sec // 86400
+    rem = total_sec % 86400
+    hours = rem // 3600
+    rem %= 3600
+    minutes = rem // 60
+    secs = rem % 60
+    parts = []
+    if days > 0:
+        parts.append(f"{days} day{'s' if days != 1 else ''}")
+    if hours > 0:
+        parts.append(f"{hours} hr{'s' if hours != 1 else ''}")
+    if minutes > 0:
+        parts.append(f"{minutes} min{'s' if minutes != 1 else ''}")
+    if days == 0 and hours == 0 and secs > 0:
+        parts.append(f"{secs}s")
+    return ", ".join(parts[:3]) if parts else "0s"
+
 def live_monitor_loop():
     """Background thread refreshing WORDS_PROGRESS.md and PIPELINE_HEALTH.json every 5 seconds."""
     IST = timezone(timedelta(hours=5, minutes=30))
@@ -846,7 +868,7 @@ def live_monitor_loop():
         try:
             now_utc = datetime.now(timezone.utc)
             now_ist = now_utc.astimezone(IST)
-            now_str = f"{now_ist.strftime('%Y-%m-%d %I:%M:%S %p IST')} ({now_utc.strftime('%H:%M:%S UTC')})"
+            now_str = now_ist.strftime("%A, %b %d, %Y at %I:%M:%S %p IST")
 
             all_files = glob.glob(os.path.join(BASE_WORDS_DIR, "*", "*.json"))
             completed_chapters = len([f for f in all_files if not f.endswith(".partial.json")])
@@ -876,23 +898,40 @@ def live_monitor_loop():
             if TELEMETRY["total_generation_seconds"] > 0:
                 avg_speed = TELEMETRY["total_tokens_generated"] / TELEMETRY["total_generation_seconds"]
 
-            # Accurate Unique Word Model ETA
+            # Accurate Parallelism-Aware Unique Word Model ETA
             elapsed_sec = max(1, time.time() - TELEMETRY["start_time"])
-            elapsed_str = str(timedelta(seconds=int(elapsed_sec)))
+            elapsed_str = format_human_duration(elapsed_sec)
 
             verses_done = WORKER_STATUS["verses_completed"]
             llm_defs = TELEMETRY["llm_definitions"]
             unique_remaining = max(0, total_unique_target - unique_words_count)
             verses_remaining = max(0, total_bible_verses - verses_done)
 
-            if llm_defs > 0 and TELEMETRY["total_def_seconds"] > 0:
-                sec_per_new_word = TELEMETRY["total_def_seconds"] / llm_defs
-                # Realistic Single-Pass ETA = cost to define remaining new words (0ms for all cached words)
-                eta_sec = unique_remaining * sec_per_new_word
-                eta_str = str(timedelta(seconds=int(eta_sec)))
-            else:
-                eta_str = "Calculating..."
+            # Baseline from ~15,600 verified words across chapters 1-117: ~8.0 wall-clock seconds per new word
+            EMPIRICAL_SEC_PER_WORD = 8.0
 
+            if llm_defs >= 5 and TELEMETRY["total_def_seconds"] > 0:
+                # Effective wall-clock seconds per new word across WORKER_COUNT parallel workers
+                worker_sec_per_word = (TELEMETRY["total_def_seconds"] / llm_defs) / max(1, WORKER_COUNT)
+                # Blend with empirical baseline during warm-up (first 25 definitions) to smooth startup variance
+                weight = min(1.0, llm_defs / 25.0)
+                sec_per_new_word = weight * worker_sec_per_word + (1.0 - weight) * EMPIRICAL_SEC_PER_WORD
+                eta_sec = unique_remaining * sec_per_new_word
+                eta_dur = format_human_duration(eta_sec)
+                target_dt = now_ist + timedelta(seconds=int(eta_sec))
+                target_dt_str = target_dt.strftime("%A, %b %d, %Y at %I:%M %p IST")
+                eta_str = f"~{eta_dur} (Est. Completion: {target_dt_str})"
+            elif unique_remaining > 0:
+                # Early session estimate using empirical baseline
+                eta_sec = unique_remaining * EMPIRICAL_SEC_PER_WORD
+                eta_dur = format_human_duration(eta_sec)
+                target_dt = now_ist + timedelta(seconds=int(eta_sec))
+                target_dt_str = target_dt.strftime("%A, %b %d, %Y at %I:%M %p IST")
+                eta_str = f"~{eta_dur} (Warming up: {llm_defs}/5 definitions recorded)"
+            else:
+                eta_str = "Complete"
+
+            last_verse_dur_str = format_human_duration(WORKER_STATUS["last_verse_dur"])
             health_status_emoji = "🟢 Healthy" if TELEMETRY["is_healthy"] else "🔴 Degraded"
             curr_b = WORKER_STATUS["book"]
             curr_ch = WORKER_STATUS["chapter"]
@@ -926,7 +965,7 @@ def live_monitor_loop():
 | **Session Words Parsed** | `{WORKER_STATUS["words"]:,}` |
 | **Session DB Cache Hits** | `{WORKER_STATUS["hits"]:,}` (0ms instant resolution) |
 | **Session LLM Definitions** | `{WORKER_STATUS["llm"]:,}` |
-| **Last Verse Duration** | `{WORKER_STATUS["last_verse_dur"]:.1f} s` |
+| **Last Verse Duration** | `{last_verse_dur_str} ({WORKER_STATUS["last_verse_dur"]:.1f}s)` |
 
 ### 🏥 Model & Engine Health
 

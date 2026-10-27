@@ -8,6 +8,7 @@ import '../widgets/books_tab.dart';
 import '../widgets/overview_tab.dart';
 import '../widgets/songs_tab.dart';
 import '../widgets/fonts_tab.dart';
+import '../widgets/common/global_downloads_banner.dart';
 
 /// Single unified screen managing all offline downloads for Christian Tube:
 /// Bibles, Dictionaries, Books & Commentaries, Audio Sermons, and Songbooks.
@@ -135,19 +136,32 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          OverviewTab(
-            controller: _controller,
-            onNavigateToTab: _navigateToTab,
+          ListenableBuilder(
+            listenable: _controller,
+            builder: (context, _) => GlobalDownloadsBanner(
+              controller: _controller,
+              onNavigateToTab: _navigateToTab,
+            ),
           ),
-          BiblesTab(controller: _controller),
-          DictionariesTab(controller: _controller),
-          BooksTab(controller: _controller),
-          AudioTab(controller: _controller),
-          SongsTab(controller: _controller),
-          FontsTab(controller: _controller),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                OverviewTab(
+                  controller: _controller,
+                  onNavigateToTab: _navigateToTab,
+                ),
+                BiblesTab(controller: _controller),
+                DictionariesTab(controller: _controller),
+                BooksTab(controller: _controller),
+                AudioTab(controller: _controller),
+                SongsTab(controller: _controller),
+                FontsTab(controller: _controller),
+              ],
+            ),
+          ),
         ],
       ),
     );

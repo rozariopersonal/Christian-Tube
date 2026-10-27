@@ -648,6 +648,7 @@ class BibleDownloadManager extends ChangeNotifier {
   ];
 
   Set<String> get installedIds => _installedIds;
+  Set<String> get downloadingIds => _downloadingIds;
 
   bool isInstalled(String versionId) => _installedIds.contains(versionId);
   bool isDownloading(String versionId) => _downloadingIds.contains(versionId);
@@ -687,6 +688,10 @@ class BibleDownloadManager extends ChangeNotifier {
   /// offline use; false when it could not be fetched (no data source, or a
   /// network failure on every mirror).
   Future<bool> downloadVersion(BibleVersionMeta meta) async {
+    if (meta.isOnlineOnly) {
+      debugPrint('Version ${meta.id} is an online-only streaming translation.');
+      return false;
+    }
     await _localBible.initialize();
     if (_installedIds.contains(meta.id)) return true;
     if (_downloadingIds.contains(meta.id)) return true;

@@ -6,7 +6,9 @@ class BibleVersionMeta {
   final String sizeDisplay;
   final String description;
   final bool isDefaultBundled;
-  final bool isOnlineOnly;
+  final bool _isOnlineOnly;
+  bool get isOnlineOnly =>
+      _isOnlineOnly || sizeDisplay.trim().toLowerCase() == 'online';
   final String? downloadUrl;
   final String license;
   final String? licenseUrl;
@@ -22,14 +24,14 @@ class BibleVersionMeta {
     required this.sizeDisplay,
     required this.description,
     this.isDefaultBundled = false,
-    this.isOnlineOnly = false,
+    bool isOnlineOnly = false,
     this.downloadUrl,
     this.license = 'Public Domain',
     this.licenseUrl,
     this.copyrightHolder,
     this.attributionText,
     this.sourceUrl,
-  });
+  }) : _isOnlineOnly = isOnlineOnly;
 
   Map<String, dynamic> toJson() => {
         'id': id,
