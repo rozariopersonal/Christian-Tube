@@ -157,7 +157,7 @@ class AudioContinueListeningCard extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     icon: Icon(
                       isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      color: Colors.white,
+                      color: theme.colorScheme.onPrimary,
                       size: 22,
                     ),
                     onPressed: () {
@@ -166,6 +166,10 @@ class AudioContinueListeningCard extends StatelessWidget {
                       } else {
                         AudioPlayerController.instance.playTrack(
                           track,
+                          queue: state.queue.isNotEmpty &&
+                                  state.queue.any((t) => t.id == track.id)
+                              ? state.queue
+                              : [track],
                           resumePositionSec: savedSeconds,
                         );
                       }

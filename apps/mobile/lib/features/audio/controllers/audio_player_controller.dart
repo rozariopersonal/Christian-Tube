@@ -35,6 +35,9 @@ class AudioPlayerController extends ChangeNotifier {
 
   Timer? _positionSaveDebounce;
   Timer? _sleepTimer;
+  DateTime? _lastPositionSaveTime;
+  int? _lastSavedPositionSec;
+  int _currentPlayRequestId = 0;
 
   AudioPlayerController({
     AudioPlaybackService? playbackService,
@@ -58,7 +61,29 @@ class AudioPlayerController extends ChangeNotifier {
       }
       _state = _state.copyWith(position: pos);
       notifyListeners();
-      _schedulePositionSave();
+
+      // Throttled persistence: save periodically during active playback (every 5 seconds)
+      final now = DateTime.now();
+      if (_state.isPlaying &&
+          pos.inSeconds != _lastSavedPositionSec &&
+          (_lastPositionSaveTime == null ||
+              now.difference(_lastPositionSaveTime!).inSeconds >= 5)) {
+        final track = _state.currentTrack;
+        if (track != null) {
+          _lastPositionSaveTime = now;
+          _lastSavedPositionSec = pos.inSeconds;
+          _storageService.savePosition(track.id, pos.inSeconds);
+          _syncService.pushPlayback(
+            track: track,
+            positionSeconds: pos.inSeconds,
+            durationSeconds: track.durationSeconds,
+          );
+        }
+      }
+
+      if (_state.currentTrack != null) {
+        _schedulePositionSave();
+      }
     });
 
     _durSub = _playbackService.durationStream.listen((dur) {
@@ -175,6 +200,7 @@ class AudioPlayerController extends ChangeNotifier {
     List<AudioTrack>? queue,
     int? resumePositionSec,
   }) async {
+    final requestId = ++_currentPlayRequestId;
     final effectiveQueue = queue ?? [track];
     final queueIdx = effectiveQueue.indexWhere((t) => t.id == track.id);
 
@@ -182,8 +208,11 @@ class AudioPlayerController extends ChangeNotifier {
     int startPos = resumePositionSec ?? 0;
     if (startPos == 0) {
       startPos = await _storageService.getPosition(track.id);
+      if (requestId != _currentPlayRequestId) return;
       // If position is near the end, start from beginning
-      if (startPos >= track.durationSeconds - 5) startPos = 0;
+      if (track.durationSeconds > 5 && startPos >= track.durationSeconds - 5) {
+        startPos = 0;
+      }
     }
 
     _state = _state.copyWith(
@@ -203,10 +232,12 @@ class AudioPlayerController extends ChangeNotifier {
         track,
         initialPositionSec: startPos,
       );
+      if (requestId != _currentPlayRequestId) return;
       if (dur != null) {
         _state = _state.copyWith(duration: dur);
       }
       await _playbackService.play();
+      if (requestId != _currentPlayRequestId) return;
 
       final now = DateTime.now().toUtc();
       await _storageService.savePlaybackState(
@@ -224,11 +255,13 @@ class AudioPlayerController extends ChangeNotifier {
         updatedAt: now,
       );
     } catch (e) {
-      _state = _state.copyWith(
-        status: AudioPlaybackStatus.error,
-        errorMessage: errorMessageFrom(e),
-      );
-      notifyListeners();
+      if (requestId == _currentPlayRequestId) {
+        _state = _state.copyWith(
+          status: AudioPlaybackStatus.error,
+          errorMessage: errorMessageFrom(e),
+        );
+        notifyListeners();
+      }
     }
   }
 
@@ -271,7 +304,7 @@ class AudioPlayerController extends ChangeNotifier {
   }
 
   /// Toggles between play and pause.
-  /// Correctly handles restored session tracks where just_audio has not loaded the source yet.
+  /// Correctly handles restored session tracks or error recovery where just_audio has not loaded the source yet.
   Future<void> togglePlayPause() async {
     if (_state.isPlaying) {
       await _playbackService.pause();
@@ -281,8 +314,9 @@ class AudioPlayerController extends ChangeNotifier {
         if (_state.status == AudioPlaybackStatus.completed) {
           await seek(Duration.zero);
           await _playbackService.play();
-        } else if (_playbackService.playerState.processingState == ProcessingState.idle) {
-          // Fresh session launch: the audio source is not yet loaded into just_audio!
+        } else if (_state.status == AudioPlaybackStatus.error ||
+            _playbackService.playerState.processingState == ProcessingState.idle) {
+          // Fresh session launch or error retry: reload track into just_audio!
           await playTrack(
             _state.currentTrack!,
             queue: _state.queue.isNotEmpty ? _state.queue : [_state.currentTrack!],
@@ -371,17 +405,33 @@ class AudioPlayerController extends ChangeNotifier {
     await _playbackService.setSpeed(speed);
   }
 
-  /// Sets a sleep timer in minutes (e.g. 15, 30, 45, 60, or null to cancel).
-  void setSleepTimer(int? minutes) {
+  /// Sets a sleep timer in minutes (e.g. 15, 30, 45, 60, or null to cancel),
+  /// or enables [stopAtEndOfTrack].
+  void setSleepTimer(int? minutes, {bool stopAtEndOfTrack = false}) {
     _sleepTimer?.cancel();
+    if (stopAtEndOfTrack) {
+      _state = _state.copyWith(
+        clearSleepTimer: true,
+        stopAtEndOfTrack: true,
+      );
+      notifyListeners();
+      return;
+    }
+
     if (minutes == null || minutes <= 0) {
-      _state = _state.copyWith(clearSleepTimer: true);
+      _state = _state.copyWith(
+        clearSleepTimer: true,
+        stopAtEndOfTrack: false,
+      );
       notifyListeners();
       return;
     }
 
     int remainingSeconds = minutes * 60;
-    _state = _state.copyWith(sleepTimerRemainingSeconds: remainingSeconds);
+    _state = _state.copyWith(
+      sleepTimerRemainingSeconds: remainingSeconds,
+      stopAtEndOfTrack: false,
+    );
     notifyListeners();
 
     _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -431,16 +481,22 @@ class AudioPlayerController extends ChangeNotifier {
   }
 
   void _onTrackCompleted() {
-    // If there's an active sleep timer set to 'End of Track', pause
-    if (_state.sleepTimerRemainingSeconds != null &&
-        _state.sleepTimerRemainingSeconds == 0) {
+    // If stopAtEndOfTrack is enabled, pause and reset the flag
+    if (_state.stopAtEndOfTrack) {
+      _state = _state.copyWith(stopAtEndOfTrack: false);
+      notifyListeners();
+      pause();
       return;
     }
-    // Auto-advance to next track in queue
-    skipNext();
+
+    // Auto-advance to next track in queue if available
+    if (_state.queue.isNotEmpty && _state.queueIndex < _state.queue.length - 1) {
+      skipNext();
+    }
   }
 
   void _schedulePositionSave() {
+    if (_state.currentTrack == null) return;
     _positionSaveDebounce?.cancel();
     _positionSaveDebounce = Timer(const Duration(seconds: 3), () {
       final track = _state.currentTrack;

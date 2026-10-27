@@ -28,6 +28,7 @@ class AudioPlayerState {
   final double speed;
   final bool isMiniPlayerVisible;
   final int? sleepTimerRemainingSeconds;
+  final bool stopAtEndOfTrack;
   final String? errorMessage;
 
   const AudioPlayerState({
@@ -41,6 +42,7 @@ class AudioPlayerState {
     this.speed = 1.0,
     this.isMiniPlayerVisible = false,
     this.sleepTimerRemainingSeconds,
+    this.stopAtEndOfTrack = false,
     this.errorMessage,
   });
 
@@ -67,6 +69,7 @@ class AudioPlayerState {
     bool? isMiniPlayerVisible,
     int? sleepTimerRemainingSeconds,
     bool clearSleepTimer = false,
+    bool? stopAtEndOfTrack,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -83,6 +86,8 @@ class AudioPlayerState {
       sleepTimerRemainingSeconds: clearSleepTimer
           ? null
           : (sleepTimerRemainingSeconds ?? this.sleepTimerRemainingSeconds),
+      stopAtEndOfTrack: stopAtEndOfTrack ??
+          (clearSleepTimer ? false : this.stopAtEndOfTrack),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

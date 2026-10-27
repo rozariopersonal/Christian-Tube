@@ -209,6 +209,8 @@ class UserPreferenceService extends ChangeNotifier {
             lastVersion: pref.primaryBibleVersionId,
           ),
         );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('pref_bible_version', pref.primaryBibleVersionId);
       } catch (e) {
         debugPrint('Failed to set preferred Bible version: $e');
       }
@@ -227,9 +229,14 @@ class UserPreferenceService extends ChangeNotifier {
     // 4. Lock screen word feed
     try {
       if (pref.lockScreenWordFeedEnabled) {
-        await LockScreenWordFeedService.instance.enable(
+        final enabled = await LockScreenWordFeedService.instance.enable(
           intervalMinutes: pref.lockScreenRefreshIntervalMinutes,
         );
+        if (!enabled && _preferences.lockScreenWordFeedEnabled) {
+          _preferences = _preferences.copyWith(lockScreenWordFeedEnabled: false);
+          await _saveToLocal(_preferences);
+          notifyListeners();
+        }
       } else {
         await LockScreenWordFeedService.instance.disable();
       }

@@ -32,8 +32,30 @@ class HighlightPalette {
     Color(0xFF3949AB), // 14 Navy
   ];
 
+  static const List<String> names = [
+    'Mustard',
+    'Apricot',
+    'Sage',
+    'Periwinkle',
+    'Sky Blue',
+    'Marigold',
+    'Salmon',
+    'Emerald',
+    'Cerulean',
+    'Indigo',
+    'Deep Orange',
+    'Orchid',
+    'Crimson',
+    'Teal',
+    'Navy',
+  ];
+
   static Color colorFor(int index) =>
       index >= 0 && index < colors.length ? colors[index] : colors[0];
+
+  /// Name of the highlight color at [index].
+  static String nameFor(int index) =>
+      index >= 0 && index < names.length ? names[index] : 'Color $index';
 
   /// Foreground color that contrasts with the highlight at [index].
   static Color onColorFor(int index) => contrastColor(colorFor(index));

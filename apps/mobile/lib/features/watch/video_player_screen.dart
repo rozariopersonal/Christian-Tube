@@ -89,6 +89,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    AudioPlayerController.instance.pause();
     _activeVideoId = widget.videoId;
     _video = widget.initialVideo;
     _playlist = widget.playlist != null ? List.from(widget.playlist!) : [];
@@ -116,12 +117,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _checkAudioTrack() async {
-    final track = await AudioCatalogService().findTrackByYoutubeId(_activeVideoId);
-    if (mounted) {
-      setState(() {
-        _matchedAudioTrack = track;
-      });
-    }
+    try {
+      final track = await AudioCatalogService().findTrackByYoutubeId(_activeVideoId);
+      if (mounted) {
+        setState(() {
+          _matchedAudioTrack = track;
+        });
+      }
+    } catch (_) {}
   }
 
   void _playNextInPlaylist() {

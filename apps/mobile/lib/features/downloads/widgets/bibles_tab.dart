@@ -6,6 +6,10 @@ import '../../engines/scripture/models/bible_version_meta.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/widgets/bible_version_info_sheet.dart';
 import '../controllers/downloads_controller.dart';
+import 'common/download_action_button.dart';
+import 'common/download_empty_state.dart';
+import 'common/download_filter_bar.dart';
+import 'common/download_item_tile.dart';
 
 class BiblesTab extends StatefulWidget {
   final DownloadsController controller;
@@ -38,7 +42,7 @@ class _BiblesTabState extends State<BiblesTab> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-    final itemExtent = (112.0 * textScale.clamp(1.0, 1.6)).toDouble();
+    final itemExtent = (120.0 * textScale.clamp(1.0, 2.2)).toDouble();
 
     return ListenableBuilder(
       listenable: widget.controller,
@@ -151,81 +155,16 @@ class _BiblesTabState extends State<BiblesTab> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Search Field
-                    TextField(
-                      controller: _searchController,
-                      onChanged: widget.controller.setBibleSearch,
-                      style: TextStyle(color: tokens.onSurface, fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: 'Search translations, language, abbreviation…',
-                        hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-                        prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 20),
-                        suffixIcon: state.bibleSearch.isNotEmpty
-                            ? IconButton(
-                                icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  widget.controller.setBibleSearch('');
-                                },
-                              )
-                            : null,
-                        isDense: true,
-                        filled: true,
-                        fillColor: tokens.surfaceVariant,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: tokens.surfaceBorder),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: tokens.surfaceBorder),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Filter Chips
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final opt in ['All', 'English', 'Indian', 'European'])
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: FilterChip(
-                                label: Text(opt),
-                                selected: state.bibleLanguageFilter == opt,
-                                onSelected: (_) => widget.controller.setBibleLanguageFilter(opt),
-                                selectedColor: tokens.accent.withValues(alpha: 0.2),
-                                checkmarkColor: tokens.accent,
-                                labelStyle: TextStyle(
-                                  fontSize: 12,
-                                  color: state.bibleLanguageFilter == opt
-                                      ? tokens.accent
-                                      : tokens.onSurfaceMuted,
-                                  fontWeight: state.bibleLanguageFilter == opt
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ),
-                          FilterChip(
-                            avatar: Icon(Icons.download_done_rounded,
-                                size: 16,
-                                color: state.onlyInstalled ? tokens.accent : tokens.onSurfaceMuted),
-                            label: const Text('Downloaded Only'),
-                            selected: state.onlyInstalled,
-                            onSelected: (_) => widget.controller.toggleOnlyInstalled(),
-                            selectedColor: tokens.accent.withValues(alpha: 0.2),
-                            checkmarkColor: tokens.accent,
-                            labelStyle: TextStyle(
-                              fontSize: 12,
-                              color: state.onlyInstalled ? tokens.accent : tokens.onSurfaceMuted,
-                              fontWeight: state.onlyInstalled ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
+                    // Search & Language Filter Bar
+                    DownloadFilterBar(
+                      searchController: _searchController,
+                      searchHint: 'Search translations, language, abbreviation…',
+                      onSearchChanged: widget.controller.setBibleSearch,
+                      categories: const ['All', 'English', 'Indian', 'European'],
+                      selectedCategory: state.bibleLanguageFilter,
+                      onCategorySelected: widget.controller.setBibleLanguageFilter,
+                      onlyInstalled: state.onlyInstalled,
+                      onToggleOnlyInstalled: widget.controller.toggleOnlyInstalled,
                     ),
                     const SizedBox(height: 14),
                   ]),
@@ -235,42 +174,17 @@ class _BiblesTabState extends State<BiblesTab> {
               // Empty state or Grid / List
               if (bibles.isEmpty)
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.search_off_rounded,
-                              size: 48, color: tokens.onSurfaceMuted.withValues(alpha: 0.5)),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No translations found',
-                            style: TextStyle(
-                                color: tokens.onSurface,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Try adjusting your search query or language filter.',
-                            style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: () {
-                              _searchController.clear();
-                              widget.controller.setBibleSearch('');
-                              widget.controller.setBibleLanguageFilter('All');
-                              if (widget.controller.state.onlyInstalled) {
-                                widget.controller.toggleOnlyInstalled();
-                              }
-                            },
-                            child: const Text('Reset Filters'),
-                          ),
-                        ],
-                      ),
-                    ),
+                  child: DownloadEmptyState(
+                    title: 'No translations found',
+                    subtitle: 'Try adjusting your search query or language filter.',
+                    onResetFilters: () {
+                      _searchController.clear();
+                      widget.controller.setBibleSearch('');
+                      widget.controller.setBibleLanguageFilter('All');
+                      if (widget.controller.state.onlyInstalled) {
+                        widget.controller.toggleOnlyInstalled();
+                      }
+                    },
                   ),
                 )
               else if (isWide)
@@ -418,7 +332,7 @@ class _BiblesTabState extends State<BiblesTab> {
                 ),
               ),
               const SizedBox(width: 8),
-              if (isInstalled) ...[
+              if (isInstalled)
                 IconButton(
                   icon: Icon(Icons.delete_outline, color: tokens.onSurfaceMuted, size: 20),
                   tooltip: 'Delete Study Database',
@@ -438,8 +352,8 @@ class _BiblesTabState extends State<BiblesTab> {
                       await widget.controller.deleteStudyDb();
                     }
                   },
-                ),
-              ] else if (isDownloading)
+                )
+              else if (isDownloading)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   child: Text(
@@ -477,137 +391,37 @@ class _BiblesTabState extends State<BiblesTab> {
     final progress = widget.controller.getBibleProgress(bible.id);
     final isDefault = bible.id == BibleDownloadManager.defaultVersionId;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: tokens.surfaceBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            bible.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: tokens.onSurface,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13.5,
-                            ),
-                          ),
-                        ),
-                        if (isDefault) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: tokens.accent.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'PROTECTED',
-                              style: TextStyle(
-                                color: tokens.accent,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${bible.language} • ${bible.id} • ${bible.sizeDisplay}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: Icon(Icons.info_outline, color: tokens.onSurfaceMuted, size: 18),
-                tooltip: 'Version Details & License',
-                onPressed: () => BibleVersionInfoSheet.show(context, bible),
-              ),
-              if (isDefault)
-                Tooltip(
-                  message: 'Protected base translation (cannot be deleted)',
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.verified_user_rounded, color: tokens.accent, size: 20),
-                  ),
-                )
-              else if (isInstalled)
-                IconButton(
-                  icon: Icon(Icons.delete_outline, color: tokens.onSurfaceMuted, size: 20),
-                  tooltip: 'Delete Translation',
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: Text('Delete ${bible.name}?'),
-                        content: const Text('This Bible translation will be removed from your device.'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
-                        ],
-                      ),
-                    );
-                    if (confirm == true) {
-                      await widget.controller.deleteBible(bible.id);
-                    }
-                  },
-                )
-              else if (isDownloading)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  child: Text(
-                    (!widget.controller.isBibleIndeterminate(bible.id) && progress > 0)
-                        ? '${(progress * 100).toInt()}%'
-                        : 'Downloading…',
-                    style: TextStyle(color: tokens.accent, fontWeight: FontWeight.bold, fontSize: 11.5),
-                  ),
-                )
-              else
-                FilledButton.tonal(
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: () => widget.controller.downloadBible(bible),
-                  child: const Text('Download', style: TextStyle(fontSize: 12)),
-                ),
-            ],
-          ),
-          if (isDownloading) ...[
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: widget.controller.isBibleIndeterminate(bible.id)
-                    ? null
-                    : (progress > 0 ? progress : null),
-                backgroundColor: tokens.surfaceVariant,
-                color: tokens.accent,
-                minHeight: 3,
-              ),
+    return DownloadItemTile(
+      title: bible.name,
+      badgeText: isDefault ? 'PROTECTED' : null,
+      subtitle: '${bible.language} • ${bible.id} • ${bible.sizeDisplay}',
+      onInfo: () => BibleVersionInfoSheet.show(context, bible),
+      isDownloading: isDownloading,
+      downloadProgress: progress,
+      isIndeterminate: widget.controller.isBibleIndeterminate(bible.id),
+      trailing: DownloadActionButton(
+        isInstalled: isInstalled,
+        isDownloading: isDownloading,
+        progress: progress,
+        isIndeterminate: widget.controller.isBibleIndeterminate(bible.id),
+        isProtected: isDefault,
+        onDownload: () => widget.controller.downloadBible(bible),
+        onDelete: () async {
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text('Delete ${bible.name}?'),
+              content: const Text('This Bible translation will be removed from your device.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+              ],
             ),
-          ],
-        ],
+          );
+          if (confirm == true) {
+            await widget.controller.deleteBible(bible.id);
+          }
+        },
       ),
     );
   }

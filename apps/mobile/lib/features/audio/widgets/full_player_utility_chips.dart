@@ -27,107 +27,114 @@ class FullPlayerUtilityChips extends StatelessWidget {
             ? AppTokens.dark
             : AppTokens.light);
 
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 10,
-      runSpacing: 8,
-      children: [
-        // Watch Video Chip
-        if (state.currentTrack?.youtubeVideoId != null &&
-            state.currentTrack!.youtubeVideoId!.isNotEmpty)
-          InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () {
-              final pos = state.position.inSeconds;
-              AudioPlayerController.instance.pause();
-              Navigator.of(context).pop();
-              context.push('/watch/${state.currentTrack!.youtubeVideoId!}?start=$pos');
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.secondary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.ondemand_video,
-                    size: 15,
-                    color: theme.colorScheme.secondary,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Watch Video',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.secondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-        // Speed Chip
-        InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => AudioPlayerController.instance.cyclePlaybackSpeed(),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: tokens.surfaceVariant,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '${state.speed.toStringAsFixed(1)}x',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: tokens.onSurface,
-              ),
-            ),
-          ),
-        ),
-
         // Sleep Timer Chip
-        InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onSleepTimer,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: state.sleepTimerRemainingSeconds != null
-                  ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                  : tokens.surfaceVariant,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.bedtime_outlined,
-                  size: 15,
-                  color: state.sleepTimerRemainingSeconds != null
-                      ? theme.colorScheme.primary
-                      : tokens.onSurfaceMuted,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  state.sleepTimerRemainingSeconds != null
-                      ? '${(state.sleepTimerRemainingSeconds! / 60).ceil()}m'
-                      : 'Sleep Timer',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: state.sleepTimerRemainingSeconds != null
-                        ? theme.colorScheme.primary
-                        : tokens.onSurfaceMuted,
+        final hasSleepTimer =
+            state.sleepTimerRemainingSeconds != null || state.stopAtEndOfTrack;
+        final sleepTimerLabel = state.stopAtEndOfTrack
+            ? 'End of track'
+            : (state.sleepTimerRemainingSeconds != null
+                ? '${(state.sleepTimerRemainingSeconds! / 60).ceil()}m'
+                : 'Sleep Timer');
+
+        return Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            // Watch Video Chip
+            if (state.currentTrack?.youtubeVideoId != null &&
+                state.currentTrack!.youtubeVideoId!.isNotEmpty)
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  final pos = state.position.inSeconds;
+                  AudioPlayerController.instance.pause();
+                  Navigator.of(context).pop();
+                  context.push('/watch/${state.currentTrack!.youtubeVideoId!}?start=$pos');
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.ondemand_video,
+                        size: 15,
+                        color: theme.colorScheme.secondary,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Watch Video',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.secondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
+
+            // Speed Chip
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => AudioPlayerController.instance.cyclePlaybackSpeed(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: tokens.surfaceVariant,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${state.speed.toStringAsFixed(1)}x',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: tokens.onSurface,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
+
+            // Sleep Timer Chip
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: onSleepTimer,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: hasSleepTimer
+                      ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                      : tokens.surfaceVariant,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.bedtime_outlined,
+                      size: 15,
+                      color: hasSleepTimer
+                          ? theme.colorScheme.primary
+                          : tokens.onSurfaceMuted,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      sleepTimerLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: hasSleepTimer
+                            ? theme.colorScheme.primary
+                            : tokens.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
         // Queue / Up Next Chip
         if (state.queue.isNotEmpty)

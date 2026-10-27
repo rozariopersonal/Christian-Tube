@@ -4,6 +4,11 @@ import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../books/models/book.dart';
 import '../controllers/downloads_controller.dart';
+import 'common/download_action_button.dart';
+import 'common/download_bundle_card.dart';
+import 'common/download_empty_state.dart';
+import 'common/download_filter_bar.dart';
+import 'common/download_item_tile.dart';
 
 class BooksTab extends StatefulWidget {
   final DownloadsController controller;
@@ -36,7 +41,7 @@ class _BooksTabState extends State<BooksTab> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-    final itemExtent = (112.0 * textScale.clamp(1.0, 1.6)).toDouble();
+    final itemExtent = (124.0 * textScale.clamp(1.0, 2.2)).toDouble();
 
     return ListenableBuilder(
       listenable: widget.controller,
@@ -96,93 +101,28 @@ class _BooksTabState extends State<BooksTab> {
                 padding: const EdgeInsets.all(16),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    // Complete Library Bundle Card
+                    // 1. Complete Library Bundle Card
                     _buildLibraryBundleCard(context, tokens),
                     const SizedBox(height: 16),
 
-                    // Offline Articles Section Card
+                    // 2. Offline Articles Section Card
                     _buildArticlesCard(context, tokens),
                     const SizedBox(height: 20),
 
-                    // Search Field
-                    TextField(
-                      controller: _searchController,
-                      onChanged: widget.controller.setBookSearch,
-                      style: TextStyle(color: tokens.onSurface, fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: 'Search books by title, author, or topic…',
-                        hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-                        prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 20),
-                        suffixIcon: state.bookSearch.isNotEmpty
-                            ? IconButton(
-                                icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  widget.controller.setBookSearch('');
-                                },
-                              )
-                            : null,
-                        isDense: true,
-                        filled: true,
-                        fillColor: tokens.surfaceVariant,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: tokens.surfaceBorder),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: tokens.surfaceBorder),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Language & Installed Filter Chips
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final lang in languages)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: FilterChip(
-                                label: Text(lang),
-                                selected: state.bookLanguageFilter == lang,
-                                onSelected: (_) => widget.controller.setBookLanguageFilter(lang),
-                                selectedColor: tokens.accent.withValues(alpha: 0.2),
-                                checkmarkColor: tokens.accent,
-                                labelStyle: TextStyle(
-                                  fontSize: 12,
-                                  color: state.bookLanguageFilter == lang
-                                      ? tokens.accent
-                                      : tokens.onSurfaceMuted,
-                                  fontWeight: state.bookLanguageFilter == lang
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ),
-                          FilterChip(
-                            avatar: Icon(Icons.download_done_rounded,
-                                size: 16,
-                                color: state.onlyInstalled ? tokens.accent : tokens.onSurfaceMuted),
-                            label: const Text('Downloaded Only'),
-                            selected: state.onlyInstalled,
-                            onSelected: (_) => widget.controller.toggleOnlyInstalled(),
-                            selectedColor: tokens.accent.withValues(alpha: 0.2),
-                            checkmarkColor: tokens.accent,
-                            labelStyle: TextStyle(
-                              fontSize: 12,
-                              color: state.onlyInstalled ? tokens.accent : tokens.onSurfaceMuted,
-                              fontWeight: state.onlyInstalled ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
+                    // 3. Search and Language Filter Bar
+                    DownloadFilterBar(
+                      searchController: _searchController,
+                      searchHint: 'Search books by title, author, or topic…',
+                      onSearchChanged: widget.controller.setBookSearch,
+                      categories: languages,
+                      selectedCategory: state.bookLanguageFilter,
+                      onCategorySelected: widget.controller.setBookLanguageFilter,
+                      onlyInstalled: state.onlyInstalled,
+                      onToggleOnlyInstalled: widget.controller.toggleOnlyInstalled,
                     ),
                     const SizedBox(height: 16),
 
-                    // Section Header
+                    // 4. Section Header
                     Row(
                       children: [
                         Text(
@@ -209,42 +149,17 @@ class _BooksTabState extends State<BooksTab> {
               // Empty state or Books Grid / List
               if (books.isEmpty)
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.search_off_rounded,
-                              size: 48, color: tokens.onSurfaceMuted.withValues(alpha: 0.5)),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No books found',
-                            style: TextStyle(
-                                color: tokens.onSurface,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Try adjusting your search query or language filter.',
-                            style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: () {
-                              _searchController.clear();
-                              widget.controller.setBookSearch('');
-                              widget.controller.setBookLanguageFilter('All');
-                              if (widget.controller.state.onlyInstalled) {
-                                widget.controller.toggleOnlyInstalled();
-                              }
-                            },
-                            child: const Text('Reset Filters'),
-                          ),
-                        ],
-                      ),
-                    ),
+                  child: DownloadEmptyState(
+                    title: 'No books found',
+                    subtitle: 'Try adjusting your search query or language filter.',
+                    onResetFilters: () {
+                      _searchController.clear();
+                      widget.controller.setBookSearch('');
+                      widget.controller.setBookLanguageFilter('All');
+                      if (widget.controller.state.onlyInstalled) {
+                        widget.controller.toggleOnlyInstalled();
+                      }
+                    },
                   ),
                 )
               else if (isWide)
@@ -290,128 +205,45 @@ class _BooksTabState extends State<BooksTab> {
     final isDownloading = state.isBooksBundleDownloading;
     final progress = state.booksBundleProgress;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [tokens.surface, tokens.surfaceElevated],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: tokens.surfaceBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: tokens.accent.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.auto_stories_rounded, color: tokens.accent, size: 26),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Complete Books & Commentaries',
-                      style: TextStyle(
-                        color: tokens.onSurface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Zac Poonen Library (181 Books across 7 Languages • ~13.4 MB)',
-                      style: TextStyle(
-                        color: tokens.accent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Downloading this single compact package unlocks all 181 books for offline reading AND links thousands of verse-by-verse commentary expositions directly into the Bible Study screen.',
-            style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12.5, height: 1.45),
-          ),
-          const SizedBox(height: 16),
-          if (isInstalled)
-            Row(
+    return DownloadBundleCard(
+      icon: Icons.auto_stories_rounded,
+      title: 'Complete Books & Commentaries',
+      subtitle: 'Zac Poonen Library (181 Books across 7 Languages • ~13.4 MB)',
+      description:
+          'Downloading this single compact package unlocks all 181 books for offline reading AND links thousands of verse-by-verse commentary expositions directly into the Bible Study screen.',
+      isDownloading: isDownloading,
+      progress: progress,
+      progressLabel: 'Downloading library: ${(progress * 100).toStringAsFixed(0)}%',
+      statusWidget: isInstalled
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.check_circle, color: tokens.accent, size: 20),
+                Icon(Icons.check_circle, color: tokens.accent, size: 18),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Full Library & Commentaries Active',
-                    style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.bold, fontSize: 13),
+                Text(
+                  'Full Library & Commentaries Active',
+                  style: TextStyle(
+                    color: tokens.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
                   ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: widget.controller.downloadBooksBundle,
-                  child: const Text('Re-sync'),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.delete_outline, color: tokens.onSurfaceMuted),
-                  tooltip: 'Delete complete books bundle',
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Delete Books Library?'),
-                        content: const Text(
-                          'This will remove all 181 offline books and commentaries from local storage.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Cancel'),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Delete'),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirm == true) {
-                      await widget.controller.deleteBooksBundle();
-                    }
-                  },
                 ),
               ],
             )
-          else if (isDownloading) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress > 0 ? progress : null,
-                backgroundColor: tokens.surfaceVariant,
-                color: tokens.accent,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                'Downloading library: ${(progress * 100).toStringAsFixed(0)}%',
-                style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12),
-              ),
-            ),
-          ] else
-            SizedBox(
+          : null,
+      secondaryAction: isInstalled
+          ? OutlinedButton(
+              onPressed: widget.controller.downloadBooksBundle,
+              child: const Text('Re-sync'),
+            )
+          : null,
+      actionWidget: isInstalled
+          ? IconButton(
+              icon: Icon(Icons.delete_outline, color: tokens.onSurfaceMuted),
+              tooltip: 'Delete complete books bundle',
+              onPressed: () => _confirmDeleteBooksBundle(context),
+            )
+          : SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: widget.controller.downloadBooksBundle,
@@ -424,9 +256,32 @@ class _BooksTabState extends State<BooksTab> {
                 ),
               ),
             ),
+    );
+  }
+
+  Future<void> _confirmDeleteBooksBundle(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Books Library?'),
+        content: const Text(
+          'This will remove all 181 offline books and commentaries from local storage.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
+    if (confirm == true) {
+      await widget.controller.deleteBooksBundle();
+    }
   }
 
   Widget _buildArticlesCard(BuildContext context, AppTokens tokens) {
@@ -465,25 +320,32 @@ class _BooksTabState extends State<BooksTab> {
             style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              _buildArticlePackageTile(
-                context,
-                code: 'en',
-                label: 'English Articles (~4.2 MB)',
-                isInstalled: installed.contains('en'),
-                tokens: tokens,
-              ),
-              _buildArticlePackageTile(
-                context,
-                code: 'ta',
-                label: 'Tamil Articles (~5.1 MB)',
-                isInstalled: installed.contains('ta'),
-                tokens: tokens,
-              ),
-            ],
+          // Bounded Column / Wrap prevents horizontal RenderFlex overflow
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _buildArticlePackageTile(
+                    context,
+                    maxWidth: constraints.maxWidth,
+                    code: 'en',
+                    label: 'English Articles (~4.2 MB)',
+                    isInstalled: installed.contains('en'),
+                    tokens: tokens,
+                  ),
+                  _buildArticlePackageTile(
+                    context,
+                    maxWidth: constraints.maxWidth,
+                    code: 'ta',
+                    label: 'Tamil Articles (~5.1 MB)',
+                    isInstalled: installed.contains('ta'),
+                    tokens: tokens,
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -492,67 +354,79 @@ class _BooksTabState extends State<BooksTab> {
 
   Widget _buildArticlePackageTile(
     BuildContext context, {
+    required double maxWidth,
     required String code,
     required String label,
     required bool isInstalled,
     required AppTokens tokens,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: tokens.surfaceBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isInstalled ? Icons.check_circle : Icons.download_rounded,
-            size: 16,
-            color: isInstalled ? tokens.accent : tokens.onSurfaceMuted,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: tokens.onSurface,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+    final itemWidth = maxWidth < 400 ? double.infinity : (maxWidth - 10) / 2;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: itemWidth),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: tokens.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: tokens.surfaceBorder),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isInstalled ? Icons.check_circle : Icons.download_rounded,
+              size: 16,
+              color: isInstalled ? tokens.accent : tokens.onSurfaceMuted,
             ),
-          ),
-          const SizedBox(width: 8),
-          if (isInstalled)
-            InkWell(
-              onTap: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: Text('Remove $label?'),
-                    content: const Text('Offline articles for this language will be deleted.'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
-                    ],
-                  ),
-                );
-                if (confirm == true) {
-                  await widget.controller.deleteArticlesLanguage(code);
-                }
-              },
-              child: Icon(Icons.close_rounded, size: 16, color: tokens.onSurfaceMuted),
-            )
-          else
-            TextButton(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tokens.onSurface,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              onPressed: () => widget.controller.downloadArticlesLanguage(code),
-              child: const Text('Download', style: TextStyle(fontSize: 11)),
             ),
-        ],
+            const SizedBox(width: 8),
+            if (isInstalled)
+              InkWell(
+                onTap: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Text('Remove $label?'),
+                      content: const Text('Offline articles for this language will be deleted.'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await widget.controller.deleteArticlesLanguage(code);
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.close_rounded, size: 16, color: tokens.onSurfaceMuted),
+                ),
+              )
+            else
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => widget.controller.downloadArticlesLanguage(code),
+                child: const Text('Download', style: TextStyle(fontSize: 11)),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -561,66 +435,39 @@ class _BooksTabState extends State<BooksTab> {
     final isInstalled = widget.controller.isBookInstalled(book.id);
     final isDownloading = widget.controller.isBookDownloading(book.id);
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: tokens.surfaceBorder),
+    return DownloadItemTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isInstalled ? tokens.accent.withValues(alpha: 0.15) : tokens.surfaceVariant,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          isInstalled ? Icons.check_circle : Icons.book_rounded,
+          color: isInstalled ? tokens.accent : tokens.onSurfaceMuted,
+          size: 20,
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isInstalled ? tokens.accent.withValues(alpha: 0.15) : tokens.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              isInstalled ? Icons.check_circle : Icons.book_rounded,
-              color: isInstalled ? tokens.accent : tokens.onSurfaceMuted,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  book.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: tokens.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${book.author} • ${book.totalPages} pages • ${book.language}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
-                ),
-                if (book.downloadSizeFormatted.isNotEmpty) ...[
-                  const SizedBox(height: 1),
-                  Text(
-                    'Size: ${book.downloadSizeFormatted}',
-                    style: TextStyle(color: tokens.onSurfaceDisabled, fontSize: 10.5),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (isInstalled)
-            IconButton(
-              icon: Icon(Icons.delete_outline, color: tokens.onSurfaceMuted, size: 20),
-              tooltip: 'Delete Book',
-              onPressed: () async {
+      title: book.title,
+      subtitle: '${book.author} • ${book.totalPages} pages • ${book.language}',
+      description: book.downloadSizeFormatted.isNotEmpty
+          ? 'Size: ${book.downloadSizeFormatted}'
+          : null,
+      isDownloading: isDownloading,
+      trailing: isDownloading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : DownloadActionButton(
+              isInstalled: isInstalled,
+              isDownloading: false,
+              onDownload: () => widget.controller.downloadSingleBook(
+                book.id,
+                language: book.language,
+              ),
+              onDelete: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -636,24 +483,7 @@ class _BooksTabState extends State<BooksTab> {
                   await widget.controller.deleteBook(book.id);
                 }
               },
-            )
-          else if (isDownloading)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            FilledButton.tonal(
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                visualDensity: VisualDensity.compact,
-              ),
-              onPressed: () => widget.controller.downloadSingleBook(book.id, language: book.language),
-              child: const Text('Download', style: TextStyle(fontSize: 12)),
             ),
-        ],
-      ),
     );
   }
 }

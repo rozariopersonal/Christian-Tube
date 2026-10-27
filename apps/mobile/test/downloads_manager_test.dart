@@ -127,5 +127,37 @@ void main() {
       // Drain internal sqflite connection lock timer
       await tester.pump(const Duration(seconds: 11));
     });
+
+    testWidgets('All 7 tabs render without overflow on 320px viewport with 1.5x font scale',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      for (int tabIndex = 0; tabIndex < 7; tabIndex++) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(
+              extensions: const [AppTokens.dark],
+            ),
+            home: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(320, 700),
+                textScaler: TextScaler.linear(1.5),
+              ),
+              child: DownloadsManagerScreen(initialTab: tabIndex),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 700));
+
+        expect(tester.takeException(), isNull,
+            reason: 'Tab index $tabIndex must not overflow at 320px with 1.5x text scale');
+      }
+
+      // Drain internal timers
+      await tester.pump(const Duration(seconds: 11));
+    });
   });
 }

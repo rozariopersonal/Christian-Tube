@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
@@ -26,6 +27,9 @@ import 'notification_service.dart';
 /// - ❤️ Bookmark: toggles saving the passage directly from the lock screen.
 class LockScreenWordFeedService extends ChangeNotifier {
   static const int notificationId = 77701;
+  static String get notificationChannelId =>
+      '${AppConfig.instanceId}_lockscreen_word_feed_v2';
+  static const String notificationChannelName = 'Lock Screen Scripture Feed';
   static const String actionNextWord = 'action_next_word';
   static const String actionReadChapter = 'action_read_chapter';
   static const String actionBookmark = 'action_bookmark';
@@ -79,6 +83,22 @@ class LockScreenWordFeedService extends ChangeNotifier {
         _scriptureService = scriptureService ?? ScriptureService(),
         _bookmarkService = bookmarkService ?? BibleBookmarkService();
 
+  /// Checks and requests notification permission if needed (Android 13+).
+  ///
+  /// Returns `true` if permission is granted or not applicable (e.g. web/desktop/older Android).
+  Future<bool> checkAndRequestPermission() async {
+    if (kIsWeb) return true;
+    try {
+      final status = await Permission.notification.status;
+      if (status.isGranted) return true;
+      final result = await Permission.notification.request();
+      return result.isGranted;
+    } catch (e) {
+      debugPrint('Error checking notification permission: $e');
+      return true;
+    }
+  }
+
   /// Loads saved state on startup and restores the lock screen card if enabled.
   Future<void> initialize() async {
     try {
@@ -111,7 +131,18 @@ class LockScreenWordFeedService extends ChangeNotifier {
   }
 
   /// Enables the lock screen word feed and publishes the initial card.
-  Future<void> enable({int intervalMinutes = 60}) async {
+  ///
+  /// Returns `true` if successfully enabled, or `false` if notification
+  /// permissions were requested and denied by the user.
+  Future<bool> enable({int intervalMinutes = 60, bool checkPermission = true}) async {
+    if (checkPermission) {
+      final hasPermission = await checkAndRequestPermission();
+      if (!hasPermission) {
+        debugPrint('Cannot enable lock screen feed: notification permission denied');
+        return false;
+      }
+    }
+
     final wasEnabled = _isEnabled;
     final prevInterval = _intervalMinutes;
     _isEnabled = true;
@@ -124,8 +155,11 @@ class LockScreenWordFeedService extends ChangeNotifier {
     _startPeriodicTimer();
     if (!wasEnabled || prevInterval != intervalMinutes || _currentCard == null) {
       await rotateNextWord();
+    } else if (_currentCard != null) {
+      await _publishNotification(_currentCard!, isBookmarked: _isCurrentBookmarked);
     }
     notifyListeners();
+    return true;
   }
 
   /// Disables the lock screen word feed and dismisses the ongoing notification.
@@ -218,9 +252,56 @@ class LockScreenWordFeedService extends ChangeNotifier {
         await prefs.setInt(_prefKeyCanonicalOffset, 0);
         await rotateNextWord(filterOverride);
         return;
+      } else if (filters.readingOrder == 'bookmarked') {
+        final fallbackFilters = filters.copyWith(readingOrder: 'random');
+        await rotateNextWord(fallbackFilters);
+        return;
+      } else {
+        // Fallback seed card when offline DB is still downloading or empty on first run
+        if (_currentCard == null) {
+          _currentCard = ScriptureCard(
+            id: 'seed_john_3_16',
+            bookNumber: 43,
+            bookName: 'John',
+            chapter: 3,
+            startVerse: 16,
+            endVerse: 16,
+            referenceLabel: 'John 3:16',
+            category: 'Salvation & Grace',
+            resolvedText:
+                'For God so loved the world, that He gave His only begotten Son, that whosoever believeth in Him should not perish, but have everlasting life.',
+            resolvedVersion: versionId,
+          );
+          _isCurrentBookmarked = await _checkIfBookmarked(_currentCard!);
+          await prefs.setString(
+              _prefKeyCurrentCard, jsonEncode(_currentCard!.toJson()));
+        }
+        if (_isEnabled) {
+          await _publishNotification(_currentCard!,
+              isBookmarked: _isCurrentBookmarked);
+        }
       }
     } catch (e) {
       debugPrint('LockScreenWordFeedService rotateNextWord error: $e');
+      if (_isEnabled) {
+        try {
+          _currentCard ??= ScriptureCard(
+            id: 'seed_john_3_16',
+            bookNumber: 43,
+            bookName: 'John',
+            chapter: 3,
+            startVerse: 16,
+            endVerse: 16,
+            referenceLabel: 'John 3:16',
+            category: 'Salvation & Grace',
+            resolvedText:
+                'For God so loved the world, that He gave His only begotten Son, that whosoever believeth in Him should not perish, but have everlasting life.',
+            resolvedVersion: 'KJV',
+          );
+          await _publishNotification(_currentCard!,
+              isBookmarked: _isCurrentBookmarked);
+        } catch (_) {}
+      }
     } finally {
       _isRotating = false;
       notifyListeners();
@@ -332,13 +413,25 @@ class LockScreenWordFeedService extends ChangeNotifier {
     final payload =
         '/bible?book=${Uri.encodeComponent(bookName)}&chapter=$chapter&verse=$verse&version=${Uri.encodeComponent(versionId)}';
 
+    // Delete obsolete low-importance notification channel if present on Android
+    try {
+      final androidPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.deleteNotificationChannel('${AppConfig.instanceId}_lockscreen_word_feed');
+    } catch (_) {}
+
     final androidDetails = AndroidNotificationDetails(
-      '${AppConfig.instanceId}_lockscreen_word_feed',
-      'Lock Screen Scripture Feed',
+      notificationChannelId,
+      notificationChannelName,
       channelDescription:
           'Ongoing scripture feed displayed on your lock screen matching active Word Feed filters',
-      importance: Importance.low,
-      priority: Priority.low,
+      // Importance.defaultImportance + Priority.defaultPriority ensures the OS renders
+      // it on the lock screen (Android hides low-importance "silent" notifications from lock screen by default)
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      playSound: false,
+      enableVibration: false,
+      channelShowBadge: false,
       // Public visibility ensures content is rendered on the lock screen without unlocking
       visibility: NotificationVisibility.public,
       ongoing: true,
@@ -373,7 +466,17 @@ class LockScreenWordFeedService extends ChangeNotifier {
       ],
     );
 
-    final platformDetails = NotificationDetails(android: androidDetails);
+    const darwinDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: false,
+      presentSound: false,
+    );
+
+    final platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: darwinDetails,
+      macOS: darwinDetails,
+    );
 
     await _notificationsPlugin.show(
       notificationId,

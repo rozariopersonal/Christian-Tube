@@ -75,6 +75,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
         page: 0,
       );
       if (mounted && generation == _loadGeneration) {
+        _boundaryKeys.clear();
         setState(() {
           _items = items;
           _isLoading = false;
@@ -462,7 +463,7 @@ class _MicroFeedScreenState<T, F extends BaseFeedFilterState>
         children: [
           // 1. Vertical PageView (ONLY content cards slide)
           PageView.builder(
-            key: const PageStorageKey('micro_feed_page_view'),
+            key: PageStorageKey('micro_feed_page_view_$_loadGeneration'),
             controller: _pageController,
             scrollDirection: Axis.vertical,
             itemCount: _items.length,

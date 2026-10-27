@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/theme/theme_service.dart';
@@ -348,6 +349,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             value: isEnabled,
                             activeThumbColor: theme.colorScheme.primary,
                             onChanged: (val) async {
+                              if (val) {
+                                final granted =
+                                    await lockService.checkAndRequestPermission();
+                                if (!granted) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                          'Notification permission is required to display scriptures on your lock screen.',
+                                        ),
+                                        action: SnackBarAction(
+                                          label: 'Settings',
+                                          onPressed: () => openAppSettings(),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                              }
                               await prefService.savePreferences(
                                 prefService.preferences.copyWith(
                                   lockScreenWordFeedEnabled: val,

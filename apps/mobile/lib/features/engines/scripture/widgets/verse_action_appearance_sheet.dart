@@ -60,7 +60,8 @@ class _VerseActionAppearanceSheetState extends State<VerseActionAppearanceSheet>
   }
 
   void _applyLiveChange() {
-    widget.card.customBackgroundPreset = _backgroundPresetId;
+    widget.card.customBackgroundPreset =
+        _applyToAll ? null : _backgroundPresetId;
     widget.card.customFontFamily = _applyToAll ? null : _fontFamily;
 
     final newState = widget.filterState.copyWith(
@@ -70,7 +71,9 @@ class _VerseActionAppearanceSheetState extends State<VerseActionAppearanceSheet>
       isBold: _isBold,
       isItalic: _isItalic,
       textAlign: _textAlign,
-      backgroundPreset: _backgroundPresetId,
+      backgroundPreset: _applyToAll
+          ? _backgroundPresetId
+          : widget.filterState.backgroundPreset,
     );
 
     widget.onFilterChanged(newState);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../controllers/downloads_controller.dart';
+import 'common/download_bundle_card.dart';
 
 class OverviewTab extends StatelessWidget {
   final DownloadsController controller;
@@ -215,74 +216,23 @@ class OverviewTab extends StatelessWidget {
               const SizedBox(height: 20),
 
               // 2. Core Study Essentials Bundle Card
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: tokens.surfaceVariant,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: tokens.surfaceBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.stars_rounded, color: tokens.accent, size: 22),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Core Study Essentials Bundle',
-                            style: TextStyle(
-                              color: tokens.onSurface,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Installs the foundational study package: Default Bible, Easton\'s 1897 Bible Dictionary, Strong\'s Concordance, and Complete Books & Commentaries (~15 MB total).',
-                      style: TextStyle(
-                        color: tokens.onSurfaceMuted,
-                        fontSize: 12.5,
-                        height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    if (state.isCoreBundleDownloading) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: state.coreBundleProgress > 0 ? state.coreBundleProgress : null,
-                          backgroundColor: tokens.surface,
-                          color: tokens.accent,
-                          minHeight: 6,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          'Downloading Bundle: ${(state.coreBundleProgress * 100).toInt()}%',
-                          style: TextStyle(color: tokens.accent, fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ] else
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: controller.downloadCoreBundle,
-                          icon: const Icon(Icons.download_rounded, size: 18),
-                          label: const Text('Download Core Study Bundle'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: tokens.accent,
-                            foregroundColor: tokens.background,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                  ],
+              DownloadBundleCard(
+                icon: Icons.stars_rounded,
+                title: 'Core Study Essentials Bundle',
+                description:
+                    'Installs the foundational study package: Default Bible, Easton\'s 1897 Bible Dictionary, Strong\'s Concordance, and Complete Books & Commentaries (~15 MB total).',
+                isDownloading: state.isCoreBundleDownloading,
+                progress: state.coreBundleProgress > 0 ? state.coreBundleProgress : null,
+                progressLabel: 'Downloading Bundle: ${(state.coreBundleProgress * 100).toInt()}%',
+                actionWidget: FilledButton.icon(
+                  onPressed: controller.downloadCoreBundle,
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: const Text('Download Core Study Bundle'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: tokens.accent,
+                    foregroundColor: tokens.background,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -374,6 +324,7 @@ class OverviewTab extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: tokens.onSurface,
@@ -422,16 +373,17 @@ class OverviewTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            color: tokens.onSurface,
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: tokens.onSurface,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       Container(

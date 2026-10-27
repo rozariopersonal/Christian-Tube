@@ -4,6 +4,7 @@ import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../models/scripture_filter_state.dart';
 import 'books_filter_sheet.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/services/lockscreen_word_feed_service.dart';
 import '../../../../core/services/user_preference_service.dart';
 
@@ -845,6 +846,26 @@ class _ScriptureFilterSettingsSheetState
                 value: isEnabled,
                 activeThumbColor: tokens.accent,
                 onChanged: (val) async {
+                  if (val) {
+                    final granted =
+                        await lockService.checkAndRequestPermission();
+                    if (!granted) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              'Notification permission is required to display scriptures on your lock screen.',
+                            ),
+                            action: SnackBarAction(
+                              label: 'Settings',
+                              onPressed: () => openAppSettings(),
+                            ),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+                  }
                   final prefService = UserPreferenceService.instance;
                   await prefService.savePreferences(
                     prefService.preferences.copyWith(

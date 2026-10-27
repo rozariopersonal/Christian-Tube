@@ -29,9 +29,18 @@ class FullPlayerBibleCta extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: () {
           Navigator.of(context).pop();
-          context.go(
-            '/bible?chapter=${track.scriptureChapter}',
-          );
+          final qp = <String, String>{};
+          if (track.scriptureBook != null && track.scriptureBook!.isNotEmpty) {
+            qp['book'] = track.scriptureBook!;
+          }
+          if (track.scriptureChapter != null) {
+            qp['chapter'] = track.scriptureChapter.toString();
+          }
+          if (track.scriptureVerse != null) {
+            qp['verse'] = track.scriptureVerse.toString();
+          }
+          final uri = Uri(path: '/bible', queryParameters: qp.isNotEmpty ? qp : null);
+          context.push(uri.toString());
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(
