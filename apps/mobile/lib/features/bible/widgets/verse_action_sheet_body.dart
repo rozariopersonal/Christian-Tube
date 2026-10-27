@@ -36,80 +36,139 @@ class VerseActionSheetBody extends StatelessWidget {
     final tokens = context.tokens;
     final textTheme = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.all(AppDimens.lg),
+      padding: const EdgeInsets.fromLTRB(AppDimens.lg, AppDimens.xs, AppDimens.lg, AppDimens.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceEvenly,
-            spacing: AppDimens.sm,
-            runSpacing: AppDimens.sm,
+          Row(
             children: [
-              _Action(
+              Expanded(
+                child: _Action(
                   icon: Icons.ios_share_rounded,
                   label: 'Share',
-                  onTap: onShare),
-              _Action(icon: Icons.copy_rounded, label: 'Copy', onTap: onCopy),
-              _Action(
+                  onTap: onShare,
+                ),
+              ),
+              Expanded(
+                child: _Action(
+                  icon: Icons.copy_rounded,
+                  label: 'Copy',
+                  onTap: onCopy,
+                ),
+              ),
+              Expanded(
+                child: _Action(
                   icon: isBookmarked
                       ? Icons.bookmark_rounded
                       : Icons.bookmark_add_outlined,
                   label: isBookmarked ? 'Bookmarked' : 'Bookmark',
-                  onTap: onBookmark),
-              _Action(
-                  icon: Icons.edit_note_rounded, label: 'Note', onTap: onNote),
+                  onTap: onBookmark,
+                ),
+              ),
+              Expanded(
+                child: _Action(
+                  icon: Icons.edit_note_rounded,
+                  label: 'Note',
+                  onTap: onNote,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: AppDimens.sm),
-          const Divider(),
-          Text('Highlight', style: textTheme.labelLarge),
-          const SizedBox(height: AppDimens.sm),
+          const SizedBox(height: 4),
           Wrap(
-            alignment: WrapAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppDimens.sm,
+            runSpacing: AppDimens.xs,
             children: [
-              for (var i = 0; i < HighlightPalette.count; i++)
-                Tooltip(
-                  message: HighlightPalette.nameFor(i),
-                  child: Semantics(
-                    label: 'Highlight color',
-                    button: true,
-                    selected: currentColorIndex == i,
-                    child: InkResponse(
-                      onTap: () => onHighlightColor != null
-                          ? onHighlightColor!(i)
-                          : onHighlight(),
-                      radius: AppDimens.xl,
-                      child: SizedBox.square(
-                        dimension: AppDimens.minTouchTarget,
-                        child: Center(
-                          child: Container(
-                            width: AppDimens.xxl,
-                            height: AppDimens.xxl,
-                            decoration: BoxDecoration(
-                              color: HighlightPalette.colorFor(i),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: tokens.surfaceBorder),
-                            ),
-                            child: currentColorIndex == i
-                                ? Icon(Icons.check,
-                                    color: HighlightPalette.onColorFor(i))
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ),
+              Text(
+                'Highlight',
+                style: textTheme.labelMedium?.copyWith(
+                  color: tokens.onSurfaceMuted,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              if (hasHighlight && onRemoveHighlight != null)
+                TextButton.icon(
+                  onPressed: onRemoveHighlight,
+                  icon: const Icon(Icons.format_color_reset, size: 16),
+                  label: const Text('Remove highlight'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                    textStyle: textTheme.labelSmall,
                   ),
                 ),
             ],
           ),
-          if (hasHighlight && onRemoveHighlight != null)
-            TextButton.icon(
-              onPressed: onRemoveHighlight,
-              icon: const Icon(Icons.format_color_reset),
-              label: const Text('Remove highlight'),
+          const SizedBox(height: 4),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var row = 0; row < 3; row++)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          for (var col = 0; col < 5; col++)
+                            _buildColorItem(context, row * 5 + col, tokens),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildColorItem(BuildContext context, int i, AppTokens tokens) {
+    return Tooltip(
+      message: HighlightPalette.nameFor(i),
+      child: Semantics(
+        label: 'Highlight color',
+        button: true,
+        selected: currentColorIndex == i,
+        child: InkResponse(
+          onTap: () => onHighlightColor != null
+              ? onHighlightColor!(i)
+              : onHighlight(),
+          radius: AppDimens.lg,
+          child: SizedBox.square(
+            dimension: 38,
+            child: Center(
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: HighlightPalette.colorFor(i),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: currentColorIndex == i
+                        ? tokens.onSurface
+                        : tokens.surfaceBorder,
+                    width: currentColorIndex == i ? 1.5 : 1.0,
+                  ),
+                ),
+                child: currentColorIndex == i
+                    ? Icon(
+                        Icons.check,
+                        size: 16,
+                        color: HighlightPalette.onColorFor(i),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -124,17 +183,25 @@ class _Action extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppDimens.radiusSm),
       child: Padding(
-        padding: const EdgeInsets.all(AppDimens.sm),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon),
-            const SizedBox(height: AppDimens.xs),
-            Text(label, style: Theme.of(context).textTheme.labelLarge),
+            Icon(icon, size: 22, color: tokens.onSurface),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),

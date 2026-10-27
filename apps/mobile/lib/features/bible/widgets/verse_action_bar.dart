@@ -147,7 +147,7 @@ class _VerseActionBarState extends State<VerseActionBar>
                       constraints: BoxConstraints(
                         maxWidth: 640,
                         maxHeight: math.min(
-                          370 + MediaQuery.paddingOf(context).bottom,
+                          310 + MediaQuery.paddingOf(context).bottom,
                           availableHeight * 0.85,
                         ),
                       ),
@@ -157,7 +157,10 @@ class _VerseActionBarState extends State<VerseActionBar>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Padding(
-                              padding: AppDimens.contentPadding,
+                              padding: const EdgeInsets.only(
+                                left: AppDimens.lg,
+                                right: AppDimens.xs,
+                              ),
                               child: Row(
                                 children: [
                                   Expanded(
@@ -166,8 +169,9 @@ class _VerseActionBarState extends State<VerseActionBar>
                                           '${widget.selectedCount} verses selected',
                                       style: Theme.of(context)
                                           .textTheme
-                                          .titleSmall,
-                                      maxLines: 2,
+                                          .titleSmall
+                                          ?.copyWith(fontWeight: FontWeight.bold),
+                                      maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -176,7 +180,8 @@ class _VerseActionBarState extends State<VerseActionBar>
                                       key: VerseActionBar.closeButtonKey,
                                       onPressed: _dismiss,
                                       tooltip: 'Deselect',
-                                      icon: const Icon(Icons.close_rounded),
+                                      icon: const Icon(Icons.close_rounded, size: 20),
+                                      visualDensity: VisualDensity.compact,
                                     ),
                                 ],
                               ),
@@ -199,17 +204,24 @@ class _VerseActionBarState extends State<VerseActionBar>
                             ),
                             if (widget.onStudy != null)
                               Padding(
-                                padding: AppDimens.contentPadding.copyWith(
-                                  bottom: AppDimens.sm,
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppDimens.lg,
+                                  AppDimens.xs,
+                                  AppDimens.lg,
+                                  AppDimens.sm,
                                 ),
                                 child: SizedBox(
                                   width: double.infinity,
+                                  height: 40,
                                   child: FilledButton.tonalIcon(
                                     key: VerseActionBar.studyPromptKey,
                                     onPressed: widget.onStudy,
-                                    icon:
-                                        const Icon(Icons.auto_stories_outlined),
+                                    icon: const Icon(Icons.auto_stories_outlined, size: 18),
                                     label: Text(widget.studyLabel ?? 'Open Verse Study'),
+                                    style: FilledButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    ),
                                   ),
                                 ),
                               ),
