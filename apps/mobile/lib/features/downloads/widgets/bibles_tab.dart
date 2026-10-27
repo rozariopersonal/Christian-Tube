@@ -25,6 +25,9 @@ class BiblesTab extends StatefulWidget {
 
 class _BiblesTabState extends State<BiblesTab> {
   late final TextEditingController _searchController;
+  bool _isMultiSelect = false;
+  final Set<String> _selectedIds = {};
+  String _sortBy = 'default';
 
   @override
   void initState() {
@@ -97,6 +100,17 @@ class _BiblesTabState extends State<BiblesTab> {
               .toList();
         }
 
+        // Sorting
+        if (_sortBy == 'name') {
+          bibles.sort((a, b) => a.name.compareTo(b.name));
+        } else if (_sortBy == 'installed') {
+          bibles.sort((a, b) {
+            final aInst = widget.controller.isBibleInstalled(a.id) ? 0 : 1;
+            final bInst = widget.controller.isBibleInstalled(b.id) ? 0 : 1;
+            return aInst.compareTo(bInst);
+          });
+        }
+
         final isWide = ScreenClass.of(context).isMediumOrExpanded;
 
         // Keep local search controller in sync if cleared externally
@@ -108,37 +122,17 @@ class _BiblesTabState extends State<BiblesTab> {
         }
 
         return MaxWidthBox(
-          child: CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    // 1. Study Datasets Header
-                    Text(
-                      'STUDY DATASETS',
-                      style: TextStyle(
-                        color: tokens.onSurfaceMuted,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Cross-References Card (Streamed On-Demand)
-                    _buildCrossRefsCard(tokens),
-                    const SizedBox(height: 10),
-
-                    // Theological Concepts (Study DB)
-                    _buildStudyDbCard(context, tokens),
-                    const SizedBox(height: 24),
-
-                    // 2. Translations Header & Controls
-                    Row(
-                      children: [
+          child: Stack(
+            children: [
+              CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.all(16),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        // 1. Study Datasets Header
                         Text(
-                          'BIBLE TRANSLATIONS',
+                          'STUDY DATASETS',
                           style: TextStyle(
                             color: tokens.onSurfaceMuted,
                             fontSize: 11.5,
@@ -146,77 +140,134 @@ class _BiblesTabState extends State<BiblesTab> {
                             letterSpacing: 0.8,
                           ),
                         ),
-                        const Spacer(),
-                        Text(
-                          '${bibles.length} Available',
-                          style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 11.5),
+                        const SizedBox(height: 10),
+
+                        // Cross-References Card (Streamed On-Demand)
+                        _buildCrossRefsCard(tokens),
+                        const SizedBox(height: 10),
+
+                        // Theological Concepts (Study DB)
+                        _buildStudyDbCard(context, tokens),
+                        const SizedBox(height: 24),
+
+                        // 2. Translations Header & Controls
+                        Row(
+                          children: [
+                            Text(
+                              _isMultiSelect
+                                  ? 'SELECT BIBLES (${_selectedIds.length})'
+                                  : 'BIBLE TRANSLATIONS',
+                              style: TextStyle(
+                                color: tokens.onSurfaceMuted,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const Spacer(),
+                            PopupMenuButton<String>(
+                              icon: Icon(Icons.sort_rounded, size: 18, color: tokens.onSurfaceMuted),
+                              tooltip: 'Sort translations',
+                              onSelected: (val) => setState(() => _sortBy = val),
+                              itemBuilder: (ctx) => [
+                                const PopupMenuItem(value: 'default', child: Text('Default Order')),
+                                const PopupMenuItem(value: 'name', child: Text('Name (A–Z)')),
+                                const PopupMenuItem(value: 'installed', child: Text('Installed First')),
+                              ],
+                            ),
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isMultiSelect = !_isMultiSelect;
+                                  if (!_isMultiSelect) _selectedIds.clear();
+                                });
+                              },
+                              icon: Icon(_isMultiSelect ? Icons.close : Icons.checklist_rounded, size: 16),
+                              label: Text(_isMultiSelect ? 'Done' : 'Select'),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                foregroundColor: tokens.accent,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
+                        const SizedBox(height: 10),
 
-                    // Search & Language Filter Bar
-                    DownloadFilterBar(
-                      searchController: _searchController,
-                      searchHint: 'Search translations, language, abbreviation…',
-                      onSearchChanged: widget.controller.setBibleSearch,
-                      categories: const ['All', 'English', 'Indian', 'European'],
-                      selectedCategory: state.bibleLanguageFilter,
-                      onCategorySelected: widget.controller.setBibleLanguageFilter,
-                      onlyInstalled: state.onlyInstalled,
-                      onToggleOnlyInstalled: widget.controller.toggleOnlyInstalled,
-                    ),
-                    const SizedBox(height: 14),
-                  ]),
-                ),
-              ),
-
-              // Empty state or Grid / List
-              if (bibles.isEmpty)
-                SliverToBoxAdapter(
-                  child: DownloadEmptyState(
-                    title: 'No translations found',
-                    subtitle: 'Try adjusting your search query or language filter.',
-                    onResetFilters: () {
-                      _searchController.clear();
-                      widget.controller.setBibleSearch('');
-                      widget.controller.setBibleLanguageFilter('All');
-                      if (widget.controller.state.onlyInstalled) {
-                        widget.controller.toggleOnlyInstalled();
-                      }
-                    },
-                  ),
-                )
-              else if (isWide)
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: GridExtents.bibleManager,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      mainAxisExtent: itemExtent,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => _buildBibleItem(context, bibles[index], tokens),
-                      childCount: bibles.length,
+                        // Search & Language Filter Bar
+                        DownloadFilterBar(
+                          searchController: _searchController,
+                          searchHint: 'Search translations, language, abbreviation…',
+                          onSearchChanged: widget.controller.setBibleSearch,
+                          categories: const ['All', 'English', 'Indian', 'European'],
+                          selectedCategory: state.bibleLanguageFilter,
+                          onCategorySelected: widget.controller.setBibleLanguageFilter,
+                          onlyInstalled: state.onlyInstalled,
+                          onToggleOnlyInstalled: widget.controller.toggleOnlyInstalled,
+                        ),
+                        const SizedBox(height: 14),
+                      ]),
                     ),
                   ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _buildBibleItem(context, bibles[index], tokens),
+
+                  // Empty state or Grid / List
+                  if (bibles.isEmpty)
+                    SliverToBoxAdapter(
+                      child: DownloadEmptyState(
+                        title: 'No translations found',
+                        subtitle: 'Try adjusting your search query or language filter.',
+                        onResetFilters: () {
+                          _searchController.clear();
+                          widget.controller.setBibleSearch('');
+                          widget.controller.setBibleLanguageFilter('All');
+                          if (widget.controller.state.onlyInstalled) {
+                            widget.controller.toggleOnlyInstalled();
+                          }
+                        },
                       ),
-                      childCount: bibles.length,
+                    )
+                  else if (isWide)
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: GridExtents.bibleManager,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          mainAxisExtent: itemExtent,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildBibleItem(context, bibles[index], tokens),
+                          childCount: bibles.length,
+                        ),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _buildBibleItem(context, bibles[index], tokens),
+                          ),
+                          childCount: bibles.length,
+                        ),
+                      ),
                     ),
-                  ),
+                  if (_isMultiSelect && _selectedIds.isNotEmpty)
+                    const SliverToBoxAdapter(child: SizedBox(height: 80))
+                  else
+                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ],
+              ),
+              if (_isMultiSelect && _selectedIds.isNotEmpty)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  child: _buildBatchActionBar(tokens, bibles),
                 ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
             ],
           ),
         );
@@ -392,6 +443,33 @@ class _BiblesTabState extends State<BiblesTab> {
     final isDefault = bible.id == BibleDownloadManager.defaultVersionId;
 
     return DownloadItemTile(
+      leading: _isMultiSelect
+          ? Checkbox(
+              value: _selectedIds.contains(bible.id),
+              activeColor: tokens.accent,
+              checkColor: tokens.background,
+              onChanged: (val) {
+                setState(() {
+                  if (val == true) {
+                    _selectedIds.add(bible.id);
+                  } else {
+                    _selectedIds.remove(bible.id);
+                  }
+                });
+              },
+            )
+          : null,
+      onTap: _isMultiSelect
+          ? () {
+              setState(() {
+                if (_selectedIds.contains(bible.id)) {
+                  _selectedIds.remove(bible.id);
+                } else {
+                  _selectedIds.add(bible.id);
+                }
+              });
+            }
+          : null,
       title: bible.name,
       badgeText: isDefault ? 'PROTECTED' : null,
       subtitle: '${bible.language} • ${bible.id} • ${bible.sizeDisplay}',
@@ -399,29 +477,128 @@ class _BiblesTabState extends State<BiblesTab> {
       isDownloading: isDownloading,
       downloadProgress: progress,
       isIndeterminate: widget.controller.isBibleIndeterminate(bible.id),
-      trailing: DownloadActionButton(
-        isInstalled: isInstalled,
-        isDownloading: isDownloading,
-        progress: progress,
-        isIndeterminate: widget.controller.isBibleIndeterminate(bible.id),
-        isProtected: isDefault,
-        onDownload: () => widget.controller.downloadBible(bible),
-        onDelete: () async {
-          final confirm = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: Text('Delete ${bible.name}?'),
-              content: const Text('This Bible translation will be removed from your device.'),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
-              ],
+      trailing: bible.isOnlineOnly
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: tokens.surfaceVariant,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: tokens.surfaceBorder),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.cloud_outlined, size: 14, color: tokens.onSurfaceMuted),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Online Only',
+                    style: TextStyle(
+                      color: tokens.onSurfaceMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : DownloadActionButton(
+              isInstalled: isInstalled,
+              isDownloading: isDownloading,
+              progress: progress,
+              isIndeterminate: widget.controller.isBibleIndeterminate(bible.id),
+              isProtected: isDefault,
+              onDownload: () => widget.controller.downloadBible(bible),
+              onDelete: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text('Delete ${bible.name}?'),
+                    content: const Text('This Bible translation will be removed from your device.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await widget.controller.deleteBible(bible.id);
+                }
+              },
             ),
-          );
-          if (confirm == true) {
-            await widget.controller.deleteBible(bible.id);
-          }
-        },
+    );
+  }
+
+  Widget _buildBatchActionBar(AppTokens tokens, List<BibleVersionMeta> bibles) {
+    final selectedBibles = bibles.where((b) => _selectedIds.contains(b.id)).toList();
+    final downloadable = selectedBibles.where((b) => !b.isOnlineOnly && !widget.controller.isBibleInstalled(b.id)).toList();
+    final deletable = selectedBibles.where((b) => widget.controller.isBibleInstalled(b.id) && b.id != BibleDownloadManager.defaultVersionId).toList();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: tokens.surfaceElevated,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tokens.surfaceBorder),
+        boxShadow: [
+          BoxShadow(
+            color: tokens.scrim.withValues(alpha: 0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${_selectedIds.length} selected',
+              style: TextStyle(
+                color: tokens.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          if (downloadable.isNotEmpty)
+            FilledButton.icon(
+              onPressed: () async {
+                final toDownload = List<BibleVersionMeta>.from(downloadable);
+                setState(() {
+                  _isMultiSelect = false;
+                  _selectedIds.clear();
+                });
+                await widget.controller.batchDownloadBibles(toDownload);
+              },
+              icon: const Icon(Icons.download_rounded, size: 16),
+              label: Text('Download (${downloadable.length})'),
+              style: FilledButton.styleFrom(
+                backgroundColor: tokens.accent,
+                foregroundColor: tokens.background,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+          if (downloadable.isNotEmpty && deletable.isNotEmpty)
+            const SizedBox(width: 8),
+          if (deletable.isNotEmpty)
+            OutlinedButton.icon(
+              onPressed: () async {
+                final toDelete = deletable.map((b) => b.id).toList();
+                setState(() {
+                  _isMultiSelect = false;
+                  _selectedIds.clear();
+                });
+                await widget.controller.batchDeleteBibles(toDelete);
+              },
+              icon: const Icon(Icons.delete_outline, size: 16),
+              label: Text('Delete (${deletable.length})'),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: tokens.onSurfaceMuted,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+        ],
       ),
     );
   }

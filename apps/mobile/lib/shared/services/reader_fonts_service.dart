@@ -209,6 +209,28 @@ class ReaderFontsService extends ChangeNotifier {
     }
   }
 
+  /// Removes all downloaded font files from disk.
+  Future<void> removeAllDownloadedFonts() async {
+    if (kIsWeb) return;
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final folder = Directory(p.join(dir.path, 'reader_fonts'));
+      if (await folder.exists()) {
+        final entities = folder.listSync();
+        for (final entity in entities) {
+          if (entity is File && entity.path.endsWith('.ttf')) {
+            await entity.delete();
+          }
+        }
+      }
+      _memoryCache.clear();
+      _installedCache.clear();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('ReaderFontsService: failed to clear fonts: $e');
+    }
+  }
+
   /// Downloads all fonts for a specific [languageCode] concurrently.
   Future<void> downloadAllForLanguage(String languageCode, {String? category}) async {
     final fonts = ScriptureThemeCatalog.getFontsForLanguage(languageCode);

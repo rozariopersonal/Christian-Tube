@@ -225,9 +225,6 @@ class GitHubDataService {
   static List<String> commentaryUrls(int bookNumber, int chapter) =>
       ReleaseAssets.urlsFor('commentaries/$bookNumber/$chapter.json');
 
-  /// Complete historical and cultural context background notes dataset.
-  static List<String> bibleBackgroundUrls() =>
-      ReleaseAssets.urlsFor('data/bible_backgrounds.json');
 
   // ── Dictionaries ──────────────────────────────────────────────────────────
 

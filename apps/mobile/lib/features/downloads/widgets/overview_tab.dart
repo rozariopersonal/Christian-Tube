@@ -3,6 +3,8 @@ import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../controllers/downloads_controller.dart';
 import 'common/download_bundle_card.dart';
+import 'common/language_packs_card.dart';
+import 'common/smart_storage_cleanup_sheet.dart';
 
 class OverviewTab extends StatelessWidget {
   final DownloadsController controller;
@@ -81,6 +83,11 @@ class OverviewTab extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.cleaning_services_outlined, color: tokens.onSurfaceMuted),
+                          tooltip: 'Smart Storage Cleaner',
+                          onPressed: () => SmartStorageCleanupSheet.show(context, controller),
                         ),
                         IconButton(
                           icon: Icon(Icons.refresh, color: tokens.onSurfaceMuted),
@@ -237,6 +244,10 @@ class OverviewTab extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
+              // 3. Language Offline Packs
+              LanguagePacksCard(controller: controller),
+              const SizedBox(height: 20),
+
               // 3. Quick Navigation Tiles
               _buildNavTile(
                 title: 'Bible Translations & Study Tools',
@@ -248,7 +259,7 @@ class OverviewTab extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _buildNavTile(
-                title: 'Offline Dictionaries (13 Available)',
+                title: 'Offline Dictionaries (${state.dictionaries.length} Available)',
                 subtitle: 'Strong\'s Greek/Hebrew, Easton\'s Dictionary, Indian languages (Tamil, Telugu, Hindi) & global lexicons.',
                 icon: Icons.spellcheck_rounded,
                 badge: '${storage.dictsCount} installed',
