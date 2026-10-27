@@ -147,7 +147,7 @@ class _VerseActionBarState extends State<VerseActionBar>
                       constraints: BoxConstraints(
                         maxWidth: 640,
                         maxHeight: math.min(
-                          310 + MediaQuery.paddingOf(context).bottom,
+                          320 + MediaQuery.paddingOf(context).bottom,
                           availableHeight * 0.85,
                         ),
                       ),
@@ -157,22 +157,57 @@ class _VerseActionBarState extends State<VerseActionBar>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.only(
-                                left: AppDimens.lg,
-                                right: AppDimens.xs,
+                              padding: const EdgeInsets.fromLTRB(
+                                AppDimens.lg,
+                                AppDimens.xs,
+                                AppDimens.xs,
+                                0,
                               ),
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      widget.verseLabel ??
-                                          '${widget.selectedCount} verses selected',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall
-                                          ?.copyWith(fontWeight: FontWeight.bold),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: tokens.surfaceVariant
+                                              .withValues(alpha: 0.6),
+                                          borderRadius: BorderRadius.circular(
+                                            AppDimens.radiusSm,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.menu_book_rounded,
+                                              size: 14,
+                                              color: context.accent,
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Flexible(
+                                              child: Text(
+                                                widget.verseLabel ??
+                                                    '${widget.selectedCount} verses selected',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .labelMedium
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      letterSpacing: -0.2,
+                                                    ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   if (widget.onClear != null)
@@ -180,7 +215,8 @@ class _VerseActionBarState extends State<VerseActionBar>
                                       key: VerseActionBar.closeButtonKey,
                                       onPressed: _dismiss,
                                       tooltip: 'Deselect',
-                                      icon: const Icon(Icons.close_rounded, size: 20),
+                                      icon: const Icon(Icons.close_rounded,
+                                          size: 18),
                                       visualDensity: VisualDensity.compact,
                                     ),
                                 ],
@@ -213,14 +249,47 @@ class _VerseActionBarState extends State<VerseActionBar>
                                 child: SizedBox(
                                   width: double.infinity,
                                   height: 40,
-                                  child: FilledButton.tonalIcon(
+                                  child: FilledButton.tonal(
                                     key: VerseActionBar.studyPromptKey,
                                     onPressed: widget.onStudy,
-                                    icon: const Icon(Icons.auto_stories_outlined, size: 18),
-                                    label: Text(widget.studyLabel ?? 'Open Verse Study'),
                                     style: FilledButton.styleFrom(
                                       visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          AppDimens.radiusMd,
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.auto_stories_outlined,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            widget.studyLabel ??
+                                                'Open Verse Study',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 18,
+                                          color: tokens.onSurfaceMuted,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
