@@ -52,6 +52,9 @@ class GlossaryEntry {
   final List<String> seeAlso;
   final List<String> refs;
   final int occurrenceCount;
+  final int surfaceCount;
+  final String? firstRef;
+  final String? lastRef;
 
   bool get hasDeepLexicon =>
       (strongs != null && strongs!.isNotEmpty) ||
@@ -83,6 +86,9 @@ class GlossaryEntry {
     this.seeAlso = const [],
     this.refs = const [],
     this.occurrenceCount = 0,
+    this.surfaceCount = 0,
+    this.firstRef,
+    this.lastRef,
   });
 
   /// Resolves the Tamil grammatical part of speech from the English tag.
@@ -128,6 +134,9 @@ class GlossaryEntry {
   factory GlossaryEntry.fromUniqueWord(
     Map<String, dynamic> map, {
     int occurrenceCount = 0,
+    int surfaceCount = 0,
+    String? firstRef,
+    String? lastRef,
     List<String> refs = const [],
   }) {
     final surface = (map['surface_form'] as String? ?? '').trim();
@@ -153,6 +162,9 @@ class GlossaryEntry {
       forms: surface.isNotEmpty ? [surface] : const [],
       refs: refs,
       occurrenceCount: occurrenceCount,
+      surfaceCount: surfaceCount,
+      firstRef: firstRef,
+      lastRef: lastRef,
     );
   }
 
@@ -264,6 +276,9 @@ class GlossaryEntry {
       seeAlso: parseStringList(map['see_also']),
       refs: parseStringList(map['refs']),
       occurrenceCount: map['occurrence_count'] as int? ?? 0,
+      surfaceCount: map['surface_count'] as int? ?? 0,
+      firstRef: map['first_ref'] as String?,
+      lastRef: map['last_ref'] as String?,
     );
   }
 
@@ -293,5 +308,8 @@ class GlossaryEntry {
         'see_also': jsonEncode(seeAlso),
         'refs': jsonEncode(refs),
         'occurrence_count': occurrenceCount,
+        'surface_count': surfaceCount,
+        'first_ref': firstRef,
+        'last_ref': lastRef,
       };
 }

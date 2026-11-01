@@ -275,12 +275,19 @@ class GlossaryService {
           if (rows.isNotEmpty) {
             final r = rows.first;
             final wordId = r['id'];
-            final occCount = await _getWordOccurrenceCount(db, wordId);
-            final sampleRefs = await _getWordSampleRefs(db, wordId);
+            final canonical = r['canonical'] as String? ?? word;
+            final concordance = await _getLemmaConcordanceOnTheFly(
+              db,
+              wordId: wordId,
+              canonical: canonical,
+            );
             return GlossaryEntry.fromUniqueWord(
               r,
-              occurrenceCount: occCount,
-              refs: sampleRefs,
+              occurrenceCount: concordance.lemmaCount,
+              surfaceCount: concordance.surfaceCount,
+              firstRef: concordance.firstRef,
+              lastRef: concordance.lastRef,
+              refs: concordance.sampleRefs,
             );
           }
         } catch (_) {}
@@ -305,12 +312,19 @@ class GlossaryService {
         if (rows.isNotEmpty) {
           final r = rows.first;
           final wordId = r['id'];
-          final occCount = await _getWordOccurrenceCount(db, wordId);
-          final sampleRefs = await _getWordSampleRefs(db, wordId);
+          final canonical = r['canonical'] as String? ?? word;
+          final concordance = await _getLemmaConcordanceOnTheFly(
+            db,
+            wordId: wordId,
+            canonical: canonical,
+          );
           return GlossaryEntry.fromUniqueWord(
             r,
-            occurrenceCount: occCount,
-            refs: sampleRefs,
+            occurrenceCount: concordance.lemmaCount,
+            surfaceCount: concordance.surfaceCount,
+            firstRef: concordance.firstRef,
+            lastRef: concordance.lastRef,
+            refs: concordance.sampleRefs,
           );
         }
       } catch (_) {}
@@ -461,82 +475,164 @@ class GlossaryService {
     }
   }
 
-  Future<int> _getWordOccurrenceCount(Database db, Object? wordId) async {
+  Future<_LemmaConcordance> _getLemmaConcordanceOnTheFly(
+    Database db, {
+    required Object? wordId,
+    required String canonical,
+  }) async {
+    int lemmaCount = 0;
+    int surfaceCount = 0;
+    String? firstRef;
+    String? lastRef;
+    final List<String> sampleRefs = [];
+
+    final cleanCanonical = cleanWord(canonical);
+    if (cleanCanonical.isEmpty) {
+      return const _LemmaConcordance(
+        lemmaCount: 1,
+        surfaceCount: 1,
+        sampleRefs: [],
+      );
+    }
+
     try {
+      // 1. Lemma total count across the Bible
+      final lemmaCountRes = await db.rawQuery(
+        '''
+        SELECT count(*) as cnt
+        FROM verse_tokens vt
+        JOIN unique_words u ON vt.word_id = u.id
+        WHERE u.canonical = ?
+        ''',
+        [cleanCanonical],
+      );
+      if (lemmaCountRes.isNotEmpty && lemmaCountRes.first['cnt'] != null) {
+        lemmaCount = (lemmaCountRes.first['cnt'] as num).toInt();
+      }
+
+      // 2. Specific surface count if wordId is known
       if (wordId != null) {
-        final res = await db.rawQuery(
+        final surfaceRes = await db.rawQuery(
           'SELECT count(*) as cnt FROM verse_tokens WHERE word_id = ?',
           [wordId],
         );
-        if (res.isNotEmpty && res.first['cnt'] != null) {
-          return (res.first['cnt'] as num).toInt();
+        if (surfaceRes.isNotEmpty && surfaceRes.first['cnt'] != null) {
+          surfaceCount = (surfaceRes.first['cnt'] as num).toInt();
         }
+      } else {
+        surfaceCount = lemmaCount;
       }
-    } catch (_) {}
-    return 1;
-  }
 
-  Future<List<String>> _getWordSampleRefs(Database db, Object? wordId) async {
-    try {
-      if (wordId != null) {
-        final rows = await db.rawQuery(
-          'SELECT book, chapter, verse FROM verse_tokens WHERE word_id = ? LIMIT 8',
-          [wordId],
-        );
-        return rows
-            .map((r) => '${r['book']}:${r['chapter']}:${r['verse']}')
-            .toList();
+      // 3. First verse reference in canon order
+      final firstRow = await db.rawQuery(
+        '''
+        SELECT vt.book, vt.chapter, vt.verse
+        FROM verse_tokens vt
+        JOIN unique_words u ON vt.word_id = u.id
+        WHERE u.canonical = ?
+        ORDER BY vt.book ASC, vt.chapter ASC, vt.verse ASC
+        LIMIT 1
+        ''',
+        [cleanCanonical],
+      );
+      if (firstRow.isNotEmpty) {
+        final r = firstRow.first;
+        firstRef = '${r['book']}:${r['chapter']}:${r['verse']}';
       }
-    } catch (_) {}
-    return const [];
+
+      // 4. Last verse reference in canon order
+      final lastRow = await db.rawQuery(
+        '''
+        SELECT vt.book, vt.chapter, vt.verse
+        FROM verse_tokens vt
+        JOIN unique_words u ON vt.word_id = u.id
+        WHERE u.canonical = ?
+        ORDER BY vt.book DESC, vt.chapter DESC, vt.verse DESC
+        LIMIT 1
+        ''',
+        [cleanCanonical],
+      );
+      if (lastRow.isNotEmpty) {
+        final r = lastRow.first;
+        lastRef = '${r['book']}:${r['chapter']}:${r['verse']}';
+      }
+
+      // 5. Distinct sample verse references across the canon
+      final sampleRows = await db.rawQuery(
+        '''
+        SELECT DISTINCT vt.book, vt.chapter, vt.verse
+        FROM verse_tokens vt
+        JOIN unique_words u ON vt.word_id = u.id
+        WHERE u.canonical = ?
+        ORDER BY vt.book ASC, vt.chapter ASC, vt.verse ASC
+        LIMIT 6
+        ''',
+        [cleanCanonical],
+      );
+      for (final r in sampleRows) {
+        sampleRefs.add('${r['book']}:${r['chapter']}:${r['verse']}');
+      }
+    } catch (e) {
+      debugPrint('GlossaryService: Failed to compute on-the-fly concordance: $e');
+    }
+
+    return _LemmaConcordance(
+      lemmaCount: lemmaCount > 0 ? lemmaCount : 1,
+      surfaceCount: surfaceCount > 0 ? surfaceCount : 1,
+      firstRef: firstRef,
+      lastRef: lastRef,
+      sampleRefs: sampleRefs,
+    );
   }
 
   Future<GlossaryEntry> _enrichEntryWithConcordance(GlossaryEntry entry) async {
-    if (entry.occurrenceCount > 1 && entry.refs.length > 1) {
-      return entry;
-    }
     final db = await _getDatabase();
     if (db == null) return entry;
     try {
+      final canonical = entry.canonical.isNotEmpty ? entry.canonical : entry.headword;
       final rows = await db.query(
         'unique_words',
         columns: ['id'],
         where: 'surface_form = ? OR canonical = ?',
-        whereArgs: [entry.headword, entry.canonical.isNotEmpty ? entry.canonical : entry.headword],
+        whereArgs: [entry.headword, canonical],
         limit: 1,
       );
-      if (rows.isNotEmpty) {
-        final wordId = rows.first['id'];
-        final occCount = await _getWordOccurrenceCount(db, wordId);
-        final sampleRefs = await _getWordSampleRefs(db, wordId);
-        return GlossaryEntry(
-          id: entry.id,
-          headword: entry.headword,
-          canonical: entry.canonical,
-          transliteration: entry.transliteration,
-          pos: entry.pos,
-          posTa: entry.posTa,
-          category: entry.category,
-          glossEn: entry.glossEn,
-          definitionTa: entry.definitionTa,
-          definitionEn: entry.definitionEn,
-          originalLang: entry.originalLang,
-          originalLemma: entry.originalLemma,
-          originalTranslit: entry.originalTranslit,
-          strongs: entry.strongs,
-          englishWord: entry.englishWord,
-          rootDefinitionTa: entry.rootDefinitionTa,
-          rootDefinitionEn: entry.rootDefinitionEn,
-          originalContext: entry.originalContext,
-          modernEquivalents: entry.modernEquivalents,
-          forms: entry.forms,
-          notes: entry.notes,
-          examples: entry.examples,
-          seeAlso: entry.seeAlso,
-          refs: sampleRefs.isNotEmpty ? sampleRefs : entry.refs,
-          occurrenceCount: occCount > 0 ? occCount : entry.occurrenceCount,
-        );
-      }
+      final wordId = rows.isNotEmpty ? rows.first['id'] : null;
+      final concordance = await _getLemmaConcordanceOnTheFly(
+        db,
+        wordId: wordId,
+        canonical: canonical,
+      );
+      return GlossaryEntry(
+        id: entry.id,
+        headword: entry.headword,
+        canonical: entry.canonical,
+        transliteration: entry.transliteration,
+        pos: entry.pos,
+        posTa: entry.posTa,
+        category: entry.category,
+        glossEn: entry.glossEn,
+        definitionTa: entry.definitionTa,
+        definitionEn: entry.definitionEn,
+        originalLang: entry.originalLang,
+        originalLemma: entry.originalLemma,
+        originalTranslit: entry.originalTranslit,
+        strongs: entry.strongs,
+        englishWord: entry.englishWord,
+        rootDefinitionTa: entry.rootDefinitionTa,
+        rootDefinitionEn: entry.rootDefinitionEn,
+        originalContext: entry.originalContext,
+        modernEquivalents: entry.modernEquivalents,
+        forms: entry.forms,
+        notes: entry.notes,
+        examples: entry.examples,
+        seeAlso: entry.seeAlso,
+        refs: concordance.sampleRefs.isNotEmpty ? concordance.sampleRefs : entry.refs,
+        occurrenceCount: concordance.lemmaCount,
+        surfaceCount: concordance.surfaceCount,
+        firstRef: concordance.firstRef ?? entry.firstRef,
+        lastRef: concordance.lastRef ?? entry.lastRef,
+      );
     } catch (_) {}
     return entry;
   }
@@ -548,4 +644,20 @@ class GlossaryService {
       _db = null;
     }
   }
+}
+
+class _LemmaConcordance {
+  final int lemmaCount;
+  final int surfaceCount;
+  final String? firstRef;
+  final String? lastRef;
+  final List<String> sampleRefs;
+
+  const _LemmaConcordance({
+    required this.lemmaCount,
+    required this.surfaceCount,
+    this.firstRef,
+    this.lastRef,
+    required this.sampleRefs,
+  });
 }
