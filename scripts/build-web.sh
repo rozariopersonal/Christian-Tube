@@ -12,9 +12,10 @@ OUTPUT_DIR="$ROOT_DIR/.vercel/output"
 
 echo "==> Building Flutter web for instance: $INSTANCE_ID"
 
-# Install Flutter SDK if not cached
-if [ ! -d "$FLUTTER_DIR" ]; then
+# Install Flutter SDK if not cached or incomplete
+if [ ! -x "$FLUTTER_DIR/bin/flutter" ]; then
   echo "==> Downloading Flutter $FLUTTER_VERSION ($FLUTTER_CHANNEL)..."
+  rm -rf "$FLUTTER_DIR"
   git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$FLUTTER_DIR"
 fi
 
@@ -60,7 +61,8 @@ cp -R "$WEB_BUILD/." "$OUTPUT_DIR/static/"
 cp "$ROOT_DIR/serverless/og.js" "$OUTPUT_DIR/functions/og.func/index.js"
 cat > "$OUTPUT_DIR/functions/og.func/.vc-config.json" <<'VC'
 {
-  "runtime": "edge"
+  "runtime": "edge",
+  "entrypoint": "index.js"
 }
 VC
 

@@ -93,4 +93,5 @@ envs/*.env
 !envs/*.example
 scratch_work/
 .render_token
-
+.vercel/
+.env*
