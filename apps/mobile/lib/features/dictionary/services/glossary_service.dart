@@ -38,6 +38,9 @@ class GlossaryService {
       final candidates = [
         p.join(dbDir, 'dict_ta_glossary.sqlite'),
         p.join(dbDir, 'taobvsi_glossary.sqlite'),
+        'releases/study/taobvsi/taobvsi_glossary.sqlite',
+        '../releases/study/taobvsi/taobvsi_glossary.sqlite',
+        '../../releases/study/taobvsi/taobvsi_glossary.sqlite',
       ];
       for (final path in candidates) {
         final file = File(path);
@@ -66,6 +69,9 @@ class GlossaryService {
       final candidates = [
         p.join(dbDir, 'dict_ta_glossary.sqlite'),
         p.join(dbDir, 'taobvsi_glossary.sqlite'),
+        'releases/study/taobvsi/taobvsi_glossary.sqlite',
+        '../releases/study/taobvsi/taobvsi_glossary.sqlite',
+        '../../releases/study/taobvsi/taobvsi_glossary.sqlite',
       ];
 
       String? validPath;
@@ -126,7 +132,34 @@ class GlossaryService {
       }
     } catch (_) {}
 
-    // 2. Fetch live via GitHubDataService
+    // 2. Try querying local SQLite database (unique_words & verse_tokens)
+    final db = await _getDatabase();
+    if (db != null) {
+      try {
+        final rows = await db.rawQuery('''
+          SELECT vt.verse, vt.word_index, vt.raw_token, u.id, u.surface_form, u.pos, u.canonical, u.modern_equivalent, u.english_word, u.definition_ta
+          FROM verse_tokens vt
+          JOIN unique_words u ON vt.word_id = u.id
+          WHERE vt.book = ? AND vt.chapter = ?
+          ORDER BY vt.verse, vt.word_index
+        ''', [book, chapter]);
+        if (rows.isNotEmpty) {
+          final entries = rows.map((r) {
+            final v = (r['verse'] as num?)?.toInt() ?? 1;
+            return GlossaryEntry.fromUniqueWord(
+              r,
+              refs: ['$book:$chapter:$v'],
+            );
+          }).toList();
+          _chapterWordsCache[key] = entries;
+          return entries;
+        }
+      } catch (e) {
+        debugPrint('GlossaryService: Failed to query chapter tokens from SQLite: $e');
+      }
+    }
+
+    // 3. Fetch live via GitHubDataService
     final urls = GitHubDataService.wordsChapterUrls(versionId, book, chapter);
     for (final url in urls) {
       try {
@@ -202,16 +235,18 @@ class GlossaryService {
             if (entry.refs.contains(targetRef) &&
                 (entry.forms.contains(word) ||
                  cleanWord(entry.headword) == word ||
+                 cleanWord(entry.canonical) == word ||
                  cleanWord(entry.id) == word)) {
-              return entry;
+              return await _enrichEntryWithConcordance(entry);
             }
           }
         }
         for (final entry in chapterEntries) {
           if (entry.forms.contains(word) ||
               cleanWord(entry.headword) == word ||
+              cleanWord(entry.canonical) == word ||
               cleanWord(entry.id) == word) {
-            return entry;
+            return await _enrichEntryWithConcordance(entry);
           }
         }
       }
@@ -222,7 +257,65 @@ class GlossaryService {
     if (db == null) return null;
 
     try {
-      // 2a. Query verse_words if book, chapter, and verse are known
+      // 2a. Modern normalized schema: verse_tokens JOIN unique_words
+      if (book != null && chapter != null) {
+        try {
+          final query = '''
+            SELECT u.*, vt.book, vt.chapter, vt.verse
+            FROM verse_tokens vt
+            JOIN unique_words u ON vt.word_id = u.id
+            WHERE vt.book = ? AND vt.chapter = ? ${verse != null ? 'AND vt.verse = ?' : ''}
+              AND (u.surface_form = ? OR vt.raw_token = ? OR u.canonical = ?)
+            LIMIT 1
+          ''';
+          final args = verse != null
+              ? [book, chapter, verse, word, word, word]
+              : [book, chapter, word, word, word];
+          final rows = await db.rawQuery(query, args);
+          if (rows.isNotEmpty) {
+            final r = rows.first;
+            final wordId = r['id'];
+            final occCount = await _getWordOccurrenceCount(db, wordId);
+            final sampleRefs = await _getWordSampleRefs(db, wordId);
+            return GlossaryEntry.fromUniqueWord(
+              r,
+              occurrenceCount: occCount,
+              refs: sampleRefs,
+            );
+          }
+        } catch (_) {}
+      }
+
+      // 2b. Direct surface_form or canonical match in unique_words
+      try {
+        var rows = await db.query(
+          'unique_words',
+          where: 'surface_form = ?',
+          whereArgs: [word],
+          limit: 1,
+        );
+        if (rows.isEmpty) {
+          rows = await db.query(
+            'unique_words',
+            where: 'canonical = ?',
+            whereArgs: [word],
+            limit: 1,
+          );
+        }
+        if (rows.isNotEmpty) {
+          final r = rows.first;
+          final wordId = r['id'];
+          final occCount = await _getWordOccurrenceCount(db, wordId);
+          final sampleRefs = await _getWordSampleRefs(db, wordId);
+          return GlossaryEntry.fromUniqueWord(
+            r,
+            occurrenceCount: occCount,
+            refs: sampleRefs,
+          );
+        }
+      } catch (_) {}
+
+      // 2c. Legacy table: verse_words
       if (book != null && chapter != null) {
         try {
           final List<Map<String, Object?>> vwRows;
@@ -246,6 +339,7 @@ class GlossaryService {
             return GlossaryEntry(
               id: r['entry_id'] as String? ?? (r['canonical'] as String? ?? word),
               headword: r['canonical'] as String? ?? word,
+              canonical: r['canonical'] as String? ?? word,
               transliteration: r['original_translit'] as String? ?? '',
               pos: 'noun',
               posTa: 'சொல்',
@@ -270,73 +364,77 @@ class GlossaryService {
         } catch (_) {}
       }
 
-      // 2b. Direct surface form mapping (resolves inflected Tamil words in 0.1ms)
-      final surfaceRows = await db.query(
-        'surface_forms',
-        columns: ['entry_id'],
-        where: 'surface_form = ?',
-        whereArgs: [word],
-        limit: 1,
-      );
-
-      if (surfaceRows.isNotEmpty) {
-        final entryId = surfaceRows.first['entry_id'] as String;
-        final entryRows = await db.query(
-          'glossary_entries',
-          where: 'id = ?',
-          whereArgs: [entryId],
+      // 2d. Legacy direct surface form mapping
+      try {
+        final surfaceRows = await db.query(
+          'surface_forms',
+          columns: ['entry_id'],
+          where: 'surface_form = ?',
+          whereArgs: [word],
           limit: 1,
         );
-        if (entryRows.isNotEmpty) {
-          return GlossaryEntry.fromMap(entryRows.first);
+
+        if (surfaceRows.isNotEmpty) {
+          final entryId = surfaceRows.first['entry_id'] as String;
+          final entryRows = await db.query(
+            'glossary_entries',
+            where: 'id = ?',
+            whereArgs: [entryId],
+            limit: 1,
+          );
+          if (entryRows.isNotEmpty) {
+            return GlossaryEntry.fromMap(entryRows.first);
+          }
         }
-      }
+      } catch (_) {}
 
-      // 2c. Headword match
-      var rows = await db.query(
-        'glossary_entries',
-        where: 'headword = ? COLLATE NOCASE',
-        whereArgs: [word],
-        limit: 1,
-      );
-      if (rows.isNotEmpty) {
-        return GlossaryEntry.fromMap(rows.first);
-      }
+      // 2e. Legacy Headword match
+      try {
+        var rows = await db.query(
+          'glossary_entries',
+          where: 'headword = ? COLLATE NOCASE',
+          whereArgs: [word],
+          limit: 1,
+        );
+        if (rows.isNotEmpty) {
+          return GlossaryEntry.fromMap(rows.first);
+        }
 
-      // 2d. ID match
-      rows = await db.query(
-        'glossary_entries',
-        where: 'id = ?',
-        whereArgs: [word],
-        limit: 1,
-      );
-      if (rows.isNotEmpty) {
-        return GlossaryEntry.fromMap(rows.first);
-      }
+        // 2f. ID match
+        rows = await db.query(
+          'glossary_entries',
+          where: 'id = ?',
+          whereArgs: [word],
+          limit: 1,
+        );
+        if (rows.isNotEmpty) {
+          return GlossaryEntry.fromMap(rows.first);
+        }
 
-      // 2e. Transliteration match
-      rows = await db.query(
-        'glossary_entries',
-        where: 'transliteration = ? COLLATE NOCASE',
-        whereArgs: [word],
-        limit: 1,
-      );
-      if (rows.isNotEmpty) {
-        return GlossaryEntry.fromMap(rows.first);
-      }
+        // 2g. Transliteration match
+        rows = await db.query(
+          'glossary_entries',
+          where: 'transliteration = ? COLLATE NOCASE',
+          whereArgs: [word],
+          limit: 1,
+        );
+        if (rows.isNotEmpty) {
+          return GlossaryEntry.fromMap(rows.first);
+        }
 
-      // 2f. English gloss match
-      rows = await db.query(
-        'glossary_entries',
-        where: 'gloss_en LIKE ? OR english_word LIKE ?',
-        whereArgs: ['%$word%', '%$word%'],
-        limit: 1,
-      );
-      if (rows.isNotEmpty) {
-        return GlossaryEntry.fromMap(rows.first);
-      }
+        // 2h. English gloss match
+        rows = await db.query(
+          'glossary_entries',
+          where: 'gloss_en LIKE ? OR english_word LIKE ?',
+          whereArgs: ['%$word%', '%$word%'],
+          limit: 1,
+        );
+        if (rows.isNotEmpty) {
+          return GlossaryEntry.fromMap(rows.first);
+        }
+      } catch (_) {}
 
-      // 2g. FTS5 Search fallback
+      // 2i. FTS5 Search fallback
       try {
         final ftsRows = await db.rawQuery(
           'SELECT id FROM glossary_fts WHERE glossary_fts MATCH ? LIMIT 1',
@@ -361,6 +459,86 @@ class GlossaryService {
       debugPrint('GlossaryService.lookup error: $e');
       return null;
     }
+  }
+
+  Future<int> _getWordOccurrenceCount(Database db, Object? wordId) async {
+    try {
+      if (wordId != null) {
+        final res = await db.rawQuery(
+          'SELECT count(*) as cnt FROM verse_tokens WHERE word_id = ?',
+          [wordId],
+        );
+        if (res.isNotEmpty && res.first['cnt'] != null) {
+          return (res.first['cnt'] as num).toInt();
+        }
+      }
+    } catch (_) {}
+    return 1;
+  }
+
+  Future<List<String>> _getWordSampleRefs(Database db, Object? wordId) async {
+    try {
+      if (wordId != null) {
+        final rows = await db.rawQuery(
+          'SELECT book, chapter, verse FROM verse_tokens WHERE word_id = ? LIMIT 8',
+          [wordId],
+        );
+        return rows
+            .map((r) => '${r['book']}:${r['chapter']}:${r['verse']}')
+            .toList();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  Future<GlossaryEntry> _enrichEntryWithConcordance(GlossaryEntry entry) async {
+    if (entry.occurrenceCount > 1 && entry.refs.length > 1) {
+      return entry;
+    }
+    final db = await _getDatabase();
+    if (db == null) return entry;
+    try {
+      final rows = await db.query(
+        'unique_words',
+        columns: ['id'],
+        where: 'surface_form = ? OR canonical = ?',
+        whereArgs: [entry.headword, entry.canonical.isNotEmpty ? entry.canonical : entry.headword],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        final wordId = rows.first['id'];
+        final occCount = await _getWordOccurrenceCount(db, wordId);
+        final sampleRefs = await _getWordSampleRefs(db, wordId);
+        return GlossaryEntry(
+          id: entry.id,
+          headword: entry.headword,
+          canonical: entry.canonical,
+          transliteration: entry.transliteration,
+          pos: entry.pos,
+          posTa: entry.posTa,
+          category: entry.category,
+          glossEn: entry.glossEn,
+          definitionTa: entry.definitionTa,
+          definitionEn: entry.definitionEn,
+          originalLang: entry.originalLang,
+          originalLemma: entry.originalLemma,
+          originalTranslit: entry.originalTranslit,
+          strongs: entry.strongs,
+          englishWord: entry.englishWord,
+          rootDefinitionTa: entry.rootDefinitionTa,
+          rootDefinitionEn: entry.rootDefinitionEn,
+          originalContext: entry.originalContext,
+          modernEquivalents: entry.modernEquivalents,
+          forms: entry.forms,
+          notes: entry.notes,
+          examples: entry.examples,
+          seeAlso: entry.seeAlso,
+          refs: sampleRefs.isNotEmpty ? sampleRefs : entry.refs,
+          occurrenceCount: occCount > 0 ? occCount : entry.occurrenceCount,
+        );
+      }
+    } catch (_) {}
+    return entry;
   }
 
   /// Closes database handle.
