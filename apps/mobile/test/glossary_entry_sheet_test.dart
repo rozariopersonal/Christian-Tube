@@ -58,6 +58,34 @@ void main() {
       expect(reconstituted.seeAlso.length, 3);
       expect(reconstituted.occurrenceCount, 202);
     });
+
+    test('creates entry faithfully from unique_words database row', () {
+      final dbRow = {
+        'id': 483,
+        'surface_form': 'வானத்தையும்',
+        'pos': 'noun',
+        'canonical': 'வானம்',
+        'modern_equivalent': 'ஆகாயம்',
+        'english_word': 'heavens',
+        'definition_ta': 'பூமியின் மேல் உள்ள பரந்த ஆகாயம் அல்லது பரமண்டலம்.',
+      };
+      final entry = GlossaryEntry.fromUniqueWord(
+        dbRow,
+        occurrenceCount: 607,
+        refs: ['1:1:1', '1:2:4'],
+      );
+
+      expect(entry.headword, 'வானத்தையும்');
+      expect(entry.canonical, 'வானம்');
+      expect(entry.pos, 'noun');
+      expect(entry.posTa, 'பெயர்ச்சொல்');
+      expect(entry.englishWord, 'heavens');
+      expect(entry.modernEquivalents, ['ஆகாயம்']);
+      expect(entry.definitionTa, contains('ஆகாயம்'));
+      expect(entry.occurrenceCount, 607);
+      expect(entry.refs, ['1:1:1', '1:2:4']);
+      expect(entry.hasDeepLexicon, isFalse);
+    });
   });
 
   group('GlossaryEntrySheet Responsive & Overflow Tests', () {
@@ -111,6 +139,56 @@ void main() {
 
       expect(find.text('ஆசீர்வாதம்'), findsOneWidget);
       expect(find.text('வேதாகமத்தில் 202 இடங்களில் வருகிறது'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('renders Phase 1 single-view entry with canonical root and modern equivalent chips', (tester) async {
+      const phase1Entry = GlossaryEntry(
+        id: '483',
+        headword: 'வானத்தையும்',
+        canonical: 'வானம்',
+        pos: 'noun',
+        posTa: 'பெயர்ச்சொல்',
+        category: 'theological',
+        glossEn: 'heavens',
+        englishWord: 'heavens',
+        definitionTa: 'பூமியின் மேல் உள்ள பரந்த ஆகாயம் அல்லது பரமண்டலம்.',
+        definitionEn: '',
+        modernEquivalents: ['ஆகாயம்'],
+        occurrenceCount: 607,
+        refs: ['1:1:1', '1:2:4'],
+      );
+
+      tester.view.physicalSize = const Size(360, 720);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(
+            extensions: [AppTokens.dark],
+          ),
+          home: const Scaffold(
+            body: Center(
+              child: GlossaryEntrySheet(
+                word: 'வானத்தையும்',
+                initialEntry: phase1Entry,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('வானத்தையும்'), findsOneWidget);
+      expect(find.text('"heavens"'), findsOneWidget);
+      expect(find.text('வேர்: வானம்'), findsOneWidget);
+      expect(find.text('வழக்கு: ஆகாயம்'), findsOneWidget);
+      expect(find.text('வேதாகம விளக்கம்'), findsOneWidget);
+      expect(find.text('வேதாகமத்தில் 607 இடங்களில் வருகிறது'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

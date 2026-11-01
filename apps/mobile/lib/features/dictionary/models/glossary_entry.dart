@@ -29,6 +29,7 @@ class GlossaryExample {
 class GlossaryEntry {
   final String id;
   final String headword;
+  final String canonical;
   final String transliteration;
   final String pos;
   final String posTa;
@@ -52,9 +53,14 @@ class GlossaryEntry {
   final List<String> refs;
   final int occurrenceCount;
 
+  bool get hasDeepLexicon =>
+      (strongs != null && strongs!.isNotEmpty) ||
+      (originalLemma != null && originalLemma!.isNotEmpty);
+
   const GlossaryEntry({
     required this.id,
     required this.headword,
+    this.canonical = '',
     this.transliteration = '',
     required this.pos,
     required this.posTa,
@@ -79,6 +85,77 @@ class GlossaryEntry {
     this.occurrenceCount = 0,
   });
 
+  /// Resolves the Tamil grammatical part of speech from the English tag.
+  static String resolvePosTa(String pos, {String? explicitTa}) {
+    if (explicitTa != null && explicitTa.isNotEmpty && explicitTa != 'சொல்') {
+      return explicitTa;
+    }
+    switch (pos.toLowerCase().trim()) {
+      case 'noun':
+        return 'பெயர்ச்சொல்';
+      case 'verb':
+        return 'வினைச்சொல்';
+      case 'adjective':
+      case 'adj':
+        return 'பெயரடை';
+      case 'adverb':
+      case 'adv':
+        return 'வினையடை';
+      case 'pronoun':
+      case 'pron':
+        return 'பிரதிப்பெயர்';
+      case 'preposition':
+      case 'prep':
+      case 'postposition':
+        return 'இடைச்சொல்';
+      case 'conjunction':
+      case 'conj':
+        return 'இணைப்புச்சொல்';
+      case 'interjection':
+      case 'interj':
+        return 'வியப்பிடைச்சொல்';
+      case 'particle':
+        return 'உரிச்சொல்';
+      case 'proper noun':
+      case 'proper_noun':
+        return 'சிறப்புப் பெயர்';
+      default:
+        return 'சொல்';
+    }
+  }
+
+  /// Factory creating an entry directly from a normalized SQLite unique_words row.
+  factory GlossaryEntry.fromUniqueWord(
+    Map<String, dynamic> map, {
+    int occurrenceCount = 0,
+    List<String> refs = const [],
+  }) {
+    final surface = (map['surface_form'] as String? ?? '').trim();
+    final canonical = (map['canonical'] as String? ?? surface).trim();
+    final pos = (map['pos'] as String? ?? 'noun').trim();
+    final english = (map['english_word'] as String? ?? '').trim();
+    final modern = (map['modern_equivalent'] as String? ?? '').trim();
+    final defTa = (map['definition_ta'] as String? ?? '').trim();
+
+    return GlossaryEntry(
+      id: map['id']?.toString() ?? (canonical.isNotEmpty ? canonical : surface),
+      headword: surface.isNotEmpty ? surface : canonical,
+      canonical: canonical,
+      transliteration: '',
+      pos: pos,
+      posTa: resolvePosTa(pos),
+      category: 'theological',
+      glossEn: english,
+      englishWord: english.isNotEmpty ? english : null,
+      definitionTa: defTa,
+      definitionEn: '',
+      modernEquivalents: modern.isNotEmpty ? [modern] : const [],
+      forms: surface.isNotEmpty ? [surface] : const [],
+      refs: refs,
+      occurrenceCount: occurrenceCount,
+    );
+  }
+
   /// Factory creating an entry directly from a contextual interlinear word JSON object.
   factory GlossaryEntry.fromContextualWord(
     Map<String, dynamic> map, {
@@ -92,6 +169,8 @@ class GlossaryEntry {
     final surface = (map['word'] as String? ?? '').trim();
     final canonical = (map['canonical'] as String? ?? surface).trim();
     final english = (map['english_word'] as String? ?? '').trim();
+    final pos = (map['pos'] as String? ?? 'noun').trim();
+    final modern = (map['modern_equivalent'] as String? ?? '').trim();
     final vNum = map['verse'] as int? ?? verse ?? 1;
     final bNum = book ?? 1;
     final chNum = chapter ?? 1;
@@ -99,22 +178,24 @@ class GlossaryEntry {
 
     return GlossaryEntry(
       id: canonical.isNotEmpty ? canonical : surface,
-      headword: canonical.isNotEmpty ? canonical : surface,
+      headword: surface.isNotEmpty ? surface : canonical,
+      canonical: canonical,
       transliteration: orig['transliteration'] as String? ?? '',
-      pos: 'noun',
-      posTa: 'சொல்',
+      pos: pos,
+      posTa: resolvePosTa(pos, explicitTa: map['pos_ta'] as String?),
       category: 'theological',
       glossEn: english.isNotEmpty ? english : canonical,
-      englishWord: english,
+      englishWord: english.isNotEmpty ? english : null,
       definitionTa: map['definition_ta'] as String? ?? '',
       definitionEn: map['definition_en'] as String? ?? '',
       originalLang: bNum <= 39 ? 'Hebrew' : 'Greek',
-      originalLemma: orig['text'] as String? ?? '',
-      originalTranslit: orig['transliteration'] as String? ?? '',
-      strongs: orig['strongs'] as String? ?? '',
-      rootDefinitionTa: orig['root_definition_ta'] as String? ?? '',
-      rootDefinitionEn: orig['root_definition_en'] as String? ?? '',
-      originalContext: orig['context'] as String? ?? '',
+      originalLemma: orig['text'] as String?,
+      originalTranslit: orig['transliteration'] as String?,
+      strongs: orig['strongs'] as String?,
+      rootDefinitionTa: orig['root_definition_ta'] as String?,
+      rootDefinitionEn: orig['root_definition_en'] as String?,
+      originalContext: orig['context'] as String?,
+      modernEquivalents: modern.isNotEmpty ? [modern] : const [],
       notes: map['notes'] as String? ?? '',
       forms: surface.isNotEmpty ? [surface] : const [],
       refs: [refStr],
@@ -154,13 +235,16 @@ class GlossaryEntry {
 
     final rawGloss = map['gloss_en'] as String? ?? '';
     final rawEnglishWord = map['english_word'] as String?;
+    final pos = map['pos'] as String? ?? '';
+    final explicitPosTa = map['pos_ta'] as String?;
 
     return GlossaryEntry(
       id: map['id'] as String? ?? '',
       headword: map['headword'] as String? ?? '',
+      canonical: map['canonical'] as String? ?? '',
       transliteration: map['transliteration'] as String? ?? '',
-      pos: map['pos'] as String? ?? '',
-      posTa: map['pos_ta'] as String? ?? '',
+      pos: pos,
+      posTa: resolvePosTa(pos, explicitTa: explicitPosTa),
       category: map['category'] as String? ?? 'theological',
       glossEn: rawGloss.isNotEmpty ? rawGloss : (rawEnglishWord ?? ''),
       definitionTa: map['definition_ta'] as String? ?? '',
@@ -186,6 +270,7 @@ class GlossaryEntry {
   Map<String, dynamic> toMap() => {
         'id': id,
         'headword': headword,
+        'canonical': canonical,
         'transliteration': transliteration,
         'pos': pos,
         'pos_ta': posTa,

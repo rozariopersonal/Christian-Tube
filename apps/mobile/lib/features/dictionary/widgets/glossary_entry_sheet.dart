@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../engines/scripture/services/book_name_service.dart';
 import '../models/glossary_entry.dart';
 import '../services/dictionary_download_manager.dart';
 import '../services/glossary_service.dart';
 
 /// Modal bottom sheet (on compact) or centered dialog (on medium/expanded)
-/// displaying the complete 17-field classical biblical glossary definition.
+/// displaying the unified single-view biblical word study stream.
 class GlossaryEntrySheet extends StatefulWidget {
   final String word;
   final GlossaryEntry? initialEntry;
@@ -138,6 +139,20 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
     }
   }
 
+  String _formatRef(String rawRef) {
+    final parts = rawRef.split(RegExp(r'[:.]'));
+    if (parts.length >= 3) {
+      final b = int.tryParse(parts[0]);
+      final ch = parts[1];
+      final v = parts[2];
+      if (b != null) {
+        final bName = BookNameService().nameFor('taobvsi', b);
+        return '$bName $ch:$v';
+      }
+    }
+    return rawRef;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
@@ -154,7 +169,7 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Top Drag Handle & Close Bar
+            // Top Drag Handle & Title Bar
             _buildTopBar(context, tokens, screen),
 
             // Main Scrollable Content
@@ -166,7 +181,7 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
                         child: CircularProgressIndicator(),
                       ),
                     )
-                  : (!_isDbInstalled)
+                  : (!_isDbInstalled && _entry == null)
                       ? _buildDownloadPrompt(tokens, theme)
                       : (_entry == null)
                           ? _buildNotFound(tokens, theme)
@@ -213,7 +228,7 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
           const SizedBox(height: 6),
         ],
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -222,17 +237,17 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
                   children: [
                     Icon(
                       Icons.auto_stories_rounded,
-                      size: 17,
+                      size: 18,
                       color: Theme.of(context).colorScheme.primary,
                     ),
-                    const SizedBox(width: 7),
+                    const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'வேதாகம சொல்லகராதி',
+                        'வேதாகம சொல் ஆய்வு',
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
                           color: tokens.onSurfaceMuted,
                           letterSpacing: 0.3,
                         ),
@@ -288,7 +303,7 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            'முழுமையான 17,200+ மூல மொழி கிரேக்க/எபிரெய விளக்கங்கள் மற்றும் வசன பயன்பாடுகளைப் பார்க்க சொல்லகராதியைத் தரவிறக்கம் செய்யவும்.',
+            '79,700+ பரிசுத்த வேதாகம சொற்கள், மூல மொழி கிரேக்க/எபிரெய வேர்கள் மற்றும் வசன பயன்பாடுகளைப் பார்க்க சொல்லகராதியைத் தரவிறக்கம் செய்யவும்.',
             style: TextStyle(
               fontSize: 14,
               height: 1.5,
@@ -317,7 +332,7 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
                 await _loadEntry(_currentWord);
               },
               icon: const Icon(Icons.download_rounded, size: 18),
-              label: const Text('சொல்லகராதி தரவிறக்கு (14.6 MB)'),
+              label: const Text('சொல்லகராதி தரவிறக்கு (24 MB)'),
             ),
         ],
       ),
@@ -358,198 +373,218 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
     final primaryColor = theme.colorScheme.primary;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. HERO HEADWORD & PHONETICS
+          // 1. HERO WORD HEADER
           Text(
             entry.headword,
             style: TextStyle(
-              fontSize: 27,
+              fontSize: 28,
               fontWeight: FontWeight.bold,
               color: tokens.onSurface,
               letterSpacing: 0.2,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
 
-          // Transliteration, POS, Category badges
+          // English Gloss Subtitle
+          if (entry.englishWord != null && entry.englishWord!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                '"${entry.englishWord!}"',
+                style: TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w600,
+                  color: primaryColor,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            )
+          else if (entry.glossEn.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                '"${entry.glossEn}"',
+                style: TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w600,
+                  color: primaryColor,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+
+          // Metadata Badges Row (POS, Canonical Root, Modern Equivalent)
           Wrap(
             spacing: 8,
             runSpacing: 6,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (entry.transliteration.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceVariant,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: tokens.surfaceBorder),
-                  ),
-                  child: Text(
-                    entry.transliteration,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontStyle: FontStyle.italic,
-                      color: tokens.onSurfaceMuted,
-                    ),
-                  ),
-                ),
+              // Part of Speech Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                 decoration: BoxDecoration(
                   color: primaryColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '${entry.posTa} • ${entry.pos}',
+                  entry.pos.isNotEmpty
+                      ? '${entry.posTa} • ${entry.pos.toUpperCase()}'
+                      : entry.posTa,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: primaryColor,
                   ),
                 ),
               ),
-              if (entry.category.isNotEmpty)
+
+              // Canonical Root Lemma Pill
+              if (entry.canonical.isNotEmpty && entry.canonical != entry.headword)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                   decoration: BoxDecoration(
                     color: tokens.surfaceVariant,
                     borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: tokens.surfaceBorder),
                   ),
-                  child: Text(
-                    entry.category.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: tokens.onSurfaceMuted,
-                      letterSpacing: 0.5,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.park_outlined, size: 13, color: tokens.onSurfaceMuted),
+                      const SizedBox(width: 4),
+                      Text(
+                        'வேர்: ${entry.canonical}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: tokens.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Modern Spoken Equivalent Chip
+              if (entry.modernEquivalents.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: tokens.surfaceVariant,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: tokens.surfaceBorder),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.chat_bubble_outline_rounded, size: 12, color: tokens.onSurfaceMuted),
+                      const SizedBox(width: 4),
+                      Text(
+                        'வழக்கு: ${entry.modernEquivalents.first}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: tokens.onSurface,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 18),
 
-          // English Gloss
-          Text(
-            '"${entry.glossEn}"',
-            style: TextStyle(
-              fontSize: 16.5,
-              fontWeight: FontWeight.w600,
-              color: primaryColor,
-              fontStyle: FontStyle.italic,
+          // 2. CORE BIBLICAL DEFINITION CARD (வேதாகம விளக்கம்)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: tokens.surfaceVariant.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: tokens.surfaceBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildCardHeader('வேதாகம விளக்கம்', Icons.menu_book_rounded, tokens, theme),
+                const SizedBox(height: 10),
+                Text(
+                  entry.definitionTa,
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    height: 1.6,
+                    color: tokens.onSurface,
+                  ),
+                ),
+                if (entry.definitionEn.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Divider(height: 1, thickness: 1, color: tokens.surfaceBorder.withValues(alpha: 0.6)),
+                  const SizedBox(height: 10),
+                  Text(
+                    'English Expository Definition',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: tokens.onSurfaceMuted,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    entry.definitionEn,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: tokens.onSurface.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(height: 16),
 
-          // 2. ORIGINAL LANGUAGE ROOT BANNER (Hebrew/Greek & Strong's)
-          if (entry.originalLemma != null && entry.originalLemma!.isNotEmpty)
+          // 3. PHASE 2 ORIGINAL LANGUAGE ROOT BANNER (Conditional: Strong's / Greek / Hebrew)
+          if (entry.hasDeepLexicon) ...[
             _buildOriginalRootBanner(tokens, theme, entry),
-
-          const SizedBox(height: 18),
-
-          // 3. TAMIL THEOLOGICAL DEFINITION
-          _buildSectionHeader('வேதாகம விளக்கம்', Icons.menu_book_rounded, tokens, theme),
-          const SizedBox(height: 6),
-          Text(
-            entry.definitionTa,
-            style: TextStyle(
-              fontSize: 15.5,
-              height: 1.6,
-              color: tokens.onSurface,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // 4. ENGLISH EXPOSITORY DEFINITION
-          _buildSectionHeader('English Expository Definition', Icons.translate_rounded, tokens, theme),
-          const SizedBox(height: 6),
-          Text(
-            entry.definitionEn,
-            style: TextStyle(
-              fontSize: 14.5,
-              height: 1.55,
-              color: tokens.onSurface.withValues(alpha: 0.9),
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // 5. MODERN USAGE (நவீன பயன்பாடு)
-          if (entry.modernEquivalents.isNotEmpty) ...[
-            _buildSectionHeader('நவீன பயன்பாட்டுச் சொற்கள்', Icons.alt_route_rounded, tokens, theme),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: entry.modernEquivalents.map((modern) {
-                return Chip(
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: tokens.surfaceVariant,
-                  side: BorderSide(color: tokens.surfaceBorder),
-                  label: Text(
-                    modern,
-                    style: TextStyle(fontSize: 13, color: tokens.onSurface),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
           ],
 
-          // 6. BIBLICAL INFLECTIONS (வேதாகம வடிவங்கள்)
-          if (entry.forms.isNotEmpty) ...[
-            _buildSectionHeader('வேதாகம பயன்பாட்டு வடிவங்கள்', Icons.grain_rounded, tokens, theme),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: entry.forms.map((form) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceVariant.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: tokens.surfaceBorder.withValues(alpha: 0.5)),
-                  ),
-                  child: Text(
-                    form,
-                    style: TextStyle(fontSize: 12.5, color: tokens.onSurfaceMuted),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 18),
-          ],
-
-          // 7. NOTES & CLASSICAL CONTEXT
+          // 4. SPIRITUAL NOTES / THEOLOGICAL CONTEXT (Conditional)
           if (entry.notes.isNotEmpty) ...[
-            _buildSectionHeader('ஆவிக்குரிய குறிப்பு', Icons.info_outline_rounded, tokens, theme),
-            const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.all(12),
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: tokens.surfaceVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(10),
+                color: tokens.surfaceVariant.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: tokens.surfaceBorder),
               ),
-              child: Text(
-                entry.notes,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  height: 1.5,
-                  color: tokens.onSurface.withValues(alpha: 0.88),
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildCardHeader('ஆவிக்குரிய குறிப்பு', Icons.lightbulb_outline_rounded, tokens, theme),
+                  const SizedBox(height: 8),
+                  Text(
+                    entry.notes,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      height: 1.5,
+                      color: tokens.onSurface.withValues(alpha: 0.88),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
           ],
 
-          // 8. SCRIPTURE EXAMPLES (Vertical Stack — Never Side-by-Side)
+          // 5. SCRIPTURE USAGE EXAMPLES (Conditional: Vertical Stack)
           if (entry.examples.isNotEmpty) ...[
-            _buildSectionHeader('வேதாகம உதாரணங்கள்', Icons.format_quote_rounded, tokens, theme),
+            _buildCardHeader('வேதாகம உதாரணங்கள்', Icons.format_quote_rounded, tokens, theme),
             const SizedBox(height: 10),
             Column(
               children: entry.examples.map((ex) {
@@ -594,9 +629,70 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
             const SizedBox(height: 12),
           ],
 
-          // 9. RELATED TERMS (Clean Chips — No 'See' Clutter)
+          // 6. CONCORDANCE & BIBLE OCCURRENCES STRIP
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: primaryColor.withValues(alpha: 0.18)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.auto_stories_rounded, size: 16, color: primaryColor),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        entry.occurrenceCount > 0
+                            ? 'வேதாகமத்தில் ${entry.occurrenceCount} இடங்களில் வருகிறது'
+                            : 'வேதாகம வசன பயன்பாடு',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (entry.refs.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: entry.refs.take(6).map((r) {
+                      return ActionChip(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: tokens.surface,
+                        side: BorderSide(color: primaryColor.withValues(alpha: 0.25)),
+                        label: Text(
+                          _formatRef(r),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: tokens.onSurface,
+                          ),
+                        ),
+                        onPressed: () {
+                          // Interactive verse reference: close sheet and can trigger navigation
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // 7. RELATED TERMS (Clean Action Chips)
           if (entry.seeAlso.isNotEmpty) ...[
-            _buildSectionHeader('தொடர்புடைய சொற்கள்', Icons.hub_rounded, tokens, theme),
+            _buildCardHeader('தொடர்புடைய சொற்கள்', Icons.hub_rounded, tokens, theme),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -619,44 +715,13 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 20),
           ],
-
-          // 10. OCCURRENCE COUNT FOOTER
-          if (entry.occurrenceCount > 0)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                color: primaryColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: primaryColor.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.auto_stories_rounded, size: 17, color: primaryColor),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      'வேதாகமத்தில் ${entry.occurrenceCount} இடங்களில் வருகிறது',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: primaryColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(
+  Widget _buildCardHeader(
     String title,
     IconData icon,
     AppTokens tokens,
@@ -664,13 +729,13 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
   ) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: theme.colorScheme.primary),
-        const SizedBox(width: 6),
+        Icon(icon, size: 16, color: theme.colorScheme.primary),
+        const SizedBox(width: 7),
         Expanded(
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 13.5,
               fontWeight: FontWeight.w700,
               color: tokens.onSurfaceMuted,
               letterSpacing: 0.3,
@@ -692,7 +757,7 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: tokens.surfaceVariant.withValues(alpha: 0.5),
+        color: tokens.surfaceVariant.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: tokens.surfaceBorder),
       ),
@@ -737,15 +802,16 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
             spacing: 8,
             runSpacing: 4,
             children: [
-              Text(
-                entry.originalLemma!,
-                textDirection: isHebrew ? TextDirection.rtl : TextDirection.ltr,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: tokens.onSurface,
+              if (entry.originalLemma != null && entry.originalLemma!.isNotEmpty)
+                Text(
+                  entry.originalLemma!,
+                  textDirection: isHebrew ? TextDirection.rtl : TextDirection.ltr,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: tokens.onSurface,
+                  ),
                 ),
-              ),
               if (entry.originalTranslit != null && entry.originalTranslit!.isNotEmpty)
                 Text(
                   '(${entry.originalTranslit})',
