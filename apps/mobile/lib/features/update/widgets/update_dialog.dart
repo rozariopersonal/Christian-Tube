@@ -39,6 +39,7 @@ class UpdateDialog extends StatefulWidget {
 
 class _UpdateDialogState extends State<UpdateDialog> {
   bool _isDownloading = false;
+  bool _isRetrying = false;
   bool _isCompleted = false;
   double _progress = 0.0;
   int _receivedBytes = 0;
@@ -55,6 +56,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
   void _startDownload() {
     setState(() {
       _isDownloading = true;
+      _isRetrying = false;
       _isCompleted = false;
       _progress = 0.0;
       _errorMessage = null;
@@ -67,9 +69,17 @@ class _UpdateDialogState extends State<UpdateDialog> {
     UpdateService.downloadAndInstallApkWithProgress(
       downloadUrl: downloadUrl,
       cancelToken: _cancelToken,
+      onRetryStateChange: (retrying) {
+        if (mounted && _isRetrying != retrying) {
+          setState(() {
+            _isRetrying = retrying;
+          });
+        }
+      },
       onProgress: (received, total) {
         if (mounted) {
           setState(() {
+            _isRetrying = false;
             _receivedBytes = received;
             final effectiveTotal = total > 0 ? total : sizeBytes;
             _totalBytes = effectiveTotal;
@@ -83,6 +93,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
         if (mounted) {
           setState(() {
             _isDownloading = false;
+            _isRetrying = false;
             _isCompleted = true;
             _progress = 1.0;
             _downloadedApkPath = savePath;
@@ -95,6 +106,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
         if (mounted) {
           setState(() {
             _isDownloading = false;
+            _isRetrying = false;
             _errorMessage = err;
           });
         }
@@ -106,6 +118,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     _cancelToken?.cancel('Cancelled by user');
     setState(() {
       _isDownloading = false;
+      _isRetrying = false;
       _progress = 0.0;
     });
   }
@@ -142,8 +155,11 @@ class _UpdateDialogState extends State<UpdateDialog> {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: MediaQuery.sizeOf(context).width.clamp(320.0, 420.0),
-          margin: const EdgeInsets.symmetric(horizontal: 20),
+          width: (MediaQuery.sizeOf(context).width - 32.0).clamp(280.0, 420.0),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           decoration: BoxDecoration(
             color: context.tokens.surface,
             borderRadius: BorderRadius.circular(24),
@@ -161,9 +177,11 @@ class _UpdateDialogState extends State<UpdateDialog> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 // Top Header Banner with Gradient & App Icon
                 Container(
                   width: double.infinity,
@@ -259,12 +277,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              currentVersion,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: context.tokens.onSurfaceMuted,
+                            Flexible(
+                              child: Text(
+                                currentVersion,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: context.tokens.onSurfaceMuted,
+                                ),
                               ),
                             ),
                             Padding(
@@ -275,12 +296,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
-                            Text(
-                              latestVersion,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.primary,
+                            Flexible(
+                              child: Text(
+                                latestVersion,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                               ),
                             ),
                           ],
@@ -308,20 +332,30 @@ class _UpdateDialogState extends State<UpdateDialog> {
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 12),
                           Container(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.errorContainer,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3)),
+                              color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error, size: 18),
+                                Icon(
+                                  Icons.wifi_off_rounded,
+                                  color: Theme.of(context).colorScheme.error,
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _errorMessage!,
-                                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onErrorContainer,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -384,12 +418,12 @@ class _UpdateDialogState extends State<UpdateDialog> {
                                   ),
                                   onPressed: _startDownload,
                                   icon: Icon(
-                                    Icons.download_rounded,
+                                    _errorMessage != null ? Icons.refresh_rounded : Icons.download_rounded,
                                     color: Theme.of(context).colorScheme.onPrimary,
                                     size: 18,
                                   ),
                                   label: Text(
-                                    'Update Now',
+                                    _errorMessage != null ? 'Retry' : 'Update Now',
                                     style: TextStyle(
                                       color: Theme.of(context).colorScheme.onPrimary,
                                       fontWeight: FontWeight.bold,
@@ -422,8 +456,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildChangelogView(String releaseNotes, String formattedSize) {
     final cleanNotes = releaseNotes.trim().isNotEmpty
@@ -436,24 +471,31 @@ class _UpdateDialogState extends State<UpdateDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.auto_awesome,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  "What's New",
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: context.tokens.onSurface,
+            Flexible(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      "What's New",
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: context.tokens.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
@@ -520,7 +562,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
               width: 90,
               height: 90,
               child: CircularProgressIndicator(
-                value: _progress > 0 ? _progress : null,
+                value: (_progress > 0 && !_isRetrying) ? _progress : null,
                 strokeWidth: 7,
                 backgroundColor: context.tokens.surfaceVariant,
                 valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
@@ -530,7 +572,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '$percentInt%',
+                  _isRetrying ? '...' : '$percentInt%',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -538,7 +580,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   ),
                 ),
                 Text(
-                  'Downloading',
+                  _isRetrying ? 'Reconnecting' : 'Downloading',
                   style: TextStyle(
                     fontSize: 9,
                     color: context.tokens.onSurfaceMuted,
@@ -550,7 +592,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
         ),
         const SizedBox(height: 18),
         Text(
-          'Downloading ${AppConfig.appName} Update...',
+          _isRetrying
+              ? 'Connection interrupted. Reconnecting...'
+              : 'Downloading ${AppConfig.appName} Update...',
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -558,9 +603,17 @@ class _UpdateDialogState extends State<UpdateDialog> {
           ),
         ),
         const SizedBox(height: 6),
-        if (_totalBytes > 0)
+        if (!_isRetrying && _totalBytes > 0)
           Text(
             '${_formatBytes(_receivedBytes)} / ${_formatBytes(_totalBytes)}',
+            style: TextStyle(
+              fontSize: 12,
+              color: context.tokens.onSurfaceMuted,
+            ),
+          )
+        else if (_isRetrying)
+          Text(
+            'Retrying download automatically...',
             style: TextStyle(
               fontSize: 12,
               color: context.tokens.onSurfaceMuted,
