@@ -35,10 +35,13 @@ void main() {
     seeAlso: ['சாபம் (curse)', 'கிருபை (grace)', 'பரிசுத்தம் (holiness)'],
     refs: ['GEN.12.2', 'NUM.6.24', 'EPH.1.3'],
     occurrenceCount: 202,
+    surfaceCount: 88,
+    firstRef: 'GEN.12.2',
+    lastRef: 'REV.22.14',
   );
 
   group('GlossaryEntry Model Tests', () {
-    test('serializes and deserializes all 17 fields faithfully', () {
+    test('serializes and deserializes all fields faithfully including first/last refs', () {
       final map = sampleEntry.toMap();
       final reconstituted = GlossaryEntry.fromMap(map);
 
@@ -57,9 +60,12 @@ void main() {
       expect(reconstituted.examples.first.sentenceTa, contains('பெரிய ஜாதியாக்கி'));
       expect(reconstituted.seeAlso.length, 3);
       expect(reconstituted.occurrenceCount, 202);
+      expect(reconstituted.surfaceCount, 88);
+      expect(reconstituted.firstRef, 'GEN.12.2');
+      expect(reconstituted.lastRef, 'REV.22.14');
     });
 
-    test('creates entry faithfully from unique_words database row', () {
+    test('creates entry faithfully from unique_words database row with lemma and surface counts', () {
       final dbRow = {
         'id': 483,
         'surface_form': 'வானத்தையும்',
@@ -71,7 +77,10 @@ void main() {
       };
       final entry = GlossaryEntry.fromUniqueWord(
         dbRow,
-        occurrenceCount: 607,
+        occurrenceCount: 339,
+        surfaceCount: 23,
+        firstRef: '1:1:1',
+        lastRef: '43:1:51',
         refs: ['1:1:1', '1:2:4'],
       );
 
@@ -82,7 +91,10 @@ void main() {
       expect(entry.englishWord, 'heavens');
       expect(entry.modernEquivalents, ['ஆகாயம்']);
       expect(entry.definitionTa, contains('ஆகாயம்'));
-      expect(entry.occurrenceCount, 607);
+      expect(entry.occurrenceCount, 339);
+      expect(entry.surfaceCount, 23);
+      expect(entry.firstRef, '1:1:1');
+      expect(entry.lastRef, '43:1:51');
       expect(entry.refs, ['1:1:1', '1:2:4']);
       expect(entry.hasDeepLexicon, isFalse);
     });
@@ -123,6 +135,9 @@ void main() {
       expect(find.text('בְּרָכָה'), findsOneWidget);
       expect(find.text('வேதாகம உதாரணங்கள்'), findsOneWidget);
       expect(find.text('தொடர்புடைய சொற்கள்'), findsOneWidget);
+      expect(find.text('வேதாகமத்தில் 202 இடங்களில் வருகிறது'), findsOneWidget);
+      expect(find.text('முதல்: '), findsOneWidget);
+      expect(find.text('கடைசி: '), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -155,7 +170,10 @@ void main() {
         definitionTa: 'பூமியின் மேல் உள்ள பரந்த ஆகாயம் அல்லது பரமண்டலம்.',
         definitionEn: '',
         modernEquivalents: ['ஆகாயம்'],
-        occurrenceCount: 607,
+        occurrenceCount: 339,
+        surfaceCount: 23,
+        firstRef: '1:1:1',
+        lastRef: '43:1:51',
         refs: ['1:1:1', '1:2:4'],
       );
 
@@ -188,7 +206,11 @@ void main() {
       expect(find.text('வேர்: வானம்'), findsOneWidget);
       expect(find.text('வழக்கு: ஆகாயம்'), findsOneWidget);
       expect(find.text('வேதாகம விளக்கம்'), findsOneWidget);
-      expect(find.text('வேதாகமத்தில் 607 இடங்களில் வருகிறது'), findsOneWidget);
+      expect(find.text('வேதாகமத்தில் 339 இடங்களில் வருகிறது'), findsOneWidget);
+      expect(find.textContaining('வேர்ச்சொல்: வானம் (339 முறை) • இவ்வடிவம்: 23 முறை'), findsOneWidget);
+      expect(find.text('முதல்: '), findsOneWidget);
+      expect(find.text('கடைசி: '), findsOneWidget);
+      expect(find.text('மாதிரி வசனங்கள்:'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

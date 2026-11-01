@@ -642,25 +642,126 @@ class _GlossaryEntrySheetState extends State<GlossaryEntrySheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.auto_stories_rounded, size: 16, color: primaryColor),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Icon(Icons.auto_stories_rounded, size: 17, color: primaryColor),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        entry.occurrenceCount > 0
-                            ? 'வேதாகமத்தில் ${entry.occurrenceCount} இடங்களில் வருகிறது'
-                            : 'வேதாகம வசன பயன்பாடு',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: primaryColor,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.occurrenceCount > 0
+                                ? 'வேதாகமத்தில் ${entry.occurrenceCount} இடங்களில் வருகிறது'
+                                : 'வேதாகம வசன பயன்பாடு',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: primaryColor,
+                            ),
+                          ),
+                          if (entry.canonical.isNotEmpty && entry.surfaceCount > 0 && entry.headword != entry.canonical) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              'வேர்ச்சொல்: ${entry.canonical} (${entry.occurrenceCount} முறை) • இவ்வடிவம்: ${entry.surfaceCount} முறை',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                                color: tokens.onSurfaceMuted,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ],
                 ),
+
+                // First and Last Verse References Card
+                if (entry.firstRef != null || entry.lastRef != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: tokens.surface.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: tokens.surfaceBorder),
+                    ),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (entry.firstRef != null)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.first_page_rounded, size: 16, color: primaryColor),
+                              const SizedBox(width: 4),
+                              Text(
+                                'முதல்: ',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: tokens.onSurfaceMuted,
+                                ),
+                              ),
+                              Text(
+                                _formatRef(entry.firstRef!),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: tokens.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        if (entry.lastRef != null)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.last_page_rounded, size: 16, color: primaryColor),
+                              const SizedBox(width: 4),
+                              Text(
+                                'கடைசி: ',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: tokens.onSurfaceMuted,
+                                ),
+                              ),
+                              Text(
+                                _formatRef(entry.lastRef!),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: tokens.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // Sample Verses List
                 if (entry.refs.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
+                  Text(
+                    'மாதிரி வசனங்கள்:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.onSurfaceMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   Wrap(
                     spacing: 7,
                     runSpacing: 7,
