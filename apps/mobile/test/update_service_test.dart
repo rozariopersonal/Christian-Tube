@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/update/update_service.dart';
 
@@ -45,4 +46,95 @@ void main() {
       expect(UpdateService.isNewerVersion('1.29.0+49', '1.29.0+50'), isFalse);
     });
   });
+
+  group('UpdateService.downloadAndInstallApkWithProgress', () {
+    test('retries silently on network failures and yields clean user error after timeout', () async {
+      final dio = Dio();
+      final adapter = _MockFailingHttpClientAdapter(failUntilAttempt: 999);
+      dio.httpClientAdapter = adapter;
+
+      bool retryStateReported = false;
+      String? reportedError;
+
+      await UpdateService.downloadAndInstallApkWithProgress(
+        downloadUrl: 'https://example.com/test.apk',
+        dioOverride: dio,
+        maxRetryDuration: const Duration(milliseconds: 400),
+        retryDelay: const Duration(milliseconds: 10),
+        onProgress: (_, __) {},
+        onComplete: (_) {},
+        onError: (err) {
+          reportedError = err;
+        },
+        onRetryStateChange: (isRetrying) {
+          if (isRetrying) retryStateReported = true;
+        },
+      );
+
+      // Verify that silent retries occurred
+      expect(adapter.attempts, greaterThan(1));
+      expect(retryStateReported, isTrue);
+
+      // Verify clean user error, with NO raw Dio/stack log dump
+      expect(reportedError, isNotNull);
+      expect(reportedError, contains('Download could not be completed'));
+      expect(reportedError, isNot(contains('DioException')));
+      expect(reportedError, isNot(contains('HttpException')));
+    });
+
+    test('terminates immediately without error when cancelled', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _MockFailingHttpClientAdapter(failUntilAttempt: 999);
+
+      final cancelToken = CancelToken();
+      String? reportedError;
+      bool completed = false;
+
+      // Cancel before starting
+      cancelToken.cancel('User cancelled');
+
+      await UpdateService.downloadAndInstallApkWithProgress(
+        downloadUrl: 'https://example.com/test.apk',
+        dioOverride: dio,
+        cancelToken: cancelToken,
+        onProgress: (_, __) {},
+        onComplete: (_) {
+          completed = true;
+        },
+        onError: (err) {
+          reportedError = err;
+        },
+      );
+
+      expect(reportedError, isNull);
+      expect(completed, isFalse);
+    });
+  });
+}
+
+class _MockFailingHttpClientAdapter implements HttpClientAdapter {
+  int attempts = 0;
+  final int failUntilAttempt;
+
+  _MockFailingHttpClientAdapter({required this.failUntilAttempt});
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    attempts++;
+    if (attempts <= failUntilAttempt) {
+      throw DioException(
+        requestOptions: options,
+        type: DioExceptionType.connectionError,
+        error: 'Network connection lost',
+      );
+    }
+    return ResponseBody.fromBytes([], 200);
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

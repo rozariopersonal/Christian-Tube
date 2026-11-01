@@ -377,54 +377,117 @@ class UpdateService {
     required Function(int received, int total) onProgress,
     required Function(String savePath) onComplete,
     required Function(String error) onError,
+    void Function(bool isRetrying)? onRetryStateChange,
+    Duration maxRetryDuration = const Duration(seconds: 60),
+    Duration retryDelay = const Duration(seconds: 3),
+    Dio? dioOverride,
   }) async {
-    try {
-      final savePath = await getApkSavePath();
+    final stopwatch = Stopwatch()..start();
+    final savePath = await getApkSavePath();
+    int attempt = 0;
+    dynamic lastError;
 
-      final file = File(savePath);
-      if (await file.exists()) {
-        try {
-          await file.delete();
-        } catch (_) {}
-      }
-
-      final dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(minutes: 5),
-          headers: {
-            'User-Agent': '${AppConfig.appName}/${AppConfig.version} (Android)',
-          },
-        ),
-      );
-
-      await dio.download(
-        downloadUrl,
-        savePath,
-        cancelToken: cancelToken,
-        deleteOnError: true,
-        onReceiveProgress: (received, total) {
-          onProgress(received, total);
-        },
-      );
-
-      onComplete(savePath);
-
-      // Safe notification show (never crashes or aborts installer)
-      try {
-        await _showInstallReadyNotification(savePath);
-      } catch (notifErr) {
-        debugPrint('Could not post notification: $notifErr');
-      }
-
-      // Launch installer immediately
-      await launchApkInstaller(savePath, downloadUrl);
-    } catch (e) {
-      if (CancelToken.isCancel(e as dynamic)) {
+    while (true) {
+      if (cancelToken?.isCancelled ?? false) {
         return;
       }
-      debugPrint('Direct install download error: $e, opening browser fallback...');
-      onError('Installation error: $e. You can download the update directly.');
+
+      attempt++;
+      try {
+        final file = File(savePath);
+        if (await file.exists()) {
+          try {
+            await file.delete();
+          } catch (_) {}
+        }
+
+        final dio = dioOverride ??
+            Dio(
+              BaseOptions(
+                connectTimeout: const Duration(seconds: 15),
+                receiveTimeout: const Duration(minutes: 5),
+                headers: {
+                  'User-Agent': '${AppConfig.appName}/${AppConfig.version} (Android)',
+                },
+              ),
+            );
+
+        await dio.download(
+          downloadUrl,
+          savePath,
+          cancelToken: cancelToken,
+          deleteOnError: true,
+          onReceiveProgress: (received, total) {
+            onProgress(received, total);
+          },
+        );
+
+        onRetryStateChange?.call(false);
+        onComplete(savePath);
+
+        // Safe notification show (never crashes or aborts installer)
+        try {
+          await _showInstallReadyNotification(savePath);
+        } catch (notifErr) {
+          debugPrint('Could not post notification: $notifErr');
+        }
+
+        // Launch installer immediately
+        await launchApkInstaller(savePath, downloadUrl);
+        return;
+      } catch (e) {
+        if (CancelToken.isCancel(e as dynamic) || (cancelToken?.isCancelled ?? false)) {
+          return;
+        }
+
+        lastError = e;
+        debugPrint('Direct install download attempt $attempt failed: $e');
+
+        // Check if error is non-retryable (e.g. 404, 403, 401)
+        if (e is DioException) {
+          final statusCode = e.response?.statusCode;
+          if (statusCode != null &&
+              statusCode >= 400 &&
+              statusCode < 500 &&
+              statusCode != 408 &&
+              statusCode != 429) {
+            debugPrint('Non-retryable HTTP error $statusCode encountered, aborting retry loop.');
+            onRetryStateChange?.call(false);
+            onError('The update file is currently unavailable. You can download the update directly via browser.');
+            return;
+          }
+        }
+
+        // Retry silently for about 1 minute
+        final elapsed = stopwatch.elapsed;
+        if (elapsed < maxRetryDuration) {
+          onRetryStateChange?.call(true);
+          final remaining = maxRetryDuration - elapsed;
+          final waitDuration = remaining < retryDelay ? remaining : retryDelay;
+
+          debugPrint(
+            'Retrying silently in ${waitDuration.inSeconds}s '
+            '(attempt $attempt, ${elapsed.inSeconds}s elapsed)...',
+          );
+
+          if (cancelToken != null) {
+            await Future.any([
+              Future.delayed(waitDuration),
+              cancelToken.whenCancel,
+            ]);
+            if (cancelToken.isCancelled) return;
+          } else {
+            await Future.delayed(waitDuration);
+          }
+          continue;
+        }
+
+        // Silent retry window exhausted
+        debugPrint('Silent retry window ($maxRetryDuration) exhausted after $attempt attempts. Last error: $lastError');
+        onRetryStateChange?.call(false);
+        onError('Download could not be completed. Please check your internet connection and try again.');
+        return;
+      }
     }
   }
 

@@ -333,9 +333,10 @@ class DownloadsController extends ChangeNotifier {
         studyDbInstalled: true,
       );
     } catch (e) {
+      debugPrint('Study DB download error: $e');
       _state = _state.copyWith(
         isStudyDbDownloading: false,
-        errorMessage: 'Failed to download study database: $e',
+        errorMessage: 'Failed to download study database. Please check your connection.',
       );
     }
     await refreshAll();
@@ -401,9 +402,10 @@ class DownloadsController extends ChangeNotifier {
         isCoreBundleDownloading: false,
       );
     } catch (e) {
+      debugPrint('Core bundle download error: $e');
       _state = _state.copyWith(
         isCoreBundleDownloading: false,
-        errorMessage: 'Failed to complete core bundle download: $e',
+        errorMessage: 'Failed to complete core bundle download. Please check your connection.',
       );
     }
     await refreshAll();
