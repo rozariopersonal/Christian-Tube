@@ -486,6 +486,79 @@ def save_study_lexicon_entry(db_path: str, lemma: str, occ_count: int, entry: di
             print(f"[DB Save Error for '{lemma}']: {e}")
             return False
 
+def log(msg: str):
+    print(msg, flush=True)
+
+PROGRESS_MD_PATH = os.path.join(CURRENT_DIR, "PROGRESS.md")
+
+def update_live_dashboard(db_path: str):
+    """Writes live progress and recent entries to tools/vocab_pipeline/PROGRESS.md."""
+    try:
+        conn = sqlite3.connect(db_path, timeout=10.0)
+        cur = conn.cursor()
+        cur.execute("SELECT count(distinct canonical) FROM unique_words WHERE canonical IS NOT NULL AND length(trim(canonical)) > 0")
+        total_canonical = cur.fetchone()[0]
+
+        cur.execute("SELECT count(*) FROM study_lexicon")
+        enriched_count = cur.fetchone()[0]
+
+        cur.execute("""
+        SELECT lemma, occurrence_count, strongs_number, original_lang, original_script, gloss_en, theological_pillar, updated_at
+        FROM study_lexicon
+        ORDER BY id DESC
+        LIMIT 20
+        """)
+        recent = cur.fetchall()
+        conn.close()
+
+        pct = (enriched_count / total_canonical * 100) if total_canonical > 0 else 0.0
+        bar_width = 30
+        filled = int(bar_width * pct / 100)
+        bar = "█" * filled + "░" * (bar_width - filled)
+
+        lines = [
+            "# Phase 2: Master 360° Bible Study Lexicon — Live Status",
+            "",
+            f"> **Last Updated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | **Backend:** Intel Arc Vulkan GPU (Port 8080, 3 Parallel Slots)",
+            "",
+            "## Overall Progress",
+            "```text",
+            f"[{bar}] {enriched_count:,} / {total_canonical:,} canonical lemmas ({pct:.2f}%)",
+            "```",
+            "",
+            "| Metric | Value |",
+            "| :--- | :--- |",
+            f"| **Enriched in `study_lexicon`** | **{enriched_count:,}** |",
+            f"| **Total Canonical Bible Roots** | **{total_canonical:,}** |",
+            f"| **Remaining to Process** | **{total_canonical - enriched_count:,}** |",
+            f"| **Completion** | **{pct:.2f}%** |",
+            "",
+            "---",
+            "",
+            "## Recently Enriched 360° Study Lexicon Entries",
+            "",
+            "| # | Lemma (வேர்ச்சொல்) | Occurrences | Strong's | Original Script | English Gloss | Theological Pillar |",
+            "| :-: | :--- | :-: | :--- | :--- | :--- | :--- |"
+        ]
+
+        for idx, r in enumerate(recent, start=1):
+            lemma = r[0]
+            occ = f"{r[1]:,}"
+            strongs = r[2] or "-"
+            orig = f"{r[4]} ({r[3]})" if r[4] else (r[3] or "-")
+            gloss = r[5] or "-"
+            pillar = r[6] or "-"
+            lines.append(f"| {idx} | **{lemma}** | {occ} | `{strongs}` | {orig} | {gloss} | {pillar} |")
+
+        lines.append("")
+        lines.append("---")
+        lines.append("*Live monitoring CLI: `python tools/vocab_pipeline/monitor_phase2.py --watch`*")
+
+        with open(PROGRESS_MD_PATH, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+    except Exception as e:
+        pass
+
 def process_single_lemma(lemma: str, db_path: str) -> bool:
     """Enriches a single canonical lemma via LLM and saves to SQLite."""
     # 1. Fetch DB context
@@ -494,7 +567,7 @@ def process_single_lemma(lemma: str, db_path: str) -> bool:
         info = get_lemma_context(conn, lemma)
         conn.close()
     except Exception as e:
-        print(f"[Context Error for '{lemma}']: {e}")
+        log(f"[Context Error for '{lemma}']: {e}")
         return False
 
     # 2. Call LLM
@@ -504,7 +577,7 @@ def process_single_lemma(lemma: str, db_path: str) -> bool:
     dt = time.time() - t0
 
     if not result or not isinstance(result, dict) or not result.get("definition_ta"):
-        print(f"  [LLM Fail] Lemma '{lemma}' returned invalid result ({dt:.1f}s)")
+        log(f"  [LLM Fail] Lemma '{lemma}' returned invalid result ({dt:.1f}s)")
         return False
 
     # 3. Save to database
@@ -514,7 +587,8 @@ def process_single_lemma(lemma: str, db_path: str) -> bool:
         strongs = result.get("strongs_number") or "-"
         lang = result.get("original_lang") or "-"
         pillar = result.get("theological_pillar") or "-"
-        print(f"  [Saved] '{lemma}' ({occ_count}x) | Strong's: {strongs} | {lang} | {pillar} | Time: {dt:.1f}s")
+        log(f"  [Saved] '{lemma}' ({occ_count}x) | Strong's: {strongs} | {lang} | {pillar} | Time: {dt:.1f}s")
+        update_live_dashboard(db_path)
     return saved
 
 # ==============================================================================
@@ -523,11 +597,11 @@ def process_single_lemma(lemma: str, db_path: str) -> bool:
 
 def run_phase2_pipeline(db_path: str, max_lemmas: int | None = None, workers: int = 3):
     """Coordinates parallel Phase 2 enrichment."""
-    print("=" * 80)
-    print("PHASE 2 MASTER BIBLE STUDY LEXICON ENRICHMENT PIPELINE")
-    print("=" * 80)
-    print(f"Database: {db_path}")
-    print(f"Workers: {workers}")
+    log("=" * 80)
+    log("PHASE 2 MASTER BIBLE STUDY LEXICON ENRICHMENT PIPELINE")
+    log("=" * 80)
+    log(f"Database: {db_path}")
+    log(f"Workers: {workers}")
 
     # Step 1: Initialize Database
     init_study_lexicon_db(db_path)
@@ -562,21 +636,23 @@ def run_phase2_pipeline(db_path: str, max_lemmas: int | None = None, workers: in
     if max_lemmas:
         pending_lemmas = pending_lemmas[:max_lemmas]
 
-    print(f"Total Unique Canonical Roots in Bible: {total_canonical:,}")
-    print(f"Already Enriched in study_lexicon: {total_completed:,}")
-    print(f"Pending to Enrich: {len(pending_lemmas):,} (Queue target: {total_pending:,})")
-    print("-" * 80)
+    log(f"Total Unique Canonical Roots in Bible: {total_canonical:,}")
+    log(f"Already Enriched in study_lexicon: {total_completed:,}")
+    log(f"Pending to Enrich: {len(pending_lemmas):,} (Queue target: {total_pending:,})")
+    log("-" * 80)
 
     if not pending_lemmas:
-        print("All canonical lemmas are already fully enriched in study_lexicon!")
+        log("All canonical lemmas are already fully enriched in study_lexicon!")
         return
+
+    update_live_dashboard(db_path)
 
     TELEMETRY["total_lemmas"] = len(pending_lemmas)
     TELEMETRY["completed_lemmas"] = 0
     start_time = time.time()
 
     # Step 4: Parallel Processing Pool
-    print(f"Launching {workers} parallel workers on {OLLAMA_HOST}...")
+    log(f"Launching {workers} parallel workers on {OLLAMA_HOST}...")
     with ThreadPoolExecutor(max_workers=workers) as executor:
         future_to_lemma = {
             executor.submit(process_single_lemma, lemma, db_path): lemma
@@ -596,13 +672,14 @@ def run_phase2_pipeline(db_path: str, max_lemmas: int | None = None, workers: in
                         rate = done / elapsed if elapsed > 0 else 0.0
                         rem_sec = (tot - done) / rate if rate > 0 else 0
                         rem_min = rem_sec / 60
-                        if done % 5 == 0 or done == tot:
-                            print(f">>> [PROGRESS] {done}/{tot} ({done/tot*100:.1f}%) | Speed: {rate*60:.1f} lemmas/min | Est Rem: {rem_min:.1f}m")
+                        log(f">>> [PROGRESS] {done}/{tot} ({done/tot*100:.1f}%) | Speed: {rate*60:.1f} lemmas/min | Est Rem: {rem_min:.1f}m")
             except Exception as e:
-                print(f"[Worker Exception for '{lem}']: {e}")
+                log(f"[Worker Exception for '{lem}']: {e}")
 
-    print("=" * 80)
-    print("PHASE 2 ENRICHMENT RUN COMPLETE!")
+    log("=" * 80)
+    log("PHASE 2 ENRICHMENT RUN COMPLETE!")
+    log(f"Enriched {TELEMETRY['completed_lemmas']} lemmas in {(time.time() - start_time)/60:.1f} minutes.")
+    log("=" * 80)
     print(f"Enriched {TELEMETRY['completed_lemmas']} lemmas in {(time.time() - start_time)/60:.1f} minutes.")
     print("=" * 80)
 
