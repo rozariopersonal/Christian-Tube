@@ -1,16 +1,21 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/auth/auth.service';
+import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
+import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
 import { ChannelService } from '../services/channel.service';
 
 @Component({
   selector: 'app-channels-page',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, LanguageDropdownComponent],
   template: `
     <div class="channels-page max-width-box">
       <header class="header-row">
-        <h1 class="font-display">Channels</h1>
+        <h1 class="font-display">
+          {{ auth.isAdmin() ? 'Channel Administration' : 'Channels' }}
+        </h1>
         <button
           type="button"
           class="pill-chip active"
@@ -21,83 +26,115 @@ import { ChannelService } from '../services/channel.service';
         </button>
       </header>
 
-      <div class="tab-bar">
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="activeTab() === 'browse'"
-          (click)="activeTab.set('browse')"
-        >
-          Browse Channels
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="activeTab() === 'requests'"
-          (click)="activeTab.set('requests')"
-        >
-          Requests ({{ channelService.channelRequests().length }})
-        </button>
-      </div>
+      @if (auth.isAdmin()) {
+        <div class="tab-bar">
+          <button
+            type="button"
+            class="tab-btn"
+            [class.active]="activeTab() === 'browse'"
+            (click)="activeTab.set('browse')"
+          >
+            Channels
+            <span class="tab-badge">{{ channelService.channels().length }}</span>
+          </button>
+          <button
+            type="button"
+            class="tab-btn"
+            [class.active]="activeTab() === 'requests'"
+            (click)="activeTab.set('requests')"
+          >
+            Requests
+            @if (pendingCount() > 0) {
+              <span class="tab-badge accent">{{ pendingCount() }}</span>
+            }
+          </button>
+        </div>
+      }
 
-      @if (activeTab() === 'browse') {
-        <div class="search-box">
-          <span class="material-symbols-rounded">search</span>
-          <input
-            type="search"
-            placeholder="Filter channels..."
-            [ngModel]="search()"
-            (ngModelChange)="search.set($event)"
+      @if (!auth.isAdmin() || activeTab() === 'browse') {
+        <div class="controls">
+          <div class="search-box">
+            <span class="material-symbols-rounded">search</span>
+            <input
+              type="search"
+              placeholder="Search channels..."
+              [ngModel]="search()"
+              (ngModelChange)="search.set($event)"
+            />
+          </div>
+
+          <app-language-dropdown
+            [selectedLanguages]="selectedLanguages()"
+            [availableLanguages]="languages()"
+            [itemCounts]="languageCounts()"
+            itemNoun="channels"
+            headerTitle="Channel Languages"
+            (languagesChange)="selectedLanguages.set($event)"
           />
         </div>
 
-        <div class="channels-grid">
-          @for (ch of filteredChannels(); track ch.id) {
-            <div class="channel-card">
-              <a [routerLink]="['/channels', ch.id]" class="card-banner-wrap">
-                @if (ch.bannerUrl) {
-                  <img class="banner" [src]="ch.bannerUrl" [alt]="ch.title" loading="lazy" />
-                } @else {
-                  <div class="banner fallback"></div>
-                }
-              </a>
-
-              <div class="card-body">
-                <a [routerLink]="['/channels', ch.id]" class="avatar-row">
-                  @if (ch.avatarUrl) {
-                    <img class="avatar" [src]="ch.avatarUrl" [alt]="ch.title" loading="lazy" />
+        @if (channelService.isLoading() && channelService.channels().length === 0) {
+          <p class="empty-msg">Loading channels...</p>
+        } @else if (filteredChannels().length === 0) {
+          <div class="empty-card">
+            <span class="material-symbols-rounded empty-icon">tv_off</span>
+            <h2>No channels found</h2>
+            <p class="muted">Try adjusting your search or language filter.</p>
+          </div>
+        } @else {
+          <div class="channels-grid">
+            @for (ch of filteredChannels(); track ch.id) {
+              <div class="channel-card">
+                <a [routerLink]="['/channels', ch.id]" class="banner-stack">
+                  @if (ch.bannerUrl) {
+                    <img class="banner" [src]="ch.bannerUrl" [alt]="ch.title" loading="lazy" />
                   } @else {
-                    <span class="avatar fallback">{{ ch.title.slice(0, 1).toUpperCase() }}</span>
+                    <div class="banner fallback"></div>
                   }
-                  <div class="ch-info">
-                    <h2 class="ch-title">{{ ch.title }}</h2>
-                    <p class="ch-meta">
-                      {{ ch.videoCount }} videos
-                      @if (ch.language) {
-                        · {{ ch.language.toUpperCase() }}
-                      }
-                    </p>
+                  <div class="banner-scrim"></div>
+                  <div class="overlapping-avatar">
+                    @if (ch.avatarUrl) {
+                      <img class="avatar" [src]="ch.avatarUrl" [alt]="ch.title" loading="lazy" />
+                    } @else {
+                      <span class="avatar fallback">{{ ch.title.slice(0, 1).toUpperCase() }}</span>
+                    }
                   </div>
                 </a>
 
-                @if (ch.description) {
-                  <p class="ch-desc">{{ ch.description }}</p>
-                }
+                <div class="card-body">
+                  <a [routerLink]="['/channels', ch.id]" class="title-link">
+                    <h2 class="ch-title">{{ ch.title }}</h2>
+                  </a>
 
-                <div class="card-footer">
-                  <button
-                    type="button"
-                    class="pill-chip"
-                    [class.active]="!ch.isSubscribed"
-                    (click)="channelService.toggleSubscribe(ch.id)"
-                  >
-                    {{ ch.isSubscribed ? 'Subscribed' : 'Subscribe' }}
-                  </button>
+                  <p class="ch-meta">
+                    @if (ch.subscriberCount > 0) {
+                      <span>{{ formatCount(ch.subscriberCount) }} subscribers · </span>
+                    }
+                    <span>{{ ch.videoCount }} videos</span>
+                    @if (ch.language) {
+                      <span class="lang-tag">{{ ch.language.toUpperCase() }}</span>
+                    }
+                  </p>
+
+                  @if (ch.description) {
+                    <p class="ch-desc">{{ ch.description }}</p>
+                  }
+
+                  <div class="card-footer">
+                    <button
+                      type="button"
+                      class="pill-chip"
+                      [class.active]="!ch.isSubscribed"
+                      (click)="channelService.toggleSubscribe(ch.id)"
+                    >
+                      {{ ch.isSubscribed ? 'Subscribed' : 'Subscribe' }}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        }
       } @else {
         <div class="requests-list">
           @if (channelService.channelRequests().length === 0) {
@@ -179,6 +216,9 @@ import { ChannelService } from '../services/channel.service';
       }
 
       .tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         padding: 10px 14px;
         font-size: 14px;
         font-weight: 600;
@@ -191,7 +231,29 @@ import { ChannelService } from '../services/channel.service';
         border-bottom-color: var(--accent);
       }
 
+      .tab-badge {
+        padding: 1px 7px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .tab-badge.accent {
+        background-color: var(--accent);
+        color: var(--on-accent);
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
       .search-box {
+        flex: 1;
+        min-width: 200px;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -200,7 +262,6 @@ import { ChannelService } from '../services/channel.service';
         background-color: var(--surface);
         border: 1px solid var(--surface-border);
         border-radius: var(--radius-md);
-        margin-bottom: 16px;
       }
 
       .search-box input {
@@ -219,15 +280,16 @@ import { ChannelService } from '../services/channel.service';
       .channel-card {
         background-color: var(--surface);
         border: 1px solid var(--surface-border);
-        border-radius: var(--radius-md);
+        border-radius: var(--radius-lg);
         overflow: hidden;
         display: flex;
         flex-direction: column;
       }
 
-      .card-banner-wrap {
+      .banner-stack {
+        position: relative;
+        height: 80px;
         display: block;
-        height: 84px;
         background-color: var(--surface-variant);
       }
 
@@ -242,43 +304,51 @@ import { ChannelService } from '../services/channel.service';
         background: linear-gradient(135deg, var(--accent-soft), var(--surface-variant));
       }
 
-      .card-body {
-        padding: 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        flex: 1;
+      .banner-scrim {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.3));
       }
 
-      .avatar-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+      .overlapping-avatar {
+        position: absolute;
+        left: 16px;
+        bottom: -20px;
+        width: 52px;
+        height: 52px;
+        border-radius: var(--radius-pill);
+        border: 3px solid var(--surface);
+        background-color: var(--surface);
+        overflow: hidden;
       }
 
       .avatar {
-        width: 44px;
-        height: 44px;
-        border-radius: var(--radius-pill);
+        width: 100%;
+        height: 100%;
         object-fit: cover;
-        flex-shrink: 0;
+        display: block;
       }
 
       .avatar.fallback {
         display: grid;
         place-items: center;
         font-weight: 700;
+        font-size: 18px;
         background-color: var(--accent-soft);
         color: var(--accent);
       }
 
-      .ch-info {
-        min-width: 0;
+      .card-body {
+        padding: 26px 16px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
       }
 
       .ch-title {
         margin: 0;
-        font-size: 15px;
+        font-size: 16px;
         font-weight: 700;
         white-space: nowrap;
         overflow: hidden;
@@ -286,13 +356,25 @@ import { ChannelService } from '../services/channel.service';
       }
 
       .ch-meta {
-        margin: 2px 0 0;
+        margin: 0;
         font-size: 12px;
         color: var(--on-surface-muted);
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .lang-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background-color: var(--surface-variant);
+        font-size: 11px;
+        font-weight: 600;
       }
 
       .ch-desc {
-        margin: 0;
+        margin: 4px 0 0;
         font-size: 13px;
         color: var(--on-surface-muted);
         display: -webkit-box;
@@ -303,8 +385,26 @@ import { ChannelService } from '../services/channel.service';
 
       .card-footer {
         margin-top: auto;
+        padding-top: 8px;
         display: flex;
         justify-content: flex-end;
+      }
+
+      .empty-card {
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-lg);
+        padding: 36px 24px;
+        text-align: center;
+      }
+
+      .empty-icon {
+        font-size: 48px;
+        color: var(--on-surface-disabled);
+      }
+
+      .muted {
+        color: var(--on-surface-muted);
       }
 
       .requests-list {
@@ -381,30 +481,75 @@ import { ChannelService } from '../services/channel.service';
 })
 export class ChannelsComponent implements OnInit {
   readonly channelService = inject(ChannelService);
+  readonly auth = inject(AuthService);
 
   readonly activeTab = signal<'browse' | 'requests'>('browse');
   readonly search = signal<string>('');
+  readonly selectedLanguages = signal<string[]>(['All']);
   readonly showRequestModal = signal<boolean>(false);
 
   reqName = '';
   reqUrl = '';
   reqReason = '';
 
+  readonly pendingCount = computed(
+    () =>
+      this.channelService
+        .channelRequests()
+        .filter((r) => r.status === 'PENDING').length,
+  );
+
+  readonly languageCounts = computed(() => {
+    const counts: Record<string, number> = {
+      All: this.channelService.channels().length,
+    };
+    for (const c of this.channelService.channels()) {
+      const code = canonicalLanguageCode(c.language);
+      counts[code] = (counts[code] ?? 0) + 1;
+    }
+    return counts;
+  });
+
+  readonly languages = computed(() => {
+    const counts = this.languageCounts();
+    return Object.keys(counts)
+      .filter((k) => k !== 'All')
+      .sort((a, b) => (counts[b] ?? 0) - (counts[a] ?? 0));
+  });
+
   readonly filteredChannels = computed(() => {
     const q = this.search().trim().toLowerCase();
-    const list = this.channelService.channels();
-    if (!q) return list;
-    return list.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        (c.description?.toLowerCase().includes(q) ?? false),
-    );
+    const selLangs = this.selectedLanguages();
+    const allLangs = selLangs.length === 0 || selLangs.includes('All');
+    const langSet = new Set(selLangs.map((l) => l.toLowerCase()));
+    return this.channelService.channels().filter((c) => {
+      if (
+        !allLangs &&
+        !langSet.has(canonicalLanguageCode(c.language).toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        q &&
+        !c.title.toLowerCase().includes(q) &&
+        !(c.description?.toLowerCase().includes(q) ?? false)
+      ) {
+        return false;
+      }
+      return true;
+    });
   });
 
   ngOnInit(): void {
     void this.channelService.loadSubscriptions();
     void this.channelService.fetchChannels();
     void this.channelService.fetchRequests();
+  }
+
+  formatCount(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return String(n);
   }
 
   async submitRequest(): Promise<void> {
@@ -418,6 +563,8 @@ export class ChannelsComponent implements OnInit {
     this.reqUrl = '';
     this.reqReason = '';
     this.showRequestModal.set(false);
-    this.activeTab.set('requests');
+    if (this.auth.isAdmin()) {
+      this.activeTab.set('requests');
+    }
   }
 }

@@ -342,6 +342,7 @@ export class BookReaderComponent implements OnInit {
         this.bookId,
         ch,
         this.bookLang,
+        this.toc()?.chapters.length,
       );
       this.lines.set(lines);
       const toc = this.toc();
