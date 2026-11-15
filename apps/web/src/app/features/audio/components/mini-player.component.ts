@@ -128,7 +128,7 @@ import { AudioPlayerService } from '../services/audio-player.service';
 
       @media (min-width: 600px) {
         .mini-player {
-          left: var(--shell-rail-width);
+          left: 0;
           bottom: 0;
         }
       }

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MiniPlayerComponent } from '../../features/audio/components/mini-player.component';
 import { ScreenClassService } from './screen-class.service';
@@ -21,28 +21,31 @@ const DESTINATIONS: readonly NavDestination[] = [
   selector: 'app-main-shell',
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive, MiniPlayerComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="shell" [class.has-rail]="screen.isMediumOrExpanded()">
+    <div class="shell">
       @if (screen.isMediumOrExpanded()) {
-        <nav class="nav-rail" aria-label="Primary navigation">
-          <a class="rail-brand" routerLink="/feed" aria-label="Home">
-            <img src="logo.png" alt="ChristianApp" width="28" height="28" />
-          </a>
-          <div class="rail-items">
-            @for (dest of destinations; track dest.route) {
-              <a
-                class="rail-item"
-                [routerLink]="dest.route"
-                routerLinkActive="active"
-              >
-                <span class="pill-indicator">
+        <header class="top-nav">
+          <div class="top-nav-inner max-width-box">
+            <a class="top-brand" routerLink="/feed" aria-label="Home">
+              <img src="logo.png" alt="ChristianApp" width="28" height="28" />
+              <span class="font-display brand-name">ChristianApp</span>
+            </a>
+
+            <nav class="top-items" aria-label="Primary navigation">
+              @for (dest of destinations; track dest.route) {
+                <a
+                  class="top-item"
+                  [routerLink]="dest.route"
+                  routerLinkActive="active"
+                >
                   <span class="material-symbols-rounded">{{ dest.icon }}</span>
-                </span>
-                <span class="rail-label">{{ dest.label }}</span>
-              </a>
-            }
+                  <span class="top-label">{{ dest.label }}</span>
+                </a>
+              }
+            </nav>
           </div>
-        </nav>
+        </header>
       }
 
       <main class="shell-content" [class.with-bottom-bar]="screen.isCompact()">
@@ -78,10 +81,6 @@ const DESTINATIONS: readonly NavDestination[] = [
         background-color: var(--bg);
       }
 
-      .shell.has-rail {
-        flex-direction: row;
-      }
-
       .shell-content {
         flex: 1;
         min-width: 0;
@@ -93,38 +92,73 @@ const DESTINATIONS: readonly NavDestination[] = [
         padding-bottom: calc(var(--shell-bottom-height) + env(safe-area-inset-bottom, 0px));
       }
 
-      .nav-rail {
+      .top-nav {
         position: sticky;
         top: 0;
-        height: 100dvh;
-        width: var(--shell-rail-width);
-        flex-shrink: 0;
+        z-index: 45;
+        height: var(--topbar-height);
         background-color: var(--surface);
-        border-right: 1px solid var(--surface-border);
+        border-bottom: 1px solid var(--surface-border);
+      }
+
+      .top-nav-inner {
+        height: 100%;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        padding: 14px 8px;
+        justify-content: space-between;
         gap: 16px;
-        z-index: 40;
       }
 
-      .rail-brand {
-        width: 44px;
-        height: 44px;
-        border-radius: var(--radius-md);
-        display: grid;
-        place-items: center;
+      .top-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
       }
 
-      .rail-items {
+      .brand-name {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .top-items {
         display: flex;
-        flex-direction: column;
-        gap: 8px;
-        width: 100%;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4px;
+        margin-left: auto;
       }
 
-      .rail-item,
+      .top-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 36px;
+        padding: 0 12px;
+        border-radius: var(--radius-pill);
+        color: var(--on-surface-muted);
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition: background-color 150ms ease, color 150ms ease;
+      }
+
+      .top-item:hover {
+        background-color: var(--surface-variant);
+        color: var(--on-surface);
+      }
+
+      .top-item.active {
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .top-item .material-symbols-rounded {
+        font-size: 20px;
+      }
+
       .bottom-item {
         display: flex;
         flex-direction: column;
@@ -147,19 +181,17 @@ const DESTINATIONS: readonly NavDestination[] = [
         transition: background-color 150ms ease, color 150ms ease;
       }
 
-      .rail-item.active,
       .bottom-item.active {
         color: var(--on-surface);
         font-weight: 600;
       }
 
-      .rail-item.active .pill-indicator,
       .bottom-item.active .pill-indicator {
         background-color: var(--accent-soft);
         color: var(--accent);
       }
 
-      .rail-item.active .material-symbols-rounded,
+      .top-item.active .material-symbols-rounded,
       .bottom-item.active .material-symbols-rounded {
         font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
       }

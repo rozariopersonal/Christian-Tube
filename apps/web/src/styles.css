@@ -22,9 +22,15 @@
   --radius-lg: 16px;
   --radius-pill: 9999px;
 
-  --shell-rail-width: 80px;
   --shell-bottom-height: 64px;
   --topbar-height: 56px;
+  --shell-top-offset: 0px;
+}
+
+@media (min-width: 600px) {
+  :root {
+    --shell-top-offset: var(--topbar-height);
+  }
 }
 
 :root[data-theme='dark'] {

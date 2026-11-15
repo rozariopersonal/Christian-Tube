@@ -84,7 +84,7 @@ const HIGHLIGHT_SWATCHES = ['#FEF08A', '#BBF7D0', '#BFDBFE', '#FBCFE8'];
 
       @media (min-width: 600px) {
         .verse-action-bar {
-          left: var(--shell-rail-width);
+          left: 0;
           bottom: 0;
         }
       }
