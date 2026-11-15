@@ -1,15 +1,32 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
 import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
+import { ChannelCardComponent } from '../components/channel-card.component';
+import {
+  ChannelRequestModalComponent,
+  ChannelRequestPayload,
+} from '../components/channel-request-modal.component';
 import { ChannelService } from '../services/channel.service';
 
 @Component({
   selector: 'app-channels-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, LanguageDropdownComponent],
+  imports: [
+    FormsModule,
+    LanguageDropdownComponent,
+    ChannelCardComponent,
+    ChannelRequestModalComponent,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="channels-page max-width-box">
       <header class="header-row">
@@ -84,54 +101,10 @@ import { ChannelService } from '../services/channel.service';
         } @else {
           <div class="channels-grid">
             @for (ch of filteredChannels(); track ch.id) {
-              <div class="channel-card">
-                <a [routerLink]="['/channels', ch.id]" class="banner-stack">
-                  @if (ch.bannerUrl) {
-                    <img class="banner" [src]="ch.bannerUrl" [alt]="ch.title" loading="lazy" />
-                  } @else {
-                    <div class="banner fallback"></div>
-                  }
-                  <div class="banner-scrim"></div>
-                  <div class="overlapping-avatar">
-                    @if (ch.avatarUrl) {
-                      <img class="avatar" [src]="ch.avatarUrl" [alt]="ch.title" loading="lazy" />
-                    } @else {
-                      <span class="avatar fallback">{{ ch.title.slice(0, 1).toUpperCase() }}</span>
-                    }
-                  </div>
-                </a>
-
-                <div class="card-body">
-                  <a [routerLink]="['/channels', ch.id]" class="title-link">
-                    <h2 class="ch-title">{{ ch.title }}</h2>
-                  </a>
-
-                  <p class="ch-meta">
-                    @if (ch.subscriberCount > 0) {
-                      <span>{{ formatCount(ch.subscriberCount) }} subscribers · </span>
-                    }
-                    <span>{{ ch.videoCount }} videos</span>
-                    @if (ch.language) {
-                      <span class="lang-tag">{{ ch.language.toUpperCase() }}</span>
-                    }
-                  </p>
-
-                  @if (ch.description) {
-                    <p class="ch-desc">{{ ch.description }}</p>
-                  }
-
-                  <div class="card-footer">
-                    <button
-                      type="button"
-                      class="pill-chip"
-                      [class.active]="!ch.isSubscribed"
-                      (click)="channelService.toggleSubscribe(ch.id)"
-                    >
-                      {{ ch.isSubscribed ? 'Subscribed' : 'Subscribe' }}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <app-channel-card
+                [channel]="ch"
+                (subscribeToggled)="channelService.toggleSubscribe($event)"
+              />
             }
           </div>
         }
@@ -154,31 +127,10 @@ import { ChannelService } from '../services/channel.service';
       }
 
       @if (showRequestModal()) {
-        <div class="modal-backdrop" (click)="showRequestModal.set(false)">
-          <div class="modal-panel req-modal" (click)="$event.stopPropagation()">
-            <h2 class="font-display">Request a Channel</h2>
-            <label class="field">
-              <span>Channel Name</span>
-              <input type="text" [(ngModel)]="reqName" placeholder="e.g. Grace Fellowship" />
-            </label>
-            <label class="field">
-              <span>YouTube Channel URL</span>
-              <input type="url" [(ngModel)]="reqUrl" placeholder="https://youtube.com/@..." />
-            </label>
-            <label class="field">
-              <span>Reason (optional)</span>
-              <textarea rows="3" [(ngModel)]="reqReason"></textarea>
-            </label>
-            <div class="modal-actions">
-              <button type="button" class="pill-chip" (click)="showRequestModal.set(false)">
-                Cancel
-              </button>
-              <button type="button" class="pill-chip active" (click)="submitRequest()">
-                Submit
-              </button>
-            </div>
-          </div>
-        </div>
+        <app-channel-request-modal
+          (submitted)="submitRequest($event)"
+          (closed)="showRequestModal.set(false)"
+        />
       }
     </div>
   `,
@@ -277,119 +229,6 @@ import { ChannelService } from '../services/channel.service';
         gap: 16px;
       }
 
-      .channel-card {
-        background-color: var(--surface);
-        border: 1px solid var(--surface-border);
-        border-radius: var(--radius-lg);
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .banner-stack {
-        position: relative;
-        height: 80px;
-        display: block;
-        background-color: var(--surface-variant);
-      }
-
-      .banner {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
-
-      .banner.fallback {
-        background: linear-gradient(135deg, var(--accent-soft), var(--surface-variant));
-      }
-
-      .banner-scrim {
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.3));
-      }
-
-      .overlapping-avatar {
-        position: absolute;
-        left: 16px;
-        bottom: -20px;
-        width: 52px;
-        height: 52px;
-        border-radius: var(--radius-pill);
-        border: 3px solid var(--surface);
-        background-color: var(--surface);
-        overflow: hidden;
-      }
-
-      .avatar {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
-
-      .avatar.fallback {
-        display: grid;
-        place-items: center;
-        font-weight: 700;
-        font-size: 18px;
-        background-color: var(--accent-soft);
-        color: var(--accent);
-      }
-
-      .card-body {
-        padding: 26px 16px 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        flex: 1;
-      }
-
-      .ch-title {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 700;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .ch-meta {
-        margin: 0;
-        font-size: 12px;
-        color: var(--on-surface-muted);
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 4px;
-      }
-
-      .lang-tag {
-        padding: 1px 6px;
-        border-radius: 4px;
-        background-color: var(--surface-variant);
-        font-size: 11px;
-        font-weight: 600;
-      }
-
-      .ch-desc {
-        margin: 4px 0 0;
-        font-size: 13px;
-        color: var(--on-surface-muted);
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
-
-      .card-footer {
-        margin-top: auto;
-        padding-top: 8px;
-        display: flex;
-        justify-content: flex-end;
-      }
-
       .empty-card {
         background-color: var(--surface);
         border: 1px solid var(--surface-border);
@@ -443,39 +282,6 @@ import { ChannelService } from '../services/channel.service';
         color: var(--on-surface-muted);
         padding: 32px 0;
       }
-
-      .req-modal {
-        padding: 20px;
-        gap: 12px;
-      }
-
-      .req-modal h2 {
-        margin: 0;
-        font-size: 18px;
-      }
-
-      .field {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        font-size: 13px;
-        font-weight: 500;
-      }
-
-      .field input,
-      .field textarea {
-        padding: 10px 12px;
-        border-radius: var(--radius-sm);
-        border: 1px solid var(--surface-border);
-        background-color: var(--bg);
-      }
-
-      .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-        margin-top: 8px;
-      }
     `,
   ],
 })
@@ -487,10 +293,6 @@ export class ChannelsComponent implements OnInit {
   readonly search = signal<string>('');
   readonly selectedLanguages = signal<string[]>(['All']);
   readonly showRequestModal = signal<boolean>(false);
-
-  reqName = '';
-  reqUrl = '';
-  reqReason = '';
 
   readonly pendingCount = computed(
     () =>
@@ -546,22 +348,12 @@ export class ChannelsComponent implements OnInit {
     void this.channelService.fetchRequests();
   }
 
-  formatCount(n: number): string {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return String(n);
-  }
-
-  async submitRequest(): Promise<void> {
-    if (!this.reqName.trim() || !this.reqUrl.trim()) return;
+  async submitRequest(payload: ChannelRequestPayload): Promise<void> {
     await this.channelService.submitRequest(
-      this.reqName.trim(),
-      this.reqUrl.trim(),
-      this.reqReason.trim() || undefined,
+      payload.name,
+      payload.url,
+      payload.reason,
     );
-    this.reqName = '';
-    this.reqUrl = '';
-    this.reqReason = '';
     this.showRequestModal.set(false);
     if (this.auth.isAdmin()) {
       this.activeTab.set('requests');
