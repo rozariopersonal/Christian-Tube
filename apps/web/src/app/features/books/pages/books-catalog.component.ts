@@ -1,14 +1,23 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
 import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
+import { BookCardComponent } from '../components/book-card.component';
 import { BooksService } from '../services/books.service';
 
 @Component({
   selector: 'app-books-catalog',
   standalone: true,
-  imports: [FormsModule, RouterLink, LanguageDropdownComponent],
+  imports: [FormsModule, RouterLink, LanguageDropdownComponent, BookCardComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="books-page max-width-box">
       <header class="page-head">
@@ -80,44 +89,22 @@ import { BooksService } from '../services/books.service';
       } @else if (booksService.error()) {
         <div class="status-msg">
           <p>{{ booksService.error() }}</p>
-          <button type="button" class="pill-chip active" (click)="booksService.loadCatalog()">
+          <button
+            type="button"
+            class="pill-chip active"
+            (click)="booksService.loadCatalog()"
+          >
             Retry
           </button>
         </div>
       } @else {
         <div class="books-grid">
           @for (book of filteredBooks(); track book.id) {
-            @let prog = booksService.progressMap()[book.id];
-            <a class="book-card" [routerLink]="['/books', book.id]">
-              <div class="cover-wrap">
-                @if (book.coverFile) {
-                  <img
-                    class="cover"
-                    [src]="booksService.coverUrl(book.coverFile)"
-                    [alt]="book.title"
-                    loading="lazy"
-                  />
-                } @else {
-                  <div class="cover fallback-jacket">
-                    <span class="jacket-spine"></span>
-                    <strong class="jacket-title">{{ book.title }}</strong>
-                    <span class="jacket-author">{{ book.author }}</span>
-                  </div>
-                }
-                @if (prog && prog.totalChapters > 0) {
-                  <div class="cover-progress-track">
-                    <div
-                      class="cover-progress-fill"
-                      [style.width.%]="(prog.chapterIndex / prog.totalChapters) * 100"
-                    ></div>
-                  </div>
-                }
-              </div>
-              <div class="book-meta">
-                <h3 class="book-title">{{ book.title }}</h3>
-                <p class="book-author">{{ book.author }}</p>
-              </div>
-            </a>
+            <app-book-card
+              [book]="book"
+              [progress]="booksService.progressMap()[book.id]"
+              [coverUrl]="book.coverFile ? booksService.coverUrl(book.coverFile) : null"
+            />
           }
         </div>
       }
@@ -161,14 +148,6 @@ import { BooksService } from '../services/books.service';
         border: none;
         outline: none;
         background: transparent;
-      }
-
-      .lang-select {
-        height: 42px;
-        padding: 0 12px;
-        border-radius: var(--radius-md);
-        background-color: var(--surface);
-        border: 1px solid var(--surface-border);
       }
 
       .subject-strip {
@@ -245,88 +224,6 @@ import { BooksService } from '../services/books.service';
         gap: 18px 14px;
       }
 
-      .book-card {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .cover-wrap {
-        position: relative;
-        aspect-ratio: 2 / 3;
-        border-radius: var(--radius-sm);
-        overflow: hidden;
-        background-color: var(--surface-variant);
-        border: 1px solid var(--surface-border);
-        box-shadow: 1px 3px 8px rgba(0, 0, 0, 0.2);
-      }
-
-      .cover {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
-
-      .cover.fallback-jacket {
-        position: relative;
-        padding: 14px 12px 14px 18px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        background: linear-gradient(145deg, var(--surface-elevated), var(--surface-variant));
-      }
-
-      .jacket-spine {
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 6px;
-        background-color: var(--accent);
-      }
-
-      .jacket-title {
-        font-size: 13px;
-        line-height: 1.3;
-      }
-
-      .jacket-author {
-        font-size: 11px;
-        color: var(--on-surface-muted);
-      }
-
-      .cover-progress-track {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 4px;
-        background-color: rgba(0, 0, 0, 0.35);
-      }
-
-      .cover-progress-fill {
-        height: 100%;
-        background-color: var(--accent);
-      }
-
-      .book-title {
-        margin: 0;
-        font-size: 14px;
-        font-weight: 600;
-        line-height: 1.3;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
-
-      .book-author {
-        margin: 2px 0 0;
-        font-size: 12px;
-        color: var(--on-surface-muted);
-      }
-
       .status-msg {
         text-align: center;
         padding: 36px 0;
@@ -343,7 +240,9 @@ export class BooksCatalogComponent implements OnInit {
   readonly selectedSubject = signal<string>('All');
 
   readonly languageCounts = computed(() => {
-    const counts: Record<string, number> = { All: this.booksService.catalog().length };
+    const counts: Record<string, number> = {
+      All: this.booksService.catalog().length,
+    };
     for (const b of this.booksService.catalog()) {
       const code = canonicalLanguageCode(b.lang);
       counts[code] = (counts[code] ?? 0) + 1;
