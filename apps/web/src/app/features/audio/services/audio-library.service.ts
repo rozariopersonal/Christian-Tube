@@ -17,11 +17,13 @@ export class AudioLibraryService {
     this.error.set(null);
     try {
       const res = await firstValueFrom(
-        this.api.get<{ series?: AudioSeries[] } | AudioSeries[]>(
+        this.api.get<{ data?: AudioSeries[]; series?: AudioSeries[] } | AudioSeries[]>(
           '/api/audio/catalog',
         ),
       );
-      const list = Array.isArray(res) ? res : (res?.series ?? []);
+      const list = Array.isArray(res)
+        ? res
+        : (res?.data ?? res?.series ?? []);
       this.seriesList.set(list);
     } catch (err) {
       this.error.set(
@@ -34,9 +36,12 @@ export class AudioLibraryService {
 
   async fetchSeries(id: string): Promise<AudioSeries | null> {
     try {
-      return await firstValueFrom(
-        this.api.get<AudioSeries>(`/api/audio/series/${id}`),
+      const res = await firstValueFrom(
+        this.api.get<{ data?: AudioSeries } | AudioSeries>(
+          `/api/audio/series/${id}`,
+        ),
       );
+      return (res as { data?: AudioSeries })?.data ?? (res as AudioSeries);
     } catch {
       return this.seriesList().find((s) => s.id === id) ?? null;
     }
