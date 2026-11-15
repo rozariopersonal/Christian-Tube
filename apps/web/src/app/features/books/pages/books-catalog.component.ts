@@ -87,6 +87,7 @@ import { BooksService } from '../services/books.service';
       } @else {
         <div class="books-grid">
           @for (book of filteredBooks(); track book.id) {
+            @let prog = booksService.progressMap()[book.id];
             <a class="book-card" [routerLink]="['/books', book.id]">
               <div class="cover-wrap">
                 @if (book.coverFile) {
@@ -97,8 +98,18 @@ import { BooksService } from '../services/books.service';
                     loading="lazy"
                   />
                 } @else {
-                  <div class="cover fallback">
-                    <span class="material-symbols-rounded">menu_book</span>
+                  <div class="cover fallback-jacket">
+                    <span class="jacket-spine"></span>
+                    <strong class="jacket-title">{{ book.title }}</strong>
+                    <span class="jacket-author">{{ book.author }}</span>
+                  </div>
+                }
+                @if (prog && prog.totalChapters > 0) {
+                  <div class="cover-progress-track">
+                    <div
+                      class="cover-progress-fill"
+                      [style.width.%]="(prog.chapterIndex / prog.totalChapters) * 100"
+                    ></div>
                   </div>
                 }
               </div>
@@ -241,11 +252,13 @@ import { BooksService } from '../services/books.service';
       }
 
       .cover-wrap {
+        position: relative;
         aspect-ratio: 2 / 3;
-        border-radius: var(--radius-md);
+        border-radius: var(--radius-sm);
         overflow: hidden;
         background-color: var(--surface-variant);
         border: 1px solid var(--surface-border);
+        box-shadow: 1px 3px 8px rgba(0, 0, 0, 0.2);
       }
 
       .cover {
@@ -255,10 +268,46 @@ import { BooksService } from '../services/books.service';
         display: block;
       }
 
-      .cover.fallback {
-        display: grid;
-        place-items: center;
+      .cover.fallback-jacket {
+        position: relative;
+        padding: 14px 12px 14px 18px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background: linear-gradient(145deg, var(--surface-elevated), var(--surface-variant));
+      }
+
+      .jacket-spine {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: var(--accent);
+      }
+
+      .jacket-title {
+        font-size: 13px;
+        line-height: 1.3;
+      }
+
+      .jacket-author {
+        font-size: 11px;
         color: var(--on-surface-muted);
+      }
+
+      .cover-progress-track {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 4px;
+        background-color: rgba(0, 0, 0, 0.35);
+      }
+
+      .cover-progress-fill {
+        height: 100%;
+        background-color: var(--accent);
       }
 
       .book-title {

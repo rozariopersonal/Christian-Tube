@@ -216,8 +216,9 @@ test.describe('ChristianApp Web E2E', () => {
 
     // 4. Books Library & Reader
     await page.goto('/books');
-    await expect(page.getByText('A Godly Family Life')).toBeVisible();
-    await page.getByText('A Godly Family Life').click();
+    const bookTitle = page.locator('.book-title', { hasText: 'A Godly Family Life' });
+    await expect(bookTitle).toBeVisible();
+    await bookTitle.click();
     await expect(page.getByText('Building a godly home.')).toBeVisible();
 
     // 5. Audio Library, Series & Mini-Player
