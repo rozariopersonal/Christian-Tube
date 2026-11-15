@@ -22,8 +22,10 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
   String _version = '1.28.0';
+  bool _pendingOverlayEnable = false;
 
   List<LanguageMeta> get _languages => LanguageMeta.supportedLanguages.values
       .where((l) => l.code.toLowerCase() != 'all')
@@ -41,7 +43,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAppInfo();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _pendingOverlayEnable) {
+      _pendingOverlayEnable = false;
+      _enableScreensaverIfPermitted();
+    }
+  }
+
+  Future<void> _enableScreensaverIfPermitted() async {
+    final service = LockScreenScreensaverService.instance;
+    if (await service.canDrawOverlays()) {
+      await service.setEnabled(true);
+    }
   }
 
   Future<void> _loadAppInfo() async {
@@ -356,23 +380,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               activeThumbColor: theme.colorScheme.primary,
                               onChanged: (val) async {
                                 if (val && !(await screensaverService.canDrawOverlays())) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                          'Please allow "Display over other apps" for ChristianApp, then toggle again.',
-                                        ),
-                                        action: SnackBarAction(
-                                          label: 'Grant',
-                                          onPressed: () => screensaverService.requestOverlayPermission(),
-                                        ),
-                                      ),
-                                    );
-                                  }
+                                  _pendingOverlayEnable = true;
+                                  await screensaverService.requestOverlayPermission();
                                   return;
                                 }
                                 await screensaverService.setEnabled(val);
                               },
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.settings_display_rounded),
+                              title: const Text('Android Screen Saver Settings'),
+                              subtitle: const Text(
+                                'Choose "ChristianApp Scripture" for charging/docked mode',
+                              ),
+                              trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                              onTap: () => screensaverService.openDreamSettings(),
                             ),
                             const Divider(height: 1),
                           ],

@@ -56,6 +56,13 @@ class LockScreenScreensaverService extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> openDreamSettings() async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod<void>('openDreamSettings');
+    } catch (_) {}
+  }
+
   Future<bool> setEnabled(bool enabled) async {
     if (!isSupported) return false;
     if (enabled && !(await canDrawOverlays())) {
