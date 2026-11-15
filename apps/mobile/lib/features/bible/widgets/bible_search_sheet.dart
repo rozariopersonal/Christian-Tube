@@ -85,10 +85,15 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Row(
                     children: [
-                      Text('Search Bible',
+                      Expanded(
+                        child: Text(
+                          'Search Bible',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold)),
-                      const Spacer(),
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(context),
