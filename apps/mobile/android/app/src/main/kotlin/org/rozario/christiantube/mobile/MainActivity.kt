@@ -27,6 +27,15 @@ class MainActivity : AudioServiceActivity() {
                     startActivity(intent)
                     result.success(true)
                 }
+                "openDreamSettings" -> {
+                    val dreamIntent = Intent(Settings.ACTION_DREAM_SETTINGS)
+                    if (dreamIntent.resolveActivity(packageManager) != null) {
+                        startActivity(dreamIntent)
+                    } else {
+                        startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS))
+                    }
+                    result.success(true)
+                }
                 "startLockScreenService" -> {
                     val intent = Intent(this, LockScreenScreensaverService::class.java)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
