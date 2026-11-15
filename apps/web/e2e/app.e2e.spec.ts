@@ -1,0 +1,273 @@
+import { expect, Page, test } from '@playwright/test';
+
+async function mockBackendAndCdn(page: Page): Promise<void> {
+  await page.route('https://christianapp-zjdh.onrender.com/**', async (route) => {
+    const url = route.request().url();
+    if (url.includes('/api/videos/v1')) {
+      return route.fulfill({
+        json: {
+          id: 'v1',
+          title: 'Walking in the Light',
+          description: 'Sermon on 1 John 1.',
+          channelId: 'ch1',
+          channelTitle: 'Grace Fellowship',
+          viewCount: 12500,
+          publishedAt: '2026-10-01T10:00:00Z',
+          duration: '42:10',
+          isLive: false,
+        },
+      });
+    }
+    if (url.includes('/api/videos')) {
+      return route.fulfill({
+        json: {
+          videos: [
+            {
+              id: 'v1',
+              title: 'Walking in the Light',
+              channelId: 'ch1',
+              channelTitle: 'Grace Fellowship',
+              viewCount: 12500,
+              publishedAt: '2026-10-01T10:00:00Z',
+              duration: '42:10',
+              isLive: false,
+              type: 'VIDEO',
+            },
+          ],
+        },
+      });
+    }
+    if (url.includes('/api/channels/subscriptions')) {
+      return route.fulfill({ json: [] });
+    }
+    if (url.includes('/api/channels/ch1/subscribe')) {
+      return route.fulfill({ json: { ok: true } });
+    }
+    if (url.includes('/api/channels/requests')) {
+      return route.fulfill({ json: [] });
+    }
+    if (url.includes('/api/channels')) {
+      return route.fulfill({
+        json: [
+          {
+            id: 'ch1',
+            title: 'Grace Fellowship',
+            description: 'Verse by verse teaching.',
+            avatarUrl: '',
+            videoCount: 48,
+            language: 'en',
+          },
+        ],
+      });
+    }
+    if (url.includes('/api/audio/catalog')) {
+      return route.fulfill({
+        json: {
+          series: [
+            {
+              id: 's1',
+              title: 'Foundations of Faith',
+              description: 'Core Christian teachings.',
+              speaker: 'Zac Poonen',
+              trackCount: 2,
+              category: 'Sermons',
+              language: 'en',
+              tracks: [],
+            },
+          ],
+        },
+      });
+    }
+    if (url.includes('/api/audio/series/s1')) {
+      return route.fulfill({
+        json: {
+          id: 's1',
+          title: 'Foundations of Faith',
+          description: 'Core Christian teachings.',
+          speaker: 'Zac Poonen',
+          trackCount: 1,
+          category: 'Sermons',
+          language: 'en',
+          tracks: [
+            {
+              id: 't1',
+              title: 'Part 1: Repentance',
+              seriesId: 's1',
+              seriesTitle: 'Foundations of Faith',
+              speaker: 'Zac Poonen',
+              durationSeconds: 1800,
+              audioUrl: 'https://example.com/audio.mp3',
+            },
+          ],
+        },
+      });
+    }
+    return route.fulfill({ json: {} });
+  });
+
+  await page.route('https://cdn.jsdelivr.net/**', async (route) => {
+    const url = route.request().url();
+    if (url.includes('manifest.json')) {
+      return route.fulfill({ json: { revision: 'rv_e2e' } });
+    }
+    if (url.includes('books.json')) {
+      return route.fulfill({
+        json: [{ bookNumber: 1, name: 'Genesis', chapters: 50 }],
+      });
+    }
+    if (url.includes('/1/1.json')) {
+      return route.fulfill({
+        json: [
+          {
+            verse: 1,
+            text: 'In the beginning God created the heavens and the earth.',
+          },
+          { verse: 2, text: 'The earth was formless and void.' },
+        ],
+      });
+    }
+    if (url.includes('/1/2.json')) {
+      return route.fulfill({
+        json: [
+          {
+            verse: 1,
+            text: 'Thus the heavens and the earth were completed.',
+          },
+        ],
+      });
+    }
+    if (url.includes('cross_references/GEN/1.json')) {
+      return route.fulfill({
+        json: [{ v: 1, refs: [{ bt: 'JHN', c: 1, v: 1 }] }],
+      });
+    }
+    if (url.includes('books/catalog.json')) {
+      return route.fulfill({
+        json: [
+          {
+            id: 'book1',
+            title: 'A Godly Family Life',
+            author: 'Zac Poonen',
+            subject: 'Family',
+            lang: 'en',
+          },
+        ],
+      });
+    }
+    if (url.includes('books/book1/toc.json')) {
+      return route.fulfill({
+        json: {
+          id: 'book1',
+          title: 'A Godly Family Life',
+          author: 'Zac Poonen',
+          chapters: [{ chapterIndex: 1, title: 'Introduction' }],
+        },
+      });
+    }
+    if (url.includes('books/book1/chapters/1.json')) {
+      return route.fulfill({
+        json: [
+          { line: 1, text: 'Chapter Introduction', isHeading: true },
+          { line: 2, text: 'Building a godly home.', isHeading: false },
+        ],
+      });
+    }
+    return route.fulfill({ status: 404, body: 'Not found' });
+  });
+}
+
+test.describe('ChristianApp Web E2E', () => {
+  test('navigates Videos, Watch, Channels, Bible, Books, Audio, Settings & Onboarding', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (err) => errors.push(err.message));
+
+    await mockBackendAndCdn(page);
+
+    // 1. Video Feed & Watch
+    await page.goto('/feed');
+    await expect(page.getByText('Walking in the Light')).toBeVisible();
+    await page.getByText('Walking in the Light').click();
+    await expect(page).toHaveURL(/\/watch\/v1/);
+    await expect(page.getByRole('heading', { name: 'Walking in the Light' })).toBeVisible();
+
+    // 2. Channels
+    await page.goto('/channels');
+    await expect(page.getByText('Grace Fellowship')).toBeVisible();
+    await page.getByRole('button', { name: 'Subscribe' }).click();
+    await expect(page.getByRole('button', { name: 'Subscribed' })).toBeVisible();
+
+    // 3. Bible Reader
+    await page.goto('/bible');
+    await expect(
+      page.getByText('In the beginning God created the heavens and the earth.'),
+    ).toBeVisible();
+    await page
+      .getByText('In the beginning God created the heavens and the earth.')
+      .click();
+    await expect(page.getByRole('button', { name: /Cross-Refs/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(
+      page.getByText('Thus the heavens and the earth were completed.'),
+    ).toBeVisible();
+
+    // 4. Books Library & Reader
+    await page.goto('/books');
+    await expect(page.getByText('A Godly Family Life')).toBeVisible();
+    await page.getByText('A Godly Family Life').click();
+    await expect(page.getByText('Building a godly home.')).toBeVisible();
+
+    // 5. Audio Library, Series & Mini-Player
+    await page.goto('/audio');
+    await expect(page.getByText('Foundations of Faith')).toBeVisible();
+    await page.getByText('Foundations of Faith').click();
+    await expect(page.getByText('Part 1: Repentance')).toBeVisible();
+    await page.getByText('Part 1: Repentance').click();
+    await expect(page.locator('app-mini-player')).toContainText(
+      'Part 1: Repentance',
+    );
+
+    // 6. Settings: Dark + AMOLED + Royal Crimson + Guest Sign-In
+    await page.goto('/settings');
+    await page.getByRole('button', { name: 'Dark' }).click();
+    await page.getByRole('button', { name: 'AMOLED Black' }).click();
+    await page.getByRole('button', { name: 'Royal Crimson' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-amoled', 'true');
+    await page.getByRole('button', { name: 'Guest Sign-In' }).click();
+    await expect(page.getByText('Guest User')).toBeVisible();
+
+    // 7. Onboarding Wizard
+    await page.goto('/onboarding');
+    await expect(page.getByText('Step 1 of 5')).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByText('Step 2 of 5')).toBeVisible();
+
+    expect(errors).toEqual([]);
+  });
+
+  for (const width of [320, 600, 840, 1400]) {
+    test(`renders without horizontal overflow at ${width}px`, async ({
+      page,
+    }) => {
+      await mockBackendAndCdn(page);
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto('/feed');
+      await expect(page.getByText('Walking in the Light')).toBeVisible();
+
+      if (width < 600) {
+        await expect(page.locator('.bottom-nav')).toBeVisible();
+        await expect(page.locator('.nav-rail')).toBeHidden();
+      } else {
+        await expect(page.locator('.nav-rail')).toBeVisible();
+        await expect(page.locator('.bottom-nav')).toBeHidden();
+      }
+
+      const scrollWidth = await page.evaluate(
+        () => document.documentElement.scrollWidth,
+      );
+      expect(scrollWidth).toBeLessThanOrEqual(width);
+    });
+  }
+});
