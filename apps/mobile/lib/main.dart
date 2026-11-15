@@ -19,6 +19,7 @@ import 'features/auth/auth_service.dart';
 import 'features/channels/channel_service.dart';
 import 'features/channels/channels_screen.dart';
 import 'features/engines/scripture/screens/saved_scriptures_screen.dart';
+import 'features/engines/scripture/screens/scripture_screensaver_app.dart';
 import 'features/feed/video_feed_screen.dart';
 import 'features/history/history_screen.dart';
 import 'features/micro_feed/micro_feed_screen.dart';
@@ -104,6 +105,19 @@ void main() async {
   }
 
   runApp(const PrivateTubeApp());
+}
+
+/// Dedicated Dart entrypoint invoked by Android's `WordFeedDreamService`
+/// (OS Screen Saver). Keeps initialization lightweight and skips audio/deep-link
+/// background services.
+@pragma('vm:entry-point')
+Future<void> screensaverMain() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  initPlatformDatabases();
+  await AppConfig.initialize();
+  await ReleaseRevision.load();
+  await UserPreferenceService().initialize();
+  runApp(const ScriptureScreensaverApp());
 }
 
 class PrivateTubeApp extends StatefulWidget {
