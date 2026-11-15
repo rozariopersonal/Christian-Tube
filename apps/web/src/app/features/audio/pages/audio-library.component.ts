@@ -1,13 +1,15 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
+import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
 import { AudioLibraryService } from '../services/audio-library.service';
 import { AudioPlayerService } from '../services/audio-player.service';
 
 @Component({
   selector: 'app-audio-library',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, LanguageDropdownComponent],
   template: `
     <div class="audio-page max-width-box">
       <header class="page-head">
@@ -32,17 +34,14 @@ import { AudioPlayerService } from '../services/audio-player.service';
             (ngModelChange)="search.set($event)"
           />
         </div>
-        <select
-          class="lang-select"
-          [ngModel]="selectedLang()"
-          (ngModelChange)="selectedLang.set($event)"
-          aria-label="Language"
-        >
-          <option value="all">All Languages</option>
-          @for (lang of languages(); track lang) {
-            <option [value]="lang">{{ lang.toUpperCase() }}</option>
-          }
-        </select>
+        <app-language-dropdown
+          [selectedLanguages]="selectedLanguages()"
+          [availableLanguages]="languages()"
+          [itemCounts]="languageCounts()"
+          itemNoun="series"
+          headerTitle="Audio Languages"
+          (languagesChange)="selectedLanguages.set($event)"
+        />
       </div>
 
       <div class="mode-strip">
@@ -264,22 +263,34 @@ export class AudioLibraryComponent implements OnInit {
   readonly player = inject(AudioPlayerService);
 
   readonly search = signal<string>('');
-  readonly selectedLang = signal<string>('all');
+  readonly selectedLanguages = signal<string[]>(['All']);
   readonly mode = signal<'featured' | 'category' | 'speaker' | 'az'>('featured');
 
-  readonly languages = computed(() => {
-    const set = new Set<string>();
+  readonly languageCounts = computed(() => {
+    const counts: Record<string, number> = { All: this.library.seriesList().length };
     for (const s of this.library.seriesList()) {
-      if (s.language) set.add(s.language);
+      const code = canonicalLanguageCode(s.language);
+      counts[code] = (counts[code] ?? 0) + 1;
     }
-    return [...set].sort();
+    return counts;
+  });
+
+  readonly languages = computed(() => {
+    const counts = this.languageCounts();
+    return Object.keys(counts)
+      .filter((k) => k !== 'All')
+      .sort((a, b) => (counts[b] ?? 0) - (counts[a] ?? 0));
   });
 
   readonly displayedSeries = computed(() => {
     const q = this.search().trim().toLowerCase();
-    const lang = this.selectedLang();
+    const selLangs = this.selectedLanguages();
+    const allLangs = selLangs.length === 0 || selLangs.includes('All');
+    const langSet = new Set(selLangs.map((l) => l.toLowerCase()));
     const list = this.library.seriesList().filter((s) => {
-      if (lang !== 'all' && s.language !== lang) return false;
+      if (!allLangs && !langSet.has(canonicalLanguageCode(s.language).toLowerCase())) {
+        return false;
+      }
       if (
         q &&
         !s.title.toLowerCase().includes(q) &&

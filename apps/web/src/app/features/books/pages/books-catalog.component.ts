@@ -1,12 +1,14 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
+import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
 import { BooksService } from '../services/books.service';
 
 @Component({
   selector: 'app-books-catalog',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, LanguageDropdownComponent],
   template: `
     <div class="books-page max-width-box">
       <header class="page-head">
@@ -24,17 +26,14 @@ import { BooksService } from '../services/books.service';
           />
         </div>
 
-        <select
-          class="lang-select"
-          [ngModel]="selectedLang()"
-          (ngModelChange)="selectedLang.set($event)"
-          aria-label="Language filter"
-        >
-          <option value="all">All Languages</option>
-          @for (lang of languages(); track lang) {
-            <option [value]="lang">{{ lang.toUpperCase() }}</option>
-          }
-        </select>
+        <app-language-dropdown
+          [selectedLanguages]="selectedLanguages()"
+          [availableLanguages]="languages()"
+          [itemCounts]="languageCounts()"
+          itemNoun="books"
+          headerTitle="Book Languages"
+          (languagesChange)="selectedLanguages.set($event)"
+        />
       </div>
 
       <div class="subject-strip">
@@ -291,15 +290,23 @@ export class BooksCatalogComponent implements OnInit {
   readonly booksService = inject(BooksService);
 
   readonly search = signal<string>('');
-  readonly selectedLang = signal<string>('all');
+  readonly selectedLanguages = signal<string[]>(['All']);
   readonly selectedSubject = signal<string>('All');
 
-  readonly languages = computed(() => {
-    const set = new Set<string>();
+  readonly languageCounts = computed(() => {
+    const counts: Record<string, number> = { All: this.booksService.catalog().length };
     for (const b of this.booksService.catalog()) {
-      if (b.lang) set.add(b.lang);
+      const code = canonicalLanguageCode(b.lang);
+      counts[code] = (counts[code] ?? 0) + 1;
     }
-    return [...set].sort();
+    return counts;
+  });
+
+  readonly languages = computed(() => {
+    const counts = this.languageCounts();
+    return Object.keys(counts)
+      .filter((k) => k !== 'All')
+      .sort((a, b) => (counts[b] ?? 0) - (counts[a] ?? 0));
   });
 
   readonly subjects = computed(() => {
@@ -312,10 +319,14 @@ export class BooksCatalogComponent implements OnInit {
 
   readonly filteredBooks = computed(() => {
     const q = this.search().trim().toLowerCase();
-    const lang = this.selectedLang();
+    const selLangs = this.selectedLanguages();
+    const allLangs = selLangs.length === 0 || selLangs.includes('All');
+    const langSet = new Set(selLangs.map((l) => l.toLowerCase()));
     const subj = this.selectedSubject();
     return this.booksService.catalog().filter((b) => {
-      if (lang !== 'all' && b.lang !== lang) return false;
+      if (!allLangs && !langSet.has(canonicalLanguageCode(b.lang).toLowerCase())) {
+        return false;
+      }
       if (subj !== 'All' && b.subject !== subj) return false;
       if (
         q &&

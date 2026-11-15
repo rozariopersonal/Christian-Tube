@@ -7,20 +7,20 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
 import {
   APP_COLOR_THEMES,
-  AppColorTheme,
-  ThemeMode,
   ThemeService,
 } from '../../../core/theme/theme.service';
+import { SUPPORTED_LANGUAGES } from '../../../shared/ui/language-meta';
 import { ChannelService } from '../../channels/services/channel.service';
 
-const LANGUAGES = [
-  { code: 'en', name: 'English' },
-  { code: 'ta', name: 'Tamil (தமிழ்)' },
-  { code: 'hi', name: 'Hindi (हिन्दी)' },
-  { code: 'te', name: 'Telugu (తెలుగు)' },
-  { code: 'ml', name: 'Malayalam (മലയാളം)' },
-  { code: 'es', name: 'Spanish (Español)' },
-];
+const LANGUAGES = Object.values(SUPPORTED_LANGUAGES)
+  .filter((l) => l.code !== 'All')
+  .map((l) => ({
+    code: l.code,
+    name:
+      l.nativeName && l.nativeName !== l.englishName
+        ? `${l.englishName} (${l.nativeName})`
+        : l.englishName,
+  }));
 
 const BIBLE_VERSIONS = ['NASB', 'KJV', 'ESV', 'NKJV', 'NIV', 'TAOBVSI'];
 
