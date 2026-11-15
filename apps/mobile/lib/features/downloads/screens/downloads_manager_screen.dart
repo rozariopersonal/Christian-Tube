@@ -28,8 +28,8 @@ class DownloadsManagerScreen extends StatefulWidget {
 
 class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-  late final DownloadsController _controller;
+  late TabController _tabController;
+  late DownloadsController _controller;
   bool _ownsController = false;
 
   @override
@@ -53,24 +53,45 @@ class _DownloadsManagerScreenState extends State<DownloadsManagerScreen>
   void _onControllerChange() {
     final error = _controller.state.errorMessage;
     if (error != null && error.isNotEmpty && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          action: SnackBarAction(
-            label: 'OK',
-            textColor: Theme.of(context).colorScheme.onError,
-            onPressed: () => _controller.clearError(),
-          ),
-        ),
-      );
       _controller.clearError();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Theme.of(context).colorScheme.onError,
+              onPressed: () {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                }
+              },
+            ),
+          ),
+        );
+      });
     }
   }
 
   @override
   void didUpdateWidget(DownloadsManagerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _controller.removeListener(_onControllerChange);
+      if (_ownsController) {
+        _controller.dispose();
+      }
+      if (widget.controller != null) {
+        _controller = widget.controller!;
+        _ownsController = false;
+      } else {
+        _controller = DownloadsController();
+        _ownsController = true;
+      }
+      _controller.addListener(_onControllerChange);
+    }
     if (oldWidget.initialTab != widget.initialTab) {
       _navigateToTab(widget.initialTab.clamp(0, 6));
     }

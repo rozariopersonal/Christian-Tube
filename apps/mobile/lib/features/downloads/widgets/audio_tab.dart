@@ -20,7 +20,7 @@ class AudioTab extends StatelessWidget {
     final tokens = context.tokens;
     final colorScheme = Theme.of(context).colorScheme;
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-    final itemExtent = (104.0 * textScale.clamp(1.0, 2.2)).toDouble();
+    final itemExtent = (132.0 * textScale.clamp(1.0, 2.5)).toDouble();
 
     return ListenableBuilder(
       listenable: controller,
@@ -64,7 +64,7 @@ class AudioTab extends StatelessWidget {
                       'DOWNLOADED SERIES (${audioSeries.length})',
                       style: TextStyle(
                         color: tokens.onSurfaceMuted,
-                        fontSize: 11.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.8,
                       ),

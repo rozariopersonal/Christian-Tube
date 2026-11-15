@@ -102,12 +102,16 @@ class _BooksTabState extends State<BooksTab> {
 
         final isWide = ScreenClass.of(context).isMediumOrExpanded;
 
-        // Keep local search controller in sync if cleared externally
+        // Keep local search controller in sync if cleared externally without mutating during build
         if (_searchController.text != state.bookSearch) {
-          _searchController.value = TextEditingValue(
-            text: state.bookSearch,
-            selection: TextSelection.collapsed(offset: state.bookSearch.length),
-          );
+          final targetText = state.bookSearch;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _searchController.text == targetText) return;
+            _searchController.value = TextEditingValue(
+              text: targetText,
+              selection: TextSelection.collapsed(offset: targetText.length),
+            );
+          });
         }
 
         return MaxWidthBox(
@@ -277,12 +281,16 @@ class _BooksTabState extends State<BooksTab> {
               children: [
                 Icon(Icons.check_circle, color: tokens.accent, size: 18),
                 const SizedBox(width: 8),
-                Text(
-                  'Full Library & Commentaries Active',
-                  style: TextStyle(
-                    color: tokens.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12.5,
+                Flexible(
+                  child: Text(
+                    'Full Library & Commentaries Active',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tokens.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ],

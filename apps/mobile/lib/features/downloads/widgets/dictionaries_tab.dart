@@ -83,12 +83,16 @@ class _DictionariesTabState extends State<DictionariesTab> {
 
         final isWide = ScreenClass.of(context).isMediumOrExpanded;
 
-        // Keep local search controller in sync if cleared externally
+        // Keep local search controller in sync if cleared externally without mutating during build
         if (_searchController.text != state.dictSearch) {
-          _searchController.value = TextEditingValue(
-            text: state.dictSearch,
-            selection: TextSelection.collapsed(offset: state.dictSearch.length),
-          );
+          final targetText = state.dictSearch;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _searchController.text == targetText) return;
+            _searchController.value = TextEditingValue(
+              text: targetText,
+              selection: TextSelection.collapsed(offset: targetText.length),
+            );
+          });
         }
 
         return MaxWidthBox(

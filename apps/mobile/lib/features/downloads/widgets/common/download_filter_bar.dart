@@ -34,35 +34,40 @@ class DownloadFilterBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Search TextField
-        TextField(
-          controller: searchController,
-          onChanged: onSearchChanged,
-          style: TextStyle(color: tokens.onSurface, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: searchHint,
-            hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
-            prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 20),
-            suffixIcon: searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 18),
-                    onPressed: () {
-                      searchController.clear();
-                      onSearchChanged('');
-                    },
-                  )
-                : null,
-            isDense: true,
-            filled: true,
-            fillColor: tokens.surfaceVariant,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: tokens.surfaceBorder),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: tokens.surfaceBorder),
-            ),
-          ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: searchController,
+          builder: (context, value, _) {
+            return TextField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              style: TextStyle(color: tokens.onSurface, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: searchHint,
+                hintStyle: TextStyle(color: tokens.onSurfaceMuted, fontSize: 13),
+                prefixIcon: Icon(Icons.search, color: tokens.onSurfaceMuted, size: 20),
+                suffixIcon: value.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear, color: tokens.onSurfaceMuted, size: 18),
+                        onPressed: () {
+                          searchController.clear();
+                          onSearchChanged('');
+                        },
+                      )
+                    : null,
+                isDense: true,
+                filled: true,
+                fillColor: tokens.surfaceVariant,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: tokens.surfaceBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: tokens.surfaceBorder),
+                ),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 10),
 
