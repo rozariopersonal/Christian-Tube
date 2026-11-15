@@ -60,18 +60,39 @@ export class BooksService {
     bookId: string,
     chapterIndex: number,
     lang?: string,
+    totalChapters?: number,
   ): Promise<BookLine[]> {
+    let lines: BookLine[];
     try {
-      return await this.releases.getJson<BookLine[]>(
+      lines = await this.releases.getJson<BookLine[]>(
         `books/${bookId}/chapters/${chapterIndex}.json`,
       );
+      this.preloadAdjacentChapters(bookId, chapterIndex, totalChapters);
+      return lines;
     } catch {
       if (lang) {
-        return await this.releases.getJson<BookLine[]>(
+        lines = await this.releases.getJson<BookLine[]>(
           `books/${lang}/${bookId}/chapters/${chapterIndex}.json`,
         );
+        this.preloadAdjacentChapters(bookId, chapterIndex, totalChapters, lang);
+        return lines;
       }
       throw new Error('Chapter not found');
+    }
+  }
+
+  private preloadAdjacentChapters(
+    bookId: string,
+    chapterIndex: number,
+    totalChapters?: number,
+    lang?: string,
+  ): void {
+    const prefix = lang ? `books/${lang}/${bookId}` : `books/${bookId}`;
+    if (!totalChapters || chapterIndex < totalChapters) {
+      this.releases.prefetchJson(`${prefix}/chapters/${chapterIndex + 1}.json`);
+    }
+    if (chapterIndex > 1) {
+      this.releases.prefetchJson(`${prefix}/chapters/${chapterIndex - 1}.json`);
     }
   }
 

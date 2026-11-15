@@ -125,6 +125,41 @@ export class BibleService {
       .getJson<ChapterStudy>(`study/${ver}/chapters/b${bb}_c${ccc}.json`)
       .then((st) => this.study.set(st))
       .catch(() => this.study.set(null));
+
+    this.preloadAdjacentChapters(ver, bookNum, ch);
+  }
+
+  private preloadAdjacentChapters(
+    ver: string,
+    bookNum: number,
+    ch: number,
+  ): void {
+    const books = this.books();
+    const cur = books.find((b) => b.bookNumber === bookNum);
+    if (!cur) return;
+
+    const targets: Array<{ b: number; c: number }> = [];
+    if (ch < cur.chapters) {
+      targets.push({ b: bookNum, c: ch + 1 });
+    } else {
+      const nextBook = books.find((b) => b.bookNumber === bookNum + 1);
+      if (nextBook) targets.push({ b: nextBook.bookNumber, c: 1 });
+    }
+
+    if (ch > 1) {
+      targets.push({ b: bookNum, c: ch - 1 });
+    } else {
+      const prevBook = books.find((b) => b.bookNumber === bookNum - 1);
+      if (prevBook) targets.push({ b: prevBook.bookNumber, c: prevBook.chapters });
+    }
+
+    for (const t of targets) {
+      this.releases.prefetchJson(`bibles/${ver}/${t.b}/${t.c}.json`);
+      const adjAbbrev = BOOK_ABBREVS[t.b];
+      if (adjAbbrev) {
+        this.releases.prefetchJson(`cross_references/${adjAbbrev}/${t.c}.json`);
+      }
+    }
   }
 
   prevChapter(): void {

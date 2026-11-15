@@ -13,6 +13,7 @@ interface ReleaseManifest {
 export class ReleaseDataService {
   private readonly http = inject(HttpClient);
   private readonly memoryCache = new Map<string, unknown>();
+  private readonly inFlight = new Map<string, Promise<unknown>>();
   private readonly loadedFonts = new Set<string>();
 
   readonly revision = signal<string>(this.readCachedRevision());
@@ -66,11 +67,27 @@ export class ReleaseDataService {
     if (useCache && this.memoryCache.has(clean)) {
       return this.memoryCache.get(clean) as T;
     }
-    const data = await this.fetchJsonFromUrls<T>(this.urlsFor(clean), 10000);
-    if (useCache) {
-      this.memoryCache.set(clean, data);
+    if (useCache && this.inFlight.has(clean)) {
+      return this.inFlight.get(clean) as Promise<T>;
     }
-    return data;
+    const req = this.fetchJsonFromUrls<T>(this.urlsFor(clean), 10000)
+      .then((data) => {
+        if (useCache) this.memoryCache.set(clean, data);
+        return data;
+      })
+      .finally(() => {
+        this.inFlight.delete(clean);
+      });
+    if (useCache) {
+      this.inFlight.set(clean, req);
+    }
+    return req;
+  }
+
+  prefetchJson(relativePath: string): void {
+    const clean = relativePath.replace(/^\/+/, '');
+    if (this.memoryCache.has(clean) || this.inFlight.has(clean)) return;
+    void this.getJson(clean, true).catch(() => null);
   }
 
   async loadFont(family: string, fileName: string): Promise<void> {
