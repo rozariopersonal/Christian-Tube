@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../controllers/downloads_controller.dart';
 
@@ -12,11 +13,24 @@ class SmartStorageCleanupSheet extends StatefulWidget {
   });
 
   static Future<void> show(BuildContext context, DownloadsController controller) {
-    return showModalBottomSheet(
+    if (ScreenClass.of(context).isCompact) {
+      return showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => SmartStorageCleanupSheet(controller: controller),
+      );
+    }
+    return showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => SmartStorageCleanupSheet(controller: controller),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 540),
+          child: SmartStorageCleanupSheet(controller: controller),
+        ),
+      ),
     );
   }
 

@@ -113,12 +113,16 @@ class _BiblesTabState extends State<BiblesTab> {
 
         final isWide = ScreenClass.of(context).isMediumOrExpanded;
 
-        // Keep local search controller in sync if cleared externally
+        // Keep local search controller in sync if cleared externally without mutating during build
         if (_searchController.text != state.bibleSearch) {
-          _searchController.value = TextEditingValue(
-            text: state.bibleSearch,
-            selection: TextSelection.collapsed(offset: state.bibleSearch.length),
-          );
+          final targetText = state.bibleSearch;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _searchController.text == targetText) return;
+            _searchController.value = TextEditingValue(
+              text: targetText,
+              selection: TextSelection.collapsed(offset: targetText.length),
+            );
+          });
         }
 
         return MaxWidthBox(
@@ -550,57 +554,86 @@ class _BiblesTabState extends State<BiblesTab> {
           ),
         ],
       ),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          Expanded(
-            child: Text(
-              '${_selectedIds.length} selected',
-              style: TextStyle(
-                color: tokens.onSurface,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
+          Text(
+            '${_selectedIds.length} selected',
+            style: TextStyle(
+              color: tokens.onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
             ),
           ),
-          if (downloadable.isNotEmpty)
-            FilledButton.icon(
-              onPressed: () async {
-                final toDownload = List<BibleVersionMeta>.from(downloadable);
-                setState(() {
-                  _isMultiSelect = false;
-                  _selectedIds.clear();
-                });
-                await widget.controller.batchDownloadBibles(toDownload);
-              },
-              icon: const Icon(Icons.download_rounded, size: 16),
-              label: Text('Download (${downloadable.length})'),
-              style: FilledButton.styleFrom(
-                backgroundColor: tokens.accent,
-                foregroundColor: tokens.background,
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-            ),
-          if (downloadable.isNotEmpty && deletable.isNotEmpty)
-            const SizedBox(width: 8),
-          if (deletable.isNotEmpty)
-            OutlinedButton.icon(
-              onPressed: () async {
-                final toDelete = deletable.map((b) => b.id).toList();
-                setState(() {
-                  _isMultiSelect = false;
-                  _selectedIds.clear();
-                });
-                await widget.controller.batchDeleteBibles(toDelete);
-              },
-              icon: const Icon(Icons.delete_outline, size: 16),
-              label: Text('Delete (${deletable.length})'),
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                foregroundColor: tokens.onSurfaceMuted,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (downloadable.isNotEmpty)
+                FilledButton.icon(
+                  onPressed: () async {
+                    final toDownload = List<BibleVersionMeta>.from(downloadable);
+                    setState(() {
+                      _isMultiSelect = false;
+                      _selectedIds.clear();
+                    });
+                    await widget.controller.batchDownloadBibles(toDownload);
+                  },
+                  icon: const Icon(Icons.download_rounded, size: 16),
+                  label: Text('Download (${downloadable.length})'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: tokens.accent,
+                    foregroundColor: tokens.background,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                ),
+              if (deletable.isNotEmpty)
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete Selected Bibles?'),
+                        content: Text(
+                          'Delete ${deletable.length} selected Bible translation(s) from local storage?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      final toDelete = deletable.map((b) => b.id).toList();
+                      await widget.controller.batchDeleteBibles(toDelete);
+                      if (!mounted) return;
+                      setState(() {
+                        _isMultiSelect = false;
+                        _selectedIds.clear();
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: Text('Delete (${deletable.length})'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                    side: BorderSide(color: Theme.of(context).colorScheme.error),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );
