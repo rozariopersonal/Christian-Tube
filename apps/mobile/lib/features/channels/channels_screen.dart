@@ -210,7 +210,6 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
 
     final screenClass = ScreenClass.of(context);
     final isCompact = screenClass == ScreenClass.compact;
-    final crossAxisCount = isCompact ? 1 : (screenClass == ScreenClass.medium ? 2 : 3);
 
     return RefreshIndicator(
       onRefresh: () async => _channelService.fetchChannels(),
@@ -256,11 +255,11 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
                         )
                       : GridView.builder(
                           padding: const EdgeInsets.all(16),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
+                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 380,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
-                            mainAxisExtent: 72,
+                            mainAxisExtent: 84,
                           ),
                           itemCount: filtered.length,
                           itemBuilder: (context, index) {

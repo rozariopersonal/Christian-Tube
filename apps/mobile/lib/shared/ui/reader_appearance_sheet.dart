@@ -171,7 +171,8 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
             maxHeight: MediaQuery.sizeOf(ctx).height * 0.90,
           ),
           child: StatefulBuilder(
-            builder: (context, setModalState) => buildSheetContent(ctx, setModalState, flowState),
+            builder: (modalContext, setModalState) =>
+                buildSheetContent(modalContext, setModalState, flowState),
           ),
         ),
       ),

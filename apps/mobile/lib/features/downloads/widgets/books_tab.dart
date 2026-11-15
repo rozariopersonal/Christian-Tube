@@ -143,18 +143,21 @@ class _BooksTabState extends State<BooksTab> {
                         // 4. Section Header with Sort & Multi-Select
                         Row(
                           children: [
-                            Text(
-                              _isMultiSelect
-                                  ? 'SELECT BOOKS (${_selectedIds.length})'
-                                  : 'INDIVIDUAL BOOKS (${books.length})',
-                              style: TextStyle(
-                                color: tokens.onSurfaceMuted,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.8,
+                            Expanded(
+                              child: Text(
+                                _isMultiSelect
+                                    ? 'SELECT BOOKS (${_selectedIds.length})'
+                                    : 'INDIVIDUAL BOOKS (${books.length})',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: tokens.onSurfaceMuted,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                ),
                               ),
                             ),
-                            const Spacer(),
                             PopupMenuButton<String>(
                               icon: Icon(Icons.sort_rounded, size: 18, color: tokens.onSurfaceMuted),
                               tooltip: 'Sort books',
@@ -672,6 +675,7 @@ class _BooksTabState extends State<BooksTab> {
                   );
                   if (confirm == true) {
                     await widget.controller.batchDeleteBooks(installed.map((b) => b.id).toList());
+                    if (!mounted) return;
                     setState(() {
                       _isMultiSelect = false;
                       _selectedIds.clear();
@@ -681,8 +685,8 @@ class _BooksTabState extends State<BooksTab> {
                 icon: const Icon(Icons.delete_outline, size: 16),
                 label: Text('Delete (${installed.length})'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  side: const BorderSide(color: Colors.redAccent),
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                  side: BorderSide(color: Theme.of(context).colorScheme.error),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   visualDensity: VisualDensity.compact,
                 ),

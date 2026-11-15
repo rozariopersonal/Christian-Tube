@@ -225,16 +225,15 @@ class _ChannelDetailScreenState extends State<ChannelDetailScreen>
 
     final screenClass = ScreenClass.of(context);
     final isCompact = screenClass == ScreenClass.compact;
-    final crossAxisCount = isCompact ? 1 : (screenClass == ScreenClass.medium ? 2 : 3);
 
     return MaxWidthBox(
       child: GridView.builder(
         padding: const EdgeInsets.all(16),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: isCompact ? 600 : 420,
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
-          childAspectRatio: isCompact ? 1.2 : 0.9,
+          childAspectRatio: isCompact ? 1.05 : 0.9,
         ),
         itemCount: videoList.length,
         itemBuilder: (context, index) {
@@ -287,11 +286,16 @@ class _ChannelDetailScreenState extends State<ChannelDetailScreen>
                       video.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.tokens.onScrim,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+                        fontSize: 13,
+                        shadows: [
+                          Shadow(
+                            color: context.tokens.scrim.withValues(alpha: 0.54),
+                            blurRadius: 4,
+                          ),
+                        ],
                       ),
                     ),
                   ),

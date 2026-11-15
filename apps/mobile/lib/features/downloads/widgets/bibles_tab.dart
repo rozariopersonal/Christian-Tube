@@ -153,18 +153,21 @@ class _BiblesTabState extends State<BiblesTab> {
                         // 2. Translations Header & Controls
                         Row(
                           children: [
-                            Text(
-                              _isMultiSelect
-                                  ? 'SELECT BIBLES (${_selectedIds.length})'
-                                  : 'BIBLE TRANSLATIONS',
-                              style: TextStyle(
-                                color: tokens.onSurfaceMuted,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.8,
+                            Expanded(
+                              child: Text(
+                                _isMultiSelect
+                                    ? 'SELECT BIBLES (${_selectedIds.length})'
+                                    : 'BIBLE TRANSLATIONS',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: tokens.onSurfaceMuted,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                ),
                               ),
                             ),
-                            const Spacer(),
                             PopupMenuButton<String>(
                               icon: Icon(Icons.sort_rounded, size: 18, color: tokens.onSurfaceMuted),
                               tooltip: 'Sort translations',

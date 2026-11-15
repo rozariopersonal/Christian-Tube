@@ -46,8 +46,12 @@ class _SmartStorageCleanupSheetState extends State<SmartStorageCleanupSheet> {
         : '0 MB';
 
     return Center(
+      heightFactor: 1.0,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640),
+        constraints: BoxConstraints(
+          maxWidth: 640,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+        ),
         child: Container(
           decoration: BoxDecoration(
             color: tokens.surface,
@@ -59,10 +63,11 @@ class _SmartStorageCleanupSheetState extends State<SmartStorageCleanupSheet> {
             top: 12,
             bottom: MediaQuery.paddingOf(context).bottom + 20,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Drag handle
               Center(
                 child: Container(
@@ -177,10 +182,13 @@ class _SmartStorageCleanupSheetState extends State<SmartStorageCleanupSheet> {
                         }
                       : null,
                   icon: _isCleaning
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colorScheme.onError,
+                          ),
                         )
                       : const Icon(Icons.delete_sweep_rounded, size: 18),
                   label: Text(
@@ -194,6 +202,7 @@ class _SmartStorageCleanupSheetState extends State<SmartStorageCleanupSheet> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),

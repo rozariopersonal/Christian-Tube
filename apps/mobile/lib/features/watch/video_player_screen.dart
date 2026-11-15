@@ -288,7 +288,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final orientation = MediaQuery.of(context).orientation;
+    final orientation = MediaQuery.orientationOf(context);
     final screenClass = ScreenClass.of(context);
     final size = MediaQuery.sizeOf(context);
     final isPhone = size.shortestSide < 600;
