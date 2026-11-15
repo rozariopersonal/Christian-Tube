@@ -1,23 +1,24 @@
 export interface BibleVersionInfo {
   id: string;
   label: string;
+  fullName: string;
   language: string;
 }
 
 export const BIBLE_VERSIONS: readonly BibleVersionInfo[] = [
-  { id: 'nasb', label: 'NASB', language: 'English' },
-  { id: 'kjv', label: 'KJV', language: 'English' },
-  { id: 'asv', label: 'ASV', language: 'English' },
-  { id: 'nlt', label: 'NLT', language: 'English' },
-  { id: 'web', label: 'WEB', language: 'English' },
-  { id: 'bbe', label: 'BBE', language: 'English' },
-  { id: 'msg', label: 'MSG', language: 'English' },
-  { id: 'ylt', label: 'YLT', language: 'English' },
-  { id: 'taobvsi', label: 'தமிழ் (TAOBVSI)', language: 'Tamil' },
-  { id: 'hin_irv', label: 'हिन्दी (IRV)', language: 'Hindi' },
-  { id: 'tel_irv', label: 'తెలుగు (IRV)', language: 'Telugu' },
-  { id: 'mal_irv', label: 'മലയാളം (IRV)', language: 'Malayalam' },
-  { id: 'kan_irv', label: 'ಕನ್ನಡ (IRV)', language: 'Kannada' },
+  { id: 'nasb', label: 'NASB', fullName: 'New American Standard Bible', language: 'English' },
+  { id: 'kjv', label: 'KJV', fullName: 'King James Version', language: 'English' },
+  { id: 'asv', label: 'ASV', fullName: 'American Standard Version', language: 'English' },
+  { id: 'nlt', label: 'NLT', fullName: 'New Living Translation', language: 'English' },
+  { id: 'web', label: 'WEB', fullName: 'World English Bible', language: 'English' },
+  { id: 'bbe', label: 'BBE', fullName: 'Bible in Basic English', language: 'English' },
+  { id: 'msg', label: 'MSG', fullName: 'The Message', language: 'English' },
+  { id: 'ylt', label: 'YLT', fullName: "Young's Literal Translation", language: 'English' },
+  { id: 'taobvsi', label: 'தமிழ்', fullName: 'Tamil Old Version (BSI)', language: 'Tamil' },
+  { id: 'hin_irv', label: 'हिन्दी', fullName: 'Hindi Indian Revised Version', language: 'Hindi' },
+  { id: 'tel_irv', label: 'తెలుగు', fullName: 'Telugu Indian Revised Version', language: 'Telugu' },
+  { id: 'mal_irv', label: 'മലയാളം', fullName: 'Malayalam Indian Revised Version', language: 'Malayalam' },
+  { id: 'kan_irv', label: 'ಕನ್ನಡ', fullName: 'Kannada Indian Revised Version', language: 'Kannada' },
 ];
 
 export const BOOK_ABBREVS: readonly string[] = [
