@@ -1,6 +1,7 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { combineLatest } from 'rxjs';
 import {
   READER_FONTS,
   ReaderAppearanceService,
@@ -12,6 +13,7 @@ import { BooksService } from '../services/books.service';
   selector: 'app-book-reader',
   standalone: true,
   imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="book-reader-page">
       <header class="reader-bar">
@@ -21,14 +23,24 @@ import { BooksService } from '../services/books.service';
             <span class="book-name">{{ toc()?.title || 'Book Reader' }}</span>
           </button>
 
-          <button
-            type="button"
-            class="icon-btn aa-btn"
-            title="Reader Appearance"
-            (click)="showAppearance.set(true)"
-          >
-            Aa
-          </button>
+          <div class="bar-actions">
+            <button
+              type="button"
+              class="icon-btn"
+              title="Share book link"
+              (click)="shareLocation()"
+            >
+              <span class="material-symbols-rounded">share</span>
+            </button>
+            <button
+              type="button"
+              class="icon-btn aa-btn"
+              title="Reader Appearance"
+              (click)="showAppearance.set(true)"
+            >
+              Aa
+            </button>
+          </div>
         </div>
       </header>
 
@@ -46,9 +58,9 @@ import { BooksService } from '../services/books.service';
           >
             @for (line of lines(); track $index) {
               @if (line.isHeading) {
-                <h2 class="chapter-heading">{{ line.text }}</h2>
+                <h2 [id]="'book-line-' + line.line" class="chapter-heading">{{ line.text }}</h2>
               } @else {
-                <p class="chapter-para">{{ line.text }}</p>
+                <p [id]="'book-line-' + line.line" class="chapter-para">{{ line.text }}</p>
               }
             }
           </article>
@@ -192,6 +204,13 @@ import { BooksService } from '../services/books.service';
         font-size: 16px;
       }
 
+      .bar-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+
       .reader-content {
         padding-top: 20px;
         padding-bottom: 40px;
@@ -288,6 +307,7 @@ import { BooksService } from '../services/books.service';
 })
 export class BookReaderComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly booksService = inject(BooksService);
   readonly appearance = inject(ReaderAppearanceService);
 
@@ -305,13 +325,39 @@ export class BookReaderComponent implements OnInit {
 
   ngOnInit(): void {
     void this.booksService.loadCatalog();
-    this.route.paramMap.subscribe((params) => {
-      const id = params.get('id');
-      if (id) void this.openBook(id);
-    });
+    combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(
+      ([params, query]) => {
+        const id = params.get('id');
+        if (!id) return;
+        const chRaw = params.get('chapter') ?? query.get('chapter');
+        const pageRaw = query.get('page');
+        const lineRaw = query.get('line');
+        const targetChapter = chRaw ? Number(chRaw) : undefined;
+        const targetPage = pageRaw ? Number(pageRaw) : undefined;
+        const targetLine = lineRaw ? Number(lineRaw) : undefined;
+
+        const sameBook = id === this.bookId && this.toc() !== null;
+        if (sameBook && targetChapter === this.chapterIndex() && !targetPage && !targetLine) {
+          return;
+        }
+        void this.openBook(id, {
+          chapter:
+            targetChapter && Number.isFinite(targetChapter)
+              ? targetChapter
+              : undefined,
+          page:
+            targetPage && Number.isFinite(targetPage) ? targetPage : undefined,
+          line:
+            targetLine && Number.isFinite(targetLine) ? targetLine : undefined,
+        });
+      },
+    );
   }
 
-  async openBook(bookId: string): Promise<void> {
+  async openBook(
+    bookId: string,
+    target?: { chapter?: number; page?: number; line?: number },
+  ): Promise<void> {
     this.bookId = bookId;
     this.loading.set(true);
     this.error.set(null);
@@ -323,8 +369,13 @@ export class BookReaderComponent implements OnInit {
     try {
       const toc = await this.booksService.fetchToc(bookId, this.bookLang);
       this.toc.set(toc);
-      const saved = this.booksService.progressMap()[bookId]?.chapterIndex ?? 1;
-      await this.loadChapter(saved);
+      let initialCh =
+        target?.chapter ??
+        (target?.page ? this.chapterForPage(toc, target.page) : undefined) ??
+        this.booksService.progressMap()[bookId]?.chapterIndex ??
+        1;
+      initialCh = Math.min(toc.chapters.length || 1, Math.max(1, initialCh));
+      await this.loadChapter(initialCh, target);
     } catch (err) {
       this.error.set(
         err instanceof Error ? err.message : 'Unable to open book',
@@ -333,7 +384,27 @@ export class BookReaderComponent implements OnInit {
     }
   }
 
-  async loadChapter(ch: number): Promise<void> {
+  private chapterForPage(toc: BookToc, page: number): number | undefined {
+    const exact = toc.chapters.find(
+      (c) =>
+        c.startPage !== undefined &&
+        c.endPage !== undefined &&
+        page >= c.startPage &&
+        page <= c.endPage,
+    );
+    if (exact) return exact.chapterIndex;
+    const candidates = toc.chapters.filter(
+      (c) => c.startPage !== undefined && c.startPage <= page,
+    );
+    return candidates.length > 0
+      ? candidates[candidates.length - 1].chapterIndex
+      : undefined;
+  }
+
+  async loadChapter(
+    ch: number,
+    target?: { page?: number; line?: number },
+  ): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
     this.chapterIndex.set(ch);
@@ -360,13 +431,58 @@ export class BookReaderComponent implements OnInit {
           updatedAt: new Date().toISOString(),
         });
       }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      const chapterMeta = toc?.chapters.find((c) => c.chapterIndex === ch);
+      const syncPage = target?.page ?? chapterMeta?.startPage;
+      void this.router.navigate(['/books', this.bookId], {
+        queryParams: {
+          chapter: ch,
+          ...(syncPage ? { page: syncPage } : {}),
+        },
+        replaceUrl: true,
+      });
+
+      const scrollLine =
+        (target?.line
+          ? lines.find((l) => l.line >= target.line!)
+          : undefined) ??
+        (target?.page
+          ? lines.find((l) => (l.page ?? 0) >= target.page!)
+          : undefined);
+
+      if (scrollLine) {
+        setTimeout(() => {
+          document
+            .getElementById(`book-line-${scrollLine.line}`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 60);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } catch (err) {
       this.error.set(
         err instanceof Error ? err.message : 'Unable to load chapter',
       );
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  shareLocation(): void {
+    const url = new URL(`/books/${encodeURIComponent(this.bookId)}`, window.location.origin);
+    url.searchParams.set('chapter', String(this.chapterIndex()));
+    const page = this.lines().find((l) => l.page !== undefined)?.page;
+    if (page) {
+      url.searchParams.set('page', String(page));
+    }
+    const shareUrl = url.toString();
+    const title = this.toc()?.title || 'Book Reader';
+    if (navigator.share) {
+      void navigator.share({ title, url: shareUrl }).catch(() => {
+        void navigator.clipboard?.writeText(shareUrl);
+      });
+    } else {
+      void navigator.clipboard?.writeText(shareUrl);
     }
   }
 

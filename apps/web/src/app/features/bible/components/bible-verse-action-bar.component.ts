@@ -15,6 +15,10 @@ const HIGHLIGHT_SWATCHES = ['#FEF08A', '#BBF7D0', '#BFDBFE', '#FBCFE8'];
             <span class="material-symbols-rounded">content_copy</span>
             Copy
           </button>
+          <button type="button" class="pill-chip" (click)="share.emit()">
+            <span class="material-symbols-rounded">share</span>
+            Share
+          </button>
           <button
             type="button"
             class="pill-chip"
@@ -121,6 +125,7 @@ export class BibleVerseActionBarComponent {
   readonly studyTermCount = input<number>(0);
 
   readonly copy = output<void>();
+  readonly share = output<void>();
   readonly toggleBookmark = output<void>();
   readonly openNote = output<void>();
   readonly openCrossRefs = output<void>();

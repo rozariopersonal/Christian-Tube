@@ -1,6 +1,7 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { combineLatest } from 'rxjs';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { ChannelService } from '../../channels/services/channel.service';
 import {
@@ -14,6 +15,7 @@ import { VideoService } from '../services/video.service';
   selector: 'app-watch-video',
   standalone: true,
   imports: [RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="watch-page" [class.two-col]="screen.isMediumOrExpanded()">
       @if (loading()) {
@@ -30,6 +32,7 @@ import { VideoService } from '../services/video.service';
                 controls
                 autoplay
                 playsinline
+                (loadedmetadata)="onVideoLoaded($event)"
               ></video>
             } @else {
               <iframe
@@ -72,16 +75,26 @@ import { VideoService } from '../services/video.service';
                 </div>
               </a>
 
-              @if (video()!.channelId) {
+              <div class="bar-actions">
                 <button
                   type="button"
                   class="pill-chip"
-                  [class.active]="!isSubscribed()"
-                  (click)="toggleSubscribe()"
+                  (click)="shareVideo()"
                 >
-                  {{ isSubscribed() ? 'Subscribed' : 'Subscribe' }}
+                  <span class="material-symbols-rounded">share</span>
+                  Share
                 </button>
-              }
+                @if (video()!.channelId) {
+                  <button
+                    type="button"
+                    class="pill-chip"
+                    [class.active]="!isSubscribed()"
+                    (click)="toggleSubscribe()"
+                  >
+                    {{ isSubscribed() ? 'Subscribed' : 'Subscribe' }}
+                  </button>
+                }
+              </div>
             </div>
           </div>
         </div>
@@ -184,6 +197,13 @@ import { VideoService } from '../services/video.service';
         background-color: var(--surface);
         border: 1px solid var(--surface-border);
         border-radius: var(--radius-md);
+      }
+
+      .bar-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
       }
 
       .channel-link {
@@ -315,6 +335,9 @@ export class WatchVideoComponent implements OnInit {
   readonly video = signal<Video | null>(null);
   readonly related = signal<Video[]>([]);
   readonly loading = signal<boolean>(true);
+  readonly startSeconds = signal<number>(0);
+
+  private nativeVideoEl: HTMLVideoElement | null = null;
 
   readonly isSubscribed = computed(() => {
     const chId = this.video()?.channelId;
@@ -323,16 +346,52 @@ export class WatchVideoComponent implements OnInit {
 
   readonly embedUrl = computed<SafeResourceUrl>(() => {
     const id = this.video()?.id ?? '';
+    const start = this.startSeconds();
+    const startParam = start > 0 ? `&start=${Math.floor(start)}` : '';
     return this.sanitizer.bypassSecurityTrustResourceUrl(
-      `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&rel=0`,
+      `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&rel=0${startParam}`,
     );
   });
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe((params) => {
-      const id = params.get('id');
-      if (id) void this.loadVideo(id);
-    });
+    combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(
+      ([params, query]) => {
+        const id = params.get('id');
+        const startRaw = query.get('start') ?? query.get('t');
+        const parsed = startRaw ? Number(startRaw) : 0;
+        this.startSeconds.set(
+          Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0,
+        );
+        if (id) void this.loadVideo(id);
+      },
+    );
+  }
+
+  onVideoLoaded(event: Event): void {
+    const el = event.target as HTMLVideoElement | null;
+    this.nativeVideoEl = el;
+    const start = this.startSeconds();
+    if (el && start > 0) {
+      el.currentTime = start;
+    }
+  }
+
+  shareVideo(): void {
+    const v = this.video();
+    if (!v) return;
+    const url = new URL(`/watch/${encodeURIComponent(v.id)}`, window.location.origin);
+    const sec = Math.floor(this.nativeVideoEl?.currentTime ?? this.startSeconds());
+    if (sec > 0) {
+      url.searchParams.set('start', String(sec));
+    }
+    const shareUrl = url.toString();
+    if (navigator.share) {
+      void navigator.share({ title: v.title, url: shareUrl }).catch(() => {
+        void navigator.clipboard?.writeText(shareUrl);
+      });
+    } else {
+      void navigator.clipboard?.writeText(shareUrl);
+    }
   }
 
   async loadVideo(id: string): Promise<void> {
