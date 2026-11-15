@@ -83,5 +83,19 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name="org.rozario.christiantube.mobile.WordFeedDreamService"
+            android:exported="true"
+            android:label="ChristianApp Scripture"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.dream"
+                android:resource="@xml/word_feed_dream" />
+        </service>
     </application>
 </manifest>
