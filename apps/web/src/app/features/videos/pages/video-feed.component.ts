@@ -161,7 +161,7 @@ import { VideoService } from '../services/video.service';
     `
       .app-bar {
         position: sticky;
-        top: 0;
+        top: var(--shell-top-offset);
         z-index: 30;
         background-color: var(--bg);
         border-bottom: 1px solid var(--surface-border);

@@ -261,9 +261,9 @@ test.describe('ChristianApp Web E2E', () => {
 
       if (width < 600) {
         await expect(page.locator('.bottom-nav')).toBeVisible();
-        await expect(page.locator('.nav-rail')).toBeHidden();
+        await expect(page.locator('.top-nav')).toBeHidden();
       } else {
-        await expect(page.locator('.nav-rail')).toBeVisible();
+        await expect(page.locator('.top-nav')).toBeVisible();
         await expect(page.locator('.bottom-nav')).toBeHidden();
       }
 
