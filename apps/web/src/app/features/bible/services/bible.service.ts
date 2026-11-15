@@ -53,13 +53,57 @@ export class BibleService {
       },
   );
 
-  async init(): Promise<void> {
-    await this.loadVersion(this.version(), this.bookNumber(), this.chapter());
+  readonly currentBookAbbrev = computed(
+    () => BOOK_ABBREVS[this.bookNumber()] || String(this.bookNumber()),
+  );
+
+  async init(overrides?: {
+    version?: string;
+    book?: string;
+    chapter?: number;
+  }): Promise<void> {
+    const targetVersion = overrides?.version?.trim() || this.version();
+    await this.loadVersion(
+      targetVersion,
+      overrides?.book ?? this.bookNumber(),
+      overrides?.chapter ?? this.chapter(),
+    );
+  }
+
+  resolveBookNumber(
+    bookParam: string | number,
+    booksList: BibleBook[] = this.books(),
+  ): number | null {
+    if (typeof bookParam === 'number') {
+      return bookParam >= 1 && bookParam <= 66 ? bookParam : null;
+    }
+    const raw = bookParam.trim();
+    if (!raw) return null;
+
+    const num = Number(raw);
+    if (Number.isInteger(num) && num >= 1 && num <= 66) {
+      return num;
+    }
+
+    const upper = raw.toUpperCase();
+    const abbrevIdx = BOOK_ABBREVS.indexOf(upper);
+    if (abbrevIdx > 0) return abbrevIdx;
+
+    const normalized = raw.toLowerCase().replace(/[-_]+/g, ' ');
+    const exactMatch = booksList.find(
+      (b) => b.name.toLowerCase() === normalized,
+    );
+    if (exactMatch) return exactMatch.bookNumber;
+
+    const prefixMatch = booksList.find((b) =>
+      b.name.toLowerCase().startsWith(normalized),
+    );
+    return prefixMatch?.bookNumber ?? null;
   }
 
   async loadVersion(
     versionId: string,
-    bookNum = this.bookNumber(),
+    bookRef: number | string = this.bookNumber(),
     ch = this.chapter(),
   ): Promise<void> {
     const cleanVer = versionId.toLowerCase();
@@ -71,12 +115,11 @@ export class BibleService {
         `bibles/${cleanVer}/books.json`,
       );
       this.books.set(books);
+      const resolvedNum = this.resolveBookNumber(bookRef, books);
       const validBook =
-        books.find((b) => b.bookNumber === bookNum) ?? books[0];
-      const clampedCh = Math.min(
-        validBook.chapters,
-        Math.max(1, ch),
-      );
+        (resolvedNum ? books.find((b) => b.bookNumber === resolvedNum) : null) ??
+        books[0];
+      const clampedCh = Math.min(validBook.chapters, Math.max(1, ch));
       await this.loadChapter(validBook.bookNumber, clampedCh);
     } catch (err) {
       this.error.set(

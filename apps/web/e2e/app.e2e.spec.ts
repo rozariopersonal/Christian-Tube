@@ -250,6 +250,30 @@ test.describe('ChristianApp Web E2E', () => {
     expect(errors).toEqual([]);
   });
 
+  test('opens exact Bible verse, Book chapter, and Video timestamp from deep links', async ({
+    page,
+  }) => {
+    await mockBackendAndCdn(page);
+
+    // Bible deep link (matching DeepLinkService.bible)
+    await page.goto('/bible?version=kjv&book=GEN&chapter=1&verse=2');
+    await expect(page.locator('#verse-2.selected')).toBeVisible();
+    await expect(
+      page.locator('app-bible-verse-action-bar').getByRole('button', { name: /Share/i }),
+    ).toBeVisible();
+
+    // Book deep link (matching DeepLinkService.book / chapter)
+    await page.goto('/books/book1?chapter=1');
+    await expect(page.getByText('Chapter Introduction')).toBeVisible();
+
+    // Video deep link with start timestamp (matching DeepLinkService.video)
+    await page.goto('/watch/v1?start=45');
+    await expect(page.locator('iframe.yt-iframe')).toHaveAttribute(
+      'src',
+      /start=45/,
+    );
+  });
+
   for (const width of [320, 600, 840, 1400]) {
     test(`renders without horizontal overflow at ${width}px`, async ({
       page,

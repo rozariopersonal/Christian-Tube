@@ -3,9 +3,12 @@ import {
   Component,
   OnInit,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { combineLatest } from 'rxjs';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
 import { BibleAppearanceSheetComponent } from '../components/bible-appearance-sheet.component';
 import {
@@ -63,6 +66,14 @@ import { BibleService } from '../services/bible.service';
           </div>
 
           <div class="bar-right">
+            <button
+              type="button"
+              class="icon-btn"
+              title="Share chapter link"
+              (click)="sharePassage()"
+            >
+              <span class="material-symbols-rounded">share</span>
+            </button>
             <button
               type="button"
               class="icon-btn"
@@ -156,6 +167,7 @@ import { BibleService } from '../services/bible.service';
           [crossRefCount]="state.selectedCrossRefs().length"
           [studyTermCount]="state.selectedStudyTerms().length"
           (copy)="state.copySelected()"
+          (share)="sharePassage(selected.verse)"
           (toggleBookmark)="bible.toggleBookmark(selected)"
           (openNote)="showNoteModal.set(true)"
           (openCrossRefs)="showCrossRefs.set(true)"
@@ -382,6 +394,8 @@ import { BibleService } from '../services/bible.service';
   ],
 })
 export class BibleReaderComponent implements OnInit {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   readonly bible = inject(BibleService);
   readonly appearance = inject(ReaderAppearanceService);
   readonly state = inject(BibleReaderStateService);
@@ -394,6 +408,7 @@ export class BibleReaderComponent implements OnInit {
   readonly showStudy = signal<boolean>(false);
   readonly showBookmarks = signal<boolean>(false);
   readonly showNoteModal = signal<boolean>(false);
+  private readonly routeReady = signal<boolean>(false);
 
   readonly selectedRefLabel = computed(() => {
     const v = this.state.selectedVerse();
@@ -402,8 +417,100 @@ export class BibleReaderComponent implements OnInit {
       : '';
   });
 
+  constructor() {
+    effect(() => {
+      if (!this.routeReady()) return;
+      const version = this.bible.version();
+      const book = this.bible.currentBookAbbrev();
+      const chapter = this.bible.chapter();
+      const verse = this.state.selectedVerse()?.verse;
+      void this.router.navigate(['/bible'], {
+        queryParams: {
+          version,
+          book,
+          chapter,
+          ...(verse ? { verse } : {}),
+        },
+        replaceUrl: true,
+      });
+    });
+  }
+
   ngOnInit(): void {
-    void this.bible.init();
+    combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(
+      ([params, query]) => {
+        const version =
+          params.get('version') ?? query.get('version') ?? undefined;
+        const book = params.get('book') ?? query.get('book') ?? undefined;
+        const chapterRaw = params.get('chapter') ?? query.get('chapter');
+        const verseRaw = params.get('verse') ?? query.get('verse');
+        const chapter = chapterRaw ? Number(chapterRaw) : undefined;
+        const verse = verseRaw ? Number(verseRaw) : undefined;
+        const validChapter =
+          chapter && Number.isFinite(chapter) ? chapter : undefined;
+        const validVerse =
+          verse && Number.isFinite(verse) ? verse : undefined;
+
+        const alreadyLoaded =
+          this.routeReady() &&
+          (!version || version.toLowerCase() === this.bible.version()) &&
+          (!book ||
+            this.bible.resolveBookNumber(book) === this.bible.bookNumber()) &&
+          (!validChapter || validChapter === this.bible.chapter()) &&
+          (validVerse ?? undefined) === this.state.selectedVerse()?.verse;
+
+        if (alreadyLoaded) return;
+
+        void this.initFromRoute(version, book, validChapter, validVerse);
+      },
+    );
+  }
+
+  private async initFromRoute(
+    version?: string,
+    book?: string,
+    chapter?: number,
+    verse?: number,
+  ): Promise<void> {
+    this.routeReady.set(false);
+    await this.bible.init({ version, book, chapter });
+    if (verse && verse > 0) {
+      this.focusVerse(verse);
+    } else {
+      this.state.clearSelection();
+    }
+    this.routeReady.set(true);
+  }
+
+  private focusVerse(verseNum: number): void {
+    const match = this.bible.verses().find((v) => v.verse === verseNum);
+    if (match) this.state.toggleSelectVerse(match);
+    setTimeout(() => {
+      document
+        .getElementById(`verse-${verseNum}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
+  }
+
+  sharePassage(verseNum?: number): void {
+    const url = new URL('/bible', window.location.origin);
+    url.searchParams.set('version', this.bible.version());
+    url.searchParams.set('book', this.bible.currentBookAbbrev());
+    url.searchParams.set('chapter', String(this.bible.chapter()));
+    if (verseNum) {
+      url.searchParams.set('verse', String(verseNum));
+    }
+    const shareUrl = url.toString();
+    const title = verseNum
+      ? `${this.bible.currentBook().name} ${this.bible.chapter()}:${verseNum}`
+      : `${this.bible.currentBook().name} ${this.bible.chapter()}`;
+    if (navigator.share) {
+      void navigator.share({ title, url: shareUrl }).catch(() => {
+        void navigator.clipboard?.writeText(shareUrl);
+      });
+    } else {
+      void navigator.clipboard?.writeText(shareUrl);
+    }
   }
 
   selectVersion(versionId: string): void {
