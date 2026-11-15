@@ -1,0 +1,334 @@
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { BooksService } from '../services/books.service';
+
+@Component({
+  selector: 'app-books-catalog',
+  standalone: true,
+  imports: [FormsModule, RouterLink],
+  template: `
+    <div class="books-page max-width-box">
+      <header class="page-head">
+        <h1 class="font-display">Books Library</h1>
+      </header>
+
+      <div class="controls">
+        <div class="search-box">
+          <span class="material-symbols-rounded">search</span>
+          <input
+            type="search"
+            placeholder="Search books or authors..."
+            [ngModel]="search()"
+            (ngModelChange)="search.set($event)"
+          />
+        </div>
+
+        <select
+          class="lang-select"
+          [ngModel]="selectedLang()"
+          (ngModelChange)="selectedLang.set($event)"
+          aria-label="Language filter"
+        >
+          <option value="all">All Languages</option>
+          @for (lang of languages(); track lang) {
+            <option [value]="lang">{{ lang.toUpperCase() }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="subject-strip">
+        @for (subj of subjects(); track subj) {
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="selectedSubject() === subj"
+            (click)="selectedSubject.set(subj)"
+          >
+            {{ subj }}
+          </button>
+        }
+      </div>
+
+      @if (booksService.recentBooks().length > 0 && !search().trim()) {
+        <section class="section">
+          <h2 class="section-title">Continue Reading</h2>
+          <div class="recent-row">
+            @for (p of booksService.recentBooks().slice(0, 6); track p.bookId) {
+              <a class="recent-card" [routerLink]="['/books', p.bookId]">
+                @if (p.coverFile) {
+                  <img
+                    class="recent-cover"
+                    [src]="booksService.coverUrl(p.coverFile)"
+                    [alt]="p.title"
+                    loading="lazy"
+                  />
+                }
+                <div class="recent-info">
+                  <strong>{{ p.title }}</strong>
+                  <span class="muted">
+                    Ch. {{ p.chapterIndex }} / {{ p.totalChapters }}
+                  </span>
+                </div>
+              </a>
+            }
+          </div>
+        </section>
+      }
+
+      @if (booksService.loading()) {
+        <p class="status-msg">Loading library...</p>
+      } @else if (booksService.error()) {
+        <div class="status-msg">
+          <p>{{ booksService.error() }}</p>
+          <button type="button" class="pill-chip active" (click)="booksService.loadCatalog()">
+            Retry
+          </button>
+        </div>
+      } @else {
+        <div class="books-grid">
+          @for (book of filteredBooks(); track book.id) {
+            <a class="book-card" [routerLink]="['/books', book.id]">
+              <div class="cover-wrap">
+                @if (book.coverFile) {
+                  <img
+                    class="cover"
+                    [src]="booksService.coverUrl(book.coverFile)"
+                    [alt]="book.title"
+                    loading="lazy"
+                  />
+                } @else {
+                  <div class="cover fallback">
+                    <span class="material-symbols-rounded">menu_book</span>
+                  </div>
+                }
+              </div>
+              <div class="book-meta">
+                <h3 class="book-title">{{ book.title }}</h3>
+                <p class="book-author">{{ book.author }}</p>
+              </div>
+            </a>
+          }
+        </div>
+      }
+    </div>
+  `,
+  styles: [
+    `
+      .books-page {
+        padding-top: 16px;
+        padding-bottom: 32px;
+      }
+
+      .page-head h1 {
+        margin: 0 0 14px;
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
+      .search-box {
+        flex: 1;
+        min-width: 200px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 42px;
+        padding: 0 12px;
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-md);
+      }
+
+      .search-box input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+      }
+
+      .lang-select {
+        height: 42px;
+        padding: 0 12px;
+        border-radius: var(--radius-md);
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+      }
+
+      .subject-strip {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 12px;
+        margin-bottom: 12px;
+        scrollbar-width: none;
+      }
+
+      .subject-strip::-webkit-scrollbar {
+        display: none;
+      }
+
+      .section {
+        margin-bottom: 24px;
+      }
+
+      .section-title {
+        margin: 0 0 10px;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .recent-row {
+        display: flex;
+        gap: 12px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+
+      .recent-card {
+        flex: 0 0 220px;
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-md);
+        align-items: center;
+      }
+
+      .recent-cover {
+        width: 44px;
+        height: 62px;
+        object-fit: cover;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+
+      .recent-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+        font-size: 13px;
+      }
+
+      .recent-info strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .muted {
+        font-size: 12px;
+        color: var(--on-surface-muted);
+      }
+
+      .books-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 18px 14px;
+      }
+
+      .book-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .cover-wrap {
+        aspect-ratio: 2 / 3;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+      }
+
+      .cover {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .cover.fallback {
+        display: grid;
+        place-items: center;
+        color: var(--on-surface-muted);
+      }
+
+      .book-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .book-author {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--on-surface-muted);
+      }
+
+      .status-msg {
+        text-align: center;
+        padding: 36px 0;
+        color: var(--on-surface-muted);
+      }
+    `,
+  ],
+})
+export class BooksCatalogComponent implements OnInit {
+  readonly booksService = inject(BooksService);
+
+  readonly search = signal<string>('');
+  readonly selectedLang = signal<string>('all');
+  readonly selectedSubject = signal<string>('All');
+
+  readonly languages = computed(() => {
+    const set = new Set<string>();
+    for (const b of this.booksService.catalog()) {
+      if (b.lang) set.add(b.lang);
+    }
+    return [...set].sort();
+  });
+
+  readonly subjects = computed(() => {
+    const set = new Set<string>(['All']);
+    for (const b of this.booksService.catalog()) {
+      if (b.subject) set.add(b.subject);
+    }
+    return [...set];
+  });
+
+  readonly filteredBooks = computed(() => {
+    const q = this.search().trim().toLowerCase();
+    const lang = this.selectedLang();
+    const subj = this.selectedSubject();
+    return this.booksService.catalog().filter((b) => {
+      if (lang !== 'all' && b.lang !== lang) return false;
+      if (subj !== 'All' && b.subject !== subj) return false;
+      if (
+        q &&
+        !b.title.toLowerCase().includes(q) &&
+        !b.author.toLowerCase().includes(q)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  });
+
+  ngOnInit(): void {
+    void this.booksService.loadCatalog();
+  }
+}

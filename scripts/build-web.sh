@@ -2,53 +2,28 @@
 set -e
 
 INSTANCE_ID="${INSTANCE_ID:-christian_tube}"
-FLUTTER_CHANNEL="${FLUTTER_CHANNEL:-stable}"
-FLUTTER_VERSION="${FLUTTER_VERSION:-3.47.1}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-FLUTTER_DIR="$ROOT_DIR/.flutter-sdk"
-APP_DIR="$ROOT_DIR/apps/mobile"
-WEB_BUILD="$APP_DIR/build/web"
+WEB_DIR="$ROOT_DIR/apps/web"
+WEB_BUILD="$WEB_DIR/dist/web/browser"
+WELL_KNOWN_SRC="$ROOT_DIR/apps/mobile/web/.well-known"
 OUTPUT_DIR="$ROOT_DIR/.vercel/output"
 
-echo "==> Building Flutter web for instance: $INSTANCE_ID"
+echo "==> Building Angular web for instance: $INSTANCE_ID"
 
-# Install Flutter SDK if not cached or incomplete
-if [ ! -x "$FLUTTER_DIR/bin/flutter" ]; then
-  echo "==> Downloading Flutter $FLUTTER_VERSION ($FLUTTER_CHANNEL)..."
-  rm -rf "$FLUTTER_DIR"
-  git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$FLUTTER_DIR"
-fi
+cd "$WEB_DIR"
+npm ci
+npm run build
 
-export PATH="$FLUTTER_DIR/bin:$FLUTTER_DIR/bin/cache/dart-sdk/bin:$PATH"
-flutter --version
-flutter config --no-analytics
-
-# Ensure Flutter web is enabled
-flutter precache --web
-
-# Prepare instance config (generates app_config.json + web assets)
-echo "==> Preparing instance: $INSTANCE_ID"
-cd "$ROOT_DIR"
-node scripts/prepare-instance.js "$INSTANCE_ID"
-
-# Build Flutter web
-echo "==> Running flutter build web..."
-cd "$APP_DIR"
-flutter pub get
-flutter build web --release
-
-# Copy well-known deep-link verification files into the output. Flutter's web
-# build does not reliably include hidden (dot) directories, and App Links /
-# Universal Links verification depends on these files being present.
-if [ -d "$APP_DIR/web/.well-known" ]; then
+# Copy well-known deep-link verification files if present (App Links / Universal Links)
+if [ -d "$WELL_KNOWN_SRC" ]; then
   echo "==> Copying .well-known (deep-link verification) assets"
   mkdir -p "$WEB_BUILD/.well-known"
-  cp -R "$APP_DIR/web/.well-known/." "$WEB_BUILD/.well-known/" 2>/dev/null || cp -R "$APP_DIR/web/.well-known" "$WEB_BUILD/"
+  cp -R "$WELL_KNOWN_SRC/." "$WEB_BUILD/.well-known/" 2>/dev/null || cp -R "$WELL_KNOWN_SRC" "$WEB_BUILD/"
 fi
 
 # ---------------------------------------------------------------
 # Assemble the Vercel Build Output API directory.
-# static/       -> Flutter web build (served as-is)
+# static/       -> Angular web build (served as-is)
 # functions/*.func -> serverless functions (Open Graph resolver)
 # config.json   -> routing (SPA fallback + deep-link -> OG)
 # ---------------------------------------------------------------
@@ -71,35 +46,11 @@ cat > "$OUTPUT_DIR/config.json" <<'CONFIG'
   "version": 3,
   "headers": [
     {
-      "source": "/flutter_bootstrap.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/flutter.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/main.dart.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/flutter_service_worker.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/version.json",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
       "source": "/index.html",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
-    },
-    {
-      "source": "/canvaskit/(.*)",
+      "source": "/(.*\\.(?:js|css))",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
