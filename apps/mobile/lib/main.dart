@@ -53,6 +53,7 @@ import 'features/articles/screens/article_reader_screen.dart';
 import 'features/songs/models/song.dart';
 import 'core/database/database_init.dart';
 import 'core/services/lockscreen_word_feed_service.dart';
+import 'core/services/lockscreen_screensaver_service.dart';
 import 'shared/services/note_service.dart';
 import 'features/songs/screens/song_reader_screen.dart';
 import 'features/songs/screens/songs_library_screen.dart';
@@ -81,6 +82,7 @@ void main() async {
   // Run secondary initializations in background to eliminate startup blank screen
   NotificationService().initialize().catchError((e) => debugPrint('Notification init error: $e'));
   LockScreenWordFeedService.instance.initialize().catchError((e) => debugPrint('LockScreenWordFeedService init error: $e'));
+  LockScreenScreensaverService.instance.initialize().catchError((e) => debugPrint('LockScreenScreensaverService init error: $e'));
   NoteService.instance.initialize().catchError((e) => debugPrint('NoteService init error: $e'));
   if (kMicroFeedEnabled) {
     try {

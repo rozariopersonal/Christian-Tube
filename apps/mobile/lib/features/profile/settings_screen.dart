@@ -10,6 +10,7 @@ import '../update/update_service.dart';
 import '../feedback/widgets/voice_feedback_sheet.dart';
 import 'widgets/app_share_dialog.dart';
 import '../../core/services/lockscreen_word_feed_service.dart';
+import '../../core/services/lockscreen_screensaver_service.dart';
 import '../../core/services/user_preference_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -321,10 +322,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListenableBuilder(
                   listenable: Listenable.merge([
                     LockScreenWordFeedService.instance,
+                    LockScreenScreensaverService.instance,
                     UserPreferenceService.instance,
                   ]),
                   builder: (context, _) {
                     final lockService = LockScreenWordFeedService.instance;
+                    final screensaverService = LockScreenScreensaverService.instance;
                     final prefService = UserPreferenceService.instance;
                     final isEnabled = lockService.isEnabled;
                     final interval = lockService.intervalMinutes;
@@ -334,6 +337,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (screensaverService.isSupported) ...[
+                            SwitchListTile(
+                              secondary: Icon(
+                                Icons.wallpaper_rounded,
+                                color: screensaverService.isEnabled
+                                    ? theme.colorScheme.primary
+                                    : null,
+                              ),
+                              title: const Text(
+                                'Fullscreen Lock-Screen Screensaver',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: const Text(
+                                'Show fullscreen Scripture cards on your lock screen regardless of charging state (tap to unlock)',
+                              ),
+                              value: screensaverService.isEnabled,
+                              activeThumbColor: theme.colorScheme.primary,
+                              onChanged: (val) async {
+                                if (val && !(await screensaverService.canDrawOverlays())) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                          'Please allow "Display over other apps" for ChristianApp, then toggle again.',
+                                        ),
+                                        action: SnackBarAction(
+                                          label: 'Grant',
+                                          onPressed: () => screensaverService.requestOverlayPermission(),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                await screensaverService.setEnabled(val);
+                              },
+                            ),
+                            const Divider(height: 1),
+                          ],
                           SwitchListTile(
                             secondary: Icon(
                               Icons.screen_lock_portrait_rounded,

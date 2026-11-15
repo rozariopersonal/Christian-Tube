@@ -178,6 +178,13 @@ class _ScriptureScreensaverAppState extends State<ScriptureScreensaverApp> {
     return '$hour:$minute $period';
   }
 
+  static const MethodChannel _screensaverChannel =
+      MethodChannel('org.rozario.christiantube.mobile/screensaver');
+
+  void _dismiss() {
+    _screensaverChannel.invokeMethod<void>('dismiss').catchError((_) {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -189,56 +196,60 @@ class _ScriptureScreensaverAppState extends State<ScriptureScreensaverApp> {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: theme,
-          home: Scaffold(
-            backgroundColor: tokens.scrim,
-            body: _cards.isEmpty
-                ? Center(
-                    child: CircularProgressIndicator(color: tokens.accent),
-                  )
-                : Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 900),
-                        switchInCurve: Curves.easeInOut,
-                        switchOutCurve: Curves.easeInOut,
-                        child: KeyedSubtree(
-                          key: ValueKey(_cards[_currentIndex].id),
-                          child: ScriptureCardView(
-                            card: _cards[_currentIndex],
-                            filterState: _filterState,
-                            isActive: true,
+          home: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _dismiss,
+            child: Scaffold(
+              backgroundColor: tokens.scrim,
+              body: _cards.isEmpty
+                  ? Center(
+                      child: CircularProgressIndicator(color: tokens.accent),
+                    )
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 900),
+                          switchInCurve: Curves.easeInOut,
+                          switchOutCurve: Curves.easeInOut,
+                          child: KeyedSubtree(
+                            key: ValueKey(_cards[_currentIndex].id),
+                            child: ScriptureCardView(
+                              card: _cards[_currentIndex],
+                              filterState: _filterState,
+                              isActive: true,
+                            ),
                           ),
                         ),
-                      ),
-                      // Subtle top-right clock overlay with gentle burn-in shift
-                      Positioned(
-                        top: 24 + (_currentIndex % 3) * 4.0,
-                        right: 24 + ((_currentIndex ~/ 3) % 3) * 4.0,
-                        child: SafeArea(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: tokens.scrim.withValues(alpha: 0.45),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              _formatTime(_now),
-                              style: TextStyle(
-                                color: tokens.onScrim,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.5,
+                        // Subtle top-right clock overlay with gentle burn-in shift
+                        Positioned(
+                          top: 24 + (_currentIndex % 3) * 4.0,
+                          right: 24 + ((_currentIndex ~/ 3) % 3) * 4.0,
+                          child: SafeArea(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: tokens.scrim.withValues(alpha: 0.45),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                _formatTime(_now),
+                                style: TextStyle(
+                                  color: tokens.onScrim,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+            ),
           ),
         );
       },
