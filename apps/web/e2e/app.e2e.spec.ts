@@ -63,7 +63,7 @@ async function mockBackendAndCdn(page: Page): Promise<void> {
     if (url.includes('/api/audio/catalog')) {
       return route.fulfill({
         json: {
-          series: [
+          data: [
             {
               id: 's1',
               title: 'Foundations of Faith',
@@ -81,24 +81,26 @@ async function mockBackendAndCdn(page: Page): Promise<void> {
     if (url.includes('/api/audio/series/s1')) {
       return route.fulfill({
         json: {
-          id: 's1',
-          title: 'Foundations of Faith',
-          description: 'Core Christian teachings.',
-          speaker: 'Zac Poonen',
-          trackCount: 1,
-          category: 'Sermons',
-          language: 'en',
-          tracks: [
-            {
-              id: 't1',
-              title: 'Part 1: Repentance',
-              seriesId: 's1',
-              seriesTitle: 'Foundations of Faith',
-              speaker: 'Zac Poonen',
-              durationSeconds: 1800,
-              audioUrl: 'https://example.com/audio.mp3',
-            },
-          ],
+          data: {
+            id: 's1',
+            title: 'Foundations of Faith',
+            description: 'Core Christian teachings.',
+            speaker: 'Zac Poonen',
+            trackCount: 1,
+            category: 'Sermons',
+            language: 'en',
+            tracks: [
+              {
+                id: 't1',
+                title: 'Part 1: Repentance',
+                seriesId: 's1',
+                seriesTitle: 'Foundations of Faith',
+                speaker: 'Zac Poonen',
+                durationSeconds: 1800,
+                audioUrl: 'https://example.com/audio.mp3',
+              },
+            ],
+          },
         },
       });
     }
