@@ -1,11 +1,13 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  HostListener,
   OnInit,
+  computed,
   inject,
+  signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { BOOK_ABBREVS } from '../../bible/models/bible.model';
 import {
   WordFeedItem,
@@ -13,153 +15,163 @@ import {
 } from '../services/words-feed.service';
 
 const PRESET_GRADIENTS: readonly string[] = [
-  'linear-gradient(135deg, #1e3a8a, #0f172a)',
-  'linear-gradient(135deg, #7c2d12, #1c1917)',
-  'linear-gradient(135deg, #065f46, #0f172a)',
-  'linear-gradient(135deg, #581c87, #1e1b4b)',
-  'linear-gradient(135deg, #991b1b, #18181b)',
+  'linear-gradient(155deg, #1e3a8a 0%, #0f172a 100%)',
+  'linear-gradient(155deg, #7c2d12 0%, #1c1917 100%)',
+  'linear-gradient(155deg, #065f46 0%, #0f172a 100%)',
+  'linear-gradient(155deg, #581c87 0%, #1e1b4b 100%)',
+  'linear-gradient(155deg, #991b1b 0%, #18181b 100%)',
 ];
 
 @Component({
   selector: 'app-words-feed',
   standalone: true,
-  imports: [InfiniteScrollTriggerDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="words-page max-width-box">
-      <header class="page-head">
-        <h1 class="font-display">Word Feed</h1>
-      </header>
-
-      <div class="topic-strip">
-        <button
-          type="button"
-          class="pill-chip"
-          [class.active]="words.activeTopic() === 'daily'"
-          (click)="words.loadDaily()"
-        >
-          Daily Word
-        </button>
-        @for (t of words.manifest()?.topTopics?.slice(0, 14) ?? []; track t.slug) {
+    <div
+      class="words-stage"
+      [style.background]="gradientFor(activeIndex())"
+    >
+      <header class="stage-header">
+        <div class="topic-strip">
           <button
             type="button"
-            class="pill-chip"
-            [class.active]="words.activeTopic() === t.slug"
-            (click)="words.loadTopic(t.slug)"
+            class="topic-chip"
+            [class.active]="words.activeTopic() === 'daily'"
+            (click)="selectTopic('daily')"
           >
-            {{ t.name }}
+            Daily Word
           </button>
-        }
-      </div>
-
-      @if (words.loading() && words.items().length === 0) {
-        <p class="status-msg">Loading scripture feed...</p>
-      } @else if (words.error()) {
-        <div class="status-msg">
-          <p>{{ words.error() }}</p>
-          <button
-            type="button"
-            class="pill-chip active"
-            (click)="words.loadDaily()"
-          >
-            Retry
-          </button>
-        </div>
-
-        @if (words.hasMore()) {
-          <div
-            class="scroll-sentinel"
-            appInfiniteScrollTrigger
-            [disabled]="words.loadingMore()"
-            (triggered)="words.loadMore()"
-          >
-            @if (words.loadingMore()) {
-              <span>Loading more scripture cards...</span>
-            }
-          </div>
-        }
-      } @else {
-        <div class="words-grid">
-          @for (item of words.items(); track $index) {
-            <article
-              class="word-card"
-              [style.background]="gradientFor($index)"
+          @for (t of words.manifest()?.topTopics?.slice(0, 14) ?? []; track t.slug) {
+            <button
+              type="button"
+              class="topic-chip"
+              [class.active]="words.activeTopic() === t.slug"
+              (click)="selectTopic(t.slug)"
             >
-              <div class="card-top">
-                @if (item.theme) {
-                  <span class="theme-pill">{{ item.theme }}</span>
-                }
-                <span class="ver-tag">{{ words.versionId().toUpperCase() }}</span>
-              </div>
-
-              <blockquote class="verse-quote">
-                “{{ item.verseText || item.theme || item.referenceLabel }}”
-              </blockquote>
-
-              <div class="card-bottom">
-                <strong class="ref-label">{{ item.referenceLabel }}</strong>
-                <div class="card-actions">
-                  <button
-                    type="button"
-                    class="action-pill"
-                    (click)="copyWord(item)"
-                  >
-                    <span class="material-symbols-rounded">content_copy</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="action-pill"
-                    (click)="shareWord(item)"
-                  >
-                    <span class="material-symbols-rounded">share</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="action-pill primary"
-                    (click)="openInBible(item)"
-                  >
-                    Read
-                  </button>
-                </div>
-              </div>
-            </article>
+              {{ t.name }}
+            </button>
           }
         </div>
-
-        @if (words.hasMore()) {
-          <div
-            class="scroll-sentinel"
-            appInfiniteScrollTrigger
-            [disabled]="words.loadingMore()"
-            (triggered)="words.loadMore()"
-          >
-            @if (words.loadingMore()) {
-              <span>Loading more scripture cards...</span>
-            }
-          </div>
+        @if (words.items().length > 0) {
+          <span class="counter">
+            {{ activeIndex() + 1 }} / {{ words.items().length }}
+          </span>
         }
-      }
+      </header>
+
+      <div class="stage-body">
+        @if (words.loading() && words.items().length === 0) {
+          <p class="status-msg">Loading scripture...</p>
+        } @else if (words.error()) {
+          <div class="status-msg">
+            <p>{{ words.error() }}</p>
+            <button
+              type="button"
+              class="topic-chip active"
+              (click)="words.loadDaily()"
+            >
+              Retry
+            </button>
+          </div>
+        } @else if (currentItem(); as item) {
+          <article class="word-spotlight">
+            <div class="spotlight-meta">
+              @if (item.theme) {
+                <span class="theme-pill">{{ item.theme }}</span>
+              }
+              <span class="ver-tag">{{ words.versionId().toUpperCase() }}</span>
+            </div>
+
+            <blockquote class="verse-quote">
+              “{{ item.verseText || item.theme || item.referenceLabel }}”
+            </blockquote>
+
+            <div class="spotlight-footer">
+              <strong class="ref-label">{{ item.referenceLabel }}</strong>
+              <button
+                type="button"
+                class="read-btn"
+                (click)="openInBible(item)"
+              >
+                <span class="material-symbols-rounded">menu_book</span>
+                Open in Bible
+              </button>
+            </div>
+          </article>
+
+          <div class="side-rail">
+            <button
+              type="button"
+              class="rail-btn"
+              title="Previous Word"
+              [disabled]="activeIndex() <= 0"
+              (click)="prev()"
+            >
+              <span class="material-symbols-rounded">keyboard_arrow_up</span>
+            </button>
+            <button
+              type="button"
+              class="rail-btn"
+              title="Next Word"
+              [disabled]="!canGoNext()"
+              (click)="next()"
+            >
+              <span class="material-symbols-rounded">keyboard_arrow_down</span>
+            </button>
+            <button
+              type="button"
+              class="rail-btn"
+              title="Copy Verse"
+              (click)="copyWord(item)"
+            >
+              <span class="material-symbols-rounded">content_copy</span>
+            </button>
+            <button
+              type="button"
+              class="rail-btn"
+              title="Share Verse"
+              (click)="shareWord(item)"
+            >
+              <span class="material-symbols-rounded">share</span>
+            </button>
+          </div>
+        } @else {
+          <p class="status-msg">No scripture cards available.</p>
+        }
+      </div>
     </div>
   `,
   styles: [
     `
-      .words-page {
-        padding-top: 16px;
-        padding-bottom: 32px;
+      .words-stage {
+        height: calc(100dvh - var(--shell-bottom-height) - var(--shell-top-offset));
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 16px;
+        gap: 12px;
+        transition: background 300ms ease;
       }
 
-      .page-head h1 {
-        margin: 0 0 14px;
-        font-size: 22px;
-        font-weight: 700;
+      @media (min-width: 600px) {
+        .words-stage {
+          height: calc(100dvh - var(--shell-top-offset));
+          padding: 16px 28px;
+        }
+      }
+
+      .stage-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
       }
 
       .topic-strip {
+        flex: 1;
+        min-width: 0;
         display: flex;
         gap: 8px;
         overflow-x: auto;
-        padding-bottom: 12px;
-        margin-bottom: 14px;
         scrollbar-width: none;
       }
 
@@ -167,24 +179,57 @@ const PRESET_GRADIENTS: readonly string[] = [
         display: none;
       }
 
-      .words-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      .topic-chip {
+        height: 32px;
+        padding: 0 12px;
+        border-radius: var(--radius-pill);
+        background-color: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .topic-chip.active {
+        background-color: #ffffff;
+        color: #0f172a;
+        font-weight: 600;
+      }
+
+      .counter {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.78);
+        white-space: nowrap;
+      }
+
+      .stage-body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         gap: 16px;
       }
 
-      .word-card {
+      .word-spotlight {
+        flex: 1;
+        max-width: 720px;
+        max-height: 100%;
+        overflow-y: auto;
+        padding: clamp(20px, 4vw, 40px);
         border-radius: var(--radius-lg);
-        padding: 18px;
-        color: #ffffff;
+        background-color: rgba(0, 0, 0, 0.24);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.14);
         display: flex;
         flex-direction: column;
-        gap: 14px;
-        min-height: 210px;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+        gap: 20px;
       }
 
-      .card-top {
+      .spotlight-meta {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -195,14 +240,14 @@ const PRESET_GRADIENTS: readonly string[] = [
         font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
-        padding: 3px 9px;
+        letter-spacing: 0.05em;
+        padding: 4px 10px;
         border-radius: var(--radius-pill);
         background-color: rgba(255, 255, 255, 0.16);
       }
 
       .ver-tag {
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
         opacity: 0.85;
       }
@@ -210,56 +255,67 @@ const PRESET_GRADIENTS: readonly string[] = [
       .verse-quote {
         margin: 0;
         font-family: Georgia, serif;
-        font-size: 16px;
+        font-size: clamp(18px, 2.6vw, 26px);
         line-height: 1.55;
-        flex: 1;
       }
 
-      .card-bottom {
+      .spotlight-footer {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 12px;
         flex-wrap: wrap;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.14);
       }
 
       .ref-label {
-        font-size: 13px;
+        font-size: 15px;
         font-weight: 700;
       }
 
-      .card-actions {
-        display: flex;
+      .read-btn {
+        display: inline-flex;
         align-items: center;
         gap: 6px;
+        height: 36px;
+        padding: 0 14px;
+        border-radius: var(--radius-pill);
+        background-color: #ffffff;
+        color: #0f172a;
+        font-size: 13px;
+        font-weight: 600;
       }
 
-      .action-pill {
-        height: 30px;
-        padding: 0 10px;
+      .read-btn .material-symbols-rounded {
+        font-size: 18px;
+      }
+
+      .side-rail {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+
+      .rail-btn {
+        width: 44px;
+        height: 44px;
         border-radius: var(--radius-pill);
         background-color: rgba(255, 255, 255, 0.16);
         color: #ffffff;
-        font-size: 12px;
-        font-weight: 600;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
+        display: grid;
+        place-items: center;
       }
 
-      .action-pill .material-symbols-rounded {
-        font-size: 16px;
-      }
-
-      .action-pill.primary {
-        background-color: #ffffff;
-        color: #0f172a;
+      .rail-btn[disabled] {
+        opacity: 0.3;
+        cursor: not-allowed;
       }
 
       .status-msg {
         text-align: center;
-        padding: 36px 0;
-        color: var(--on-surface-muted);
+        color: rgba(255, 255, 255, 0.82);
       }
     `,
   ],
@@ -268,8 +324,55 @@ export class WordsFeedComponent implements OnInit {
   private readonly router = inject(Router);
   readonly words = inject(WordsFeedService);
 
+  readonly activeIndex = signal<number>(0);
+
+  readonly currentItem = computed<WordFeedItem | null>(
+    () => this.words.items()[this.activeIndex()] ?? null,
+  );
+
+  readonly canGoNext = computed(
+    () =>
+      this.activeIndex() + 1 < this.words.items().length ||
+      this.words.hasMore(),
+  );
+
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      this.next();
+    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      this.prev();
+    }
+  }
+
   ngOnInit(): void {
     void this.words.loadDaily();
+  }
+
+  selectTopic(slug: string): void {
+    this.activeIndex.set(0);
+    void this.words.loadTopic(slug);
+  }
+
+  prev(): void {
+    if (this.activeIndex() > 0) {
+      this.activeIndex.update((i) => i - 1);
+    }
+  }
+
+  next(): void {
+    const nextIdx = this.activeIndex() + 1;
+    if (nextIdx < this.words.items().length) {
+      this.activeIndex.set(nextIdx);
+      if (
+        this.words.hasMore() &&
+        nextIdx >= this.words.items().length - 4
+      ) {
+        void this.words.loadMore();
+      }
+    } else if (this.words.hasMore()) {
+      void this.words.loadMore();
+    }
   }
 
   gradientFor(index: number): string {
