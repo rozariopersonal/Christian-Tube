@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,7 +11,9 @@ import {
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest } from 'rxjs';
+import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 import { BookAppearanceSheetComponent } from '../components/book-appearance-sheet.component';
 import { BookHighlightsSheetComponent } from '../components/book-highlights-sheet.component';
@@ -33,11 +36,25 @@ import {
   ScriptureSpanToken,
 } from '../services/scripture-ref-parser.service';
 
+interface ParsedBookLineItem {
+  line: BookLine;
+  tokens: ScriptureSpanToken[];
+}
+
+interface ExtraBookChapter {
+  chapterIndex: number;
+  title: string;
+  parsedLines: ParsedBookLineItem[];
+  minutes: number;
+}
+
 @Component({
   selector: 'app-book-reader',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     FormsModule,
+    InfiniteScrollTriggerDirective,
     ModalSheetComponent,
     BookTocSheetComponent,
     BookAppearanceSheetComponent,
@@ -58,10 +75,60 @@ import {
       @if (!immersive()) {
         <header class="reader-bar">
           <div class="bar-inner">
-            <button type="button" class="toc-btn" (click)="showToc.set(true)">
-              <span class="material-symbols-rounded">toc</span>
-              <span class="book-name">{{ toc()?.title || 'Book Reader' }}</span>
-            </button>
+            <div class="bar-left">
+              @if (!isExpanded()) {
+                <button type="button" class="toc-btn" (click)="showToc.set(true)">
+                  <span class="material-symbols-rounded">toc</span>
+                  <span class="book-name">{{ toc()?.title || 'Book Reader' }}</span>
+                </button>
+              } @else {
+                <span class="toc-btn book-title-label">
+                  <span class="material-symbols-rounded">menu_book</span>
+                  <span class="book-name">{{ toc()?.title || 'Book Reader' }}</span>
+                </span>
+              }
+
+              @if (toc(); as t) {
+                <div class="chapter-nav-group">
+                  <button
+                    type="button"
+                    class="nav-step-btn"
+                    aria-label="Previous chapter"
+                    title="Previous chapter"
+                    [disabled]="displayChapterIndex() <= 1"
+                    (click)="prevChapter()"
+                  >
+                    <span class="material-symbols-rounded">chevron_left</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="ch-pill-btn"
+                    (click)="isExpanded() ? null : showToc.set(true)"
+                  >
+                    <span>Ch. {{ displayChapterIndex() }} / {{ t.chapters.length || 1 }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="nav-step-btn"
+                    aria-label="Next chapter"
+                    title="Next chapter"
+                    [disabled]="displayChapterIndex() >= (t.chapters.length || 1)"
+                    (click)="nextChapter()"
+                  >
+                    <span class="material-symbols-rounded">chevron_right</span>
+                  </button>
+                </div>
+              }
+
+              @if (!screen.isCompact() && !loading() && !error()) {
+                <span class="bar-meta">
+                  @if (displayChapterTitle()) {
+                    {{ displayChapterTitle() }} ·
+                  }
+                  {{ displayReadingMinutes() }} min read
+                </span>
+              }
+            </div>
 
             <div class="bar-actions">
               <button
@@ -132,85 +199,225 @@ import {
         </button>
       }
 
-      <div
-        class="reader-content"
-        [attr.data-margin]="appearance.bookMargin()"
-        [class.two-col]="appearance.bookColumns() === 2"
-      >
-        @if (loading()) {
-          <p class="status-msg">Loading chapter...</p>
-        } @else if (error()) {
-          <p class="status-msg">{{ error() }}</p>
-        } @else {
-          <header class="chapter-hero">
-            <span class="hero-eyebrow">
-              {{ toc()?.title }} · Chapter {{ chapterIndex() }}
-            </span>
-            @if (currentChapterTitle()) {
-              <h1 class="hero-title font-display">{{ currentChapterTitle() }}</h1>
-            }
-            <div class="hero-meta">
-              @if (toc()?.author) {
-                <span>{{ toc()!.author }}</span>
-                <span>·</span>
+      <div class="book-layout" [class.has-sidebar]="isExpanded() && !immersive() && !!toc()">
+        @if (isExpanded() && !immersive() && toc(); as t) {
+          <aside class="book-sidebar" aria-label="Book chapters">
+            <div class="sidebar-header">
+              <h2 class="sidebar-title font-display">{{ t.title }}</h2>
+              @if (t.author) {
+                <p class="sidebar-author">{{ t.author }}</p>
               }
-              <span>{{ readingMinutes() }} min read</span>
+              <input
+                type="search"
+                class="sidebar-filter"
+                [ngModel]="sidebarFilter()"
+                (ngModelChange)="sidebarFilter.set($event)"
+                placeholder="Filter chapters..."
+                aria-label="Filter chapters"
+              />
             </div>
-          </header>
 
-          <article
-            class="chapter-body"
-            [class.two-col-body]="appearance.bookColumns() === 2"
-            [style.font-family]="appearance.activeFont().cssFamily"
-            [style.font-size.px]="appearance.fontSize()"
-            [style.line-height]="appearance.lineHeight()"
-            [style.text-align]="appearance.bookAlign()"
-            (dblclick)="lookupFromSelection()"
-          >
-            @for (item of parsedLines(); track $index) {
-              @let line = item.line;
-              @let hl = highlightColor($index);
-              @let note = noteFor($index);
-              @if (line.isHeading) {
-                <h2
-                  [id]="'book-line-' + $index"
-                  class="chapter-heading"
-                  [class.sub-heading]="(line.headingLevel ?? 1) > 1"
+            <nav class="sidebar-list">
+              @for (ch of filteredSidebarChapters(); track ch.chapterIndex) {
+                <button
+                  type="button"
+                  class="sidebar-item"
+                  [class.active]="ch.chapterIndex === displayChapterIndex()"
+                  (click)="selectChapter(ch.chapterIndex)"
                 >
-                  {{ line.text }}
-                </h2>
-              } @else {
-                <div
-                  [id]="'book-line-' + $index"
-                  class="chapter-para"
-                  [class.is-quote]="isQuoteLine(line)"
-                  [class.selected]="selectedIndex() === $index"
-                  [style.background-color]="hl ? hl + '55' : null"
-                  (click)="toggleSelectLine($index)"
-                >
-                  <p class="para-text">
-                    @for (tok of item.tokens; track $index) {
-                      @if (tok.ref) {
-                        <button
-                          type="button"
-                          class="scripture-link"
-                          (click)="$event.stopPropagation(); activeScriptureRef.set(tok.ref!)"
-                        >
-                          {{ tok.text }}
-                        </button>
-                      } @else {
-                        <span>{{ tok.text }}</span>
-                      }
-                    }
-                  </p>
-                  @if (note) {
-                    <p class="para-note">{{ note }}</p>
-                  }
-                </div>
+                  <span class="sidebar-idx">{{ ch.chapterIndex }}</span>
+                  <span class="sidebar-ch-title">{{ ch.title || ('Chapter ' + ch.chapterIndex) }}</span>
+                </button>
               }
-            }
-          </article>
+            </nav>
+          </aside>
         }
+
+        <div
+          class="reader-content"
+          [attr.data-margin]="appearance.bookMargin()"
+          [class.two-col]="appearance.bookColumns() === 2"
+        >
+          @if (loading()) {
+            <p class="status-msg">Loading chapter...</p>
+          } @else if (error()) {
+            <p class="status-msg">{{ error() }}</p>
+          } @else {
+            @if (hasPrevBookChapter()) {
+              <div class="top-scroll-sentinel">
+                <button
+                  type="button"
+                  class="load-prev-btn"
+                  [disabled]="loadingPrev()"
+                  (click)="prependPrevChapter()"
+                >
+                  @if (loadingPrev()) {
+                    <span>Loading {{ prevChapterLabel() }}...</span>
+                  } @else {
+                    <span class="material-symbols-rounded">arrow_upward</span>
+                    <span>{{ prevChapterLabel() }}</span>
+                  }
+                </button>
+              </div>
+            }
+
+            @for (extra of prependedChapters(); track extra.chapterIndex) {
+              <ng-container
+                [ngTemplateOutlet]="extraBookChapterTpl"
+                [ngTemplateOutletContext]="{ $implicit: extra, isPrepended: true }"
+              />
+            }
+
+            <section class="chapter-section" [attr.data-book-ch]="chapterIndex()">
+              <header class="chapter-hero">
+                <span class="hero-eyebrow">
+                  {{ toc()?.title }} · Chapter {{ chapterIndex() }}
+                </span>
+                @if (currentChapterTitle()) {
+                  <h1 class="hero-title font-display">{{ currentChapterTitle() }}</h1>
+                }
+                <div class="hero-meta">
+                  @if (toc()?.author) {
+                    <span>{{ toc()!.author }}</span>
+                    <span>·</span>
+                  }
+                  <span>{{ readingMinutes() }} min read</span>
+                </div>
+              </header>
+
+              <article
+                class="chapter-body"
+                [class.two-col-body]="appearance.bookColumns() === 2"
+                [style.font-family]="appearance.activeFont().cssFamily"
+                [style.font-size.px]="appearance.fontSize()"
+                [style.line-height]="appearance.lineHeight()"
+                [style.text-align]="appearance.bookAlign()"
+                (dblclick)="lookupFromSelection()"
+              >
+                @for (item of parsedLines(); track $index) {
+                  @let line = item.line;
+                  @let hl = highlightColor($index);
+                  @let note = noteFor($index);
+                  @if (line.isHeading) {
+                    <h2
+                      [id]="'book-line-' + $index"
+                      class="chapter-heading"
+                      [class.sub-heading]="(line.headingLevel ?? 1) > 1"
+                    >
+                      {{ line.text }}
+                    </h2>
+                  } @else {
+                    <div
+                      [id]="'book-line-' + $index"
+                      class="chapter-para"
+                      [class.is-quote]="isQuoteLine(line)"
+                      [class.selected]="selectedIndex() === $index"
+                      [style.background-color]="hl ? hl + '55' : null"
+                      (click)="toggleSelectLine($index)"
+                    >
+                      <p class="para-text">
+                        @for (tok of item.tokens; track $index) {
+                          @if (tok.ref) {
+                            <button
+                              type="button"
+                              class="scripture-link"
+                              (click)="$event.stopPropagation(); activeScriptureRef.set(tok.ref!)"
+                            >
+                              {{ tok.text }}
+                            </button>
+                          } @else {
+                            <span>{{ tok.text }}</span>
+                          }
+                        }
+                      </p>
+                      @if (note) {
+                        <p class="para-note">{{ note }}</p>
+                      }
+                    </div>
+                  }
+                }
+              </article>
+            </section>
+
+            @for (extra of appendedChapters(); track extra.chapterIndex) {
+              <ng-container
+                [ngTemplateOutlet]="extraBookChapterTpl"
+                [ngTemplateOutletContext]="{ $implicit: extra, isPrepended: false }"
+              />
+            }
+
+            <ng-template #extraBookChapterTpl let-extra let-isPrepended="isPrepended">
+              <section
+                class="appended-chapter"
+                [class.prepended-chapter]="isPrepended"
+                [attr.data-book-ch]="extra.chapterIndex"
+              >
+                <header class="chapter-hero appended-hero">
+                  <span class="hero-eyebrow">
+                    {{ toc()?.title }} · Chapter {{ extra.chapterIndex }}
+                  </span>
+                  @if (extra.title) {
+                    <h2 class="hero-title font-display">{{ extra.title }}</h2>
+                  }
+                  <div class="hero-meta">
+                    <span>{{ extra.minutes }} min read</span>
+                  </div>
+                </header>
+
+                <article
+                  class="chapter-body"
+                  [class.two-col-body]="appearance.bookColumns() === 2"
+                  [style.font-family]="appearance.activeFont().cssFamily"
+                  [style.font-size.px]="appearance.fontSize()"
+                  [style.line-height]="appearance.lineHeight()"
+                  [style.text-align]="appearance.bookAlign()"
+                  (dblclick)="lookupFromSelection()"
+                >
+                  @for (item of extra.parsedLines; track $index) {
+                    @let line = item.line;
+                    @if (line.isHeading) {
+                      <h3
+                        class="chapter-heading"
+                        [class.sub-heading]="(line.headingLevel ?? 1) > 1"
+                      >
+                        {{ line.text }}
+                      </h3>
+                    } @else {
+                      <div class="chapter-para" [class.is-quote]="isQuoteLine(line)">
+                        <p class="para-text">
+                          @for (tok of item.tokens; track $index) {
+                            @if (tok.ref) {
+                              <button
+                                type="button"
+                                class="scripture-link"
+                                (click)="$event.stopPropagation(); activeScriptureRef.set(tok.ref!)"
+                              >
+                                {{ tok.text }}
+                              </button>
+                            } @else {
+                              <span>{{ tok.text }}</span>
+                            }
+                          }
+                        </p>
+                      </div>
+                    }
+                  }
+                </article>
+              </section>
+            </ng-template>
+
+            <div
+              class="scroll-sentinel"
+              appInfiniteScrollTrigger
+              [disabled]="loadingMore() || !hasNextBookChapter()"
+              (triggered)="appendNextChapter()"
+            >
+              @if (loadingMore()) {
+                <span>Loading next chapter...</span>
+              }
+            </div>
+          }
+        </div>
       </div>
 
       @if (selectedLine(); as sel) {
@@ -223,14 +430,14 @@ import {
           (highlightChanged)="setHighlight(selectedIndex()!, sel, $event)"
           (closed)="selectedIndex.set(null)"
         />
-      } @else if (!immersive() && !loading() && toc()) {
+      } @else if (!isExpanded() && !immersive() && !loading() && toc()) {
         <app-book-reader-nav
-          [chapterIndex]="chapterIndex()"
+          [chapterIndex]="displayChapterIndex()"
           [totalChapters]="toc()!.chapters.length || 1"
-          [chapterTitle]="currentChapterTitle()"
-          [readingMinutes]="readingMinutes()"
-          (previous)="loadChapter(chapterIndex() - 1)"
-          (next)="loadChapter(chapterIndex() + 1)"
+          [chapterTitle]="displayChapterTitle()"
+          [readingMinutes]="displayReadingMinutes()"
+          (previous)="prevChapter()"
+          (next)="nextChapter()"
           (openToc)="showToc.set(true)"
         />
       }
@@ -354,6 +561,14 @@ import {
         gap: 8px;
       }
 
+      .bar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        flex: 1;
+      }
+
       .toc-btn {
         display: inline-flex;
         align-items: center;
@@ -361,6 +576,199 @@ import {
         min-width: 0;
         font-weight: 700;
         font-size: 15px;
+      }
+
+      .book-title-label {
+        cursor: default;
+      }
+
+      .chapter-nav-group {
+        display: inline-flex;
+        align-items: center;
+        flex-shrink: 0;
+        border: 1px solid var(--reader-border, var(--surface-border));
+        border-radius: var(--radius-pill);
+        background-color: var(--reader-surface, var(--surface));
+        overflow: hidden;
+      }
+
+      .nav-step-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        color: var(--reader-fg, var(--on-surface));
+      }
+
+      .nav-step-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+
+      .nav-step-btn .material-symbols-rounded {
+        font-size: 18px;
+      }
+
+      .ch-pill-btn {
+        display: inline-flex;
+        align-items: center;
+        height: 30px;
+        padding: 0 8px;
+        font-weight: 700;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      .bar-meta {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--reader-muted, var(--on-surface-muted));
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .book-layout {
+        display: flex;
+        align-items: flex-start;
+        width: 100%;
+      }
+
+      .book-sidebar {
+        position: sticky;
+        top: calc(var(--shell-top-offset) + var(--topbar-height));
+        width: 280px;
+        flex-shrink: 0;
+        height: calc(100dvh - var(--shell-top-offset) - var(--topbar-height));
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--reader-border, var(--surface-border));
+        background-color: color-mix(in srgb, var(--reader-bg, var(--bg)) 96%, var(--on-surface) 4%);
+      }
+
+      .sidebar-header {
+        padding: 16px 14px 12px;
+        border-bottom: 1px solid var(--reader-border, var(--surface-border));
+      }
+
+      .sidebar-title {
+        margin: 0 0 2px;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.3;
+      }
+
+      .sidebar-author {
+        margin: 0 0 10px;
+        font-size: 12px;
+        color: var(--reader-muted, var(--on-surface-muted));
+      }
+
+      .sidebar-filter {
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--reader-border, var(--surface-border));
+        background-color: var(--reader-bg, var(--bg));
+        color: var(--reader-fg, var(--on-surface));
+        font-size: 13px;
+      }
+
+      .sidebar-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        text-align: left;
+        font-size: 13px;
+        color: var(--reader-fg, var(--on-surface));
+      }
+
+      .sidebar-item:hover {
+        background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+      }
+
+      .sidebar-item.active {
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      .sidebar-idx {
+        min-width: 24px;
+        font-size: 12px;
+        font-weight: 700;
+        opacity: 0.7;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .sidebar-ch-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .top-scroll-sentinel {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 16px;
+      }
+
+      .load-prev-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 32px;
+        padding: 4px 12px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--reader-border, var(--surface-border));
+        background-color: var(--reader-surface, var(--surface-variant));
+        color: var(--reader-muted, var(--on-surface-muted));
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .load-prev-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .load-prev-btn .material-symbols-rounded {
+        font-size: 15px;
+      }
+
+      .appended-chapter {
+        margin-top: 40px;
+      }
+
+      .prepended-chapter {
+        margin-top: 0;
+        margin-bottom: 40px;
+      }
+
+      .appended-hero {
+        padding-top: 12px;
+      }
+
+      .scroll-sentinel {
+        display: flex;
+        justify-content: center;
+        padding: 24px 0 8px;
+        font-size: 13px;
+        color: var(--reader-muted, var(--on-surface-muted));
       }
 
       .book-name {
@@ -561,7 +969,9 @@ export class BookReaderComponent implements OnInit {
   private readonly booksService = inject(BooksService);
   private readonly highlightsService = inject(BookHighlightsService);
   private readonly scriptureParser = inject(ScriptureRefParserService);
+  readonly screen = inject(ScreenClassService);
   readonly appearance = inject(ReaderAppearanceService);
+  readonly isExpanded = computed(() => this.screen.screenClass() === 'expanded');
 
   readonly toc = signal<BookToc | null>(null);
   readonly lines = signal<BookLine[]>([]);
@@ -570,6 +980,14 @@ export class BookReaderComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly selectedIndex = signal<number | null>(null);
   readonly immersive = signal<boolean>(false);
+  readonly sidebarFilter = signal<string>('');
+
+  readonly prependedChapters = signal<ExtraBookChapter[]>([]);
+  readonly appendedChapters = signal<ExtraBookChapter[]>([]);
+  readonly loadingPrev = signal<boolean>(false);
+  readonly loadingMore = signal<boolean>(false);
+  readonly visibleChapterIndex = signal<number | null>(null);
+  private hasScrolledDown = false;
 
   readonly showToc = signal<boolean>(false);
   readonly showAppearance = signal<boolean>(false);
@@ -612,6 +1030,58 @@ export class BookReaderComponent implements OnInit {
     return Math.max(1, Math.round(words / 220));
   });
 
+  readonly displayChapterIndex = computed(
+    () => this.visibleChapterIndex() ?? this.chapterIndex(),
+  );
+
+  readonly displayChapterTitle = computed(() => {
+    const idx = this.displayChapterIndex();
+    const ch = this.toc()?.chapters.find((c) => c.chapterIndex === idx);
+    return ch?.title ?? '';
+  });
+
+  readonly displayReadingMinutes = computed(() => {
+    const idx = this.visibleChapterIndex();
+    if (idx !== null && idx !== this.chapterIndex()) {
+      const extra =
+        this.prependedChapters().find((c) => c.chapterIndex === idx) ??
+        this.appendedChapters().find((c) => c.chapterIndex === idx);
+      if (extra) return extra.minutes;
+    }
+    return this.readingMinutes();
+  });
+
+  readonly filteredSidebarChapters = computed(() => {
+    const list = this.toc()?.chapters ?? [];
+    const q = this.sidebarFilter().trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
+      (c) =>
+        c.title.toLowerCase().includes(q) ||
+        String(c.chapterIndex).includes(q),
+    );
+  });
+
+  readonly hasPrevBookChapter = computed(() => {
+    const first = this.prependedChapters()[0]?.chapterIndex ?? this.chapterIndex();
+    return first > 1;
+  });
+
+  readonly hasNextBookChapter = computed(() => {
+    const list = this.appendedChapters();
+    const last = list.length > 0 ? list[list.length - 1].chapterIndex : this.chapterIndex();
+    const total = this.toc()?.chapters.length ?? 1;
+    return last < total;
+  });
+
+  readonly prevChapterLabel = computed(() => {
+    const first = this.prependedChapters()[0]?.chapterIndex ?? this.chapterIndex();
+    const prev = first - 1;
+    if (prev < 1) return '';
+    const title = this.toc()?.chapters.find((c) => c.chapterIndex === prev)?.title;
+    return title ? `Ch. ${prev}: ${title}` : `Chapter ${prev}`;
+  });
+
   readonly bookHighlights = computed(() => {
     const id = this.currentBookId();
     return id ? this.highlightsService.forBook(id) : [];
@@ -628,6 +1098,59 @@ export class BookReaderComponent implements OnInit {
       ? this.highlightsService.isBookmarked(id, this.chapterIndex())
       : false;
   });
+
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    this.syncVisibleChapterFromScroll();
+    if (window.scrollY > 180) {
+      this.hasScrolledDown = true;
+    } else if (
+      this.hasScrolledDown &&
+      window.scrollY <= 80 &&
+      this.hasPrevBookChapter() &&
+      !this.loadingPrev() &&
+      !this.loading()
+    ) {
+      void this.prependPrevChapter();
+    }
+  }
+
+  @HostListener('window:wheel', ['$event'])
+  onWindowWheel(event: WheelEvent): void {
+    if (
+      event.deltaY < 0 &&
+      window.scrollY <= 4 &&
+      this.hasPrevBookChapter() &&
+      !this.loadingPrev() &&
+      !this.loading()
+    ) {
+      void this.prependPrevChapter();
+    }
+  }
+
+  private syncVisibleChapterFromScroll(): void {
+    if (this.prependedChapters().length === 0 && this.appendedChapters().length === 0) {
+      if (this.visibleChapterIndex() !== null) {
+        this.visibleChapterIndex.set(null);
+      }
+      return;
+    }
+    const nodes = document.querySelectorAll<HTMLElement>('[data-book-ch]');
+    if (nodes.length === 0) return;
+
+    let active: HTMLElement = nodes[0];
+    for (const el of Array.from(nodes)) {
+      if (el.getBoundingClientRect().top <= 140) {
+        active = el;
+      } else {
+        break;
+      }
+    }
+    const ch = Number(active.dataset['bookCh'] ?? 0);
+    if (ch > 0 && ch !== this.visibleChapterIndex()) {
+      this.visibleChapterIndex.set(ch);
+    }
+  }
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
@@ -766,6 +1289,10 @@ export class BookReaderComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     this.selectedIndex.set(null);
+    this.prependedChapters.set([]);
+    this.appendedChapters.set([]);
+    this.visibleChapterIndex.set(null);
+    this.hasScrolledDown = false;
     this.chapterIndex.set(ch);
     try {
       const lines = await this.booksService.fetchChapter(
@@ -973,6 +1500,95 @@ export class BookReaderComponent implements OnInit {
       });
     } else {
       void navigator.clipboard?.writeText(shareUrl);
+    }
+  }
+
+  prevChapter(): void {
+    const cur = this.displayChapterIndex();
+    if (cur > 1) {
+      void this.loadChapter(cur - 1);
+    }
+  }
+
+  nextChapter(): void {
+    const cur = this.displayChapterIndex();
+    const total = this.toc()?.chapters.length ?? 1;
+    if (cur < total) {
+      void this.loadChapter(cur + 1);
+    }
+  }
+
+  async prependPrevChapter(): Promise<void> {
+    if (this.loadingPrev() || this.loading()) return;
+    const first = this.prependedChapters()[0]?.chapterIndex ?? this.chapterIndex();
+    const prevIdx = first - 1;
+    if (prevIdx < 1) return;
+
+    this.loadingPrev.set(true);
+    try {
+      const extra = await this.buildExtraChapter(prevIdx);
+      if (!extra) return;
+
+      const prevHeight = document.documentElement.scrollHeight;
+      this.prependedChapters.update((cur) => [extra, ...cur]);
+      requestAnimationFrame(() => {
+        const delta = document.documentElement.scrollHeight - prevHeight;
+        if (delta > 0) {
+          window.scrollBy(0, delta);
+        }
+      });
+    } finally {
+      this.loadingPrev.set(false);
+    }
+  }
+
+  async appendNextChapter(): Promise<void> {
+    if (this.loadingMore() || this.loading()) return;
+    const list = this.appendedChapters();
+    const last = list.length > 0 ? list[list.length - 1].chapterIndex : this.chapterIndex();
+    const nextIdx = last + 1;
+    const total = this.toc()?.chapters.length ?? 1;
+    if (nextIdx > total) return;
+
+    this.loadingMore.set(true);
+    try {
+      const extra = await this.buildExtraChapter(nextIdx);
+      if (!extra) return;
+      this.appendedChapters.update((cur) => [...cur, extra]);
+    } finally {
+      this.loadingMore.set(false);
+    }
+  }
+
+  private async buildExtraChapter(ch: number): Promise<ExtraBookChapter | null> {
+    const bookId = this.currentBookId();
+    if (!bookId) return null;
+    try {
+      const lines = await this.booksService.fetchChapter(
+        bookId,
+        ch,
+        this.currentBookLang(),
+        this.toc()?.chapters.length,
+      );
+      if (lines.length === 0) return null;
+      const parsedLines: ParsedBookLineItem[] = lines.map((line) => ({
+        line,
+        tokens: line.isHeading ? [] : this.scriptureParser.parse(line.text),
+      }));
+      const words = lines.reduce(
+        (acc, l) => acc + (l.text ? l.text.split(/\s+/).length : 0),
+        0,
+      );
+      const title =
+        this.toc()?.chapters.find((c) => c.chapterIndex === ch)?.title ?? '';
+      return {
+        chapterIndex: ch,
+        title,
+        parsedLines,
+        minutes: Math.max(1, Math.round(words / 220)),
+      };
+    } catch {
+      return null;
     }
   }
 
