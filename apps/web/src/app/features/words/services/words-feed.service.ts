@@ -47,7 +47,7 @@ export class WordsFeedService {
 
   readonly versionId = (): string => {
     const pref = this.appearance.primaryBibleVersion().toLowerCase();
-    return BIBLE_VERSIONS.some((v) => v.id === pref) ? pref : 'nasb';
+    return BIBLE_VERSIONS.some((v) => v.id === pref) ? pref : 'kjv';
   };
 
   async loadDaily(): Promise<void> {

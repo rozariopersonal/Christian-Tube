@@ -14,6 +14,8 @@ const KEY_STATE = 'bible_reader_state';
 const KEY_HIGHLIGHTS = 'bible_highlights';
 const KEY_BOOKMARKS = 'bible_bookmarks';
 const KEY_NOTES = 'bible_notes';
+const FALLBACK_VERSION = 'kjv';
+const INCOMPLETE_VERSIONS = new Set(['nasb', 'nlt', 'msg']);
 
 @Injectable({ providedIn: 'root' })
 export class BibleService {
@@ -33,6 +35,7 @@ export class BibleService {
   readonly study = signal<ChapterStudy | null>(null);
   readonly loading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
+  readonly fallbackNotice = signal<string | null>(null);
   readonly compareVersions = signal<string[]>([]);
 
   readonly highlights = signal<Record<string, string>>(
@@ -123,8 +126,8 @@ export class BibleService {
       const clampedCh = Math.min(validBook.chapters, Math.max(1, ch));
       await this.loadChapter(validBook.bookNumber, clampedCh);
     } catch (err) {
-      if (cleanVer !== 'nasb') {
-        await this.loadVersion('nasb', bookRef, ch);
+      if (cleanVer !== FALLBACK_VERSION) {
+        await this.loadVersion(FALLBACK_VERSION, bookRef, ch);
         return;
       }
       this.error.set(
@@ -141,6 +144,7 @@ export class BibleService {
     this.saveState();
     this.loading.set(true);
     this.error.set(null);
+    this.fallbackNotice.set(null);
 
     try {
       const verses = await this.releases.getJson<BibleVerse[]>(
@@ -148,10 +152,27 @@ export class BibleService {
       );
       this.verses.set(verses);
     } catch (err) {
-      this.verses.set([]);
-      this.error.set(
-        err instanceof Error ? err.message : 'Unable to load chapter',
-      );
+      if (ver !== FALLBACK_VERSION) {
+        try {
+          const fallbackVerses = await this.releases.getJson<BibleVerse[]>(
+            `bibles/${FALLBACK_VERSION}/${bookNum}/${ch}.json`,
+          );
+          this.verses.set(fallbackVerses);
+          this.fallbackNotice.set(
+            `This chapter is unavailable in ${ver.toUpperCase()} — showing ${FALLBACK_VERSION.toUpperCase()}.`,
+          );
+        } catch {
+          this.verses.set([]);
+          this.error.set(
+            err instanceof Error ? err.message : 'Unable to load chapter',
+          );
+        }
+      } else {
+        this.verses.set([]);
+        this.error.set(
+          err instanceof Error ? err.message : 'Unable to load chapter',
+        );
+      }
     } finally {
       this.loading.set(false);
     }
@@ -182,6 +203,7 @@ export class BibleService {
     bookNum: number,
     ch: number,
   ): void {
+    if (INCOMPLETE_VERSIONS.has(ver)) return;
     const books = this.books();
     const cur = books.find((b) => b.bookNumber === bookNum);
     if (!cur) return;
@@ -312,12 +334,23 @@ export class BibleService {
     versionId: string,
     bookNum: number,
     ch: number,
+    allowFallback = false,
   ): Promise<BibleVerse[]> {
+    const clean = versionId.toLowerCase();
     try {
       return await this.releases.getJson<BibleVerse[]>(
-        `bibles/${versionId.toLowerCase()}/${bookNum}/${ch}.json`,
+        `bibles/${clean}/${bookNum}/${ch}.json`,
       );
     } catch {
+      if (allowFallback && clean !== FALLBACK_VERSION) {
+        try {
+          return await this.releases.getJson<BibleVerse[]>(
+            `bibles/${FALLBACK_VERSION}/${bookNum}/${ch}.json`,
+          );
+        } catch {
+          return [];
+        }
+      }
       return [];
     }
   }
