@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, timeout } from 'rxjs';
 import { AppConfig } from '../config/app-config';
+import { IndexedDbCacheService } from '../storage/indexed-db-cache.service';
 
 const KEY_RELEASE_REVISION = 'release_revision';
 
@@ -12,6 +13,7 @@ interface ReleaseManifest {
 @Injectable({ providedIn: 'root' })
 export class ReleaseDataService {
   private readonly http = inject(HttpClient);
+  private readonly idb = inject(IndexedDbCacheService);
   private readonly memoryCache = new Map<string, unknown>();
   private readonly inFlight = new Map<string, Promise<unknown>>();
   private readonly loadedFonts = new Set<string>();
@@ -51,6 +53,8 @@ export class ReleaseDataService {
       );
       if (manifest?.revision && manifest.revision !== this.revision()) {
         this.revision.set(manifest.revision);
+        this.memoryCache.clear();
+        void this.idb.clear();
         try {
           localStorage.setItem(KEY_RELEASE_REVISION, manifest.revision);
         } catch {
@@ -70,14 +74,26 @@ export class ReleaseDataService {
     if (useCache && this.inFlight.has(clean)) {
       return this.inFlight.get(clean) as Promise<T>;
     }
-    const req = this.fetchJsonFromUrls<T>(this.urlsFor(clean), 10000)
-      .then((data) => {
-        if (useCache) this.memoryCache.set(clean, data);
-        return data;
-      })
-      .finally(() => {
-        this.inFlight.delete(clean);
-      });
+
+    const load = async (): Promise<T> => {
+      if (useCache) {
+        const cached = await this.idb.get<T>(clean, this.revision());
+        if (cached !== null) {
+          this.memoryCache.set(clean, cached);
+          return cached;
+        }
+      }
+      const data = await this.fetchJsonFromUrls<T>(this.urlsFor(clean), 10000);
+      if (useCache) {
+        this.memoryCache.set(clean, data);
+        void this.idb.set(clean, data, this.revision());
+      }
+      return data;
+    };
+
+    const req = load().finally(() => {
+      this.inFlight.delete(clean);
+    });
     if (useCache) {
       this.inFlight.set(clean, req);
     }
@@ -88,6 +104,47 @@ export class ReleaseDataService {
     const clean = relativePath.replace(/^\/+/, '');
     if (this.memoryCache.has(clean) || this.inFlight.has(clean)) return;
     void this.getJson(clean, true).catch(() => null);
+  }
+
+  /**
+   * Background-prefetches a list of release JSON paths in small batches,
+   * optionally stopping once estimated cached bytes exceed [maxTotalBytes]
+   * or when [shouldContinue] returns false.
+   */
+  async prefetchBatch(
+    paths: string[],
+    options?: {
+      concurrency?: number;
+      maxTotalBytes?: number;
+      initialBytes?: number;
+      shouldContinue?: () => boolean;
+    },
+  ): Promise<void> {
+    const concurrency = options?.concurrency ?? 3;
+    const maxBytes = options?.maxTotalBytes;
+    const shouldContinue = options?.shouldContinue ?? (() => true);
+    let totalBytes = options?.initialBytes ?? 0;
+
+    for (let i = 0; i < paths.length; i += concurrency) {
+      if (!shouldContinue()) return;
+      if (maxBytes !== undefined && totalBytes >= maxBytes) return;
+
+      const slice = paths.slice(i, i + concurrency);
+      const results = await Promise.all(
+        slice.map(async (p) => {
+          if (!shouldContinue()) return 0;
+          try {
+            const data = await this.getJson<unknown>(p, true);
+            return maxBytes !== undefined ? JSON.stringify(data).length : 0;
+          } catch {
+            return 0;
+          }
+        }),
+      );
+      for (const bytes of results) {
+        totalBytes += bytes;
+      }
+    }
   }
 
   async loadFont(family: string, fileName: string): Promise<void> {
@@ -107,6 +164,7 @@ export class ReleaseDataService {
 
   clearCache(): void {
     this.memoryCache.clear();
+    void this.idb.clear();
   }
 
   private async fetchJsonFromUrls<T>(urls: string[], timeoutMs: number): Promise<T> {

@@ -8,10 +8,12 @@ import {
 } from '../models/book.model';
 
 const KEY_BOOK_PROGRESS = 'books_reading_progress';
+const MAX_BOOK_PRELOAD_BYTES = 1_048_576; // 1 MB
 
 @Injectable({ providedIn: 'root' })
 export class BooksService {
   private readonly releases = inject(ReleaseDataService);
+  private activePreloadBookId: string | null = null;
 
   readonly catalog = signal<BookCatalogItem[]>([]);
   readonly loading = signal<boolean>(false);
@@ -67,33 +69,54 @@ export class BooksService {
       lines = await this.releases.getJson<BookLine[]>(
         `books/${bookId}/chapters/${chapterIndex}.json`,
       );
-      this.preloadAdjacentChapters(bookId, chapterIndex, totalChapters);
+      this.preloadBookInBackground(bookId, chapterIndex, lines, totalChapters);
       return lines;
     } catch {
       if (lang) {
         lines = await this.releases.getJson<BookLine[]>(
           `books/${lang}/${bookId}/chapters/${chapterIndex}.json`,
         );
-        this.preloadAdjacentChapters(bookId, chapterIndex, totalChapters, lang);
+        this.preloadBookInBackground(
+          bookId,
+          chapterIndex,
+          lines,
+          totalChapters,
+          lang,
+        );
         return lines;
       }
       throw new Error('Chapter not found');
     }
   }
 
-  private preloadAdjacentChapters(
+  private preloadBookInBackground(
     bookId: string,
-    chapterIndex: number,
+    currentChapter: number,
+    currentLines: BookLine[],
     totalChapters?: number,
     lang?: string,
   ): void {
+    this.activePreloadBookId = bookId;
     const prefix = lang ? `books/${lang}/${bookId}` : `books/${bookId}`;
-    if (!totalChapters || chapterIndex < totalChapters) {
-      this.releases.prefetchJson(`${prefix}/chapters/${chapterIndex + 1}.json`);
+    const total = totalChapters ?? currentChapter + 1;
+    const ordered: number[] = [];
+
+    if (currentChapter < total) ordered.push(currentChapter + 1);
+    if (currentChapter > 1) ordered.push(currentChapter - 1);
+    for (let ch = currentChapter + 2; ch <= total; ch++) {
+      ordered.push(ch);
     }
-    if (chapterIndex > 1) {
-      this.releases.prefetchJson(`${prefix}/chapters/${chapterIndex - 1}.json`);
+    for (let ch = currentChapter - 2; ch >= 1; ch--) {
+      ordered.push(ch);
     }
+
+    const paths = ordered.map((ch) => `${prefix}/chapters/${ch}.json`);
+    void this.releases.prefetchBatch(paths, {
+      concurrency: 3,
+      maxTotalBytes: MAX_BOOK_PRELOAD_BYTES,
+      initialBytes: JSON.stringify(currentLines).length,
+      shouldContinue: () => this.activePreloadBookId === bookId,
+    });
   }
 
   saveProgress(progress: BookReadingProgress): void {
