@@ -32,6 +32,14 @@ const HIGHLIGHT_SWATCHES = ['#FEF08A', '#BBF7D0', '#BFDBFE', '#FBCFE8'];
             <span class="material-symbols-rounded">edit_note</span>
             Note
           </button>
+          <button type="button" class="pill-chip" (click)="compare.emit()">
+            <span class="material-symbols-rounded">compare_arrows</span>
+            Compare
+          </button>
+          <button type="button" class="pill-chip" (click)="define.emit()">
+            <span class="material-symbols-rounded">dictionary</span>
+            Define
+          </button>
           @if (crossRefCount() > 0) {
             <button type="button" class="pill-chip active" (click)="openCrossRefs.emit()">
               Cross-Refs ({{ crossRefCount() }})
@@ -128,6 +136,8 @@ export class BibleVerseActionBarComponent {
   readonly share = output<void>();
   readonly toggleBookmark = output<void>();
   readonly openNote = output<void>();
+  readonly compare = output<void>();
+  readonly define = output<void>();
   readonly openCrossRefs = output<void>();
   readonly openStudy = output<void>();
   readonly highlightChanged = output<string | null>();

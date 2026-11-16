@@ -34,6 +34,27 @@ export class BibleReaderStateService {
     );
   });
 
+  readonly crossRefCountMap = computed(() => {
+    const map = new Map<number, number>();
+    for (const item of this.bible.crossRefs()) {
+      if (item.refs.length > 0) {
+        map.set(item.v, item.refs.length);
+      }
+    }
+    return map;
+  });
+
+  readonly studyCountMap = computed(() => {
+    const map = new Map<number, number>();
+    for (const term of this.bible.study()?.terms ?? []) {
+      const v = term.reference?.verse;
+      if (v) {
+        map.set(v, (map.get(v) ?? 0) + 1);
+      }
+    }
+    return map;
+  });
+
   toggleSelectVerse(v: BibleVerse): void {
     this.selectedVerse.set(
       this.selectedVerse()?.verse === v.verse ? null : v,
