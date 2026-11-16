@@ -81,7 +81,7 @@ export class ReaderAppearanceService {
   );
   readonly bookMargin = signal<BookMarginSize>(this.readBookMargin());
   readonly bookColumns = signal<1 | 2>(
-    this.readStr(KEY_BOOK_COLUMNS, '1') === '2' ? 2 : 1,
+    this.readStr(KEY_BOOK_COLUMNS, '2') === '1' ? 1 : 2,
   );
 
   constructor() {
