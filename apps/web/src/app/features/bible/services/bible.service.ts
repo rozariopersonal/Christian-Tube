@@ -309,6 +309,27 @@ export class BibleService {
     this.compareVersions.set([]);
   }
 
+  prevChapterOf(
+    bookNum: number,
+    ch: number,
+  ): { bookNumber: number; bookName: string; chapter: number } | null {
+    const books = this.books();
+    const cur = books.find((b) => b.bookNumber === bookNum);
+    if (!cur) return null;
+    if (ch > 1) {
+      return { bookNumber: bookNum, bookName: cur.name, chapter: ch - 1 };
+    }
+    const prevBook = books.find((b) => b.bookNumber === bookNum - 1);
+    if (prevBook) {
+      return {
+        bookNumber: prevBook.bookNumber,
+        bookName: prevBook.name,
+        chapter: prevBook.chapters,
+      };
+    }
+    return null;
+  }
+
   nextChapterOf(
     bookNum: number,
     ch: number,
