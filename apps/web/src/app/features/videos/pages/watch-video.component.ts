@@ -134,8 +134,6 @@ import { VideoService } from '../services/video.service';
     `
       .watch-page {
         width: 100%;
-        max-width: 1360px;
-        margin-inline: auto;
         padding: 16px;
         display: flex;
         flex-direction: column;
@@ -146,12 +144,11 @@ import { VideoService } from '../services/video.service';
         display: grid;
         grid-template-columns: minmax(0, 1fr) 360px;
         align-items: start;
-        padding: 20px 24px;
+        padding: 20px clamp(20px, 2.5vw, 32px);
       }
 
       .primary-col {
         min-width: 0;
-        max-width: 1280px;
       }
 
       .player-frame {
