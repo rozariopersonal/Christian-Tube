@@ -46,7 +46,7 @@ import { BibleService } from '../services/bible.service';
   template: `
     <div class="bible-page" [attr.data-paper]="appearance.paperTheme()">
       <header class="bible-bar">
-        <div class="bar-inner max-width-box">
+        <div class="bar-inner">
           <div class="bar-left">
             <button
               type="button"
@@ -97,7 +97,7 @@ import { BibleService } from '../services/bible.service';
         </div>
       </header>
 
-      <div class="reader-body max-width-box">
+      <div class="reader-body">
         @if (bible.loading()) {
           <p class="status-msg">
             Loading {{ bible.currentBook().name }} {{ bible.chapter() }}...
@@ -315,6 +315,8 @@ import { BibleService } from '../services/bible.service';
 
       .bar-inner {
         height: var(--topbar-height);
+        width: 100%;
+        padding-inline: clamp(16px, 3vw, 32px);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -375,9 +377,8 @@ import { BibleService } from '../services/bible.service';
       }
 
       .reader-body {
-        padding-top: 26px;
-        padding-bottom: 120px;
-        max-width: 720px;
+        width: 100%;
+        padding: 26px clamp(16px, 3vw, 40px) 120px;
       }
 
       .chapter-hero {
