@@ -1,22 +1,14 @@
 import { Routes } from '@angular/router';
 import { MainShellComponent } from './core/layout/main-shell.component';
-import { AudioLibraryComponent } from './features/audio/pages/audio-library.component';
-import { AudioSeriesDetailComponent } from './features/audio/pages/audio-series-detail.component';
-import { BibleReaderComponent } from './features/bible/pages/bible-reader.component';
-import { BookReaderComponent } from './features/books/pages/book-reader.component';
-import { BooksCatalogComponent } from './features/books/pages/books-catalog.component';
-import { ChannelDetailComponent } from './features/channels/pages/channel-detail.component';
-import { ChannelsComponent } from './features/channels/pages/channels.component';
-import { OnboardingComponent } from './features/onboarding/pages/onboarding.component';
-import { SettingsComponent } from './features/settings/pages/settings.component';
-import { SearchComponent } from './features/videos/pages/search.component';
 import { VideoFeedComponent } from './features/videos/pages/video-feed.component';
-import { WatchVideoComponent } from './features/videos/pages/watch-video.component';
 
 export const routes: Routes = [
   {
     path: 'onboarding',
-    component: OnboardingComponent,
+    loadComponent: () =>
+      import('./features/onboarding/pages/onboarding.component').then(
+        (m) => m.OnboardingComponent,
+      ),
   },
   {
     path: '',
@@ -24,19 +16,97 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'feed' },
       { path: 'feed', component: VideoFeedComponent },
-      { path: 'watch/:id', component: WatchVideoComponent },
-      { path: 'channels', component: ChannelsComponent },
-      { path: 'channels/:id', component: ChannelDetailComponent },
-      { path: 'search', component: SearchComponent },
-      { path: 'bible', component: BibleReaderComponent },
-      { path: 'bible/:version/:book/:chapter', component: BibleReaderComponent },
-      { path: 'bible/:version/:book/:chapter/:verse', component: BibleReaderComponent },
-      { path: 'books', component: BooksCatalogComponent },
-      { path: 'books/:id', component: BookReaderComponent },
-      { path: 'books/:id/chapter/:chapter', component: BookReaderComponent },
-      { path: 'audio', component: AudioLibraryComponent },
-      { path: 'audio/series/:id', component: AudioSeriesDetailComponent },
-      { path: 'settings', component: SettingsComponent },
+      {
+        path: 'watch/:id',
+        loadComponent: () =>
+          import('./features/videos/pages/watch-video.component').then(
+            (m) => m.WatchVideoComponent,
+          ),
+      },
+      {
+        path: 'channels',
+        loadComponent: () =>
+          import('./features/channels/pages/channels.component').then(
+            (m) => m.ChannelsComponent,
+          ),
+      },
+      {
+        path: 'channels/:id',
+        loadComponent: () =>
+          import('./features/channels/pages/channel-detail.component').then(
+            (m) => m.ChannelDetailComponent,
+          ),
+      },
+      {
+        path: 'search',
+        loadComponent: () =>
+          import('./features/videos/pages/search.component').then(
+            (m) => m.SearchComponent,
+          ),
+      },
+      {
+        path: 'bible',
+        loadComponent: () =>
+          import('./features/bible/pages/bible-reader.component').then(
+            (m) => m.BibleReaderComponent,
+          ),
+      },
+      {
+        path: 'bible/:version/:book/:chapter',
+        loadComponent: () =>
+          import('./features/bible/pages/bible-reader.component').then(
+            (m) => m.BibleReaderComponent,
+          ),
+      },
+      {
+        path: 'bible/:version/:book/:chapter/:verse',
+        loadComponent: () =>
+          import('./features/bible/pages/bible-reader.component').then(
+            (m) => m.BibleReaderComponent,
+          ),
+      },
+      {
+        path: 'books',
+        loadComponent: () =>
+          import('./features/books/pages/books-catalog.component').then(
+            (m) => m.BooksCatalogComponent,
+          ),
+      },
+      {
+        path: 'books/:id',
+        loadComponent: () =>
+          import('./features/books/pages/book-reader.component').then(
+            (m) => m.BookReaderComponent,
+          ),
+      },
+      {
+        path: 'books/:id/chapter/:chapter',
+        loadComponent: () =>
+          import('./features/books/pages/book-reader.component').then(
+            (m) => m.BookReaderComponent,
+          ),
+      },
+      {
+        path: 'audio',
+        loadComponent: () =>
+          import('./features/audio/pages/audio-library.component').then(
+            (m) => m.AudioLibraryComponent,
+          ),
+      },
+      {
+        path: 'audio/series/:id',
+        loadComponent: () =>
+          import('./features/audio/pages/audio-series-detail.component').then(
+            (m) => m.AudioSeriesDetailComponent,
+          ),
+      },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./features/settings/pages/settings.component').then(
+            (m) => m.SettingsComponent,
+          ),
+      },
     ],
   },
   { path: '**', redirectTo: 'feed' },

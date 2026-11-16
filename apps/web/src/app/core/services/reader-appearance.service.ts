@@ -31,10 +31,27 @@ export const READER_FONTS: readonly ReaderFontOption[] = [
   },
 ];
 
+export type ReaderPaperTheme = 'auto' | 'paper' | 'sepia' | 'night';
+
+export interface PaperThemeOption {
+  id: ReaderPaperTheme;
+  label: string;
+  swatchBg: string;
+  swatchFg: string;
+}
+
+export const READER_PAPER_THEMES: readonly PaperThemeOption[] = [
+  { id: 'auto', label: 'App Theme', swatchBg: 'var(--bg)', swatchFg: 'var(--on-surface)' },
+  { id: 'paper', label: 'Paper', swatchBg: '#FAF8F5', swatchFg: '#1F2937' },
+  { id: 'sepia', label: 'Sepia', swatchBg: '#F4ECD8', swatchFg: '#433422' },
+  { id: 'night', label: 'Night', swatchBg: '#121620', swatchFg: '#E2E8F0' },
+];
+
 const KEY_FONT_ID = 'reader_font_id';
 const KEY_FONT_SIZE = 'reader_font_size';
 const KEY_LINE_HEIGHT = 'reader_line_height';
 const KEY_PRIMARY_BIBLE = 'primary_bible_version';
+const KEY_PAPER_THEME = 'reader_paper_theme';
 
 @Injectable({ providedIn: 'root' })
 export class ReaderAppearanceService {
@@ -45,6 +62,9 @@ export class ReaderAppearanceService {
   readonly lineHeight = signal<number>(this.readNum(KEY_LINE_HEIGHT, 1.65, 1.3, 2.2));
   readonly primaryBibleVersion = signal<string>(
     this.readStr(KEY_PRIMARY_BIBLE, AppConfig.defaultBibleVersion),
+  );
+  readonly paperTheme = signal<ReaderPaperTheme>(
+    this.readPaperTheme(),
   );
 
   constructor() {
@@ -83,6 +103,17 @@ export class ReaderAppearanceService {
   setPrimaryBibleVersion(version: string): void {
     this.primaryBibleVersion.set(version);
     this.writeStr(KEY_PRIMARY_BIBLE, version);
+  }
+
+  setPaperTheme(theme: ReaderPaperTheme): void {
+    this.paperTheme.set(theme);
+    this.writeStr(KEY_PAPER_THEME, theme);
+  }
+
+  private readPaperTheme(): ReaderPaperTheme {
+    const val = this.readStr(KEY_PAPER_THEME, 'auto');
+    if (val === 'paper' || val === 'sepia' || val === 'night') return val;
+    return 'auto';
   }
 
   private readStr(key: string, fallback: string): string {
