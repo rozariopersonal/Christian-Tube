@@ -12,6 +12,10 @@ export class VideoService {
   readonly hasMore = signal<boolean>(true);
   readonly error = signal<string | null>(null);
 
+  readonly shorts = signal<Video[]>([]);
+  readonly shortsLoading = signal<boolean>(false);
+  readonly shortsError = signal<string | null>(null);
+
   private page = 1;
   private readonly limit = 24;
   private activeChannelId: string | null = null;
@@ -117,6 +121,24 @@ export class VideoService {
     return this.extractList(res)
       .map((item) => normalizeVideo(item))
       .filter((v) => v.id !== video.id);
+  }
+
+  async fetchShorts(force = false): Promise<void> {
+    if (!force && this.shorts().length > 0) return;
+    this.shortsLoading.set(true);
+    this.shortsError.set(null);
+    try {
+      const res = await firstValueFrom(
+        this.api.get<unknown>('/api/videos', { type: 'SHORT', limit: 100 }),
+      );
+      this.shorts.set(this.extractList(res).map((item) => normalizeVideo(item)));
+    } catch (err) {
+      this.shortsError.set(
+        err instanceof Error ? err.message : 'Unable to load shorts',
+      );
+    } finally {
+      this.shortsLoading.set(false);
+    }
   }
 
   private extractList(res: unknown): Record<string, unknown>[] {

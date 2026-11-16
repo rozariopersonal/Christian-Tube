@@ -11,6 +11,8 @@ interface NavDestination {
 
 const DESTINATIONS: readonly NavDestination[] = [
   { label: 'Videos', route: '/feed', icon: 'home' },
+  { label: 'Shorts', route: '/shorts', icon: 'smart_display' },
+  { label: 'Words', route: '/words', icon: 'auto_awesome' },
   { label: 'Bible', route: '/bible', icon: 'menu_book' },
   { label: 'Books', route: '/books', icon: 'auto_stories' },
   { label: 'Articles', route: '/articles', icon: 'article' },
@@ -127,21 +129,29 @@ const DESTINATIONS: readonly NavDestination[] = [
         display: flex;
         align-items: center;
         justify-content: flex-end;
-        gap: 4px;
+        gap: 2px;
         margin-left: auto;
+        overflow-x: auto;
+        scrollbar-width: none;
+        min-width: 0;
+      }
+
+      .top-items::-webkit-scrollbar {
+        display: none;
       }
 
       .top-item {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        height: 36px;
-        padding: 0 12px;
+        gap: 5px;
+        height: 34px;
+        padding: 0 10px;
         border-radius: var(--radius-pill);
         color: var(--on-surface-muted);
         font-size: 13px;
         font-weight: 500;
         white-space: nowrap;
+        flex-shrink: 0;
         transition: background-color 150ms ease, color 150ms ease;
       }
 
@@ -207,9 +217,16 @@ const DESTINATIONS: readonly NavDestination[] = [
         background-color: var(--surface);
         border-top: 1px solid var(--surface-border);
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(64px, 1fr);
+        overflow-x: auto;
+        scrollbar-width: none;
         align-items: center;
         z-index: 50;
+      }
+
+      .bottom-nav::-webkit-scrollbar {
+        display: none;
       }
     `,
   ],

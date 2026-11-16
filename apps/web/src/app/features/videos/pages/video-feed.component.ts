@@ -15,10 +15,17 @@ import { VideoService } from '../services/video.service';
     <div class="feed-page">
       <header class="app-bar">
         <div class="app-bar-inner max-width-box">
-          <div class="brand">
-            <img src="logo.png" alt="ChristianApp" width="28" height="28" />
-            <span class="brand-title font-display">{{ appName }}</span>
-          </div>
+          @if (screen.isCompact()) {
+            <div class="brand">
+              <img src="logo.png" alt="ChristianApp" width="28" height="28" />
+              <span class="brand-title font-display">{{ appName }}</span>
+            </div>
+          } @else {
+            <a class="feed-search-pill" routerLink="/search">
+              <span class="material-symbols-rounded">search</span>
+              <span>Search sermons & videos...</span>
+            </a>
+          }
 
           <div class="actions">
             @if (screen.collapseAppBarActions()) {
@@ -49,23 +56,26 @@ import { VideoService } from '../services/video.service';
                 }
               </div>
             } @else {
-              <a class="icon-btn" routerLink="/channels" aria-label="Channels" title="Channels">
+              <a class="pill-chip" routerLink="/channels">
                 <span class="material-symbols-rounded">subscriptions</span>
+                Channels
               </a>
-              <a class="icon-btn" routerLink="/search" aria-label="Search" title="Search">
-                <span class="material-symbols-rounded">search</span>
-              </a>
-              <a class="icon-btn" routerLink="/settings" aria-label="Account" title="Account & Settings">
-                @if (auth.currentUser()?.photoUrl) {
-                  <img
-                    class="user-avatar"
-                    [src]="auth.currentUser()!.photoUrl"
-                    [alt]="auth.currentUser()!.displayName"
-                  />
-                } @else {
-                  <span class="material-symbols-rounded">account_circle</span>
-                }
-              </a>
+              @if (screen.isCompact()) {
+                <a class="icon-btn" routerLink="/search" aria-label="Search" title="Search">
+                  <span class="material-symbols-rounded">search</span>
+                </a>
+                <a class="icon-btn" routerLink="/settings" aria-label="Account" title="Account & Settings">
+                  @if (auth.currentUser()?.photoUrl) {
+                    <img
+                      class="user-avatar"
+                      [src]="auth.currentUser()!.photoUrl"
+                      [alt]="auth.currentUser()!.displayName"
+                    />
+                  } @else {
+                    <span class="material-symbols-rounded">account_circle</span>
+                  }
+                </a>
+              }
             }
           </div>
         </div>
@@ -119,7 +129,7 @@ import { VideoService } from '../services/video.service';
             </button>
           </div>
         } @else if (videos.videos().length === 0 && videos.isLoading()) {
-          <div class="video-grid" [attr.data-cols]="screen.feedColumns()">
+          <div class="video-grid">
             @for (i of [1, 2, 3, 4, 5, 6]; track i) {
               <div class="skeleton-card">
                 <div class="skeleton-thumb"></div>
@@ -135,7 +145,7 @@ import { VideoService } from '../services/video.service';
             <a class="pill-chip active" routerLink="/channels">Browse Channels</a>
           </div>
         } @else {
-          <div class="video-grid" [attr.data-cols]="screen.feedColumns()">
+          <div class="video-grid">
             @for (video of videos.videos(); track video.id) {
               <app-video-card [video]="video" />
             }
@@ -180,6 +190,21 @@ import { VideoService } from '../services/video.service';
         align-items: center;
         gap: 10px;
         min-width: 0;
+      }
+
+      .feed-search-pill {
+        flex: 1;
+        max-width: 440px;
+        height: 38px;
+        padding: 0 14px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--on-surface-muted);
+        font-size: 13px;
       }
 
       .brand-title {
@@ -270,12 +295,10 @@ import { VideoService } from '../services/video.service';
         grid-template-columns: 1fr;
       }
 
-      .video-grid[data-cols='2'] {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .video-grid[data-cols='3'] {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+      @media (min-width: 600px) {
+        .video-grid {
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
       }
 
       .load-more-wrap {

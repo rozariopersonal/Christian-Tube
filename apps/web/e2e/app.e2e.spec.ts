@@ -18,6 +18,25 @@ async function mockBackendAndCdn(page: Page): Promise<void> {
         },
       });
     }
+    if (url.includes('/api/videos') && url.includes('type=SHORT')) {
+      return route.fulfill({
+        json: {
+          videos: [
+            {
+              id: 'sh1',
+              title: '60-Second Encouragement #short',
+              channelId: 'ch1',
+              channelTitle: 'Grace Fellowship',
+              viewCount: 3400,
+              publishedAt: '2026-10-02T10:00:00Z',
+              duration: '0:58',
+              isLive: false,
+              type: 'SHORT',
+            },
+          ],
+        },
+      });
+    }
     if (url.includes('/api/videos')) {
       return route.fulfill({
         json: {
@@ -200,6 +219,30 @@ async function mockBackendAndCdn(page: Page): Promise<void> {
         },
       });
     }
+    if (url.includes('words_feed/manifest.json')) {
+      return route.fulfill({
+        json: {
+          totalItems: 1,
+          topTopics: [{ slug: 'faith', name: 'faith', count: 10 }],
+        },
+      });
+    }
+    if (url.includes('words_feed/daily.json')) {
+      return route.fulfill({
+        json: [
+          {
+            dayOfYear: 1,
+            bookNumber: 1,
+            bookName: 'Genesis',
+            chapter: 1,
+            startVerse: 1,
+            endVerse: 1,
+            referenceLabel: 'Genesis 1:1',
+            theme: 'God Creates',
+          },
+        ],
+      });
+    }
     return route.fulfill({ status: 404, body: 'Not found' });
   });
 }
@@ -248,7 +291,14 @@ test.describe('ChristianApp Web E2E', () => {
     await bookTitle.click();
     await expect(page.getByText('Building a godly home.')).toBeVisible();
 
-    // 5. Articles Browser & Reader
+    // 5. Shorts & Word Feed
+    await page.goto('/shorts');
+    await expect(page.getByText('60-Second Encouragement #short')).toBeVisible();
+
+    await page.goto('/words');
+    await expect(page.getByText('Genesis 1:1')).toBeVisible();
+
+    // 6. Articles Browser & Reader
     await page.goto('/articles');
     await expect(page.getByText('Walking in Humility')).toBeVisible();
     await page.getByText('Walking in Humility').click();
