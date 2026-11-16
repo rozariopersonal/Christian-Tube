@@ -46,10 +46,17 @@ jobs:
           python-version: '3.12'
 
       - name: Run Contextual Interlinear Generator
+        id: interlinear
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           set -e
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::warning::GEMINI_API_KEY secret is not configured; skipping interlinear generation."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto_next }}" = "false" ]; then
             python tools/vocab_pipeline/run_contextual_interlinear.py --book ${{ inputs.book }} --start-chapter ${{ inputs.start_chapter }} --max-chapters ${{ inputs.max_chapters }}
           else
@@ -57,10 +64,12 @@ jobs:
           fi
 
       - name: Ensure SQLite DB and Gzip Distribution Synced
+        if: steps.interlinear.outputs.skipped != 'true'
         run: |
           python tools/vocab_pipeline/sync_words_to_sqlite.py
 
       - name: Commit and Push Releases Updates
+        if: steps.interlinear.outputs.skipped != 'true'
         env:
           RELEASES_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
           MAIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
