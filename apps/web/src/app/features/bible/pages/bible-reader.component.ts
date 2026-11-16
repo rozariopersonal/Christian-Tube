@@ -107,6 +107,19 @@ interface AppendedBibleChapter {
                   <span class="material-symbols-rounded">chevron_right</span>
                 </button>
               </div>
+
+              @if (
+                !screen.isCompact() &&
+                !bible.loading() &&
+                !bible.error() &&
+                bible.verses().length > 0
+              ) {
+                <span class="bar-meta">
+                  {{ bible.bookNumber() <= 39 ? 'OT' : 'NT' }} ·
+                  {{ bible.verses().length }} verses ·
+                  {{ readingMinutes() }} min read
+                </span>
+              }
             </div>
 
             <div class="bar-right">
@@ -240,22 +253,6 @@ interface AppendedBibleChapter {
             </button>
           </div>
         } @else {
-          <header class="chapter-hero">
-            <h1 class="hero-title font-display">
-              {{ bible.currentBook().name }} {{ bible.chapter() }}
-            </h1>
-            <div class="hero-meta">
-              <span class="hero-eyebrow">
-                {{ activeVersionLabels().join(' · ') }} ·
-                {{ bible.bookNumber() <= 39 ? 'Old Testament' : 'New Testament' }}
-              </span>
-              <span>·</span>
-              <span>{{ bible.verses().length }} verses</span>
-              <span>·</span>
-              <span>{{ readingMinutes() }} min read</span>
-            </div>
-          </header>
-
           @if (bible.fallbackNotice()) {
             <p class="status-msg">{{ bible.fallbackNotice() }}</p>
           }
@@ -767,7 +764,16 @@ interface AppendedBibleChapter {
 
       .reader-body {
         width: 100%;
-        padding: 22px clamp(16px, 3vw, 40px) 72px;
+        padding: 14px clamp(16px, 3vw, 40px) 72px;
+      }
+
+      .bar-meta {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--reader-muted, var(--on-surface-muted));
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .chapter-hero {
