@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
 import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
 import { ArticlesService } from '../services/articles.service';
@@ -15,7 +16,12 @@ import { ArticlesService } from '../services/articles.service';
 @Component({
   selector: 'app-articles-browser',
   standalone: true,
-  imports: [FormsModule, RouterLink, LanguageDropdownComponent],
+  imports: [
+    FormsModule,
+    RouterLink,
+    LanguageDropdownComponent,
+    InfiniteScrollTriggerDirective,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="articles-page max-width-box">
@@ -94,15 +100,11 @@ import { ArticlesService } from '../services/articles.service';
         </div>
 
         @if (filteredArticles().length > visibleLimit()) {
-          <div class="load-more-wrap">
-            <button
-              type="button"
-              class="pill-chip active"
-              (click)="showMore()"
-            >
-              Load More ({{ filteredArticles().length - visibleLimit() }} remaining)
-            </button>
-          </div>
+          <div
+            class="load-more-wrap"
+            appInfiniteScrollTrigger
+            (triggered)="showMore()"
+          ></div>
         }
       }
     </div>

@@ -37,8 +37,13 @@ export class WordsFeedService {
   readonly manifest = signal<WordFeedManifest | null>(null);
   readonly items = signal<WordFeedItem[]>([]);
   readonly loading = signal<boolean>(false);
+  readonly loadingMore = signal<boolean>(false);
+  readonly hasMore = signal<boolean>(false);
   readonly error = signal<string | null>(null);
   readonly activeTopic = signal<string>('daily');
+
+  private allPool: WordFeedItem[] = [];
+  private readonly pageSize = 24;
 
   readonly versionId = (): string => {
     const pref = this.appearance.primaryBibleVersion().toLowerCase();
@@ -59,12 +64,13 @@ export class WordsFeedService {
       if (manifest) this.manifest.set(manifest);
 
       const day = this.currentDayOfYear();
-      const sorted = [...daily].sort((a, b) => {
+      this.allPool = [...daily].sort((a, b) => {
         const da = Math.abs((a.dayOfYear ?? 0) - day);
         const db = Math.abs((b.dayOfYear ?? 0) - day);
         return da - db;
       });
-      await this.hydrateVerses(sorted.slice(0, 30));
+      this.items.set([]);
+      await this.appendNextPage();
     } catch (err) {
       this.error.set(
         err instanceof Error ? err.message : 'Unable to load Word Feed',
@@ -86,7 +92,9 @@ export class WordsFeedService {
       const list = await this.releases.getJson<WordFeedItem[]>(
         `words_feed/topics/${slug}.json`,
       );
-      await this.hydrateVerses(list.slice(0, 30));
+      this.allPool = list;
+      this.items.set([]);
+      await this.appendNextPage();
     } catch (err) {
       this.error.set(
         err instanceof Error ? err.message : 'Unable to load topic',
@@ -96,7 +104,22 @@ export class WordsFeedService {
     }
   }
 
-  private async hydrateVerses(slice: WordFeedItem[]): Promise<void> {
+  async loadMore(): Promise<void> {
+    if (this.loadingMore() || !this.hasMore()) return;
+    this.loadingMore.set(true);
+    try {
+      await this.appendNextPage();
+    } finally {
+      this.loadingMore.set(false);
+    }
+  }
+
+  private async appendNextPage(): Promise<void> {
+    const start = this.items().length;
+    const slice = this.allPool.slice(start, start + this.pageSize);
+    this.hasMore.set(start + slice.length < this.allPool.length);
+    if (slice.length === 0) return;
+
     const ver = this.versionId();
     const hydrated = await Promise.all(
       slice.map(async (item) => {
@@ -116,7 +139,7 @@ export class WordsFeedService {
         }
       }),
     );
-    this.items.set(hydrated);
+    this.items.update((cur) => [...cur, ...hydrated]);
   }
 
   private currentDayOfYear(): number {
