@@ -241,14 +241,15 @@ interface AppendedBibleChapter {
           </div>
         } @else {
           <header class="chapter-hero">
-            <span class="hero-eyebrow">
-              {{ activeVersionLabels().join(' · ') }} ·
-              {{ bible.bookNumber() <= 39 ? 'Old Testament' : 'New Testament' }}
-            </span>
             <h1 class="hero-title font-display">
               {{ bible.currentBook().name }} {{ bible.chapter() }}
             </h1>
             <div class="hero-meta">
+              <span class="hero-eyebrow">
+                {{ activeVersionLabels().join(' · ') }} ·
+                {{ bible.bookNumber() <= 39 ? 'Old Testament' : 'New Testament' }}
+              </span>
+              <span>·</span>
               <span>{{ bible.verses().length }} verses</span>
               <span>·</span>
               <span>{{ readingMinutes() }} min read</span>
@@ -384,10 +385,14 @@ interface AppendedBibleChapter {
           @for (extra of appendedChapters(); track extra.bookNumber + ':' + extra.chapter) {
             <section class="appended-chapter">
               <header class="chapter-hero appended-hero">
-                <span class="hero-eyebrow">{{ activeVersionLabels().join(' · ') }}</span>
                 <h2 class="hero-title font-display">
                   {{ extra.bookName }} {{ extra.chapter }}
                 </h2>
+                <div class="hero-meta">
+                  <span class="hero-eyebrow">{{ activeVersionLabels().join(' · ') }}</span>
+                  <span>·</span>
+                  <span>{{ extra.verses.length }} verses</span>
+                </div>
               </header>
 
               <article
@@ -766,8 +771,13 @@ interface AppendedBibleChapter {
       }
 
       .chapter-hero {
-        margin-bottom: 18px;
-        padding-bottom: 14px;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        margin-bottom: 14px;
+        padding-bottom: 10px;
         border-bottom: 1px solid var(--reader-border, var(--surface-border));
       }
 
@@ -780,18 +790,16 @@ interface AppendedBibleChapter {
       }
 
       .hero-eyebrow {
-        display: block;
         font-size: 12px;
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--accent);
-        margin-bottom: 4px;
       }
 
       .hero-title {
-        margin: 0 0 6px;
-        font-size: clamp(22px, 3vw, 30px);
+        margin: 0;
+        font-size: clamp(20px, 2.4vw, 26px);
         line-height: 1.2;
         font-weight: 700;
       }
@@ -799,6 +807,7 @@ interface AppendedBibleChapter {
       .hero-meta {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 6px;
         font-size: 13px;
         color: var(--reader-muted, var(--on-surface-muted));
