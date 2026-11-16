@@ -9,6 +9,7 @@ import {
   screenClassOfWidth,
 } from './core/layout/screen-class.service';
 import { APP_COLOR_THEMES, ThemeService } from './core/theme/theme.service';
+import { ScriptureRefParserService } from './features/books/services/scripture-ref-parser.service';
 
 describe('App & Phase 1 Core Services', () => {
   beforeEach(async () => {
@@ -82,5 +83,26 @@ describe('App & Phase 1 Core Services', () => {
     });
 
     expect(fetched.length).toBe(2);
+  });
+
+  it('should parse inline and tagged Bible scripture references in books', () => {
+    const parser = TestBed.inject(ScriptureRefParserService);
+
+    const inline = parser.parse('Read 1 Cor 13:4-7 and John 3:16 today.');
+    const refs = inline.filter((t) => t.ref !== null).map((t) => t.ref!);
+    expect(refs.length).toBe(2);
+    expect(refs[0].bookNumber).toBe(46);
+    expect(refs[0].chapter).toBe(13);
+    expect(refs[0].startVerse).toBe(4);
+    expect(refs[0].endVerse).toBe(7);
+    expect(refs[1].bookNumber).toBe(43);
+    expect(refs[1].chapter).toBe(3);
+    expect(refs[1].startVerse).toBe(16);
+
+    const tagged = parser.parse('See [ref:19.23.1|Psalm 23:1] for comfort.');
+    const taggedRef = tagged.find((t) => t.ref !== null)?.ref;
+    expect(taggedRef?.bookNumber).toBe(19);
+    expect(taggedRef?.chapter).toBe(23);
+    expect(taggedRef?.startVerse).toBe(1);
   });
 });

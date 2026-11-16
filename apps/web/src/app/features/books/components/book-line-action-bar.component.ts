@@ -11,6 +11,14 @@ const HIGHLIGHT_SWATCHES = ['#FEF08A', '#BBF7D0', '#BFDBFE', '#FBCFE8'];
     <div class="line-action-bar">
       <div class="action-inner max-width-box">
         <div class="action-chips">
+          <button type="button" class="pill-chip" (click)="define.emit()">
+            <span class="material-symbols-rounded">dictionary</span>
+            Define
+          </button>
+          <button type="button" class="pill-chip" (click)="openNote.emit()">
+            <span class="material-symbols-rounded">edit_note</span>
+            Note
+          </button>
           <button type="button" class="pill-chip" (click)="copy.emit()">
             <span class="material-symbols-rounded">content_copy</span>
             Copy
@@ -97,6 +105,8 @@ const HIGHLIGHT_SWATCHES = ['#FEF08A', '#BBF7D0', '#BFDBFE', '#FBCFE8'];
 })
 export class BookLineActionBarComponent {
   readonly line = input.required<BookLine>();
+  readonly define = output<void>();
+  readonly openNote = output<void>();
   readonly copy = output<void>();
   readonly share = output<void>();
   readonly highlightChanged = output<string | null>();
