@@ -63,7 +63,7 @@ import { Channel } from '../models/channel.model';
             [class.active]="!channel().isSubscribed"
             (click)="subscribeToggled.emit(channel().id)"
           >
-            {{ channel().isSubscribed ? 'Subscribed' : 'Subscribe' }}
+            {{ channel().isSubscribed ? 'Following' : 'Follow' }}
           </button>
         </div>
       </div>

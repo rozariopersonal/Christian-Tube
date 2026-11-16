@@ -91,22 +91,22 @@ import { VideoService } from '../services/video.service';
                     [class.active]="!isSubscribed()"
                     (click)="toggleSubscribe()"
                   >
-                    {{ isSubscribed() ? 'Subscribed' : 'Subscribe' }}
+                    {{ isSubscribed() ? 'Following' : 'Follow' }}
                   </button>
                 }
               </div>
             </div>
+
+            @if (video()!.description) {
+              <div class="desc-card">
+                <h2 class="section-heading">Description</h2>
+                <p class="desc-text">{{ video()!.description }}</p>
+              </div>
+            }
           </div>
         </div>
 
         <aside class="sidebar-col">
-          @if (video()!.description) {
-            <div class="desc-card">
-              <h2 class="section-heading">Description</h2>
-              <p class="desc-text">{{ video()!.description }}</p>
-            </div>
-          }
-
           @if (related().length > 0) {
             <div class="related-list">
               <h2 class="section-heading">Related Videos</h2>

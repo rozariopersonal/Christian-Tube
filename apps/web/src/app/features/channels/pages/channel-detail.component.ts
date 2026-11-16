@@ -42,7 +42,7 @@ import { ChannelService } from '../services/channel.service';
             [class.active]="!isSubscribed()"
             (click)="channelService.toggleSubscribe(channel()!.id)"
           >
-            {{ isSubscribed() ? 'Subscribed' : 'Subscribe' }}
+            {{ isSubscribed() ? 'Following' : 'Follow' }}
           </button>
         </div>
 

@@ -87,7 +87,7 @@ import { VideoService } from '../services/video.service';
             [class.active]="selectedCategory() === 'All' && !selectedChannelId()"
             (click)="selectAll()"
           >
-            {{ channels.subscribedChannels().length > 0 ? 'All Subscriptions' : 'All' }}
+            {{ channels.subscribedChannels().length > 0 ? 'All Following' : 'All' }}
           </button>
 
           @for (ch of channels.subscribedChannels(); track ch.id) {
