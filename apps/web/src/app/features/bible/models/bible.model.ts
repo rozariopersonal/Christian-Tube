@@ -19,6 +19,16 @@ export const BIBLE_VERSIONS: readonly BibleVersionInfo[] = [
   { id: 'tel_irv', label: 'తెలుగు', fullName: 'Telugu Indian Revised Version', language: 'Telugu' },
   { id: 'mal_irv', label: 'മലയാളം', fullName: 'Malayalam Indian Revised Version', language: 'Malayalam' },
   { id: 'kan_irv', label: 'ಕನ್ನಡ', fullName: 'Kannada Indian Revised Version', language: 'Kannada' },
+  { id: 'diodati', label: 'Diodati', fullName: 'Giovanni Diodati Bibbia (1649)', language: 'Italian' },
+  { id: 'riveduta', label: 'Riveduta', fullName: 'La Sacra Bibbia Riveduta (1927)', language: 'Italian' },
+  { id: 'elberfelder', label: 'Elberfelder', fullName: 'Elberfelder Bibel (1871)', language: 'German' },
+  { id: 'elberfelder1905', label: 'Elberfelder 1905', fullName: 'Elberfelder Bibel (1905)', language: 'German' },
+  { id: 'luther1545', label: 'Luther 1545', fullName: 'Luther Bibel (1545)', language: 'German' },
+  { id: 'martin', label: 'Martin', fullName: 'Bible David Martin (1744)', language: 'French' },
+  { id: 'polgdanska', label: 'Gdańska', fullName: 'Biblia Gdańska (1632)', language: 'Polish' },
+  { id: 'sse', label: 'SSE', fullName: 'Spanish Sagradas Escrituras (1569)', language: 'Spanish' },
+  { id: 'statenvertaling', label: 'Staten', fullName: 'Statenvertaling (1637)', language: 'Dutch' },
+  { id: 'wb', label: 'WB', fullName: 'Wycliffe Bible', language: 'English' },
 ];
 
 export const BOOK_ABBREVS: readonly string[] = [

@@ -11,6 +11,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest } from 'rxjs';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { DictionarySheetComponent } from '../../books/components/dictionary-sheet.component';
 import { BibleAppearanceSheetComponent } from '../components/bible-appearance-sheet.component';
 import {
   BibleBookChapterSheetComponent,
@@ -18,12 +19,15 @@ import {
   BibleSelectionTarget,
 } from '../components/bible-book-chapter-sheet.component';
 import { BibleBookmarksSheetComponent } from '../components/bible-bookmarks-sheet.component';
+import { BibleCompareSheetComponent } from '../components/bible-compare-sheet.component';
 import { BibleCrossRefsSheetComponent } from '../components/bible-cross-refs-sheet.component';
 import { BibleNoteSheetComponent } from '../components/bible-note-sheet.component';
 import { BibleReaderNavComponent } from '../components/bible-reader-nav.component';
+import { BibleSearchSheetComponent } from '../components/bible-search-sheet.component';
 import { BibleStudySheetComponent } from '../components/bible-study-sheet.component';
 import { BibleVerseActionBarComponent } from '../components/bible-verse-action-bar.component';
 import { BibleVersionSheetComponent } from '../components/bible-version-sheet.component';
+import { BibleVerse } from '../models/bible.model';
 import { BibleReaderStateService } from '../services/bible-reader-state.service';
 import { BibleService } from '../services/bible.service';
 
@@ -40,62 +44,92 @@ import { BibleService } from '../services/bible.service';
     BibleCrossRefsSheetComponent,
     BibleStudySheetComponent,
     BibleNoteSheetComponent,
+    BibleSearchSheetComponent,
+    BibleCompareSheetComponent,
+    DictionarySheetComponent,
   ],
   providers: [BibleReaderStateService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bible-page" [attr.data-paper]="appearance.paperTheme()">
-      <header class="bible-bar">
-        <div class="bar-inner">
-          <div class="bar-left">
-            <button
-              type="button"
-              class="version-pill"
-              (click)="showVersionPicker.set(true)"
-              aria-label="Bible Version"
-            >
-              <span>{{ state.activeVersionInfo().label }}</span>
-              <span class="material-symbols-rounded pill-chev">expand_more</span>
-            </button>
+      @if (!immersive()) {
+        <header class="bible-bar">
+          <div class="bar-inner">
+            <div class="bar-left">
+              <button
+                type="button"
+                class="version-pill"
+                (click)="showVersionPicker.set(true)"
+                aria-label="Bible Version"
+              >
+                <span>{{ state.activeVersionInfo().label }}</span>
+                <span class="material-symbols-rounded pill-chev">expand_more</span>
+              </button>
 
-            <button
-              type="button"
-              class="book-btn"
-              (click)="openBookPicker('books')"
-            >
-              <span>{{ bible.currentBook().name }} {{ bible.chapter() }}</span>
-              <span class="material-symbols-rounded">expand_more</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                class="book-btn"
+                (click)="openBookPicker('books')"
+              >
+                <span>{{ bible.currentBook().name }} {{ bible.chapter() }}</span>
+                <span class="material-symbols-rounded">expand_more</span>
+              </button>
+            </div>
 
-          <div class="bar-right">
-            <button
-              type="button"
-              class="icon-btn"
-              title="Share chapter link"
-              (click)="sharePassage()"
-            >
-              <span class="material-symbols-rounded">share</span>
-            </button>
-            <button
-              type="button"
-              class="icon-btn"
-              title="Bookmarks"
-              (click)="showBookmarks.set(true)"
-            >
-              <span class="material-symbols-rounded">bookmarks</span>
-            </button>
-            <button
-              type="button"
-              class="icon-btn aa-btn"
-              title="Reader Appearance"
-              (click)="showAppearance.set(true)"
-            >
-              Aa
-            </button>
+            <div class="bar-right">
+              <button
+                type="button"
+                class="icon-btn"
+                title="Search Bible"
+                (click)="showSearch.set(true)"
+              >
+                <span class="material-symbols-rounded">search</span>
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Share chapter link"
+                (click)="sharePassage()"
+              >
+                <span class="material-symbols-rounded">share</span>
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Bookmarks"
+                (click)="showBookmarks.set(true)"
+              >
+                <span class="material-symbols-rounded">bookmarks</span>
+              </button>
+              <button
+                type="button"
+                class="icon-btn aa-btn"
+                title="Reader Appearance"
+                (click)="showAppearance.set(true)"
+              >
+                Aa
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Focus mode (F)"
+                (click)="immersive.set(true)"
+              >
+                <span class="material-symbols-rounded">fullscreen</span>
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      } @else {
+        <button
+          type="button"
+          class="exit-focus-btn"
+          title="Exit focus mode (Esc / F)"
+          (click)="immersive.set(false)"
+        >
+          <span class="material-symbols-rounded">fullscreen_exit</span>
+        </button>
+      }
 
       <div class="reader-body">
         @if (bible.loading()) {
@@ -138,17 +172,21 @@ import { BibleService } from '../services/bible.service';
             [style.font-family]="appearance.activeFont().cssFamily"
             [style.font-size.px]="appearance.fontSize()"
             [style.line-height]="appearance.lineHeight()"
+            (dblclick)="lookupFromSelection()"
           >
             @for (v of bible.verses(); track v.verse) {
               @let selected = state.selectedVerse()?.verse === v.verse;
               @let note = state.noteFor(v.verse);
+              @let refCount = state.crossRefCountMap().get(v.verse) ?? 0;
+              @let studyCount = state.studyCountMap().get(v.verse) ?? 0;
+
               @if (appearance.bibleLayout() === 'paragraph') {
                 <span
                   [id]="'verse-' + v.verse"
                   class="verse-inline"
                   [class.selected]="selected"
                   [style.background-color]="state.highlightFor(v.verse)"
-                  (click)="state.toggleSelectVerse(v)"
+                  (click)="onVerseTap(v)"
                 >
                   <sup class="verse-sup">{{ v.verse }}</sup>
                   <span>{{ v.text }}</span>
@@ -166,21 +204,44 @@ import { BibleService } from '../services/bible.service';
                   class="verse-row"
                   [class.selected]="selected"
                   [style.background-color]="state.highlightFor(v.verse)"
-                  (click)="state.toggleSelectVerse(v)"
+                  (click)="onVerseTap(v)"
                 >
                   <span class="verse-num">{{ v.verse }}</span>
                   <div class="verse-content">
                     <span class="verse-text">{{ v.text }}</span>
-                    @if (note && selected) {
+                    @if (note) {
                       <p class="verse-note-preview">{{ note }}</p>
                     }
                   </div>
-                  @if (bible.isBookmarked(v.verse)) {
-                    <span class="material-symbols-rounded verse-mark">bookmark</span>
-                  }
-                  @if (note) {
-                    <span class="material-symbols-rounded verse-mark">sticky_note_2</span>
-                  }
+                  <div class="verse-badges">
+                    @if (refCount > 0) {
+                      <button
+                        type="button"
+                        class="mini-badge"
+                        title="Cross-References"
+                        (click)="$event.stopPropagation(); openVerseCrossRefs(v)"
+                      >
+                        ↗ {{ refCount }}
+                      </button>
+                    }
+                    @if (studyCount > 0) {
+                      <button
+                        type="button"
+                        class="mini-badge study-badge"
+                        title="Study & Lexicon"
+                        (click)="$event.stopPropagation(); openVerseStudy(v)"
+                      >
+                        <span class="material-symbols-rounded badge-ic">school</span>
+                        {{ studyCount }}
+                      </button>
+                    }
+                    @if (bible.isBookmarked(v.verse)) {
+                      <span class="material-symbols-rounded verse-mark">bookmark</span>
+                    }
+                    @if (note) {
+                      <span class="material-symbols-rounded verse-mark">sticky_note_2</span>
+                    }
+                  </div>
                 </div>
               }
             }
@@ -198,12 +259,14 @@ import { BibleService } from '../services/bible.service';
           (share)="sharePassage(selected.verse)"
           (toggleBookmark)="bible.toggleBookmark(selected)"
           (openNote)="showNoteModal.set(true)"
+          (compare)="showCompare.set(true)"
+          (define)="defineSelected()"
           (openCrossRefs)="showCrossRefs.set(true)"
           (openStudy)="showStudy.set(true)"
           (highlightChanged)="bible.setHighlight(selected.verse, $event)"
           (closed)="state.clearSelection()"
         />
-      } @else if (!bible.loading() && !bible.error()) {
+      } @else if (!immersive() && !bible.loading() && !bible.error()) {
         <app-bible-reader-nav
           [bookName]="bible.currentBook().name"
           [chapter]="bible.chapter()"
@@ -234,8 +297,27 @@ import { BibleService } from '../services/bible.service';
         />
       }
 
+      @if (showSearch()) {
+        <app-bible-search-sheet
+          [version]="bible.version()"
+          [currentBook]="bible.currentBook()"
+          (jumpTo)="jumpFromSearch($event)"
+          (closed)="showSearch.set(false)"
+        />
+      }
+
       @if (showAppearance()) {
         <app-bible-appearance-sheet (closed)="showAppearance.set(false)" />
+      }
+
+      @if (showCompare() && state.selectedVerse(); as selected) {
+        <app-bible-compare-sheet
+          [bookNumber]="bible.bookNumber()"
+          [chapter]="bible.chapter()"
+          [verse]="selected.verse"
+          [referenceLabel]="selectedRefLabel()"
+          (closed)="showCompare.set(false)"
+        />
       }
 
       @if (showCrossRefs() && state.selectedVerse()) {
@@ -269,6 +351,13 @@ import { BibleService } from '../services/bible.service';
           [initialNote]="state.noteFor(selected.verse) ?? ''"
           (saved)="saveNote(selected.verse, $event)"
           (closed)="showNoteModal.set(false)"
+        />
+      }
+
+      @if (lookupWord(); as word) {
+        <app-dictionary-sheet
+          [word]="word"
+          (closed)="lookupWord.set(null)"
         />
       }
     </div>
@@ -327,7 +416,7 @@ import { BibleService } from '../services/bible.service';
       .bar-right {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
         min-width: 0;
       }
 
@@ -374,6 +463,25 @@ import { BibleService } from '../services/bible.service';
         font-family: Georgia, serif;
         font-weight: 700;
         font-size: 16px;
+      }
+
+      .exit-focus-btn {
+        position: fixed;
+        top: calc(var(--shell-top-offset) + 12px);
+        right: 16px;
+        z-index: 40;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+        display: grid;
+        place-items: center;
+        opacity: 0.75;
+      }
+
+      .exit-focus-btn:hover {
+        opacity: 1;
       }
 
       .reader-body {
@@ -520,6 +628,29 @@ import { BibleService } from '../services/bible.service';
         color: var(--reader-muted, var(--on-surface-muted));
       }
 
+      .verse-badges {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+
+      .mini-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 2px 6px;
+        border-radius: var(--radius-pill);
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .badge-ic {
+        font-size: 12px;
+      }
+
       .verse-mark {
         font-size: 16px;
         color: var(--accent);
@@ -538,11 +669,15 @@ export class BibleReaderComponent implements OnInit {
   readonly showVersionPicker = signal<boolean>(false);
   readonly showBookPicker = signal<boolean>(false);
   readonly bookPickerTab = signal<BiblePickerTab>('books');
+  readonly showSearch = signal<boolean>(false);
   readonly showAppearance = signal<boolean>(false);
   readonly showCrossRefs = signal<boolean>(false);
   readonly showStudy = signal<boolean>(false);
   readonly showBookmarks = signal<boolean>(false);
   readonly showNoteModal = signal<boolean>(false);
+  readonly showCompare = signal<boolean>(false);
+  readonly immersive = signal<boolean>(false);
+  readonly lookupWord = signal<string | null>(null);
   private readonly routeReady = signal<boolean>(false);
 
   readonly selectedRefLabel = computed(() => {
@@ -561,25 +696,44 @@ export class BibleReaderComponent implements OnInit {
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
+    ) {
+      return;
+    }
+
     if (event.key === 'Escape') {
       this.state.clearSelection();
       this.showVersionPicker.set(false);
       this.showBookPicker.set(false);
+      this.showSearch.set(false);
       this.showAppearance.set(false);
       this.showCrossRefs.set(false);
       this.showStudy.set(false);
       this.showBookmarks.set(false);
       this.showNoteModal.set(false);
+      this.showCompare.set(false);
+      this.lookupWord.set(null);
+      this.immersive.set(false);
+      return;
+    }
+    if (event.key === 'f' || event.key === 'F') {
+      this.immersive.set(!this.immersive());
       return;
     }
     if (
       this.showVersionPicker() ||
       this.showBookPicker() ||
+      this.showSearch() ||
       this.showAppearance() ||
       this.showCrossRefs() ||
       this.showStudy() ||
       this.showBookmarks() ||
-      this.showNoteModal()
+      this.showNoteModal() ||
+      this.showCompare() ||
+      this.lookupWord()
     ) {
       return;
     }
@@ -665,6 +819,48 @@ export class BibleReaderComponent implements OnInit {
     }, 60);
   }
 
+  onVerseTap(v: BibleVerse): void {
+    const sel = window.getSelection()?.toString().trim();
+    if (sel) return;
+    this.state.toggleSelectVerse(v);
+  }
+
+  openVerseCrossRefs(v: BibleVerse): void {
+    this.state.selectedVerse.set(v);
+    this.showCrossRefs.set(true);
+  }
+
+  openVerseStudy(v: BibleVerse): void {
+    this.state.selectedVerse.set(v);
+    this.showStudy.set(true);
+  }
+
+  lookupFromSelection(): void {
+    const raw = window.getSelection()?.toString().trim() ?? '';
+    const firstWord = raw.split(/\s+/)[0]?.replace(/[^a-zA-Z'-]/g, '');
+    if (firstWord && firstWord.length >= 2) {
+      this.lookupWord.set(firstWord);
+    }
+  }
+
+  defineSelected(): void {
+    const raw = window.getSelection()?.toString().trim() ?? '';
+    const wordFromSelection = raw.split(/\s+/)[0]?.replace(/[^a-zA-Z'-]/g, '');
+    if (wordFromSelection && wordFromSelection.length >= 2) {
+      this.lookupWord.set(wordFromSelection);
+      return;
+    }
+    const v = this.state.selectedVerse();
+    if (!v) return;
+    const firstWord = v.text
+      .split(/\s+/)
+      .map((w) => w.replace(/[^a-zA-Z'-]/g, ''))
+      .find((w) => w.length >= 4);
+    if (firstWord) {
+      this.lookupWord.set(firstWord);
+    }
+  }
+
   sharePassage(verseNum?: number): void {
     const url = new URL('/bible', window.location.origin);
     url.searchParams.set('version', this.bible.version());
@@ -699,16 +895,23 @@ export class BibleReaderComponent implements OnInit {
 
   async applySelection(target: BibleSelectionTarget): Promise<void> {
     this.showBookPicker.set(false);
+    await this.jumpFromSearch({
+      bookNumber: target.bookNumber,
+      chapter: target.chapter,
+      verse: target.verse,
+    });
+  }
+
+  async jumpFromSearch(target: {
+    bookNumber: number;
+    chapter: number;
+    verse?: number;
+  }): Promise<void> {
+    this.showSearch.set(false);
     this.state.clearSelection();
     await this.bible.loadChapter(target.bookNumber, target.chapter);
     if (target.verse) {
-      const match = this.bible.verses().find((v) => v.verse === target.verse);
-      if (match) this.state.toggleSelectVerse(match);
-      setTimeout(() => {
-        document
-          .getElementById(`verse-${target.verse}`)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 60);
+      this.focusVerse(target.verse);
     }
   }
 
