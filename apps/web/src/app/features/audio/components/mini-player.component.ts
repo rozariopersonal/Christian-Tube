@@ -26,7 +26,13 @@ import { AudioPlayerService } from '../services/audio-player.service';
 
           <div class="mini-meta">
             <span class="mini-title">{{ track.title }}</span>
-            <span class="mini-sub">{{ track.speaker }} · {{ track.seriesTitle }}</span>
+            <span class="mini-sub">
+              @if (player.error()) {
+                <span class="mini-err">{{ player.error() }}</span>
+              } @else {
+                {{ track.speaker }} · {{ track.seriesTitle }}
+              }
+            </span>
           </div>
 
           <button

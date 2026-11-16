@@ -49,6 +49,13 @@ export class AudioLibraryService {
 
   resolveStreamUrl(trackId: string, directUrl?: string): string {
     if (directUrl && directUrl.startsWith('http')) {
+      if (
+        typeof window !== 'undefined' &&
+        window.location.protocol === 'https:' &&
+        directUrl.startsWith('http://')
+      ) {
+        return `https://${directUrl.slice('http://'.length)}`;
+      }
       return directUrl;
     }
     return this.api.streamUrl(`/api/audio/stream/${trackId}`);

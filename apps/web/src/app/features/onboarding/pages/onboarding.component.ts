@@ -22,7 +22,7 @@ const LANGUAGES = Object.values(SUPPORTED_LANGUAGES)
         : l.englishName,
   }));
 
-const BIBLE_VERSIONS = ['NASB', 'KJV', 'ESV', 'NKJV', 'NIV', 'TAOBVSI'];
+const BIBLE_VERSIONS = ['NASB', 'KJV', 'ASV', 'NLT', 'WEB', 'TAOBVSI'];
 
 @Component({
   selector: 'app-onboarding',
