@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  HostListener,
   OnInit,
   computed,
   effect,
@@ -19,6 +20,7 @@ import {
 import { BibleBookmarksSheetComponent } from '../components/bible-bookmarks-sheet.component';
 import { BibleCrossRefsSheetComponent } from '../components/bible-cross-refs-sheet.component';
 import { BibleNoteSheetComponent } from '../components/bible-note-sheet.component';
+import { BibleReaderNavComponent } from '../components/bible-reader-nav.component';
 import { BibleStudySheetComponent } from '../components/bible-study-sheet.component';
 import { BibleVerseActionBarComponent } from '../components/bible-verse-action-bar.component';
 import { BibleVersionSheetComponent } from '../components/bible-version-sheet.component';
@@ -32,6 +34,7 @@ import { BibleService } from '../services/bible.service';
     BibleVersionSheetComponent,
     BibleBookChapterSheetComponent,
     BibleVerseActionBarComponent,
+    BibleReaderNavComponent,
     BibleAppearanceSheetComponent,
     BibleBookmarksSheetComponent,
     BibleCrossRefsSheetComponent,
@@ -41,7 +44,7 @@ import { BibleService } from '../services/bible.service';
   providers: [BibleReaderStateService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="bible-page">
+    <div class="bible-page" [attr.data-paper]="appearance.paperTheme()">
       <header class="bible-bar">
         <div class="bar-inner max-width-box">
           <div class="bar-left">
@@ -107,56 +110,81 @@ import { BibleService } from '../services/bible.service';
             </button>
           </div>
         } @else {
+          <header class="chapter-hero">
+            <span class="hero-eyebrow">
+              {{ state.activeVersionInfo().label }} ·
+              {{ bible.bookNumber() <= 39 ? 'Old Testament' : 'New Testament' }}
+            </span>
+            <h1 class="hero-title font-display">
+              {{ bible.currentBook().name }} {{ bible.chapter() }}
+            </h1>
+            <div class="hero-meta">
+              <span>{{ bible.verses().length }} verses</span>
+              <span>·</span>
+              <span>{{ readingMinutes() }} min read</span>
+            </div>
+          </header>
+
           @if (bible.study()?.chapter_summary) {
             <div class="summary-card">
-              {{ bible.study()!.chapter_summary }}
+              <span class="summary-label">Chapter Summary</span>
+              <p>{{ bible.study()!.chapter_summary }}</p>
             </div>
           }
 
           <article
             class="verses-flow"
+            [class.paragraph-mode]="appearance.bibleLayout() === 'paragraph'"
             [style.font-family]="appearance.activeFont().cssFamily"
             [style.font-size.px]="appearance.fontSize()"
             [style.line-height]="appearance.lineHeight()"
           >
             @for (v of bible.verses(); track v.verse) {
-              <div
-                [id]="'verse-' + v.verse"
-                class="verse-row"
-                [class.selected]="state.selectedVerse()?.verse === v.verse"
-                [style.background-color]="state.highlightFor(v.verse)"
-                (click)="state.toggleSelectVerse(v)"
-              >
-                <span class="verse-num">{{ v.verse }}</span>
-                <span class="verse-text">{{ v.text }}</span>
-                @if (bible.isBookmarked(v.verse)) {
-                  <span class="material-symbols-rounded verse-mark">bookmark</span>
-                }
-                @if (state.noteFor(v.verse)) {
-                  <span class="material-symbols-rounded verse-mark">sticky_note_2</span>
-                }
-              </div>
+              @let selected = state.selectedVerse()?.verse === v.verse;
+              @let note = state.noteFor(v.verse);
+              @if (appearance.bibleLayout() === 'paragraph') {
+                <span
+                  [id]="'verse-' + v.verse"
+                  class="verse-inline"
+                  [class.selected]="selected"
+                  [style.background-color]="state.highlightFor(v.verse)"
+                  (click)="state.toggleSelectVerse(v)"
+                >
+                  <sup class="verse-sup">{{ v.verse }}</sup>
+                  <span>{{ v.text }}</span>
+                  @if (bible.isBookmarked(v.verse)) {
+                    <span class="material-symbols-rounded verse-mark-inline">bookmark</span>
+                  }
+                  @if (note) {
+                    <span class="material-symbols-rounded verse-mark-inline">sticky_note_2</span>
+                  }
+                  {{ ' ' }}
+                </span>
+              } @else {
+                <div
+                  [id]="'verse-' + v.verse"
+                  class="verse-row"
+                  [class.selected]="selected"
+                  [style.background-color]="state.highlightFor(v.verse)"
+                  (click)="state.toggleSelectVerse(v)"
+                >
+                  <span class="verse-num">{{ v.verse }}</span>
+                  <div class="verse-content">
+                    <span class="verse-text">{{ v.text }}</span>
+                    @if (note && selected) {
+                      <p class="verse-note-preview">{{ note }}</p>
+                    }
+                  </div>
+                  @if (bible.isBookmarked(v.verse)) {
+                    <span class="material-symbols-rounded verse-mark">bookmark</span>
+                  }
+                  @if (note) {
+                    <span class="material-symbols-rounded verse-mark">sticky_note_2</span>
+                  }
+                </div>
+              }
             }
           </article>
-
-          <nav class="chapter-nav" aria-label="Chapter navigation">
-            <button type="button" class="pill-chip" (click)="bible.prevChapter()">
-              <span class="material-symbols-rounded">chevron_left</span>
-              Previous
-            </button>
-            <button
-              type="button"
-              class="chapter-indicator-btn"
-              (click)="openBookPicker('chapters')"
-            >
-              {{ bible.currentBook().name }} {{ bible.chapter() }}
-              <span class="material-symbols-rounded">expand_more</span>
-            </button>
-            <button type="button" class="pill-chip" (click)="bible.nextChapter()">
-              Next
-              <span class="material-symbols-rounded">chevron_right</span>
-            </button>
-          </nav>
         }
       </div>
 
@@ -174,6 +202,16 @@ import { BibleService } from '../services/bible.service';
           (openStudy)="showStudy.set(true)"
           (highlightChanged)="bible.setHighlight(selected.verse, $event)"
           (closed)="state.clearSelection()"
+        />
+      } @else if (!bible.loading() && !bible.error()) {
+        <app-bible-reader-nav
+          [bookName]="bible.currentBook().name"
+          [chapter]="bible.chapter()"
+          [versionLabel]="state.activeVersionInfo().label"
+          [verseCount]="bible.verses().length"
+          (previous)="bible.prevChapter()"
+          (next)="bible.nextChapter()"
+          (openPicker)="openBookPicker('chapters')"
         />
       }
 
@@ -237,12 +275,42 @@ import { BibleService } from '../services/bible.service';
   `,
   styles: [
     `
+      .bible-page {
+        min-height: calc(100dvh - var(--shell-top-offset));
+        background-color: var(--reader-bg, var(--bg));
+        color: var(--reader-fg, var(--on-surface));
+        transition: background-color 180ms ease, color 180ms ease;
+      }
+
+      .bible-page[data-paper='paper'] {
+        --reader-bg: #faf8f5;
+        --reader-fg: #1f2937;
+        --reader-muted: #6b7280;
+        --reader-border: rgba(31, 41, 55, 0.12);
+      }
+
+      .bible-page[data-paper='sepia'] {
+        --reader-bg: #f4ecd8;
+        --reader-fg: #433422;
+        --reader-muted: #78644c;
+        --reader-border: rgba(67, 52, 34, 0.14);
+      }
+
+      .bible-page[data-paper='night'] {
+        --reader-bg: #121620;
+        --reader-fg: #e2e8f0;
+        --reader-muted: #94a3b8;
+        --reader-border: rgba(226, 232, 240, 0.12);
+      }
+
       .bible-bar {
         position: sticky;
         top: var(--shell-top-offset);
         z-index: 30;
-        background-color: var(--bg);
-        border-bottom: 1px solid var(--surface-border);
+        background-color: color-mix(in srgb, var(--reader-bg, var(--bg)) 90%, transparent);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--reader-border, var(--surface-border));
       }
 
       .bar-inner {
@@ -257,7 +325,7 @@ import { BibleService } from '../services/bible.service';
       .bar-right {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         min-width: 0;
       }
 
@@ -287,7 +355,8 @@ import { BibleService } from '../services/bible.service';
         padding: 6px 10px;
         border-radius: var(--radius-sm);
         background-color: var(--surface-variant);
-        border: 1px solid var(--surface-border);
+        border: 1px solid var(--reader-border, var(--surface-border));
+        color: var(--on-surface);
         font-size: 15px;
         font-weight: 600;
         min-width: 0;
@@ -306,24 +375,70 @@ import { BibleService } from '../services/bible.service';
       }
 
       .reader-body {
-        padding-top: 18px;
-        padding-bottom: 96px;
+        padding-top: 26px;
+        padding-bottom: 120px;
+        max-width: 720px;
+      }
+
+      .chapter-hero {
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--reader-border, var(--surface-border));
+      }
+
+      .hero-eyebrow {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 6px;
+      }
+
+      .hero-title {
+        margin: 0 0 8px;
+        font-size: clamp(24px, 3vw, 32px);
+        line-height: 1.2;
+        font-weight: 700;
+      }
+
+      .hero-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--reader-muted, var(--on-surface-muted));
       }
 
       .status-msg,
       .error-card {
-        padding: 36px 0;
+        padding: 40px 0;
         text-align: center;
-        color: var(--on-surface-muted);
+        color: var(--reader-muted, var(--on-surface-muted));
       }
 
       .summary-card {
         padding: 12px 14px;
-        margin-bottom: 16px;
+        margin-bottom: 20px;
         border-radius: var(--radius-md);
         background-color: var(--accent-soft);
-        border: 1px solid var(--surface-border);
+        border-left: 3px solid var(--accent);
         font-size: 14px;
+      }
+
+      .summary-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--accent);
+        margin-bottom: 4px;
+      }
+
+      .summary-card p {
+        margin: 0;
       }
 
       .verses-flow {
@@ -332,10 +447,40 @@ import { BibleService } from '../services/bible.service';
         gap: 6px;
       }
 
+      .verses-flow.paragraph-mode {
+        display: block;
+      }
+
+      .verse-inline {
+        cursor: pointer;
+        border-radius: 4px;
+        padding: 2px 3px;
+        transition: background-color 120ms ease;
+      }
+
+      .verse-inline.selected {
+        outline: 2px solid var(--accent);
+      }
+
+      .verse-sup {
+        font-size: 0.7em;
+        font-weight: 700;
+        color: var(--accent);
+        margin-right: 3px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .verse-mark-inline {
+        font-size: 14px;
+        color: var(--accent);
+        vertical-align: middle;
+        margin-left: 2px;
+      }
+
       .verse-row {
         display: flex;
         align-items: baseline;
-        gap: 8px;
+        gap: 10px;
         padding: 6px 10px;
         border-radius: var(--radius-sm);
         cursor: pointer;
@@ -343,7 +488,7 @@ import { BibleService } from '../services/bible.service';
       }
 
       .verse-row:hover {
-        background-color: var(--surface-variant);
+        background-color: color-mix(in srgb, var(--accent) 7%, transparent);
       }
 
       .verse-row.selected {
@@ -351,44 +496,33 @@ import { BibleService } from '../services/bible.service';
       }
 
       .verse-num {
-        font-size: 0.75em;
+        font-size: 0.74em;
         font-weight: 700;
         color: var(--accent);
-        min-width: 20px;
+        min-width: 22px;
+        font-variant-numeric: tabular-nums;
         user-select: none;
       }
 
-      .verse-text {
+      .verse-content {
         flex: 1;
+        min-width: 0;
+      }
+
+      .verse-note-preview {
+        margin: 6px 0 2px;
+        padding: 6px 10px;
+        border-radius: var(--radius-sm);
+        background-color: var(--accent-soft);
+        border-left: 2px solid var(--accent);
+        font-size: 0.84em;
+        color: var(--reader-muted, var(--on-surface-muted));
       }
 
       .verse-mark {
         font-size: 16px;
         color: var(--accent);
-      }
-
-      .chapter-nav {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        margin-top: 24px;
-        padding-top: 16px;
-        border-top: 1px solid var(--surface-border);
-      }
-
-      .chapter-indicator-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        border-radius: var(--radius-pill);
-        background-color: var(--surface-variant);
-        border: 1px solid var(--surface-border);
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--on-surface);
-        min-width: 0;
+        flex-shrink: 0;
       }
     `,
   ],
@@ -416,6 +550,44 @@ export class BibleReaderComponent implements OnInit {
       ? `${this.bible.currentBook().name} ${this.bible.chapter()}:${v.verse}`
       : '';
   });
+
+  readonly readingMinutes = computed(() => {
+    const words = this.bible
+      .verses()
+      .reduce((acc, v) => acc + (v.text ? v.text.split(/\s+/).length : 0), 0);
+    return Math.max(1, Math.round(words / 200));
+  });
+
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      this.state.clearSelection();
+      this.showVersionPicker.set(false);
+      this.showBookPicker.set(false);
+      this.showAppearance.set(false);
+      this.showCrossRefs.set(false);
+      this.showStudy.set(false);
+      this.showBookmarks.set(false);
+      this.showNoteModal.set(false);
+      return;
+    }
+    if (
+      this.showVersionPicker() ||
+      this.showBookPicker() ||
+      this.showAppearance() ||
+      this.showCrossRefs() ||
+      this.showStudy() ||
+      this.showBookmarks() ||
+      this.showNoteModal()
+    ) {
+      return;
+    }
+    if (event.key === 'ArrowLeft') {
+      void this.bible.prevChapter();
+    } else if (event.key === 'ArrowRight') {
+      void this.bible.nextChapter();
+    }
+  }
 
   constructor() {
     effect(() => {
