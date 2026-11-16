@@ -9,6 +9,7 @@ on:
     paths:
       - 'apps/mobile/**'
       - 'apps/backend/**'
+      - 'apps/web/**'
       - 'scripts/**'
       - '.github/workflows/**'
       - 'releases/**'
@@ -25,6 +26,7 @@ jobs:
     outputs:
       mobile: ${{ steps.filter.outputs.mobile }}
       backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,6 +42,8 @@ jobs:
             backend:
               - 'apps/backend/**'
               - '.github/workflows/**'
+            web:
+              - 'apps/web/**'
 
   # ============================================================================
   # GATE 1: CODE & UNIT QUALITY GATE
@@ -78,6 +82,35 @@ jobs:
       - name: TypeScript Compile
         run: npm run build
         working-directory: apps/backend
+
+  web_quality_check:
+    name: 'Web Quality Gate (Angular Test & Build)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: paths
+    if: needs.paths.outputs.web == 'true'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Angular Unit Tests
+        run: npm test -- --watch=false
+        working-directory: apps/web
+
+      - name: Angular Production Build
+        run: npm run build
+        working-directory: apps/web
 
   # ============================================================================
   # GATE 1: CODE & UNIT QUALITY GATE
@@ -126,13 +159,14 @@ jobs:
   # ============================================================================
   auto_merge:
     name: 'Auto-Merge to Develop Branch'
-    needs: [paths, pr_quality_check, backend_quality_check]
+    needs: [paths, pr_quality_check, backend_quality_check, web_quality_check]
     if: |
       always() &&
       github.event.pull_request.base.ref == 'develop' &&
       (needs.pr_quality_check.result == 'success' || needs.pr_quality_check.result == 'skipped') &&
       (needs.backend_quality_check.result == 'success' || needs.backend_quality_check.result == 'skipped') &&
-      !(needs.pr_quality_check.result == 'skipped' && needs.backend_quality_check.result == 'skipped')
+      (needs.web_quality_check.result == 'success' || needs.web_quality_check.result == 'skipped') &&
+      !(needs.pr_quality_check.result == 'skipped' && needs.backend_quality_check.result == 'skipped' && needs.web_quality_check.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
