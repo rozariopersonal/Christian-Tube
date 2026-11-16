@@ -17,6 +17,7 @@ export class AudioPlayerService {
   readonly duration = signal<number>(0);
   readonly playbackRate = signal<number>(1);
   readonly expanded = signal<boolean>(false);
+  readonly error = signal<string | null>(null);
 
   readonly progressPercent = computed(() => {
     const d = this.duration();
@@ -25,6 +26,7 @@ export class AudioPlayerService {
 
   constructor() {
     if (this.audio) {
+      this.audio.preload = 'auto';
       this.audio.addEventListener('timeupdate', () => {
         this.position.set(this.audio!.currentTime || 0);
       });
@@ -33,13 +35,21 @@ export class AudioPlayerService {
           this.audio!.duration || this.currentTrack()?.durationSeconds || 0,
         );
       });
-      this.audio.addEventListener('play', () => this.isPlaying.set(true));
+      this.audio.addEventListener('play', () => {
+        this.error.set(null);
+        this.isPlaying.set(true);
+      });
       this.audio.addEventListener('pause', () => this.isPlaying.set(false));
       this.audio.addEventListener('ended', () => this.next());
+      this.audio.addEventListener('error', () => {
+        this.isPlaying.set(false);
+        this.error.set('Unable to play this audio track.');
+      });
     }
   }
 
   playTrack(track: AudioTrack, queue: AudioTrack[] = []): void {
+    this.error.set(null);
     this.currentTrack.set(track);
     if (queue.length > 0) {
       this.queue.set(queue);
@@ -53,10 +63,15 @@ export class AudioPlayerService {
     );
     if (this.audio.src !== src) {
       this.audio.src = src;
+      this.audio.load();
     }
     this.audio.playbackRate = this.playbackRate();
-    void this.audio.play().catch(() => {
+    void this.audio.play().catch((err: unknown) => {
       this.isPlaying.set(false);
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      this.error.set(
+        err instanceof Error ? err.message : 'Unable to play this audio track.',
+      );
     });
   }
 
@@ -68,7 +83,13 @@ export class AudioPlayerService {
       return;
     }
     if (this.audio.paused) {
-      void this.audio.play();
+      this.error.set(null);
+      void this.audio.play().catch((err: unknown) => {
+        this.isPlaying.set(false);
+        this.error.set(
+          err instanceof Error ? err.message : 'Unable to play this audio track.',
+        );
+      });
     } else {
       this.audio.pause();
     }

@@ -122,6 +122,10 @@ export class BibleService {
       const clampedCh = Math.min(validBook.chapters, Math.max(1, ch));
       await this.loadChapter(validBook.bookNumber, clampedCh);
     } catch (err) {
+      if (cleanVer !== 'nasb') {
+        await this.loadVersion('nasb', bookRef, ch);
+        return;
+      }
       this.error.set(
         err instanceof Error ? err.message : 'Unable to load Bible version',
       );
