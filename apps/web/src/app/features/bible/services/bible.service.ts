@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { OnlineBibleService } from './online-bible.service';
 import {
   BOOK_ABBREVS,
   BibleBook,
@@ -21,6 +22,7 @@ const INCOMPLETE_VERSIONS = new Set(['nasb', 'nlt', 'msg']);
 export class BibleService {
   private readonly releases = inject(ReleaseDataService);
   private readonly appearance = inject(ReaderAppearanceService);
+  private readonly onlineBible = inject(OnlineBibleService);
 
   readonly version = signal<string>(
     this.readState().version ??
@@ -147,9 +149,7 @@ export class BibleService {
     this.fallbackNotice.set(null);
 
     try {
-      const verses = await this.releases.getJson<BibleVerse[]>(
-        `bibles/${ver}/${bookNum}/${ch}.json`,
-      );
+      const verses = await this.fetchVersionChapter(ver, bookNum, ch);
       this.verses.set(verses);
     } catch (err) {
       if (ver !== FALLBACK_VERSION) {
@@ -330,6 +330,24 @@ export class BibleService {
     return null;
   }
 
+  private async fetchVersionChapter(
+    ver: string,
+    bookNum: number,
+    ch: number,
+  ): Promise<BibleVerse[]> {
+    const clean = ver.toLowerCase();
+    if (this.onlineBible.isOnlineVersion(clean)) {
+      try {
+        return await this.onlineBible.fetchChapter(clean, bookNum, ch);
+      } catch {
+        // Fall back to releases CDN if online API fails
+      }
+    }
+    return this.releases.getJson<BibleVerse[]>(
+      `bibles/${clean}/${bookNum}/${ch}.json`,
+    );
+  }
+
   async fetchChapterVerses(
     versionId: string,
     bookNum: number,
@@ -338,9 +356,7 @@ export class BibleService {
   ): Promise<BibleVerse[]> {
     const clean = versionId.toLowerCase();
     try {
-      return await this.releases.getJson<BibleVerse[]>(
-        `bibles/${clean}/${bookNum}/${ch}.json`,
-      );
+      return await this.fetchVersionChapter(clean, bookNum, ch);
     } catch {
       if (allowFallback && clean !== FALLBACK_VERSION) {
         try {
