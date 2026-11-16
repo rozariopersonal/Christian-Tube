@@ -169,6 +169,7 @@ import { BibleService } from '../services/bible.service';
           <article
             class="verses-flow"
             [class.paragraph-mode]="appearance.bibleLayout() === 'paragraph'"
+            [class.two-col-body]="appearance.bookColumns() === 2"
             [style.font-family]="appearance.activeFont().cssFamily"
             [style.font-size.px]="appearance.fontSize()"
             [style.line-height]="appearance.lineHeight()"
@@ -558,6 +559,20 @@ import { BibleService } from '../services/bible.service';
 
       .verses-flow.paragraph-mode {
         display: block;
+      }
+
+      @media (min-width: 840px) {
+        .verses-flow.two-col-body {
+          display: block;
+          column-count: 2;
+          column-gap: 44px;
+          column-rule: 1px solid var(--reader-border, var(--surface-border));
+        }
+
+        .verses-flow.two-col-body .verse-row {
+          break-inside: avoid;
+          margin-bottom: 6px;
+        }
       }
 
       .verse-inline {
