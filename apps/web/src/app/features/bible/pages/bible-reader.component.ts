@@ -95,7 +95,7 @@ interface AppendedBibleChapter {
                   class="book-btn"
                   (click)="openBookPicker('books')"
                 >
-                  <span>{{ bible.currentBook().name }} {{ bible.chapter() }}</span>
+                  <span>{{ displayBookName() }} {{ displayChapter() }}</span>
                   <span class="material-symbols-rounded">expand_more</span>
                 </button>
 
@@ -114,12 +114,12 @@ interface AppendedBibleChapter {
                 !screen.isCompact() &&
                 !bible.loading() &&
                 !bible.error() &&
-                bible.verses().length > 0
+                displayVerseCount() > 0
               ) {
                 <span class="bar-meta">
-                  {{ bible.bookNumber() <= 39 ? 'OT' : 'NT' }} ·
-                  {{ bible.verses().length }} verses ·
-                  {{ readingMinutes() }} min read
+                  {{ displayBookNumber() <= 39 ? 'OT' : 'NT' }} ·
+                  {{ displayVerseCount() }} verses ·
+                  {{ displayReadingMinutes() }} min read
                 </span>
               }
             </div>
@@ -301,6 +301,10 @@ interface AppendedBibleChapter {
 
           <article
             class="verses-flow"
+            [attr.data-chapter-book]="bible.bookNumber()"
+            [attr.data-chapter-num]="bible.chapter()"
+            [attr.data-chapter-name]="bible.currentBook().name"
+            [attr.data-verse-count]="bible.verses().length"
             [class.paragraph-mode]="
               appearance.bibleLayout() === 'paragraph' &&
               bible.compareVersions().length === 0
@@ -414,7 +418,14 @@ interface AppendedBibleChapter {
           }
 
           <ng-template #extraChapterTpl let-extra let-isPrepended="isPrepended">
-            <section class="appended-chapter" [class.prepended-chapter]="isPrepended">
+            <section
+              class="appended-chapter"
+              [class.prepended-chapter]="isPrepended"
+              [attr.data-chapter-book]="extra.bookNumber"
+              [attr.data-chapter-num]="extra.chapter"
+              [attr.data-chapter-name]="extra.bookName"
+              [attr.data-verse-count]="extra.verses.length"
+            >
               <header class="chapter-hero appended-hero">
                 <h2 class="hero-title font-display">
                   {{ extra.bookName }} {{ extra.chapter }}
@@ -1115,6 +1126,29 @@ export class BibleReaderComponent implements OnInit {
   readonly appendedChapters = signal<AppendedBibleChapter[]>([]);
   readonly loadingPrev = signal<boolean>(false);
   readonly loadingMore = signal<boolean>(false);
+  readonly visibleChapter = signal<{
+    bookNumber: number;
+    bookName: string;
+    chapter: number;
+    verseCount: number;
+    minutes: number;
+  } | null>(null);
+
+  readonly displayBookNumber = computed(
+    () => this.visibleChapter()?.bookNumber ?? this.bible.bookNumber(),
+  );
+  readonly displayBookName = computed(
+    () => this.visibleChapter()?.bookName ?? this.bible.currentBook().name,
+  );
+  readonly displayChapter = computed(
+    () => this.visibleChapter()?.chapter ?? this.bible.chapter(),
+  );
+  readonly displayVerseCount = computed(
+    () => this.visibleChapter()?.verseCount ?? this.bible.verses().length,
+  );
+  readonly displayReadingMinutes = computed(
+    () => this.visibleChapter()?.minutes ?? this.readingMinutes(),
+  );
 
   private readonly routeReady = signal<boolean>(false);
   private hasScrolledDown = false;
@@ -1172,6 +1206,7 @@ export class BibleReaderComponent implements OnInit {
 
   @HostListener('window:scroll')
   onWindowScroll(): void {
+    this.syncVisibleChapterFromScroll();
     if (window.scrollY > 180) {
       this.hasScrolledDown = true;
     } else if (
@@ -1183,6 +1218,60 @@ export class BibleReaderComponent implements OnInit {
     ) {
       void this.prependPrevChapter();
     }
+  }
+
+  private syncVisibleChapterFromScroll(): void {
+    if (this.prependedChapters().length === 0 && this.appendedChapters().length === 0) {
+      if (this.visibleChapter() !== null) {
+        this.visibleChapter.set(null);
+      }
+      return;
+    }
+    const nodes = document.querySelectorAll<HTMLElement>('[data-chapter-book]');
+    if (nodes.length === 0) return;
+
+    let active: HTMLElement = nodes[0];
+    for (const el of Array.from(nodes)) {
+      const rect = el.getBoundingClientRect();
+      if (rect.top <= 140) {
+        active = el;
+      } else {
+        break;
+      }
+    }
+
+    const bookNumber = Number(active.dataset['chapterBook'] ?? 0);
+    const chapter = Number(active.dataset['chapterNum'] ?? 0);
+    const bookName = active.dataset['chapterName'] ?? '';
+    const verseCount = Number(active.dataset['verseCount'] ?? 0);
+    if (!bookNumber || !chapter) return;
+
+    const cur = this.visibleChapter();
+    if (cur && cur.bookNumber === bookNumber && cur.chapter === chapter) {
+      return;
+    }
+
+    const matchedExtra =
+      this.prependedChapters().find(
+        (c) => c.bookNumber === bookNumber && c.chapter === chapter,
+      ) ??
+      this.appendedChapters().find(
+        (c) => c.bookNumber === bookNumber && c.chapter === chapter,
+      );
+    const versesList = matchedExtra ? matchedExtra.verses : this.bible.verses();
+    const words = versesList.reduce(
+      (acc, v) => acc + (v.text ? v.text.split(/\s+/).length : 0),
+      0,
+    );
+    const minutes = Math.max(1, Math.round(words / 200));
+
+    this.visibleChapter.set({
+      bookNumber,
+      bookName,
+      chapter,
+      verseCount,
+      minutes,
+    });
   }
 
   @HostListener('window:wheel', ['$event'])
@@ -1309,6 +1398,7 @@ export class BibleReaderComponent implements OnInit {
   private resetInfiniteChapters(): void {
     this.prependedChapters.set([]);
     this.appendedChapters.set([]);
+    this.visibleChapter.set(null);
     this.hasScrolledDown = false;
   }
 
@@ -1456,17 +1546,33 @@ export class BibleReaderComponent implements OnInit {
   }
 
   prevChapter(): void {
+    const target = this.bible.prevChapterOf(
+      this.displayBookNumber(),
+      this.displayChapter(),
+    );
     this.resetInfiniteChapters();
     this.state.clearSelection();
-    this.bible.prevChapter();
+    if (target) {
+      void this.bible.loadChapter(target.bookNumber, target.chapter);
+    } else {
+      this.bible.prevChapter();
+    }
     void this.loadPrimaryParallel();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   nextChapter(): void {
+    const target = this.bible.nextChapterOf(
+      this.displayBookNumber(),
+      this.displayChapter(),
+    );
     this.resetInfiniteChapters();
     this.state.clearSelection();
-    this.bible.nextChapter();
+    if (target) {
+      void this.bible.loadChapter(target.bookNumber, target.chapter);
+    } else {
+      this.bible.nextChapter();
+    }
     void this.loadPrimaryParallel();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
