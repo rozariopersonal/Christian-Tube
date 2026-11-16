@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
+import { ChannelService } from '../../channels/services/channel.service';
 import { Video, formatViewCount } from '../models/video.model';
 import { VideoService } from '../services/video.service';
 
@@ -18,136 +19,153 @@ import { VideoService } from '../services/video.service';
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="shorts-page max-width-box">
-      <header class="page-head">
-        <h1 class="font-display">Shorts</h1>
-      </header>
-
-      @if (videos.shortsLoading() && videos.shorts().length === 0) {
-        <p class="status-msg">Loading shorts...</p>
-      } @else if (videos.shortsError()) {
-        <div class="status-msg">
-          <p>{{ videos.shortsError() }}</p>
+    @if (activeShort(); as current) {
+      <div class="shorts-stage">
+        <div class="stage-top">
           <button
             type="button"
-            class="pill-chip active"
-            (click)="videos.fetchShorts(true)"
+            class="stage-pill"
+            (click)="activeIndex.set(null)"
           >
-            Retry
+            <span class="material-symbols-rounded">grid_view</span>
+            Shorts
           </button>
+          <span class="stage-counter">
+            {{ activeIndex()! + 1 }} / {{ videos.shorts().length }}
+          </span>
         </div>
-      } @else if (videos.shorts().length === 0) {
-        <p class="status-msg">No shorts available right now.</p>
-      } @else {
-        <div class="shorts-grid">
-          @for (s of videos.shorts(); track s.id; let i = $index) {
-            <button
-              type="button"
-              class="short-tile"
-              (click)="activeIndex.set(i)"
-            >
-              <img
-                class="short-thumb"
-                [src]="s.thumbnailUrl"
-                [alt]="s.title"
-                loading="lazy"
-              />
-              <div class="short-scrim">
-                <span class="short-title">{{ s.title }}</span>
-                <span class="short-meta">
-                  {{ s.channelTitle }}
-                  @if (s.viewCount > 0) {
-                    · {{ formatViews(s.viewCount) }}
-                  }
-                </span>
-              </div>
-            </button>
-          }
-        </div>
-      }
 
-      @if (activeShort(); as current) {
-        <div class="player-backdrop" (click)="activeIndex.set(null)">
-          <div class="player-shell" (click)="$event.stopPropagation()">
-            <div class="player-top">
-              <span class="short-counter">
-                {{ activeIndex()! + 1 }} / {{ videos.shorts().length }}
-              </span>
-              <button
-                type="button"
-                class="icon-btn light-btn"
-                aria-label="Close shorts player"
-                (click)="activeIndex.set(null)"
-              >
-                <span class="material-symbols-rounded">close</span>
-              </button>
-            </div>
+        <div class="stage-center">
+          <div class="vertical-player">
+            @if (current.streamUrl) {
+              <video
+                class="short-media"
+                [src]="current.streamUrl"
+                controls
+                autoplay
+                playsinline
+                loop
+              ></video>
+            } @else {
+              <iframe
+                class="short-media"
+                [src]="embedUrl(current)"
+                [title]="current.title"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+              ></iframe>
+            }
 
-            <div class="vertical-frame">
-              @if (current.streamUrl) {
-                <video
-                  class="short-media"
-                  [src]="current.streamUrl"
-                  controls
-                  autoplay
-                  playsinline
-                  loop
-                ></video>
-              } @else {
-                <iframe
-                  class="short-media"
-                  [src]="embedUrl(current)"
-                  [title]="current.title"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowfullscreen
-                ></iframe>
-              }
-            </div>
-
-            <div class="player-footer">
-              <div class="footer-meta">
-                <strong>{{ current.title }}</strong>
-                <span>{{ current.channelTitle }}</span>
-              </div>
-              <div class="footer-actions">
-                <button
-                  type="button"
-                  class="pill-chip"
-                  [disabled]="activeIndex()! <= 0"
-                  (click)="prev()"
-                >
-                  <span class="material-symbols-rounded">keyboard_arrow_up</span>
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  class="pill-chip"
-                  [disabled]="activeIndex()! >= videos.shorts().length - 1"
-                  (click)="next()"
-                >
-                  Next
-                  <span class="material-symbols-rounded">keyboard_arrow_down</span>
-                </button>
+            <div class="bottom-overlay">
+              <div class="channel-row">
                 <a
-                  class="pill-chip active"
-                  [routerLink]="['/watch', current.id]"
-                  (click)="activeIndex.set(null)"
+                  class="channel-link"
+                  [routerLink]="['/channels', current.channelId]"
                 >
-                  Watch
+                  {{ current.channelTitle }}
                 </a>
-                <button
-                  type="button"
-                  class="pill-chip"
-                  (click)="shareShort(current)"
-                >
-                  <span class="material-symbols-rounded">share</span>
-                </button>
+                @if (current.channelId) {
+                  <button
+                    type="button"
+                    class="follow-btn"
+                    [class.active]="!isFollowing(current.channelId)"
+                    (click)="channelService.toggleSubscribe(current.channelId)"
+                  >
+                    {{ isFollowing(current.channelId) ? 'Following' : 'Follow' }}
+                  </button>
+                }
               </div>
+              <p class="overlay-title">{{ current.title }}</p>
             </div>
           </div>
+
+          <div class="side-rail">
+            <button
+              type="button"
+              class="rail-btn"
+              title="Previous Short"
+              [disabled]="activeIndex()! <= 0"
+              (click)="prev()"
+            >
+              <span class="material-symbols-rounded">keyboard_arrow_up</span>
+            </button>
+            <button
+              type="button"
+              class="rail-btn"
+              title="Next Short"
+              [disabled]="activeIndex()! >= videos.shorts().length - 1"
+              (click)="next()"
+            >
+              <span class="material-symbols-rounded">keyboard_arrow_down</span>
+            </button>
+            <button
+              type="button"
+              class="rail-btn"
+              title="Share Short"
+              (click)="shareShort(current)"
+            >
+              <span class="material-symbols-rounded">share</span>
+            </button>
+            <a
+              class="rail-btn"
+              title="Watch full video"
+              [routerLink]="['/watch', current.id]"
+            >
+              <span class="material-symbols-rounded">open_in_new</span>
+            </a>
+          </div>
         </div>
-      }
-    </div>
+      </div>
+    } @else {
+      <div class="shorts-page max-width-box">
+        <header class="page-head">
+          <h1 class="font-display">Shorts</h1>
+        </header>
+
+        @if (videos.shortsLoading() && videos.shorts().length === 0) {
+          <p class="status-msg">Loading shorts...</p>
+        } @else if (videos.shortsError()) {
+          <div class="status-msg">
+            <p>{{ videos.shortsError() }}</p>
+            <button
+              type="button"
+              class="pill-chip active"
+              (click)="videos.fetchShorts(true)"
+            >
+              Retry
+            </button>
+          </div>
+        } @else if (videos.shorts().length === 0) {
+          <p class="status-msg">No shorts available right now.</p>
+        } @else {
+          <div class="shorts-grid">
+            @for (s of videos.shorts(); track s.id; let i = $index) {
+              <button
+                type="button"
+                class="short-tile"
+                (click)="activeIndex.set(i)"
+              >
+                <img
+                  class="short-thumb"
+                  [src]="s.thumbnailUrl"
+                  [alt]="s.title"
+                  loading="lazy"
+                />
+                <div class="short-scrim">
+                  <span class="short-title">{{ s.title }}</span>
+                  <span class="short-meta">
+                    {{ s.channelTitle }}
+                    @if (s.viewCount > 0) {
+                      · {{ formatViews(s.viewCount) }}
+                    }
+                  </span>
+                </div>
+              </button>
+            }
+          </div>
+        }
+      </div>
+    }
   `,
   styles: [
     `
@@ -214,49 +232,68 @@ import { VideoService } from '../services/video.service';
         text-overflow: ellipsis;
       }
 
-      .player-backdrop {
-        position: fixed;
-        inset: 0;
-        z-index: 100;
-        background-color: rgba(0, 0, 0, 0.85);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-      }
-
-      .player-shell {
-        width: 100%;
-        max-width: 420px;
-        max-height: 92dvh;
+      /* In-page Fullscreen Vertical Shorts Stage */
+      .shorts-stage {
+        height: calc(100dvh - var(--shell-bottom-height) - var(--shell-top-offset));
+        background-color: #0b0f19;
+        color: #ffffff;
         display: flex;
         flex-direction: column;
+        padding: 12px 16px;
         gap: 10px;
       }
 
-      .player-top {
+      @media (min-width: 600px) {
+        .shorts-stage {
+          height: calc(100dvh - var(--shell-top-offset));
+          padding: 16px 24px;
+        }
+      }
+
+      .stage-top {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        color: #ffffff;
       }
 
-      .short-counter {
+      .stage-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: var(--radius-pill);
+        background-color: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
         font-size: 13px;
         font-weight: 600;
       }
 
-      .light-btn {
-        color: #ffffff;
+      .stage-counter {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.75);
       }
 
-      .vertical-frame {
-        width: 100%;
+      .stage-center {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+      }
+
+      .vertical-player {
+        position: relative;
+        height: 100%;
+        max-height: 780px;
         aspect-ratio: 9 / 16;
-        max-height: 68dvh;
+        max-width: calc(100% - 60px);
         background-color: #000000;
         border-radius: var(--radius-lg);
         overflow: hidden;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
       }
 
       .short-media {
@@ -266,36 +303,78 @@ import { VideoService } from '../services/video.service';
         display: block;
       }
 
-      .player-footer {
-        background-color: var(--surface);
-        border-radius: var(--radius-md);
-        padding: 10px 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+      .bottom-overlay {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 36px 14px 14px;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+        pointer-events: none;
       }
 
-      .footer-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
+      .channel-row,
+      .follow-btn,
+      .channel-link {
+        pointer-events: auto;
       }
 
-      .footer-meta strong {
-        font-size: 14px;
-        line-height: 1.3;
-      }
-
-      .footer-meta span {
-        font-size: 12px;
-        color: var(--on-surface-muted);
-      }
-
-      .footer-actions {
+      .channel-row {
         display: flex;
         align-items: center;
-        gap: 6px;
-        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+
+      .channel-link {
+        font-size: 13px;
+        font-weight: 700;
+        color: #ffffff;
+      }
+
+      .follow-btn {
+        padding: 4px 10px;
+        border-radius: var(--radius-pill);
+        background-color: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .follow-btn.active {
+        background-color: var(--accent);
+        color: var(--on-accent);
+      }
+
+      .overlay-title {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .side-rail {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .rail-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: var(--radius-pill);
+        background-color: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        display: grid;
+        place-items: center;
+      }
+
+      .rail-btn[disabled] {
+        opacity: 0.3;
+        cursor: not-allowed;
       }
 
       .status-msg {
@@ -309,6 +388,7 @@ import { VideoService } from '../services/video.service';
 export class ShortsComponent implements OnInit {
   private readonly sanitizer = inject(DomSanitizer);
   readonly videos = inject(VideoService);
+  readonly channelService = inject(ChannelService);
 
   readonly activeIndex = signal<number | null>(null);
 
@@ -334,6 +414,11 @@ export class ShortsComponent implements OnInit {
 
   ngOnInit(): void {
     void this.videos.fetchShorts();
+    void this.channelService.loadSubscriptions();
+  }
+
+  isFollowing(channelId: string): boolean {
+    return this.channelService.subscribedIds().includes(channelId);
   }
 
   embedUrl(v: Video): SafeResourceUrl {
