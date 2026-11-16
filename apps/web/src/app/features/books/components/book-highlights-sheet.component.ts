@@ -1,6 +1,15 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
-import { BookHighlight } from '../services/book-highlights.service';
+import {
+  BookBookmark,
+  BookHighlight,
+} from '../services/book-highlights.service';
 
 @Component({
   selector: 'app-book-highlights-sheet',
@@ -8,40 +17,114 @@ import { BookHighlight } from '../services/book-highlights.service';
   imports: [ModalSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-modal-sheet title="Highlights" (closed)="closed.emit()">
-      @if (highlights().length === 0) {
-        <p class="empty-msg">No highlights yet. Tap any paragraph to highlight it.</p>
+    <app-modal-sheet title="Notebook" (closed)="closed.emit()">
+      <div class="nb-tabs">
+        <button
+          type="button"
+          class="nb-tab"
+          [class.active]="tab() === 'highlights'"
+          (click)="tab.set('highlights')"
+        >
+          Highlights & Notes ({{ highlights().length }})
+        </button>
+        <button
+          type="button"
+          class="nb-tab"
+          [class.active]="tab() === 'bookmarks'"
+          (click)="tab.set('bookmarks')"
+        >
+          Bookmarks ({{ bookmarks().length }})
+        </button>
+      </div>
+
+      @if (tab() === 'highlights') {
+        @if (highlights().length === 0) {
+          <p class="empty-msg">
+            No highlights yet. Tap any paragraph to highlight or add a note.
+          </p>
+        } @else {
+          <div class="hl-list">
+            @for (h of highlights(); track h.key) {
+              <div class="hl-row">
+                <button
+                  type="button"
+                  class="hl-body"
+                  (click)="jumpTo.emit({ chapter: h.chapterIndex, line: h.line })"
+                >
+                  <span class="hl-meta">
+                    <span class="hl-dot" [style.background-color]="h.color"></span>
+                    Chapter {{ h.chapterIndex }}
+                  </span>
+                  <p class="hl-text">{{ h.text }}</p>
+                  @if (h.note) {
+                    <p class="hl-note">{{ h.note }}</p>
+                  }
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Remove highlight"
+                  (click)="removed.emit(h)"
+                >
+                  <span class="material-symbols-rounded">delete</span>
+                </button>
+              </div>
+            }
+          </div>
+        }
       } @else {
-        <div class="hl-list">
-          @for (h of highlights(); track h.key) {
-            <div class="hl-row">
-              <button
-                type="button"
-                class="hl-body"
-                (click)="jumpTo.emit({ chapter: h.chapterIndex, line: h.line })"
-              >
-                <span class="hl-meta">
-                  <span class="hl-dot" [style.background-color]="h.color"></span>
-                  Chapter {{ h.chapterIndex }}
-                </span>
-                <p class="hl-text">{{ h.text }}</p>
-              </button>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Remove highlight"
-                (click)="removed.emit(h)"
-              >
-                <span class="material-symbols-rounded">delete</span>
-              </button>
-            </div>
-          }
-        </div>
+        @if (bookmarks().length === 0) {
+          <p class="empty-msg">
+            No bookmarks yet. Tap the bookmark icon in the top bar.
+          </p>
+        } @else {
+          <div class="hl-list">
+            @for (bm of bookmarks(); track bm.key) {
+              <div class="hl-row">
+                <button
+                  type="button"
+                  class="hl-body"
+                  (click)="jumpTo.emit({ chapter: bm.chapterIndex, line: 0 })"
+                >
+                  <span class="hl-meta">Chapter {{ bm.chapterIndex }}</span>
+                  <p class="hl-text">{{ bm.chapterTitle || 'Chapter ' + bm.chapterIndex }}</p>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Remove bookmark"
+                  (click)="bookmarkRemoved.emit(bm)"
+                >
+                  <span class="material-symbols-rounded">delete</span>
+                </button>
+              </div>
+            }
+          </div>
+        }
       }
     </app-modal-sheet>
   `,
   styles: [
     `
+      .nb-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        border-bottom: 1px solid var(--surface-border);
+      }
+
+      .nb-tab {
+        padding: 10px 6px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--on-surface-muted);
+        border-bottom: 2px solid transparent;
+      }
+
+      .nb-tab.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+      }
+
       .empty-msg {
         padding: 24px 0;
         text-align: center;
@@ -96,12 +179,25 @@ import { BookHighlight } from '../services/book-highlights.service';
         -webkit-box-orient: vertical;
         overflow: hidden;
       }
+
+      .hl-note {
+        margin: 6px 0 0;
+        padding: 6px 8px;
+        border-left: 2px solid var(--accent);
+        background-color: var(--accent-soft);
+        border-radius: 4px;
+        font-size: 12px;
+      }
     `,
   ],
 })
 export class BookHighlightsSheetComponent {
   readonly highlights = input.required<BookHighlight[]>();
+  readonly bookmarks = input<BookBookmark[]>([]);
   readonly jumpTo = output<{ chapter: number; line: number }>();
   readonly removed = output<BookHighlight>();
+  readonly bookmarkRemoved = output<BookBookmark>();
   readonly closed = output<void>();
+
+  readonly tab = signal<'highlights' | 'bookmarks'>('highlights');
 }

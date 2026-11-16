@@ -13,7 +13,7 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
   imports: [FormsModule, ModalSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-modal-sheet title="Reader Appearance" (closed)="closed.emit()">
+    <app-modal-sheet title="Display & Layout" (closed)="closed.emit()">
       <div class="appearance-section">
         <label class="label">Paper Theme</label>
         <div class="paper-grid">
@@ -71,6 +71,68 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
           (ngModelChange)="appearance.setLineHeight($event)"
         />
       </div>
+
+      <div class="split-controls">
+        <div class="appearance-section">
+          <label class="label">Alignment</label>
+          <div class="chip-wrap">
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="appearance.bookAlign() === 'left'"
+              (click)="appearance.setBookAlign('left')"
+            >
+              Left
+            </button>
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="appearance.bookAlign() === 'justify'"
+              (click)="appearance.setBookAlign('justify')"
+            >
+              Justify
+            </button>
+          </div>
+        </div>
+
+        <div class="appearance-section">
+          <label class="label">Columns (Wide)</label>
+          <div class="chip-wrap">
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="appearance.bookColumns() === 1"
+              (click)="appearance.setBookColumns(1)"
+            >
+              Single
+            </button>
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="appearance.bookColumns() === 2"
+              (click)="appearance.setBookColumns(2)"
+            >
+              2-Page
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="appearance-section">
+        <label class="label">Margins</label>
+        <div class="chip-wrap">
+          @for (m of ['narrow', 'medium', 'wide']; track m) {
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="appearance.bookMargin() === m"
+              (click)="appearance.setBookMargin($any(m))"
+            >
+              {{ m[0].toUpperCase() + m.slice(1) }}
+            </button>
+          }
+        </div>
+      </div>
     </app-modal-sheet>
   `,
   styles: [
@@ -122,6 +184,12 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+      }
+
+      .split-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
       }
     `,
   ],

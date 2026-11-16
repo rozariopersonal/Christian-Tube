@@ -7,74 +7,136 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest } from 'rxjs';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 import { BookAppearanceSheetComponent } from '../components/book-appearance-sheet.component';
 import { BookHighlightsSheetComponent } from '../components/book-highlights-sheet.component';
 import { BookLineActionBarComponent } from '../components/book-line-action-bar.component';
 import { BookReaderNavComponent } from '../components/book-reader-nav.component';
+import { BookSearchSheetComponent } from '../components/book-search-sheet.component';
 import { BookTocSheetComponent } from '../components/book-toc-sheet.component';
+import { DictionarySheetComponent } from '../components/dictionary-sheet.component';
+import { ScriptureVerseSheetComponent } from '../components/scripture-verse-sheet.component';
 import { BookLine, BookToc } from '../models/book.model';
 import {
+  BookBookmark,
   BookHighlight,
   BookHighlightsService,
 } from '../services/book-highlights.service';
 import { BooksService } from '../services/books.service';
+import {
+  ParsedScriptureRef,
+  ScriptureRefParserService,
+  ScriptureSpanToken,
+} from '../services/scripture-ref-parser.service';
 
 @Component({
   selector: 'app-book-reader',
   standalone: true,
   imports: [
+    FormsModule,
+    ModalSheetComponent,
     BookTocSheetComponent,
     BookAppearanceSheetComponent,
     BookHighlightsSheetComponent,
     BookLineActionBarComponent,
     BookReaderNavComponent,
+    BookSearchSheetComponent,
+    DictionarySheetComponent,
+    ScriptureVerseSheetComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
       class="book-reader-page"
       [attr.data-paper]="appearance.paperTheme()"
+      [class.immersive]="immersive()"
     >
-      <header class="reader-bar">
-        <div class="bar-inner max-width-box">
-          <button type="button" class="toc-btn" (click)="showToc.set(true)">
-            <span class="material-symbols-rounded">toc</span>
-            <span class="book-name">{{ toc()?.title || 'Book Reader' }}</span>
-          </button>
+      @if (!immersive()) {
+        <header class="reader-bar">
+          <div class="bar-inner max-width-box">
+            <button type="button" class="toc-btn" (click)="showToc.set(true)">
+              <span class="material-symbols-rounded">toc</span>
+              <span class="book-name">{{ toc()?.title || 'Book Reader' }}</span>
+            </button>
 
-          <div class="bar-actions">
-            <button
-              type="button"
-              class="icon-btn"
-              title="Highlights"
-              (click)="showHighlights.set(true)"
-            >
-              <span class="material-symbols-rounded">border_color</span>
-            </button>
-            <button
-              type="button"
-              class="icon-btn"
-              title="Share book link"
-              (click)="shareLocation()"
-            >
-              <span class="material-symbols-rounded">share</span>
-            </button>
-            <button
-              type="button"
-              class="icon-btn aa-btn"
-              title="Reader Appearance"
-              (click)="showAppearance.set(true)"
-            >
-              Aa
-            </button>
+            <div class="bar-actions">
+              <button
+                type="button"
+                class="icon-btn"
+                title="Search inside book"
+                (click)="showSearch.set(true)"
+              >
+                <span class="material-symbols-rounded">search</span>
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Bookmark this chapter"
+                (click)="toggleChapterBookmark()"
+              >
+                <span
+                  class="material-symbols-rounded"
+                  [class.filled]="isChapterBookmarked()"
+                  [class.accent-icon]="isChapterBookmarked()"
+                >
+                  bookmark
+                </span>
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Notebook (Highlights & Bookmarks)"
+                (click)="showHighlights.set(true)"
+              >
+                <span class="material-symbols-rounded">border_color</span>
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Share book link"
+                (click)="shareLocation()"
+              >
+                <span class="material-symbols-rounded">share</span>
+              </button>
+              <button
+                type="button"
+                class="icon-btn aa-btn"
+                title="Display & Layout"
+                (click)="showAppearance.set(true)"
+              >
+                Aa
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Focus mode (F)"
+                (click)="immersive.set(true)"
+              >
+                <span class="material-symbols-rounded">fullscreen</span>
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      } @else {
+        <button
+          type="button"
+          class="exit-focus-btn"
+          title="Exit focus mode (Esc / F)"
+          (click)="immersive.set(false)"
+        >
+          <span class="material-symbols-rounded">fullscreen_exit</span>
+        </button>
+      }
 
-      <div class="reader-content max-width-box">
+      <div
+        class="reader-content max-width-box"
+        [attr.data-margin]="appearance.bookMargin()"
+        [class.two-col]="appearance.bookColumns() === 2"
+      >
         @if (loading()) {
           <p class="status-msg">Loading chapter...</p>
         } @else if (error()) {
@@ -98,12 +160,17 @@ import { BooksService } from '../services/books.service';
 
           <article
             class="chapter-body"
+            [class.two-col-body]="appearance.bookColumns() === 2"
             [style.font-family]="appearance.activeFont().cssFamily"
             [style.font-size.px]="appearance.fontSize()"
             [style.line-height]="appearance.lineHeight()"
+            [style.text-align]="appearance.bookAlign()"
+            (dblclick)="lookupFromSelection()"
           >
-            @for (line of lines(); track $index) {
+            @for (item of parsedLines(); track $index) {
+              @let line = item.line;
               @let hl = highlightColor($index);
+              @let note = noteFor($index);
               @if (line.isHeading) {
                 <h2
                   [id]="'book-line-' + $index"
@@ -113,7 +180,7 @@ import { BooksService } from '../services/books.service';
                   {{ line.text }}
                 </h2>
               } @else {
-                <p
+                <div
                   [id]="'book-line-' + $index"
                   class="chapter-para"
                   [class.is-quote]="isQuoteLine(line)"
@@ -121,8 +188,25 @@ import { BooksService } from '../services/books.service';
                   [style.background-color]="hl ? hl + '55' : null"
                   (click)="toggleSelectLine($index)"
                 >
-                  {{ line.text }}
-                </p>
+                  <p class="para-text">
+                    @for (tok of item.tokens; track $index) {
+                      @if (tok.ref) {
+                        <button
+                          type="button"
+                          class="scripture-link"
+                          (click)="$event.stopPropagation(); activeScriptureRef.set(tok.ref!)"
+                        >
+                          {{ tok.text }}
+                        </button>
+                      } @else {
+                        <span>{{ tok.text }}</span>
+                      }
+                    }
+                  </p>
+                  @if (note) {
+                    <p class="para-note">{{ note }}</p>
+                  }
+                </div>
               }
             }
           </article>
@@ -132,16 +216,19 @@ import { BooksService } from '../services/books.service';
       @if (selectedLine(); as sel) {
         <app-book-line-action-bar
           [line]="sel"
+          (define)="defineSelected()"
+          (openNote)="openNoteEditor()"
           (copy)="copySelected()"
           (share)="shareLocation(selectedIndex()!)"
           (highlightChanged)="setHighlight(selectedIndex()!, sel, $event)"
           (closed)="selectedIndex.set(null)"
         />
-      } @else if (!loading() && toc()) {
+      } @else if (!immersive() && !loading() && toc()) {
         <app-book-reader-nav
           [chapterIndex]="chapterIndex()"
           [totalChapters]="toc()!.chapters.length || 1"
           [chapterTitle]="currentChapterTitle()"
+          [readingMinutes]="readingMinutes()"
           (previous)="loadChapter(chapterIndex() - 1)"
           (next)="loadChapter(chapterIndex() + 1)"
           (openToc)="showToc.set(true)"
@@ -164,10 +251,56 @@ import { BooksService } from '../services/books.service';
       @if (showHighlights()) {
         <app-book-highlights-sheet
           [highlights]="bookHighlights()"
+          [bookmarks]="bookBookmarks()"
           (jumpTo)="jumpToHighlight($event)"
           (removed)="removeHighlight($event)"
+          (bookmarkRemoved)="removeBookmark($event)"
           (closed)="showHighlights.set(false)"
         />
+      }
+
+      @if (showSearch() && toc()) {
+        <app-book-search-sheet
+          [bookId]="currentBookId()"
+          [bookLang]="currentBookLang()"
+          [toc]="toc()!"
+          (jumpTo)="jumpToHighlight($event)"
+          (closed)="showSearch.set(false)"
+        />
+      }
+
+      @if (activeScriptureRef(); as sRef) {
+        <app-scripture-verse-sheet
+          [ref]="sRef"
+          (closed)="activeScriptureRef.set(null)"
+        />
+      }
+
+      @if (lookupWord(); as word) {
+        <app-dictionary-sheet
+          [word]="word"
+          (closed)="lookupWord.set(null)"
+        />
+      }
+
+      @if (showNoteModal() && selectedLine()) {
+        <app-modal-sheet title="Paragraph Note" (closed)="showNoteModal.set(false)">
+          <textarea
+            class="note-textarea"
+            rows="4"
+            [ngModel]="noteDraft()"
+            (ngModelChange)="noteDraft.set($event)"
+            placeholder="Write your note..."
+          ></textarea>
+          <div class="modal-actions">
+            <button type="button" class="pill-chip" (click)="showNoteModal.set(false)">
+              Cancel
+            </button>
+            <button type="button" class="pill-chip active" (click)="saveNote()">
+              Save Note
+            </button>
+          </div>
+        </app-modal-sheet>
       }
     </div>
   `,
@@ -216,7 +349,7 @@ import { BooksService } from '../services/books.service';
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        gap: 8px;
       }
 
       .toc-btn {
@@ -237,8 +370,12 @@ import { BooksService } from '../services/books.service';
       .bar-actions {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 2px;
         flex-shrink: 0;
+      }
+
+      .accent-icon {
+        color: var(--accent);
       }
 
       .aa-btn {
@@ -247,10 +384,57 @@ import { BooksService } from '../services/books.service';
         font-size: 16px;
       }
 
+      .exit-focus-btn {
+        position: fixed;
+        top: calc(var(--shell-top-offset) + 12px);
+        right: 16px;
+        z-index: 40;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+        display: grid;
+        place-items: center;
+        opacity: 0.75;
+      }
+
+      .exit-focus-btn:hover {
+        opacity: 1;
+      }
+
       .reader-content {
         padding-top: 28px;
         padding-bottom: 120px;
         max-width: 720px;
+        transition: max-width 200ms ease;
+      }
+
+      .reader-content[data-margin='narrow'] {
+        max-width: 600px;
+      }
+
+      .reader-content[data-margin='wide'] {
+        max-width: 880px;
+      }
+
+      @media (min-width: 840px) {
+        .reader-content.two-col {
+          max-width: 1080px;
+        }
+
+        .chapter-body.two-col-body {
+          display: block;
+          column-count: 2;
+          column-gap: 44px;
+          column-rule: 1px solid var(--reader-border, var(--surface-border));
+        }
+
+        .chapter-body.two-col-body .chapter-para,
+        .chapter-body.two-col-body .chapter-heading {
+          break-inside: avoid;
+          margin-bottom: 12px;
+        }
       }
 
       .chapter-hero {
@@ -325,10 +509,51 @@ import { BooksService } from '../services/books.service';
         color: var(--reader-muted, var(--on-surface-muted));
       }
 
+      .para-text {
+        margin: 0;
+      }
+
+      .para-note {
+        margin: 6px 0 2px;
+        padding: 6px 10px;
+        border-radius: var(--radius-sm);
+        background-color: var(--accent-soft);
+        border-left: 2px solid var(--accent);
+        font-size: 0.85em;
+        color: var(--reader-muted, var(--on-surface-muted));
+      }
+
+      .scripture-link {
+        color: var(--accent);
+        text-decoration: underline;
+        text-decoration-style: dotted;
+        text-underline-offset: 3px;
+        font-weight: 600;
+      }
+
+      .scripture-link:hover {
+        text-decoration-style: solid;
+      }
+
       .status-msg {
         text-align: center;
         padding: 48px 0;
         color: var(--reader-muted, var(--on-surface-muted));
+      }
+
+      .note-textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: var(--radius-md);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        resize: vertical;
+      }
+
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
       }
     `,
   ],
@@ -338,6 +563,7 @@ export class BookReaderComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly booksService = inject(BooksService);
   private readonly highlightsService = inject(BookHighlightsService);
+  private readonly scriptureParser = inject(ScriptureRefParserService);
   readonly appearance = inject(ReaderAppearanceService);
 
   readonly toc = signal<BookToc | null>(null);
@@ -346,17 +572,33 @@ export class BookReaderComponent implements OnInit {
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
   readonly selectedIndex = signal<number | null>(null);
-  readonly selectedLine = computed(() => {
-    const idx = this.selectedIndex();
-    return idx !== null ? this.lines()[idx] ?? null : null;
-  });
+  readonly immersive = signal<boolean>(false);
 
   readonly showToc = signal<boolean>(false);
   readonly showAppearance = signal<boolean>(false);
   readonly showHighlights = signal<boolean>(false);
+  readonly showSearch = signal<boolean>(false);
+  readonly showNoteModal = signal<boolean>(false);
+  readonly noteDraft = signal<string>('');
+  readonly activeScriptureRef = signal<ParsedScriptureRef | null>(null);
+  readonly lookupWord = signal<string | null>(null);
 
-  private bookId = '';
-  private bookLang?: string;
+  readonly currentBookId = signal<string>('');
+  readonly currentBookLang = signal<string | undefined>(undefined);
+
+  readonly selectedLine = computed(() => {
+    const idx = this.selectedIndex();
+    return idx !== null ? (this.lines()[idx] ?? null) : null;
+  });
+
+  readonly parsedLines = computed<
+    Array<{ line: BookLine; tokens: ScriptureSpanToken[] }>
+  >(() =>
+    this.lines().map((line) => ({
+      line,
+      tokens: line.isHeading ? [] : this.scriptureParser.parse(line.text),
+    })),
+  );
 
   readonly currentChapterTitle = computed(() => {
     const ch = this.toc()?.chapters.find(
@@ -373,20 +615,58 @@ export class BookReaderComponent implements OnInit {
     return Math.max(1, Math.round(words / 220));
   });
 
-  readonly bookHighlights = computed(() =>
-    this.bookId ? this.highlightsService.forBook(this.bookId) : [],
-  );
+  readonly bookHighlights = computed(() => {
+    const id = this.currentBookId();
+    return id ? this.highlightsService.forBook(id) : [];
+  });
+
+  readonly bookBookmarks = computed(() => {
+    const id = this.currentBookId();
+    return id ? this.highlightsService.bookmarksForBook(id) : [];
+  });
+
+  readonly isChapterBookmarked = computed(() => {
+    const id = this.currentBookId();
+    return id
+      ? this.highlightsService.isBookmarked(id, this.chapterIndex())
+      : false;
+  });
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
+    ) {
+      return;
+    }
+
     if (event.key === 'Escape') {
       this.selectedIndex.set(null);
       this.showToc.set(false);
       this.showAppearance.set(false);
       this.showHighlights.set(false);
+      this.showSearch.set(false);
+      this.showNoteModal.set(false);
+      this.activeScriptureRef.set(null);
+      this.lookupWord.set(null);
+      this.immersive.set(false);
       return;
     }
-    if (this.showToc() || this.showAppearance() || this.showHighlights()) {
+    if (event.key === 'f' || event.key === 'F') {
+      this.immersive.set(!this.immersive());
+      return;
+    }
+    if (
+      this.showToc() ||
+      this.showAppearance() ||
+      this.showHighlights() ||
+      this.showSearch() ||
+      this.showNoteModal() ||
+      this.activeScriptureRef() ||
+      this.lookupWord()
+    ) {
       return;
     }
     const total = this.toc()?.chapters.length || 1;
@@ -410,7 +690,7 @@ export class BookReaderComponent implements OnInit {
         const targetPage = pageRaw ? Number(pageRaw) : undefined;
         const targetLine = lineRaw ? Number(lineRaw) : undefined;
 
-        const sameBook = id === this.bookId && this.toc() !== null;
+        const sameBook = id === this.currentBookId() && this.toc() !== null;
         if (
           sameBook &&
           targetChapter === this.chapterIndex() &&
@@ -437,17 +717,17 @@ export class BookReaderComponent implements OnInit {
     bookId: string,
     target?: { chapter?: number; page?: number; line?: number },
   ): Promise<void> {
-    this.bookId = bookId;
+    this.currentBookId.set(bookId);
     this.loading.set(true);
     this.error.set(null);
     this.selectedIndex.set(null);
     const catalogItem = this.booksService
       .catalog()
       .find((b) => b.id === bookId);
-    this.bookLang = catalogItem?.lang;
+    this.currentBookLang.set(catalogItem?.lang);
 
     try {
-      const toc = await this.booksService.fetchToc(bookId, this.bookLang);
+      const toc = await this.booksService.fetchToc(bookId, catalogItem?.lang);
       this.toc.set(toc);
       let initialCh =
         target?.chapter ??
@@ -485,15 +765,16 @@ export class BookReaderComponent implements OnInit {
     ch: number,
     target?: { page?: number; line?: number },
   ): Promise<void> {
+    const bookId = this.currentBookId();
     this.loading.set(true);
     this.error.set(null);
     this.selectedIndex.set(null);
     this.chapterIndex.set(ch);
     try {
       const lines = await this.booksService.fetchChapter(
-        this.bookId,
+        bookId,
         ch,
-        this.bookLang,
+        this.currentBookLang(),
         this.toc()?.chapters.length,
       );
       this.lines.set(lines);
@@ -501,9 +782,9 @@ export class BookReaderComponent implements OnInit {
       if (toc) {
         const catalogItem = this.booksService
           .catalog()
-          .find((b) => b.id === this.bookId);
+          .find((b) => b.id === bookId);
         this.booksService.saveProgress({
-          bookId: this.bookId,
+          bookId,
           title: toc.title,
           author: toc.author,
           coverFile: catalogItem?.coverFile,
@@ -515,7 +796,7 @@ export class BookReaderComponent implements OnInit {
 
       const chapterMeta = toc?.chapters.find((c) => c.chapterIndex === ch);
       const syncPage = target?.page ?? chapterMeta?.startPage;
-      void this.router.navigate(['/books', this.bookId], {
+      void this.router.navigate(['/books', bookId], {
         queryParams: {
           chapter: ch,
           ...(syncPage ? { page: syncPage } : {}),
@@ -524,7 +805,9 @@ export class BookReaderComponent implements OnInit {
       });
 
       const scrollIdx =
-        target?.line !== undefined && target.line >= 0 && target.line < lines.length
+        target?.line !== undefined &&
+        target.line >= 0 &&
+        target.line < lines.length
           ? target.line
           : target?.page
             ? lines.findIndex((l) => (l.page ?? 0) >= target.page!)
@@ -554,12 +837,48 @@ export class BookReaderComponent implements OnInit {
   }
 
   toggleSelectLine(index: number): void {
+    const sel = window.getSelection()?.toString().trim();
+    if (sel) return;
     this.selectedIndex.set(this.selectedIndex() === index ? null : index);
+  }
+
+  lookupFromSelection(): void {
+    const raw = window.getSelection()?.toString().trim() ?? '';
+    const firstWord = raw.split(/\s+/)[0]?.replace(/[^a-zA-Z'-]/g, '');
+    if (firstWord && firstWord.length >= 2) {
+      this.lookupWord.set(firstWord);
+    }
+  }
+
+  defineSelected(): void {
+    const raw = window.getSelection()?.toString().trim() ?? '';
+    const wordFromSelection = raw.split(/\s+/)[0]?.replace(/[^a-zA-Z'-]/g, '');
+    if (wordFromSelection && wordFromSelection.length >= 2) {
+      this.lookupWord.set(wordFromSelection);
+      return;
+    }
+    const line = this.selectedLine();
+    if (!line) return;
+    const firstWord = line.text
+      .split(/\s+/)
+      .map((w) => w.replace(/[^a-zA-Z'-]/g, ''))
+      .find((w) => w.length >= 4);
+    if (firstWord) {
+      this.lookupWord.set(firstWord);
+    }
   }
 
   highlightColor(index: number): string | null {
     return this.highlightsService.colorFor(
-      this.bookId,
+      this.currentBookId(),
+      this.chapterIndex(),
+      index,
+    );
+  }
+
+  noteFor(index: number): string {
+    return this.highlightsService.noteFor(
+      this.currentBookId(),
       this.chapterIndex(),
       index,
     );
@@ -567,7 +886,7 @@ export class BookReaderComponent implements OnInit {
 
   setHighlight(index: number, line: BookLine, color: string | null): void {
     this.highlightsService.setHighlight(
-      this.bookId,
+      this.currentBookId(),
       this.chapterIndex(),
       index,
       line.text,
@@ -575,15 +894,45 @@ export class BookReaderComponent implements OnInit {
     );
   }
 
+  openNoteEditor(): void {
+    const idx = this.selectedIndex();
+    if (idx === null) return;
+    this.noteDraft.set(this.noteFor(idx));
+    this.showNoteModal.set(true);
+  }
+
+  saveNote(): void {
+    const idx = this.selectedIndex();
+    const sel = this.selectedLine();
+    if (idx === null || !sel) return;
+    this.highlightsService.saveNote(
+      this.currentBookId(),
+      this.chapterIndex(),
+      idx,
+      sel.text,
+      this.noteDraft(),
+    );
+    this.showNoteModal.set(false);
+  }
+
+  toggleChapterBookmark(): void {
+    this.highlightsService.toggleBookmark(
+      this.currentBookId(),
+      this.chapterIndex(),
+      this.currentChapterTitle(),
+    );
+  }
+
   copySelected(): void {
     const sel = this.selectedLine();
     if (!sel) return;
-    const ref = `${this.toc()?.title || this.bookId} (Ch. ${this.chapterIndex()})`;
+    const ref = `${this.toc()?.title || this.currentBookId()} (Ch. ${this.chapterIndex()})`;
     void navigator.clipboard?.writeText(`${sel.text}\n— ${ref}`);
   }
 
   jumpToHighlight(target: { chapter: number; line: number }): void {
     this.showHighlights.set(false);
+    this.showSearch.set(false);
     void this.loadChapter(target.chapter, { line: target.line });
   }
 
@@ -594,12 +943,21 @@ export class BookReaderComponent implements OnInit {
       h.line,
       h.text,
       null,
+      '',
+    );
+  }
+
+  removeBookmark(bm: BookBookmark): void {
+    this.highlightsService.toggleBookmark(
+      bm.bookId,
+      bm.chapterIndex,
+      bm.chapterTitle,
     );
   }
 
   shareLocation(lineNum?: number): void {
     const url = new URL(
-      `/books/${encodeURIComponent(this.bookId)}`,
+      `/books/${encodeURIComponent(this.currentBookId())}`,
       window.location.origin,
     );
     url.searchParams.set('chapter', String(this.chapterIndex()));
@@ -607,7 +965,7 @@ export class BookReaderComponent implements OnInit {
     if (page) {
       url.searchParams.set('page', String(page));
     }
-    if (lineNum) {
+    if (lineNum !== undefined) {
       url.searchParams.set('line', String(lineNum));
     }
     const shareUrl = url.toString();

@@ -33,6 +33,8 @@ export const READER_FONTS: readonly ReaderFontOption[] = [
 
 export type ReaderPaperTheme = 'auto' | 'paper' | 'sepia' | 'night';
 export type BibleReadingLayout = 'verses' | 'paragraph';
+export type BookTextAlign = 'left' | 'justify';
+export type BookMarginSize = 'narrow' | 'medium' | 'wide';
 
 export interface PaperThemeOption {
   id: ReaderPaperTheme;
@@ -54,6 +56,9 @@ const KEY_LINE_HEIGHT = 'reader_line_height';
 const KEY_PRIMARY_BIBLE = 'primary_bible_version';
 const KEY_PAPER_THEME = 'reader_paper_theme';
 const KEY_BIBLE_LAYOUT = 'bible_reading_layout';
+const KEY_BOOK_ALIGN = 'book_text_align';
+const KEY_BOOK_MARGIN = 'book_margin_size';
+const KEY_BOOK_COLUMNS = 'book_columns';
 
 @Injectable({ providedIn: 'root' })
 export class ReaderAppearanceService {
@@ -70,6 +75,13 @@ export class ReaderAppearanceService {
   );
   readonly bibleLayout = signal<BibleReadingLayout>(
     this.readStr(KEY_BIBLE_LAYOUT, 'verses') === 'paragraph' ? 'paragraph' : 'verses',
+  );
+  readonly bookAlign = signal<BookTextAlign>(
+    this.readStr(KEY_BOOK_ALIGN, 'left') === 'justify' ? 'justify' : 'left',
+  );
+  readonly bookMargin = signal<BookMarginSize>(this.readBookMargin());
+  readonly bookColumns = signal<1 | 2>(
+    this.readStr(KEY_BOOK_COLUMNS, '1') === '2' ? 2 : 1,
   );
 
   constructor() {
@@ -118,6 +130,27 @@ export class ReaderAppearanceService {
   setBibleLayout(layout: BibleReadingLayout): void {
     this.bibleLayout.set(layout);
     this.writeStr(KEY_BIBLE_LAYOUT, layout);
+  }
+
+  setBookAlign(align: BookTextAlign): void {
+    this.bookAlign.set(align);
+    this.writeStr(KEY_BOOK_ALIGN, align);
+  }
+
+  setBookMargin(margin: BookMarginSize): void {
+    this.bookMargin.set(margin);
+    this.writeStr(KEY_BOOK_MARGIN, margin);
+  }
+
+  setBookColumns(cols: 1 | 2): void {
+    this.bookColumns.set(cols);
+    this.writeStr(KEY_BOOK_COLUMNS, String(cols));
+  }
+
+  private readBookMargin(): BookMarginSize {
+    const val = this.readStr(KEY_BOOK_MARGIN, 'medium');
+    if (val === 'narrow' || val === 'wide') return val;
+    return 'medium';
   }
 
   private readPaperTheme(): ReaderPaperTheme {

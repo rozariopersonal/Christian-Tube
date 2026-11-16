@@ -26,6 +26,9 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
           }
           <span class="ch-sub">
             Ch. {{ chapterIndex() }} of {{ totalChapters() }} · {{ progressPercent() }}%
+            @if (readingMinutes() > 0) {
+              · ~{{ readingMinutes() }} min left
+            }
           </span>
         </button>
 
@@ -115,6 +118,7 @@ export class BookReaderNavComponent {
   readonly chapterIndex = input.required<number>();
   readonly totalChapters = input.required<number>();
   readonly chapterTitle = input<string>('');
+  readonly readingMinutes = input<number>(0);
 
   readonly previous = output<void>();
   readonly next = output<void>();
