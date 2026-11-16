@@ -245,6 +245,9 @@ async function mockBackendAndCdn(page: Page): Promise<void> {
     }
     return route.fulfill({ status: 404, body: 'Not found' });
   });
+
+  await page.route('https://api.scripture.api.bible/**', (route) => route.abort());
+  await page.route('https://api.youversion.com/**', (route) => route.abort());
 }
 
 test.describe('ChristianApp Web E2E', () => {

@@ -17,6 +17,7 @@ import {
   BOOK_ABBREVS,
   BibleVerse,
 } from '../../bible/models/bible.model';
+import { OnlineBibleService } from '../../bible/services/online-bible.service';
 import { ParsedScriptureRef } from '../services/scripture-ref-parser.service';
 
 @Component({
@@ -117,6 +118,7 @@ import { ParsedScriptureRef } from '../services/scripture-ref-parser.service';
 export class ScriptureVerseSheetComponent implements OnInit {
   private readonly releases = inject(ReleaseDataService);
   private readonly appearance = inject(ReaderAppearanceService);
+  private readonly onlineBible = inject(OnlineBibleService);
   private readonly router = inject(Router);
 
   readonly ref = input.required<ParsedScriptureRef>();
@@ -164,9 +166,12 @@ export class ScriptureVerseSheetComponent implements OnInit {
     this.error.set(null);
     const r = this.ref();
     try {
-      const data = await this.releases.getJson<BibleVerse[]>(
-        `bibles/${this.versionId()}/${r.bookNumber}/${r.chapter}.json`,
-      );
+      const ver = this.versionId();
+      const data = this.onlineBible.isOnlineVersion(ver)
+        ? await this.onlineBible.fetchChapter(ver, r.bookNumber, r.chapter)
+        : await this.releases.getJson<BibleVerse[]>(
+            `bibles/${ver}/${r.bookNumber}/${r.chapter}.json`,
+          );
       this.verses.set(data);
     } catch {
       if (this.versionId() !== 'kjv') {
