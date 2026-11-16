@@ -17,6 +17,20 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'feed' },
       { path: 'feed', component: VideoFeedComponent },
       {
+        path: 'shorts',
+        loadComponent: () =>
+          import('./features/videos/pages/shorts.component').then(
+            (m) => m.ShortsComponent,
+          ),
+      },
+      {
+        path: 'words',
+        loadComponent: () =>
+          import('./features/words/pages/words-feed.component').then(
+            (m) => m.WordsFeedComponent,
+          ),
+      },
+      {
         path: 'watch/:id',
         loadComponent: () =>
           import('./features/videos/pages/watch-video.component').then(
