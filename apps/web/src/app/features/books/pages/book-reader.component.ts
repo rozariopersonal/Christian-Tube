@@ -57,7 +57,7 @@ import {
     >
       @if (!immersive()) {
         <header class="reader-bar">
-          <div class="bar-inner max-width-box">
+          <div class="bar-inner">
             <button type="button" class="toc-btn" (click)="showToc.set(true)">
               <span class="material-symbols-rounded">toc</span>
               <span class="book-name">{{ toc()?.title || 'Book Reader' }}</span>
@@ -133,7 +133,7 @@ import {
       }
 
       <div
-        class="reader-content max-width-box"
+        class="reader-content"
         [attr.data-margin]="appearance.bookMargin()"
         [class.two-col]="appearance.bookColumns() === 2"
       >
@@ -346,6 +346,8 @@ import {
 
       .bar-inner {
         height: var(--topbar-height);
+        width: 100%;
+        padding-inline: clamp(16px, 3vw, 32px);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -404,25 +406,20 @@ import {
       }
 
       .reader-content {
-        padding-top: 28px;
-        padding-bottom: 120px;
-        max-width: 720px;
-        transition: max-width 200ms ease;
+        width: 100%;
+        padding: 28px clamp(16px, 3vw, 40px) 120px;
+        transition: padding-inline 200ms ease;
       }
 
       .reader-content[data-margin='narrow'] {
-        max-width: 600px;
+        padding-inline: clamp(16px, 5vw, 72px);
       }
 
       .reader-content[data-margin='wide'] {
-        max-width: 880px;
+        padding-inline: clamp(12px, 1.5vw, 24px);
       }
 
       @media (min-width: 840px) {
-        .reader-content.two-col {
-          max-width: 1080px;
-        }
-
         .chapter-body.two-col-body {
           display: block;
           column-count: 2;
