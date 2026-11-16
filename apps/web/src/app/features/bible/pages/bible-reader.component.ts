@@ -10,7 +10,9 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest } from 'rxjs';
+import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { DictionarySheetComponent } from '../../books/components/dictionary-sheet.component';
 import { BibleAppearanceSheetComponent } from '../components/bible-appearance-sheet.component';
 import {
@@ -22,23 +24,31 @@ import { BibleBookmarksSheetComponent } from '../components/bible-bookmarks-shee
 import { BibleCompareSheetComponent } from '../components/bible-compare-sheet.component';
 import { BibleCrossRefsSheetComponent } from '../components/bible-cross-refs-sheet.component';
 import { BibleNoteSheetComponent } from '../components/bible-note-sheet.component';
-import { BibleReaderNavComponent } from '../components/bible-reader-nav.component';
+import { BibleParallelSheetComponent } from '../components/bible-parallel-sheet.component';
 import { BibleSearchSheetComponent } from '../components/bible-search-sheet.component';
 import { BibleStudySheetComponent } from '../components/bible-study-sheet.component';
 import { BibleVerseActionBarComponent } from '../components/bible-verse-action-bar.component';
 import { BibleVersionSheetComponent } from '../components/bible-version-sheet.component';
-import { BibleVerse } from '../models/bible.model';
+import { BIBLE_VERSIONS, BibleVerse } from '../models/bible.model';
 import { BibleReaderStateService } from '../services/bible-reader-state.service';
 import { BibleService } from '../services/bible.service';
+
+interface AppendedBibleChapter {
+  bookNumber: number;
+  bookName: string;
+  chapter: number;
+  verses: BibleVerse[];
+  parallelMap: Record<string, Record<number, string>>;
+}
 
 @Component({
   selector: 'app-bible-reader',
   standalone: true,
   imports: [
+    InfiniteScrollTriggerDirective,
     BibleVersionSheetComponent,
     BibleBookChapterSheetComponent,
     BibleVerseActionBarComponent,
-    BibleReaderNavComponent,
     BibleAppearanceSheetComponent,
     BibleBookmarksSheetComponent,
     BibleCrossRefsSheetComponent,
@@ -46,6 +56,7 @@ import { BibleService } from '../services/bible.service';
     BibleNoteSheetComponent,
     BibleSearchSheetComponent,
     BibleCompareSheetComponent,
+    BibleParallelSheetComponent,
     DictionarySheetComponent,
   ],
   providers: [BibleReaderStateService],
@@ -66,17 +77,52 @@ import { BibleService } from '../services/bible.service';
                 <span class="material-symbols-rounded pill-chev">expand_more</span>
               </button>
 
-              <button
-                type="button"
-                class="book-btn"
-                (click)="openBookPicker('books')"
-              >
-                <span>{{ bible.currentBook().name }} {{ bible.chapter() }}</span>
-                <span class="material-symbols-rounded">expand_more</span>
-              </button>
+              <div class="chapter-nav-group">
+                <button
+                  type="button"
+                  class="nav-step-btn"
+                  aria-label="Previous chapter"
+                  title="Previous chapter"
+                  (click)="prevChapter()"
+                >
+                  <span class="material-symbols-rounded">chevron_left</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="book-btn"
+                  (click)="openBookPicker('books')"
+                >
+                  <span>{{ bible.currentBook().name }} {{ bible.chapter() }}</span>
+                  <span class="material-symbols-rounded">expand_more</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="nav-step-btn"
+                  aria-label="Next chapter"
+                  title="Next chapter"
+                  (click)="nextChapter()"
+                >
+                  <span class="material-symbols-rounded">chevron_right</span>
+                </button>
+              </div>
             </div>
 
             <div class="bar-right">
+              <button
+                type="button"
+                class="icon-btn compare-btn"
+                [class.active-icon]="bible.compareVersions().length > 0"
+                title="Compare up to 3 Bible versions"
+                (click)="showParallelPicker.set(true)"
+              >
+                <span class="material-symbols-rounded">compare_arrows</span>
+                @if (bible.compareVersions().length > 0) {
+                  <span class="compare-count">{{ 1 + bible.compareVersions().length }}</span>
+                }
+              </button>
+
               <button
                 type="button"
                 class="icon-btn"
@@ -85,38 +131,88 @@ import { BibleService } from '../services/bible.service';
               >
                 <span class="material-symbols-rounded">search</span>
               </button>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Share chapter link"
-                (click)="sharePassage()"
-              >
-                <span class="material-symbols-rounded">share</span>
-              </button>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Bookmarks"
-                (click)="showBookmarks.set(true)"
-              >
-                <span class="material-symbols-rounded">bookmarks</span>
-              </button>
-              <button
-                type="button"
-                class="icon-btn aa-btn"
-                title="Reader Appearance"
-                (click)="showAppearance.set(true)"
-              >
-                Aa
-              </button>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Focus mode (F)"
-                (click)="immersive.set(true)"
-              >
-                <span class="material-symbols-rounded">fullscreen</span>
-              </button>
+
+              @if (!screen.collapseAppBarActions()) {
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Share chapter link"
+                  (click)="sharePassage()"
+                >
+                  <span class="material-symbols-rounded">share</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Bookmarks"
+                  (click)="showBookmarks.set(true)"
+                >
+                  <span class="material-symbols-rounded">bookmarks</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn aa-btn"
+                  title="Reader Appearance"
+                  (click)="showAppearance.set(true)"
+                >
+                  Aa
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Focus mode (F)"
+                  (click)="immersive.set(true)"
+                >
+                  <span class="material-symbols-rounded">fullscreen</span>
+                </button>
+              } @else {
+                <div class="menu-wrap">
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    aria-label="More reader options"
+                    (click)="menuOpen.set(!menuOpen())"
+                  >
+                    <span class="material-symbols-rounded">more_vert</span>
+                  </button>
+                  @if (menuOpen()) {
+                    <div class="overflow-menu" (click)="menuOpen.set(false)">
+                      <button
+                        type="button"
+                        class="menu-item"
+                        (click)="showAppearance.set(true)"
+                      >
+                        <span class="material-symbols-rounded">text_fields</span>
+                        Appearance (Aa)
+                      </button>
+                      <button
+                        type="button"
+                        class="menu-item"
+                        (click)="showBookmarks.set(true)"
+                      >
+                        <span class="material-symbols-rounded">bookmarks</span>
+                        Bookmarks
+                      </button>
+                      <button
+                        type="button"
+                        class="menu-item"
+                        (click)="sharePassage()"
+                      >
+                        <span class="material-symbols-rounded">share</span>
+                        Share Chapter
+                      </button>
+                      <button
+                        type="button"
+                        class="menu-item"
+                        (click)="immersive.set(true)"
+                      >
+                        <span class="material-symbols-rounded">fullscreen</span>
+                        Focus Mode
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
             </div>
           </div>
         </header>
@@ -146,7 +242,7 @@ import { BibleService } from '../services/bible.service';
         } @else {
           <header class="chapter-hero">
             <span class="hero-eyebrow">
-              {{ state.activeVersionInfo().label }} ·
+              {{ activeVersionLabels().join(' · ') }} ·
               {{ bible.bookNumber() <= 39 ? 'Old Testament' : 'New Testament' }}
             </span>
             <h1 class="hero-title font-display">
@@ -166,10 +262,24 @@ import { BibleService } from '../services/bible.service';
             </div>
           }
 
+          @if (bible.compareVersions().length > 0) {
+            <div class="parallel-col-headers">
+              @for (verId of activeCompareIds(); track verId) {
+                <span class="parallel-header-pill">{{ versionLabel(verId) }}</span>
+              }
+            </div>
+          }
+
           <article
             class="verses-flow"
-            [class.paragraph-mode]="appearance.bibleLayout() === 'paragraph'"
-            [class.two-col-body]="appearance.bookColumns() === 2"
+            [class.paragraph-mode]="
+              appearance.bibleLayout() === 'paragraph' &&
+              bible.compareVersions().length === 0
+            "
+            [class.two-col-body]="
+              appearance.bookColumns() === 2 &&
+              bible.compareVersions().length === 0
+            "
             [style.font-family]="appearance.activeFont().cssFamily"
             [style.font-size.px]="appearance.fontSize()"
             [style.line-height]="appearance.lineHeight()"
@@ -181,7 +291,26 @@ import { BibleService } from '../services/bible.service';
               @let refCount = state.crossRefCountMap().get(v.verse) ?? 0;
               @let studyCount = state.studyCountMap().get(v.verse) ?? 0;
 
-              @if (appearance.bibleLayout() === 'paragraph') {
+              @if (bible.compareVersions().length > 0) {
+                <div
+                  [id]="'verse-' + v.verse"
+                  class="parallel-row"
+                  [class.selected]="selected"
+                  [style.background-color]="state.highlightFor(v.verse)"
+                  (click)="onVerseTap(v)"
+                >
+                  <div class="parallel-cell">
+                    <span class="verse-num">{{ v.verse }}</span>
+                    <span>{{ v.text }}</span>
+                  </div>
+                  @for (compId of bible.compareVersions(); track compId) {
+                    <div class="parallel-cell">
+                      <span class="verse-num">{{ v.verse }}</span>
+                      <span>{{ primaryParallelMap()[compId]?.[v.verse] || '—' }}</span>
+                    </div>
+                  }
+                </div>
+              } @else if (appearance.bibleLayout() === 'paragraph') {
                 <span
                   [id]="'verse-' + v.verse"
                   class="verse-inline"
@@ -247,6 +376,73 @@ import { BibleService } from '../services/bible.service';
               }
             }
           </article>
+
+          @for (extra of appendedChapters(); track extra.bookNumber + ':' + extra.chapter) {
+            <section class="appended-chapter">
+              <header class="chapter-hero appended-hero">
+                <span class="hero-eyebrow">{{ activeVersionLabels().join(' · ') }}</span>
+                <h2 class="hero-title font-display">
+                  {{ extra.bookName }} {{ extra.chapter }}
+                </h2>
+              </header>
+
+              <article
+                class="verses-flow"
+                [class.paragraph-mode]="
+                  appearance.bibleLayout() === 'paragraph' &&
+                  bible.compareVersions().length === 0
+                "
+                [class.two-col-body]="
+                  appearance.bookColumns() === 2 &&
+                  bible.compareVersions().length === 0
+                "
+                [style.font-family]="appearance.activeFont().cssFamily"
+                [style.font-size.px]="appearance.fontSize()"
+                [style.line-height]="appearance.lineHeight()"
+                (dblclick)="lookupFromSelection()"
+              >
+                @for (v of extra.verses; track v.verse) {
+                  @if (bible.compareVersions().length > 0) {
+                    <div class="parallel-row">
+                      <div class="parallel-cell">
+                        <span class="verse-num">{{ v.verse }}</span>
+                        <span>{{ v.text }}</span>
+                      </div>
+                      @for (compId of bible.compareVersions(); track compId) {
+                        <div class="parallel-cell">
+                          <span class="verse-num">{{ v.verse }}</span>
+                          <span>{{ extra.parallelMap[compId]?.[v.verse] || '—' }}</span>
+                        </div>
+                      }
+                    </div>
+                  } @else if (appearance.bibleLayout() === 'paragraph') {
+                    <span class="verse-inline">
+                      <sup class="verse-sup">{{ v.verse }}</sup>
+                      <span>{{ v.text }}</span>{{ ' ' }}
+                    </span>
+                  } @else {
+                    <div class="verse-row">
+                      <span class="verse-num">{{ v.verse }}</span>
+                      <div class="verse-content">
+                        <span class="verse-text">{{ v.text }}</span>
+                      </div>
+                    </div>
+                  }
+                }
+              </article>
+            </section>
+          }
+
+          <div
+            class="scroll-sentinel"
+            appInfiniteScrollTrigger
+            [disabled]="loadingMore() || !hasNextChapter()"
+            (triggered)="appendNextChapter()"
+          >
+            @if (loadingMore()) {
+              <span>Loading next chapter...</span>
+            }
+          </div>
         }
       </div>
 
@@ -267,16 +463,6 @@ import { BibleService } from '../services/bible.service';
           (highlightChanged)="bible.setHighlight(selected.verse, $event)"
           (closed)="state.clearSelection()"
         />
-      } @else if (!immersive() && !bible.loading() && !bible.error()) {
-        <app-bible-reader-nav
-          [bookName]="bible.currentBook().name"
-          [chapter]="bible.chapter()"
-          [versionLabel]="state.activeVersionInfo().label"
-          [verseCount]="bible.verses().length"
-          (previous)="bible.prevChapter()"
-          (next)="bible.nextChapter()"
-          (openPicker)="openBookPicker('chapters')"
-        />
       }
 
       @if (showVersionPicker()) {
@@ -284,6 +470,16 @@ import { BibleService } from '../services/bible.service';
           [activeVersionId]="bible.version()"
           (versionSelected)="selectVersion($event)"
           (closed)="showVersionPicker.set(false)"
+        />
+      }
+
+      @if (showParallelPicker()) {
+        <app-bible-parallel-sheet
+          [primaryId]="bible.version()"
+          [compareIds]="bible.compareVersions()"
+          (toggled)="toggleParallelVersion($event)"
+          (cleared)="clearParallelVersions()"
+          (closed)="showParallelPicker.set(false)"
         />
       }
 
@@ -406,11 +602,11 @@ import { BibleService } from '../services/bible.service';
       .bar-inner {
         height: var(--topbar-height);
         width: 100%;
-        padding-inline: clamp(16px, 3vw, 32px);
+        padding-inline: clamp(10px, 2.5vw, 32px);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 6px;
       }
 
       .bar-left,
@@ -424,32 +620,54 @@ import { BibleService } from '../services/bible.service';
       .version-pill {
         display: inline-flex;
         align-items: center;
-        gap: 2px;
+        gap: 1px;
         height: 32px;
-        padding: 0 10px 0 12px;
+        padding: 0 8px 0 10px;
         border-radius: var(--radius-pill);
         background-color: var(--accent-soft);
         border: 1px solid var(--accent);
         color: var(--accent);
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 700;
         flex-shrink: 0;
       }
 
       .pill-chev {
-        font-size: 18px;
+        font-size: 16px;
+      }
+
+      .chapter-nav-group {
+        display: inline-flex;
+        align-items: center;
+        background-color: var(--surface-variant);
+        border: 1px solid var(--reader-border, var(--surface-border));
+        border-radius: var(--radius-sm);
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .nav-step-btn {
+        width: 28px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        color: var(--on-surface);
+        flex-shrink: 0;
+      }
+
+      .nav-step-btn:hover {
+        background-color: var(--accent-soft);
+        color: var(--accent);
       }
 
       .book-btn {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        padding: 6px 10px;
-        border-radius: var(--radius-sm);
-        background-color: var(--surface-variant);
-        border: 1px solid var(--reader-border, var(--surface-border));
+        gap: 2px;
+        height: 32px;
+        padding: 0 6px;
         color: var(--on-surface);
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 600;
         min-width: 0;
       }
@@ -460,10 +678,67 @@ import { BibleService } from '../services/bible.service';
         white-space: nowrap;
       }
 
+      .compare-btn {
+        position: relative;
+      }
+
+      .active-icon {
+        color: var(--accent);
+        background-color: var(--accent-soft);
+      }
+
+      .compare-count {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        min-width: 15px;
+        height: 15px;
+        border-radius: var(--radius-pill);
+        background-color: var(--accent);
+        color: var(--on-accent);
+        font-size: 10px;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+      }
+
       .aa-btn {
         font-family: Georgia, serif;
         font-weight: 700;
         font-size: 16px;
+      }
+
+      .menu-wrap {
+        position: relative;
+      }
+
+      .overflow-menu {
+        position: absolute;
+        top: 44px;
+        right: 0;
+        min-width: 190px;
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-md);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        z-index: 60;
+      }
+
+      .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 14px;
+        text-align: left;
+      }
+
+      .menu-item:hover {
+        background-color: var(--surface-variant);
       }
 
       .exit-focus-btn {
@@ -481,19 +756,23 @@ import { BibleService } from '../services/bible.service';
         opacity: 0.75;
       }
 
-      .exit-focus-btn:hover {
-        opacity: 1;
-      }
-
       .reader-body {
         width: 100%;
-        padding: 26px clamp(16px, 3vw, 40px) 120px;
+        padding: 22px clamp(16px, 3vw, 40px) 72px;
       }
 
       .chapter-hero {
-        margin-bottom: 20px;
-        padding-bottom: 16px;
+        margin-bottom: 18px;
+        padding-bottom: 14px;
         border-bottom: 1px solid var(--reader-border, var(--surface-border));
+      }
+
+      .appended-chapter {
+        margin-top: 36px;
+      }
+
+      .appended-hero {
+        padding-top: 12px;
       }
 
       .hero-eyebrow {
@@ -503,12 +782,12 @@ import { BibleService } from '../services/bible.service';
         letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--accent);
-        margin-bottom: 6px;
+        margin-bottom: 4px;
       }
 
       .hero-title {
-        margin: 0 0 8px;
-        font-size: clamp(24px, 3vw, 32px);
+        margin: 0 0 6px;
+        font-size: clamp(22px, 3vw, 30px);
         line-height: 1.2;
         font-weight: 700;
       }
@@ -519,6 +798,44 @@ import { BibleService } from '../services/bible.service';
         gap: 6px;
         font-size: 13px;
         color: var(--reader-muted, var(--on-surface-muted));
+      }
+
+      .parallel-col-headers {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--reader-border, var(--surface-border));
+      }
+
+      .parallel-header-pill {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .parallel-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        padding: 10px;
+        border-radius: var(--radius-sm);
+        border-bottom: 1px solid var(--reader-border, var(--surface-border));
+        cursor: pointer;
+      }
+
+      .parallel-row.selected {
+        outline: 2px solid var(--accent);
+      }
+
+      .parallel-cell {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
       }
 
       .status-msg,
@@ -671,17 +988,27 @@ import { BibleService } from '../services/bible.service';
         color: var(--accent);
         flex-shrink: 0;
       }
+
+      .scroll-sentinel {
+        height: 48px;
+        display: grid;
+        place-items: center;
+        color: var(--reader-muted, var(--on-surface-muted));
+        font-size: 13px;
+      }
     `,
   ],
 })
 export class BibleReaderComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  readonly screen = inject(ScreenClassService);
   readonly bible = inject(BibleService);
   readonly appearance = inject(ReaderAppearanceService);
   readonly state = inject(BibleReaderStateService);
 
   readonly showVersionPicker = signal<boolean>(false);
+  readonly showParallelPicker = signal<boolean>(false);
   readonly showBookPicker = signal<boolean>(false);
   readonly bookPickerTab = signal<BiblePickerTab>('books');
   readonly showSearch = signal<boolean>(false);
@@ -692,8 +1019,31 @@ export class BibleReaderComponent implements OnInit {
   readonly showNoteModal = signal<boolean>(false);
   readonly showCompare = signal<boolean>(false);
   readonly immersive = signal<boolean>(false);
+  readonly menuOpen = signal<boolean>(false);
   readonly lookupWord = signal<string | null>(null);
+
+  readonly primaryParallelMap = signal<Record<string, Record<number, string>>>({});
+  readonly appendedChapters = signal<AppendedBibleChapter[]>([]);
+  readonly loadingMore = signal<boolean>(false);
+
   private readonly routeReady = signal<boolean>(false);
+
+  readonly activeCompareIds = computed(() => [
+    this.bible.version(),
+    ...this.bible.compareVersions(),
+  ]);
+
+  readonly activeVersionLabels = computed(() =>
+    this.activeCompareIds().map((id) => this.versionLabel(id)),
+  );
+
+  readonly hasNextChapter = computed(() => {
+    const list = this.appendedChapters();
+    const last = list.length > 0
+      ? list[list.length - 1]
+      : { bookNumber: this.bible.bookNumber(), chapter: this.bible.chapter() };
+    return this.bible.nextChapterOf(last.bookNumber, last.chapter) !== null;
+  });
 
   readonly selectedRefLabel = computed(() => {
     const v = this.state.selectedVerse();
@@ -722,6 +1072,7 @@ export class BibleReaderComponent implements OnInit {
     if (event.key === 'Escape') {
       this.state.clearSelection();
       this.showVersionPicker.set(false);
+      this.showParallelPicker.set(false);
       this.showBookPicker.set(false);
       this.showSearch.set(false);
       this.showAppearance.set(false);
@@ -732,6 +1083,7 @@ export class BibleReaderComponent implements OnInit {
       this.showCompare.set(false);
       this.lookupWord.set(null);
       this.immersive.set(false);
+      this.menuOpen.set(false);
       return;
     }
     if (event.key === 'f' || event.key === 'F') {
@@ -740,6 +1092,7 @@ export class BibleReaderComponent implements OnInit {
     }
     if (
       this.showVersionPicker() ||
+      this.showParallelPicker() ||
       this.showBookPicker() ||
       this.showSearch() ||
       this.showAppearance() ||
@@ -753,9 +1106,9 @@ export class BibleReaderComponent implements OnInit {
       return;
     }
     if (event.key === 'ArrowLeft') {
-      void this.bible.prevChapter();
+      this.prevChapter();
     } else if (event.key === 'ArrowRight') {
-      void this.bible.nextChapter();
+      this.nextChapter();
     }
   }
 
@@ -808,6 +1161,12 @@ export class BibleReaderComponent implements OnInit {
     );
   }
 
+  versionLabel(id: string): string {
+    return (
+      BIBLE_VERSIONS.find((v) => v.id === id)?.label ?? id.toUpperCase()
+    );
+  }
+
   private async initFromRoute(
     version?: string,
     book?: string,
@@ -815,13 +1174,139 @@ export class BibleReaderComponent implements OnInit {
     verse?: number,
   ): Promise<void> {
     this.routeReady.set(false);
+    this.appendedChapters.set([]);
     await this.bible.init({ version, book, chapter });
+    await this.loadPrimaryParallel();
     if (verse && verse > 0) {
       this.focusVerse(verse);
     } else {
       this.state.clearSelection();
     }
     this.routeReady.set(true);
+  }
+
+  private async loadPrimaryParallel(): Promise<void> {
+    const compareIds = this.bible.compareVersions();
+    if (compareIds.length === 0) {
+      this.primaryParallelMap.set({});
+      return;
+    }
+    this.primaryParallelMap.set(
+      await this.buildParallelMap(
+        compareIds,
+        this.bible.bookNumber(),
+        this.bible.chapter(),
+      ),
+    );
+  }
+
+  private async buildParallelMap(
+    versionIds: string[],
+    bookNum: number,
+    ch: number,
+  ): Promise<Record<string, Record<number, string>>> {
+    const map: Record<string, Record<number, string>> = {};
+    await Promise.all(
+      versionIds.map(async (id) => {
+        const verses = await this.bible.fetchChapterVerses(id, bookNum, ch);
+        const rec: Record<number, string> = {};
+        for (const v of verses) {
+          rec[v.verse] = v.text;
+        }
+        map[id] = rec;
+      }),
+    );
+    return map;
+  }
+
+  async appendNextChapter(): Promise<void> {
+    if (this.loadingMore() || this.bible.loading()) return;
+    const list = this.appendedChapters();
+    const last =
+      list.length > 0
+        ? list[list.length - 1]
+        : { bookNumber: this.bible.bookNumber(), chapter: this.bible.chapter() };
+    const nextTarget = this.bible.nextChapterOf(last.bookNumber, last.chapter);
+    if (!nextTarget) return;
+
+    this.loadingMore.set(true);
+    try {
+      const verses = await this.bible.fetchChapterVerses(
+        this.bible.version(),
+        nextTarget.bookNumber,
+        nextTarget.chapter,
+      );
+      if (verses.length === 0) return;
+
+      const parallelMap =
+        this.bible.compareVersions().length > 0
+          ? await this.buildParallelMap(
+              this.bible.compareVersions(),
+              nextTarget.bookNumber,
+              nextTarget.chapter,
+            )
+          : {};
+
+      this.appendedChapters.update((cur) => [
+        ...cur,
+        {
+          bookNumber: nextTarget.bookNumber,
+          bookName: nextTarget.bookName,
+          chapter: nextTarget.chapter,
+          verses,
+          parallelMap,
+        },
+      ]);
+    } finally {
+      this.loadingMore.set(false);
+    }
+  }
+
+  prevChapter(): void {
+    this.appendedChapters.set([]);
+    this.state.clearSelection();
+    this.bible.prevChapter();
+    void this.loadPrimaryParallel();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  nextChapter(): void {
+    this.appendedChapters.set([]);
+    this.state.clearSelection();
+    this.bible.nextChapter();
+    void this.loadPrimaryParallel();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  toggleParallelVersion(versionId: string): void {
+    this.bible.toggleCompareVersion(versionId);
+    void this.refreshAllParallelMaps();
+  }
+
+  clearParallelVersions(): void {
+    this.bible.clearCompareVersions();
+    this.primaryParallelMap.set({});
+    this.appendedChapters.update((list) =>
+      list.map((c) => ({ ...c, parallelMap: {} })),
+    );
+    this.showParallelPicker.set(false);
+  }
+
+  private async refreshAllParallelMaps(): Promise<void> {
+    await this.loadPrimaryParallel();
+    const compareIds = this.bible.compareVersions();
+    const existing = this.appendedChapters();
+    if (existing.length === 0) return;
+    const updated = await Promise.all(
+      existing.map(async (c) => ({
+        ...c,
+        parallelMap:
+          compareIds.length > 0
+            ? await this.buildParallelMap(compareIds, c.bookNumber, c.chapter)
+            : {},
+      })),
+    );
+    this.appendedChapters.set(updated);
   }
 
   private focusVerse(verseNum: number): void {
@@ -897,10 +1382,12 @@ export class BibleReaderComponent implements OnInit {
     }
   }
 
-  selectVersion(versionId: string): void {
+  async selectVersion(versionId: string): Promise<void> {
     this.showVersionPicker.set(false);
     this.state.clearSelection();
-    void this.bible.loadVersion(versionId);
+    this.appendedChapters.set([]);
+    await this.bible.loadVersion(versionId);
+    await this.loadPrimaryParallel();
   }
 
   openBookPicker(tab: BiblePickerTab): void {
@@ -924,9 +1411,13 @@ export class BibleReaderComponent implements OnInit {
   }): Promise<void> {
     this.showSearch.set(false);
     this.state.clearSelection();
+    this.appendedChapters.set([]);
     await this.bible.loadChapter(target.bookNumber, target.chapter);
+    await this.loadPrimaryParallel();
     if (target.verse) {
       this.focusVerse(target.verse);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
@@ -938,12 +1429,17 @@ export class BibleReaderComponent implements OnInit {
   jumpToCrossRef(abbrev: string, ch: number): void {
     this.showCrossRefs.set(false);
     this.state.clearSelection();
+    this.appendedChapters.set([]);
     this.bible.jumpToAbbrev(abbrev, ch);
+    void this.loadPrimaryParallel();
   }
 
   jumpToBookmark(bookNum: number, ch: number): void {
     this.showBookmarks.set(false);
     this.state.clearSelection();
-    void this.bible.loadChapter(bookNum, ch);
+    this.appendedChapters.set([]);
+    void this.bible.loadChapter(bookNum, ch).then(() => {
+      void this.loadPrimaryParallel();
+    });
   }
 }

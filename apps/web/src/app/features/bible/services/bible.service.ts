@@ -33,6 +33,7 @@ export class BibleService {
   readonly study = signal<ChapterStudy | null>(null);
   readonly loading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
+  readonly compareVersions = signal<string[]>([]);
 
   readonly highlights = signal<Record<string, string>>(
     this.readJson<Record<string, string>>(KEY_HIGHLIGHTS, {}),
@@ -262,7 +263,63 @@ export class BibleService {
   }
 
   verseKey(verseNum: number): string {
-    return `${this.bookNumber()}:${this.chapter()}:${verseNum}`;
+    return this.verseKeyFor(this.bookNumber(), this.chapter(), verseNum);
+  }
+
+  verseKeyFor(bookNum: number, ch: number, verseNum: number): string {
+    return `${bookNum}:${ch}:${verseNum}`;
+  }
+
+  toggleCompareVersion(versionId: string): void {
+    const clean = versionId.toLowerCase();
+    if (clean === this.version()) return;
+    const cur = this.compareVersions();
+    if (cur.includes(clean)) {
+      this.compareVersions.set(cur.filter((v) => v !== clean));
+    } else if (cur.length < 2) {
+      this.compareVersions.set([...cur, clean]);
+    } else {
+      this.compareVersions.set([cur[1], clean]);
+    }
+  }
+
+  clearCompareVersions(): void {
+    this.compareVersions.set([]);
+  }
+
+  nextChapterOf(
+    bookNum: number,
+    ch: number,
+  ): { bookNumber: number; bookName: string; chapter: number } | null {
+    const books = this.books();
+    const cur = books.find((b) => b.bookNumber === bookNum);
+    if (!cur) return null;
+    if (ch < cur.chapters) {
+      return { bookNumber: bookNum, bookName: cur.name, chapter: ch + 1 };
+    }
+    const nextBook = books.find((b) => b.bookNumber === bookNum + 1);
+    if (nextBook) {
+      return {
+        bookNumber: nextBook.bookNumber,
+        bookName: nextBook.name,
+        chapter: 1,
+      };
+    }
+    return null;
+  }
+
+  async fetchChapterVerses(
+    versionId: string,
+    bookNum: number,
+    ch: number,
+  ): Promise<BibleVerse[]> {
+    try {
+      return await this.releases.getJson<BibleVerse[]>(
+        `bibles/${versionId.toLowerCase()}/${bookNum}/${ch}.json`,
+      );
+    } catch {
+      return [];
+    }
   }
 
   setHighlight(verseNum: number, color: string | null): void {
