@@ -266,8 +266,10 @@ test.describe('ChristianApp Web E2E', () => {
     // 2. Channels
     await page.goto('/channels');
     await expect(page.getByText('Grace Fellowship')).toBeVisible();
-    await page.getByRole('button', { name: 'Subscribe' }).click();
-    await expect(page.getByRole('button', { name: 'Subscribed' })).toBeVisible();
+    await page.getByRole('button', { name: 'Follow', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Following', exact: true }),
+    ).toBeVisible();
 
     // 3. Bible Reader
     await page.goto('/bible');
