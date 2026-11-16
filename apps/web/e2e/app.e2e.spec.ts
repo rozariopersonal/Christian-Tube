@@ -209,7 +209,8 @@ test.describe('ChristianApp Web E2E', () => {
       .getByText('In the beginning God created the heavens and the earth.')
       .click();
     await expect(page.getByRole('button', { name: /Cross-Refs/ })).toBeVisible();
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Close verse actions' }).click();
+    await page.getByRole('button', { name: 'Next chapter' }).click();
     await expect(
       page.getByText('Thus the heavens and the earth were completed.'),
     ).toBeVisible();

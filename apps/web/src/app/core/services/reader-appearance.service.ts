@@ -32,6 +32,7 @@ export const READER_FONTS: readonly ReaderFontOption[] = [
 ];
 
 export type ReaderPaperTheme = 'auto' | 'paper' | 'sepia' | 'night';
+export type BibleReadingLayout = 'verses' | 'paragraph';
 
 export interface PaperThemeOption {
   id: ReaderPaperTheme;
@@ -52,6 +53,7 @@ const KEY_FONT_SIZE = 'reader_font_size';
 const KEY_LINE_HEIGHT = 'reader_line_height';
 const KEY_PRIMARY_BIBLE = 'primary_bible_version';
 const KEY_PAPER_THEME = 'reader_paper_theme';
+const KEY_BIBLE_LAYOUT = 'bible_reading_layout';
 
 @Injectable({ providedIn: 'root' })
 export class ReaderAppearanceService {
@@ -65,6 +67,9 @@ export class ReaderAppearanceService {
   );
   readonly paperTheme = signal<ReaderPaperTheme>(
     this.readPaperTheme(),
+  );
+  readonly bibleLayout = signal<BibleReadingLayout>(
+    this.readStr(KEY_BIBLE_LAYOUT, 'verses') === 'paragraph' ? 'paragraph' : 'verses',
   );
 
   constructor() {
@@ -108,6 +113,11 @@ export class ReaderAppearanceService {
   setPaperTheme(theme: ReaderPaperTheme): void {
     this.paperTheme.set(theme);
     this.writeStr(KEY_PAPER_THEME, theme);
+  }
+
+  setBibleLayout(layout: BibleReadingLayout): void {
+    this.bibleLayout.set(layout);
+    this.writeStr(KEY_BIBLE_LAYOUT, layout);
   }
 
   private readPaperTheme(): ReaderPaperTheme {
