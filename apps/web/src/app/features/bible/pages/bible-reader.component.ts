@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -45,6 +46,7 @@ interface AppendedBibleChapter {
   selector: 'app-bible-reader',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     InfiniteScrollTriggerDirective,
     BibleVersionSheetComponent,
     BibleBookChapterSheetComponent,
@@ -253,6 +255,31 @@ interface AppendedBibleChapter {
             </button>
           </div>
         } @else {
+          @if (hasPrevChapter()) {
+            <div class="top-scroll-sentinel">
+              <button
+                type="button"
+                class="load-prev-btn"
+                [disabled]="loadingPrev()"
+                (click)="prependPrevChapter()"
+              >
+                @if (loadingPrev()) {
+                  <span>Loading {{ prevChapterLabel() }}...</span>
+                } @else {
+                  <span class="material-symbols-rounded">arrow_upward</span>
+                  <span>{{ prevChapterLabel() }}</span>
+                }
+              </button>
+            </div>
+          }
+
+          @for (extra of prependedChapters(); track extra.bookNumber + ':' + extra.chapter) {
+            <ng-container
+              [ngTemplateOutlet]="extraChapterTpl"
+              [ngTemplateOutletContext]="{ $implicit: extra, isPrepended: true }"
+            />
+          }
+
           @if (bible.fallbackNotice()) {
             <p class="status-msg">{{ bible.fallbackNotice() }}</p>
           }
@@ -380,7 +407,14 @@ interface AppendedBibleChapter {
           </article>
 
           @for (extra of appendedChapters(); track extra.bookNumber + ':' + extra.chapter) {
-            <section class="appended-chapter">
+            <ng-container
+              [ngTemplateOutlet]="extraChapterTpl"
+              [ngTemplateOutletContext]="{ $implicit: extra, isPrepended: false }"
+            />
+          }
+
+          <ng-template #extraChapterTpl let-extra let-isPrepended="isPrepended">
+            <section class="appended-chapter" [class.prepended-chapter]="isPrepended">
               <header class="chapter-hero appended-hero">
                 <h2 class="hero-title font-display">
                   {{ extra.bookName }} {{ extra.chapter }}
@@ -437,7 +471,7 @@ interface AppendedBibleChapter {
                 }
               </article>
             </section>
-          }
+          </ng-template>
 
           <div
             class="scroll-sentinel"
@@ -791,6 +825,41 @@ interface AppendedBibleChapter {
         margin-top: 36px;
       }
 
+      .prepended-chapter {
+        margin-top: 0;
+        margin-bottom: 36px;
+      }
+
+      .top-scroll-sentinel {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 16px;
+      }
+
+      .load-prev-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 32px;
+        padding: 4px 12px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--reader-border, var(--surface-border));
+        background-color: var(--reader-surface, var(--surface-variant));
+        color: var(--reader-muted, var(--on-surface-muted));
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .load-prev-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .load-prev-btn .material-symbols-rounded {
+        font-size: 15px;
+      }
+
       .appended-hero {
         padding-top: 12px;
       }
@@ -1042,10 +1111,13 @@ export class BibleReaderComponent implements OnInit {
   readonly lookupWord = signal<string | null>(null);
 
   readonly primaryParallelMap = signal<Record<string, Record<number, string>>>({});
+  readonly prependedChapters = signal<AppendedBibleChapter[]>([]);
   readonly appendedChapters = signal<AppendedBibleChapter[]>([]);
+  readonly loadingPrev = signal<boolean>(false);
   readonly loadingMore = signal<boolean>(false);
 
   private readonly routeReady = signal<boolean>(false);
+  private hasScrolledDown = false;
 
   readonly activeCompareIds = computed(() => [
     this.bible.version(),
@@ -1055,6 +1127,26 @@ export class BibleReaderComponent implements OnInit {
   readonly activeVersionLabels = computed(() =>
     this.activeCompareIds().map((id) => this.versionLabel(id)),
   );
+
+  readonly hasPrevChapter = computed(() => this.prevChapterTarget() !== null);
+
+  readonly prevChapterLabel = computed(() => {
+    const t = this.prevChapterTarget();
+    return t ? `${t.bookName} ${t.chapter}` : '';
+  });
+
+  private prevChapterTarget(): {
+    bookNumber: number;
+    bookName: string;
+    chapter: number;
+  } | null {
+    const list = this.prependedChapters();
+    const first =
+      list.length > 0
+        ? list[0]
+        : { bookNumber: this.bible.bookNumber(), chapter: this.bible.chapter() };
+    return this.bible.prevChapterOf(first.bookNumber, first.chapter);
+  }
 
   readonly hasNextChapter = computed(() => {
     const list = this.appendedChapters();
@@ -1077,6 +1169,34 @@ export class BibleReaderComponent implements OnInit {
       .reduce((acc, v) => acc + (v.text ? v.text.split(/\s+/).length : 0), 0);
     return Math.max(1, Math.round(words / 200));
   });
+
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    if (window.scrollY > 180) {
+      this.hasScrolledDown = true;
+    } else if (
+      this.hasScrolledDown &&
+      window.scrollY <= 80 &&
+      this.hasPrevChapter() &&
+      !this.loadingPrev() &&
+      !this.bible.loading()
+    ) {
+      void this.prependPrevChapter();
+    }
+  }
+
+  @HostListener('window:wheel', ['$event'])
+  onWindowWheel(event: WheelEvent): void {
+    if (
+      event.deltaY < 0 &&
+      window.scrollY <= 4 &&
+      this.hasPrevChapter() &&
+      !this.loadingPrev() &&
+      !this.bible.loading()
+    ) {
+      void this.prependPrevChapter();
+    }
+  }
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
@@ -1186,6 +1306,12 @@ export class BibleReaderComponent implements OnInit {
     );
   }
 
+  private resetInfiniteChapters(): void {
+    this.prependedChapters.set([]);
+    this.appendedChapters.set([]);
+    this.hasScrolledDown = false;
+  }
+
   private async initFromRoute(
     version?: string,
     book?: string,
@@ -1193,7 +1319,7 @@ export class BibleReaderComponent implements OnInit {
     verse?: number,
   ): Promise<void> {
     this.routeReady.set(false);
-    this.appendedChapters.set([]);
+    this.resetInfiniteChapters();
     await this.bible.init({ version, book, chapter });
     await this.loadPrimaryParallel();
     if (verse && verse > 0) {
@@ -1236,6 +1362,53 @@ export class BibleReaderComponent implements OnInit {
       }),
     );
     return map;
+  }
+
+  async prependPrevChapter(): Promise<void> {
+    if (this.loadingPrev() || this.bible.loading()) return;
+    const prevTarget = this.prevChapterTarget();
+    if (!prevTarget) return;
+
+    this.loadingPrev.set(true);
+    try {
+      const verses = await this.bible.fetchChapterVerses(
+        this.bible.version(),
+        prevTarget.bookNumber,
+        prevTarget.chapter,
+        true,
+      );
+      if (verses.length === 0) return;
+
+      const parallelMap =
+        this.bible.compareVersions().length > 0
+          ? await this.buildParallelMap(
+              this.bible.compareVersions(),
+              prevTarget.bookNumber,
+              prevTarget.chapter,
+            )
+          : {};
+
+      const prevHeight = document.documentElement.scrollHeight;
+      this.prependedChapters.update((cur) => [
+        {
+          bookNumber: prevTarget.bookNumber,
+          bookName: prevTarget.bookName,
+          chapter: prevTarget.chapter,
+          verses,
+          parallelMap,
+        },
+        ...cur,
+      ]);
+
+      requestAnimationFrame(() => {
+        const delta = document.documentElement.scrollHeight - prevHeight;
+        if (delta > 0) {
+          window.scrollBy(0, delta);
+        }
+      });
+    } finally {
+      this.loadingPrev.set(false);
+    }
   }
 
   async appendNextChapter(): Promise<void> {
@@ -1283,7 +1456,7 @@ export class BibleReaderComponent implements OnInit {
   }
 
   prevChapter(): void {
-    this.appendedChapters.set([]);
+    this.resetInfiniteChapters();
     this.state.clearSelection();
     this.bible.prevChapter();
     void this.loadPrimaryParallel();
@@ -1291,7 +1464,7 @@ export class BibleReaderComponent implements OnInit {
   }
 
   nextChapter(): void {
-    this.appendedChapters.set([]);
+    this.resetInfiniteChapters();
     this.state.clearSelection();
     this.bible.nextChapter();
     void this.loadPrimaryParallel();
@@ -1306,6 +1479,9 @@ export class BibleReaderComponent implements OnInit {
   clearParallelVersions(): void {
     this.bible.clearCompareVersions();
     this.primaryParallelMap.set({});
+    this.prependedChapters.update((list) =>
+      list.map((c) => ({ ...c, parallelMap: {} })),
+    );
     this.appendedChapters.update((list) =>
       list.map((c) => ({ ...c, parallelMap: {} })),
     );
@@ -1315,18 +1491,24 @@ export class BibleReaderComponent implements OnInit {
   private async refreshAllParallelMaps(): Promise<void> {
     await this.loadPrimaryParallel();
     const compareIds = this.bible.compareVersions();
-    const existing = this.appendedChapters();
-    if (existing.length === 0) return;
-    const updated = await Promise.all(
-      existing.map(async (c) => ({
-        ...c,
-        parallelMap:
-          compareIds.length > 0
-            ? await this.buildParallelMap(compareIds, c.bookNumber, c.chapter)
-            : {},
-      })),
-    );
-    this.appendedChapters.set(updated);
+    const mapList = async (list: AppendedBibleChapter[]) =>
+      list.length === 0
+        ? list
+        : Promise.all(
+            list.map(async (c) => ({
+              ...c,
+              parallelMap:
+                compareIds.length > 0
+                  ? await this.buildParallelMap(compareIds, c.bookNumber, c.chapter)
+                  : {},
+            })),
+          );
+    const [prepUpdated, appUpdated] = await Promise.all([
+      mapList(this.prependedChapters()),
+      mapList(this.appendedChapters()),
+    ]);
+    this.prependedChapters.set(prepUpdated);
+    this.appendedChapters.set(appUpdated);
   }
 
   private focusVerse(verseNum: number): void {
@@ -1405,7 +1587,7 @@ export class BibleReaderComponent implements OnInit {
   async selectVersion(versionId: string): Promise<void> {
     this.showVersionPicker.set(false);
     this.state.clearSelection();
-    this.appendedChapters.set([]);
+    this.resetInfiniteChapters();
     await this.bible.loadVersion(versionId);
     await this.loadPrimaryParallel();
   }
@@ -1431,7 +1613,7 @@ export class BibleReaderComponent implements OnInit {
   }): Promise<void> {
     this.showSearch.set(false);
     this.state.clearSelection();
-    this.appendedChapters.set([]);
+    this.resetInfiniteChapters();
     await this.bible.loadChapter(target.bookNumber, target.chapter);
     await this.loadPrimaryParallel();
     if (target.verse) {
@@ -1449,7 +1631,7 @@ export class BibleReaderComponent implements OnInit {
   jumpToCrossRef(abbrev: string, ch: number): void {
     this.showCrossRefs.set(false);
     this.state.clearSelection();
-    this.appendedChapters.set([]);
+    this.resetInfiniteChapters();
     this.bible.jumpToAbbrev(abbrev, ch);
     void this.loadPrimaryParallel();
   }
@@ -1457,7 +1639,7 @@ export class BibleReaderComponent implements OnInit {
   jumpToBookmark(bookNum: number, ch: number): void {
     this.showBookmarks.set(false);
     this.state.clearSelection();
-    this.appendedChapters.set([]);
+    this.resetInfiniteChapters();
     void this.bible.loadChapter(bookNum, ch).then(() => {
       void this.loadPrimaryParallel();
     });
