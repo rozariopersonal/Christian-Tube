@@ -103,10 +103,10 @@ import { BooksService } from '../services/books.service';
             [style.line-height]="appearance.lineHeight()"
           >
             @for (line of lines(); track $index) {
-              @let hl = highlightColor(line.line);
+              @let hl = highlightColor($index);
               @if (line.isHeading) {
                 <h2
-                  [id]="'book-line-' + line.line"
+                  [id]="'book-line-' + $index"
                   class="chapter-heading"
                   [class.sub-heading]="(line.headingLevel ?? 1) > 1"
                 >
@@ -114,12 +114,12 @@ import { BooksService } from '../services/books.service';
                 </h2>
               } @else {
                 <p
-                  [id]="'book-line-' + line.line"
+                  [id]="'book-line-' + $index"
                   class="chapter-para"
                   [class.is-quote]="isQuoteLine(line)"
-                  [class.selected]="selectedLine()?.line === line.line"
+                  [class.selected]="selectedIndex() === $index"
                   [style.background-color]="hl ? hl + '55' : null"
-                  (click)="toggleSelectLine(line)"
+                  (click)="toggleSelectLine($index)"
                 >
                   {{ line.text }}
                 </p>
@@ -133,9 +133,9 @@ import { BooksService } from '../services/books.service';
         <app-book-line-action-bar
           [line]="sel"
           (copy)="copySelected()"
-          (share)="shareLocation(sel.line)"
-          (highlightChanged)="setHighlight(sel, $event)"
-          (closed)="selectedLine.set(null)"
+          (share)="shareLocation(selectedIndex()!)"
+          (highlightChanged)="setHighlight(selectedIndex()!, sel, $event)"
+          (closed)="selectedIndex.set(null)"
         />
       } @else if (!loading() && toc()) {
         <app-book-reader-nav
@@ -345,7 +345,11 @@ export class BookReaderComponent implements OnInit {
   readonly chapterIndex = signal<number>(1);
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
-  readonly selectedLine = signal<BookLine | null>(null);
+  readonly selectedIndex = signal<number | null>(null);
+  readonly selectedLine = computed(() => {
+    const idx = this.selectedIndex();
+    return idx !== null ? this.lines()[idx] ?? null : null;
+  });
 
   readonly showToc = signal<boolean>(false);
   readonly showAppearance = signal<boolean>(false);
@@ -376,7 +380,7 @@ export class BookReaderComponent implements OnInit {
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
-      this.selectedLine.set(null);
+      this.selectedIndex.set(null);
       this.showToc.set(false);
       this.showAppearance.set(false);
       this.showHighlights.set(false);
@@ -436,7 +440,7 @@ export class BookReaderComponent implements OnInit {
     this.bookId = bookId;
     this.loading.set(true);
     this.error.set(null);
-    this.selectedLine.set(null);
+    this.selectedIndex.set(null);
     const catalogItem = this.booksService
       .catalog()
       .find((b) => b.id === bookId);
@@ -483,7 +487,7 @@ export class BookReaderComponent implements OnInit {
   ): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
-    this.selectedLine.set(null);
+    this.selectedIndex.set(null);
     this.chapterIndex.set(ch);
     try {
       const lines = await this.booksService.fetchChapter(
@@ -519,18 +523,17 @@ export class BookReaderComponent implements OnInit {
         replaceUrl: true,
       });
 
-      const scrollLine =
-        (target?.line
-          ? lines.find((l) => l.line >= target.line!)
-          : undefined) ??
-        (target?.page
-          ? lines.find((l) => (l.page ?? 0) >= target.page!)
-          : undefined);
+      const scrollIdx =
+        target?.line !== undefined && target.line >= 0 && target.line < lines.length
+          ? target.line
+          : target?.page
+            ? lines.findIndex((l) => (l.page ?? 0) >= target.page!)
+            : -1;
 
-      if (scrollLine) {
+      if (scrollIdx >= 0) {
         setTimeout(() => {
           document
-            .getElementById(`book-line-${scrollLine.line}`)
+            .getElementById(`book-line-${scrollIdx}`)
             ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 60);
       } else {
@@ -550,25 +553,23 @@ export class BookReaderComponent implements OnInit {
     return t === 'quote' || t === 'blockquote' || t === 'scripture';
   }
 
-  toggleSelectLine(line: BookLine): void {
-    this.selectedLine.set(
-      this.selectedLine()?.line === line.line ? null : line,
-    );
+  toggleSelectLine(index: number): void {
+    this.selectedIndex.set(this.selectedIndex() === index ? null : index);
   }
 
-  highlightColor(lineNum: number): string | null {
+  highlightColor(index: number): string | null {
     return this.highlightsService.colorFor(
       this.bookId,
       this.chapterIndex(),
-      lineNum,
+      index,
     );
   }
 
-  setHighlight(line: BookLine, color: string | null): void {
+  setHighlight(index: number, line: BookLine, color: string | null): void {
     this.highlightsService.setHighlight(
       this.bookId,
       this.chapterIndex(),
-      line.line,
+      index,
       line.text,
       color,
     );
