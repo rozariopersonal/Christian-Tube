@@ -123,7 +123,7 @@ export class ScriptureVerseSheetComponent implements OnInit {
   readonly closed = output<void>();
 
   readonly quickVersions = BIBLE_VERSIONS.slice(0, 6);
-  readonly versionId = signal<string>('nasb');
+  readonly versionId = signal<string>('kjv');
   readonly verses = signal<BibleVerse[]>([]);
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
@@ -149,7 +149,7 @@ export class ScriptureVerseSheetComponent implements OnInit {
     const preferred = this.appearance.primaryBibleVersion().toLowerCase();
     const valid = BIBLE_VERSIONS.some((v) => v.id === preferred)
       ? preferred
-      : 'nasb';
+      : 'kjv';
     this.versionId.set(valid);
     void this.load();
   }
@@ -169,6 +169,18 @@ export class ScriptureVerseSheetComponent implements OnInit {
       );
       this.verses.set(data);
     } catch {
+      if (this.versionId() !== 'kjv') {
+        try {
+          const fallback = await this.releases.getJson<BibleVerse[]>(
+            `bibles/kjv/${r.bookNumber}/${r.chapter}.json`,
+          );
+          this.versionId.set('kjv');
+          this.verses.set(fallback);
+          return;
+        } catch {
+          // fall through to error
+        }
+      }
       this.error.set('Unable to load verse text.');
     } finally {
       this.loading.set(false);

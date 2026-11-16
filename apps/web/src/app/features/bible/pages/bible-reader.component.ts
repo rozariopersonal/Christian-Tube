@@ -255,6 +255,10 @@ interface AppendedBibleChapter {
             </div>
           </header>
 
+          @if (bible.fallbackNotice()) {
+            <p class="status-msg">{{ bible.fallbackNotice() }}</p>
+          }
+
           @if (bible.study()?.chapter_summary) {
             <div class="summary-card">
               <span class="summary-label">Chapter Summary</span>
@@ -1235,6 +1239,7 @@ export class BibleReaderComponent implements OnInit {
         this.bible.version(),
         nextTarget.bookNumber,
         nextTarget.chapter,
+        true,
       );
       if (verses.length === 0) return;
 

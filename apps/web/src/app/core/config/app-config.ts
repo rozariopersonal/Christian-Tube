@@ -14,5 +14,5 @@ export const AppConfig = {
     'Gospel Music',
     'Kids',
   ],
-  defaultBibleVersion: 'NASB',
+  defaultBibleVersion: 'KJV',
 } as const;
