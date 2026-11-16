@@ -67,4 +67,20 @@ describe('App & Phase 1 Core Services', () => {
     const manifestUrls = releases.urlsFor('manifest.json', true);
     expect(manifestUrls[0].endsWith('/manifest.json')).toBe(true);
   });
+
+  it('should stop prefetchBatch once maxTotalBytes budget is exceeded', async () => {
+    const releases = TestBed.inject(ReleaseDataService);
+    const fetched: string[] = [];
+    vi.spyOn(releases, 'getJson').mockImplementation(async (path: string) => {
+      fetched.push(path);
+      return { payload: 'x'.repeat(600) };
+    });
+
+    await releases.prefetchBatch(['a.json', 'b.json', 'c.json', 'd.json'], {
+      concurrency: 1,
+      maxTotalBytes: 1000,
+    });
+
+    expect(fetched.length).toBe(2);
+  });
 });
