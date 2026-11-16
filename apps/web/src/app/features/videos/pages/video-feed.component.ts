@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { AppConfig } from '../../../core/config/app-config';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
+import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { VideoCardComponent } from '../../../shared/ui/video-card.component';
 import { ChannelService } from '../../channels/services/channel.service';
 import { VideoService } from '../services/video.service';
@@ -10,7 +11,7 @@ import { VideoService } from '../services/video.service';
 @Component({
   selector: 'app-video-feed',
   standalone: true,
-  imports: [RouterLink, VideoCardComponent],
+  imports: [RouterLink, VideoCardComponent, InfiniteScrollTriggerDirective],
   template: `
     <div class="feed-page">
       <header class="app-bar">
@@ -152,15 +153,15 @@ import { VideoService } from '../services/video.service';
           </div>
 
           @if (videos.hasMore()) {
-            <div class="load-more-wrap">
-              <button
-                type="button"
-                class="pill-chip"
-                [disabled]="videos.isLoading()"
-                (click)="videos.fetchVideos()"
-              >
-                {{ videos.isLoading() ? 'Loading...' : 'Load more videos' }}
-              </button>
+            <div
+              class="load-more-wrap"
+              appInfiniteScrollTrigger
+              [disabled]="videos.isLoading()"
+              (triggered)="videos.fetchVideos()"
+            >
+              @if (videos.isLoading()) {
+                <span class="loading-more">Loading more videos...</span>
+              }
             </div>
           }
         }

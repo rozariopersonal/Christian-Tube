@@ -5,6 +5,7 @@ import {
   inject,
 } from '@angular/core';
 import { Router } from '@angular/router';
+import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { BOOK_ABBREVS } from '../../bible/models/bible.model';
 import {
   WordFeedItem,
@@ -22,6 +23,7 @@ const PRESET_GRADIENTS: readonly string[] = [
 @Component({
   selector: 'app-words-feed',
   standalone: true,
+  imports: [InfiniteScrollTriggerDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="words-page max-width-box">
@@ -63,6 +65,19 @@ const PRESET_GRADIENTS: readonly string[] = [
             Retry
           </button>
         </div>
+
+        @if (words.hasMore()) {
+          <div
+            class="scroll-sentinel"
+            appInfiniteScrollTrigger
+            [disabled]="words.loadingMore()"
+            (triggered)="words.loadMore()"
+          >
+            @if (words.loadingMore()) {
+              <span>Loading more scripture cards...</span>
+            }
+          </div>
+        }
       } @else {
         <div class="words-grid">
           @for (item of words.items(); track $index) {
@@ -110,6 +125,19 @@ const PRESET_GRADIENTS: readonly string[] = [
             </article>
           }
         </div>
+
+        @if (words.hasMore()) {
+          <div
+            class="scroll-sentinel"
+            appInfiniteScrollTrigger
+            [disabled]="words.loadingMore()"
+            (triggered)="words.loadMore()"
+          >
+            @if (words.loadingMore()) {
+              <span>Loading more scripture cards...</span>
+            }
+          </div>
+        }
       }
     </div>
   `,
