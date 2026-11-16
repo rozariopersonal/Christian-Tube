@@ -13,6 +13,7 @@ const DESTINATIONS: readonly NavDestination[] = [
   { label: 'Videos', route: '/feed', icon: 'home' },
   { label: 'Bible', route: '/bible', icon: 'menu_book' },
   { label: 'Books', route: '/books', icon: 'auto_stories' },
+  { label: 'Articles', route: '/articles', icon: 'article' },
   { label: 'Audio', route: '/audio', icon: 'headphones' },
   { label: 'Settings', route: '/settings', icon: 'tune' },
 ];
@@ -173,8 +174,8 @@ const DESTINATIONS: readonly NavDestination[] = [
       }
 
       .pill-indicator {
-        width: 56px;
-        height: 32px;
+        width: 44px;
+        height: 30px;
         border-radius: var(--radius-pill);
         display: grid;
         place-items: center;
@@ -206,7 +207,7 @@ const DESTINATIONS: readonly NavDestination[] = [
         background-color: var(--surface);
         border-top: 1px solid var(--surface-border);
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(6, 1fr);
         align-items: center;
         z-index: 50;
       }

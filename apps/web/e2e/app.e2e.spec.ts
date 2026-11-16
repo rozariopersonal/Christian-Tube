@@ -174,6 +174,32 @@ async function mockBackendAndCdn(page: Page): Promise<void> {
         ],
       });
     }
+    if (url.includes('articles/articles_index.json')) {
+      return route.fulfill({
+        json: [
+          {
+            id: 'art1',
+            title: 'Walking in Humility',
+            date: '2026-10-15',
+            year: 2026,
+            lang: 'en',
+          },
+        ],
+      });
+    }
+    if (url.includes('articles/wftw/art1.json')) {
+      return route.fulfill({
+        json: {
+          id: 'art1',
+          title: 'Walking in Humility',
+          date: '2026-10-15',
+          author: 'Zac Poonen',
+          lines: [
+            { line: 1, text: 'God gives grace to the humble.', isHeading: false },
+          ],
+        },
+      });
+    }
     return route.fulfill({ status: 404, body: 'Not found' });
   });
 }
@@ -222,7 +248,13 @@ test.describe('ChristianApp Web E2E', () => {
     await bookTitle.click();
     await expect(page.getByText('Building a godly home.')).toBeVisible();
 
-    // 5. Audio Library, Series & Mini-Player
+    // 5. Articles Browser & Reader
+    await page.goto('/articles');
+    await expect(page.getByText('Walking in Humility')).toBeVisible();
+    await page.getByText('Walking in Humility').click();
+    await expect(page.getByText('God gives grace to the humble.')).toBeVisible();
+
+    // 6. Audio Library, Series & Mini-Player
     await page.goto('/audio');
     await expect(page.getByText('Foundations of Faith')).toBeVisible();
     await page.getByText('Foundations of Faith').click();

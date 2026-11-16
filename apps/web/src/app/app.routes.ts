@@ -87,6 +87,20 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'articles',
+        loadComponent: () =>
+          import('./features/articles/pages/articles-browser.component').then(
+            (m) => m.ArticlesBrowserComponent,
+          ),
+      },
+      {
+        path: 'article/:id',
+        loadComponent: () =>
+          import('./features/articles/pages/article-reader.component').then(
+            (m) => m.ArticleReaderComponent,
+          ),
+      },
+      {
         path: 'audio',
         loadComponent: () =>
           import('./features/audio/pages/audio-library.component').then(
