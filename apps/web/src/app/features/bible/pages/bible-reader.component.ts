@@ -27,6 +27,7 @@ import { BibleCrossRefsSheetComponent } from '../components/bible-cross-refs-she
 import { BibleNoteSheetComponent } from '../components/bible-note-sheet.component';
 import { BibleParallelSheetComponent } from '../components/bible-parallel-sheet.component';
 import { BibleSearchSheetComponent } from '../components/bible-search-sheet.component';
+import { BibleSidebarComponent } from '../components/bible-sidebar.component';
 import { BibleStudySheetComponent } from '../components/bible-study-sheet.component';
 import { BibleVerseActionBarComponent } from '../components/bible-verse-action-bar.component';
 import { BibleVersionSheetComponent } from '../components/bible-version-sheet.component';
@@ -50,6 +51,7 @@ interface AppendedBibleChapter {
     InfiniteScrollTriggerDirective,
     BibleVersionSheetComponent,
     BibleBookChapterSheetComponent,
+    BibleSidebarComponent,
     BibleVerseActionBarComponent,
     BibleAppearanceSheetComponent,
     BibleBookmarksSheetComponent,
@@ -242,7 +244,17 @@ interface AppendedBibleChapter {
         </button>
       }
 
-      <div class="reader-body">
+      <div class="bible-layout" [class.has-sidebar]="isExpanded() && !immersive() && bible.books().length > 0">
+        @if (isExpanded() && !immersive() && bible.books().length > 0) {
+          <app-bible-sidebar
+            [books]="bible.books()"
+            [currentBookNumber]="displayBookNumber()"
+            [currentChapter]="displayChapter()"
+            (selectChapter)="jumpFromSearch($event)"
+          />
+        }
+
+        <div class="reader-body">
         @if (bible.loading()) {
           <p class="status-msg">
             Loading {{ bible.currentBook().name }} {{ bible.chapter() }}...
@@ -495,6 +507,7 @@ interface AppendedBibleChapter {
             }
           </div>
         }
+        </div>
       </div>
 
       @if (state.selectedVerse(); as selected) {
@@ -821,6 +834,17 @@ interface AppendedBibleChapter {
         text-overflow: ellipsis;
       }
 
+      .bible-layout {
+        display: flex;
+        align-items: flex-start;
+        width: 100%;
+      }
+
+      .bible-layout.has-sidebar .reader-body {
+        flex: 1;
+        min-width: 0;
+      }
+
       .chapter-hero {
         display: flex;
         align-items: baseline;
@@ -1102,6 +1126,7 @@ export class BibleReaderComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly screen = inject(ScreenClassService);
+  readonly isExpanded = computed(() => this.screen.screenClass() === 'expanded');
   readonly bible = inject(BibleService);
   readonly appearance = inject(ReaderAppearanceService);
   readonly state = inject(BibleReaderStateService);
