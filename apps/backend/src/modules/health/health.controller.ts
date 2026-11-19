@@ -21,11 +21,15 @@ export class HealthController {
 
   @Get('health')
   getHealth() {
+    const vectorUrl = this.configService.get<string>('upstashVector.restUrl') || process.env.UPSTASH_VECTOR_REST_URL;
+    const vectorTok = this.configService.get<string>('upstashVector.restToken') || process.env.UPSTASH_VECTOR_REST_TOKEN;
+    const vectorEnabled = Boolean(vectorUrl && vectorTok);
     return {
       status: 'healthy',
       instanceId: this.configService.get<string>('instanceId') || 'unknown',
       uptime: process.uptime(),
       cache: this.cache?.getStatus() ?? { enabled: false, provider: 'none' },
+      bibleVector: { enabled: vectorEnabled, provider: vectorEnabled ? 'upstash-vector' : 'none' },
       timestamp: new Date().toISOString(),
     };
   }

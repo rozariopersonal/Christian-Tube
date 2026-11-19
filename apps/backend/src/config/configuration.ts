@@ -64,6 +64,11 @@ export default () => {
       timeoutMs: parseInt(process.env.UPSTASH_TIMEOUT_MS || process.env.REDIS_TIMEOUT_MS || '1500', 10),
       defaultTtlSec: parseInt(process.env.CACHE_TTL_SECONDS || '300', 10),
     },
+    upstashVector: {
+      restUrl: process.env.UPSTASH_VECTOR_REST_URL,
+      restToken: process.env.UPSTASH_VECTOR_REST_TOKEN,
+      timeoutMs: parseInt(process.env.UPSTASH_VECTOR_TIMEOUT_MS || '3000', 10),
+    },
     storage: {
       endpoint: process.env.STORAGE_ENDPOINT,
       region: process.env.STORAGE_REGION || 'auto',
