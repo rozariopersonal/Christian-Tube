@@ -111,6 +111,7 @@ describe('BibleService', () => {
           data: 'God loved the world',
           topK: 50,
           includeMetadata: true,
+          fusionAlgorithm: 'DBSF',
         }),
       }),
     );
@@ -122,6 +123,7 @@ describe('BibleService', () => {
           data: 'God loved the world',
           topK: 50,
           includeMetadata: true,
+          fusionAlgorithm: 'DBSF',
         }),
       }),
     );

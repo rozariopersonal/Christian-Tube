@@ -157,6 +157,7 @@ export class BibleService {
           data: query,
           topK: limit,
           includeMetadata: true,
+          fusionAlgorithm: 'DBSF',
         }),
         signal: controller.signal,
       });
