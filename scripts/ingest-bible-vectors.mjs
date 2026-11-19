@@ -24,13 +24,35 @@ function parseArgs(argv) {
     batch: 100,
     maxVerses: 4900,
     namespace: '',
+    namespaceExplicit: false,
+    maxVersesExplicit: false,
+    mode: 'verses',
+    windowSize: 5,
+    stride: 3,
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--file' && argv[i + 1]) opts.file = argv[++i];
     else if (a === '--batch' && argv[i + 1]) opts.batch = Math.max(1, Math.min(500, parseInt(argv[++i], 10)));
-    else if (a === '--max-verses' && argv[i + 1]) opts.maxVerses = Math.max(1, parseInt(argv[++i], 10));
-    else if (a === '--namespace' && argv[i + 1]) opts.namespace = argv[++i];
+    else if (a === '--max-verses' && argv[i + 1]) {
+      opts.maxVerses = Math.max(1, parseInt(argv[++i], 10));
+      opts.maxVersesExplicit = true;
+    } else if (a === '--namespace' && argv[i + 1]) {
+      opts.namespace = argv[++i];
+      opts.namespaceExplicit = true;
+    } else if (a === '--mode' && argv[i + 1]) {
+      const m = argv[++i];
+      if (m === 'verses' || m === 'windows') opts.mode = m;
+      else throw new Error(`Invalid --mode "${m}". Expected "verses" or "windows".`);
+    } else if (a === '--window-size' && argv[i + 1]) {
+      opts.windowSize = Math.max(2, parseInt(argv[++i], 10));
+    } else if (a === '--stride' && argv[i + 1]) {
+      opts.stride = Math.max(1, parseInt(argv[++i], 10));
+    }
+  }
+  if (opts.mode === 'windows') {
+    if (!opts.namespaceExplicit) opts.namespace = 'windows';
+    if (!opts.maxVersesExplicit) opts.maxVerses = 15000;
   }
   return opts;
 }
@@ -100,19 +122,53 @@ async function main() {
   const existing = await fetchExistingIds(restUrl, restToken, opts.namespace);
   console.log(`Found ${existing.size} existing verse vector(s).`);
 
-  const allVerses = [];
+  const items = [];
   for (const book of books) {
     const chapters = Array.isArray(book.ch) ? book.ch : [];
     for (let cIdx = 0; cIdx < chapters.length; cIdx++) {
       const verses = Array.isArray(chapters[cIdx]) ? chapters[cIdx] : [];
+      const c = cIdx + 1;
+
+      if (opts.mode === 'windows') {
+        const clean = [];
+        for (let vIdx = 0; vIdx < verses.length; vIdx++) {
+          const text = String(verses[vIdx] || '').trim();
+          if (text) clean.push({ v: vIdx + 1, text });
+        }
+        if (clean.length <= 1) continue;
+        for (let start = 0; start < clean.length; start += opts.stride) {
+          const slice = clean.slice(start, Math.min(start + opts.windowSize, clean.length));
+          const startV = slice[0].v;
+          const endV = slice[slice.length - 1].v;
+          const id = `w:${book.b}:${c}:${startV}-${endV}`;
+          if (!existing.has(id)) {
+            const joined = slice.map((item) => `${item.v}. ${item.text}`).join(' ');
+            items.push({
+              id,
+              data: `${book.n} ${c}:${startV}-${endV} — ${joined}`,
+              metadata: {
+                b: book.b,
+                n: book.n,
+                c,
+                v: startV,
+                endV,
+                text: joined,
+                kind: 'window',
+              },
+            });
+          }
+          if (start + opts.windowSize >= clean.length) break;
+        }
+        continue;
+      }
+
       for (let vIdx = 0; vIdx < verses.length; vIdx++) {
         const text = String(verses[vIdx] || '').trim();
         if (!text) continue;
-        const c = cIdx + 1;
         const v = vIdx + 1;
         const id = `${book.b}:${c}:${v}`;
         if (existing.has(id)) continue;
-        allVerses.push({
+        items.push({
           id,
           data: `${book.n} ${c}:${v} — ${text}`,
           metadata: {
@@ -127,13 +183,14 @@ async function main() {
     }
   }
 
-  console.log(`Remaining verses to ingest: ${allVerses.length}`);
-  if (allVerses.length === 0) {
-    console.log('All verses are already indexed!');
+  const label = opts.mode === 'windows' ? 'windows' : 'verses';
+  console.log(`Remaining ${label} to ingest (${opts.namespace || 'default'}): ${items.length}`);
+  if (items.length === 0) {
+    console.log(`All ${label} are already indexed!`);
     return;
   }
 
-  const toUpload = allVerses.slice(0, opts.maxVerses);
+  const toUpload = items.slice(0, opts.maxVerses);
   const upsertEndpoint = opts.namespace
     ? `${restUrl}/upsert-data/${encodeURIComponent(opts.namespace)}`
     : `${restUrl}/upsert-data`;
@@ -162,12 +219,12 @@ async function main() {
 
     uploaded += chunk.length;
     if (uploaded % 500 === 0 || i + opts.batch >= toUpload.length) {
-      console.log(`Uploaded ${uploaded}/${toUpload.length} verses in this run (total indexed: ${existing.size + uploaded})`);
+      console.log(`Uploaded ${uploaded}/${toUpload.length} ${label} in this run (total indexed: ${existing.size + uploaded})`);
     }
   }
 
-  const remaining = allVerses.length - uploaded;
-  console.log(`Done! Uploaded ${uploaded} verses. Remaining for future runs: ${remaining}.`);
+  const remaining = items.length - uploaded;
+  console.log(`Done! Uploaded ${uploaded} ${label}. Remaining for future runs: ${remaining}.`);
 }
 
 main().catch((err) => {

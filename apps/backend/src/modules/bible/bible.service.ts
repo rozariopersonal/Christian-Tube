@@ -5,10 +5,12 @@ import { CacheService } from '../cache/cache.service';
 export interface BibleSearchHit {
   id: string;
   score: number;
+  kind: 'verse' | 'passage';
   bookNumber: number | null;
   bookName: string | null;
   chapter: number | null;
   verse: number | null;
+  endVerse: number | null;
   reference: string;
   text: string;
 }
@@ -17,6 +19,12 @@ export interface BibleSearchResponse {
   query: string;
   count: number;
   results: BibleSearchHit[];
+}
+
+interface RawVectorHit {
+  id: string;
+  score: number;
+  metadata?: Record<string, any>;
 }
 
 @Injectable()
@@ -70,7 +78,7 @@ export class BibleService {
       : 20;
 
     const normalized = query.toLowerCase().replace(/\s+/g, ' ');
-    const cacheKey = `search:${limit}:${normalized}`;
+    const cacheKey = `search:v2:${limit}:${normalized}`;
 
     try {
       if (this.cache) {
@@ -94,11 +102,52 @@ export class BibleService {
     query: string,
     limit: number,
   ): Promise<BibleSearchResponse> {
+    const [verseHits, windowHits] = await Promise.all([
+      this.queryNamespace(query, limit, ''),
+      this.queryNamespace(query, limit, 'windows').catch((err: any) => {
+        this.logger.warn(
+          `Upstash Vector windows namespace query failed for "${query}": ${err?.message || err}`,
+        );
+        return [] as BibleSearchHit[];
+      }),
+    ]);
+
+    const seen = new Set<string>();
+    const combined: BibleSearchHit[] = [];
+    for (const hit of [...verseHits, ...windowHits]) {
+      if (seen.has(hit.id)) continue;
+      seen.add(hit.id);
+      combined.push(hit);
+    }
+
+    combined.sort((a, b) => {
+      const diff = b.score - a.score;
+      if (Math.abs(diff) > 1e-6) return diff;
+      if (a.kind !== b.kind) return a.kind === 'verse' ? -1 : 1;
+      return 0;
+    });
+
+    const results = combined.slice(0, limit);
+    return {
+      query,
+      count: results.length,
+      results,
+    };
+  }
+
+  private async queryNamespace(
+    query: string,
+    limit: number,
+    namespace: string,
+  ): Promise<BibleSearchHit[]> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const endpoint = namespace
+      ? `${this.restUrl}/query-data/${encodeURIComponent(namespace)}`
+      : `${this.restUrl}/query-data`;
 
     try {
-      const res = await fetch(`${this.restUrl}/query-data`, {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${this.restToken}`,
@@ -118,11 +167,7 @@ export class BibleService {
       }
 
       const payload = (await res.json()) as {
-        result?: Array<{
-          id: string;
-          score: number;
-          metadata?: Record<string, any>;
-        }>;
+        result?: RawVectorHit[];
         error?: string;
       };
 
@@ -131,36 +176,44 @@ export class BibleService {
       }
 
       const rawHits = Array.isArray(payload.result) ? payload.result : [];
-      const results: BibleSearchHit[] = rawHits.map((hit) => {
-        const meta = hit.metadata || {};
-        const bookNumber = meta.b != null ? Number(meta.b) : null;
-        const bookName = typeof meta.n === 'string' ? meta.n : null;
-        const chapter = meta.c != null ? Number(meta.c) : null;
-        const verse = meta.v != null ? Number(meta.v) : null;
-        const reference =
-          bookName && chapter != null && verse != null
-            ? `${bookName} ${chapter}:${verse}`
-            : String(hit.id);
-
-        return {
-          id: String(hit.id),
-          score: Number(hit.score || 0),
-          bookNumber,
-          bookName,
-          chapter,
-          verse,
-          reference,
-          text: typeof meta.text === 'string' ? meta.text : '',
-        };
-      });
-
-      return {
-        query,
-        count: results.length,
-        results,
-      };
+      return rawHits.map((hit) => this.mapHit(hit, namespace));
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  private mapHit(hit: RawVectorHit, namespace: string): BibleSearchHit {
+    const meta = hit.metadata || {};
+    const bookNumber = meta.b != null ? Number(meta.b) : null;
+    const bookName = typeof meta.n === 'string' ? meta.n : null;
+    const chapter = meta.c != null ? Number(meta.c) : null;
+    const verse = meta.v != null ? Number(meta.v) : null;
+    const rawEndV = meta.endV != null ? Number(meta.endV) : null;
+    const isWindow =
+      namespace === 'windows' ||
+      meta.kind === 'window' ||
+      (rawEndV != null && verse != null && rawEndV > verse);
+    const endVerse = isWindow && rawEndV != null ? rawEndV : null;
+
+    let reference = String(hit.id);
+    if (bookName && chapter != null && verse != null) {
+      reference =
+        endVerse != null && endVerse > verse
+          ? `${bookName} ${chapter}:${verse}-${endVerse}`
+          : `${bookName} ${chapter}:${verse}`;
+    }
+
+    return {
+      id: String(hit.id),
+      score: Number(hit.score || 0),
+      kind: isWindow ? 'passage' : 'verse',
+      bookNumber,
+      bookName,
+      chapter,
+      verse,
+      endVerse,
+      reference,
+      text: typeof meta.text === 'string' ? meta.text : '',
+    };
   }
 }
