@@ -3,11 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
+import { BibleSemanticHit } from '../../bible/models/bible.model';
+import { BibleService } from '../../bible/services/bible.service';
 import { ChannelService } from '../../channels/services/channel.service';
 import { Video, formatTimeAgo, formatViewCount } from '../models/video.model';
 import { VideoService } from '../services/video.service';
 
-type SearchTypeFilter = 'ALL' | 'VIDEO' | 'SHORT' | 'CHANNELS';
+type SearchTypeFilter = 'ALL' | 'VIDEO' | 'SHORT' | 'CHANNELS' | 'BIBLE';
 type SearchSort = 'relevance' | 'latest' | 'popular';
 
 @Component({
@@ -61,13 +63,46 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
         }
       </div>
 
-      @if (loading() && results().length === 0) {
+      @if (loading() && results().length === 0 && bibleResults().length === 0) {
         <p class="hint">Searching...</p>
       } @else if (query().trim().length === 0) {
-        <p class="hint">Type to search sermons, worship, and channels.</p>
-      } @else if (filteredResults().length === 0 && matchedChannels().length === 0) {
+        <p class="hint">Type to search sermons, worship, Bible verses, and channels.</p>
+      } @else if (filteredResults().length === 0 && matchedChannels().length === 0 && visibleBibleResults().length === 0) {
         <p class="hint">No results for "{{ query() }}".</p>
       } @else {
+        @if (visibleBibleResults().length > 0) {
+          <section class="section">
+            <div class="section-head">
+              <h2 class="section-title">Bible</h2>
+              @if (typeFilter() === 'ALL' && bibleResults().length > 3) {
+                <a
+                  class="see-all-link"
+                  [routerLink]="['/bible/search']"
+                  [queryParams]="{ q: query().trim(), scope: 'all' }"
+                >
+                  See all Bible results
+                </a>
+              }
+            </div>
+            <div class="bible-rows">
+              @for (b of visibleBibleResults(); track b.id) {
+                <a
+                  class="bible-row"
+                  [routerLink]="['/bible', bibleService.version(), b.bookNumber, b.chapter, b.verse]"
+                >
+                  <div class="bible-row-head">
+                    <span class="bible-ref">{{ b.reference }}</span>
+                    @if (b.kind === 'passage') {
+                      <span class="bible-kind-pill">Passage</span>
+                    }
+                  </div>
+                  <p class="bible-text">{{ b.text }}</p>
+                </a>
+              }
+            </div>
+          </section>
+        }
+
         @if (matchedChannels().length > 0 && (typeFilter() === 'ALL' || typeFilter() === 'CHANNELS')) {
           <section class="section">
             <h2 class="section-title">Channels</h2>
@@ -224,10 +259,75 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
         margin-bottom: 24px;
       }
 
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
       .section-title {
         margin: 0 0 12px;
         font-size: 15px;
         font-weight: 700;
+      }
+
+      .section-head .section-title {
+        margin-bottom: 0;
+      }
+
+      .see-all-link {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .bible-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .bible-row {
+        display: block;
+        padding: 12px 14px;
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-md);
+      }
+
+      .bible-row:hover {
+        border-color: var(--accent);
+      }
+
+      .bible-row-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      .bible-ref {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--accent);
+      }
+
+      .bible-kind-pill {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+        background-color: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .bible-text {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.45;
       }
 
       .channel-rows {
@@ -378,6 +478,7 @@ export class SearchComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly videoService = inject(VideoService);
+  readonly bibleService = inject(BibleService);
   readonly channels = inject(ChannelService);
   readonly screen = inject(ScreenClassService);
 
@@ -386,12 +487,14 @@ export class SearchComponent implements OnInit {
     { id: 'VIDEO', label: 'Videos' },
     { id: 'SHORT', label: 'Shorts' },
     { id: 'CHANNELS', label: 'Channels' },
+    { id: 'BIBLE', label: 'Bible' },
   ];
 
   readonly query = signal<string>('');
   readonly typeFilter = signal<SearchTypeFilter>('ALL');
   readonly sort = signal<SearchSort>('relevance');
   readonly results = signal<Video[]>([]);
+  readonly bibleResults = signal<BibleSemanticHit[]>([]);
   readonly loading = signal<boolean>(false);
   readonly hasMore = signal<boolean>(true);
 
@@ -410,8 +513,15 @@ export class SearchComponent implements OnInit {
 
   readonly filteredResults = computed(() => {
     const f = this.typeFilter();
-    if (f === 'CHANNELS') return [];
+    if (f === 'CHANNELS' || f === 'BIBLE') return [];
     return this.results();
+  });
+
+  readonly visibleBibleResults = computed(() => {
+    const f = this.typeFilter();
+    if (f !== 'ALL' && f !== 'BIBLE') return [];
+    const hits = this.bibleResults();
+    return f === 'ALL' ? hits.slice(0, 3) : hits;
   });
 
   ngOnInit(): void {
@@ -456,6 +566,7 @@ export class SearchComponent implements OnInit {
     const q = this.query().trim();
     if (!q) {
       this.results.set([]);
+      this.bibleResults.set([]);
       this.hasMore.set(false);
       return;
     }
@@ -468,7 +579,48 @@ export class SearchComponent implements OnInit {
 
     this.loading.set(true);
     try {
-      const type = this.typeFilter() === 'SHORT' ? 'SHORT' : this.typeFilter() === 'VIDEO' ? 'VIDEO' : 'ALL';
+      const f = this.typeFilter();
+      if (f === 'BIBLE') {
+        this.hasMore.set(false);
+        const res = await this.bibleService.searchSemantic(q, 40).catch(() => ({
+          query: q,
+          count: 0,
+          results: [],
+        }));
+        if (this.query().trim() === q) {
+          this.bibleResults.set(
+            (res.results || []).filter(
+              (h) =>
+                h.bookNumber != null &&
+                h.chapter != null &&
+                h.verse != null,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (refresh && f === 'ALL') {
+        void this.bibleService
+          .searchSemantic(q, 12)
+          .then((res) => {
+            if (this.query().trim() === q) {
+              this.bibleResults.set(
+                (res.results || []).filter(
+                  (h) =>
+                    h.bookNumber != null &&
+                    h.chapter != null &&
+                    h.verse != null,
+                ),
+              );
+            }
+          })
+          .catch(() => {
+            if (this.query().trim() === q) this.bibleResults.set([]);
+          });
+      }
+
+      const type = f === 'SHORT' ? 'SHORT' : f === 'VIDEO' ? 'VIDEO' : 'ALL';
       const batch = await this.videoService.searchVideos(q, {
         type,
         sort: this.sort(),

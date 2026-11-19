@@ -1,4 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+import { ApiService } from '../../../core/api/api.service';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
 import { OnlineBibleService } from './online-bible.service';
@@ -6,6 +8,7 @@ import {
   BOOK_ABBREVS,
   BibleBook,
   BibleBookmark,
+  BibleSemanticSearchResponse,
   BibleVerse,
   ChapterStudy,
   VerseCrossRefs,
@@ -20,6 +23,7 @@ const INCOMPLETE_VERSIONS = new Set(['nasb', 'nlt', 'msg']);
 
 @Injectable({ providedIn: 'root' })
 export class BibleService {
+  private readonly api = inject(ApiService);
   private readonly releases = inject(ReleaseDataService);
   private readonly appearance = inject(ReaderAppearanceService);
   private readonly onlineBible = inject(OnlineBibleService);
@@ -422,6 +426,20 @@ export class BibleService {
       }
       return [];
     }
+  }
+
+  async searchSemantic(
+    query: string,
+    limit = 30,
+  ): Promise<BibleSemanticSearchResponse> {
+    const clean = query.trim();
+    if (!clean) return { query: clean, count: 0, results: [] };
+    return firstValueFrom(
+      this.api.get<BibleSemanticSearchResponse>('/api/bible/search', {
+        q: clean,
+        limit,
+      }),
+    );
   }
 
   setHighlight(verseNum: number, color: string | null): void {

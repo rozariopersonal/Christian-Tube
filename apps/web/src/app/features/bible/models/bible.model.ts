@@ -93,3 +93,22 @@ export interface BibleBookmark {
   text: string;
   createdAt: string;
 }
+
+export interface BibleSemanticHit {
+  id: string;
+  score: number;
+  kind?: 'verse' | 'passage';
+  bookNumber: number | null;
+  bookName: string | null;
+  chapter: number | null;
+  verse: number | null;
+  endVerse?: number | null;
+  reference: string;
+  text: string;
+}
+
+export interface BibleSemanticSearchResponse {
+  query: string;
+  count: number;
+  results: BibleSemanticHit[];
+}

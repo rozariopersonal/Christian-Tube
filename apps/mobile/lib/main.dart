@@ -39,6 +39,7 @@ import 'features/watch/video_player_screen.dart';
 import 'features/watch_plans/watch_plan_detail_screen.dart';
 import 'features/watch_plans/watch_plans_screen.dart';
 import 'features/bible/screens/bible_screen.dart';
+import 'features/bible/screens/bible_search_screen.dart';
 import 'features/bible/services/bible_passage_navigator.dart';
 import 'features/books/screens/books_catalog_screen.dart';
 import 'features/books/screens/book_reader_screen.dart';
@@ -216,6 +217,26 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
                   initialVerse: int.tryParse(qp['verse'] ?? '') ??
                       (extra?['verse'] as int?) ??
                       1,
+                );
+              },
+            ),
+            GoRoute(
+              path: '/bible/search',
+              builder: (context, state) {
+                if (AppConfig.instanceId == 'centum_academy') {
+                  return const Scaffold(
+                    body: Center(
+                      child: Text('Bible not available for this instance'),
+                    ),
+                  );
+                }
+                final qp = state.uri.queryParameters;
+                final extra = state.extra as Map<String, dynamic>?;
+                return BibleSearchScreen(
+                  initialQuery: qp['q'] ?? extra?['q'] as String?,
+                  versionId: qp['version'] ?? extra?['version'] as String?,
+                  currentBook: qp['book'] ?? extra?['book'] as String?,
+                  popWithResult: extra?['popWithResult'] == true,
                 );
               },
             ),

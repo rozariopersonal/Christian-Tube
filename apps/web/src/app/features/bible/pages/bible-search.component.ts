@@ -25,6 +25,9 @@ interface BibleSearchHit {
   bookName: string;
   chapter: number;
   verse: number;
+  endVerse?: number | null;
+  kind?: 'verse' | 'passage';
+  reference?: string;
   text: string;
 }
 
@@ -103,7 +106,7 @@ type SearchScope = 'book' | 'ot' | 'nt' | 'all';
       } @else if (!searched() && !directRef()) {
         <div class="empty-card">
           <span class="material-symbols-rounded state-icon">search</span>
-          <p class="muted">Enter a word, phrase, or scripture reference (e.g. "love", "John 3:16").</p>
+          <p class="muted">Search by verse quote, topic, story, or reference (e.g. "jesus wept", "valley of dry bones", "John 3:16").</p>
         </div>
       } @else if (results().length === 0 && !directRef()) {
         <div class="empty-card">
@@ -120,7 +123,14 @@ type SearchScope = 'book' | 'ot' | 'nt' | 'all';
               class="result-row"
               [routerLink]="['/bible', bible.version(), hit.bookNumber, hit.chapter, hit.verse]"
             >
-              <span class="res-ref">{{ hit.bookName }} {{ hit.chapter }}:{{ hit.verse }}</span>
+              <div class="res-head">
+                <span class="res-ref">
+                  {{ hit.reference || (hit.bookName + ' ' + hit.chapter + ':' + hit.verse) }}
+                </span>
+                @if (hit.kind === 'passage') {
+                  <span class="res-kind-pill">Passage</span>
+                }
+              </div>
               <p class="res-text">{{ hit.text }}</p>
             </a>
           }
@@ -295,12 +305,29 @@ type SearchScope = 'book' | 'ot' | 'nt' | 'all';
         border-color: var(--accent);
       }
 
+      .res-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
       .res-ref {
         display: block;
         font-size: 13px;
         font-weight: 700;
         color: var(--accent);
-        margin-bottom: 4px;
+      }
+
+      .res-kind-pill {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        flex-shrink: 0;
       }
 
       .res-text {
@@ -351,7 +378,7 @@ export class BibleSearchPageComponent implements OnInit, AfterViewInit {
 
   readonly query = signal<string>('');
   readonly activeQuery = signal<string>('');
-  readonly scope = signal<SearchScope>('book');
+  readonly scope = signal<SearchScope>('all');
   readonly searching = signal<boolean>(false);
   readonly searched = signal<boolean>(false);
   readonly results = signal<BibleSearchHit[]>([]);
@@ -397,7 +424,11 @@ export class BibleSearchPageComponent implements OnInit, AfterViewInit {
 
     this.route.queryParamMap.subscribe((qp) => {
       const q = qp.get('q') ?? '';
-      const sc = (qp.get('scope') as SearchScope) || 'book';
+      const rawScope = qp.get('scope');
+      const sc: SearchScope =
+        rawScope === 'book' || rawScope === 'ot' || rawScope === 'nt' || rawScope === 'all'
+          ? rawScope
+          : 'all';
       this.query.set(q);
       this.headerSearch.pageQuery.set(q);
       this.scope.set(sc);
@@ -470,11 +501,51 @@ export class BibleSearchPageComponent implements OnInit, AfterViewInit {
         : null,
     );
 
-    const books = this.targetBooks(scope);
-    const q = trimmed.toLowerCase();
     this.searching.set(true);
     this.searched.set(true);
     this.results.set([]);
+
+    try {
+      const remote = await this.bible.searchSemantic(trimmed, 50);
+      if (runId !== this.searchRunId) return;
+
+      const currentBookNum = this.bible.bookNumber();
+      const mapped: BibleSearchHit[] = [];
+      for (const item of remote.results || []) {
+        if (item.bookNumber == null || item.chapter == null || item.verse == null) {
+          continue;
+        }
+        if (scope === 'book' && item.bookNumber !== currentBookNum) continue;
+        if (scope === 'ot' && item.bookNumber > 39) continue;
+        if (scope === 'nt' && item.bookNumber < 40) continue;
+
+        const bookName =
+          item.bookName ??
+          this.bible.books().find((b) => b.bookNumber === item.bookNumber)?.name ??
+          `Book ${item.bookNumber}`;
+        mapped.push({
+          bookNumber: item.bookNumber,
+          bookName,
+          chapter: item.chapter,
+          verse: item.verse,
+          endVerse: item.endVerse ?? null,
+          kind: item.kind,
+          reference: item.reference,
+          text: item.text,
+        });
+      }
+
+      if (mapped.length > 0) {
+        this.results.set(mapped);
+        this.searching.set(false);
+        return;
+      }
+    } catch {
+      // Fall back to local CDN chapter scan when offline or backend unreachable
+    }
+
+    const books = this.targetBooks(scope);
+    const q = trimmed.toLowerCase();
     const hits: BibleSearchHit[] = [];
 
     const tasks: { book: BibleBook; ch: number }[] = [];

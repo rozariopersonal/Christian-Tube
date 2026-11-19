@@ -1,14 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../core/theme/app_tokens.dart';
-import '../../engines/scripture/services/local_bible_service.dart';
+import '../controllers/bible_search_controller.dart';
+import '../models/bible_search_hit.dart';
 
 class BibleSearchSheet extends StatefulWidget {
   final String versionId;
+  final String? currentBook;
+  final BibleSearchController? controller;
   final void Function(String book, int chapter, int? verse) onJumpTo;
 
   const BibleSearchSheet({
     super.key,
     required this.versionId,
+    this.currentBook,
+    this.controller,
     required this.onJumpTo,
   });
 
@@ -17,37 +26,70 @@ class BibleSearchSheet extends StatefulWidget {
 }
 
 class _BibleSearchSheetState extends State<BibleSearchSheet> {
-  final LocalBibleService _service = LocalBibleService();
-  final TextEditingController _controller = TextEditingController();
-  List<Map<String, dynamic>> _results = [];
-  bool _searching = false;
-  String _query = '';
+  late final BibleSearchController _searchController;
+  late final bool _ownsController;
+  final TextEditingController _textController = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsController = widget.controller == null;
+    _searchController = widget.controller ??
+        BibleSearchController(
+          versionId: widget.versionId,
+          currentBook: widget.currentBook,
+        );
+    _searchController.addListener(_onStateChanged);
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _debounce?.cancel();
+    _searchController.removeListener(_onStateChanged);
+    if (_ownsController) _searchController.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
-  Future<void> _search(String value) async {
+  void _onStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onChanged(String value) {
+    setState(() {});
+    _debounce?.cancel();
     final term = value.trim();
-    setState(() {
-      _query = term;
-      _searching = true;
-    });
     if (term.isEmpty) {
-      setState(() {
-        _results = [];
-        _searching = false;
-      });
+      _searchController.clear();
       return;
     }
-    final results = await _service.search(widget.versionId, term);
-    if (!mounted) return;
-    setState(() {
-      _results = results;
-      _searching = false;
+    if (term.length < 2) return;
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _searchController.search(term);
     });
+  }
+
+  void _submit([String? value]) {
+    _debounce?.cancel();
+    _searchController.search(value ?? _textController.text);
+  }
+
+  void _selectHit(BibleSearchHit hit) {
+    final bookKey = hit.canonicalBookKey ?? hit.bookName;
+    final chapter = hit.chapter;
+    final verse = hit.verse;
+    if (bookKey == null || chapter == null || verse == null) return;
+    Navigator.pop(context);
+    widget.onJumpTo(bookKey, chapter, verse);
+  }
+
+  void _openFullScreen() {
+    final q = _textController.text.trim();
+    Navigator.pop(context);
+    context.push(
+      '/bible/search?q=${Uri.encodeComponent(q)}&version=${Uri.encodeComponent(widget.versionId)}',
+    );
   }
 
   @override
@@ -66,7 +108,8 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
           builder: (context, scrollController) => Container(
             decoration: BoxDecoration(
               color: tokens.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Column(
               children: [
@@ -82,7 +125,8 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Row(
                     children: [
                       Expanded(
@@ -94,6 +138,11 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
+                      if (_textController.text.trim().length >= 2)
+                        TextButton(
+                          onPressed: _openFullScreen,
+                          child: const Text('Full screen'),
+                        ),
                       IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(context),
@@ -104,18 +153,21 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: TextField(
-                    controller: _controller,
+                    controller: _textController,
                     autofocus: true,
-                    onChanged: _search,
+                    textInputAction: TextInputAction.search,
+                    onChanged: _onChanged,
+                    onSubmitted: _submit,
                     decoration: InputDecoration(
-                      hintText: 'Search for a word or phrase…',
+                      hintText: 'Search verses, topics, or John 3:16…',
                       prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _controller.text.isNotEmpty
+                      suffixIcon: _textController.text.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear),
                               onPressed: () {
-                                _controller.clear();
-                                _search('');
+                                _debounce?.cancel();
+                                _textController.clear();
+                                _searchController.clear();
                               },
                             )
                           : null,
@@ -126,9 +178,7 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Expanded(
-                  child: _buildBody(scrollController),
-                ),
+                Expanded(child: _buildBody(scrollController)),
               ],
             ),
           ),
@@ -138,64 +188,88 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
   }
 
   Widget _buildBody(ScrollController scrollController) {
-    if (_searching) {
+    final state = _searchController.state;
+    final theme = Theme.of(context);
+    final tokens = context.tokens;
+
+    if (state.isSearching) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_query.isEmpty) {
+    if (!state.hasSearched) {
       return Center(
-        child: Text(
-          'Type keywords to search the whole Bible',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-          textAlign: TextAlign.center,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            'Type keywords, a story, or a reference like "John 3:16"',
+            style: TextStyle(color: tokens.onSurfaceMuted),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
-    if (_results.isEmpty) {
+
+    final hits = state.filteredResults;
+    if (hits.isEmpty && state.directRef == null) {
       return Center(
         child: Text(
-          'No results found for "$_query"',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          'No results found for "${state.query}"',
+          style: TextStyle(color: tokens.onSurfaceMuted),
           textAlign: TextAlign.center,
         ),
       );
     }
 
-    final theme = Theme.of(context);
     return ListView.separated(
       controller: scrollController,
       padding: const EdgeInsets.only(bottom: 24),
-      itemCount: _results.length,
+      itemCount: hits.length + (state.directRef != null ? 1 : 0),
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        final r = _results[index];
-        final book = r['book_name'] as String;
-        final chapter = r['chapter'] as int;
-        final verse = r['verse'] as int;
-        final text = r['text'] as String;
+        if (state.directRef != null && index == 0) {
+          final ref = state.directRef!;
+          return ListTile(
+            dense: true,
+            leading: Icon(Icons.menu_book, color: theme.colorScheme.primary),
+            title: Text(
+              'Go to ${ref.bookName} ${ref.chapter}:${ref.startVerse}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            subtitle: const Text('Open passage directly'),
+            onTap: () {
+              Navigator.pop(context);
+              widget.onJumpTo(ref.bookName, ref.chapter, ref.startVerse);
+            },
+          );
+        }
+
+        final hit = hits[state.directRef != null ? index - 1 : index];
         return ListTile(
           dense: true,
-          leading: Text(
-            '$chapter:$verse',
+          title: Text(
+            hit.displayReference,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.primary,
+              color: context.accent,
               fontWeight: FontWeight.bold,
             ),
           ),
-          title: Text(
-            text,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium,
-          ),
           subtitle: Text(
-            book,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            hit.text,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: tokens.onSurface,
+            ),
           ),
-          onTap: () {
-            Navigator.pop(context);
-            widget.onJumpTo(book, chapter, verse);
-          },
+          trailing: hit.isPassage
+              ? const Chip(
+                  label: Text('Passage'),
+                  visualDensity: VisualDensity.compact,
+                )
+              : null,
+          onTap: () => _selectHit(hit),
         );
       },
     );

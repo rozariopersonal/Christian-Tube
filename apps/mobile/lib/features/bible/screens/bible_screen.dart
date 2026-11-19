@@ -11,7 +11,6 @@ import '../../../shared/ui/note_editor_sheet.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/link/deep_link_service.dart';
 import '../models/bible_verse.dart';
-import '../widgets/bible_search_sheet.dart';
 import '../screens/bible_bookmarks_screen.dart';
 import '../../../core/layout/content_width.dart';
 import '../models/bible_book.dart';
@@ -318,19 +317,18 @@ class _BibleScreenState extends State<BibleScreen> {
     showReaderAppearanceSheet(context, _controller.appearance);
   }
 
-  void _showSearch() {
-    if (_controller.selectedVersion == null) return;
-    showAdaptiveBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => BibleSearchSheet(
-        versionId: _controller.selectedVersion!.shortname,
-        onJumpTo: (book, chapter, [verse]) {
-          _controller.goToBookAndChapter(book, chapter, verse: verse);
-        },
-      ),
+  Future<void> _showSearch() async {
+    final versionId = _controller.selectedVersion?.shortname;
+    final ref = await context.push<BibleReference>(
+      '/bible/search',
+      extra: {
+        'version': versionId,
+        'book': _controller.currentBook,
+        'popWithResult': true,
+      },
     );
+    if (!mounted || ref == null) return;
+    _moveToReference(ref);
   }
 
   void _openBookmarks() {

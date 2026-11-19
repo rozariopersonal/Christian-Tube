@@ -7,16 +7,21 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 import { ScriptureRefParserService } from '../../books/services/scripture-ref-parser.service';
 import { BibleBook, BibleVerse } from '../models/bible.model';
+import { BibleService } from '../services/bible.service';
 
 export interface BibleSearchHit {
   bookNumber: number;
   bookName: string;
   chapter: number;
   verse: number;
+  endVerse?: number | null;
+  kind?: 'verse' | 'passage';
+  reference?: string;
   text: string;
 }
 
@@ -42,9 +47,9 @@ export interface BibleSearchHit {
       </form>
 
       @if (searching()) {
-        <p class="status-msg">Searching {{ currentBook().name }}...</p>
+        <p class="status-msg">Searching Bible...</p>
       } @else if (searched() && results().length === 0) {
-        <p class="status-msg">No matches found in {{ currentBook().name }}.</p>
+        <p class="status-msg">No verses matched "{{ query().trim() }}".</p>
       } @else {
         <div class="results-list">
           @for (r of results(); track $index) {
@@ -53,13 +58,24 @@ export interface BibleSearchHit {
               class="result-row"
               (click)="jumpTo.emit({ bookNumber: r.bookNumber, chapter: r.chapter, verse: r.verse })"
             >
-              <span class="res-ref">
-                {{ r.bookName }} {{ r.chapter }}:{{ r.verse }}
-              </span>
+              <div class="res-head">
+                <span class="res-ref">
+                  {{ r.reference || (r.bookName + ' ' + r.chapter + ':' + r.verse) }}
+                </span>
+                @if (r.kind === 'passage') {
+                  <span class="res-kind-pill">Passage</span>
+                }
+              </div>
               <p class="res-text">{{ r.text }}</p>
             </button>
           }
         </div>
+        @if (results().length > 0 && query().trim().length >= 2) {
+          <button type="button" class="full-results-btn" (click)="openFullResults()">
+            Open full results screen
+            <span class="material-symbols-rounded">arrow_forward</span>
+          </button>
+        }
       }
     </app-modal-sheet>
   `,
@@ -114,12 +130,29 @@ export interface BibleSearchHit {
         text-align: left;
       }
 
+      .res-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
       .res-ref {
         display: block;
         font-size: 12px;
         font-weight: 700;
         color: var(--accent);
-        margin-bottom: 4px;
+      }
+
+      .res-kind-pill {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 7px;
+        border-radius: var(--radius-pill);
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        flex-shrink: 0;
       }
 
       .res-text {
@@ -127,11 +160,28 @@ export interface BibleSearchHit {
         font-size: 13px;
         line-height: 1.45;
       }
+
+      .full-results-btn {
+        margin-top: 10px;
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 14px;
+        border-radius: var(--radius-pill);
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 600;
+      }
     `,
   ],
 })
 export class BibleSearchSheetComponent {
   private readonly releases = inject(ReleaseDataService);
+  private readonly bible = inject(BibleService);
+  private readonly router = inject(Router);
   private readonly parser = inject(ScriptureRefParserService);
 
   readonly version = input.required<string>();
@@ -143,6 +193,14 @@ export class BibleSearchSheetComponent {
   readonly searching = signal<boolean>(false);
   readonly searched = signal<boolean>(false);
   readonly results = signal<BibleSearchHit[]>([]);
+
+  openFullResults(): void {
+    const q = this.query().trim();
+    this.closed.emit();
+    void this.router.navigate(['/bible/search'], {
+      queryParams: q ? { q, scope: 'all' } : undefined,
+    });
+  }
 
   async runSearch(event: Event): Promise<void> {
     event.preventDefault();
@@ -160,11 +218,40 @@ export class BibleSearchSheetComponent {
       return;
     }
 
-    // 2. Otherwise search all chapters of the current book
-    const q = raw.toLowerCase();
-    const book = this.currentBook();
     this.searching.set(true);
     this.searched.set(true);
+
+    // 2. Semantic + hybrid passage search via backend
+    try {
+      const remote = await this.bible.searchSemantic(raw, 25);
+      const mapped: BibleSearchHit[] = [];
+      for (const item of remote.results || []) {
+        if (item.bookNumber == null || item.chapter == null || item.verse == null) {
+          continue;
+        }
+        mapped.push({
+          bookNumber: item.bookNumber,
+          bookName: item.bookName ?? `Book ${item.bookNumber}`,
+          chapter: item.chapter,
+          verse: item.verse,
+          endVerse: item.endVerse ?? null,
+          kind: item.kind,
+          reference: item.reference,
+          text: item.text,
+        });
+      }
+      if (mapped.length > 0) {
+        this.results.set(mapped);
+        this.searching.set(false);
+        return;
+      }
+    } catch {
+      // Fall through to current-book local scan if offline
+    }
+
+    // 3. Fallback: search all chapters of the current book
+    const q = raw.toLowerCase();
+    const book = this.currentBook();
     const hits: BibleSearchHit[] = [];
 
     for (let ch = 1; ch <= book.chapters; ch++) {
