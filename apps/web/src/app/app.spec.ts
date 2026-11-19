@@ -5,8 +5,10 @@ import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { ReleaseDataService } from './core/api/release-data.service';
 import {
+  ScreenClassService,
   needsCollapsedActions,
   screenClassOfWidth,
+  supportsPersistentSidebar,
 } from './core/layout/screen-class.service';
 import { APP_COLOR_THEMES, ThemeService } from './core/theme/theme.service';
 import { ScriptureRefParserService } from './features/books/services/scripture-ref-parser.service';
@@ -39,6 +41,21 @@ describe('App & Phase 1 Core Services', () => {
 
     expect(needsCollapsedActions(320)).toBe(true);
     expect(needsCollapsedActions(360)).toBe(false);
+
+    expect(supportsPersistentSidebar(320)).toBe(false);
+    expect(supportsPersistentSidebar(768)).toBe(false);
+    expect(supportsPersistentSidebar(840)).toBe(false);
+    expect(supportsPersistentSidebar(1023)).toBe(false);
+    expect(supportsPersistentSidebar(1024)).toBe(true);
+    expect(supportsPersistentSidebar(1400)).toBe(true);
+
+    const screen = TestBed.inject(ScreenClassService);
+    screen.width.set(768);
+    expect(screen.isDesktop()).toBe(false);
+    screen.width.set(900);
+    expect(screen.isDesktop()).toBe(false);
+    screen.width.set(1024);
+    expect(screen.isDesktop()).toBe(true);
   });
 
   it('should apply light, dark, amoled, and 7 accent themes to documentElement', () => {
