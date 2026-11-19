@@ -131,28 +131,33 @@ void main() {
       expect(find.text('Features'), findsOneWidget);
 
       // Switch to Tamil
+      await tester.ensureVisible(find.text('தமிழ்'));
       await tester.tap(find.text('தமிழ்'));
       await tester.pumpAndSettle();
       expect(find.text('அனைத்து CFC உள்ளடக்கமும் ஒரே ஆப்பில்'), findsOneWidget);
       expect(find.text('அம்சங்கள்'), findsOneWidget);
 
       // Switch to Hindi
+      await tester.ensureVisible(find.text('हिन्दी'));
       await tester.tap(find.text('हिन्दी'));
       await tester.pumpAndSettle();
       expect(find.text('सारा CFC कंटेंट एक ही ऐप में'), findsOneWidget);
       expect(find.text('विशेषताएँ'), findsOneWidget);
 
       // Switch to Telugu
+      await tester.ensureVisible(find.text('తెలుగు'));
       await tester.tap(find.text('తెలుగు'));
       await tester.pumpAndSettle();
       expect(find.text('CFC కంటెంట్ అంతా ఒకే యాప్‌లో'), findsOneWidget);
 
       // Switch to Kannada
+      await tester.ensureVisible(find.text('ಕನ್ನಡ'));
       await tester.tap(find.text('ಕನ್ನಡ'));
       await tester.pumpAndSettle();
       expect(find.text('ಎಲ್ಲಾ CFC ವಿಷಯ ಒಂದೇ ಆ್ಯಪ್‌ನಲ್ಲಿ'), findsOneWidget);
 
       // Switch to Malayalam
+      await tester.ensureVisible(find.text('മലയാളം'));
       await tester.tap(find.text('മലയാളം'));
       await tester.pumpAndSettle();
       expect(find.text('എല്ലാ CFC ഉള്ളടക്കവും ഒറ്റ ആപ്പിൽ'), findsOneWidget);

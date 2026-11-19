@@ -490,57 +490,52 @@ class _AppShareDialogState extends State<AppShareDialog> {
     final theme = Theme.of(context);
     final tokens = context.tokens;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (int i = 0;
-              i < AppPromoCatalog.supportedLanguageCodes.length;
-              i++) ...[
-            if (i > 0) const SizedBox(width: 6),
-            Builder(
-              builder: (context) {
-                final code = AppPromoCatalog.supportedLanguageCodes[i];
-                final isSelected = _selectedLanguageCode == code;
-                final label = AppPromoCatalog.languageDisplayLabel(code);
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedLanguageCode = code),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final code in AppPromoCatalog.supportedLanguageCodes)
+          Builder(
+            builder: (context) {
+              final isSelected = _selectedLanguageCode == code;
+              final label = AppPromoCatalog.languageDisplayLabel(code);
+              return GestureDetector(
+                onTap: () => setState(() => _selectedLanguageCode = code),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : tokens.surfaceVariant,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
                       color: isSelected
                           ? theme.colorScheme.primary
-                          : tokens.surfaceVariant,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: isSelected
-                            ? theme.colorScheme.primary
-                            : tokens.surfaceBorder,
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected
-                            ? theme.colorScheme.onPrimary
-                            : tokens.onSurface,
-                      ),
+                          : tokens.surfaceBorder,
+                      width: 1,
                     ),
                   ),
-                );
-              },
-            ),
-          ],
-        ],
-      ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected
+                          ? theme.colorScheme.onPrimary
+                          : tokens.onSurface,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 
