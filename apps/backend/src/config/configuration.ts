@@ -41,8 +41,13 @@ export default () => {
       selfDeclaredMadeForKids: instanceConfig.shorts?.selfDeclaredMadeForKids ?? true,
     },
     geminiApiKey: process.env.GEMINI_API_KEY,
-    transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'gemini-3.1-flash-lite',
-    transcriptionEnabled: process.env.TRANSCRIPTION_ENABLED === 'true',
+    redis: {
+      upstashRestUrl: process.env.UPSTASH_REDIS_REST_URL,
+      upstashRestToken: process.env.UPSTASH_REDIS_REST_TOKEN,
+      url: process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL,
+      timeoutMs: parseInt(process.env.UPSTASH_TIMEOUT_MS || process.env.REDIS_TIMEOUT_MS || '1500', 10),
+      defaultTtlSec: parseInt(process.env.CACHE_TTL_SECONDS || '300', 10),
+    },
     storage: {
       endpoint: process.env.STORAGE_ENDPOINT,
       region: process.env.STORAGE_REGION || 'auto',

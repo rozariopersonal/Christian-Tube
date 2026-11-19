@@ -1,5 +1,6 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -7,7 +8,10 @@ import * as path from 'path';
 export class WordsService implements OnModuleInit {
   private readonly logger = new Logger(WordsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly cache?: CacheService,
+  ) {}
 
   async onModuleInit() {
     try {
@@ -81,6 +85,7 @@ export class WordsService implements OnModuleInit {
     }
 
     const totalInDb = await this.prisma.microFeedItem.count();
+    await this.cache?.invalidate('words');
     this.logger.log(`✅ Micro feed seeding complete! Total items in database: ${totalInDb}`);
 
     return {
@@ -91,6 +96,30 @@ export class WordsService implements OnModuleInit {
   }
 
   async findAll(query?: {
+    category?: string;
+    translation?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    seed?: number;
+  }) {
+    if (this.cache) {
+      const key = [
+        `cat=${query?.category || 'all'}`,
+        `tr=${query?.translation || ''}`,
+        `q=${(query?.search || '').trim().toLowerCase()}`,
+        `p=${query?.page ?? 1}`,
+        `l=${query?.limit ?? 25}`,
+        `s=${query?.seed ?? ''}`,
+      ].join(':');
+      return this.cache.getOrSet('words', key, 600, () =>
+        this.findAllUncached(query),
+      );
+    }
+    return this.findAllUncached(query);
+  }
+
+  private async findAllUncached(query?: {
     category?: string;
     translation?: string;
     search?: string;
@@ -194,7 +223,7 @@ export class WordsService implements OnModuleInit {
     tags?: string[];
     isFeatured?: boolean;
   }) {
-    return this.prisma.microFeedItem.create({
+    const created = await this.prisma.microFeedItem.create({
       data: {
         engine: 'scripture',
         referenceLabel: data.referenceLabel,
@@ -211,21 +240,27 @@ export class WordsService implements OnModuleInit {
         isFeatured: data.isFeatured ?? false,
       },
     });
+    await this.cache?.invalidate('words');
+    return created;
   }
 
   async remove(id: string) {
-    return this.prisma.microFeedItem.delete({
+    const removed = await this.prisma.microFeedItem.delete({
       where: { id },
     });
+    await this.cache?.invalidate('words');
+    return removed;
   }
 
   async like(id: string) {
-    return this.prisma.microFeedItem.update({
+    const updated = await this.prisma.microFeedItem.update({
       where: { id },
       data: {
         likesCount: { increment: 1 },
       },
     });
+    await this.cache?.invalidate('words');
+    return updated;
   }
 }
 
