@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class AppConfig {
   static String instanceId = 'christian_tube';
   static String appName = 'ChristianApp';
   static String applicationId = 'org.rozario.christiantube.mobile';
-  static String version = '1.28.0';
-  static int versionCode = 45;
+  static String version = '2.0.0';
+  static int versionCode = 52;
   static String apiBaseUrl = 'https://christianapp-zjdh.onrender.com';
   static String webAppUrl = 'https://christianapp.vercel.app';
   static String releasesRepo = 'rozariopersonal/Christian-Tube-Releases';
@@ -103,6 +104,19 @@ class AppConfig {
 
       if (json['defaultCategories'] != null && json['defaultCategories'] is List) {
         defaultCategories = List<String>.from(json['defaultCategories']);
+      }
+
+      try {
+        final packageInfo = await PackageInfo.fromPlatform();
+        if (packageInfo.version.isNotEmpty) {
+          version = packageInfo.version;
+        }
+        final parsedBuildNumber = int.tryParse(packageInfo.buildNumber);
+        if (parsedBuildNumber != null && parsedBuildNumber > 0) {
+          versionCode = parsedBuildNumber;
+        }
+      } catch (e) {
+        debugPrint('AppConfig package_info resolution fallback: $e');
       }
     } catch (e) {
       debugPrint('AppConfig loaded default fallback config: $e');

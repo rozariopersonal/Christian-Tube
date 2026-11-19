@@ -164,3 +164,25 @@ extension AppTokensX on BuildContext {
   /// Secondary brand accent color.
   Color get accent => tokens.accent;
 }
+
+/// Fixed promotional flyer palette for shareable app posters.
+///
+/// Centralized here so exported promotional graphics maintain a consistent
+/// crimson-and-gold brand identity across light, dark, and AMOLED themes
+/// without embedding raw color literals in feature widgets.
+@immutable
+class PromoPosterPalette {
+  const PromoPosterPalette._();
+
+  static const Color bannerTop = Color(0xFF4A050C);
+  static const Color bannerBottom = Color(0xFF8B1018);
+  static const Color gold = Color(0xFFF0C35A);
+  static const Color goldInk = Color(0xFF3B2A00);
+  static const Color cream = Color(0xFFFFF4D1);
+  static const Color roseLight = Color(0xFFFFE3DD);
+  static const Color roseMuted = Color(0xFFF2BDB4);
+  static const Color qrSurface = Colors.white;
+  static const Color qrForeground = Colors.black;
+  static const Color cardOverlay = Color(0x38000000);
+  static const Color cardBorder = Color(0x59F0C35A);
+}

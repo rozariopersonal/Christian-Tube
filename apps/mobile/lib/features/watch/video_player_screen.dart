@@ -234,6 +234,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  void _shareVideo() {
+    final title = _video?.title;
+    final url = DeepLinkService.video(_activeVideoId);
+    final text = (title != null && title.trim().isNotEmpty)
+        ? 'Watch "$title" on ${AppConfig.appName}:\n$url'
+        : 'Watch on ${AppConfig.appName}:\n$url';
+    Share.share(text, subject: title ?? 'Watch on ${AppConfig.appName}');
+  }
+
   Future<void> _openInYouTubeApp() async {
     final uri = Uri.parse('https://www.youtube.com/watch?v=$_activeVideoId');
     if (await canLaunchUrl(uri)) {
@@ -432,9 +441,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 onSelected: (value) {
                   switch (value) {
                     case 'share':
-                      if (_video != null) {
-                        Share.share(DeepLinkService.video(_activeVideoId));
-                      }
+                      _shareVideo();
                       break;
                     case 'youtube':
                       _openInYouTubeApp();
@@ -467,9 +474,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 IconButton(
                   icon: const Icon(Icons.share_outlined),
                   tooltip: 'Share',
-                  onPressed: () {
-                    Share.share(DeepLinkService.video(_activeVideoId));
-                  },
+                  onPressed: _shareVideo,
                 ),
               IconButton(
                 icon: const Icon(Icons.open_in_new_rounded),
@@ -907,9 +912,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _buildActionPill(
           icon: Icons.share_outlined,
           label: 'Share',
-          onTap: () {
-            Share.share(DeepLinkService.video(_activeVideoId));
-          },
+          onTap: _shareVideo,
         ),
         const SizedBox(width: 8),
 
