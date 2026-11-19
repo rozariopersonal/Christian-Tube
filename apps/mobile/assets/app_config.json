@@ -2,8 +2,8 @@
   "instanceId": "christian_tube",
   "appName": "ChristianApp",
   "applicationId": "org.rozario.christiantube.mobile",
-  "version": "1.31.1",
-  "versionCode": 49,
+  "version": "2.0.0",
+  "versionCode": 52,
   "theme": {
     "primaryColor": "#2563EB",
     "accentColor": "#F59E0B",
@@ -11,6 +11,7 @@
     "lightBackground": "#FFFFFF"
   },
   "apiBaseUrl": "https://christianapp-zjdh.onrender.com",
+  "webAppUrl": "https://christianapp.vercel.app",
   "releasesRepo": "rozariopersonal/Christian-Tube-Releases",
   "apkFileName": "christian-app.apk",
   "adminEmails": [
