@@ -8,8 +8,14 @@ export function screenClassOfWidth(width: number): ScreenClass {
   return 'expanded';
 }
 
+export const DESKTOP_SIDEBAR_MIN_WIDTH = 1024;
+
 export function needsCollapsedActions(width: number): boolean {
   return width < 360;
+}
+
+export function supportsPersistentSidebar(width: number): boolean {
+  return width >= DESKTOP_SIDEBAR_MIN_WIDTH;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -23,6 +29,7 @@ export class ScreenClassService {
   );
   readonly isCompact = computed(() => this.screenClass() === 'compact');
   readonly isMediumOrExpanded = computed(() => !this.isCompact());
+  readonly isDesktop = computed(() => supportsPersistentSidebar(this.width()));
   readonly collapseAppBarActions = computed(() =>
     needsCollapsedActions(this.width()),
   );

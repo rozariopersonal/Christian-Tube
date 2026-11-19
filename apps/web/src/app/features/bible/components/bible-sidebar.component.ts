@@ -19,6 +19,7 @@ import { BibleBook } from '../models/bible.model';
       class="nav-shell"
       [class.pinned]="pinned()"
       [class.open]="isOpen()"
+      [class.in-drawer]="inDrawer()"
       (mouseenter)="hovered.set(true)"
       (mouseleave)="hovered.set(false)"
     >
@@ -42,8 +43,9 @@ import { BibleBook } from '../models/bible.model';
 
       <aside
         class="bible-sidebar"
-        [class.floating]="!pinned() && hovered()"
+        [class.floating]="!inDrawer() && !pinned() && hovered()"
         [class.hidden]="!isOpen()"
+        [class.in-drawer]="inDrawer()"
         aria-label="Bible books and chapters"
       >
         <div class="sidebar-header">
@@ -249,6 +251,27 @@ import { BibleBook } from '../models/bible.model';
         display: none;
       }
 
+      .nav-shell.in-drawer {
+        position: static;
+        width: 100%;
+        height: auto;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .bible-sidebar.in-drawer {
+        position: static;
+        top: auto;
+        width: 100%;
+        height: auto;
+        flex: 1;
+        min-height: 0;
+        border-right: none;
+        background-color: transparent;
+      }
+
       .sidebar-header {
         padding: 12px 12px 10px;
         border-bottom: 1px solid var(--reader-border, var(--surface-border));
@@ -420,6 +443,7 @@ export class BibleSidebarComponent {
   readonly currentBookNumber = input.required<number>();
   readonly currentChapter = input.required<number>();
   readonly versionLabel = input<string>('NASB');
+  readonly inDrawer = input<boolean>(false);
   readonly selectChapter = output<{ bookNumber: number; chapter: number }>();
   readonly openVersionPicker = output<void>();
 
@@ -429,7 +453,7 @@ export class BibleSidebarComponent {
   readonly pinned = signal<boolean>(this.readPinned());
   readonly hovered = signal<boolean>(false);
 
-  readonly isOpen = computed(() => this.pinned() || this.hovered());
+  readonly isOpen = computed(() => this.inDrawer() || this.pinned() || this.hovered());
 
   togglePin(): void {
     const next = !this.pinned();

@@ -111,8 +111,15 @@ interface ImageSpread {
   template: `
     <ng-template #topbarCenter>
       <div class="tb-book-pill">
-        @if (!isExpanded()) {
-          <button type="button" class="tb-book-trigger" (click)="showToc.set(true)">
+        @if (!isDesktop()) {
+          <button
+            type="button"
+            class="tb-book-trigger"
+            title="Toggle book navigator"
+            aria-label="Toggle book navigator"
+            [attr.aria-expanded]="showNavigatorDrawer()"
+            (click)="showNavigatorDrawer.set(!showNavigatorDrawer())"
+          >
             <span class="material-symbols-rounded tb-book-ic">toc</span>
             <span class="tb-book-title">{{ toc()?.title || 'Book Reader' }}</span>
           </button>
@@ -139,7 +146,7 @@ interface ImageSpread {
             <button
               type="button"
               class="tb-ch-label"
-              (click)="isExpanded() ? null : showToc.set(true)"
+              (click)="isDesktop() ? null : showNavigatorDrawer.set(!showNavigatorDrawer())"
             >
               Ch. {{ displayChapterIndex() }} / {{ t.chapters.length || 1 }}
             </button>
@@ -267,8 +274,15 @@ interface ImageSpread {
         <header class="reader-bar">
           <div class="bar-inner">
             <div class="bar-left">
-              @if (!isExpanded()) {
-                <button type="button" class="toc-btn" (click)="showToc.set(true)">
+              @if (!isDesktop()) {
+                <button
+                  type="button"
+                  class="toc-btn"
+                  title="Toggle book navigator"
+                  aria-label="Toggle book navigator"
+                  [attr.aria-expanded]="showNavigatorDrawer()"
+                  (click)="showNavigatorDrawer.set(!showNavigatorDrawer())"
+                >
                   <span class="material-symbols-rounded">toc</span>
                   <span class="book-name">{{ toc()?.title || 'Book Reader' }}</span>
                 </button>
@@ -294,7 +308,7 @@ interface ImageSpread {
                   <button
                     type="button"
                     class="ch-pill-btn"
-                    (click)="isExpanded() ? null : showToc.set(true)"
+                    (click)="isDesktop() ? null : showNavigatorDrawer.set(!showNavigatorDrawer())"
                   >
                     <span>Ch. {{ displayChapterIndex() }} / {{ t.chapters.length || 1 }}</span>
                   </button>
@@ -390,8 +404,8 @@ interface ImageSpread {
         </button>
       }
 
-      <div class="book-layout" [class.has-sidebar]="isExpanded() && !immersive() && !!toc()">
-        @if (isExpanded() && !immersive() && toc(); as t) {
+      <div class="book-layout" [class.has-sidebar]="isDesktop() && !immersive() && !!toc()">
+        @if (isDesktop() && !immersive() && toc(); as t) {
           <div
             class="nav-shell"
             [class.pinned]="navPinned()"
@@ -465,6 +479,62 @@ interface ImageSpread {
                 }
               </nav>
             </aside>
+          </div>
+        }
+
+        @if (!isDesktop() && showNavigatorDrawer() && !immersive() && toc(); as t) {
+          <div
+            class="nav-drawer-backdrop"
+            (click)="showNavigatorDrawer.set(false)"
+          >
+            <div
+              class="nav-drawer-panel"
+              role="dialog"
+              aria-label="Book navigator"
+              (click)="$event.stopPropagation()"
+            >
+              <div class="nav-drawer-top">
+                <span class="nav-drawer-title">Book Navigator</span>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  aria-label="Close book navigator"
+                  (click)="showNavigatorDrawer.set(false)"
+                >
+                  <span class="material-symbols-rounded">close</span>
+                </button>
+              </div>
+              <aside class="book-sidebar in-drawer" aria-label="Book chapters">
+                <div class="sidebar-header">
+                  <h2 class="sidebar-title font-display">{{ t.title }}</h2>
+                  @if (t.author) {
+                    <p class="sidebar-author">{{ t.author }}</p>
+                  }
+                  <input
+                    type="search"
+                    class="sidebar-filter"
+                    [ngModel]="sidebarFilter()"
+                    (ngModelChange)="sidebarFilter.set($event)"
+                    placeholder="Filter chapters..."
+                    aria-label="Filter chapters"
+                  />
+                </div>
+
+                <nav class="sidebar-list">
+                  @for (ch of filteredSidebarChapters(); track ch.chapterIndex) {
+                    <button
+                      type="button"
+                      class="sidebar-item"
+                      [class.active]="ch.chapterIndex === displayChapterIndex()"
+                      (click)="selectChapterFromDrawer(ch.chapterIndex)"
+                    >
+                      <span class="sidebar-idx">{{ ch.chapterIndex }}</span>
+                      <span class="sidebar-ch-title">{{ ch.title || ('Chapter ' + ch.chapterIndex) }}</span>
+                    </button>
+                  }
+                </nav>
+              </aside>
+            </div>
           </div>
         }
 
@@ -894,7 +964,7 @@ interface ImageSpread {
           (highlightChanged)="setHighlight(selectedIndex()!, sel, $event)"
           (closed)="selectedIndex.set(null)"
         />
-      } @else if (!isExpanded() && !isPaginated() && !immersive() && !loading() && toc()) {
+      } @else if (!isDesktop() && !isPaginated() && !immersive() && !loading() && toc()) {
         <app-book-reader-nav
           [chapterIndex]="displayChapterIndex()"
           [totalChapters]="toc()!.chapters.length || 1"
@@ -902,7 +972,7 @@ interface ImageSpread {
           [readingMinutes]="displayReadingMinutes()"
           (previous)="prevChapter()"
           (next)="nextChapter()"
-          (openToc)="showToc.set(true)"
+          (openToc)="showNavigatorDrawer.set(!showNavigatorDrawer())"
         />
       }
 
@@ -1365,6 +1435,49 @@ interface ImageSpread {
         align-items: flex-start;
         justify-content: space-between;
         gap: 8px;
+      }
+
+      .book-sidebar.in-drawer {
+        position: static;
+        top: auto;
+        width: 100%;
+        height: auto;
+        flex: 1;
+        min-height: 0;
+        border-right: none;
+        background-color: transparent;
+      }
+
+      .nav-drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+        background-color: rgba(0, 0, 0, 0.42);
+        display: flex;
+      }
+
+      .nav-drawer-panel {
+        width: min(300px, 85vw);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background-color: var(--reader-bg, var(--surface));
+        border-right: 1px solid var(--reader-border, var(--surface-border));
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+      }
+
+      .nav-drawer-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 10px 10px 14px;
+        border-bottom: 1px solid var(--reader-border, var(--surface-border));
+      }
+
+      .nav-drawer-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--reader-fg, var(--on-surface));
       }
 
       .sidebar-header {
@@ -2068,7 +2181,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
   private readonly scriptureParser = inject(ScriptureRefParserService);
   readonly screen = inject(ScreenClassService);
   readonly appearance = inject(ReaderAppearanceService);
-  readonly isExpanded = computed(() => this.screen.screenClass() === 'expanded');
+  readonly isDesktop = this.screen.isDesktop;
 
   readonly toc = signal<BookToc | null>(null);
   readonly lines = signal<BookLine[]>([]);
@@ -2108,6 +2221,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
   private hasScrolledDown = false;
 
   readonly showToc = signal<boolean>(false);
+  readonly showNavigatorDrawer = signal<boolean>(false);
   readonly showAppearance = signal<boolean>(false);
   readonly showHighlights = signal<boolean>(false);
   readonly showSearch = signal<boolean>(false);
@@ -2693,6 +2807,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
     if (event.key === 'Escape') {
       this.selectedIndex.set(null);
       this.showToc.set(false);
+      this.showNavigatorDrawer.set(false);
       this.showAppearance.set(false);
       this.showHighlights.set(false);
       this.showSearch.set(false);
@@ -2709,6 +2824,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
     }
     if (
       this.showToc() ||
+      this.showNavigatorDrawer() ||
       this.showAppearance() ||
       this.showHighlights() ||
       this.showSearch() ||
@@ -3185,6 +3301,11 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
     } catch {
       return null;
     }
+  }
+
+  selectChapterFromDrawer(ch: number): void {
+    this.showNavigatorDrawer.set(false);
+    this.selectChapter(ch);
   }
 
   selectChapter(ch: number): void {

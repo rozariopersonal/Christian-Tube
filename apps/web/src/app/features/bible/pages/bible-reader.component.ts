@@ -91,7 +91,7 @@ interface AppendedBibleChapter {
       [class.spread-mode]="spreadMode()"
     >
       <ng-template #topbarCenter>
-        @if (!isExpanded()) {
+        @if (!isDesktop()) {
           <div class="tb-bible-center">
             <button
               type="button"
@@ -192,7 +192,7 @@ interface AppendedBibleChapter {
             </button>
             @if (menuOpen()) {
               <div class="overflow-menu" (click)="menuOpen.set(false)">
-                @if (!isExpanded()) {
+                @if (!isDesktop()) {
                   <button
                     type="button"
                     class="menu-item"
@@ -228,6 +228,20 @@ interface AppendedBibleChapter {
         <header class="bible-bar">
           <div class="bar-inner">
             <div class="bar-left">
+              @if (!isDesktop() && bible.books().length > 0) {
+                <button
+                  type="button"
+                  class="icon-btn nav-drawer-btn"
+                  [class.active-icon]="showNavigatorDrawer()"
+                  title="Toggle Bible navigator"
+                  aria-label="Toggle Bible navigator"
+                  [attr.aria-expanded]="showNavigatorDrawer()"
+                  (click)="showNavigatorDrawer.set(!showNavigatorDrawer())"
+                >
+                  <span class="material-symbols-rounded">toc</span>
+                </button>
+              }
+
               <button
                 type="button"
                 class="version-pill"
@@ -401,8 +415,8 @@ interface AppendedBibleChapter {
         </button>
       }
 
-      <div class="bible-layout" [class.has-sidebar]="isExpanded() && !immersive() && bible.books().length > 0">
-        @if (isExpanded() && !immersive() && bible.books().length > 0) {
+      <div class="bible-layout" [class.has-sidebar]="isDesktop() && !immersive() && bible.books().length > 0">
+        @if (isDesktop() && !immersive() && bible.books().length > 0) {
           <app-bible-sidebar
             [books]="bible.books()"
             [currentBookNumber]="displayBookNumber()"
@@ -411,6 +425,41 @@ interface AppendedBibleChapter {
             (selectChapter)="jumpFromSearch($event)"
             (openVersionPicker)="showVersionPicker.set(true)"
           />
+        }
+
+        @if (!isDesktop() && showNavigatorDrawer() && !immersive() && bible.books().length > 0) {
+          <div
+            class="nav-drawer-backdrop"
+            (click)="showNavigatorDrawer.set(false)"
+          >
+            <div
+              class="nav-drawer-panel"
+              role="dialog"
+              aria-label="Bible navigator"
+              (click)="$event.stopPropagation()"
+            >
+              <div class="nav-drawer-top">
+                <span class="nav-drawer-title">Bible Navigator</span>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  aria-label="Close Bible navigator"
+                  (click)="showNavigatorDrawer.set(false)"
+                >
+                  <span class="material-symbols-rounded">close</span>
+                </button>
+              </div>
+              <app-bible-sidebar
+                [books]="bible.books()"
+                [currentBookNumber]="displayBookNumber()"
+                [currentChapter]="displayChapter()"
+                [versionLabel]="state.activeVersionInfo().label"
+                [inDrawer]="true"
+                (selectChapter)="selectFromNavigator($event)"
+                (openVersionPicker)="showNavigatorDrawer.set(false); showVersionPicker.set(true)"
+              />
+            </div>
+          </div>
         }
 
         <div class="reader-body">
@@ -1218,6 +1267,38 @@ interface AppendedBibleChapter {
         margin-bottom: 6px;
       }
 
+      .nav-drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+        background-color: rgba(0, 0, 0, 0.42);
+        display: flex;
+      }
+
+      .nav-drawer-panel {
+        width: min(300px, 85vw);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background-color: var(--reader-bg, var(--surface));
+        border-right: 1px solid var(--reader-border, var(--surface-border));
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+      }
+
+      .nav-drawer-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 10px 10px 14px;
+        border-bottom: 1px solid var(--reader-border, var(--surface-border));
+      }
+
+      .nav-drawer-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--reader-fg, var(--on-surface));
+      }
+
       .chapter-hero {
         display: flex;
         align-items: baseline;
@@ -1529,7 +1610,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly screen = inject(ScreenClassService);
-  readonly isExpanded = computed(() => this.screen.screenClass() === 'expanded');
+  readonly isDesktop = this.screen.isDesktop;
   readonly effectiveCols = computed(() =>
     this.appearance.effectiveColumns(this.screen.screenClass()),
   );
@@ -1552,6 +1633,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   readonly showVersionPicker = signal<boolean>(false);
   readonly showParallelPicker = signal<boolean>(false);
   readonly showBookPicker = signal<boolean>(false);
+  readonly showNavigatorDrawer = signal<boolean>(false);
   readonly bookPickerTab = signal<BiblePickerTab>('books');
   readonly showSearch = signal<boolean>(false);
   readonly showAppearance = signal<boolean>(false);
@@ -1747,6 +1829,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       this.showVersionPicker.set(false);
       this.showParallelPicker.set(false);
       this.showBookPicker.set(false);
+      this.showNavigatorDrawer.set(false);
       this.showSearch.set(false);
       this.showAppearance.set(false);
       this.showCrossRefs.set(false);
@@ -1767,6 +1850,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       this.showVersionPicker() ||
       this.showParallelPicker() ||
       this.showBookPicker() ||
+      this.showNavigatorDrawer() ||
       this.showSearch() ||
       this.showAppearance() ||
       this.showCrossRefs() ||
@@ -1833,7 +1917,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       if (!this.viewInitialized()) return;
       if (this.screen.isMediumOrExpanded() && !this.immersive()) {
         this.headerSlot.setTemplates(
-          this.isExpanded() ? null : (this.topbarCenterRef ?? null),
+          this.isDesktop() ? null : (this.topbarCenterRef ?? null),
           this.topbarRightRef ?? null,
         );
       } else {
@@ -2275,6 +2359,11 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       chapter: target.chapter,
       verse: target.verse,
     });
+  }
+
+  selectFromNavigator(target: { bookNumber: number; chapter: number }): void {
+    this.showNavigatorDrawer.set(false);
+    void this.jumpFromSearch(target);
   }
 
   async jumpFromSearch(target: {
