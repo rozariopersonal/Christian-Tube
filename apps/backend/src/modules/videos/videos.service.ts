@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { Injectable, NotFoundException, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmbeddingService } from "../embedding/embedding.service";
+import { CacheService } from "../cache/cache.service";
 
 interface VideoQuery {
   category?: string;
@@ -9,6 +10,7 @@ interface VideoQuery {
   channelId?: string;
   channelIds?: string | string[];
   search?: string;
+  sort?: "latest" | "popular" | "oldest" | "relevance";
   limit?: number;
   offset?: number;
 }
@@ -26,9 +28,41 @@ export class VideosService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly embeddingService: EmbeddingService,
+    @Optional() private readonly cache?: CacheService,
   ) {}
 
+  private buildFeedCacheKey(query: VideoQuery): string {
+    const channelIds = Array.isArray(query.channelIds)
+      ? query.channelIds.join(",")
+      : query.channelIds || "";
+    const limit = query.limit ? Number(query.limit) : 50;
+    const offset = query.offset ? Number(query.offset) : 0;
+    const search = (query.search || "").trim().toLowerCase();
+    return [
+      `type=${query.type || "VIDEO"}`,
+      `cat=${query.category || "All"}`,
+      `ch=${query.channelId || ""}`,
+      `chs=${channelIds}`,
+      `q=${search}`,
+      `lim=${limit}`,
+      `off=${offset}`,
+    ].join(":");
+  }
+
   async findAll(query: VideoQuery) {
+    if (this.cache) {
+      const ttl = query.search ? 3600 : 86400;
+      return this.cache.getOrSet(
+        "videos",
+        `feed:${this.buildFeedCacheKey(query)}`,
+        ttl,
+        () => this.findAllUncached(query),
+      );
+    }
+    return this.findAllUncached(query);
+  }
+
+  private async findAllUncached(query: VideoQuery) {
     const where: any = {
       channel: {
         isActive: true,
@@ -43,16 +77,18 @@ export class VideosService {
     const offset = query.offset ? Number(query.offset) : 0;
 
     if (!query.search) {
-      return this.fetchKeywords(where, limit, offset);
+      return this.fetchKeywords(where, limit, offset, query.sort);
     }
 
-    const vector = await this.embeddingService.embedQuery(query.search);
-    if (vector) {
-      return this.hybridSearchWithContent(query, vector, limit, offset);
+    if (!query.sort || query.sort === "relevance") {
+      const vector = await this.embeddingService.embedQuery(query.search);
+      if (vector) {
+        return this.hybridSearchWithContent(query, vector, limit, offset);
+      }
     }
 
     where.OR = this.searchTermClauses(query.search);
-    return this.fetchKeywords(where, limit, offset);
+    return this.fetchKeywords(where, limit, offset, query.sort);
   }
 
   private searchTermClauses(term: string) {
@@ -411,7 +447,18 @@ export class VideosService {
     return this.fetchEnrichedByIds(pageIds);
   }
 
-  private async fetchKeywords(where: any, limit: number, offset: number) {
+  private resolveOrderBy(sort?: VideoQuery["sort"]) {
+    if (sort === "popular") return { viewCount: "desc" as const };
+    if (sort === "oldest") return { publishedAt: "asc" as const };
+    return { publishedAt: "desc" as const };
+  }
+
+  private async fetchKeywords(
+    where: any,
+    limit: number,
+    offset: number,
+    sort?: VideoQuery["sort"],
+  ) {
     const videos = await this.prisma.video.findMany({
       where,
       include: {
@@ -424,7 +471,7 @@ export class VideosService {
           },
         },
       },
-      orderBy: { publishedAt: "desc" },
+      orderBy: this.resolveOrderBy(sort),
       take: limit,
       skip: offset,
     });
@@ -442,6 +489,15 @@ export class VideosService {
   }
 
   async findOne(id: string) {
+    if (this.cache) {
+      return this.cache.getOrSet("videos", `detail:${id}`, 86400, () =>
+        this.findOneUncached(id),
+      );
+    }
+    return this.findOneUncached(id);
+  }
+
+  private async findOneUncached(id: string) {
     const video = await this.prisma.video.findUnique({
       where: { id },
       select: {
@@ -658,6 +714,8 @@ export class VideosService {
          "updatedAt" = CURRENT_TIMESTAMP`,
       savedVideo.id,
     );
+
+    await this.cache?.invalidate("videos", "channels");
 
     this.logger.log(
       `Short imported and published: ${savedVideo.id} - "${savedVideo.title}"`,

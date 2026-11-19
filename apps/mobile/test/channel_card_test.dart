@@ -67,14 +67,14 @@ void main() {
       await tester.pumpWidget(host(subject()));
 
       expect(find.text('Centum CFC Chennai'), findsOneWidget);
-      expect(find.text('12.5K subs'), findsOneWidget);
+      expect(find.text('12.5K followers'), findsOneWidget);
       expect(find.text('320 videos'), findsOneWidget);
     });
 
     testWidgets('formats subscriber counts in millions', (tester) async {
       await tester.pumpWidget(host(subject(subscriberCount: 2400000)));
 
-      expect(find.text('2.4M subs'), findsOneWidget);
+      expect(find.text('2.4M followers'), findsOneWidget);
     });
 
     testWidgets('renders the description when provided', (tester) async {

@@ -94,28 +94,6 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
             </button>
           </div>
         </div>
-
-        <div class="appearance-section">
-          <label class="label">Columns (Wide)</label>
-          <div class="chip-wrap">
-            <button
-              type="button"
-              class="pill-chip"
-              [class.active]="appearance.bookColumns() === 1"
-              (click)="appearance.setBookColumns(1)"
-            >
-              Single
-            </button>
-            <button
-              type="button"
-              class="pill-chip"
-              [class.active]="appearance.bookColumns() === 2"
-              (click)="appearance.setBookColumns(2)"
-            >
-              2-Page
-            </button>
-          </div>
-        </div>
       </div>
 
       <div class="appearance-section">

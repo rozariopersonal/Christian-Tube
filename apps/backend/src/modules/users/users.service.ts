@@ -1,6 +1,13 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 
 @Injectable()
 export class UsersService {
@@ -9,6 +16,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    @Optional() private readonly cache?: CacheService,
   ) {}
 
   isAdmin(email?: string): boolean {
@@ -52,6 +60,15 @@ export class UsersService {
   }
 
   async getPreferences(userId: string) {
+    if (this.cache) {
+      return this.cache.getOrSet(`user:${userId}`, 'prefs', 86400, () =>
+        this.getPreferencesUncached(userId),
+      );
+    }
+    return this.getPreferencesUncached(userId);
+  }
+
+  private async getPreferencesUncached(userId: string) {
     let pref = await this.prisma.userPreference.findUnique({
       where: { userId },
     });
@@ -68,6 +85,7 @@ export class UsersService {
         },
       });
     }
+
     return pref;
   }
 
@@ -162,6 +180,8 @@ export class UsersService {
       }
     }
 
+    await this.cache?.invalidate(`user:${userId}`);
+
     return pref;
   }
 
@@ -210,6 +230,22 @@ export class UsersService {
       where: { id },
       data: { isBlocked: false },
     });
+  }
+
+  async removeUser(id: string, currentAdminId?: string) {
+    if (currentAdminId && id === currentAdminId) {
+      throw new BadRequestException('Cannot remove your own admin account');
+    }
+    const user = await this.findOne(id);
+    if ((this.prisma as any).userPlayback) {
+      await (this.prisma as any).userPlayback.deleteMany({
+        where: {
+          OR: [{ userId: id }, { userEmail: user.email }],
+        },
+      });
+    }
+    await this.prisma.user.delete({ where: { id } });
+    return { status: 'success', id };
   }
 
   // In-memory fallback map to ensure zero-downtime resilience

@@ -1,6 +1,7 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 
 /** A series plus its (possibly matched) tracks, shaped for the mobile client. */
 export interface SeriesSearchResult {
@@ -71,7 +72,10 @@ export class AudioService implements OnModuleInit {
   /** pg_trgm similarity floor for fuzzy matches (typo tolerance). */
   private readonly fuzzyThreshold = 0.35;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly cache?: CacheService,
+  ) {}
 
   /**
    * Self-heal: when the audio tables are empty on boot (fresh DB / new
@@ -208,6 +212,7 @@ export class AudioService implements OnModuleInit {
 
       this.logger.log('Audio catalog sync completed successfully.');
       await this.backfillSeriesRecency(revision);
+      await this.cache?.invalidate('audio');
       return { success: true, count: catalog.length };
     } catch (error) {
       this.logger.error(`Error syncing audio catalog: ${error.message}`);
@@ -635,6 +640,15 @@ export class AudioService implements OnModuleInit {
    * fetched from the releases CDN now consume the database instead.
    */
   async getCatalog() {
+    if (this.cache) {
+      return this.cache.getOrSet('audio', 'catalog', 86400, () =>
+        this.getCatalogUncached(),
+      );
+    }
+    return this.getCatalogUncached();
+  }
+
+  private async getCatalogUncached() {
     const rows = await this.prisma.audioSeries.findMany({
       orderBy: { title: 'asc' },
       select: {
@@ -665,6 +679,15 @@ export class AudioService implements OnModuleInit {
    * Returns `null` when the series does not exist.
    */
   async getSeries(id: string) {
+    if (this.cache) {
+      return this.cache.getOrSet('audio', `series:${id}`, 86400, () =>
+        this.getSeriesUncached(id),
+      );
+    }
+    return this.getSeriesUncached(id);
+  }
+
+  private async getSeriesUncached(id: string) {
     const series = await this.prisma.audioSeries.findUnique({
       where: { id },
       include: { tracks: true, channel: true },
@@ -710,6 +733,15 @@ export class AudioService implements OnModuleInit {
    */
   async findTrackByYoutubeId(videoId: string) {
     if (!videoId) return null;
+    if (this.cache) {
+      return this.cache.getOrSet('audio', `yt:${videoId}`, 86400, () =>
+        this.findTrackByYoutubeIdUncached(videoId),
+      );
+    }
+    return this.findTrackByYoutubeIdUncached(videoId);
+  }
+
+  private async findTrackByYoutubeIdUncached(videoId: string) {
     const track = await this.prisma.audioTrack.findFirst({
       where: { youtubeVideoId: videoId },
       include: {

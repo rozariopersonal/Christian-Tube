@@ -56,28 +56,6 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
       </div>
 
       <div class="appearance-section">
-        <label class="label">Columns (Wide)</label>
-        <div class="chip-wrap">
-          <button
-            type="button"
-            class="pill-chip"
-            [class.active]="appearance.bookColumns() === 1"
-            (click)="appearance.setBookColumns(1)"
-          >
-            Single
-          </button>
-          <button
-            type="button"
-            class="pill-chip"
-            [class.active]="appearance.bookColumns() === 2"
-            (click)="appearance.setBookColumns(2)"
-          >
-            2-Column
-          </button>
-        </div>
-      </div>
-
-      <div class="appearance-section">
         <label class="label">Font Family</label>
         <div class="chip-wrap">
           @for (f of fonts; track f.id) {

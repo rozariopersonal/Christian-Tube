@@ -134,7 +134,7 @@ class ChannelCard extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         Text(
-                          '${Formatters.formatSubscribers(subscriberCount)} subs',
+                          '${Formatters.formatSubscribers(subscriberCount)} followers',
                           style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 12),
                         ),
                         Text(

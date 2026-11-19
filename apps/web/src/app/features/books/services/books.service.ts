@@ -45,6 +45,18 @@ export class BooksService {
     return this.releases.assetUrl(`books/covers/${coverFile}`);
   }
 
+  pageImageUrls(bookId: string, fileName: string, lang?: string): string[] {
+    const clean = fileName.trim();
+    if (!clean) return [];
+    const urls: string[] = [];
+    if (lang && lang !== 'en') {
+      urls.push(this.releases.assetUrl(`books/${lang}/${bookId}/pages/${clean}`));
+    }
+    urls.push(this.releases.assetUrl(`books/${bookId}/pages/${clean}`));
+    urls.push(this.releases.assetUrl(`books/en/${bookId}/pages/${clean}`));
+    return urls;
+  }
+
   async fetchToc(bookId: string, lang?: string): Promise<BookToc> {
     try {
       return await this.releases.getJson<BookToc>(`books/${bookId}/toc.json`);

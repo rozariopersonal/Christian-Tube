@@ -14,10 +14,13 @@ export class VideoService {
 
   readonly shorts = signal<Video[]>([]);
   readonly shortsLoading = signal<boolean>(false);
+  readonly shortsHasMore = signal<boolean>(true);
   readonly shortsError = signal<string | null>(null);
 
-  private page = 1;
+  private offset = 0;
+  private shortsOffset = 0;
   private readonly limit = 24;
+  private readonly shortsLimit = 30;
   private activeChannelId: string | null = null;
   private activeCategory: string | null = null;
   private subscribedIds: string[] = [];
@@ -42,7 +45,7 @@ export class VideoService {
   async fetchVideos(refresh = false): Promise<void> {
     if (this.isLoading()) return;
     if (refresh) {
-      this.page = 1;
+      this.offset = 0;
       this.hasMore.set(true);
     }
     if (!this.hasMore()) return;
@@ -52,7 +55,7 @@ export class VideoService {
 
     try {
       const params: Record<string, string | number | undefined> = {
-        page: this.page,
+        offset: this.offset,
         limit: this.limit,
         type: 'VIDEO',
       };
@@ -78,8 +81,8 @@ export class VideoService {
           ...list.filter((v) => !existingIds.has(v.id)),
         ]);
       }
+      this.offset += list.length;
       this.hasMore.set(list.length >= this.limit);
-      this.page += 1;
     } catch (err) {
       this.error.set(
         err instanceof Error ? err.message : 'Unable to load videos',
@@ -101,11 +104,52 @@ export class VideoService {
     }
   }
 
-  async searchVideos(query: string): Promise<Video[]> {
+  async searchVideos(
+    query: string,
+    opts?: {
+      type?: 'VIDEO' | 'SHORT' | 'ALL';
+      sort?: 'relevance' | 'latest' | 'popular';
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<Video[]> {
     const q = query.trim();
     if (!q) return [];
     const res = await firstValueFrom(
-      this.api.get<unknown>('/api/videos', { search: q, limit: 30 }),
+      this.api.get<unknown>('/api/videos', {
+        search: q,
+        type: opts?.type ?? 'ALL',
+        sort: opts?.sort ?? 'relevance',
+        limit: opts?.limit ?? 24,
+        offset: opts?.offset ?? 0,
+      }),
+    );
+    return this.extractList(res).map((item) => normalizeVideo(item));
+  }
+
+  async queryVideos(params: {
+    channelId?: string;
+    channelIds?: string[];
+    category?: string;
+    type?: 'VIDEO' | 'SHORT' | 'ALL';
+    search?: string;
+    sort?: 'latest' | 'popular' | 'oldest' | 'relevance';
+    limit?: number;
+    offset?: number;
+  }): Promise<Video[]> {
+    const res = await firstValueFrom(
+      this.api.get<unknown>('/api/videos', {
+        channelId: params.channelId,
+        channelIds: params.channelIds?.length
+          ? params.channelIds.join(',')
+          : undefined,
+        category: params.category,
+        type: params.type ?? 'VIDEO',
+        search: params.search?.trim() || undefined,
+        sort: params.sort ?? 'latest',
+        limit: params.limit ?? 24,
+        offset: params.offset ?? 0,
+      }),
     );
     return this.extractList(res).map((item) => normalizeVideo(item));
   }
@@ -114,7 +158,7 @@ export class VideoService {
     const res = await firstValueFrom(
       this.api.get<unknown>('/api/videos', {
         channelId: video.channelId || undefined,
-        limit: 12,
+        limit: 16,
         type: 'VIDEO',
       }),
     );
@@ -123,15 +167,37 @@ export class VideoService {
       .filter((v) => v.id !== video.id);
   }
 
-  async fetchShorts(force = false): Promise<void> {
-    if (!force && this.shorts().length > 0) return;
+  async fetchShorts(refresh = false): Promise<void> {
+    if (this.shortsLoading()) return;
+    if (!refresh && this.shorts().length > 0 && !this.shortsHasMore()) return;
+    if (refresh) {
+      this.shortsOffset = 0;
+      this.shortsHasMore.set(true);
+    }
+    if (!this.shortsHasMore()) return;
+
     this.shortsLoading.set(true);
     this.shortsError.set(null);
     try {
       const res = await firstValueFrom(
-        this.api.get<unknown>('/api/videos', { type: 'SHORT', limit: 100 }),
+        this.api.get<unknown>('/api/videos', {
+          type: 'SHORT',
+          limit: this.shortsLimit,
+          offset: this.shortsOffset,
+        }),
       );
-      this.shorts.set(this.extractList(res).map((item) => normalizeVideo(item)));
+      const list = this.extractList(res).map((item) => normalizeVideo(item));
+      if (refresh || this.shortsOffset === 0) {
+        this.shorts.set(list);
+      } else {
+        const existing = new Set(this.shorts().map((s) => s.id));
+        this.shorts.set([
+          ...this.shorts(),
+          ...list.filter((s) => !existing.has(s.id)),
+        ]);
+      }
+      this.shortsOffset += list.length;
+      this.shortsHasMore.set(list.length >= this.shortsLimit);
     } catch (err) {
       this.shortsError.set(
         err instanceof Error ? err.message : 'Unable to load shorts',

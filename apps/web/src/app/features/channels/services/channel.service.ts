@@ -49,6 +49,27 @@ export class ChannelService {
     }
   }
 
+  async fetchAdminChannels(): Promise<void> {
+    this.isLoading.set(true);
+    try {
+      const res = await firstValueFrom(
+        this.api.get<unknown>('/api/channels/admin/all'),
+      );
+      const rawList = Array.isArray(res) ? (res as Record<string, unknown>[]) : [];
+      const subSet = new Set(this.subscribedIds());
+      this.channels.set(
+        rawList.map((c) => {
+          const ch = normalizeChannel(c);
+          return { ...ch, isSubscribed: subSet.has(ch.id) || ch.isSubscribed };
+        }),
+      );
+    } catch {
+      await this.fetchChannels();
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
   async loadSubscriptions(): Promise<void> {
     try {
       const res = await firstValueFrom(
@@ -145,11 +166,61 @@ export class ChannelService {
   ): Promise<boolean> {
     try {
       await firstValueFrom(
-        this.api.post('/api/channels/requests', {
-          channelName,
+        this.api.post('/api/channels/request', {
           channelUrl,
-          reason,
+          notes: reason ? `${channelName} — ${reason}` : channelName,
         }),
+      );
+      await this.fetchRequests();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async toggleChannelActive(channel: Channel): Promise<boolean> {
+    const endpoint = channel.isActive
+      ? `/api/channels/${channel.id}/suspend`
+      : `/api/channels/${channel.id}/activate`;
+    try {
+      await firstValueFrom(this.api.post(endpoint, {}));
+      this.channels.update((list) =>
+        list.map((c) =>
+          c.id === channel.id ? { ...c, isActive: !channel.isActive } : c,
+        ),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async removeChannel(channelId: string): Promise<boolean> {
+    try {
+      await firstValueFrom(this.api.delete(`/api/channels/${channelId}`));
+      this.channels.update((list) => list.filter((c) => c.id !== channelId));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async approveRequest(requestId: string): Promise<boolean> {
+    try {
+      await firstValueFrom(
+        this.api.post(`/api/channels/requests/${requestId}/approve`, {}),
+      );
+      await Promise.all([this.fetchRequests(), this.fetchAdminChannels()]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async rejectRequest(requestId: string): Promise<boolean> {
+    try {
+      await firstValueFrom(
+        this.api.post(`/api/channels/requests/${requestId}/reject`, {}),
       );
       await this.fetchRequests();
       return true;

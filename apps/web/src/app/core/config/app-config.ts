@@ -3,7 +3,7 @@ export const AppConfig = {
   appName: 'ChristianApp',
   apiBaseUrl: 'https://christianapp-zjdh.onrender.com',
   releasesRepo: 'rozariopersonal/Christian-Tube-Releases',
-  googleClientId: '486970697742-rosdo4tsrelad7tma3aeuc47ndv3e1ma.apps.googleusercontent.com',
+  googleClientId: '269717576774-u01upfu4n1nit8o2t5bclteihvl9qv75.apps.googleusercontent.com',
   defaultCategories: [
     'All',
     'Worship',

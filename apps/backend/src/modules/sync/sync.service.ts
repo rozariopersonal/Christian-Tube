@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { YoutubeService, ExtractedVideo } from '../youtube/youtube.service';
+import { CacheService } from '../cache/cache.service';
 import { extractVideoMetadata, isSongChannel } from './metadata-extractor';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class SyncService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly youtubeService: YoutubeService,
+    @Optional() private readonly cache?: CacheService,
   ) {}
 
   private sleep(ms: number): Promise<void> {
@@ -107,6 +109,7 @@ export class SyncService implements OnModuleInit {
       return { status: 'success', channelCount: channels.length };
     } finally {
       this.isSyncing = false;
+      await this.cache?.invalidate('videos', 'channels');
     }
   }
 
@@ -114,23 +117,27 @@ export class SyncService implements OnModuleInit {
    * Sync a single channel using YouTube API or Web Scraper fallback
    */
   async syncChannel(channelId: string, defaultCategory?: string | null) {
-    // 1. Refresh channel metadata
-    await this.refreshChannelMetadata(channelId);
+    try {
+      // 1. Refresh channel metadata
+      await this.refreshChannelMetadata(channelId);
 
-    // 2. Try official YouTube Data API v3 playlist sync
-    if (this.youtubeService.hasApiKey()) {
-      try {
-        await this.syncViaPlaylistApi(channelId, defaultCategory);
-        return;
-      } catch (err: any) {
-        this.logger.warn(
-          `YouTube API playlist sync failed for ${channelId}: ${err.message}. Falling back to web scraper...`,
-        );
+      // 2. Try official YouTube Data API v3 playlist sync
+      if (this.youtubeService.hasApiKey()) {
+        try {
+          await this.syncViaPlaylistApi(channelId, defaultCategory);
+          return;
+        } catch (err: any) {
+          this.logger.warn(
+            `YouTube API playlist sync failed for ${channelId}: ${err.message}. Falling back to web scraper...`,
+          );
+        }
       }
-    }
 
-    // 3. Fallback: Web Scraper & Atom RSS sync
-    await this.syncViaWebScraper(channelId, defaultCategory);
+      // 3. Fallback: Web Scraper & Atom RSS sync
+      await this.syncViaWebScraper(channelId, defaultCategory);
+    } finally {
+      await this.cache?.invalidate('videos', 'channels');
+    }
   }
 
   /**
@@ -539,6 +546,7 @@ export class SyncService implements OnModuleInit {
               },
             });
             this.logger.log(`✅ Live synced new video "${title}" (${videoId}) via WebSub push`);
+            await this.cache?.invalidate('videos', 'channels');
             return;
           }
         } catch (apiErr: any) {
@@ -581,6 +589,7 @@ export class SyncService implements OnModuleInit {
       });
 
       this.logger.log(`✅ Live synced new video "${title}" (${videoId}) via WebSub push XML`);
+      await this.cache?.invalidate('videos', 'channels');
     } catch (err: any) {
       this.logger.error(`Error handling WebSub push notification payload: ${err.message}`);
     }
@@ -634,6 +643,7 @@ export class SyncService implements OnModuleInit {
         await this.sleep(100);
       }
       this.logger.log(`✅ Metadata backfill completed for ${videos.length} videos.`);
+      await this.cache?.invalidate('videos');
     } catch (e: any) {
       this.logger.warn(`Video metadata backfill error: ${e.message}`);
     }
@@ -768,6 +778,7 @@ export class SyncService implements OnModuleInit {
     }
 
     this.logger.log(`✅ Single video synced successfully: ${saved.id} ("${saved.title}")`);
+    await this.cache?.invalidate('videos', 'channels');
     return saved;
   }
 }

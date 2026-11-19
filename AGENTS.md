@@ -687,6 +687,20 @@ docker compose --env-file envs/neon.env up -d <service>
 
 ---
 
+## Render & Upstash Operations Standard
+
+- **Never commit secrets** (Render API keys, Upstash API keys/tokens, DB credentials) to git, `AGENTS.md`, or source files.
+- **Render API key**: Stored locally in the git-ignored `.render_token` file at the repo root (`rnd_...`).
+  - Note: On Windows hosts with Application Control blocking unsigned binaries, `render.exe` cannot run; use Render's official REST API (`https://api.render.com/v1`) with `Authorization: Bearer $(cat .render_token)` instead.
+  - Primary Render web services:
+    - `ChristianApp`: `srv-da87q9c9v7es73etf67g` (`https://christianapp-zjdh.onrender.com`)
+    - `CentumTube`: `srv-da4rrcc9v7es7393cor0` (`https://centumtube.onrender.com`)
+- **Upstash Redis**: Managed via the globally installed `@upstash/cli` (`upstash`, logged in to local user config).
+  - Database: `christian-tube` (`dc4573b9-94e9-4d50-921f-f2385cc7228c`), region `us-west-2` (Oregon), endpoint `https://rare-bee-77119.upstash.io`.
+  - Keep `UPSTASH_EMAIL`, `UPSTASH_API_KEY`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN` in git-ignored `envs/neon.env` / `apps/backend/.env` (and configured on Render via the Render REST API).
+
+---
+
 ## General repository rules
 
 - Run `flutter analyze` and `flutter test` in `apps/mobile` after any UI change;

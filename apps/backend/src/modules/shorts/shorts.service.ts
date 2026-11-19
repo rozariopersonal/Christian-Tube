@@ -1,7 +1,8 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 
 export interface InitiateUploadDto {
   title: string;
@@ -35,6 +36,7 @@ export class ShortsService {
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    @Optional() private readonly cache?: CacheService,
   ) {}
 
   private getTodayUtcDateString(): string {
@@ -341,6 +343,7 @@ export class ShortsService {
           },
         });
         this.logger.log(`✅ Short automatically mirrored to Video feed: ${data.youtubeVideoId} ("${data.title}")`);
+        await this.cache?.invalidate('videos', 'channels');
       } catch (feedErr: any) {
         this.logger.warn(`Could not mirror short creation to Video feed: ${feedErr.message}`);
       }
@@ -457,6 +460,7 @@ export class ShortsService {
       }).catch(() => ({ count: 0 }));
 
       this.logger.log(`🧹 Cleaned up legacy/mock shorts: ${deletedVideos.count} videos, ${deletedCreations.count} creations.`);
+      await this.cache?.invalidate('videos', 'channels');
       return {
         success: true,
         deletedVideos: deletedVideos.count,

@@ -1,13 +1,18 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ScreenClassService } from '../../../core/layout/screen-class.service';
+import { ContentPreferencesService } from '../../../core/services/content-preferences.service';
+import { HeaderSearchService } from '../../../core/services/header-search.service';
 import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
 import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
 import { ChannelCardComponent } from '../components/channel-card.component';
@@ -15,6 +20,7 @@ import {
   ChannelRequestModalComponent,
   ChannelRequestPayload,
 } from '../components/channel-request-modal.component';
+import { Channel } from '../models/channel.model';
 import { ChannelService } from '../services/channel.service';
 
 @Component({
@@ -70,15 +76,17 @@ import { ChannelService } from '../services/channel.service';
 
       @if (!auth.isAdmin() || activeTab() === 'browse') {
         <div class="controls">
-          <div class="search-box">
-            <span class="material-symbols-rounded">search</span>
-            <input
-              type="search"
-              placeholder="Search channels..."
-              [ngModel]="search()"
-              (ngModelChange)="search.set($event)"
-            />
-          </div>
+          @if (screen.isCompact()) {
+            <div class="search-box">
+              <span class="material-symbols-rounded">search</span>
+              <input
+                type="search"
+                placeholder="Search channels..."
+                [ngModel]="search()"
+                (ngModelChange)="search.set($event)"
+              />
+            </div>
+          }
 
           <app-language-dropdown
             [selectedLanguages]="selectedLanguages()"
@@ -89,6 +97,21 @@ import { ChannelService } from '../services/channel.service';
             (languagesChange)="selectedLanguages.set($event)"
           />
         </div>
+
+        @if (auth.isAdmin()) {
+          <div class="status-filter-row">
+            @for (st of ['all', 'active', 'suspended']; track st) {
+              <button
+                type="button"
+                class="pill-chip"
+                [class.active]="statusFilter() === st"
+                (click)="statusFilter.set($any(st))"
+              >
+                {{ st[0].toUpperCase() + st.slice(1) }}
+              </button>
+            }
+          </div>
+        }
 
         @if (channelService.isLoading() && channelService.channels().length === 0) {
           <p class="empty-msg">Loading channels...</p>
@@ -103,7 +126,10 @@ import { ChannelService } from '../services/channel.service';
             @for (ch of filteredChannels(); track ch.id) {
               <app-channel-card
                 [channel]="ch"
+                [isAdmin]="auth.isAdmin()"
                 (subscribeToggled)="channelService.toggleSubscribe($event)"
+                (suspendToggled)="channelService.toggleChannelActive($event)"
+                (deleteRequested)="channelToDelete.set($event)"
               />
             }
           </div>
@@ -119,10 +145,48 @@ import { ChannelService } from '../services/channel.service';
                   <strong>{{ req.channelName }}</strong>
                   <p class="req-url">{{ req.channelUrl }}</p>
                 </div>
-                <span class="status-badge">{{ req.status }}</span>
+                <div class="req-actions">
+                  <span class="status-badge">{{ req.status }}</span>
+                  @if (req.status === 'PENDING') {
+                    <button
+                      type="button"
+                      class="pill-chip active"
+                      (click)="channelService.approveRequest(req.id)"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      class="pill-chip"
+                      (click)="channelService.rejectRequest(req.id)"
+                    >
+                      Reject
+                    </button>
+                  }
+                </div>
               </div>
             }
           }
+        </div>
+      }
+
+      @if (channelToDelete(); as target) {
+        <div class="confirm-backdrop" (click)="channelToDelete.set(null)">
+          <div class="confirm-modal" (click)="$event.stopPropagation()">
+            <h3>Delete Channel?</h3>
+            <p>
+              Are you sure you want to permanently delete
+              <strong>{{ target.title }}</strong> and all of its videos?
+            </p>
+            <div class="confirm-actions">
+              <button type="button" class="pill-chip" (click)="channelToDelete.set(null)">
+                Cancel
+              </button>
+              <button type="button" class="pill-chip danger-btn" (click)="confirmDelete()">
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       }
 
@@ -282,17 +346,87 @@ import { ChannelService } from '../services/channel.service';
         color: var(--on-surface-muted);
         padding: 32px 0;
       }
+
+      .status-filter-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+
+      .req-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .confirm-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        z-index: 80;
+      }
+
+      .confirm-modal {
+        width: 100%;
+        max-width: 400px;
+        background: var(--surface-elevated);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-lg);
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .confirm-modal h3 {
+        margin: 0;
+        font-size: 17px;
+      }
+
+      .confirm-modal p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--on-surface-muted);
+      }
+
+      .confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .danger-btn {
+        background-color: var(--error);
+        border-color: var(--error);
+        color: var(--on-error);
+      }
     `,
   ],
 })
 export class ChannelsComponent implements OnInit {
   readonly channelService = inject(ChannelService);
   readonly auth = inject(AuthService);
+  readonly screen = inject(ScreenClassService);
+  private readonly prefs = inject(ContentPreferencesService);
+  private readonly headerSearch = inject(HeaderSearchService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly activeTab = signal<'browse' | 'requests'>('browse');
   readonly search = signal<string>('');
-  readonly selectedLanguages = signal<string[]>(['All']);
+  readonly selectedLanguages = signal<string[]>(this.prefs.preferredLanguages());
+  readonly statusFilter = signal<'all' | 'active' | 'suspended'>('all');
   readonly showRequestModal = signal<boolean>(false);
+  readonly channelToDelete = signal<Channel | null>(null);
+
+  constructor() {
+    effect(() => {
+      this.selectedLanguages.set(this.prefs.preferredLanguages());
+    });
+  }
 
   readonly pendingCount = computed(
     () =>
@@ -324,7 +458,12 @@ export class ChannelsComponent implements OnInit {
     const selLangs = this.selectedLanguages();
     const allLangs = selLangs.length === 0 || selLangs.includes('All');
     const langSet = new Set(selLangs.map((l) => l.toLowerCase()));
+    const st = this.statusFilter();
     return this.channelService.channels().filter((c) => {
+      if (this.auth.isAdmin()) {
+        if (st === 'active' && !c.isActive) return false;
+        if (st === 'suspended' && c.isActive) return false;
+      }
       if (
         !allLangs &&
         !langSet.has(canonicalLanguageCode(c.language).toLowerCase())
@@ -344,8 +483,24 @@ export class ChannelsComponent implements OnInit {
 
   ngOnInit(): void {
     void this.channelService.loadSubscriptions();
-    void this.channelService.fetchChannels();
+    if (this.auth.isAdmin()) {
+      void this.channelService.fetchAdminChannels();
+    } else {
+      void this.channelService.fetchChannels();
+    }
     void this.channelService.fetchRequests();
+    const unregister = this.headerSearch.register({
+      placeholder: 'Search channels...',
+      onChange: (q) => this.search.set(q),
+    });
+    this.destroyRef.onDestroy(unregister);
+  }
+
+  async confirmDelete(): Promise<void> {
+    const target = this.channelToDelete();
+    if (!target) return;
+    await this.channelService.removeChannel(target.id);
+    this.channelToDelete.set(null);
   }
 
   async submitRequest(payload: ChannelRequestPayload): Promise<void> {

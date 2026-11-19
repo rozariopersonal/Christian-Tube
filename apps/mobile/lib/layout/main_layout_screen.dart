@@ -249,7 +249,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
                               ],
                             ),
                           ),
-                          if (_isAudioTabEnabled)
+                          if (_isAudioTabEnabled && isAudioPage)
                             ListenableBuilder(
                               listenable: AudioPlayerController.instance,
                               builder: (context, _) {
@@ -289,6 +289,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
       builder: (context, _) {
         final state = AudioPlayerController.instance.state;
         final hasMiniAudio = _isAudioTabEnabled &&
+            isAudioPage &&
             state.isMiniPlayerVisible &&
             state.hasTrack;
 

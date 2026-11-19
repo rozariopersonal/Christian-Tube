@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
+import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { ChannelService } from '../../channels/services/channel.service';
 import { Video, formatViewCount } from '../models/video.model';
 import { VideoService } from '../services/video.service';
@@ -16,11 +17,16 @@ import { VideoService } from '../services/video.service';
 @Component({
   selector: 'app-shorts-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, InfiniteScrollTriggerDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (activeShort(); as current) {
-      <div class="shorts-stage">
+      <div
+        class="shorts-stage"
+        (wheel)="onStageWheel($event)"
+        (touchstart)="onTouchStart($event)"
+        (touchend)="onTouchEnd($event)"
+      >
         <div class="stage-top">
           <button
             type="button"
@@ -46,10 +52,10 @@ import { VideoService } from '../services/video.service';
                 playsinline
                 loop
               ></video>
-            } @else {
+            } @else if (activeEmbedUrl(); as safeUrl) {
               <iframe
                 class="short-media"
-                [src]="embedUrl(current)"
+                [src]="safeUrl"
                 [title]="current.title"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowfullscreen
@@ -163,6 +169,19 @@ import { VideoService } from '../services/video.service';
               </button>
             }
           </div>
+
+          @if (videos.shortsHasMore()) {
+            <div
+              class="load-more-wrap"
+              appInfiniteScrollTrigger
+              [disabled]="videos.shortsLoading()"
+              (triggered)="videos.fetchShorts()"
+            >
+              @if (videos.shortsLoading()) {
+                <span class="status-msg">Loading more shorts...</span>
+              }
+            </div>
+          }
         }
       </div>
     }
@@ -235,12 +254,14 @@ import { VideoService } from '../services/video.service';
       /* In-page Fullscreen Vertical Shorts Stage */
       .shorts-stage {
         height: calc(100dvh - var(--shell-bottom-height) - var(--shell-top-offset));
-        background-color: #0b0f19;
-        color: #ffffff;
+        background-color: var(--bg);
+        color: var(--on-surface);
         display: flex;
         flex-direction: column;
         padding: 12px 16px;
         gap: 10px;
+        overflow: hidden;
+        touch-action: none;
       }
 
       @media (min-width: 600px) {
@@ -263,16 +284,21 @@ import { VideoService } from '../services/video.service';
         height: 34px;
         padding: 0 12px;
         border-radius: var(--radius-pill);
-        background-color: rgba(255, 255, 255, 0.14);
-        color: #ffffff;
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        color: var(--on-surface);
         font-size: 13px;
         font-weight: 600;
+      }
+
+      .stage-pill:hover {
+        background-color: var(--surface-elevated);
       }
 
       .stage-counter {
         font-size: 12px;
         font-weight: 600;
-        color: rgba(255, 255, 255, 0.75);
+        color: var(--on-surface-muted);
       }
 
       .stage-center {
@@ -366,10 +392,17 @@ import { VideoService } from '../services/video.service';
         width: 44px;
         height: 44px;
         border-radius: var(--radius-pill);
-        background-color: rgba(255, 255, 255, 0.14);
-        color: #ffffff;
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        color: var(--on-surface);
         display: grid;
         place-items: center;
+      }
+
+      .rail-btn:hover:not([disabled]) {
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        border-color: var(--accent);
       }
 
       .rail-btn[disabled] {
@@ -391,11 +424,22 @@ export class ShortsComponent implements OnInit {
   readonly channelService = inject(ChannelService);
 
   readonly activeIndex = signal<number | null>(null);
+  private lastWheelNavAt = 0;
+  private touchStartY: number | null = null;
 
   readonly activeShort = computed<Video | null>(() => {
     const idx = this.activeIndex();
     if (idx === null) return null;
     return this.videos.shorts()[idx] ?? null;
+  });
+
+  readonly activeEmbedUrl = computed<SafeResourceUrl | null>(() => {
+    const v = this.activeShort();
+    if (!v || v.streamUrl) return null;
+    const id = encodeURIComponent(v.id);
+    return this.sanitizer.bypassSecurityTrustResourceUrl(
+      `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1&loop=1&playlist=${id}`,
+    );
   });
 
   formatViews = formatViewCount;
@@ -406,8 +450,41 @@ export class ShortsComponent implements OnInit {
     if (event.key === 'Escape') {
       this.activeIndex.set(null);
     } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      event.preventDefault();
       this.next();
     } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this.prev();
+    }
+  }
+
+  onStageWheel(event: WheelEvent): void {
+    if (this.activeIndex() === null) return;
+    if (Math.abs(event.deltaY) < 16) return;
+    event.preventDefault();
+    const now = Date.now();
+    if (now - this.lastWheelNavAt < 380) return;
+    this.lastWheelNavAt = now;
+    if (event.deltaY > 0) {
+      this.next();
+    } else {
+      this.prev();
+    }
+  }
+
+  onTouchStart(event: TouchEvent): void {
+    this.touchStartY = event.touches[0]?.clientY ?? null;
+  }
+
+  onTouchEnd(event: TouchEvent): void {
+    if (this.touchStartY === null) return;
+    const endY = event.changedTouches[0]?.clientY ?? this.touchStartY;
+    const dy = endY - this.touchStartY;
+    this.touchStartY = null;
+    if (Math.abs(dy) < 40) return;
+    if (dy < 0) {
+      this.next();
+    } else {
       this.prev();
     }
   }
@@ -421,12 +498,6 @@ export class ShortsComponent implements OnInit {
     return this.channelService.subscribedIds().includes(channelId);
   }
 
-  embedUrl(v: Video): SafeResourceUrl {
-    return this.sanitizer.bypassSecurityTrustResourceUrl(
-      `https://www.youtube.com/embed/${encodeURIComponent(v.id)}?autoplay=1&rel=0`,
-    );
-  }
-
   prev(): void {
     const idx = this.activeIndex();
     if (idx !== null && idx > 0) {
@@ -436,8 +507,12 @@ export class ShortsComponent implements OnInit {
 
   next(): void {
     const idx = this.activeIndex();
-    if (idx !== null && idx + 1 < this.videos.shorts().length) {
+    const list = this.videos.shorts();
+    if (idx !== null && idx + 1 < list.length) {
       this.activeIndex.set(idx + 1);
+      if (idx + 3 >= list.length && this.videos.shortsHasMore()) {
+        void this.videos.fetchShorts();
+      }
     }
   }
 

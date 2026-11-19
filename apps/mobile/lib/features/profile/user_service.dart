@@ -225,4 +225,18 @@ class UserService extends ChangeNotifier {
       return 0.0;
     }
   }
+
+  Future<bool> removeUser(String userId) async {
+    try {
+      final res = await _apiClient.dio.delete('/users/$userId');
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        _registeredUsers.removeWhere((u) => u['id'] == userId);
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error removing user: $e');
+    }
+    return false;
+  }
 }

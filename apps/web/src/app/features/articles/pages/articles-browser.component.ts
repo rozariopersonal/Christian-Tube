@@ -1,16 +1,24 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { ScreenClassService } from '../../../core/layout/screen-class.service';
+import { ContentPreferencesService } from '../../../core/services/content-preferences.service';
+import { HeaderSearchService } from '../../../core/services/header-search.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
-import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
+import {
+  canonicalLanguageCode,
+  languageMetaFromCode,
+} from '../../../shared/ui/language-meta';
 import { ArticlesService } from '../services/articles.service';
 
 @Component({
@@ -27,28 +35,51 @@ import { ArticlesService } from '../services/articles.service';
     <div class="articles-page max-width-box">
       <header class="page-head">
         <h1 class="font-display">Articles</h1>
-      </header>
 
-      <div class="controls">
-        <div class="search-box">
-          <span class="material-symbols-rounded">search</span>
-          <input
-            type="search"
-            placeholder="Search articles by title or date..."
-            [ngModel]="search()"
-            (ngModelChange)="search.set($event)"
+        <div class="header-filters">
+          @if (screen.isCompact()) {
+            <div class="search-box">
+              <span class="material-symbols-rounded">search</span>
+              <input
+                type="search"
+                placeholder="Search articles by title or date..."
+                [ngModel]="search()"
+                (ngModelChange)="search.set($event)"
+              />
+            </div>
+          }
+
+          <div class="lang-strip">
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="isAllQuickSelected()"
+              (click)="selectAllQuickLanguages()"
+            >
+              All
+            </button>
+            @for (code of quickLanguages(); track code) {
+              <button
+                type="button"
+                class="pill-chip"
+                [class.active]="selectedLanguages().includes(code)"
+                (click)="selectLanguageChip(code)"
+              >
+                {{ langLabel(code) }}
+              </button>
+            }
+          </div>
+
+          <app-language-dropdown
+            [selectedLanguages]="selectedLanguages()"
+            [availableLanguages]="languages()"
+            [itemCounts]="languageCounts()"
+            itemNoun="articles"
+            headerTitle="Article Languages"
+            (languagesChange)="selectedLanguages.set($event)"
           />
         </div>
-
-        <app-language-dropdown
-          [selectedLanguages]="selectedLanguages()"
-          [availableLanguages]="languages()"
-          [itemCounts]="languageCounts()"
-          itemNoun="articles"
-          headerTitle="Article Languages"
-          (languagesChange)="selectedLanguages.set($event)"
-        />
-      </div>
+      </header>
 
       <div class="year-strip">
         @for (y of years(); track y) {
@@ -116,17 +147,26 @@ import { ArticlesService } from '../services/articles.service';
         padding-bottom: 32px;
       }
 
+      .page-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
       .page-head h1 {
-        margin: 0 0 14px;
+        margin: 0;
         font-size: 22px;
         font-weight: 700;
       }
 
-      .controls {
+      .header-filters {
         display: flex;
+        align-items: center;
         gap: 10px;
         flex-wrap: wrap;
-        margin-bottom: 12px;
       }
 
       .search-box {
@@ -149,13 +189,25 @@ import { ArticlesService } from '../services/articles.service';
         background: transparent;
       }
 
+      .lang-strip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
       .year-strip {
         display: flex;
         gap: 8px;
         overflow-x: auto;
-        padding-bottom: 12px;
-        margin-bottom: 12px;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
         scrollbar-width: none;
+      }
+
+      .lang-strip::-webkit-scrollbar {
+        display: none;
       }
 
       .year-strip::-webkit-scrollbar {
@@ -246,11 +298,57 @@ import { ArticlesService } from '../services/articles.service';
 })
 export class ArticlesBrowserComponent implements OnInit {
   readonly articlesService = inject(ArticlesService);
+  readonly screen = inject(ScreenClassService);
+  private readonly prefs = inject(ContentPreferencesService);
+  private readonly headerSearch = inject(HeaderSearchService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly search = signal<string>('');
-  readonly selectedLanguages = signal<string[]>(['en']);
+  readonly selectedLanguages = signal<string[]>(this.prefs.preferredLanguages());
   readonly selectedYear = signal<string>('All');
   readonly visibleLimit = signal<number>(60);
+
+  constructor() {
+    effect(() => {
+      this.selectedLanguages.set(this.prefs.preferredLanguages());
+    });
+  }
+
+  readonly quickLanguages = computed(() => {
+    const counts = this.languageCounts();
+    const pref = this.prefs.preferredLanguages().filter((l) => l.toLowerCase() !== 'all');
+    const sel = this.selectedLanguages().filter((l) => l.toLowerCase() !== 'all');
+    return Array.from(new Set([...pref, ...sel])).filter(
+      (code) => (counts[code] ?? 0) > 0,
+    );
+  });
+
+  readonly isAllQuickSelected = computed(() => {
+    const quick = this.quickLanguages();
+    const sel = new Set(this.selectedLanguages());
+    return quick.length > 0 && quick.every((c) => sel.has(c));
+  });
+
+  langLabel(code: string): string {
+    return languageMetaFromCode(code).englishName;
+  }
+
+  selectAllQuickLanguages(): void {
+    const quick = this.quickLanguages();
+    this.selectedLanguages.set(quick.length > 0 ? quick : ['All']);
+  }
+
+  selectLanguageChip(code: string): void {
+    const cur = this.selectedLanguages().filter((l) => l.toLowerCase() !== 'all');
+    const next = cur.includes(code)
+      ? cur.filter((c) => c !== code)
+      : [...cur, code];
+    if (next.length === 0) {
+      this.selectAllQuickLanguages();
+    } else {
+      this.selectedLanguages.set(next);
+    }
+  }
 
   readonly languageCounts = computed(() => {
     const counts: Record<string, number> = {
@@ -316,6 +414,11 @@ export class ArticlesBrowserComponent implements OnInit {
 
   ngOnInit(): void {
     void this.articlesService.loadIndex();
+    const unregister = this.headerSearch.register({
+      placeholder: 'Search articles by title or date...',
+      onChange: (q) => this.search.set(q),
+    });
+    this.destroyRef.onDestroy(unregister);
   }
 
   showMore(): void {

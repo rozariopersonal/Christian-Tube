@@ -41,7 +41,7 @@ const BIBLE_VERSIONS = ['NASB', 'KJV', 'ASV', 'NLT', 'WEB', 'TAOBVSI'];
             <img src="logo.png" alt="ChristianApp" width="56" height="56" />
             <h1 class="font-display">Welcome to ChristianApp</h1>
             <p class="muted">
-              Sign in with Google to sync your subscriptions, preferences, and reading progress — or continue as a guest.
+              Sign in with Google to sync your followed channels, preferences, and reading progress — or continue as a guest.
             </p>
             @if (auth.isAuthenticated()) {
               <div class="signed-in-pill">

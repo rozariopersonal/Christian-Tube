@@ -19,9 +19,21 @@ export const APP_COLOR_THEMES: readonly AppColorTheme[] = [
   { id: 'teal', name: 'Cyan Teal', color: '#06B6D4' },
 ];
 
+export const APP_FONT_FAMILIES = [
+  'Inter',
+  'Outfit',
+  'Roboto',
+  'Poppins',
+  'Nunito',
+  'Playfair Display',
+] as const;
+
+export type AppFontFamily = (typeof APP_FONT_FAMILIES)[number];
+
 const KEY_THEME_MODE = 'theme_mode';
 const KEY_COLOR_THEME = 'color_theme';
 const KEY_AMOLED = 'is_amoled';
+const KEY_APP_FONT = 'app_font_family';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
@@ -34,6 +46,7 @@ export class ThemeService {
   readonly themeMode = signal<ThemeMode>(this.readThemeMode());
   readonly colorTheme = signal<AppColorTheme>(this.readColorTheme());
   readonly isAmoled = signal<boolean>(this.readAmoled());
+  readonly appFont = signal<AppFontFamily>(this.readAppFont());
 
   readonly isDark = computed(() => {
     const mode = this.themeMode();
@@ -57,6 +70,7 @@ export class ThemeService {
       root.setAttribute('data-theme', dark ? 'dark' : 'light');
       root.setAttribute('data-amoled', dark && amoled ? 'true' : 'false');
       root.style.setProperty('--accent', accent.color);
+      this.doc.body.style.fontFamily = `'${this.appFont()}', system-ui, -apple-system, sans-serif`;
 
       const metaTheme = this.doc.querySelector('meta[name="theme-color"]');
       if (metaTheme) {
@@ -82,6 +96,16 @@ export class ThemeService {
   setAmoled(enabled: boolean): void {
     this.isAmoled.set(enabled);
     this.writeStorage(KEY_AMOLED, String(enabled));
+  }
+
+  setAppFont(font: AppFontFamily): void {
+    this.appFont.set(font);
+    this.writeStorage(KEY_APP_FONT, font);
+  }
+
+  private readAppFont(): AppFontFamily {
+    const raw = this.readStorage(KEY_APP_FONT);
+    return APP_FONT_FAMILIES.find((f) => f === raw) ?? 'Inter';
   }
 
   private readThemeMode(): ThemeMode {
