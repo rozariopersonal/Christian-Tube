@@ -698,6 +698,10 @@ docker compose --env-file envs/neon.env up -d <service>
 - **Upstash Redis**: Managed via the globally installed `@upstash/cli` (`upstash`, logged in to local user config).
   - Database: `christian-tube` (`dc4573b9-94e9-4d50-921f-f2385cc7228c`), region `us-west-2` (Oregon), endpoint `https://rare-bee-77119.upstash.io`.
   - Keep `UPSTASH_EMAIL`, `UPSTASH_API_KEY`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN` in git-ignored `envs/neon.env` / `apps/backend/.env` (and configured on Render via the Render REST API).
+- **Upstash Vector (Bible Search)**:
+  - Index: `christian-tube-bible` (`fb123d2a-8409-429b-a362-46be1106c6d3`), region `us-east-1`, `HYBRID` (`BGE_M3` 1,024d + `BM25`), endpoint `https://steady-kiwi-99990-us1-vector.upstash.io`.
+  - Keep `UPSTASH_VECTOR_REST_URL` and `UPSTASH_VECTOR_REST_TOKEN` in git-ignored `envs/neon.env` / `apps/backend/.env` (and configured on Render via the Render REST API).
+  - Ingestion script: `node scripts/ingest-bible-vectors.mjs` (idempotent & resumable; respects free-tier 10k updates/day).
 
 ---
 

@@ -17,6 +17,7 @@ import { ShortsModule } from './modules/shorts/shorts.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { AdminReleaseModule } from './modules/admin-release/admin-release.module';
 import { AudioModule } from './modules/audio/audio.module';
+import { BibleModule } from './modules/bible/bible.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { AudioModule } from './modules/audio/audio.module';
     FeedbackModule,
     AdminReleaseModule,
     AudioModule,
+    BibleModule,
   ],
 })
 export class AppModule {}
