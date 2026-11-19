@@ -41,6 +41,7 @@ model Video {
 
   // Audio Extraction Metadata
   audioUrl               String?
+  audioLastRetryAt       DateTime?
 
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
