@@ -1,9 +1,13 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CacheService } from '../cache/cache.service';
 
 @Controller()
 export class HealthController {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Optional() private readonly cache?: CacheService,
+  ) {}
 
   @Get()
   getRoot() {
@@ -21,6 +25,7 @@ export class HealthController {
       status: 'healthy',
       instanceId: this.configService.get<string>('instanceId') || 'unknown',
       uptime: process.uptime(),
+      cache: this.cache?.getStatus() ?? { enabled: false, provider: 'none' },
       timestamp: new Date().toISOString(),
     };
   }

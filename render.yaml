@@ -42,6 +42,10 @@ services:
         value: huggingface
       - key: EMBEDDING_TIMEOUT_MS
         value: "8000"
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
 
   # ─── achristianapp Backend API ────────────────────────────────────────────
   - type: web
@@ -90,3 +94,7 @@ services:
         value: huggingface
       - key: EMBEDDING_TIMEOUT_MS
         value: "8000"
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
