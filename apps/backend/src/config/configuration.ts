@@ -21,12 +21,28 @@ export default () => {
     ...instanceAdminEmails.map((e) => e.trim().toLowerCase()),
   ])).filter(Boolean);
 
+  const rawGoogleClientIds = [
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_IDS,
+    instanceConfig.googleClientId,
+    ...(Array.isArray(instanceConfig.googleClientIds)
+      ? instanceConfig.googleClientIds
+      : typeof instanceConfig.googleClientIds === 'string'
+        ? [instanceConfig.googleClientIds]
+        : []),
+  ]
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    .flatMap((v) => v.split(',').map((id) => id.trim()))
+    .filter(Boolean);
+  const googleClientIds = Array.from(new Set(rawGoogleClientIds));
+
   return {
     port: parseInt(process.env.PORT || '3000', 10),
     instanceId,
     appName: process.env.APP_NAME || instanceConfig.appName || 'PrivateTube',
     databaseUrl: process.env.DATABASE_URL,
     googleClientId: process.env.GOOGLE_CLIENT_ID || instanceConfig.googleClientId,
+    googleClientIds,
     youtubeApiKey: process.env.YOUTUBE_API_KEY,
     youtubeClientId: process.env.YOUTUBE_CLIENT_ID || instanceConfig.shorts?.youtubeClientId,
     youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET || instanceConfig.shorts?.youtubeClientSecret,
