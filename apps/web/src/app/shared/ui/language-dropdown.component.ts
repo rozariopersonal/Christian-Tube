@@ -1,5 +1,6 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ContentPreferencesService } from '../../core/services/content-preferences.service';
 import { countNoun, languageMetaFromCode } from './language-meta';
 
 @Component({
@@ -18,9 +19,6 @@ import { countNoun, languageMetaFromCode } from './language-meta';
       </span>
       <span class="trigger-text">
         <span class="trigger-title">{{ summary().title }}</span>
-        @if (summary().subtitle) {
-          <span class="trigger-sub">{{ summary().subtitle }}</span>
-        }
       </span>
       @if (summary().count > 0) {
         <span class="count-pill">{{ summary().count }} {{ nounLabel(summary().count) }}</span>
@@ -72,7 +70,7 @@ import { countNoun, languageMetaFromCode } from './language-meta';
               </span>
             </button>
 
-            @for (code of filteredLanguages(); track code) {
+            @for (code of primaryDisplayedLanguages(); track code) {
               @let meta = metaFor(code);
               @let count = itemCounts()[code] ?? 0;
               @let checked = !draftIsAll() && draftSet().has(code);
@@ -94,6 +92,46 @@ import { countNoun, languageMetaFromCode } from './language-meta';
                 <span class="row-count">{{ count }} {{ nounLabel(count) }}</span>
               </button>
             }
+
+            @if (!search().trim() && otherLanguages().length > 0) {
+              <button
+                type="button"
+                class="more-toggle-btn"
+                (click)="showOthers.set(!showOthers())"
+              >
+                <span>
+                  {{ showOthers() ? 'Hide other languages' : 'More languages (' + otherLanguages().length + ')' }}
+                </span>
+                <span class="material-symbols-rounded">
+                  {{ showOthers() ? 'expand_less' : 'expand_more' }}
+                </span>
+              </button>
+
+              @if (showOthers()) {
+                @for (code of otherLanguages(); track code) {
+                  @let meta = metaFor(code);
+                  @let count = itemCounts()[code] ?? 0;
+                  @let checked = !draftIsAll() && draftSet().has(code);
+                  <button
+                    type="button"
+                    class="lang-row"
+                    [class.selected]="checked"
+                    (click)="toggleDraft(code)"
+                  >
+                    <span class="material-symbols-rounded check-icon">
+                      {{ checked ? 'check_box' : 'check_box_outline_blank' }}
+                    </span>
+                    <div class="row-labels">
+                      <strong>{{ meta.englishName }}</strong>
+                      @if (meta.nativeName && meta.nativeName !== meta.englishName) {
+                        <span class="native-sub">{{ meta.nativeName }}</span>
+                      }
+                    </div>
+                    <span class="row-count">{{ count }} {{ nounLabel(count) }}</span>
+                  </button>
+                }
+              }
+            }
           </div>
 
           <div class="sheet-footer">
@@ -110,13 +148,19 @@ import { countNoun, languageMetaFromCode } from './language-meta';
   `,
   styles: [
     `
+      :host {
+        display: inline-flex;
+        align-items: center;
+        flex-shrink: 0;
+      }
+
       .lang-trigger {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
-        min-height: 42px;
-        padding: 4px 10px 4px 6px;
-        border-radius: var(--radius-md);
+        gap: 8px;
+        height: 32px;
+        padding: 0 8px 0 5px;
+        border-radius: var(--radius-sm);
         background-color: var(--surface);
         border: 1px solid var(--surface-border);
         text-align: left;
@@ -128,9 +172,9 @@ import { countNoun, languageMetaFromCode } from './language-meta';
       }
 
       .trigger-icon {
-        width: 30px;
-        height: 30px;
-        border-radius: var(--radius-sm);
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
         background-color: var(--accent-soft);
         color: var(--accent);
         display: grid;
@@ -139,7 +183,7 @@ import { countNoun, languageMetaFromCode } from './language-meta';
       }
 
       .trigger-icon .material-symbols-rounded {
-        font-size: 18px;
+        font-size: 15px;
       }
 
       .trigger-text {
@@ -275,10 +319,30 @@ import { countNoun, languageMetaFromCode } from './language-meta';
         gap: 8px;
         padding-top: 6px;
       }
+
+      .more-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 9px 12px;
+        margin: 4px 0;
+        border-radius: var(--radius-md);
+        border: 1px dashed var(--surface-border);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .more-toggle-btn:hover {
+        background-color: var(--surface-variant);
+      }
     `,
   ],
 })
 export class LanguageDropdownComponent {
+  private readonly prefs = inject(ContentPreferencesService);
+
   readonly selectedLanguages = input<string[]>(['All']);
   readonly availableLanguages = input<string[]>([]);
   readonly itemCounts = input<Record<string, number>>({});
@@ -289,6 +353,7 @@ export class LanguageDropdownComponent {
 
   readonly open = signal<boolean>(false);
   readonly search = signal<string>('');
+  readonly showOthers = signal<boolean>(false);
   readonly draftSet = signal<Set<string>>(new Set());
 
   readonly isAllSelected = computed(() => {
@@ -324,6 +389,30 @@ export class LanguageDropdownComponent {
     });
   });
 
+  readonly preferredLanguagesList = computed(() => {
+    const prefSet = new Set(
+      this.prefs.preferredLanguages().map((p) => p.toLowerCase()),
+    );
+    const list = this.filteredLanguages();
+    if (prefSet.size === 0 || prefSet.has('all')) return list;
+    const matched = list.filter((code) => prefSet.has(code.toLowerCase()));
+    return matched.length > 0 ? matched : list;
+  });
+
+  readonly otherLanguages = computed(() => {
+    const primary = new Set(
+      this.preferredLanguagesList().map((c) => c.toLowerCase()),
+    );
+    return this.filteredLanguages().filter(
+      (c) => !primary.has(c.toLowerCase()),
+    );
+  });
+
+  readonly primaryDisplayedLanguages = computed(() => {
+    if (this.search().trim()) return this.filteredLanguages();
+    return this.preferredLanguagesList();
+  });
+
   readonly summary = computed(() => {
     const counts = this.itemCounts();
     if (this.isAllSelected()) {
@@ -355,6 +444,7 @@ export class LanguageDropdownComponent {
 
   openSheet(): void {
     this.search.set('');
+    this.showOthers.set(false);
     const current = this.selectedLanguages();
     this.draftSet.set(
       this.isAllSelected() ? new Set() : new Set(current),

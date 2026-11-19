@@ -1,19 +1,34 @@
 import { NgTemplateOutlet } from '@angular/common';
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  ElementRef,
   HostListener,
   OnInit,
+  TemplateRef,
+  ViewChild,
   computed,
   effect,
   inject,
   signal,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { combineLatest } from 'rxjs';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
+import { HeaderSearchService } from '../../../core/services/header-search.service';
+import { HeaderSlotService } from '../../../core/services/header-slot.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
+import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
+import { ReaderSpreadFooterComponent } from '../../../shared/ui/reader-spread-footer.component';
+import {
+  computeSpreadMetrics,
+  scrollElementIntoSpread,
+  scrollToSpreadPage,
+} from '../../../shared/ui/spread-pager';
 import { DictionarySheetComponent } from '../../books/components/dictionary-sheet.component';
 import { BibleAppearanceSheetComponent } from '../components/bible-appearance-sheet.component';
 import {
@@ -48,7 +63,10 @@ interface AppendedBibleChapter {
   standalone: true,
   imports: [
     NgTemplateOutlet,
+    FormsModule,
     InfiniteScrollTriggerDirective,
+    ReaderColumnsToggleComponent,
+    ReaderSpreadFooterComponent,
     BibleVersionSheetComponent,
     BibleBookChapterSheetComponent,
     BibleSidebarComponent,
@@ -66,8 +84,147 @@ interface AppendedBibleChapter {
   providers: [BibleReaderStateService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="bible-page" [attr.data-paper]="appearance.paperTheme()">
-      @if (!immersive()) {
+    <div
+      class="bible-page"
+      [attr.data-paper]="appearance.paperTheme()"
+      [class.immersive]="immersive()"
+      [class.spread-mode]="spreadMode()"
+    >
+      <ng-template #topbarCenter>
+        @if (!isExpanded()) {
+          <div class="tb-bible-center">
+            <button
+              type="button"
+              class="version-pill"
+              (click)="showVersionPicker.set(true)"
+              aria-label="Bible Version"
+            >
+              <span>{{ state.activeVersionInfo().label }}</span>
+              <span class="material-symbols-rounded pill-chev">expand_more</span>
+            </button>
+
+            <div class="chapter-nav-group">
+              <button
+                type="button"
+                class="nav-step-btn"
+                aria-label="Previous chapter"
+                title="Previous chapter"
+                (click)="prevChapter()"
+              >
+                <span class="material-symbols-rounded">chevron_left</span>
+              </button>
+
+              <button
+                type="button"
+                class="book-btn"
+                (click)="openBookPicker('books')"
+              >
+                <span>{{ displayBookName() }} {{ displayChapter() }}</span>
+                <span class="material-symbols-rounded">expand_more</span>
+              </button>
+
+              <button
+                type="button"
+                class="nav-step-btn"
+                aria-label="Next chapter"
+                title="Next chapter"
+                (click)="nextChapter()"
+              >
+                <span class="material-symbols-rounded">chevron_right</span>
+              </button>
+            </div>
+          </div>
+        }
+      </ng-template>
+
+      <ng-template #topbarRight>
+        <app-reader-columns-toggle [showLayoutToggle]="true" />
+        <div class="tb-actions-pill">
+          <button
+            type="button"
+            class="tb-action-btn compare-btn"
+            [class.active-icon]="bible.compareVersions().length > 0"
+            title="Compare up to 3 Bible versions"
+            (click)="showParallelPicker.set(true)"
+          >
+            <span class="material-symbols-rounded">compare_arrows</span>
+            @if (bible.compareVersions().length > 0) {
+              <span class="compare-count">{{ 1 + bible.compareVersions().length }}</span>
+            }
+          </button>
+          <button
+            type="button"
+            class="tb-action-btn tb-font-step"
+            title="Decrease font size"
+            aria-label="Decrease font size"
+            [disabled]="appearance.fontSize() <= 13"
+            (click)="appearance.setFontSize(appearance.fontSize() - 1)"
+          >
+            <span class="material-symbols-rounded">remove</span>
+          </button>
+          <button
+            type="button"
+            class="tb-action-btn tb-aa-btn"
+            title="Reader Appearance"
+            (click)="showAppearance.set(true)"
+          >
+            Aa
+          </button>
+          <button
+            type="button"
+            class="tb-action-btn tb-font-step"
+            title="Increase font size"
+            aria-label="Increase font size"
+            [disabled]="appearance.fontSize() >= 28"
+            (click)="appearance.setFontSize(appearance.fontSize() + 1)"
+          >
+            <span class="material-symbols-rounded">add</span>
+          </button>
+          <div class="menu-wrap">
+            <button
+              type="button"
+              class="tb-action-btn"
+              aria-label="More reader options"
+              title="Bookmarks, Share & Search"
+              (click)="menuOpen.set(!menuOpen())"
+            >
+              <span class="material-symbols-rounded">more_vert</span>
+            </button>
+            @if (menuOpen()) {
+              <div class="overflow-menu" (click)="menuOpen.set(false)">
+                @if (!isExpanded()) {
+                  <button
+                    type="button"
+                    class="menu-item"
+                    (click)="submitTopbarSearch()"
+                  >
+                    <span class="material-symbols-rounded">search</span>
+                    Search Bible
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="menu-item"
+                  (click)="showBookmarks.set(true)"
+                >
+                  <span class="material-symbols-rounded">bookmarks</span>
+                  Bookmarks
+                </button>
+                <button
+                  type="button"
+                  class="menu-item"
+                  (click)="sharePassage()"
+                >
+                  <span class="material-symbols-rounded">share</span>
+                  Share Chapter
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      </ng-template>
+
+      @if (!immersive() && screen.isCompact()) {
         <header class="bible-bar">
           <div class="bar-inner">
             <div class="bar-left">
@@ -144,7 +301,7 @@ interface AppendedBibleChapter {
                 type="button"
                 class="icon-btn"
                 title="Search Bible"
-                (click)="showSearch.set(true)"
+                (click)="submitTopbarSearch()"
               >
                 <span class="material-symbols-rounded">search</span>
               </button>
@@ -233,7 +390,7 @@ interface AppendedBibleChapter {
             </div>
           </div>
         </header>
-      } @else {
+      } @else if (immersive()) {
         <button
           type="button"
           class="exit-focus-btn"
@@ -250,7 +407,9 @@ interface AppendedBibleChapter {
             [books]="bible.books()"
             [currentBookNumber]="displayBookNumber()"
             [currentChapter]="displayChapter()"
+            [versionLabel]="state.activeVersionInfo().label"
             (selectChapter)="jumpFromSearch($event)"
+            (openVersionPicker)="showVersionPicker.set(true)"
           />
         }
 
@@ -266,6 +425,36 @@ interface AppendedBibleChapter {
               Retry
             </button>
           </div>
+        } @else if (spreadMode()) {
+          @if (bible.fallbackNotice()) {
+            <p class="status-msg">{{ bible.fallbackNotice() }}</p>
+          }
+          <div class="spread-viewport" #spreadViewport>
+            <div
+              class="spread-track"
+              [attr.data-cols]="effectiveCols()"
+              [class.paragraph-mode]="appearance.bibleLayout() === 'paragraph'"
+              [attr.data-chapter-book]="bible.bookNumber()"
+              [attr.data-chapter-num]="bible.chapter()"
+              [attr.data-chapter-name]="bible.currentBook().name"
+              [attr.data-verse-count]="bible.verses().length"
+              [style.font-family]="appearance.activeFont().cssFamily"
+              [style.font-size.px]="appearance.fontSize()"
+              [style.line-height]="appearance.lineHeight()"
+              (dblclick)="lookupFromSelection()"
+            >
+              <ng-container [ngTemplateOutlet]="bibleVersesTpl" />
+            </div>
+          </div>
+          <app-reader-spread-footer
+            [label]="spreadFooterLabel()"
+            [page]="spreadPage()"
+            [totalPages]="spreadTotalPages()"
+            [hasPrevChapter]="hasPrevChapter()"
+            [hasNextChapter]="hasNextChapter()"
+            (prevPage)="goToSpreadPage(spreadPage() - 1)"
+            (nextPage)="goToSpreadPage(spreadPage() + 1)"
+          />
         } @else {
           @if (hasPrevChapter()) {
             <div class="top-scroll-sentinel">
@@ -296,13 +485,6 @@ interface AppendedBibleChapter {
             <p class="status-msg">{{ bible.fallbackNotice() }}</p>
           }
 
-          @if (bible.study()?.chapter_summary) {
-            <div class="summary-card">
-              <span class="summary-label">Chapter Summary</span>
-              <p>{{ bible.study()!.chapter_summary }}</p>
-            </div>
-          }
-
           @if (bible.compareVersions().length > 0) {
             <div class="parallel-col-headers">
               @for (verId of activeCompareIds(); track verId) {
@@ -321,105 +503,15 @@ interface AppendedBibleChapter {
               appearance.bibleLayout() === 'paragraph' &&
               bible.compareVersions().length === 0
             "
-            [class.two-col-body]="
-              appearance.bookColumns() === 2 &&
-              bible.compareVersions().length === 0
+            [attr.data-cols]="
+              bible.compareVersions().length === 0 ? effectiveCols() : 1
             "
             [style.font-family]="appearance.activeFont().cssFamily"
             [style.font-size.px]="appearance.fontSize()"
             [style.line-height]="appearance.lineHeight()"
             (dblclick)="lookupFromSelection()"
           >
-            @for (v of bible.verses(); track v.verse) {
-              @let selected = state.selectedVerse()?.verse === v.verse;
-              @let note = state.noteFor(v.verse);
-              @let refCount = state.crossRefCountMap().get(v.verse) ?? 0;
-              @let studyCount = state.studyCountMap().get(v.verse) ?? 0;
-
-              @if (bible.compareVersions().length > 0) {
-                <div
-                  [id]="'verse-' + v.verse"
-                  class="parallel-row"
-                  [class.selected]="selected"
-                  [style.background-color]="state.highlightFor(v.verse)"
-                  (click)="onVerseTap(v)"
-                >
-                  <div class="parallel-cell">
-                    <span class="verse-num">{{ v.verse }}</span>
-                    <span>{{ v.text }}</span>
-                  </div>
-                  @for (compId of bible.compareVersions(); track compId) {
-                    <div class="parallel-cell">
-                      <span class="verse-num">{{ v.verse }}</span>
-                      <span>{{ primaryParallelMap()[compId]?.[v.verse] || '—' }}</span>
-                    </div>
-                  }
-                </div>
-              } @else if (appearance.bibleLayout() === 'paragraph') {
-                <span
-                  [id]="'verse-' + v.verse"
-                  class="verse-inline"
-                  [class.selected]="selected"
-                  [style.background-color]="state.highlightFor(v.verse)"
-                  (click)="onVerseTap(v)"
-                >
-                  <sup class="verse-sup">{{ v.verse }}</sup>
-                  <span>{{ v.text }}</span>
-                  @if (bible.isBookmarked(v.verse)) {
-                    <span class="material-symbols-rounded verse-mark-inline">bookmark</span>
-                  }
-                  @if (note) {
-                    <span class="material-symbols-rounded verse-mark-inline">sticky_note_2</span>
-                  }
-                  {{ ' ' }}
-                </span>
-              } @else {
-                <div
-                  [id]="'verse-' + v.verse"
-                  class="verse-row"
-                  [class.selected]="selected"
-                  [style.background-color]="state.highlightFor(v.verse)"
-                  (click)="onVerseTap(v)"
-                >
-                  <span class="verse-num">{{ v.verse }}</span>
-                  <div class="verse-content">
-                    <span class="verse-text">{{ v.text }}</span>
-                    @if (note) {
-                      <p class="verse-note-preview">{{ note }}</p>
-                    }
-                  </div>
-                  <div class="verse-badges">
-                    @if (refCount > 0) {
-                      <button
-                        type="button"
-                        class="mini-badge"
-                        title="Cross-References"
-                        (click)="$event.stopPropagation(); openVerseCrossRefs(v)"
-                      >
-                        ↗ {{ refCount }}
-                      </button>
-                    }
-                    @if (studyCount > 0) {
-                      <button
-                        type="button"
-                        class="mini-badge study-badge"
-                        title="Study & Lexicon"
-                        (click)="$event.stopPropagation(); openVerseStudy(v)"
-                      >
-                        <span class="material-symbols-rounded badge-ic">school</span>
-                        {{ studyCount }}
-                      </button>
-                    }
-                    @if (bible.isBookmarked(v.verse)) {
-                      <span class="material-symbols-rounded verse-mark">bookmark</span>
-                    }
-                    @if (note) {
-                      <span class="material-symbols-rounded verse-mark">sticky_note_2</span>
-                    }
-                  </div>
-                </div>
-              }
-            }
+            <ng-container [ngTemplateOutlet]="bibleVersesTpl" />
           </article>
 
           @for (extra of appendedChapters(); track extra.bookNumber + ':' + extra.chapter) {
@@ -455,9 +547,8 @@ interface AppendedBibleChapter {
                   appearance.bibleLayout() === 'paragraph' &&
                   bible.compareVersions().length === 0
                 "
-                [class.two-col-body]="
-                  appearance.bookColumns() === 2 &&
-                  bible.compareVersions().length === 0
+                [attr.data-cols]="
+                  bible.compareVersions().length === 0 ? effectiveCols() : 1
                 "
                 [style.font-family]="appearance.activeFont().cssFamily"
                 [style.font-size.px]="appearance.fontSize()"
@@ -507,6 +598,99 @@ interface AppendedBibleChapter {
             }
           </div>
         }
+
+        <ng-template #bibleVersesTpl>
+          @for (v of bible.verses(); track v.verse) {
+            @let selected = state.selectedVerse()?.verse === v.verse;
+            @let note = state.noteFor(v.verse);
+            @let refCount = state.crossRefCountMap().get(v.verse) ?? 0;
+            @let studyCount = state.studyCountMap().get(v.verse) ?? 0;
+
+            @if (bible.compareVersions().length > 0) {
+              <div
+                [id]="'verse-' + v.verse"
+                class="parallel-row"
+                [class.selected]="selected"
+                [style.background-color]="state.highlightFor(v.verse)"
+                (click)="onVerseTap(v)"
+              >
+                <div class="parallel-cell">
+                  <span class="verse-num">{{ v.verse }}</span>
+                  <span>{{ v.text }}</span>
+                </div>
+                @for (compId of bible.compareVersions(); track compId) {
+                  <div class="parallel-cell">
+                    <span class="verse-num">{{ v.verse }}</span>
+                    <span>{{ primaryParallelMap()[compId]?.[v.verse] || '—' }}</span>
+                  </div>
+                }
+              </div>
+            } @else if (appearance.bibleLayout() === 'paragraph') {
+              <span
+                [id]="'verse-' + v.verse"
+                class="verse-inline"
+                [class.selected]="selected"
+                [style.background-color]="state.highlightFor(v.verse)"
+                (click)="onVerseTap(v)"
+              >
+                <sup class="verse-sup">{{ v.verse }}</sup>
+                <span>{{ v.text }}</span>
+                @if (bible.isBookmarked(v.verse)) {
+                  <span class="material-symbols-rounded verse-mark-inline">bookmark</span>
+                }
+                @if (note) {
+                  <span class="material-symbols-rounded verse-mark-inline">sticky_note_2</span>
+                }
+                {{ ' ' }}
+              </span>
+            } @else {
+              <div
+                [id]="'verse-' + v.verse"
+                class="verse-row"
+                [class.selected]="selected"
+                [style.background-color]="state.highlightFor(v.verse)"
+                (click)="onVerseTap(v)"
+              >
+                <span class="verse-num">{{ v.verse }}</span>
+                <div class="verse-content">
+                  <span class="verse-text">{{ v.text }}</span>
+                  @if (note) {
+                    <p class="verse-note-preview">{{ note }}</p>
+                  }
+                </div>
+                <div class="verse-badges">
+                  @if (refCount > 0) {
+                    <button
+                      type="button"
+                      class="mini-badge"
+                      title="Cross-References"
+                      (click)="$event.stopPropagation(); openVerseCrossRefs(v)"
+                    >
+                      ↗ {{ refCount }}
+                    </button>
+                  }
+                  @if (studyCount > 0) {
+                    <button
+                      type="button"
+                      class="mini-badge study-badge"
+                      title="Study & Lexicon"
+                      (click)="$event.stopPropagation(); openVerseStudy(v)"
+                    >
+                      <span class="material-symbols-rounded badge-ic">school</span>
+                      {{ studyCount }}
+                    </button>
+                  }
+                  @if (bible.isBookmarked(v.verse)) {
+                    <span class="material-symbols-rounded verse-mark">bookmark</span>
+                  }
+                  @if (note) {
+                    <span class="material-symbols-rounded verse-mark">sticky_note_2</span>
+                  }
+                </div>
+              </div>
+            }
+          }
+        </ng-template>
         </div>
       </div>
 
@@ -663,6 +847,85 @@ interface AppendedBibleChapter {
         border-bottom: 1px solid var(--reader-border, var(--surface-border));
       }
 
+      .tb-bible-center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+        max-width: 620px;
+        min-width: 0;
+        margin: 0 auto;
+      }
+
+      .tb-search-form {
+        flex: 1;
+        min-width: 180px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+      }
+
+      .tb-search-wrap {
+        flex: 1;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        background-color: var(--bg);
+        border: 1px solid var(--surface-border);
+        border-right: none;
+        border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+      }
+
+      .tb-search-wrap:focus-within {
+        border-color: var(--accent);
+      }
+
+      .tb-search-icon {
+        font-size: 18px;
+        color: var(--on-surface-muted);
+      }
+
+      .tb-search-input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 14px;
+      }
+
+      .tb-clear-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: var(--radius-pill);
+        display: grid;
+        place-items: center;
+        color: var(--on-surface-muted);
+      }
+
+      .tb-clear-btn .material-symbols-rounded {
+        font-size: 16px;
+      }
+
+      .tb-search-submit {
+        height: 100%;
+        width: 56px;
+        display: grid;
+        place-items: center;
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+        color: var(--on-surface);
+        flex-shrink: 0;
+      }
+
+      .tb-search-submit:hover {
+        background-color: var(--surface-elevated);
+      }
+
       .bar-inner {
         height: var(--topbar-height);
         width: 100%;
@@ -740,6 +1003,50 @@ interface AppendedBibleChapter {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .tb-actions-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        height: 32px;
+        padding: 0 4px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+      }
+
+      .tb-action-btn {
+        width: 28px;
+        height: 26px;
+        border-radius: var(--radius-pill);
+        display: grid;
+        place-items: center;
+        color: var(--on-surface);
+        position: relative;
+      }
+
+      .tb-action-btn:hover:not(:disabled) {
+        background-color: color-mix(in srgb, var(--on-surface) 8%, transparent);
+      }
+
+      .tb-action-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+
+      .tb-font-step .material-symbols-rounded {
+        font-size: 16px;
+      }
+
+      .tb-action-btn .material-symbols-rounded {
+        font-size: 18px;
+      }
+
+      .tb-aa-btn {
+        font-family: Georgia, serif;
+        font-weight: 700;
+        font-size: 14px;
       }
 
       .compare-btn {
@@ -843,6 +1150,72 @@ interface AppendedBibleChapter {
       .bible-layout.has-sidebar .reader-body {
         flex: 1;
         min-width: 0;
+      }
+
+      .bible-page.spread-mode {
+        height: calc(100dvh - var(--shell-top-offset));
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .bible-page.spread-mode.immersive {
+        height: 100dvh;
+      }
+
+      .bible-page.spread-mode .reader-bar {
+        position: static;
+        top: auto;
+        flex-shrink: 0;
+      }
+
+      .bible-page.spread-mode .bible-layout {
+        flex: 1;
+        min-height: 0;
+        align-items: stretch;
+        overflow: hidden;
+      }
+
+      .bible-page.spread-mode .reader-body {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 14px clamp(16px, 3vw, 40px) 0;
+        overflow: hidden;
+      }
+
+      .spread-viewport {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .spread-track {
+        height: 100%;
+        column-fill: auto;
+        column-gap: 44px;
+        column-rule: 1px solid var(--reader-border, var(--surface-border));
+      }
+
+      .spread-track[data-cols='1'] {
+        column-count: 1;
+      }
+
+      .spread-track[data-cols='2'] {
+        column-count: 2;
+      }
+
+      .spread-track[data-cols='3'] {
+        column-count: 3;
+      }
+
+      .spread-track .verse-row {
+        break-inside: avoid;
+        margin-bottom: 6px;
       }
 
       .chapter-hero {
@@ -1001,18 +1374,23 @@ interface AppendedBibleChapter {
         display: block;
       }
 
-      @media (min-width: 840px) {
-        .verses-flow.two-col-body {
-          display: block;
-          column-count: 2;
-          column-gap: 44px;
-          column-rule: 1px solid var(--reader-border, var(--surface-border));
-        }
+      .verses-flow[data-cols='2'],
+      .verses-flow[data-cols='3'] {
+        display: block;
+        column-count: 2;
+        column-gap: 44px;
+        column-rule: 1px solid var(--reader-border, var(--surface-border));
+      }
 
-        .verses-flow.two-col-body .verse-row {
-          break-inside: avoid;
-          margin-bottom: 6px;
-        }
+      .verses-flow[data-cols='3'] {
+        column-count: 3;
+        column-gap: 36px;
+      }
+
+      .verses-flow[data-cols='2'] .verse-row,
+      .verses-flow[data-cols='3'] .verse-row {
+        break-inside: avoid;
+        margin-bottom: 6px;
       }
 
       .verse-inline {
@@ -1024,6 +1402,7 @@ interface AppendedBibleChapter {
 
       .verse-inline.selected {
         outline: 2px solid var(--accent);
+        outline-offset: -2px;
       }
 
       .verse-sup {
@@ -1057,6 +1436,7 @@ interface AppendedBibleChapter {
 
       .verse-row.selected {
         outline: 2px solid var(--accent);
+        outline-offset: -2px;
       }
 
       .verse-num {
@@ -1122,14 +1502,52 @@ interface AppendedBibleChapter {
     `,
   ],
 })
-export class BibleReaderComponent implements OnInit {
+export class BibleReaderComponent implements OnInit, AfterViewInit {
+  private readonly headerSlot = inject(HeaderSlotService);
+  private readonly headerSearch = inject(HeaderSearchService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  @ViewChild('topbarCenter') topbarCenterRef?: TemplateRef<unknown>;
+  @ViewChild('topbarRight') topbarRightRef?: TemplateRef<unknown>;
+  private spreadViewportRef?: ElementRef<HTMLElement>;
+  private spreadResizeObserver?: ResizeObserver;
+  @ViewChild('spreadViewport')
+  set spreadViewportSetter(ref: ElementRef<HTMLElement> | undefined) {
+    this.spreadViewportRef = ref;
+    this.spreadResizeObserver?.disconnect();
+    this.spreadResizeObserver = undefined;
+    if (ref) {
+      this.spreadResizeObserver = new ResizeObserver(() =>
+        this.refreshSpreadMetrics(),
+      );
+      this.spreadResizeObserver.observe(ref.nativeElement);
+      queueMicrotask(() => this.refreshSpreadMetrics());
+    }
+  }
+  private readonly viewInitialized = signal<boolean>(false);
+  readonly topbarSearchQuery = signal<string>('');
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly screen = inject(ScreenClassService);
   readonly isExpanded = computed(() => this.screen.screenClass() === 'expanded');
+  readonly effectiveCols = computed(() =>
+    this.appearance.effectiveColumns(this.screen.screenClass()),
+  );
   readonly bible = inject(BibleService);
   readonly appearance = inject(ReaderAppearanceService);
   readonly state = inject(BibleReaderStateService);
+
+  readonly spreadMode = computed(
+    () =>
+      (this.effectiveCols() >= 2 || this.appearance.singleColPaginated()) &&
+      this.bible.compareVersions().length === 0,
+  );
+  readonly spreadPage = signal<number>(1);
+  readonly spreadTotalPages = signal<number>(1);
+  private pendingLastSpreadPage = false;
+  readonly spreadFooterLabel = computed(
+    () => `${this.bible.currentBook().name} ${this.bible.chapter()}`,
+  );
 
   readonly showVersionPicker = signal<boolean>(false);
   readonly showParallelPicker = signal<boolean>(false);
@@ -1231,6 +1649,7 @@ export class BibleReaderComponent implements OnInit {
 
   @HostListener('window:scroll')
   onWindowScroll(): void {
+    if (this.spreadMode()) return;
     this.syncVisibleChapterFromScroll();
     if (window.scrollY > 180) {
       this.hasScrolledDown = true;
@@ -1301,6 +1720,7 @@ export class BibleReaderComponent implements OnInit {
 
   @HostListener('window:wheel', ['$event'])
   onWindowWheel(event: WheelEvent): void {
+    if (this.spreadMode()) return;
     if (
       event.deltaY < 0 &&
       window.scrollY <= 4 &&
@@ -1359,13 +1779,68 @@ export class BibleReaderComponent implements OnInit {
       return;
     }
     if (event.key === 'ArrowLeft') {
-      this.prevChapter();
+      if (this.spreadMode()) {
+        event.preventDefault();
+        this.goToSpreadPage(this.spreadPage() - 1);
+      } else {
+        this.prevChapter();
+      }
     } else if (event.key === 'ArrowRight') {
-      this.nextChapter();
+      if (this.spreadMode()) {
+        event.preventDefault();
+        this.goToSpreadPage(this.spreadPage() + 1);
+      } else {
+        this.nextChapter();
+      }
     }
   }
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.headerSlot.clear();
+      this.spreadResizeObserver?.disconnect();
+    });
+    effect(() => {
+      const spread = this.spreadMode();
+      this.effectiveCols();
+      this.bible.verses();
+      this.bible.loading();
+      this.appearance.fontSize();
+      this.appearance.lineHeight();
+      this.appearance.fontId();
+      this.appearance.bibleLayout();
+      this.immersive();
+      if (spread) {
+        if (
+          this.prependedChapters().length > 0 ||
+          this.appendedChapters().length > 0 ||
+          this.visibleChapter() !== null
+        ) {
+          this.resetInfiniteChapters();
+        }
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        setTimeout(() => this.refreshSpreadMetrics(), 0);
+      }
+    });
+    const unregisterSearch = this.headerSearch.register({
+      placeholder: 'Search Bible verses or ref (e.g. John 3:16)...',
+      onChange: (q) => this.topbarSearchQuery.set(q),
+      onSubmit: (q) => this.submitTopbarSearch(q),
+    });
+    this.destroyRef.onDestroy(unregisterSearch);
+
+    effect(() => {
+      if (!this.viewInitialized()) return;
+      if (this.screen.isMediumOrExpanded() && !this.immersive()) {
+        this.headerSlot.setTemplates(
+          this.isExpanded() ? null : (this.topbarCenterRef ?? null),
+          this.topbarRightRef ?? null,
+        );
+      } else {
+        this.headerSlot.clear();
+      }
+    });
+
     effect(() => {
       if (!this.routeReady()) return;
       const version = this.bible.version();
@@ -1412,6 +1887,17 @@ export class BibleReaderComponent implements OnInit {
         void this.initFromRoute(version, book, validChapter, validVerse);
       },
     );
+  }
+
+  ngAfterViewInit(): void {
+    this.viewInitialized.set(true);
+  }
+
+  submitTopbarSearch(raw?: string): void {
+    const q = (raw ?? this.topbarSearchQuery()).trim();
+    void this.router.navigate(['/bible/search'], {
+      queryParams: q ? { q } : undefined,
+    });
   }
 
   versionLabel(id: string): string {
@@ -1570,6 +2056,47 @@ export class BibleReaderComponent implements OnInit {
     }
   }
 
+  goToSpreadPage(next: number): void {
+    const vp = this.spreadViewportRef?.nativeElement;
+    if (!vp) return;
+    const total = this.spreadTotalPages();
+    if (next < 1) {
+      if (this.hasPrevChapter()) {
+        this.pendingLastSpreadPage = true;
+        this.prevChapter();
+      }
+      return;
+    }
+    if (next > total) {
+      if (this.hasNextChapter()) {
+        this.pendingLastSpreadPage = false;
+        this.nextChapter();
+      }
+      return;
+    }
+    this.spreadPage.set(next);
+    scrollToSpreadPage(vp, next, 44, false);
+  }
+
+  private refreshSpreadMetrics(): void {
+    const vp = this.spreadViewportRef?.nativeElement;
+    if (!vp) return;
+    const { totalPages } = computeSpreadMetrics(vp, 44);
+    this.spreadTotalPages.set(totalPages);
+    if (this.pendingLastSpreadPage) {
+      this.pendingLastSpreadPage = false;
+      this.spreadPage.set(totalPages);
+      scrollToSpreadPage(vp, totalPages, 44, false);
+      return;
+    }
+    if (this.spreadPage() > totalPages) {
+      this.spreadPage.set(totalPages);
+      scrollToSpreadPage(vp, totalPages, 44, false);
+    } else {
+      scrollToSpreadPage(vp, this.spreadPage(), 44, false);
+    }
+  }
+
   prevChapter(): void {
     const target = this.bible.prevChapterOf(
       this.displayBookNumber(),
@@ -1577,6 +2104,9 @@ export class BibleReaderComponent implements OnInit {
     );
     this.resetInfiniteChapters();
     this.state.clearSelection();
+    if (!this.pendingLastSpreadPage) {
+      this.spreadPage.set(1);
+    }
     if (target) {
       void this.bible.loadChapter(target.bookNumber, target.chapter);
     } else {
@@ -1593,6 +2123,8 @@ export class BibleReaderComponent implements OnInit {
     );
     this.resetInfiniteChapters();
     this.state.clearSelection();
+    this.pendingLastSpreadPage = false;
+    this.spreadPage.set(1);
     if (target) {
       void this.bible.loadChapter(target.bookNumber, target.chapter);
     } else {
@@ -1646,9 +2178,17 @@ export class BibleReaderComponent implements OnInit {
     const match = this.bible.verses().find((v) => v.verse === verseNum);
     if (match) this.state.toggleSelectVerse(match);
     setTimeout(() => {
-      document
-        .getElementById(`verse-${verseNum}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const el = document.getElementById(`verse-${verseNum}`);
+      if (!el) return;
+      if (this.spreadMode()) {
+        const vp = this.spreadViewportRef?.nativeElement;
+        if (vp) {
+          const page = scrollElementIntoSpread(vp, el, 44, true);
+          this.spreadPage.set(page);
+        }
+      } else {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }, 60);
   }
 

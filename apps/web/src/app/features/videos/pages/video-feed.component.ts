@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AppConfig } from '../../../core/config/app-config';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -14,106 +14,70 @@ import { VideoService } from '../services/video.service';
   imports: [RouterLink, VideoCardComponent, InfiniteScrollTriggerDirective],
   template: `
     <div class="feed-page">
-      <header class="app-bar">
-        <div class="app-bar-inner max-width-box">
-          @if (screen.isCompact()) {
+      <header class="feed-header">
+        @if (screen.isCompact()) {
+          <div class="compact-bar max-width-box">
             <div class="brand">
               <img src="logo.png" alt="ChristianApp" width="28" height="28" />
               <span class="brand-title font-display">{{ appName }}</span>
             </div>
-          } @else {
-            <a class="feed-search-pill" routerLink="/search">
-              <span class="material-symbols-rounded">search</span>
-              <span>Search sermons & videos...</span>
-            </a>
-          }
-
-          <div class="actions">
-            @if (screen.collapseAppBarActions()) {
-              <div class="menu-wrap">
-                <button
-                  type="button"
-                  class="icon-btn"
-                  aria-label="More actions"
-                  (click)="menuOpen.set(!menuOpen())"
-                >
-                  <span class="material-symbols-rounded">more_vert</span>
-                </button>
-                @if (menuOpen()) {
-                  <div class="overflow-menu" (click)="menuOpen.set(false)">
-                    <a class="menu-item" routerLink="/search">
-                      <span class="material-symbols-rounded">search</span>
-                      Search
-                    </a>
-                    <a class="menu-item" routerLink="/channels">
-                      <span class="material-symbols-rounded">subscriptions</span>
-                      Channels
-                    </a>
-                    <a class="menu-item" routerLink="/settings">
-                      <span class="material-symbols-rounded">account_circle</span>
-                      Account & Settings
-                    </a>
-                  </div>
-                }
-              </div>
-            } @else {
-              <a class="pill-chip" routerLink="/channels">
-                <span class="material-symbols-rounded">subscriptions</span>
-                Channels
+            <div class="actions">
+              <a class="icon-btn" routerLink="/search" aria-label="Search" title="Search">
+                <span class="material-symbols-rounded">search</span>
               </a>
-              @if (screen.isCompact()) {
-                <a class="icon-btn" routerLink="/search" aria-label="Search" title="Search">
-                  <span class="material-symbols-rounded">search</span>
-                </a>
-                <a class="icon-btn" routerLink="/settings" aria-label="Account" title="Account & Settings">
-                  @if (auth.currentUser()?.photoUrl) {
-                    <img
-                      class="user-avatar"
-                      [src]="auth.currentUser()!.photoUrl"
-                      [alt]="auth.currentUser()!.displayName"
-                    />
-                  } @else {
-                    <span class="material-symbols-rounded">account_circle</span>
-                  }
-                </a>
-              }
-            }
+              <a class="icon-btn" routerLink="/channels" aria-label="Channels" title="Channels">
+                <span class="material-symbols-rounded">subscriptions</span>
+              </a>
+              <a class="icon-btn" routerLink="/settings" aria-label="Account" title="Account & Settings">
+                @if (auth.currentUser()?.photoUrl) {
+                  <img
+                    class="user-avatar"
+                    [src]="auth.currentUser()!.photoUrl"
+                    [alt]="auth.currentUser()!.displayName"
+                  />
+                } @else {
+                  <span class="material-symbols-rounded">account_circle</span>
+                }
+              </a>
+            </div>
           </div>
-        </div>
+        }
 
         <div class="filter-strip max-width-box">
           <button
             type="button"
             class="pill-chip"
-            [class.active]="selectedCategory() === 'All' && !selectedChannelId()"
+            [class.active]="filterMode() === 'all'"
             (click)="selectAll()"
           >
-            {{ channels.subscribedChannels().length > 0 ? 'All Following' : 'All' }}
+            All
           </button>
 
-          @for (ch of channels.subscribedChannels(); track ch.id) {
+          @if (channels.subscribedChannels().length > 0) {
             <button
               type="button"
               class="pill-chip"
-              [class.active]="selectedChannelId() === ch.id"
-              (click)="selectChannel(ch.id)"
+              [class.active]="filterMode() === 'following'"
+              (click)="selectFollowing()"
             >
-              @if (ch.avatarUrl) {
-                <img class="chip-avatar" [src]="ch.avatarUrl" [alt]="ch.title" />
-              }
-              {{ ch.title }}
+              Followed Channels
             </button>
-          }
 
-          @for (cat of categories; track cat) {
-            @if (cat !== 'All') {
+            @for (ch of channels.subscribedChannels(); track ch.id) {
               <button
                 type="button"
                 class="pill-chip"
-                [class.active]="selectedCategory() === cat && !selectedChannelId()"
-                (click)="selectCategory(cat)"
+                [class.active]="filterMode() === 'channel' && selectedChannelId() === ch.id"
+                (click)="selectChannel(ch.id)"
               >
-                {{ cat }}
+                @if (ch.avatarUrl) {
+                  <img class="chip-avatar" [src]="ch.avatarUrl" [alt]="ch.title" />
+                } @else {
+                  <span class="chip-avatar fallback">
+                    {{ ch.title.slice(0, 1).toUpperCase() }}
+                  </span>
+                }
+                {{ ch.title }}
               </button>
             }
           }
@@ -131,7 +95,7 @@ import { VideoService } from '../services/video.service';
           </div>
         } @else if (videos.videos().length === 0 && videos.isLoading()) {
           <div class="video-grid">
-            @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+            @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
               <div class="skeleton-card">
                 <div class="skeleton-thumb"></div>
                 <div class="skeleton-line"></div>
@@ -142,15 +106,53 @@ import { VideoService } from '../services/video.service';
         } @else if (videos.videos().length === 0) {
           <div class="state-card">
             <span class="material-symbols-rounded state-icon">video_library</span>
-            <p>No videos found for this filter.</p>
-            <a class="pill-chip active" routerLink="/channels">Browse Channels</a>
+            <p>No videos found for this category.</p>
+            <button type="button" class="pill-chip active" (click)="selectAll()">
+              Show All Videos
+            </button>
           </div>
         } @else {
           <div class="video-grid">
-            @for (video of videos.videos(); track video.id) {
+            @for (video of topBatch(); track video.id) {
               <app-video-card [video]="video" />
             }
           </div>
+
+          @if (shelfShorts().length > 0 && filterMode() === 'all') {
+            <section class="shorts-shelf">
+              <div class="shelf-head">
+                <div class="shelf-title">
+                  <span class="material-symbols-rounded shelf-icon">smart_display</span>
+                  <h2 class="font-display">Shorts</h2>
+                </div>
+                <a class="shelf-more" routerLink="/shorts">View all</a>
+              </div>
+              <div class="shelf-strip">
+                @for (short of shelfShorts(); track short.id) {
+                  <a class="shelf-card" routerLink="/shorts">
+                    <div class="shelf-thumb-wrap">
+                      <img
+                        class="shelf-thumb"
+                        [src]="short.thumbnailUrl"
+                        [alt]="short.title"
+                        loading="lazy"
+                      />
+                    </div>
+                    <h3 class="shelf-card-title">{{ short.title }}</h3>
+                    <span class="shelf-card-sub">{{ short.channelTitle }}</span>
+                  </a>
+                }
+              </div>
+            </section>
+          }
+
+          @if (restBatch().length > 0) {
+            <div class="video-grid rest-grid">
+              @for (video of restBatch(); track video.id) {
+                <app-video-card [video]="video" />
+              }
+            </div>
+          }
 
           @if (videos.hasMore()) {
             <div
@@ -170,7 +172,7 @@ import { VideoService } from '../services/video.service';
   `,
   styles: [
     `
-      .app-bar {
+      .feed-header {
         position: sticky;
         top: var(--shell-top-offset);
         z-index: 30;
@@ -178,7 +180,7 @@ import { VideoService } from '../services/video.service';
         border-bottom: 1px solid var(--surface-border);
       }
 
-      .app-bar-inner {
+      .compact-bar {
         height: var(--topbar-height);
         display: flex;
         align-items: center;
@@ -191,21 +193,6 @@ import { VideoService } from '../services/video.service';
         align-items: center;
         gap: 10px;
         min-width: 0;
-      }
-
-      .feed-search-pill {
-        flex: 1;
-        max-width: 440px;
-        height: 38px;
-        padding: 0 14px;
-        border-radius: var(--radius-pill);
-        background-color: var(--surface-variant);
-        border: 1px solid var(--surface-border);
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--on-surface-muted);
-        font-size: 13px;
       }
 
       .brand-title {
@@ -231,44 +218,11 @@ import { VideoService } from '../services/video.service';
         object-fit: cover;
       }
 
-      .menu-wrap {
-        position: relative;
-      }
-
-      .overflow-menu {
-        position: absolute;
-        right: 0;
-        top: 44px;
-        min-width: 190px;
-        background-color: var(--surface-elevated);
-        border: 1px solid var(--surface-border);
-        border-radius: var(--radius-md);
-        padding: 6px;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
-        z-index: 60;
-      }
-
-      .menu-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
-        border-radius: var(--radius-sm);
-        font-size: 14px;
-      }
-
-      .menu-item:hover {
-        background-color: var(--surface-variant);
-      }
-
       .filter-strip {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding-top: 6px;
+        padding-top: 8px;
         padding-bottom: 10px;
         overflow-x: auto;
         scrollbar-width: none;
@@ -283,29 +237,135 @@ import { VideoService } from '../services/video.service';
         height: 18px;
         border-radius: var(--radius-pill);
         object-fit: cover;
+        flex-shrink: 0;
+      }
+
+      .chip-avatar.fallback {
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        font-weight: 700;
+        background-color: var(--accent-soft);
+        color: var(--accent);
       }
 
       .feed-body {
         padding-top: 16px;
-        padding-bottom: 32px;
+        padding-bottom: 40px;
       }
 
       .video-grid {
         display: grid;
-        gap: 20px 16px;
+        gap: 24px 16px;
         grid-template-columns: 1fr;
       }
 
       @media (min-width: 600px) {
         .video-grid {
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
       }
 
-      .load-more-wrap {
+      .rest-grid {
+        margin-top: 24px;
+      }
+
+      .shorts-shelf {
+        margin-top: 28px;
+        padding: 18px 0;
+        border-top: 1px solid var(--surface-border);
+        border-bottom: 1px solid var(--surface-border);
+      }
+
+      .shelf-head {
         display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+
+      .shelf-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .shelf-title h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .shelf-icon {
+        color: var(--accent);
+      }
+
+      .shelf-more {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .shelf-strip {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(150px, 180px);
+        gap: 12px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        padding-bottom: 4px;
+      }
+
+      .shelf-card {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .shelf-thumb-wrap {
+        aspect-ratio: 9 / 16;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        background-color: var(--surface-variant);
+      }
+
+      .shelf-thumb {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .shelf-card-title {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .shelf-card-sub {
+        font-size: 12px;
+        color: var(--on-surface-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .load-more-wrap {
+        min-height: 36px;
+        display: flex;
+        align-items: center;
         justify-content: center;
         margin-top: 24px;
+      }
+
+      .loading-more {
+        font-size: 13px;
+        color: var(--on-surface-muted);
       }
 
       .state-card {
@@ -356,10 +416,12 @@ export class VideoFeedComponent implements OnInit {
   readonly auth = inject(AuthService);
 
   readonly appName = AppConfig.appName;
-  readonly categories = AppConfig.defaultCategories;
-  readonly selectedCategory = signal<string>('All');
+  readonly filterMode = signal<'all' | 'following' | 'channel'>('all');
   readonly selectedChannelId = signal<string | null>(null);
-  readonly menuOpen = signal<boolean>(false);
+
+  readonly topBatch = computed(() => this.videos.videos().slice(0, 6));
+  readonly restBatch = computed(() => this.videos.videos().slice(6));
+  readonly shelfShorts = computed(() => this.videos.shorts().slice(0, 8));
 
   async ngOnInit(): Promise<void> {
     await Promise.all([
@@ -367,23 +429,24 @@ export class VideoFeedComponent implements OnInit {
       this.channels.fetchChannels(),
     ]);
     this.applyFilter();
+    void this.videos.fetchShorts();
   }
 
   selectAll(): void {
-    this.selectedCategory.set('All');
+    this.filterMode.set('all');
+    this.selectedChannelId.set(null);
+    this.applyFilter();
+  }
+
+  selectFollowing(): void {
+    this.filterMode.set('following');
     this.selectedChannelId.set(null);
     this.applyFilter();
   }
 
   selectChannel(channelId: string): void {
+    this.filterMode.set('channel');
     this.selectedChannelId.set(channelId);
-    this.selectedCategory.set('All');
-    this.applyFilter();
-  }
-
-  selectCategory(category: string): void {
-    this.selectedCategory.set(category);
-    this.selectedChannelId.set(null);
     this.applyFilter();
   }
 
@@ -392,15 +455,13 @@ export class VideoFeedComponent implements OnInit {
   }
 
   private applyFilter(): void {
+    const mode = this.filterMode();
     const subs = this.channels.subscribedIds();
     this.videos.setFilter({
-      channelId: this.selectedChannelId(),
-      category: this.selectedCategory(),
+      channelId: mode === 'channel' ? this.selectedChannelId() : null,
+      category: 'All',
       subscribedIds: subs,
-      onlySubscribed:
-        !this.selectedChannelId() &&
-        this.selectedCategory() === 'All' &&
-        subs.length > 0,
+      onlySubscribed: mode === 'following' && subs.length > 0,
     });
   }
 }

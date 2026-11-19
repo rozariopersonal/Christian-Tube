@@ -1,18 +1,19 @@
-import { Component, input } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, computed, inject, input, signal } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
 import {
   Video,
   formatTimeAgo,
   formatViewCount,
 } from '../../features/videos/models/video.model';
+import { VideoLibraryService } from '../../features/videos/services/video-library.service';
 
 @Component({
   selector: 'app-video-card',
   standalone: true,
   imports: [RouterLink],
   template: `
-    <a class="video-card" [routerLink]="['/watch', video().id]">
-      <div class="thumb-wrap">
+    <article class="video-card" (mouseleave)="menuOpen.set(false)">
+      <a class="thumb-wrap" [routerLink]="['/watch', video().id]">
         <img
           class="thumb"
           [src]="video().thumbnailUrl"
@@ -27,13 +28,18 @@ import {
         } @else if (video().duration && video().duration !== '0:00') {
           <span class="badge duration-badge">{{ video().duration }}</span>
         }
-      </div>
+
+        @if (progressPct() > 0) {
+          <div class="progress-track" aria-hidden="true">
+            <div class="progress-fill" [style.width.%]="progressPct()"></div>
+          </div>
+        }
+      </a>
 
       <div class="meta-row">
         <a
           class="avatar-link"
           [routerLink]="['/channels', video().channelId]"
-          (click)="$event.stopPropagation()"
           [attr.aria-label]="video().channelTitle"
         >
           @if (video().channelAvatarUrl) {
@@ -51,19 +57,68 @@ import {
         </a>
 
         <div class="meta-text">
-          <h3 class="title">{{ video().title }}</h3>
+          <a class="title-link" [routerLink]="['/watch', video().id]">
+            <h3 class="title">{{ video().title }}</h3>
+          </a>
           <p class="sub">
-            {{ video().channelTitle }}
+            @if (video().channelId) {
+              <a class="channel-link" [routerLink]="['/channels', video().channelId]">
+                {{ video().channelTitle }}
+              </a>
+            } @else {
+              <span>{{ video().channelTitle }}</span>
+            }
+          </p>
+          <p class="sub stats">
             @if (video().viewCount > 0) {
-              <span> · {{ viewsLabel() }}</span>
+              <span>{{ viewsLabel() }}</span>
+            }
+            @if (video().viewCount > 0 && timeLabel()) {
+              <span> · </span>
             }
             @if (timeLabel()) {
-              <span> · {{ timeLabel() }}</span>
+              <span>{{ timeLabel() }}</span>
             }
           </p>
         </div>
+
+        <div class="card-menu-wrap">
+          <button
+            type="button"
+            class="more-btn"
+            aria-label="Video actions"
+            (click)="$event.stopPropagation(); menuOpen.set(!menuOpen())"
+          >
+            <span class="material-symbols-rounded">more_vert</span>
+          </button>
+
+          @if (menuOpen()) {
+            <div class="card-menu" (click)="$event.stopPropagation()">
+              <button type="button" class="card-menu-item" (click)="addToQueue()">
+                <span class="material-symbols-rounded">queue_music</span>
+                Add to queue
+              </button>
+              <button type="button" class="card-menu-item" (click)="toggleWatchLater()">
+                <span class="material-symbols-rounded">
+                  {{ isSaved() ? 'bookmark_remove' : 'watch_later' }}
+                </span>
+                {{ isSaved() ? 'Remove from Watch Later' : 'Save to Watch Later' }}
+              </button>
+              <button type="button" class="card-menu-item" (click)="share()">
+                <span class="material-symbols-rounded">share</span>
+                Share
+              </button>
+              @if (video().channelId) {
+                <button type="button" class="card-menu-item" (click)="goToChannel()">
+                  <span class="material-symbols-rounded">tv</span>
+                  Go to channel
+                </button>
+              }
+            </div>
+          }
+        </div>
       </div>
-    </a>
+    </article>
   `,
   styles: [
     `
@@ -71,8 +126,7 @@ import {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        text-decoration: none;
-        color: inherit;
+        position: relative;
       }
 
       .thumb-wrap {
@@ -82,6 +136,7 @@ import {
         border-radius: var(--radius-md);
         overflow: hidden;
         background-color: var(--surface-variant);
+        display: block;
       }
 
       .thumb {
@@ -89,6 +144,11 @@ import {
         height: 100%;
         object-fit: cover;
         display: block;
+        transition: transform 220ms ease;
+      }
+
+      .video-card:hover .thumb {
+        transform: scale(1.03);
       }
 
       .badge {
@@ -119,9 +179,23 @@ import {
         font-size: 13px;
       }
 
+      .progress-track {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        background-color: rgba(255, 255, 255, 0.25);
+      }
+
+      .progress-fill {
+        height: 100%;
+        background-color: var(--accent);
+      }
+
       .meta-row {
         display: flex;
-        gap: 12px;
+        gap: 10px;
         align-items: flex-start;
       }
 
@@ -152,8 +226,12 @@ import {
         flex: 1;
       }
 
+      .title-link {
+        display: block;
+      }
+
       .title {
-        margin: 0 0 4px;
+        margin: 0 0 3px;
         font-size: 14px;
         font-weight: 600;
         line-height: 1.35;
@@ -165,17 +243,89 @@ import {
 
       .sub {
         margin: 0;
-        font-size: 13px;
+        font-size: 12px;
         color: var(--on-surface-muted);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+
+      .channel-link:hover {
+        color: var(--on-surface);
+      }
+
+      .card-menu-wrap {
+        position: relative;
+        flex-shrink: 0;
+      }
+
+      .more-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-pill);
+        display: grid;
+        place-items: center;
+        color: var(--on-surface-muted);
+        opacity: 0.75;
+      }
+
+      .more-btn:hover {
+        background-color: var(--surface-variant);
+        color: var(--on-surface);
+        opacity: 1;
+      }
+
+      .more-btn .material-symbols-rounded {
+        font-size: 18px;
+      }
+
+      .card-menu {
+        position: absolute;
+        right: 0;
+        top: 32px;
+        min-width: 200px;
+        background-color: var(--surface-elevated);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-md);
+        padding: 6px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        z-index: 40;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .card-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        text-align: left;
+      }
+
+      .card-menu-item:hover {
+        background-color: var(--surface-variant);
+      }
+
+      .card-menu-item .material-symbols-rounded {
+        font-size: 18px;
+        color: var(--on-surface-muted);
       }
     `,
   ],
 })
 export class VideoCardComponent {
   readonly video = input.required<Video>();
+  private readonly library = inject(VideoLibraryService);
+  private readonly router = inject(Router);
+
+  readonly menuOpen = signal<boolean>(false);
+  readonly isSaved = computed(() => this.library.isWatchLater(this.video().id));
+  readonly progressPct = computed(() =>
+    Math.round(this.library.progressFraction(this.video().id) * 100),
+  );
 
   viewsLabel(): string {
     return formatViewCount(this.video().viewCount);
@@ -183,5 +333,34 @@ export class VideoCardComponent {
 
   timeLabel(): string {
     return formatTimeAgo(this.video().publishedAt);
+  }
+
+  addToQueue(): void {
+    this.library.addToQueue(this.video());
+    this.menuOpen.set(false);
+  }
+
+  toggleWatchLater(): void {
+    this.library.toggleWatchLater(this.video());
+    this.menuOpen.set(false);
+  }
+
+  share(): void {
+    this.menuOpen.set(false);
+    const v = this.video();
+    const url = `${window.location.origin}/watch/${v.id}`;
+    if (navigator.share) {
+      void navigator.share({ title: v.title, url });
+    } else if (navigator.clipboard) {
+      void navigator.clipboard.writeText(url);
+    }
+  }
+
+  goToChannel(): void {
+    this.menuOpen.set(false);
+    const chId = this.video().channelId;
+    if (chId) {
+      void this.router.navigate(['/channels', chId]);
+    }
   }
 }

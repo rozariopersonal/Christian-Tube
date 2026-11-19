@@ -44,7 +44,7 @@ import { Channel } from '../models/channel.model';
 
         <p class="ch-meta">
           @if (channel().subscriberCount > 0) {
-            <span>{{ formatCount(channel().subscriberCount) }} subscribers · </span>
+            <span>{{ formatCount(channel().subscriberCount) }} followers · </span>
           }
           <span>{{ channel().videoCount }} videos</span>
           @if (channel().language) {
@@ -65,13 +65,39 @@ import { Channel } from '../models/channel.model';
           >
             {{ channel().isSubscribed ? 'Following' : 'Follow' }}
           </button>
+
+          @if (isAdmin()) {
+            <div class="admin-actions">
+              <button
+                type="button"
+                class="pill-chip"
+                [title]="channel().isActive ? 'Suspend channel' : 'Activate channel'"
+                (click)="suspendToggled.emit(channel())"
+              >
+                {{ channel().isActive ? 'Suspend' : 'Activate' }}
+              </button>
+              <button
+                type="button"
+                class="pill-chip danger-chip"
+                title="Delete channel"
+                (click)="deleteRequested.emit(channel())"
+              >
+                Delete
+              </button>
+            </div>
+          }
         </div>
+
+        @if (!channel().isActive) {
+          <span class="suspended-badge">Suspended</span>
+        }
       </div>
     </div>
   `,
   styles: [
     `
       .channel-card {
+        position: relative;
         background-color: var(--surface);
         border: 1px solid var(--surface-border);
         border-radius: var(--radius-lg);
@@ -182,14 +208,43 @@ import { Channel } from '../models/channel.model';
         margin-top: auto;
         padding-top: 8px;
         display: flex;
-        justify-content: flex-end;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .admin-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .danger-chip {
+        color: var(--error);
+        border-color: color-mix(in srgb, var(--error) 45%, transparent);
+      }
+
+      .suspended-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+        background-color: var(--error);
+        color: var(--on-error);
+        font-size: 11px;
+        font-weight: 700;
       }
     `,
   ],
 })
 export class ChannelCardComponent {
   readonly channel = input.required<Channel>();
+  readonly isAdmin = input<boolean>(false);
   readonly subscribeToggled = output<string>();
+  readonly suspendToggled = output<Channel>();
+  readonly deleteRequested = output<Channel>();
 
   formatCount(n: number): string {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;

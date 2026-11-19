@@ -9,6 +9,7 @@ class Channel {
   final bool isSubscribed;
   final String? language;
   final bool hasShorts;
+  final bool isActive;
 
   String get name => title;
   String get thumbnail => avatarUrl;
@@ -25,6 +26,7 @@ class Channel {
     this.isSubscribed = false,
     this.language,
     this.hasShorts = false,
+    this.isActive = true,
   });
 
   Channel copyWith({
@@ -39,6 +41,7 @@ class Channel {
     bool? isFollowed,
     String? language,
     bool? hasShorts,
+    bool? isActive,
   }) {
     return Channel(
       id: id ?? this.id,
@@ -51,6 +54,7 @@ class Channel {
       isSubscribed: isFollowed ?? isSubscribed ?? this.isSubscribed,
       language: language ?? this.language,
       hasShorts: hasShorts ?? this.hasShorts,
+      isActive: isActive ?? this.isActive,
     );
   }
 
@@ -92,6 +96,7 @@ class Channel {
       isSubscribed: json['isSubscribed'] ?? json['is_subscribed'] ?? false,
       language: json['language'],
       hasShorts: hasShorts,
+      isActive: json['isActive'] != false && json['is_active'] != false,
     );
   }
 
@@ -107,6 +112,7 @@ class Channel {
       'isSubscribed': isSubscribed,
       'language': language,
       'hasShorts': hasShorts,
+      'isActive': isActive,
     };
   }
 }

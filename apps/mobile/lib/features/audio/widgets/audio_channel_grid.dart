@@ -154,7 +154,7 @@ class AudioChannelGrid extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'No subscribed channels yet',
+              'Not following any channels yet',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: tokens.onSurface,
@@ -163,7 +163,7 @@ class AudioChannelGrid extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Channels you subscribe to will show up here.',
+              'Channels you follow will show up here.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: tokens.onSurfaceMuted,
               ),
@@ -173,7 +173,7 @@ class AudioChannelGrid extends StatelessWidget {
             FilledButton.icon(
               onPressed: onSubscribe,
               icon: const Icon(Icons.add),
-              label: const Text('Subscribe to channels'),
+              label: const Text('Follow channels'),
             ),
           ],
         ),

@@ -9,6 +9,7 @@ export interface Channel {
   isSubscribed: boolean;
   language?: string;
   hasShorts: boolean;
+  isActive: boolean;
 }
 
 export interface ChannelRequest {
@@ -50,5 +51,6 @@ export function normalizeChannel(raw: Record<string, unknown>): Channel {
       rawHasShorts === 'true' ||
       rawHasShorts === '1' ||
       (Number(raw['shortsCount'] ?? 0) || 0) > 0,
+    isActive: raw['isActive'] !== false && raw['is_active'] !== false,
   };
 }

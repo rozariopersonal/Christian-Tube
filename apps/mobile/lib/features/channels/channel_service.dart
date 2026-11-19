@@ -342,6 +342,58 @@ class ChannelService extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> toggleChannelActive(Channel ch) async {
+    final action = ch.isActive ? 'suspend' : 'activate';
+    try {
+      dynamic response;
+      try {
+        response = await _dio.post('/api/channels/${ch.id}/$action');
+      } catch (_) {
+        response = await _dio.post('/channels/${ch.id}/$action');
+      }
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final idx = _channels.indexWhere((c) => c.id == ch.id);
+        if (idx != -1) {
+          _channels[idx] = _channels[idx].copyWith(isActive: !ch.isActive);
+          notifyListeners();
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error toggling channel active status: $e');
+    }
+    return false;
+  }
+
+  Future<void> fetchAdminChannels() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      dynamic response;
+      try {
+        response = await _dio.get('/api/channels/admin/all');
+      } catch (_) {
+        response = await _dio.get('/channels/admin/all');
+      }
+      if (response.statusCode == 200 && response.data is List) {
+        _channels = (response.data as List)
+            .whereType<Map<String, dynamic>>()
+            .map((j) {
+              final ch = Channel.fromJson(j);
+              _rememberChannelName(ch.id, ch.name);
+              return ch.copyWith(isSubscribed: _subscribedIds.contains(ch.id));
+            })
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching admin channels: $e');
+      await fetchChannels();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> removeChannel(String channelId) async {
     try {
       final response = await _dio.delete('/channels/$channelId');

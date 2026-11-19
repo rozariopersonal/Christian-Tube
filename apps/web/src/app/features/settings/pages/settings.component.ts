@@ -1,17 +1,25 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { ApiService } from '../../../core/api/api.service';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import {
   READER_FONTS,
   ReaderAppearanceService,
 } from '../../../core/services/reader-appearance.service';
+import { ContentPreferencesService } from '../../../core/services/content-preferences.service';
 import {
   APP_COLOR_THEMES,
+  APP_FONT_FAMILIES,
   ThemeService,
 } from '../../../core/theme/theme.service';
+import { SUPPORTED_LANGUAGES } from '../../../shared/ui/language-meta';
 import { BIBLE_VERSIONS } from '../../bible/models/bible.model';
+import { VideoLibraryService } from '../../videos/services/video-library.service';
+
+const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
 
 @Component({
   selector: 'app-settings-page',
@@ -44,7 +52,7 @@ import { BIBLE_VERSIONS } from '../../bible/models/bible.model';
           </div>
         } @else {
           <div class="account-actions">
-            <p class="muted">Sign in to sync subscriptions & preferences.</p>
+            <p class="muted">Sign in to sync followed channels &amp; preferences.</p>
             <div class="chip-wrap">
               <button type="button" class="pill-chip active" (click)="auth.promptGoogleSignIn()">
                 Sign in with Google
@@ -99,12 +107,85 @@ import { BIBLE_VERSIONS } from '../../bible/models/bible.model';
             }
           </div>
         </div>
+
+        <div class="field-group">
+          <span class="label">App Font Family</span>
+          <div class="chip-wrap">
+            @for (f of appFonts; track f) {
+              <button
+                type="button"
+                class="pill-chip"
+                [class.active]="theme.appFont() === f"
+                (click)="theme.setAppFont(f)"
+              >
+                {{ f }}
+              </button>
+            }
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <h2>Content &amp; Languages</h2>
+        <div class="field-group">
+          <span class="label">Preferred Content Languages</span>
+          <div class="chip-wrap">
+            @for (lang of languages; track lang.code) {
+              <button
+                type="button"
+                class="pill-chip"
+                [class.active]="prefs.preferredLanguages().includes(lang.code)"
+                (click)="prefs.toggleLanguage(lang.code)"
+              >
+                {{ lang.englishName }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="label" for="primary-bible">Primary Bible Version</label>
+          <select
+            id="primary-bible"
+            class="select-input"
+            [ngModel]="appearance.primaryBibleVersion().toLowerCase()"
+            (ngModelChange)="appearance.setPrimaryBibleVersion($event)"
+          >
+            <optgroup label="Preferred Languages">
+              @for (v of preferredBibleVersions(); track v.id) {
+                <option [value]="v.id">{{ v.label }} ({{ v.language }})</option>
+              }
+            </optgroup>
+            @if (otherBibleVersions().length > 0) {
+              <optgroup label="Other Languages">
+                @for (v of otherBibleVersions(); track v.id) {
+                  <option [value]="v.id">{{ v.label }} ({{ v.language }})</option>
+                }
+              </optgroup>
+            }
+          </select>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <h2>Playback</h2>
+        <label class="toggle-row">
+          <div>
+            <strong>Autoplay Next Video</strong>
+            <p class="muted">Automatically play the next queued or related video when playback ends</p>
+          </div>
+          <input
+            type="checkbox"
+            [ngModel]="library.autoplay()"
+            (ngModelChange)="library.setAutoplay($event)"
+          />
+        </label>
       </section>
 
       <section class="settings-card">
         <h2>Reader Typography</h2>
         <div class="field-group">
-          <span class="label">Font Family</span>
+          <span class="label">Reader Font</span>
           <div class="chip-wrap">
             @for (f of fonts; track f.id) {
               <button
@@ -153,22 +234,16 @@ import { BIBLE_VERSIONS } from '../../bible/models/bible.model';
       </section>
 
       <section class="settings-card">
-        <h2>Bible & Setup</h2>
-        <div class="field-group">
-          <label class="label" for="primary-bible">Primary Bible Version</label>
-          <select
-            id="primary-bible"
-            class="select-input"
-            [ngModel]="appearance.primaryBibleVersion().toLowerCase()"
-            (ngModelChange)="appearance.setPrimaryBibleVersion($event)"
-          >
-            @for (v of bibleVersions; track v.id) {
-              <option [value]="v.id">{{ v.label }} ({{ v.language }})</option>
-            }
-          </select>
-        </div>
-
+        <h2>Share, Feedback &amp; Setup</h2>
         <div class="chip-wrap">
+          <button type="button" class="pill-chip" (click)="shareApp()">
+            <span class="material-symbols-rounded btn-icon">share</span>
+            {{ shareCopied() ? 'Link Copied' : 'Share App' }}
+          </button>
+          <button type="button" class="pill-chip" (click)="feedbackOpen.set(true)">
+            <span class="material-symbols-rounded btn-icon">feedback</span>
+            Send Feedback
+          </button>
           <a class="pill-chip" routerLink="/onboarding">Re-run Onboarding</a>
           <button type="button" class="pill-chip" (click)="clearCache()">
             Clear Cached Data
@@ -178,6 +253,49 @@ import { BIBLE_VERSIONS } from '../../bible/models/bible.model';
           <p class="muted">Dataset Revision: {{ releases.revision() }}</p>
         }
       </section>
+
+      @if (feedbackOpen()) {
+        <div class="modal-backdrop" (click)="feedbackOpen.set(false)">
+          <div class="modal-card" (click)="$event.stopPropagation()">
+            <div class="modal-head">
+              <h3>Send Feedback &amp; Bug Report</h3>
+              <button type="button" class="icon-btn" (click)="feedbackOpen.set(false)">
+                <span class="material-symbols-rounded">close</span>
+              </button>
+            </div>
+            <input
+              type="text"
+              class="text-input"
+              placeholder="Summary title..."
+              [ngModel]="feedbackTitle()"
+              (ngModelChange)="feedbackTitle.set($event)"
+            />
+            <textarea
+              rows="4"
+              class="text-input"
+              placeholder="Describe your feedback or issue..."
+              [ngModel]="feedbackBody()"
+              (ngModelChange)="feedbackBody.set($event)"
+            ></textarea>
+            @if (feedbackStatus()) {
+              <p class="muted">{{ feedbackStatus() }}</p>
+            }
+            <div class="modal-actions">
+              <button type="button" class="pill-chip" (click)="feedbackOpen.set(false)">
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="pill-chip active"
+                [disabled]="feedbackSending() || !feedbackTitle().trim() || !feedbackBody().trim()"
+                (click)="submitFeedback()"
+              >
+                {{ feedbackSending() ? 'Sending...' : 'Submit' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `,
   styles: [
@@ -212,12 +330,17 @@ import { BIBLE_VERSIONS } from '../../bible/models/bible.model';
         font-weight: 700;
       }
 
-      .account-row {
+      .account-row,
+      .toggle-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         flex-wrap: wrap;
+      }
+
+      .toggle-row {
+        cursor: pointer;
       }
 
       .account-left {
@@ -267,6 +390,10 @@ import { BIBLE_VERSIONS } from '../../bible/models/bible.model';
         gap: 8px;
       }
 
+      .btn-icon {
+        font-size: 18px;
+      }
+
       .swatch-row {
         display: flex;
         flex-wrap: wrap;
@@ -300,18 +427,122 @@ import { BIBLE_VERSIONS } from '../../bible/models/bible.model';
         background-color: var(--bg);
         border: 1px solid var(--surface-border);
       }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        z-index: 80;
+      }
+
+      .modal-card {
+        width: 100%;
+        max-width: 440px;
+        background: var(--surface-elevated);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-lg);
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .modal-head h3 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .text-input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--surface-border);
+        background: var(--bg);
+        font-size: 14px;
+      }
+
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
     `,
   ],
 })
 export class SettingsComponent {
+  private readonly api = inject(ApiService);
   readonly auth = inject(AuthService);
   readonly theme = inject(ThemeService);
   readonly appearance = inject(ReaderAppearanceService);
   readonly releases = inject(ReleaseDataService);
+  readonly library = inject(VideoLibraryService);
+  readonly prefs = inject(ContentPreferencesService);
 
   readonly colorThemes = APP_COLOR_THEMES;
+  readonly appFonts = APP_FONT_FAMILIES;
   readonly fonts = READER_FONTS;
   readonly bibleVersions = BIBLE_VERSIONS;
+  readonly preferredBibleVersions = computed(() => {
+    const matched = BIBLE_VERSIONS.filter((v) =>
+      this.prefs.matchesLanguageName(v.language),
+    );
+    return matched.length > 0 ? matched : BIBLE_VERSIONS;
+  });
+  readonly otherBibleVersions = computed(() => {
+    const prefIds = new Set(this.preferredBibleVersions().map((v) => v.id));
+    return BIBLE_VERSIONS.filter((v) => !prefIds.has(v.id));
+  });
+  readonly languages = Object.values(SUPPORTED_LANGUAGES).filter(
+    (l) => l.code.toLowerCase() !== 'all',
+  );
+
+  readonly shareCopied = signal<boolean>(false);
+  readonly feedbackOpen = signal<boolean>(false);
+  readonly feedbackTitle = signal<string>('');
+  readonly feedbackBody = signal<string>('');
+  readonly feedbackSending = signal<boolean>(false);
+  readonly feedbackStatus = signal<string | null>(null);
+
+  shareApp(): void {
+    const url = window.location.origin;
+    if (navigator.share) {
+      void navigator.share({ title: 'ChristianApp', url });
+    } else if (navigator.clipboard) {
+      void navigator.clipboard.writeText(url);
+      this.shareCopied.set(true);
+      setTimeout(() => this.shareCopied.set(false), 2000);
+    }
+  }
+
+  async submitFeedback(): Promise<void> {
+    this.feedbackSending.set(true);
+    this.feedbackStatus.set(null);
+    try {
+      await firstValueFrom(
+        this.api.post('/api/feedback', {
+          title: this.feedbackTitle().trim(),
+          body: this.feedbackBody().trim(),
+          route: '/settings',
+        }),
+      );
+      this.feedbackTitle.set('');
+      this.feedbackBody.set('');
+      this.feedbackOpen.set(false);
+    } catch {
+      this.feedbackStatus.set('Unable to submit feedback right now.');
+    } finally {
+      this.feedbackSending.set(false);
+    }
+  }
 
   clearCache(): void {
     this.releases.clearCache();

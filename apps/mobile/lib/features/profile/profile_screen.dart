@@ -294,7 +294,7 @@ class ProfileScreen extends StatelessWidget {
                           child: Column(
                             children: [
                               const Text(
-                                'Sign in to sync your subscriptions, watch plans, and access admin tools.',
+                                'Sign in to sync your followed channels, watch plans, and access admin tools.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(fontSize: 13),
                               ),

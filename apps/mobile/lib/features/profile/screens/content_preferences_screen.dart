@@ -262,7 +262,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
   // -------------------------------------------------------------
   Widget _buildVideoChannelsTab(BuildContext context) {
     return _buildChannelTab(
-      title: 'Subscribed Video Channels',
+      title: 'Followed Video Channels',
       subtitle: 'Channels featured in your home sermons and teachings video feed.',
       isShorts: false,
     );

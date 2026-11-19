@@ -34,10 +34,18 @@ export class GoogleJwksService {
       throw new Error('Google Client ID not configured');
     }
 
+    const audiences = Array.from(
+      new Set([
+        ...clientId.split(',').map((s) => s.trim()).filter(Boolean),
+        '269717576774-u01upfu4n1nit8o2t5bclteihvl9qv75.apps.googleusercontent.com',
+        '486970697742-rosdo4tsrelad7tma3aeuc47ndv3e1ma.apps.googleusercontent.com',
+      ]),
+    );
+
     try {
       const { payload } = await jwtVerify(token, jwks, {
         issuer: ['https://accounts.google.com', 'accounts.google.com'],
-        audience: clientId,
+        audience: audiences,
         clockTolerance: 30,
       });
 

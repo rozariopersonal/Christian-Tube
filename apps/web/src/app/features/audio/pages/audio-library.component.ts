@@ -1,8 +1,14 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { ScreenClassService } from '../../../core/layout/screen-class.service';
+import { ContentPreferencesService } from '../../../core/services/content-preferences.service';
+import { HeaderSearchService } from '../../../core/services/header-search.service';
 import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
-import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
+import {
+  canonicalLanguageCode,
+  languageMetaFromCode,
+} from '../../../shared/ui/language-meta';
 import { AudioLibraryService } from '../services/audio-library.service';
 import { AudioPlayerService } from '../services/audio-player.service';
 
@@ -13,36 +19,60 @@ import { AudioPlayerService } from '../services/audio-player.service';
   template: `
     <div class="audio-page max-width-box">
       <header class="page-head">
-        <h1 class="font-display">Audio Library</h1>
-        <button
-          type="button"
-          class="icon-btn"
-          title="Refresh Library"
-          (click)="library.loadCatalog(true)"
-        >
-          <span class="material-symbols-rounded">refresh</span>
-        </button>
-      </header>
+        <div class="head-title-row">
+          <h1 class="font-display">Audio Library</h1>
+          <button
+            type="button"
+            class="icon-btn"
+            title="Refresh Library"
+            (click)="library.loadCatalog(true)"
+          >
+            <span class="material-symbols-rounded">refresh</span>
+          </button>
+        </div>
 
-      <div class="controls">
-        <div class="search-box">
-          <span class="material-symbols-rounded">search</span>
-          <input
-            type="search"
-            placeholder="Search series or speakers..."
-            [ngModel]="search()"
-            (ngModelChange)="search.set($event)"
+        <div class="header-filters">
+          @if (screen.isCompact()) {
+            <div class="search-box">
+              <span class="material-symbols-rounded">search</span>
+              <input
+                type="search"
+                placeholder="Search series or speakers..."
+                [ngModel]="search()"
+                (ngModelChange)="search.set($event)"
+              />
+            </div>
+          }
+          <div class="lang-strip">
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="isAllQuickSelected()"
+              (click)="selectAllQuickLanguages()"
+            >
+              All
+            </button>
+            @for (code of quickLanguages(); track code) {
+              <button
+                type="button"
+                class="pill-chip"
+                [class.active]="selectedLanguages().includes(code)"
+                (click)="selectLanguageChip(code)"
+              >
+                {{ langLabel(code) }}
+              </button>
+            }
+          </div>
+          <app-language-dropdown
+            [selectedLanguages]="selectedLanguages()"
+            [availableLanguages]="languages()"
+            [itemCounts]="languageCounts()"
+            itemNoun="series"
+            headerTitle="Audio Languages"
+            (languagesChange)="selectedLanguages.set($event)"
           />
         </div>
-        <app-language-dropdown
-          [selectedLanguages]="selectedLanguages()"
-          [availableLanguages]="languages()"
-          [itemCounts]="languageCounts()"
-          itemNoun="series"
-          headerTitle="Audio Languages"
-          (languagesChange)="selectedLanguages.set($event)"
-        />
-      </div>
+      </header>
 
       <div class="mode-strip">
         @for (m of ['featured', 'category', 'speaker', 'az']; track m) {
@@ -113,7 +143,15 @@ import { AudioPlayerService } from '../services/audio-player.service';
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
         margin-bottom: 12px;
+      }
+
+      .head-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
       .page-head h1 {
@@ -122,11 +160,22 @@ import { AudioPlayerService } from '../services/audio-player.service';
         font-weight: 700;
       }
 
-      .controls {
+      .header-filters {
         display: flex;
+        align-items: center;
         gap: 10px;
         flex-wrap: wrap;
-        margin-bottom: 12px;
+      }
+
+      .lang-strip {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .lang-strip::-webkit-scrollbar {
+        display: none;
       }
 
       .search-box {
@@ -261,10 +310,56 @@ import { AudioPlayerService } from '../services/audio-player.service';
 export class AudioLibraryComponent implements OnInit {
   readonly library = inject(AudioLibraryService);
   readonly player = inject(AudioPlayerService);
+  readonly screen = inject(ScreenClassService);
+  private readonly prefs = inject(ContentPreferencesService);
+  private readonly headerSearch = inject(HeaderSearchService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly search = signal<string>('');
-  readonly selectedLanguages = signal<string[]>(['All']);
+  readonly selectedLanguages = signal<string[]>(this.prefs.preferredLanguages());
   readonly mode = signal<'featured' | 'category' | 'speaker' | 'az'>('featured');
+
+  constructor() {
+    effect(() => {
+      this.selectedLanguages.set(this.prefs.preferredLanguages());
+    });
+  }
+
+  readonly quickLanguages = computed(() => {
+    const counts = this.languageCounts();
+    const pref = this.prefs.preferredLanguages().filter((l) => l.toLowerCase() !== 'all');
+    const sel = this.selectedLanguages().filter((l) => l.toLowerCase() !== 'all');
+    return Array.from(new Set([...pref, ...sel])).filter(
+      (code) => (counts[code] ?? 0) > 0,
+    );
+  });
+
+  readonly isAllQuickSelected = computed(() => {
+    const quick = this.quickLanguages();
+    const sel = new Set(this.selectedLanguages());
+    return quick.length > 0 && quick.every((c) => sel.has(c));
+  });
+
+  langLabel(code: string): string {
+    return languageMetaFromCode(code).englishName;
+  }
+
+  selectAllQuickLanguages(): void {
+    const quick = this.quickLanguages();
+    this.selectedLanguages.set(quick.length > 0 ? quick : ['All']);
+  }
+
+  selectLanguageChip(code: string): void {
+    const cur = this.selectedLanguages().filter((l) => l.toLowerCase() !== 'all');
+    const next = cur.includes(code)
+      ? cur.filter((c) => c !== code)
+      : [...cur, code];
+    if (next.length === 0) {
+      this.selectAllQuickLanguages();
+    } else {
+      this.selectedLanguages.set(next);
+    }
+  }
 
   readonly languageCounts = computed(() => {
     const counts: Record<string, number> = { All: this.library.seriesList().length };
@@ -315,6 +410,11 @@ export class AudioLibraryComponent implements OnInit {
 
   ngOnInit(): void {
     void this.library.loadCatalog();
+    const unregister = this.headerSearch.register({
+      placeholder: 'Search audio series or speakers...',
+      onChange: (q) => this.search.set(q),
+    });
+    this.destroyRef.onDestroy(unregister);
   }
 
   modeLabel(m: string): string {

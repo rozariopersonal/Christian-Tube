@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { ReleaseDataService } from '../api/release-data.service';
 import { AppConfig } from '../config/app-config';
+import { ScreenClass } from '../layout/screen-class.service';
 
 export interface ReaderFontOption {
   id: string;
@@ -59,6 +60,7 @@ const KEY_BIBLE_LAYOUT = 'bible_reading_layout';
 const KEY_BOOK_ALIGN = 'book_text_align';
 const KEY_BOOK_MARGIN = 'book_margin_size';
 const KEY_BOOK_COLUMNS = 'book_columns';
+const KEY_SINGLE_COL_PAGINATED = 'reader_single_col_paginated';
 
 @Injectable({ providedIn: 'root' })
 export class ReaderAppearanceService {
@@ -80,8 +82,9 @@ export class ReaderAppearanceService {
     this.readStr(KEY_BOOK_ALIGN, 'left') === 'justify' ? 'justify' : 'left',
   );
   readonly bookMargin = signal<BookMarginSize>(this.readBookMargin());
-  readonly bookColumns = signal<1 | 2>(
-    this.readStr(KEY_BOOK_COLUMNS, '2') === '1' ? 1 : 2,
+  readonly bookColumns = signal<1 | 2 | 3>(this.readBookColumns());
+  readonly singleColPaginated = signal<boolean>(
+    this.readStr(KEY_SINGLE_COL_PAGINATED, '0') === '1',
   );
 
   constructor() {
@@ -142,9 +145,32 @@ export class ReaderAppearanceService {
     this.writeStr(KEY_BOOK_MARGIN, margin);
   }
 
-  setBookColumns(cols: 1 | 2): void {
+  setSingleColPaginated(enabled: boolean): void {
+    this.singleColPaginated.set(enabled);
+    this.writeStr(KEY_SINGLE_COL_PAGINATED, enabled ? '1' : '0');
+  }
+
+  toggleSingleColPaginated(): void {
+    this.setSingleColPaginated(!this.singleColPaginated());
+  }
+
+  setBookColumns(cols: 1 | 2 | 3): void {
     this.bookColumns.set(cols);
     this.writeStr(KEY_BOOK_COLUMNS, String(cols));
+  }
+
+  effectiveColumns(screenClass: ScreenClass): 1 | 2 | 3 {
+    if (screenClass === 'compact') return 1;
+    const cols = this.bookColumns();
+    if (screenClass === 'medium') return cols >= 2 ? 2 : 1;
+    return cols;
+  }
+
+  private readBookColumns(): 1 | 2 | 3 {
+    const raw = this.readStr(KEY_BOOK_COLUMNS, '2');
+    if (raw === '1') return 1;
+    if (raw === '3') return 3;
+    return 2;
   }
 
   private readBookMargin(): BookMarginSize {
