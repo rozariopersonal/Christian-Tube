@@ -77,6 +77,10 @@ class ShellBackHandler extends StatelessWidget {
     }
 
     // 3. In-shell subpage fallback routing (when entered via direct replace/deep link).
+    if (path.startsWith('/bible/search')) {
+      context.go('/bible');
+      return;
+    }
     if (path.startsWith('/channels') ||
         path.startsWith('/search') ||
         path.startsWith('/watch')) {
