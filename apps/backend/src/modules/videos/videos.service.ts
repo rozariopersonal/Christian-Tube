@@ -50,10 +50,11 @@ export class VideosService {
 
   async findAll(query: VideoQuery) {
     if (this.cache) {
+      const ttl = query.search ? 3600 : 86400;
       return this.cache.getOrSet(
         "videos",
         `feed:${this.buildFeedCacheKey(query)}`,
-        300,
+        ttl,
         () => this.findAllUncached(query),
       );
     }
@@ -475,7 +476,7 @@ export class VideosService {
 
   async findOne(id: string) {
     if (this.cache) {
-      return this.cache.getOrSet("videos", `detail:${id}`, 600, () =>
+      return this.cache.getOrSet("videos", `detail:${id}`, 86400, () =>
         this.findOneUncached(id),
       );
     }

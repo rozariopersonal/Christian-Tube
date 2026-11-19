@@ -334,6 +334,33 @@ def process_video_ideas(
         raise
 
 
+def invalidate_upstash_cache(*namespaces: str) -> None:
+    """Bumps Upstash Redis namespace version counters after Neon DB updates."""
+    rest_url = os.environ.get("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
+    rest_token = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "").strip()
+    if not rest_url or not rest_token or not namespaces:
+        return
+    import urllib.request
+
+    instance_id = os.environ.get("INSTANCE_ID", "christian_tube").strip() or "christian_tube"
+    for ns in namespaces:
+        ver_key = f"ct:{instance_id}:ver:{ns}"
+        req = urllib.request.Request(
+            rest_url,
+            data=json.dumps(["INCR", ver_key]).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {rest_token}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=3):
+                pass
+        except Exception as e:  # noqa: BLE001
+            log.warning("Upstash cache invalidation failed (%s): %s", ver_key, e)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Semantic Idea Chunker Daemon")
     parser.add_argument("--once", action="store_true", help="Process one batch and exit")
@@ -418,6 +445,8 @@ def main():
                 process_video_ideas(neon_db, local_db, cfg, video_id, title, llm)
             except Exception:
                 pass
+
+        invalidate_upstash_cache("videos")
 
         if args.once:
             break

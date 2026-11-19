@@ -24,7 +24,7 @@ export class ChannelsService {
 
   async findAll(type?: 'VIDEO' | 'SHORT' | 'ALL') {
     if (this.cache) {
-      return this.cache.getOrSet('channels', `list:${type || 'ALL'}`, 600, () =>
+      return this.cache.getOrSet('channels', `list:${type || 'ALL'}`, 86400, () =>
         this.findAllUncached(type),
       );
     }
@@ -64,7 +64,7 @@ export class ChannelsService {
 
   async findOne(id: string) {
     if (this.cache) {
-      return this.cache.getOrSet('channels', `detail:${id}`, 600, () =>
+      return this.cache.getOrSet('channels', `detail:${id}`, 86400, () =>
         this.findOneUncached(id),
       );
     }
@@ -494,6 +494,15 @@ export class ChannelsService {
   }
 
   async listSubscriptions(userId: string) {
+    if (this.cache) {
+      return this.cache.getOrSet(`user:${userId}`, 'subs', 86400, () =>
+        this.listSubscriptionsUncached(userId),
+      );
+    }
+    return this.listSubscriptionsUncached(userId);
+  }
+
+  private async listSubscriptionsUncached(userId: string) {
     const rows = await this.prisma.channelSubscription.findMany({
       where: { userId },
       include: {
@@ -535,6 +544,8 @@ export class ChannelsService {
       },
     });
 
+    await this.cache?.invalidate(`user:${user.userId}`);
+
     return { status: 'subscribed', channelId };
   }
 
@@ -542,6 +553,7 @@ export class ChannelsService {
     await this.prisma.channelSubscription.deleteMany({
       where: { userId, channelId },
     });
+    await this.cache?.invalidate(`user:${userId}`);
     return { status: 'unsubscribed', channelId };
   }
 

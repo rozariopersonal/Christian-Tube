@@ -641,7 +641,7 @@ export class AudioService implements OnModuleInit {
    */
   async getCatalog() {
     if (this.cache) {
-      return this.cache.getOrSet('audio', 'catalog', 900, () =>
+      return this.cache.getOrSet('audio', 'catalog', 86400, () =>
         this.getCatalogUncached(),
       );
     }
@@ -680,7 +680,7 @@ export class AudioService implements OnModuleInit {
    */
   async getSeries(id: string) {
     if (this.cache) {
-      return this.cache.getOrSet('audio', `series:${id}`, 900, () =>
+      return this.cache.getOrSet('audio', `series:${id}`, 86400, () =>
         this.getSeriesUncached(id),
       );
     }
@@ -734,7 +734,7 @@ export class AudioService implements OnModuleInit {
   async findTrackByYoutubeId(videoId: string) {
     if (!videoId) return null;
     if (this.cache) {
-      return this.cache.getOrSet('audio', `yt:${videoId}`, 900, () =>
+      return this.cache.getOrSet('audio', `yt:${videoId}`, 86400, () =>
         this.findTrackByYoutubeIdUncached(videoId),
       );
     }

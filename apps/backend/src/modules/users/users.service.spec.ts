@@ -133,4 +133,33 @@ describe('UsersService', () => {
       expect(res).toEqual(savedPref);
     });
   });
+
+  describe('Upstash user preferences caching', () => {
+    it('caches getPreferences under user:<id> for 24h and invalidates on savePreferences', async () => {
+      const cache = {
+        getOrSet: jest.fn((_ns, _k, _ttl, fn) => fn()),
+        invalidate: jest.fn().mockResolvedValue(undefined),
+      };
+      const cachedService = new UsersService(prisma, configService, cache as any);
+      prisma.userPreference.findUnique.mockResolvedValue({ userId: 'u1', themeMode: 'dark' });
+      prisma.userPreference.upsert.mockResolvedValue({
+        userId: 'u1',
+        themeMode: 'light',
+        videoChannelIds: [],
+        shortsChannelIds: [],
+      });
+
+      const got = await cachedService.getPreferences('u1');
+      expect(got).toEqual({ userId: 'u1', themeMode: 'dark' });
+      expect(cache.getOrSet).toHaveBeenCalledWith(
+        'user:u1',
+        'prefs',
+        86400,
+        expect.any(Function),
+      );
+
+      await cachedService.savePreferences('u1', { themeMode: 'light' });
+      expect(cache.invalidate).toHaveBeenCalledWith('user:u1');
+    });
+  });
 });
