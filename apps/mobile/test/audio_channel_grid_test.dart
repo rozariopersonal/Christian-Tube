@@ -202,11 +202,11 @@ void main() {
     await tester.pump();
 
     expect(find.text('YouTube Channels (0)'), findsOneWidget);
-    expect(find.text('No subscribed channels yet'), findsOneWidget);
-    expect(find.text('Channels you subscribe to will show up here.'),
+    expect(find.text('Not following any channels yet'), findsOneWidget);
+    expect(find.text('Channels you follow will show up here.'),
         findsOneWidget);
 
-    await tester.tap(find.text('Subscribe to channels'));
+    await tester.tap(find.text('Follow channels'));
     await tester.pump();
     expect(subscribed, isTrue);
     expect(tester.takeException(), isNull);
@@ -225,7 +225,7 @@ void main() {
       ));
       await tester.pump();
 
-      expect(find.text('No subscribed channels yet'), findsOneWidget,
+      expect(find.text('Not following any channels yet'), findsOneWidget,
           reason: 'CTA missing at width $width');
       expect(tester.takeException(), isNull,
           reason: 'Failed at width $width');

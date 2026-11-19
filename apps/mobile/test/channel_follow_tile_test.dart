@@ -40,7 +40,7 @@ void main() {
       );
 
       expect(find.text('Centum CFC Chennai'), findsOneWidget);
-      expect(find.text('15.4K subscribers • 240 videos'), findsOneWidget);
+      expect(find.text('15.4K followers • 240 videos'), findsOneWidget);
       expect(find.text('Follow'), findsOneWidget);
       expect(find.text('Following'), findsNothing);
     });
