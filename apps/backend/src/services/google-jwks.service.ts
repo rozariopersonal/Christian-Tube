@@ -9,10 +9,32 @@ export class GoogleJwksService {
 
   constructor(private readonly configService: ConfigService) {}
 
+  getAllowedClientIds(): string[] {
+    const rawIds = this.configService.get<string[] | string>('googleClientIds');
+    const rawSingle = this.configService.get<string>('googleClientId');
+    const candidates: string[] = [];
+
+    if (Array.isArray(rawIds)) {
+      candidates.push(...rawIds);
+    } else if (typeof rawIds === 'string') {
+      candidates.push(rawIds);
+    }
+    if (typeof rawSingle === 'string') {
+      candidates.push(rawSingle);
+    }
+
+    return Array.from(
+      new Set(
+        candidates
+          .flatMap((entry) => entry.split(',').map((id) => id.trim()))
+          .filter(Boolean),
+      ),
+    );
+  }
+
   private getJwks() {
     if (!this.jwks) {
-      const clientId = this.configService.get<string>('googleClientId');
-      if (!clientId) {
+      if (this.getAllowedClientIds().length === 0) {
         this.logger.warn('Google Client ID not configured — token verification will fail');
       }
       this.jwks = createRemoteJWKSet(
@@ -28,24 +50,16 @@ export class GoogleJwksService {
 
   async verifyIdToken(token: string): Promise<JWTPayload> {
     const jwks = this.getJwks();
-    const clientId = this.configService.get<string>('googleClientId');
+    const allowedClientIds = this.getAllowedClientIds();
 
-    if (!clientId) {
+    if (allowedClientIds.length === 0) {
       throw new Error('Google Client ID not configured');
     }
-
-    const audiences = Array.from(
-      new Set([
-        ...clientId.split(',').map((s) => s.trim()).filter(Boolean),
-        '269717576774-u01upfu4n1nit8o2t5bclteihvl9qv75.apps.googleusercontent.com',
-        '486970697742-rosdo4tsrelad7tma3aeuc47ndv3e1ma.apps.googleusercontent.com',
-      ]),
-    );
 
     try {
       const { payload } = await jwtVerify(token, jwks, {
         issuer: ['https://accounts.google.com', 'accounts.google.com'],
-        audience: audiences,
+        audience: allowedClientIds.length === 1 ? allowedClientIds[0] : allowedClientIds,
         clockTolerance: 30,
       });
 
