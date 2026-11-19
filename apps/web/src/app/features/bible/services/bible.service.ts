@@ -107,6 +107,23 @@ export class BibleService {
     return prefixMatch?.bookNumber ?? null;
   }
 
+  private bookNamesCache: Record<string, Record<string, string>> | null = null;
+
+  private async getLocalizedBookNames(
+    versionId: string,
+  ): Promise<Record<string, string> | null> {
+    if (!this.bookNamesCache) {
+      try {
+        this.bookNamesCache = await this.releases.getJson<
+          Record<string, Record<string, string>>
+        >('book_names.json');
+      } catch {
+        this.bookNamesCache = {};
+      }
+    }
+    return this.bookNamesCache[versionId.toLowerCase()] ?? null;
+  }
+
   async loadVersion(
     versionId: string,
     bookRef: number | string = this.bookNumber(),
@@ -117,9 +134,24 @@ export class BibleService {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const books = await this.releases.getJson<BibleBook[]>(
-        `bibles/${cleanVer}/books.json`,
-      );
+      let rawBooks: BibleBook[];
+      try {
+        rawBooks = await this.releases.getJson<BibleBook[]>(
+          `bibles/${cleanVer}/books.json`,
+        );
+      } catch (err) {
+        if (!this.onlineBible.isOnlineVersion(cleanVer)) throw err;
+        rawBooks = await this.releases.getJson<BibleBook[]>(
+          `bibles/${FALLBACK_VERSION}/books.json`,
+        );
+      }
+      const localized = await this.getLocalizedBookNames(cleanVer);
+      const books = localized
+        ? rawBooks.map((b) => ({
+            ...b,
+            name: localized[String(b.bookNumber)] ?? b.name,
+          }))
+        : rawBooks;
       this.books.set(books);
       const resolvedNum = this.resolveBookNumber(bookRef, books);
       const validBook =

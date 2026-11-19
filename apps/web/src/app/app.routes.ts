@@ -17,6 +17,27 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'feed' },
       { path: 'feed', component: VideoFeedComponent },
       {
+        path: 'subscriptions',
+        loadComponent: () =>
+          import('./features/videos/pages/subscriptions.component').then(
+            (m) => m.SubscriptionsComponent,
+          ),
+      },
+      {
+        path: 'history',
+        loadComponent: () =>
+          import('./features/videos/pages/history.component').then(
+            (m) => m.HistoryComponent,
+          ),
+      },
+      {
+        path: 'watch-later',
+        loadComponent: () =>
+          import('./features/videos/pages/watch-later.component').then(
+            (m) => m.WatchLaterComponent,
+          ),
+      },
+      {
         path: 'shorts',
         loadComponent: () =>
           import('./features/videos/pages/shorts.component').then(
@@ -63,6 +84,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/bible/pages/bible-reader.component').then(
             (m) => m.BibleReaderComponent,
+          ),
+      },
+      {
+        path: 'bible/search',
+        loadComponent: () =>
+          import('./features/bible/pages/bible-search.component').then(
+            (m) => m.BibleSearchPageComponent,
           ),
       },
       {
@@ -133,6 +161,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/settings/pages/settings.component').then(
             (m) => m.SettingsComponent,
+          ),
+      },
+      {
+        path: 'admin/users',
+        loadComponent: () =>
+          import('./features/settings/pages/admin-users.component').then(
+            (m) => m.AdminUsersComponent,
           ),
       },
     ],

@@ -266,8 +266,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                         ),
                                         const SizedBox(width: 8),
 
-                                        // Block / Unblock Toggle Button
-                                        if (role != 'ADMIN')
+                                        // Block / Unblock & Remove Buttons
+                                        if (role != 'ADMIN') ...[
                                           ElevatedButton(
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: isBlocked
@@ -304,6 +304,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                                   fontWeight: FontWeight.bold),
                                             ),
                                           ),
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.delete_outline,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .error,
+                                              size: 20,
+                                            ),
+                                            tooltip: 'Remove user',
+                                            onPressed: () => _confirmRemoveUser(
+                                                context, id, name),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   );
@@ -380,6 +394,44 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               }
             },
             child: Text(currentlyBlocked ? 'Unblock' : 'Block'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmRemoveUser(BuildContext context, String userId, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove User?'),
+        content: Text(
+          'Are you sure you want to permanently remove "$name"? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await widget.userService.removeUser(userId);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        success ? 'User removed' : 'Failed to remove user'),
+                    backgroundColor: success
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.error,
+                  ),
+                );
+              }
+            },
+            child: const Text('Remove'),
           ),
         ],
       ),

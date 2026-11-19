@@ -3,6 +3,7 @@ import {
   DestroyRef,
   Directive,
   ElementRef,
+  effect,
   inject,
   input,
   output,
@@ -19,17 +20,30 @@ export class InfiniteScrollTriggerDirective implements AfterViewInit {
   readonly disabled = input<boolean>(false);
   readonly triggered = output<void>();
 
+  private isIntersecting = false;
+
+  constructor() {
+    effect(() => {
+      const isDisabled = this.disabled();
+      if (!isDisabled && this.isIntersecting) {
+        queueMicrotask(() => {
+          if (!this.disabled() && this.isIntersecting) {
+            this.triggered.emit();
+          }
+        });
+      }
+    });
+  }
+
   ngAfterViewInit(): void {
     if (typeof IntersectionObserver === 'undefined') return;
 
     const observer = new IntersectionObserver(
       (entries) => {
+        this.isIntersecting = entries.some((entry) => entry.isIntersecting);
         if (this.disabled()) return;
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            this.triggered.emit();
-            break;
-          }
+        if (this.isIntersecting) {
+          this.triggered.emit();
         }
       },
       { rootMargin: '400px 0px' },

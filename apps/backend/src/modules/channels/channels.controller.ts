@@ -13,6 +13,12 @@ export class ChannelsController {
     return this.channelsService.findAll(type);
   }
 
+  @UseGuards(AdminGuard)
+  @Get('admin/all')
+  async getAdminChannels() {
+    return this.channelsService.findAllAdmin();
+  }
+
   @Get('check-admin')
   async checkAdmin(@Query('email') email: string) {
     const isAdmin = this.channelsService.isAdmin(email);
@@ -65,6 +71,24 @@ export class ChannelsController {
   @Delete(':id')
   async removeChannel(@Param('id') id: string) {
     return this.channelsService.removeChannel(id);
+  }
+
+  @UseGuards(AdminGuard)
+  @Post(':id/suspend')
+  async suspendChannel(@Param('id') id: string) {
+    return this.channelsService.setChannelActive(id, false);
+  }
+
+  @UseGuards(AdminGuard)
+  @Post(':id/activate')
+  async activateChannel(@Param('id') id: string) {
+    return this.channelsService.setChannelActive(id, true);
+  }
+
+  @UseGuards(AdminGuard)
+  @Post(':id/toggle-active')
+  async toggleChannelActive(@Param('id') id: string) {
+    return this.channelsService.toggleChannelActive(id);
   }
 
   @UseGuards(AdminGuard)

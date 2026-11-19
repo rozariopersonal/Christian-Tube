@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -85,5 +86,14 @@ export class UsersController {
   @Post(':id/toggle-block')
   async toggleBlock(@Param('id') id: string) {
     return this.usersService.toggleBlock(id);
+  }
+
+  @UseGuards(AdminGuard)
+  @Delete(':id')
+  async removeUser(
+    @Param('id') id: string,
+    @CurrentUser() admin: CurrentUserType,
+  ) {
+    return this.usersService.removeUser(id, admin.userId);
   }
 }

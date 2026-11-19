@@ -10,6 +10,7 @@ interface VideoQuery {
   channelId?: string;
   channelIds?: string | string[];
   search?: string;
+  sort?: "latest" | "popular" | "oldest" | "relevance";
   limit?: number;
   offset?: number;
 }
@@ -76,16 +77,18 @@ export class VideosService {
     const offset = query.offset ? Number(query.offset) : 0;
 
     if (!query.search) {
-      return this.fetchKeywords(where, limit, offset);
+      return this.fetchKeywords(where, limit, offset, query.sort);
     }
 
-    const vector = await this.embeddingService.embedQuery(query.search);
-    if (vector) {
-      return this.hybridSearchWithContent(query, vector, limit, offset);
+    if (!query.sort || query.sort === "relevance") {
+      const vector = await this.embeddingService.embedQuery(query.search);
+      if (vector) {
+        return this.hybridSearchWithContent(query, vector, limit, offset);
+      }
     }
 
     where.OR = this.searchTermClauses(query.search);
-    return this.fetchKeywords(where, limit, offset);
+    return this.fetchKeywords(where, limit, offset, query.sort);
   }
 
   private searchTermClauses(term: string) {
@@ -444,7 +447,18 @@ export class VideosService {
     return this.fetchEnrichedByIds(pageIds);
   }
 
-  private async fetchKeywords(where: any, limit: number, offset: number) {
+  private resolveOrderBy(sort?: VideoQuery["sort"]) {
+    if (sort === "popular") return { viewCount: "desc" as const };
+    if (sort === "oldest") return { publishedAt: "asc" as const };
+    return { publishedAt: "desc" as const };
+  }
+
+  private async fetchKeywords(
+    where: any,
+    limit: number,
+    offset: number,
+    sort?: VideoQuery["sort"],
+  ) {
     const videos = await this.prisma.video.findMany({
       where,
       include: {
@@ -457,7 +471,7 @@ export class VideosService {
           },
         },
       },
-      orderBy: { publishedAt: "desc" },
+      orderBy: this.resolveOrderBy(sort),
       take: limit,
       skip: offset,
     });

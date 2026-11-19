@@ -12,6 +12,7 @@ export class VideosController {
     @Query('channelId') channelId?: string,
     @Query('channelIds') channelIds?: string,
     @Query('search') search?: string,
+    @Query('sort') sort?: 'latest' | 'popular' | 'oldest' | 'relevance',
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
   ) {
@@ -21,6 +22,7 @@ export class VideosController {
       channelId,
       channelIds,
       search,
+      sort,
       limit,
       offset,
     });

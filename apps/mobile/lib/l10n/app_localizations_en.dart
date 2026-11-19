@@ -19,7 +19,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get search => 'Search ${AppConfig.appName} videos...';
   @override
-  String get subscriptions => 'Subscriptions';
+  String get subscriptions => 'Following';
   @override
   String get history => 'History';
   @override
@@ -31,9 +31,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get signOut => 'Sign Out';
   @override
-  String get subscribe => 'Subscribe';
+  String get subscribe => 'Follow';
   @override
-  String get subscribed => 'Subscribed';
+  String get subscribed => 'Following';
   @override
   String get share => 'Share';
   @override

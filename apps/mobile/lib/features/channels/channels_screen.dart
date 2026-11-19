@@ -35,7 +35,11 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _channelService.loadSubscriptions();
-    _channelService.fetchChannels();
+    if (_authService.isAdmin) {
+      _channelService.fetchAdminChannels();
+    } else {
+      _channelService.fetchChannels();
+    }
     _channelService.fetchRequests();
     _authService.addListener(_onAuthChanged);
   }
@@ -274,17 +278,42 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
   }
 
   Widget _buildChannelTile(BuildContext context, dynamic ch, bool isAdmin) {
+    final bool isActive = ch.isActive as bool? ?? true;
     final adminMenu = isAdmin
         ? PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            onSelected: (val) {
-              if (val == 'delete') {
+            onSelected: (val) async {
+              if (val == 'toggle_active') {
+                final ok = await _channelService.toggleChannelActive(ch);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ok
+                          ? (isActive ? 'Channel suspended' : 'Channel activated')
+                          : 'Failed to update channel'),
+                    ),
+                  );
+                }
+              } else if (val == 'delete') {
                 _confirmDeleteChannel(context, ch.id, ch.name);
               }
             },
             itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'toggle_active',
+                child: Row(
+                  children: [
+                    Icon(
+                      isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(isActive ? 'Suspend Channel' : 'Activate Channel'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'delete',
                 child: Row(
@@ -301,7 +330,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> with SingleTickerProvid
 
     return ChannelFollowTile(
       channelId: ch.id,
-      title: ch.name,
+      title: isActive ? ch.name : '${ch.name} (Suspended)',
       avatarUrl: ch.avatarUrl,
       subscriberCount: ch.subscriberCount,
       videoCount: ch.videoCount,

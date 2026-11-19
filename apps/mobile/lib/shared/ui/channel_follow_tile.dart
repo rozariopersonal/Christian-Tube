@@ -46,7 +46,7 @@ class ChannelFollowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final displaySubtitle = subtitle ??
-        '${Formatters.formatSubscribers(subscriberCount)} subscribers • $videoCount videos';
+        '${Formatters.formatSubscribers(subscriberCount)} followers • $videoCount videos';
 
     final effectiveButton = actionButton ??
         ElevatedButton(

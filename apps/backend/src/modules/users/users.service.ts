@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
@@ -224,6 +230,22 @@ export class UsersService {
       where: { id },
       data: { isBlocked: false },
     });
+  }
+
+  async removeUser(id: string, currentAdminId?: string) {
+    if (currentAdminId && id === currentAdminId) {
+      throw new BadRequestException('Cannot remove your own admin account');
+    }
+    const user = await this.findOne(id);
+    if ((this.prisma as any).userPlayback) {
+      await (this.prisma as any).userPlayback.deleteMany({
+        where: {
+          OR: [{ userId: id }, { userEmail: user.email }],
+        },
+      });
+    }
+    await this.prisma.user.delete({ where: { id } });
+    return { status: 'success', id };
   }
 
   // In-memory fallback map to ensure zero-downtime resilience

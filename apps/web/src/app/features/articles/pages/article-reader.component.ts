@@ -1,18 +1,36 @@
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  ElementRef,
   HostListener,
   OnInit,
+  TemplateRef,
+  ViewChild,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { combineLatest } from 'rxjs';
+import { ScreenClassService } from '../../../core/layout/screen-class.service';
+import { HeaderSlotService } from '../../../core/services/header-slot.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
+import { ReaderSpreadFooterComponent } from '../../../shared/ui/reader-spread-footer.component';
+import { computeSpreadMetrics, scrollToSpreadPage } from '../../../shared/ui/spread-pager';
+import {
+  TextSelectionAnchor,
+  applyHighlightRangesToTokens,
+  extractLineTextSelection,
+} from '../../../shared/ui/text-highlight.util';
+import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
 import { BookAppearanceSheetComponent } from '../../books/components/book-appearance-sheet.component';
 import { DictionarySheetComponent } from '../../books/components/dictionary-sheet.component';
 import { ScriptureVerseSheetComponent } from '../../books/components/scripture-verse-sheet.component';
+import { BookHighlightsService } from '../../books/services/book-highlights.service';
 import {
   ParsedScriptureRef,
   ScriptureRefParserService,
@@ -25,14 +43,71 @@ import { ArticlesService } from '../services/articles.service';
   selector: 'app-article-reader',
   standalone: true,
   imports: [
+    ReaderColumnsToggleComponent,
+    ReaderSpreadFooterComponent,
+    TextSelectionPopoverComponent,
     BookAppearanceSheetComponent,
     DictionarySheetComponent,
     ScriptureVerseSheetComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="article-page" [attr.data-paper]="appearance.paperTheme()">
-      @if (!immersive()) {
+    <ng-template #topbarCenter>
+      <div class="tb-article-pill">
+        <span class="material-symbols-rounded tb-ic">article</span>
+        <span class="tb-title-text">{{ article()?.title || 'Article' }}</span>
+      </div>
+    </ng-template>
+
+    <ng-template #topbarRight>
+      <app-reader-columns-toggle />
+      <div class="tb-actions-pill">
+        <button
+          type="button"
+          class="tb-action-btn"
+          title="Share article link"
+          (click)="shareArticle()"
+        >
+          <span class="material-symbols-rounded">share</span>
+        </button>
+        <button
+          type="button"
+          class="tb-action-btn tb-font-step"
+          title="Decrease font size"
+          aria-label="Decrease font size"
+          [disabled]="appearance.fontSize() <= 13"
+          (click)="appearance.setFontSize(appearance.fontSize() - 1)"
+        >
+          <span class="material-symbols-rounded">remove</span>
+        </button>
+        <button
+          type="button"
+          class="tb-action-btn tb-aa-btn"
+          title="Display & Layout"
+          (click)="showAppearance.set(true)"
+        >
+          Aa
+        </button>
+        <button
+          type="button"
+          class="tb-action-btn tb-font-step"
+          title="Increase font size"
+          aria-label="Increase font size"
+          [disabled]="appearance.fontSize() >= 28"
+          (click)="appearance.setFontSize(appearance.fontSize() + 1)"
+        >
+          <span class="material-symbols-rounded">add</span>
+        </button>
+      </div>
+    </ng-template>
+
+    <div
+      class="article-page"
+      [attr.data-paper]="appearance.paperTheme()"
+      [class.spread-mode]="isPaginated()"
+      [class.immersive]="immersive()"
+    >
+      @if (!immersive() && screen.isCompact()) {
         <header class="reader-bar">
           <div class="bar-inner">
             <div class="bar-title">
@@ -88,45 +163,56 @@ import { ArticlesService } from '../services/articles.service';
         } @else if (error()) {
           <p class="status-msg">{{ error() }}</p>
         } @else if (article(); as art) {
-          <header class="article-hero">
-            <span class="hero-eyebrow">
-              Word for the Week · {{ lang().toUpperCase() }}
-            </span>
-            <h1 class="hero-title font-display">{{ art.title }}</h1>
-            <div class="hero-meta">
-              <span>{{ art.author }}</span>
-              @if (art.date) {
+          <div class="spread-viewport" #spreadViewport>
+            <div class="spread-track" [attr.data-cols]="isPaginated() ? effectiveCols() : 1">
+            <header class="article-hero">
+              <span class="hero-eyebrow">
+                Word for the Week · {{ lang().toUpperCase() }}
+              </span>
+              <h1 class="hero-title font-display">{{ art.title }}</h1>
+              <div class="hero-meta">
+                <span>{{ art.author }}</span>
+                @if (art.date) {
+                  <span>·</span>
+                  <span>{{ art.date }}</span>
+                }
                 <span>·</span>
-                <span>{{ art.date }}</span>
-              }
-              <span>·</span>
-              <span>{{ readingMinutes() }} min read</span>
-            </div>
-          </header>
+                <span>{{ readingMinutes() }} min read</span>
+              </div>
+            </header>
 
-          <article
-            class="article-body"
-            [class.two-col-body]="appearance.bookColumns() === 2"
-            [style.font-family]="appearance.activeFont().cssFamily"
-            [style.font-size.px]="appearance.fontSize()"
-            [style.line-height]="appearance.lineHeight()"
-            [style.text-align]="appearance.bookAlign()"
-            (dblclick)="lookupFromSelection()"
-          >
+            <article
+              class="article-body"
+              [style.font-family]="appearance.activeFont().cssFamily"
+              [style.font-size.px]="appearance.fontSize()"
+              [style.line-height]="appearance.lineHeight()"
+              [style.text-align]="appearance.bookAlign()"
+              (dblclick)="lookupFromSelection()"
+            >
             @for (item of parsedLines(); track $index) {
               @if (item.line.isHeading) {
                 <h2 class="article-heading">{{ item.line.text }}</h2>
               } @else {
-                <p class="article-para">
+                <p
+                  class="article-para"
+                  [attr.data-hl-scope]="articleScopeKey()"
+                  [attr.data-hl-line]="$index"
+                  (mouseup)="onTextSelectionChange()"
+                  (touchend)="onTextSelectionChange()"
+                >
                   @for (tok of item.tokens; track $index) {
                     @if (tok.ref) {
                       <button
                         type="button"
                         class="scripture-link"
+                        [class.inline-hl]="!!tok.highlightColor"
+                        [style.background-color]="tok.highlightColor ?? null"
                         (click)="activeScriptureRef.set(tok.ref!)"
                       >
                         {{ tok.text }}
                       </button>
+                    } @else if (tok.highlightColor) {
+                      <mark class="inline-hl" [style.background-color]="tok.highlightColor">{{ tok.text }}</mark>
                     } @else {
                       <span>{{ tok.text }}</span>
                     }
@@ -135,8 +221,30 @@ import { ArticlesService } from '../services/articles.service';
               }
             }
           </article>
+          </div>
+          </div>
         }
       </div>
+
+      @if (isPaginated() && article() && !loading() && !error()) {
+        <app-reader-spread-footer
+          [label]="article()!.title"
+          [page]="spreadPage()"
+          [totalPages]="spreadTotalPages()"
+          (prevPage)="goToSpreadPage(spreadPage() - 1)"
+          (nextPage)="goToSpreadPage(spreadPage() + 1)"
+        />
+      }
+
+      @if (selectionAnchor(); as selAnchor) {
+        <app-text-selection-popover
+          [anchor]="selAnchor"
+          (highlight)="highlightSelection($event)"
+          (clear)="clearSelectionHighlight()"
+          (define)="defineSelection()"
+          (copy)="copySelection()"
+        />
+      }
 
       @if (showAppearance()) {
         <app-book-appearance-sheet (closed)="showAppearance.set(false)" />
@@ -207,6 +315,78 @@ import { ArticlesService } from '../services/articles.service';
         gap: 8px;
       }
 
+      .tb-article-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 34px;
+        padding: 0 14px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        min-width: 0;
+        max-width: 100%;
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--on-surface);
+      }
+
+      .tb-ic {
+        font-size: 17px;
+        color: var(--on-surface-muted);
+        flex-shrink: 0;
+      }
+
+      .tb-title-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+
+      .tb-actions-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        height: 32px;
+        padding: 0 4px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+      }
+
+      .tb-action-btn {
+        width: 28px;
+        height: 26px;
+        border-radius: var(--radius-pill);
+        display: grid;
+        place-items: center;
+        color: var(--on-surface);
+      }
+
+      .tb-action-btn:hover:not(:disabled) {
+        background-color: color-mix(in srgb, var(--on-surface) 8%, transparent);
+      }
+
+      .tb-action-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+
+      .tb-font-step .material-symbols-rounded {
+        font-size: 16px;
+      }
+
+      .tb-action-btn .material-symbols-rounded {
+        font-size: 18px;
+      }
+
+      .tb-aa-btn {
+        font-family: Georgia, serif;
+        font-weight: 700;
+        font-size: 14px;
+      }
+
       .bar-title {
         display: inline-flex;
         align-items: center;
@@ -263,19 +443,81 @@ import { ArticlesService } from '../services/articles.service';
         padding-inline: clamp(12px, 1.5vw, 24px);
       }
 
-      @media (min-width: 840px) {
-        .article-body.two-col-body {
-          display: block;
-          column-count: 2;
-          column-gap: 44px;
-          column-rule: 1px solid var(--reader-border, var(--surface-border));
-        }
+      .article-page.spread-mode {
+        height: calc(100dvh - var(--shell-top-offset));
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
 
-        .article-body.two-col-body .article-para,
-        .article-body.two-col-body .article-heading {
-          break-inside: avoid;
-          margin-bottom: 12px;
-        }
+      .article-page.spread-mode.immersive {
+        height: 100dvh;
+      }
+
+      .article-page.spread-mode .reader-bar {
+        position: static;
+        top: auto;
+        flex-shrink: 0;
+      }
+
+      .article-page.spread-mode .reader-content {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding-top: 20px;
+        padding-bottom: 12px;
+        overflow: hidden;
+      }
+
+      .article-page.spread-mode .spread-viewport {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .spread-mode .spread-track[data-cols='1'],
+      .spread-track[data-cols='2'],
+      .spread-track[data-cols='3'] {
+        height: 100%;
+        column-fill: auto;
+        column-gap: 44px;
+        column-rule: 1px solid var(--reader-border, var(--surface-border));
+      }
+
+      .spread-mode .spread-track[data-cols='1'] {
+        column-count: 1;
+      }
+
+      .spread-track[data-cols='2'] {
+        column-count: 2;
+      }
+
+      .spread-track[data-cols='3'] {
+        column-count: 3;
+      }
+
+      .spread-mode .spread-track[data-cols='1'] .article-heading,
+      .spread-track[data-cols='2'] .article-heading,
+      .spread-track[data-cols='3'] .article-heading {
+        break-inside: avoid;
+        break-after: avoid;
+        margin-bottom: 12px;
+      }
+
+      .spread-mode .spread-track[data-cols='1'] .article-para,
+      .spread-track[data-cols='2'] .article-para,
+      .spread-track[data-cols='3'] .article-para {
+        orphans: 2;
+        widows: 2;
+        margin-bottom: 12px;
+      }
+
+      .spread-mode .spread-track[data-cols='1'] .article-hero,
+      .spread-track[data-cols='2'] .article-hero,
+      .spread-track[data-cols='3'] .article-hero {
+        break-inside: avoid;
       }
 
       .article-hero {
@@ -326,6 +568,12 @@ import { ArticlesService } from '../services/articles.service';
         margin: 0;
       }
 
+      .inline-hl {
+        color: #111827;
+        border-radius: 3px;
+        padding: 1px 0;
+      }
+
       .scripture-link {
         color: var(--accent);
         text-decoration: underline;
@@ -342,11 +590,95 @@ import { ArticlesService } from '../services/articles.service';
     `,
   ],
 })
-export class ArticleReaderComponent implements OnInit {
+export class ArticleReaderComponent implements OnInit, AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly articlesService = inject(ArticlesService);
   private readonly scriptureParser = inject(ScriptureRefParserService);
+  private readonly highlightsService = inject(BookHighlightsService);
   readonly appearance = inject(ReaderAppearanceService);
+  readonly screen = inject(ScreenClassService);
+  private readonly headerSlot = inject(HeaderSlotService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  @ViewChild('topbarCenter') topbarCenterRef?: TemplateRef<unknown>;
+  @ViewChild('topbarRight') topbarRightRef?: TemplateRef<unknown>;
+  @ViewChild('spreadViewport') spreadViewportRef?: ElementRef<HTMLDivElement>;
+  private readonly viewInitialized = signal<boolean>(false);
+
+  readonly spreadPage = signal<number>(1);
+  readonly spreadTotalPages = signal<number>(1);
+
+  readonly effectiveCols = computed(() =>
+    this.appearance.effectiveColumns(this.screen.screenClass()),
+  );
+
+  readonly isPaginated = computed(
+    () => this.effectiveCols() >= 2 || this.appearance.singleColPaginated(),
+  );
+
+  constructor() {
+    this.destroyRef.onDestroy(() => this.headerSlot.clear());
+    effect(() => {
+      if (!this.viewInitialized()) return;
+      if (this.screen.isMediumOrExpanded() && !this.immersive()) {
+        this.headerSlot.setTemplates(
+          this.topbarCenterRef ?? null,
+          this.topbarRightRef ?? null,
+        );
+      } else {
+        this.headerSlot.clear();
+      }
+    });
+
+    effect(() => {
+      const paginated = this.isPaginated();
+      this.effectiveCols();
+      this.appearance.fontSize();
+      this.appearance.lineHeight();
+      this.appearance.fontId();
+      this.appearance.bookMargin();
+      this.article();
+      if (paginated) {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        setTimeout(() => this.refreshSpreadMetrics(), 60);
+      }
+    });
+  }
+
+  ngAfterViewInit(): void {
+    this.viewInitialized.set(true);
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => {
+        if (this.isPaginated()) {
+          this.refreshSpreadMetrics();
+        }
+      });
+      if (this.spreadViewportRef?.nativeElement) {
+        ro.observe(this.spreadViewportRef.nativeElement);
+      }
+      this.destroyRef.onDestroy(() => ro.disconnect());
+    }
+  }
+
+  goToSpreadPage(next: number): void {
+    const vp = this.spreadViewportRef?.nativeElement;
+    if (!vp) return;
+    const total = this.spreadTotalPages();
+    const clamped = Math.min(total, Math.max(1, next));
+    this.spreadPage.set(clamped);
+    scrollToSpreadPage(vp, clamped, 44, false);
+  }
+
+  private refreshSpreadMetrics(): void {
+    const vp = this.spreadViewportRef?.nativeElement;
+    if (!vp) return;
+    const { totalPages } = computeSpreadMetrics(vp, 44);
+    this.spreadTotalPages.set(totalPages);
+    if (this.spreadPage() > totalPages) {
+      this.spreadPage.set(totalPages);
+      scrollToSpreadPage(vp, totalPages, 44, false);
+    }
+  }
 
   readonly article = signal<ArticleData | null>(null);
   readonly lang = signal<string>('en');
@@ -356,15 +688,92 @@ export class ArticleReaderComponent implements OnInit {
   readonly immersive = signal<boolean>(false);
   readonly activeScriptureRef = signal<ParsedScriptureRef | null>(null);
   readonly lookupWord = signal<string | null>(null);
+  readonly selectionAnchor = signal<TextSelectionAnchor | null>(null);
 
-  readonly parsedLines = computed<
-    Array<{ line: ArticleLine; tokens: ScriptureSpanToken[] }>
-  >(() =>
-    (this.article()?.lines ?? []).map((line) => ({
-      line,
-      tokens: line.isHeading ? [] : this.scriptureParser.parse(line.text),
-    })),
-  );
+  readonly articleScopeKey = computed(() => {
+    const art = this.article();
+    return art ? `article:${art.id}:${this.lang()}` : '';
+  });
+
+  readonly parsedLines = computed(() => {
+    const art = this.article();
+    const scope = this.articleScopeKey();
+    const rangeMap = this.highlightsService.textRanges();
+    const lineRanges = scope ? (rangeMap[scope] ?? []) : [];
+    const titleNorm = (art?.title ?? '').trim().toLowerCase();
+    return (art?.lines ?? [])
+      .filter(
+        (line, index) =>
+          !(
+            index === 0 &&
+            line.isHeading &&
+            titleNorm &&
+            line.text.trim().toLowerCase() === titleNorm
+          ),
+      )
+      .map((line, idx) => {
+        const baseTokens = line.isHeading
+          ? []
+          : this.scriptureParser.parse(line.text);
+        const rangesForThis = lineRanges.filter((r) => r.line === idx);
+        return {
+          line,
+          tokens: applyHighlightRangesToTokens(baseTokens, rangesForThis),
+        };
+      });
+  });
+
+  onTextSelectionChange(): void {
+    setTimeout(() => {
+      this.selectionAnchor.set(extractLineTextSelection());
+    }, 10);
+  }
+
+  highlightSelection(color: string): void {
+    const anchor = this.selectionAnchor();
+    if (!anchor) return;
+    this.highlightsService.addRange(
+      anchor.scopeKey,
+      anchor.line,
+      anchor.start,
+      anchor.end,
+      anchor.text,
+      color,
+    );
+    window.getSelection()?.removeAllRanges();
+    this.selectionAnchor.set(null);
+  }
+
+  clearSelectionHighlight(): void {
+    const anchor = this.selectionAnchor();
+    if (!anchor) return;
+    this.highlightsService.clearRange(
+      anchor.scopeKey,
+      anchor.line,
+      anchor.start,
+      anchor.end,
+    );
+    window.getSelection()?.removeAllRanges();
+    this.selectionAnchor.set(null);
+  }
+
+  defineSelection(): void {
+    const anchor = this.selectionAnchor();
+    const raw = anchor?.text ?? window.getSelection()?.toString().trim() ?? '';
+    const firstWord = raw.split(/\s+/)[0]?.replace(/[^a-zA-Z'-]/g, '');
+    if (firstWord && firstWord.length >= 2) {
+      this.lookupWord.set(firstWord);
+    }
+    this.selectionAnchor.set(null);
+  }
+
+  copySelection(): void {
+    const anchor = this.selectionAnchor();
+    if (!anchor) return;
+    void navigator.clipboard?.writeText(anchor.text);
+    window.getSelection()?.removeAllRanges();
+    this.selectionAnchor.set(null);
+  }
 
   readonly readingMinutes = computed(() => {
     const words = (this.article()?.lines ?? []).reduce(
@@ -376,6 +785,13 @@ export class ArticleReaderComponent implements OnInit {
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
+    ) {
+      return;
+    }
     if (event.key === 'Escape') {
       this.showAppearance.set(false);
       this.activeScriptureRef.set(null);
@@ -383,6 +799,19 @@ export class ArticleReaderComponent implements OnInit {
       this.immersive.set(false);
     } else if (event.key === 'f' || event.key === 'F') {
       this.immersive.set(!this.immersive());
+    } else if (
+      this.isPaginated() &&
+      !this.showAppearance() &&
+      !this.activeScriptureRef() &&
+      !this.lookupWord()
+    ) {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        this.goToSpreadPage(this.spreadPage() - 1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        this.goToSpreadPage(this.spreadPage() + 1);
+      }
     }
   }
 

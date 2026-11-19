@@ -201,7 +201,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         child: Center(
                           child: Text(
                             subscribedChannels.isNotEmpty
-                                ? 'All Subscriptions'
+                                ? 'Followed Channels'
                                 : 'All',
                             style: TextStyle(
                               fontSize: 13,
@@ -407,7 +407,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   _videoService.setFilter(
                       channelId: null, onlySubscribed: true);
                 },
-                child: const Text('Show All Subscriptions'),
+                child: const Text('Show Followed Channels'),
               ),
             ],
           ),
@@ -541,7 +541,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            "You've scrolled through all available videos from your subscribed channels.",
+            "You've scrolled through all available videos from your followed channels.",
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
