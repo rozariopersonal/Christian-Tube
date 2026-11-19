@@ -366,13 +366,13 @@ describe('VideosService', () => {
       expect(cache.getOrSet).toHaveBeenCalledWith(
         'videos',
         expect.stringContaining('cat=Sermons'),
-        300,
+        86400,
         expect.any(Function),
       );
       expect(cache.getOrSet).toHaveBeenCalledWith(
         'videos',
         'detail:v1',
-        600,
+        86400,
         expect.any(Function),
       );
     });

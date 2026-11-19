@@ -112,7 +112,8 @@ export class WordsService implements OnModuleInit {
         `l=${query?.limit ?? 25}`,
         `s=${query?.seed ?? ''}`,
       ].join(':');
-      return this.cache.getOrSet('words', key, 600, () =>
+      const ttl = query?.seed != null || query?.search ? 3600 : 86400;
+      return this.cache.getOrSet('words', key, ttl, () =>
         this.findAllUncached(query),
       );
     }
