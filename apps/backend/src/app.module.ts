@@ -8,7 +8,7 @@ import { VideosModule } from './modules/videos/videos.module';
 import { ChannelsModule } from './modules/channels/channels.module';
 import { YoutubeModule } from './modules/youtube/youtube.module';
 import { SyncModule } from './modules/sync/sync.module';
-import { TranscriptionModule } from './modules/transcription/transcription.module';
+import { CacheModule } from './modules/cache/cache.module';
 import { EmbeddingModule } from './modules/embedding/embedding.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { HealthModule } from './modules/health/health.module';
@@ -25,6 +25,7 @@ import { AudioModule } from './modules/audio/audio.module';
       load: [configuration],
     }),
     ScheduleModule.forRoot(),
+    CacheModule,
     HealthModule,
     PrismaModule,
     UsersModule,
@@ -33,7 +34,6 @@ import { AudioModule } from './modules/audio/audio.module';
     ChannelsModule,
     YoutubeModule,
     SyncModule,
-    TranscriptionModule,
     EmbeddingModule,
     WordsModule,
     ShortsModule,

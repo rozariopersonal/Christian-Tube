@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { Injectable, NotFoundException, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmbeddingService } from "../embedding/embedding.service";
+import { CacheService } from "../cache/cache.service";
 
 interface VideoQuery {
   category?: string;
@@ -27,9 +28,41 @@ export class VideosService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly embeddingService: EmbeddingService,
+    @Optional() private readonly cache?: CacheService,
   ) {}
 
+  private buildFeedCacheKey(query: VideoQuery): string {
+    const channelIds = Array.isArray(query.channelIds)
+      ? query.channelIds.join(",")
+      : query.channelIds || "";
+    const limit = query.limit ? Number(query.limit) : 50;
+    const offset = query.offset ? Number(query.offset) : 0;
+    const search = (query.search || "").trim().toLowerCase();
+    return [
+      `type=${query.type || "VIDEO"}`,
+      `cat=${query.category || "All"}`,
+      `ch=${query.channelId || ""}`,
+      `chs=${channelIds}`,
+      `q=${search}`,
+      `lim=${limit}`,
+      `off=${offset}`,
+    ].join(":");
+  }
+
   async findAll(query: VideoQuery) {
+    if (this.cache) {
+      const ttl = query.search ? 3600 : 86400;
+      return this.cache.getOrSet(
+        "videos",
+        `feed:${this.buildFeedCacheKey(query)}`,
+        ttl,
+        () => this.findAllUncached(query),
+      );
+    }
+    return this.findAllUncached(query);
+  }
+
+  private async findAllUncached(query: VideoQuery) {
     const where: any = {
       channel: {
         isActive: true,
@@ -456,6 +489,15 @@ export class VideosService {
   }
 
   async findOne(id: string) {
+    if (this.cache) {
+      return this.cache.getOrSet("videos", `detail:${id}`, 86400, () =>
+        this.findOneUncached(id),
+      );
+    }
+    return this.findOneUncached(id);
+  }
+
+  private async findOneUncached(id: string) {
     const video = await this.prisma.video.findUnique({
       where: { id },
       select: {
@@ -672,6 +714,8 @@ export class VideosService {
          "updatedAt" = CURRENT_TIMESTAMP`,
       savedVideo.id,
     );
+
+    await this.cache?.invalidate("videos", "channels");
 
     this.logger.log(
       `Short imported and published: ${savedVideo.id} - "${savedVideo.title}"`,

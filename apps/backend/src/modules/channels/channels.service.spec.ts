@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { ChannelsService } from './channels.service';
 
-function makeService() {
+function makeService(cache?: { getOrSet: jest.Mock; invalidate: jest.Mock }) {
   const prisma = {
     channel: {
       findMany: jest.fn(),
@@ -26,8 +26,13 @@ function makeService() {
     syncChannel: jest.fn().mockResolvedValue(undefined),
     subscribeChannelToWebSub: jest.fn().mockResolvedValue(undefined),
   };
-  const service = new ChannelsService(prisma as any, configService as any, syncService as any);
-  return { service, prisma, configService, syncService };
+  const service = new ChannelsService(
+    prisma as any,
+    configService as any,
+    syncService as any,
+    cache as any,
+  );
+  return { service, prisma, configService, syncService, cache };
 }
 
 function subscriptionRow(userId: string, channelId: string) {
@@ -163,6 +168,35 @@ describe('ChannelsService subscriptions', () => {
         status: 'unsubscribed',
         channelId: 'c1',
       });
+    });
+  });
+
+  describe('Upstash subscription caching', () => {
+    it('caches listSubscriptions for 24h and invalidates on subscribe/unsubscribe', async () => {
+      const cache = {
+        getOrSet: jest.fn((_ns, _k, _ttl, fn) => fn()),
+        invalidate: jest.fn().mockResolvedValue(undefined),
+      };
+      const { service, prisma } = makeService(cache);
+      prisma.channelSubscription.findMany.mockResolvedValue([]);
+      prisma.channel.findUnique.mockResolvedValue({ id: 'c1' });
+      prisma.user.upsert.mockResolvedValue({ id: 'u1' });
+      prisma.channelSubscription.upsert.mockResolvedValue({ id: 'sub1' });
+      prisma.channelSubscription.deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.listSubscriptions('u1');
+      expect(cache.getOrSet).toHaveBeenCalledWith(
+        'user:u1',
+        'subs',
+        86400,
+        expect.any(Function),
+      );
+
+      await service.subscribe({ userId: 'u1', email: 'u@example.com' }, 'c1');
+      await service.unsubscribe('u1', 'c1');
+      expect(cache.invalidate).toHaveBeenCalledTimes(2);
+      expect(cache.invalidate).toHaveBeenNthCalledWith(1, 'user:u1');
+      expect(cache.invalidate).toHaveBeenNthCalledWith(2, 'user:u1');
     });
   });
 });

@@ -16,6 +16,7 @@ function row(id: string) {
 function makeService(
   embedQuery: number[] | null = null,
   config: Record<string, unknown> = {},
+  cache?: { getOrSet: jest.Mock; invalidate: jest.Mock },
 ) {
   const prisma = {
     video: { findMany: jest.fn(), findUnique: jest.fn(), upsert: jest.fn() },
@@ -29,8 +30,13 @@ function makeService(
     modelVersion: 1,
     embedQuery: jest.fn().mockResolvedValue(embedQuery),
   };
-  const service = new VideosService(prisma as any, configService as any, embeddingService as any);
-  return { service, prisma, configService, embeddingService };
+  const service = new VideosService(
+    prisma as any,
+    configService as any,
+    embeddingService as any,
+    cache as any,
+  );
+  return { service, prisma, configService, embeddingService, cache };
 }
 
 describe('VideosService', () => {
@@ -327,6 +333,48 @@ describe('VideosService', () => {
         'short1',
       );
       expect(saved.id).toBe('short1');
+    });
+
+    it('invalidates videos and channels caches when importing a short', async () => {
+      const cache = {
+        getOrSet: jest.fn((_ns, _k, _ttl, fn) => fn()),
+        invalidate: jest.fn().mockResolvedValue(undefined),
+      };
+      const { service, prisma } = makeService(null, {}, cache);
+      prisma.channel.upsert.mockResolvedValue({});
+      prisma.video.upsert.mockResolvedValue({ id: 'short2', title: 'Short 2' });
+
+      await service.importShortVideo({ youtubeVideoId: 'short2', title: 'Short 2' });
+
+      expect(cache.invalidate).toHaveBeenCalledWith('videos', 'channels');
+    });
+  });
+
+  describe('Upstash cache integration', () => {
+    it('routes findAll and findOne through CacheService when provided', async () => {
+      const cache = {
+        getOrSet: jest.fn((_ns, _k, _ttl, fn) => fn()),
+        invalidate: jest.fn().mockResolvedValue(undefined),
+      };
+      const { service, prisma } = makeService(null, {}, cache);
+      prisma.video.findMany.mockResolvedValue([row('v1')]);
+      prisma.video.findUnique.mockResolvedValue(row('v1'));
+
+      await service.findAll({ category: 'Sermons', limit: 20, offset: 0 });
+      await service.findOne('v1');
+
+      expect(cache.getOrSet).toHaveBeenCalledWith(
+        'videos',
+        expect.stringContaining('cat=Sermons'),
+        86400,
+        expect.any(Function),
+      );
+      expect(cache.getOrSet).toHaveBeenCalledWith(
+        'videos',
+        'detail:v1',
+        86400,
+        expect.any(Function),
+      );
     });
   });
 });

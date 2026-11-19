@@ -1,8 +1,9 @@
-import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncService } from '../sync/sync.service';
+import { CacheService } from '../cache/cache.service';
 
 @Injectable()
 export class ChannelsService {
@@ -12,6 +13,7 @@ export class ChannelsService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly syncService: SyncService,
+    @Optional() private readonly cache?: CacheService,
   ) {}
 
   isAdmin(email?: string): boolean {
@@ -21,6 +23,15 @@ export class ChannelsService {
   }
 
   async findAll(type?: 'VIDEO' | 'SHORT' | 'ALL') {
+    if (this.cache) {
+      return this.cache.getOrSet('channels', `list:${type || 'ALL'}`, 86400, () =>
+        this.findAllUncached(type),
+      );
+    }
+    return this.findAllUncached(type);
+  }
+
+  private async findAllUncached(type?: 'VIDEO' | 'SHORT' | 'ALL') {
     const channels = await this.prisma.channel.findMany({
       where: { isActive: true },
       include: {
@@ -74,6 +85,15 @@ export class ChannelsService {
   }
 
   async findOne(id: string) {
+    if (this.cache) {
+      return this.cache.getOrSet('channels', `detail:${id}`, 86400, () =>
+        this.findOneUncached(id),
+      );
+    }
+    return this.findOneUncached(id);
+  }
+
+  private async findOneUncached(id: string) {
     const channel = await this.prisma.channel.findUnique({
       where: { id },
       include: {
@@ -422,6 +442,8 @@ export class ChannelsService {
       this.logger.warn(`WebSub subscription error for added channel ${channel.id}: ${e.message}`);
     });
 
+    await this.cache?.invalidate('channels', 'videos');
+
     return {
       status: 'success',
       message: 'Channel successfully added and video ingestion started',
@@ -482,6 +504,8 @@ export class ChannelsService {
         where: { id },
       });
 
+      await this.cache?.invalidate('channels', 'videos');
+
       return {
         status: 'success',
         message: `Channel ${deleted.name} (${id}) and videos removed successfully`,
@@ -516,6 +540,15 @@ export class ChannelsService {
   }
 
   async listSubscriptions(userId: string) {
+    if (this.cache) {
+      return this.cache.getOrSet(`user:${userId}`, 'subs', 86400, () =>
+        this.listSubscriptionsUncached(userId),
+      );
+    }
+    return this.listSubscriptionsUncached(userId);
+  }
+
+  private async listSubscriptionsUncached(userId: string) {
     const rows = await this.prisma.channelSubscription.findMany({
       where: { userId },
       include: {
@@ -557,6 +590,8 @@ export class ChannelsService {
       },
     });
 
+    await this.cache?.invalidate(`user:${user.userId}`);
+
     return { status: 'subscribed', channelId };
   }
 
@@ -564,6 +599,7 @@ export class ChannelsService {
     await this.prisma.channelSubscription.deleteMany({
       where: { userId, channelId },
     });
+    await this.cache?.invalidate(`user:${userId}`);
     return { status: 'unsubscribed', channelId };
   }
 
