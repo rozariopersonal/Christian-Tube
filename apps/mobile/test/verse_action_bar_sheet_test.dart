@@ -195,12 +195,23 @@ void main() {
     await usage.record(9);
     await usage.record(9);
     await usage.record(12);
-    expect(usage.topColors(), [9, 12, 0]);
+    expect(usage.topColors(), [9, 12, 4]);
     await mount(tester, bar());
     expect(find.byKey(FloatingSelectionBar.swatchKey(9)), findsOneWidget);
     expect(find.byKey(FloatingSelectionBar.swatchKey(12)), findsOneWidget);
-    expect(find.byKey(FloatingSelectionBar.swatchKey(0)), findsOneWidget);
-    expect(find.byKey(FloatingSelectionBar.swatchKey(4)), findsNothing);
+    expect(find.byKey(FloatingSelectionBar.swatchKey(4)), findsOneWidget);
+    expect(find.byKey(FloatingSelectionBar.swatchKey(0)), findsNothing);
+  });
+
+  test('migrates v1 usage counts to v2 palette indices', () async {
+    SharedPreferences.setMockInitialValues({
+      'highlight_color_usage_v1': '{"0":[5,10],"14":[2,11]}',
+    });
+    HighlightUsageService.instance.resetForTest();
+    final usage = HighlightUsageService.instance;
+    await usage.load();
+    // 0 (Mustard) -> 4 (Warm Amber Light), 14 (Navy) -> 21 (Sapphire Blue Deep)
+    expect(usage.topColors(2), [4, 21]);
   });
 
   for (final width in [320.0, 600.0, 840.0, 1400.0]) {

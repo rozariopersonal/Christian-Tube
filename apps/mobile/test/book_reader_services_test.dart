@@ -5,6 +5,7 @@ import 'package:mobile/features/books/models/book.dart';
 import 'package:mobile/features/books/models/book_chapter.dart';
 import 'package:mobile/features/books/models/book_line.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
+import 'package:mobile/core/theme/highlight_palette.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/features/books/services/book_service.dart';
 import 'package:mobile/features/books/services/page_loader.dart';
@@ -305,12 +306,13 @@ test('defaults are Playfair, 17pt, system theme, 1.65 line height', () {
       expect(a.mutedTextColor(tokensDark), tokensDark.onSurfaceMuted);
     });
 
-    test('highlight colors map by index', () {
-      expect(ReaderAppearance.highlightColorByIndex(0), const Color(0xFFFFD54F));
-      expect(ReaderAppearance.highlightColorByIndex(1), const Color(0xFF81C784));
-      expect(ReaderAppearance.highlightColorByIndex(2), const Color(0xFF64B5F6));
-      expect(ReaderAppearance.highlightColorByIndex(3), const Color(0xFFF48FB1));
-      expect(ReaderAppearance.highlightColorByIndex(9), const Color(0xFFFFD54F));
+    test('highlight colors map by index via HighlightPalette', () {
+      for (var i = 0; i < HighlightPalette.count; i++) {
+        expect(ReaderAppearance.highlightColorByIndex(i),
+            HighlightPalette.colorFor(i));
+      }
+      expect(ReaderAppearance.highlightColorByIndex(99),
+          HighlightPalette.colorFor(HighlightPalette.defaultTopIndices.first));
     });
 
 test('loadFromPrefs reads persisted values and ignores legacy theme override', () async {

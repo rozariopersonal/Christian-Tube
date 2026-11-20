@@ -176,32 +176,46 @@ class _FloatingSelectionBarState extends State<FloatingSelectionBar> {
     final tokens = context.tokens;
     return Container(
       key: FloatingSelectionBar.panelKey,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: tokens.surfaceBorder)),
       ),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 6,
-        runSpacing: 4,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          for (var i = 0; i < HighlightPalette.count; i++)
-            _Swatch(
-              key: FloatingSelectionBar.panelSwatchKey(i),
-              index: i,
-              selected: widget.currentColorIndex == i,
-              onTap: () => _pick(i),
+          for (var shade = 0; shade < HighlightPalette.shadesPerAccent; shade++)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var accent = 0; accent < HighlightPalette.accentCount; accent++)
+                    Builder(
+                      builder: (_) {
+                        final idx = shade * HighlightPalette.accentCount + accent;
+                        return _Swatch(
+                          key: FloatingSelectionBar.panelSwatchKey(idx),
+                          index: idx,
+                          selected: widget.currentColorIndex == idx,
+                          onTap: () => _pick(idx),
+                        );
+                      },
+                    ),
+                ],
+              ),
             ),
           if (widget.hasHighlight && widget.onClearHighlight != null)
-            _IconTap(
-              key: FloatingSelectionBar.clearKey,
-              icon: Icons.format_color_reset_rounded,
-              tooltip: 'Remove highlight',
-              onTap: () {
-                setState(() => _expanded = false);
-                widget.onClearHighlight!();
-              },
+            Align(
+              alignment: Alignment.centerRight,
+              child: _IconTap(
+                key: FloatingSelectionBar.clearKey,
+                icon: Icons.format_color_reset_rounded,
+                tooltip: 'Remove highlight',
+                onTap: () {
+                  setState(() => _expanded = false);
+                  widget.onClearHighlight!();
+                },
+              ),
             ),
         ],
       ),

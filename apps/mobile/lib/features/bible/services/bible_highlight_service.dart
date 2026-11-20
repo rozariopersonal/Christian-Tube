@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mobile/core/theme/highlight_palette.dart';
 import 'package:mobile/features/engines/scripture/services/local_bible_service.dart';
 import 'package:mobile/features/user_items/services/user_item_sync_service.dart';
 import 'package:mobile/shared/annotations/user_item.dart';
@@ -16,9 +18,47 @@ class BibleHighlightService {
   bool get _userTier => UserItemSyncService.instance.isUserTierActive;
   String get _userId => UserItemSyncService.instance.currentUserId!;
 
-  Future<List<BibleHighlight>> loadHighlights() => _userTier
-      ? _loadUserHighlights()
-      : LocalBibleService().loadHighlights();
+  String get _migrationFlagKey =>
+      'bible_highlights_palette_v2_migrated_${_userTier ? _userId : "device"}';
+
+  Future<List<BibleHighlight>> loadHighlights() async {
+    final list = _userTier
+        ? await _loadUserHighlights()
+        : await LocalBibleService().loadHighlights();
+    return _migrateLegacyIfNeeded(list);
+  }
+
+  Future<List<BibleHighlight>> _migrateLegacyIfNeeded(
+      List<BibleHighlight> list) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_migrationFlagKey) == true) return list;
+      if (list.isEmpty) {
+        await prefs.setBool(_migrationFlagKey, true);
+        return list;
+      }
+      var changed = false;
+      final migrated = <BibleHighlight>[];
+      for (final h in list) {
+        final nextColor = HighlightPalette.migrateLegacyIndex(h.colorIndex);
+        if (nextColor != h.colorIndex) changed = true;
+        migrated.add(BibleHighlight(
+          versionId: h.versionId,
+          book: h.book,
+          chapter: h.chapter,
+          verses: h.verses,
+          colorIndex: nextColor,
+          text: h.text,
+          savedAt: h.savedAt,
+        ));
+      }
+      if (changed) await _saveAll(migrated);
+      await prefs.setBool(_migrationFlagKey, true);
+      return migrated;
+    } catch (_) {
+      return list;
+    }
+  }
 
   /// Device-tier-only load (used by sign-in re-home, never routed).
   Future<List<BibleHighlight>> loadDeviceHighlights() =>

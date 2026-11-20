@@ -1,4 +1,8 @@
 import { Injectable, effect, inject, signal, untracked } from '@angular/core';
+import {
+  DEFAULT_HIGHLIGHT_HEX,
+  migrateLegacyWebHex,
+} from '../../../shared/ui/highlight-palette';
 import { AuthService } from '../../../core/auth/auth.service';
 import {
   SyncUserItem,
@@ -73,9 +77,32 @@ export class BookHighlightsService {
   }
 
   private reloadFromUserCache(): void {
-    this.highlights.set(this.readMap<BookHighlight>(KEY_HIGHLIGHTS));
+    const rawHl = this.readMap<BookHighlight>(KEY_HIGHLIGHTS);
+    let hlChanged = false;
+    for (const [k, v] of Object.entries(rawHl)) {
+      const next = migrateLegacyWebHex(v.color);
+      if (next !== v.color) {
+        hlChanged = true;
+        rawHl[k] = { ...v, color: next };
+      }
+    }
+    if (hlChanged) this.saveMap(KEY_HIGHLIGHTS, rawHl);
+    this.highlights.set(rawHl);
+
     this.bookmarks.set(this.readMap<BookBookmark>(KEY_BOOKMARKS));
-    this.textRanges.set(this.readMap<TextHighlightRange[]>(KEY_TEXT_RANGES));
+
+    const rawRanges = this.readMap<TextHighlightRange[]>(KEY_TEXT_RANGES);
+    let rangesChanged = false;
+    for (const [scope, list] of Object.entries(rawRanges)) {
+      rawRanges[scope] = list.map((r) => {
+        const next = migrateLegacyWebHex(r.color);
+        if (next === r.color) return r;
+        rangesChanged = true;
+        return { ...r, color: next };
+      });
+    }
+    if (rangesChanged) this.saveMap(KEY_TEXT_RANGES, rawRanges);
+    this.textRanges.set(rawRanges);
   }
 
   makeKey(bookId: string, chapterIndex: number, line: number): string {
@@ -118,7 +145,7 @@ export class BookHighlightsService {
         chapterIndex,
         line,
         text,
-        color: color ?? existing?.color ?? '#FEF08A',
+        color: color ?? existing?.color ?? DEFAULT_HIGHLIGHT_HEX,
         note: note !== undefined ? note.trim() || undefined : existing?.note,
         createdAt: existing?.createdAt ?? new Date().toISOString(),
       };
@@ -158,7 +185,7 @@ export class BookHighlightsService {
       chapterIndex,
       line,
       text,
-      existing?.color ?? '#FEF08A',
+      existing?.color ?? DEFAULT_HIGHLIGHT_HEX,
       note,
     );
   }
@@ -343,7 +370,7 @@ export class BookHighlightsService {
           chapterIndex: item.chapter ?? 0,
           line: item.verseStart ?? 0,
           text: item.text ?? '',
-          color: item.color ?? '#FEF08A',
+          color: migrateLegacyWebHex(item.color ?? DEFAULT_HIGHLIGHT_HEX),
           note: item.contextText ?? undefined,
           createdAt: item.createdAt ?? item.updatedAt,
         };
@@ -365,7 +392,7 @@ export class BookHighlightsService {
           start: item.startOffset ?? 0,
           end: item.endOffset ?? 0,
           text: item.text ?? '',
-          color: item.color ?? '#FEF08A',
+          color: migrateLegacyWebHex(item.color ?? DEFAULT_HIGHLIGHT_HEX),
           note: item.contextText ?? undefined,
           createdAt: item.createdAt ?? item.updatedAt,
           updatedAt: Date.parse(item.updatedAt) || Date.now(),

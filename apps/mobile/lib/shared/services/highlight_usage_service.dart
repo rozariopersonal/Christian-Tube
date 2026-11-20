@@ -13,10 +13,12 @@ class HighlightUsageService {
 
   static final HighlightUsageService instance = HighlightUsageService._();
 
-  static const String _prefsKey = 'highlight_color_usage_v1';
+  static const String _legacyPrefsKey = 'highlight_color_usage_v1';
+  static const String _prefsKey = 'highlight_color_usage_v2';
 
-  /// Swatches shown until there is usage data (Mustard, Sage, Sky Blue).
-  static const List<int> defaultOrder = [0, 2, 4];
+  /// Swatches shown until there is usage data (Warm Amber Light, Emerald Green
+  /// Light, Sapphire Blue Light).
+  static const List<int> defaultOrder = HighlightPalette.defaultTopIndices;
 
   final Map<int, int> _counts = {};
   final Map<int, int> _lastUsed = {};
@@ -31,20 +33,48 @@ class HighlightUsageService {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_prefsKey);
       if (raw != null) {
-        final decoded = jsonDecode(raw) as Map<String, dynamic>;
-        for (final entry in decoded.entries) {
-          final idx = int.tryParse(entry.key);
-          final value = entry.value;
-          if (idx == null || value is! List || value.length != 2) continue;
-          _counts[idx] = (value[0] as num).toInt();
-          _lastUsed[idx] = (value[1] as num).toInt();
-          if (_lastUsed[idx]! > _tick) _tick = _lastUsed[idx]!;
+        _decodeInto(raw, migrate: false);
+      } else {
+        final legacyRaw = prefs.getString(_legacyPrefsKey);
+        if (legacyRaw != null) {
+          _decodeInto(legacyRaw, migrate: true);
+          await _persist(prefs);
         }
       }
     } catch (_) {
       // Corrupt or unavailable storage falls back to defaults.
     }
     _loaded = true;
+  }
+
+  void _decodeInto(String raw, {required bool migrate}) {
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    for (final entry in decoded.entries) {
+      final rawIdx = int.tryParse(entry.key);
+      final value = entry.value;
+      if (rawIdx == null || value is! List || value.length != 2) continue;
+      final idx = migrate
+          ? HighlightPalette.migrateLegacyIndex(rawIdx)
+          : rawIdx;
+      if (idx < 0 || idx >= HighlightPalette.count) continue;
+      final count = (value[0] as num).toInt();
+      final last = (value[1] as num).toInt();
+      _counts[idx] = (_counts[idx] ?? 0) + count;
+      if (last > (_lastUsed[idx] ?? 0)) {
+        _lastUsed[idx] = last;
+      }
+      if (last > _tick) _tick = last;
+    }
+  }
+
+  Future<void> _persist(SharedPreferences prefs) async {
+    await prefs.setString(
+      _prefsKey,
+      jsonEncode({
+        for (final e in _counts.entries)
+          '${e.key}': [e.value, _lastUsed[e.key] ?? 0],
+      }),
+    );
   }
 
   /// Records one use of [colorIndex].
@@ -54,13 +84,7 @@ class HighlightUsageService {
     _lastUsed[colorIndex] = ++_tick;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _prefsKey,
-        jsonEncode({
-          for (final e in _counts.entries)
-            '${e.key}': [e.value, _lastUsed[e.key] ?? 0],
-        }),
-      );
+      await _persist(prefs);
     } catch (_) {}
   }
 
