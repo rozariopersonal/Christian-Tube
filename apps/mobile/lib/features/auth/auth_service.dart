@@ -8,6 +8,7 @@ import '../../core/models/user.dart';
 import '../../core/models/user_preference.dart';
 import '../../core/services/user_preference_service.dart';
 import '../../core/services/user_sync_service.dart';
+import '../user_items/services/user_item_sync_service.dart';
 import '../../core/config/app_config.dart';
 
 class AuthService extends ChangeNotifier {
@@ -287,6 +288,7 @@ class AuthService extends ChangeNotifier {
     await prefs.remove('current_user');
     await prefs.remove('auth_token');
     await UserSyncService.instance.clearAllDeviceData();
+    await UserItemSyncService.instance.clearForSignOut();
     await UserPreferenceService.instance.clearForSignOut();
     notifyListeners();
   }

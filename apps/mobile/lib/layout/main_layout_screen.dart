@@ -9,6 +9,7 @@ import '../core/layout/shell_back_handler.dart';
 import '../core/navigation/navigation_history_service.dart';
 import '../core/services/bottom_bar_visibility_service.dart';
 import '../core/services/user_sync_service.dart';
+import '../features/user_items/services/user_item_sync_service.dart';
 import '../core/theme/app_tokens.dart';
 import '../core/config/app_config.dart';
 import '../features/auth/auth_service.dart';
@@ -57,6 +58,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
     } else if (state == AppLifecycleState.resumed) {
       AudioPlayerController.instance.syncWithCloud();
       unawaited(UserSyncService.instance.pullAndFlush());
+      unawaited(UserItemSyncService.instance.pullAndPush());
     }
   }
 

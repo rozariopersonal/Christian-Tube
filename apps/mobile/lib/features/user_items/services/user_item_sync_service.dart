@@ -61,6 +61,27 @@ class UserItemSyncService {
   /// Whether facades should route through the per-user `user_items` store.
   bool get isUserTierActive => _currentUserId != null && _currentUserId!.isNotEmpty;
 
+  Future<void> clearForSignOut() async {
+    final uid = _currentUserId;
+    _currentUserId = null;
+    _pushDebounce?.cancel();
+    _pushDebounce = null;
+    if (uid != null && uid.isNotEmpty) {
+      try {
+        await _repository.clearUser(uid);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('user_items_cursor_v1_$uid');
+      } catch (_) {}
+    }
+  }
+
+  Future<void> pullAndPush() async {
+    final uid = _currentUserId;
+    if (uid == null || uid.isEmpty) return;
+    await _pushDirty(uid);
+    await _pullAndMerge(uid);
+  }
+
   @visibleForTesting
   void setUserIdForTest(String? userId) => _currentUserId =
       (userId == null || userId.isEmpty) ? null : userId;

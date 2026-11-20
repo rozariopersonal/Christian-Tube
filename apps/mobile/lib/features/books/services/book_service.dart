@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart';
+import '../../../shared/annotations/user_item.dart';
+import '../../../shared/annotations/user_item_repository.dart';
+import '../../user_items/services/user_item_sync_service.dart';
 import '../models/book.dart';
 import '../models/book_chapter.dart';
 import '../models/book_highlight.dart';
@@ -76,10 +79,87 @@ class BookService extends ChangeNotifier {
       _adapter.downloadAndInstall(language: language);
   Future<bool> isInstalled() => _adapter.isInstalled();
   Future<Book?> getBook(String id) => _adapter.getBook(id);
-  Future<void> saveHighlight(BookHighlight highlight) => _adapter.saveHighlight(highlight);
-  Future<void> deleteHighlight(String id) => _adapter.deleteHighlight(id);
-  Future<List<BookHighlight>> getHighlightsForBook(String bookId) => _adapter.getHighlightsForBook(bookId);
-  Future<List<BookHighlight>> getHighlightsForPage(String bookId, int pageNumber) => _adapter.getHighlightsForPage(bookId, pageNumber);
+  Future<void> saveHighlight(BookHighlight highlight) async {
+    await _adapter.saveHighlight(highlight);
+    if (UserItemSyncService.instance.isUserTierActive) {
+      final uid = UserItemSyncService.instance.currentUserId!;
+      final now = DateTime.now().toUtc();
+      final item = UserItem(
+        userId: uid,
+        id: 'book_hl:${highlight.id}',
+        itemType: UserItem.typeTextRange,
+        feature: UserItem.featureBook,
+        targetId: 'book:${highlight.bookId}:${highlight.chapterIndex}:${highlight.pageNumber}',
+        book: highlight.bookId,
+        chapter: highlight.chapterIndex,
+        verseStart: highlight.pageNumber,
+        startOffset: highlight.startChar,
+        endOffset: highlight.endChar,
+        colorIndex: highlight.color,
+        text: highlight.text,
+        createdAt: DateTime.tryParse(highlight.createdAt) ?? now,
+        updatedAt: now,
+      );
+      await UserItemRepository.instance.insertOrReplace(uid, [item]);
+      UserItemSyncService.instance.schedulePush();
+    }
+  }
+
+  Future<void> deleteHighlight(String id) async {
+    await _adapter.deleteHighlight(id);
+    if (UserItemSyncService.instance.isUserTierActive) {
+      final uid = UserItemSyncService.instance.currentUserId!;
+      final now = DateTime.now().toUtc();
+      final tombstone = UserItem(
+        userId: uid,
+        id: 'book_hl:$id',
+        itemType: UserItem.typeTextRange,
+        feature: UserItem.featureBook,
+        targetId: '',
+        createdAt: now,
+        updatedAt: now,
+        deleted: true,
+      );
+      await UserItemRepository.instance.insertOrReplace(uid, [tombstone]);
+      UserItemSyncService.instance.schedulePush();
+    }
+  }
+
+  Future<List<BookHighlight>> getHighlightsForBook(String bookId) async {
+    final local = await _adapter.getHighlightsForBook(bookId);
+    if (!UserItemSyncService.instance.isUserTierActive) return local;
+
+    final uid = UserItemSyncService.instance.currentUserId!;
+    final remoteItems = await UserItemRepository.instance
+        .loadForType(uid, UserItem.typeTextRange);
+    final byId = <String, BookHighlight>{
+      for (final h in local) h.id: h,
+    };
+    for (final item in remoteItems) {
+      if (item.feature != UserItem.featureBook || item.book != bookId) continue;
+      final rawId = item.id.startsWith('book_hl:')
+          ? item.id.substring('book_hl:'.length)
+          : item.id;
+      byId[rawId] = BookHighlight(
+        id: rawId,
+        bookId: item.book,
+        chapterIndex: item.chapter,
+        pageNumber: item.verseStart > 0 ? item.verseStart : 1,
+        startChar: item.startOffset,
+        endChar: item.endOffset,
+        text: item.text,
+        color: item.colorIndex ?? 0,
+        createdAt: item.createdAt.toIso8601String(),
+      );
+    }
+    return byId.values.toList();
+  }
+
+  Future<List<BookHighlight>> getHighlightsForPage(
+      String bookId, int pageNumber) async {
+    final all = await getHighlightsForBook(bookId);
+    return all.where((h) => h.pageNumber == pageNumber).toList();
+  }
   Future<List<BookChapter>> getChapters(String bookId) => _adapter.getChapters(bookId);
   Future<List<BookLine>> getPageLines(String bookId, int pageNumber) => _adapter.getPageLines(bookId, pageNumber);
   Future<List<BookLine>> getPageRangeLines(String bookId, int startPage, int endPage) => _adapter.getPageRangeLines(bookId, startPage, endPage);

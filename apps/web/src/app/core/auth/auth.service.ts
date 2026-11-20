@@ -128,8 +128,16 @@ export class AuthService {
         'ct_web_recent_searches_',
         'ct_web_autoplay_',
         'ct_web_sync_pending_',
+        'ct_web_user_items_pending_',
         'ct_web_clock_offset_',
         'ct_web_last_guest_id_',
+        'bible_highlights',
+        'bible_bookmarks',
+        'bible_notes',
+        'bible_reader_state',
+        'book_highlights',
+        'book_bookmarks',
+        'reader_text_highlights',
       ];
       const exactKeys = [
         'audio_last_track',
