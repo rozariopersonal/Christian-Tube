@@ -141,17 +141,6 @@ export const READER_HIGHLIGHT_SWATCHES = HIGHLIGHT_PALETTE.map((s) => s.hex);
               <span class="material-symbols-rounded">compare_arrows</span>
             </button>
           }
-          @if (showDefine()) {
-            <button
-              type="button"
-              class="pop-btn"
-              title="Define"
-              aria-label="Define"
-              (click)="define.emit()"
-            >
-              <span class="material-symbols-rounded">dictionary</span>
-            </button>
-          }
           @if (showCopy()) {
             <button
               type="button"
@@ -396,7 +385,6 @@ export class TextSelectionPopoverComponent {
   readonly showNote = input<boolean>(false);
   readonly hasNote = input<boolean>(false);
   readonly showCompare = input<boolean>(false);
-  readonly showDefine = input<boolean>(true);
   readonly showCopy = input<boolean>(true);
   readonly showShare = input<boolean>(true);
   readonly showClose = input<boolean>(true);
@@ -408,7 +396,6 @@ export class TextSelectionPopoverComponent {
   readonly toggleBookmark = output<void>();
   readonly openNote = output<void>();
   readonly compare = output<void>();
-  readonly define = output<void>();
   readonly copy = output<void>();
   readonly share = output<void>();
   readonly openCrossRefs = output<void>();

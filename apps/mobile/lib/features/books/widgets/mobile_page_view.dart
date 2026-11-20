@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/shared/ui/double_tap_dictionary_area.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
@@ -133,7 +134,7 @@ class _MobilePageViewState extends State<MobilePageView> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 60),
-      child: SelectionArea(
+      child: DoubleTapDictionaryArea(
         contextMenuBuilder: (context, state) => widget.buildSelectionToolbar(context, state, pageNum),
         child: content,
       ),

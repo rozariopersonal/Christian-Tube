@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/shared/ui/double_tap_dictionary_area.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/controllers/book_reader_controller.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
@@ -119,7 +120,7 @@ class ReaderPageColumn extends StatelessWidget {
             },
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: SelectionArea(
+              child: DoubleTapDictionaryArea(
                 contextMenuBuilder: (context, state) => buildSelectionToolbar(context, state, pageNum),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

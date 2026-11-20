@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile/shared/ui/double_tap_dictionary_area.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
@@ -61,7 +62,7 @@ class BookVirtualScrollContent extends StatelessWidget {
   Widget build(BuildContext context) {
     if (totalLines <= 0) return const SizedBox.shrink();
 
-    return SelectionArea(
+    return DoubleTapDictionaryArea(
       contextMenuBuilder: (context, state) =>
           buildSelectionToolbar(context, state),
       child: ScrollablePositionedList.builder(
