@@ -137,15 +137,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(VerseActionBar), findsOneWidget);
+    // Chapter navigator remains visible while verses are selected.
+    expect(find.byTooltip('Previous chapter'), findsOneWidget);
+    expect(find.byTooltip('Next chapter'), findsOneWidget);
     expect(find.text('1 selected'), findsNothing);
     expect(controller.state.selectedVerses, {1});
 
-    // Scroll the reader so verse 2 is above the action sheet before tapping.
-    await tester.drag(verseWidgets.at(0), const Offset(0, -120));
-    await tester.pumpAndSettle();
+    // Verse 1 sits below the chapter header (top >= 68), so the bar floats above it.
+    final v1Rect = tester.getRect(verseWidgets.at(0));
+    final barRectAbove = tester.getRect(find.byType(VerseActionBar));
+    expect(barRectAbove.bottom, lessThanOrEqualTo(v1Rect.top));
+
+    // Tap verse 2 to multi-select (verse 2 is uncovered below verse 1).
     await tester.tap(verseWidgets.at(1), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 500));
     expect(controller.state.selectedVerses, {1, 2});
+
+    // Scrolling the selected anchor near the top flips the bar below it.
+    await tester.drag(verseWidgets.at(1), const Offset(0, -190));
+    await tester.pumpAndSettle();
+    final v2Rect = tester.getRect(verseWidgets.at(1));
+    final barRectAfterScroll = tester.getRect(find.byType(VerseActionBar));
+    expect(barRectAfterScroll.top, greaterThanOrEqualTo(v2Rect.bottom));
+
+    // Scroll back down so verse 1 is visible again before deselecting.
+    await tester.drag(verseWidgets.at(1), const Offset(0, 190));
+    await tester.pumpAndSettle();
 
     expect(find.byType(VerseActionBar), findsOneWidget);
     expect(find.text('2 selected'), findsNothing);

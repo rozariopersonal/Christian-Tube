@@ -55,6 +55,7 @@ class FloatingSelectionBar extends StatefulWidget {
     this.overflow = const [],
     this.onDismiss,
     this.countBadge,
+    this.expandBelow = false,
     this.usage,
   });
 
@@ -70,6 +71,10 @@ class FloatingSelectionBar extends StatefulWidget {
 
   /// Optional small count (e.g. selected verses) shown before the swatches.
   final int? countBadge;
+
+  /// When true, the expanded palette opens below the action row instead of
+  /// above it (used when the bar itself is anchored below a verse).
+  final bool expandBelow;
 
   /// Overridable for tests.
   final HighlightUsageService? usage;
@@ -144,7 +149,10 @@ class _FloatingSelectionBarState extends State<FloatingSelectionBar> {
       constraints: BoxConstraints(
         maxWidth: (width - 24).clamp(0.0, FloatingSelectionBar.maxBarWidth),
       ),
-      child: Material(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: Material(
         color: tokens.surface,
         elevation: 8,
         shadowColor: tokens.scrim,
@@ -157,17 +165,28 @@ class _FloatingSelectionBarState extends State<FloatingSelectionBar> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AnimatedSize(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.bottomCenter,
-              child: _expanded
-                  ? _buildPanel(context)
-                  : const SizedBox(width: double.infinity),
-            ),
+            if (!widget.expandBelow)
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.bottomCenter,
+                child: _expanded
+                    ? _buildPanel(context)
+                    : const SizedBox(width: double.infinity),
+              ),
             _buildRow(context),
+            if (widget.expandBelow)
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: _expanded
+                    ? _buildPanel(context)
+                    : const SizedBox(width: double.infinity),
+              ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -178,7 +197,9 @@ class _FloatingSelectionBarState extends State<FloatingSelectionBar> {
       key: FloatingSelectionBar.panelKey,
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: tokens.surfaceBorder)),
+        border: widget.expandBelow
+            ? Border(top: BorderSide(color: tokens.surfaceBorder))
+            : Border(bottom: BorderSide(color: tokens.surfaceBorder)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

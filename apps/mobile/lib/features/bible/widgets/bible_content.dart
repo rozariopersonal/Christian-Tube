@@ -29,6 +29,8 @@ class BibleContent extends StatelessWidget {
     required this.onOpenStudyPage,
     required this.onPushManager,
     required this.onRedownloadDefault,
+    this.anchorLink,
+    this.anchorKey,
   });
 
   final BibleController controller;
@@ -44,6 +46,8 @@ class BibleContent extends StatelessWidget {
   final void Function(int verseNumber, {int initialTab, String? book, int? chapter}) onOpenStudyPage;
   final VoidCallback onPushManager;
   final VoidCallback onRedownloadDefault;
+  final LayerLink? anchorLink;
+  final GlobalKey? anchorKey;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +113,8 @@ class BibleContent extends StatelessWidget {
                   onNote: onNote,
                   onClear: onClear,
                   onOpenStudyPage: onOpenStudyPage,
+                  anchorLink: anchorLink,
+                  anchorKey: anchorKey,
                 );
                 if (index == 0 || verse.number == 1) {
                   return Column(
@@ -204,6 +210,8 @@ class BibleContent extends StatelessWidget {
                 onNote: onNote,
                 onClear: onClear,
                 onOpenStudyPage: onOpenStudyPage,
+                anchorLink: anchorLink,
+                anchorKey: anchorKey,
               );
               if (ref.verse == 1) {
                 return Column(
@@ -243,6 +251,8 @@ class _VerseRow extends StatelessWidget {
     this.onNote,
     required this.onClear,
     required this.onOpenStudyPage,
+    this.anchorLink,
+    this.anchorKey,
   });
 
   final BibleVerse verse;
@@ -257,6 +267,8 @@ class _VerseRow extends StatelessWidget {
   final VoidCallback? onNote;
   final VoidCallback onClear;
   final void Function(int verseNumber, {int initialTab, String? book, int? chapter}) onOpenStudyPage;
+  final LayerLink? anchorLink;
+  final GlobalKey? anchorKey;
 
   @override
   Widget build(BuildContext context) {
@@ -280,8 +292,11 @@ class _VerseRow extends StatelessWidget {
         (isCurrentCh ? (s.chapterBackgrounds[verse.number] ?? const []) : const []);
 
     final isVerseSelected = isSelectedCh && s.selectedVerses.contains(verse.number);
+    final isActionAnchor = isVerseSelected &&
+        s.selectedVerses.isNotEmpty &&
+        s.selectedVerses.last == verse.number;
 
-    return VerseItem(
+    final item = VerseItem(
       verse: verse,
       isSelected: isVerseSelected,
       isHighlighted: isCurrentCh && s.highlightedVerse == verse.number,
@@ -302,6 +317,17 @@ class _VerseRow extends StatelessWidget {
       bookNumber: bn,
       chapter: chapter,
     );
+
+    if (isActionAnchor && anchorLink != null) {
+      return CompositedTransformTarget(
+        link: anchorLink!,
+        child: KeyedSubtree(
+          key: anchorKey,
+          child: item,
+        ),
+      );
+    }
+    return item;
   }
 }
 
