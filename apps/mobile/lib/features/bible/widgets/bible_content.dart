@@ -8,7 +8,6 @@ import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../models/bible_verse.dart';
 import '../services/bible_chapter_stream.dart';
-import '../widgets/verse_action_bar.dart';
 import '../widgets/verse_item.dart';
 import '../controllers/bible_controller.dart';
 import '../../../shared/services/reader_appearance.dart';
@@ -281,44 +280,6 @@ class _VerseRow extends StatelessWidget {
         (isCurrentCh ? (s.chapterBackgrounds[verse.number] ?? const []) : const []);
 
     final isVerseSelected = isSelectedCh && s.selectedVerses.contains(verse.number);
-    final isActionAnchor =
-        isVerseSelected && s.selectedVerses.isNotEmpty && s.selectedVerses.last == verse.number;
-
-    Widget? inlineActionBar;
-    if (isActionAnchor) {
-      final selBook = s.selectedBook ?? controller.currentBook;
-      final selChapter = s.selectedChapter ?? controller.currentChapter;
-      final sortedVerses = s.selectedVerses.toList()..sort();
-      final verseLabel = sortedVerses.length == 1
-          ? '${controller.displayBookName(selBook)} $selChapter:${sortedVerses.first}'
-          : '${controller.displayBookName(selBook)} $selChapter:${formatVerseNumbers(sortedVerses)} (${sortedVerses.length} verses)';
-      final studyLabel = sortedVerses.length > 1
-          ? 'Open Verse Study (v. ${sortedVerses.first})'
-          : 'Open Verse Study';
-
-      inlineActionBar = VerseActionBar(
-        selectedCount: s.selectedVerses.length,
-        appearance: controller.appearance,
-        onCopy: onCopy,
-        onShare: onShare,
-        onBookmark: onBookmark,
-        onHighlight: onHighlight ?? () {},
-        onHighlightColor: (color) => controller.applyHighlight(color),
-        onRemoveHighlight: () => controller.removeHighlight(),
-        currentColorIndex: s.highlightColorForSelection,
-        hasHighlight: s.selectionHasHighlight,
-        isBookmarked: s.selectionIsBookmarked,
-        verseLabel: verseLabel,
-        studyLabel: studyLabel,
-        onNote: onNote ?? () {},
-        onClear: onClear,
-        onStudy: () => onOpenStudyPage(
-          s.selectedVerses.first,
-          book: s.selectedBook,
-          chapter: s.selectedChapter,
-        ),
-      );
-    }
 
     return VerseItem(
       verse: verse,
@@ -340,7 +301,6 @@ class _VerseRow extends StatelessWidget {
           onOpenStudyPage(verse.number, initialTab: initialTab, book: book, chapter: chapter),
       bookNumber: bn,
       chapter: chapter,
-      inlineActionBar: inlineActionBar,
     );
   }
 }

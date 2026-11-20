@@ -180,7 +180,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(VerseStudyScreen), findsNothing);
 
-    await tester.tap(find.byKey(VerseActionBar.studyPromptKey));
+    await tester.tap(find.byKey(VerseActionBar.studyKey));
     // Study loads asynchronously; its loading indicator intentionally animates.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -195,7 +195,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(VerseStudyScreen), findsNothing);
     expect(controller.state.selectedVerses, {3});
-    expect(find.byKey(VerseActionBar.studyPromptKey).hitTestable(), findsOneWidget);
+    expect(find.byKey(VerseActionBar.studyKey).hitTestable(), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();
   });

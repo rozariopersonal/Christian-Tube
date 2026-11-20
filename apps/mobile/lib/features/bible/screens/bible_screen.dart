@@ -22,6 +22,7 @@ import '../services/bible_chapter_stream.dart';
 import '../services/bible_passage_navigator.dart';
 import '../widgets/bible_app_bar.dart';
 import '../widgets/bible_content.dart';
+import '../widgets/verse_action_bar.dart';
 import '../widgets/bible_bottom_nav.dart';
 import '../../../core/services/bottom_bar_visibility_service.dart';
 
@@ -660,7 +661,9 @@ class _BibleScreenState extends State<BibleScreen> {
           onOpenBookmarks: _openBookmarks,
           onPushManager: _pushManager,
         ),
-        body: Column(
+        body: Stack(
+          children: [
+            Column(
           children: [
             Expanded(
               child: BibleContent(
@@ -694,9 +697,38 @@ class _BibleScreenState extends State<BibleScreen> {
               ),
           ],
         ),
+            if (s.selectedVerses.isNotEmpty)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 12 + MediaQuery.paddingOf(context).bottom,
+                child: Center(child: _buildSelectionBar(s)),
+              ),
+          ],
+        ),
       ),
     );
   },
 );
 }
-}
+
+  Widget _buildSelectionBar(BibleControllerState s) {
+    return VerseActionBar(
+      selectedCount: s.selectedVerses.length,
+      onCopy: _copySelectedVerses,
+      onShare: _shareSelectedVerses,
+      onBookmark: _bookmarkSelectedVerses,
+      onNote: _openNoteEditor,
+      onHighlightColor: (color) => _controller.applyHighlight(color),
+      onRemoveHighlight: () => _controller.removeHighlight(),
+      currentColorIndex: s.highlightColorForSelection,
+      hasHighlight: s.selectionHasHighlight,
+      isBookmarked: s.selectionIsBookmarked,
+      onClear: _controller.clearSelection,
+      onStudy: () => _openVerseStudyScreen(
+        s.selectedVerses.first,
+        book: s.selectedBook,
+        chapter: s.selectedChapter,
+      ),
+    );
+  }}
