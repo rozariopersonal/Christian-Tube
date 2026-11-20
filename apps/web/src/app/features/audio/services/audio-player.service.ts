@@ -35,6 +35,15 @@ export class AudioPlayerService {
 
   constructor() {
     effect(() => {
+      if (!this.auth.currentUser()) {
+        if (this.audio && !this.audio.paused) {
+          this.audio.pause();
+        }
+        this.currentTrack.set(null);
+        this.position.set(0);
+        this.duration.set(0);
+        return;
+      }
       const audioPb = this.userSync.remoteState()?.audioPlayback;
       if (!audioPb || this.isPlaying()) return;
       if (this.userSync.pendingOps()['audio_playback:audio']) return;

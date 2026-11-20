@@ -286,7 +286,7 @@ class AuthService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('current_user');
     await prefs.remove('auth_token');
-    await UserSyncService.instance.onUserChanged(null);
+    await UserSyncService.instance.clearAllDeviceData();
     await UserPreferenceService.instance.clearForSignOut();
     notifyListeners();
   }

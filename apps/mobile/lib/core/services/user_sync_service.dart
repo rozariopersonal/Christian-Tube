@@ -110,6 +110,29 @@ class UserSyncService extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> clearAllDeviceData() async {
+    await onUserChanged(null);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      const exactKeys = [
+        _keyClockOffset,
+        _keyLastGuestId,
+        'subscribed_channel_ids',
+        'user_watch_history_v1',
+        'video_playheads_map_v1',
+      ];
+      for (final k in exactKeys) {
+        await prefs.remove(k);
+      }
+      final allKeys = prefs.getKeys().toList();
+      for (final k in allKeys) {
+        if (k.startsWith(_keyPendingPrefix) || k.startsWith('video_playhead_')) {
+          await prefs.remove(k);
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> onUserChanged(String? userId) async {
     if (userId == null || userId.isEmpty) {
       _activeUserId = null;

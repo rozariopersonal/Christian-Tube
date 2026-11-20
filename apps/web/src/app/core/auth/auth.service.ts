@@ -120,6 +120,35 @@ export class AuthService {
     try {
       localStorage.removeItem(KEY_USER);
       localStorage.removeItem(KEY_TOKEN);
+      const prefixes = [
+        'subscribed_channel_ids',
+        'ct_web_watch_history_',
+        'ct_web_watch_later_',
+        'ct_web_video_playheads_',
+        'ct_web_recent_searches_',
+        'ct_web_autoplay_',
+        'ct_web_sync_pending_',
+        'ct_web_clock_offset_',
+        'ct_web_last_guest_id_',
+      ];
+      const exactKeys = [
+        'audio_last_track',
+        'preferred_languages',
+        'primary_bible_version',
+      ];
+      for (const k of exactKeys) {
+        localStorage.removeItem(k);
+      }
+      const allKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k) allKeys.push(k);
+      }
+      for (const k of allKeys) {
+        if (prefixes.some((p) => k.startsWith(p))) {
+          localStorage.removeItem(k);
+        }
+      }
     } catch {
       // ignore
     }

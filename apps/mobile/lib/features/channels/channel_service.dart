@@ -26,6 +26,14 @@ class ChannelService extends ChangeNotifier {
   }
 
   void _onSyncStateChanged() {
+    if (UserSyncService.instance.activeUserId == null) {
+      if (_subscribedIds.isNotEmpty) {
+        _subscribedIds.clear();
+        _syncSubscriptionStatus();
+        notifyListeners();
+      }
+      return;
+    }
     final remote = UserSyncService.instance.remoteState;
     final subs = remote?['subscriptions'];
     if (subs is! List) return;

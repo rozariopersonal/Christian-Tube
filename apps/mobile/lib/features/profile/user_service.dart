@@ -118,6 +118,14 @@ class UserService extends ChangeNotifier {
   }
 
   Future<void> _onSyncStateChanged() async {
+    if (UserSyncService.instance.activeUserId == null) {
+      if (_history.isNotEmpty || _playheads.isNotEmpty) {
+        _history = [];
+        _playheads = {};
+        notifyListeners();
+      }
+      return;
+    }
     final remote = UserSyncService.instance.remoteState;
     if (remote == null) return;
     final pending = UserSyncService.instance.pendingOps;
