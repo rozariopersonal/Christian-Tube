@@ -495,6 +495,7 @@ interface AppendedBibleChapter {
               [style.font-family]="appearance.activeFont().cssFamily"
               [style.font-size.px]="appearance.fontSize()"
               [style.line-height]="appearance.lineHeight()"
+              [style.letter-spacing.em]="appearance.letterSpacing()"
               (dblclick)="lookupFromSelection()"
             >
               <ng-container [ngTemplateOutlet]="bibleVersesTpl" />
@@ -563,6 +564,7 @@ interface AppendedBibleChapter {
             [style.font-family]="appearance.activeFont().cssFamily"
             [style.font-size.px]="appearance.fontSize()"
             [style.line-height]="appearance.lineHeight()"
+            [style.letter-spacing.em]="appearance.letterSpacing()"
             (dblclick)="lookupFromSelection()"
           >
             <ng-container [ngTemplateOutlet]="bibleVersesTpl" />
@@ -607,6 +609,7 @@ interface AppendedBibleChapter {
                 [style.font-family]="appearance.activeFont().cssFamily"
                 [style.font-size.px]="appearance.fontSize()"
                 [style.line-height]="appearance.lineHeight()"
+                [style.letter-spacing.em]="appearance.letterSpacing()"
                 (dblclick)="lookupFromSelection()"
               >
                 @for (v of extra.verses; track v.verse) {
@@ -1919,6 +1922,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       this.bible.loading();
       this.appearance.fontSize();
       this.appearance.lineHeight();
+      this.appearance.letterSpacing();
       this.appearance.fontId();
       this.appearance.bibleLayout();
       this.immersive();

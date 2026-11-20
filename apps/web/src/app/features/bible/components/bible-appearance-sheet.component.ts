@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  LETTER_SPACING_PRESETS,
+  LINE_HEIGHT_PRESETS,
   READER_FONTS,
   READER_PAPER_THEMES,
   ReaderAppearanceService,
@@ -83,7 +85,41 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
       </div>
 
       <div class="appearance-section">
-        <label class="label">Line Spacing: {{ appearance.lineHeight() }}</label>
+        <div class="section-head">
+          <label class="label">Line Spacing: {{ appearance.lineHeight() }}</label>
+          <div class="step-group">
+            <button
+              type="button"
+              class="step-btn"
+              aria-label="Decrease line spacing"
+              [disabled]="appearance.lineHeight() <= 1.3"
+              (click)="appearance.stepLineHeight(-0.05)"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              class="step-btn"
+              aria-label="Increase line spacing"
+              [disabled]="appearance.lineHeight() >= 2.2"
+              (click)="appearance.stepLineHeight(0.05)"
+            >
+              +
+            </button>
+          </div>
+        </div>
+        <div class="chip-wrap">
+          @for (p of linePresets; track p.id) {
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="Math.abs(appearance.lineHeight() - p.value) < 0.03"
+              (click)="appearance.setLineHeight(p.value)"
+            >
+              {{ p.label }}
+            </button>
+          }
+        </div>
         <input
           type="range"
           min="1.3"
@@ -91,6 +127,54 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
           step="0.05"
           [ngModel]="appearance.lineHeight()"
           (ngModelChange)="appearance.setLineHeight($event)"
+        />
+      </div>
+
+      <div class="appearance-section">
+        <div class="section-head">
+          <label class="label">
+            Letter Spacing: {{ appearance.formatLetterSpacing() }}
+          </label>
+          <div class="step-group">
+            <button
+              type="button"
+              class="step-btn"
+              aria-label="Decrease letter spacing"
+              [disabled]="appearance.letterSpacing() <= -0.04"
+              (click)="appearance.stepLetterSpacing(-0.01)"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              class="step-btn"
+              aria-label="Increase letter spacing"
+              [disabled]="appearance.letterSpacing() >= 0.12"
+              (click)="appearance.stepLetterSpacing(0.01)"
+            >
+              +
+            </button>
+          </div>
+        </div>
+        <div class="chip-wrap">
+          @for (p of letterPresets; track p.id) {
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="Math.abs(appearance.letterSpacing() - p.value) < 0.005"
+              (click)="appearance.setLetterSpacing(p.value)"
+            >
+              {{ p.label }}
+            </button>
+          }
+        </div>
+        <input
+          type="range"
+          min="-0.04"
+          max="0.12"
+          step="0.01"
+          [ngModel]="appearance.letterSpacing()"
+          (ngModelChange)="appearance.setLetterSpacing($event)"
         />
       </div>
     </app-modal-sheet>
@@ -101,6 +185,41 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
         display: flex;
         flex-direction: column;
         gap: 8px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .step-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .step-btn {
+        width: 26px;
+        height: 26px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--surface-border);
+        background-color: var(--surface-variant);
+        color: var(--on-surface);
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+      }
+
+      .step-btn:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .step-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
       }
 
       .label {
@@ -152,5 +271,8 @@ export class BibleAppearanceSheetComponent {
   readonly appearance = inject(ReaderAppearanceService);
   readonly fonts = READER_FONTS;
   readonly paperThemes = READER_PAPER_THEMES;
+  readonly linePresets = LINE_HEIGHT_PRESETS;
+  readonly letterPresets = LETTER_SPACING_PRESETS;
+  readonly Math = Math;
   readonly closed = output<void>();
 }

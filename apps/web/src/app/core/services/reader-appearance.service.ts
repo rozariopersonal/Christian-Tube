@@ -53,9 +53,28 @@ export const READER_PAPER_THEMES: readonly PaperThemeOption[] = [
   { id: 'night', label: 'Night', swatchBg: '#121620', swatchFg: '#E2E8F0' },
 ];
 
+export interface SpacingPreset {
+  id: string;
+  label: string;
+  value: number;
+}
+
+export const LINE_HEIGHT_PRESETS: readonly SpacingPreset[] = [
+  { id: 'tight', label: 'Tight', value: 1.4 },
+  { id: 'normal', label: 'Normal', value: 1.65 },
+  { id: 'relaxed', label: 'Relaxed', value: 1.95 },
+];
+
+export const LETTER_SPACING_PRESETS: readonly SpacingPreset[] = [
+  { id: 'tight', label: 'Tight', value: -0.02 },
+  { id: 'normal', label: 'Normal', value: 0 },
+  { id: 'wide', label: 'Wide', value: 0.04 },
+];
+
 const KEY_FONT_ID = 'reader_font_id';
 const KEY_FONT_SIZE = 'reader_font_size';
 const KEY_LINE_HEIGHT = 'reader_line_height';
+const KEY_LETTER_SPACING = 'reader_letter_spacing';
 const KEY_PRIMARY_BIBLE = 'primary_bible_version';
 const KEY_PAPER_THEME = 'reader_paper_theme';
 const KEY_BIBLE_LAYOUT = 'bible_reading_layout';
@@ -73,6 +92,9 @@ export class ReaderAppearanceService {
   readonly fontId = signal<string>(this.readStr(KEY_FONT_ID, 'system'));
   readonly fontSize = signal<number>(this.readNum(KEY_FONT_SIZE, 17, 13, 28));
   readonly lineHeight = signal<number>(this.readNum(KEY_LINE_HEIGHT, 1.65, 1.3, 2.2));
+  readonly letterSpacing = signal<number>(
+    this.readNum(KEY_LETTER_SPACING, 0, -0.04, 0.12),
+  );
   readonly primaryBibleVersion = signal<string>(
     this.readStr(KEY_PRIMARY_BIBLE, AppConfig.defaultBibleVersion),
   );
@@ -119,9 +141,33 @@ export class ReaderAppearanceService {
   }
 
   setLineHeight(lh: number): void {
-    const clamped = Math.min(2.2, Math.max(1.3, Number(lh.toFixed(2))));
+    const raw = Number(lh);
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.min(2.2, Math.max(1.3, Number(raw.toFixed(2))));
     this.lineHeight.set(clamped);
     this.writeStr(KEY_LINE_HEIGHT, String(clamped));
+  }
+
+  stepLineHeight(delta: number): void {
+    this.setLineHeight(this.lineHeight() + delta);
+  }
+
+  setLetterSpacing(ls: number): void {
+    const raw = Number(ls);
+    if (Number.isNaN(raw)) return;
+    const clamped = Math.min(0.12, Math.max(-0.04, Number(raw.toFixed(2))));
+    const normalized = Object.is(clamped, -0) ? 0 : clamped;
+    this.letterSpacing.set(normalized);
+    this.writeStr(KEY_LETTER_SPACING, String(normalized));
+  }
+
+  stepLetterSpacing(delta: number): void {
+    this.setLetterSpacing(this.letterSpacing() + delta);
+  }
+
+  formatLetterSpacing(val = this.letterSpacing()): string {
+    if (Math.abs(val) < 0.005) return 'Normal (0em)';
+    return `${val > 0 ? '+' : ''}${val.toFixed(2)}em`;
   }
 
   setPrimaryBibleVersion(version: string, sync = true): void {

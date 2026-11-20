@@ -166,7 +166,10 @@ interface ImageSpread {
     </ng-template>
 
     <ng-template #topbarRight>
-      <app-reader-columns-toggle [maxColumns]="isImageBook() ? 2 : 3" />
+      <app-reader-columns-toggle
+        [maxColumns]="isImageBook() ? 2 : 3"
+        [hideSpacing]="isImageBook()"
+      />
       <div class="tb-actions-pill">
         <button
           type="button"
@@ -634,6 +637,7 @@ interface ImageSpread {
                 [style.font-family]="appearance.activeFont().cssFamily"
                 [style.font-size.px]="appearance.fontSize()"
                 [style.line-height]="appearance.lineHeight()"
+                [style.letter-spacing.em]="appearance.letterSpacing()"
                 [style.text-align]="appearance.bookAlign()"
                 (dblclick)="lookupFromSelection()"
               >
@@ -771,6 +775,7 @@ interface ImageSpread {
                 [style.font-family]="appearance.activeFont().cssFamily"
                 [style.font-size.px]="appearance.fontSize()"
                 [style.line-height]="appearance.lineHeight()"
+                [style.letter-spacing.em]="appearance.letterSpacing()"
                 [style.text-align]="appearance.bookAlign()"
                 (dblclick)="lookupFromSelection()"
               >
@@ -809,6 +814,7 @@ interface ImageSpread {
                   [style.font-family]="appearance.activeFont().cssFamily"
                   [style.font-size.px]="appearance.fontSize()"
                   [style.line-height]="appearance.lineHeight()"
+                  [style.letter-spacing.em]="appearance.letterSpacing()"
                   [style.text-align]="appearance.bookAlign()"
                   (dblclick)="lookupFromSelection()"
                 >
@@ -2136,6 +2142,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       this.fullBookChapters();
       this.appearance.fontSize();
       this.appearance.lineHeight();
+      this.appearance.letterSpacing();
       this.appearance.fontId();
       this.appearance.bookMargin();
       this.appearance.bookAlign();

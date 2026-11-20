@@ -186,6 +186,7 @@ import { ArticlesService } from '../services/articles.service';
               [style.font-family]="appearance.activeFont().cssFamily"
               [style.font-size.px]="appearance.fontSize()"
               [style.line-height]="appearance.lineHeight()"
+              [style.letter-spacing.em]="appearance.letterSpacing()"
               [style.text-align]="appearance.bookAlign()"
               (dblclick)="lookupFromSelection()"
             >
@@ -637,6 +638,7 @@ export class ArticleReaderComponent implements OnInit, AfterViewInit {
       this.effectiveCols();
       this.appearance.fontSize();
       this.appearance.lineHeight();
+      this.appearance.letterSpacing();
       this.appearance.fontId();
       this.appearance.bookMargin();
       this.article();

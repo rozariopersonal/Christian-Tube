@@ -223,11 +223,26 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
           />
         </div>
 
+        <div class="field-group">
+          <label class="label">
+            Letter Spacing: {{ appearance.formatLetterSpacing() }}
+          </label>
+          <input
+            type="range"
+            min="-0.04"
+            max="0.12"
+            step="0.01"
+            [ngModel]="appearance.letterSpacing()"
+            (ngModelChange)="appearance.setLetterSpacing($event)"
+          />
+        </div>
+
         <div
           class="preview-box"
           [style.font-family]="appearance.activeFont().cssFamily"
           [style.font-size.px]="appearance.fontSize()"
           [style.line-height]="appearance.lineHeight()"
+          [style.letter-spacing.em]="appearance.letterSpacing()"
         >
           In the beginning God created the heavens and the earth.
         </div>
