@@ -285,6 +285,64 @@ describe('BibleService', () => {
     expect(res.results.map((r) => r.reference)).toEqual(['John 11:35']);
   });
 
+  it('uses HYBRID rescue only when low-confidence DENSE returns 0 hits above floor', async () => {
+    global.fetch = jest.fn(async (url: string, init?: any) => {
+      const body = init?.body ? JSON.parse(init.body) : {};
+      if (body.fusionAlgorithm === 'RRF') {
+        return {
+          ok: true,
+          json: async () => ({
+            result: url.endsWith('/windows')
+              ? []
+              : [
+                  {
+                    id: '42:19:4',
+                    score: 0.0167,
+                    metadata: {
+                      b: 42,
+                      n: 'Luke',
+                      c: 19,
+                      v: 4,
+                      text: 'He climbed up into a sycamore tree to see him.',
+                    },
+                  },
+                ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          result: url.endsWith('/windows')
+            ? []
+            : [
+                {
+                  id: '42:19:4',
+                  score: 0.73,
+                  metadata: {
+                    b: 42,
+                    n: 'Luke',
+                    c: 19,
+                    v: 4,
+                    text: 'He climbed up into a sycamore tree to see him.',
+                  },
+                },
+              ],
+        }),
+      };
+    }) as any;
+
+    const svc = new BibleService(
+      makeConfig({
+        'upstashVector.restUrl': 'https://example-vector.upstash.io',
+        'upstashVector.restToken': 'vec-token',
+      }),
+    );
+
+    const rescued = await svc.search('zacchaeus climbs sycamore tree', 10);
+    expect(rescued.results.map((r) => r.reference)).toEqual(['Luke 19:4']);
+  });
+
   it('caches Bible search results in CacheService for 30 days', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
@@ -307,10 +365,114 @@ describe('BibleService', () => {
     await svc.search('  Peace  of   God ', 15);
     expect(cache.getOrSet).toHaveBeenCalledWith(
       'bible',
-      'search:v3:15:peace of god',
+      'search:v4:15:peace of god',
       2592000,
       expect.any(Function),
     );
+  });
+
+  it('normalizes book typos + cardinals safely and deduplicates overlapping passages', async () => {
+    const fetchMock = jest.fn(async (url: string, init?: any) => {
+      const body = init?.body ? JSON.parse(init.body) : {};
+      if (url.endsWith('/fetch')) {
+        return {
+          ok: true,
+          json: async () => ({
+            result: [
+              {
+                id: '40:6:33',
+                metadata: {
+                  b: 40,
+                  n: 'Matthew',
+                  c: 6,
+                  v: 33,
+                  text: "But seek first God's Kingdom...",
+                },
+              },
+            ],
+          }),
+        };
+      }
+      if (url.endsWith('/query-data/windows')) {
+        return {
+          ok: true,
+          json: async () => ({
+            result: [
+              {
+                id: 'w:42:17:10-14',
+                score: 0.795,
+                metadata: {
+                  b: 42,
+                  n: 'Luke',
+                  c: 17,
+                  v: 10,
+                  endV: 14,
+                  kind: 'window',
+                  text: '12. ten men who were lepers met him...',
+                },
+              },
+              {
+                id: 'w:42:17:13-17',
+                score: 0.79,
+                metadata: {
+                  b: 42,
+                  n: 'Luke',
+                  c: 17,
+                  v: 13,
+                  endV: 17,
+                  kind: 'window',
+                  text: '13. Jesus, Master... 15. healed... 17. ten cleansed',
+                },
+              },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          result: [
+            {
+              id: '41:3:10',
+              score: 0.801,
+              metadata: {
+                b: 41,
+                n: 'Mark',
+                c: 3,
+                v: 10,
+                text: 'For he had healed many...',
+              },
+            },
+          ],
+        }),
+      };
+    });
+    global.fetch = fetchMock as any;
+
+    const svc = new BibleService(
+      makeConfig({
+        'upstashVector.restUrl': 'https://example-vector.upstash.io',
+        'upstashVector.restToken': 'vec-token',
+      }),
+    );
+
+    const leporsRes = await svc.search('jesus healed the 10 lepors', 10);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example-vector.upstash.io/query-data',
+      expect.objectContaining({
+        body: expect.stringContaining('"jesus healed the ten lepors"'),
+      }),
+    );
+    expect(leporsRes.results[0].reference).toBe('Luke 17:13-17');
+    // Overlapping Luke 17:10-14 passage is collapsed once Luke 17:13-17 is picked.
+    expect(leporsRes.results.map((r) => r.reference)).toEqual([
+      'Luke 17:13-17',
+      'Mark 3:10',
+    ]);
+
+    const typoRefRes = await svc.search('mathew 6:33', 5);
+    expect(typoRefRes.results[0].reference).toBe('Matthew 6:33');
+    expect(typoRefRes.results[0].score).toBe(1);
   });
 
   it('degrades gracefully without caching when Upstash Vector fails', async () => {

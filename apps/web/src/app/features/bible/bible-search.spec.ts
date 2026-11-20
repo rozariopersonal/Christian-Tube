@@ -5,6 +5,7 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { AppConfig } from '../../core/config/app-config';
+import { ScriptureRefParserService } from '../books/services/scripture-ref-parser.service';
 import { BibleService } from './services/bible.service';
 
 describe('BibleService semantic search', () => {
@@ -108,5 +109,27 @@ describe('BibleService semantic search', () => {
     expect(localized[0].text).toBe(
       '34. And said, Where have ye laid him? 35. Jesus wept.',
     );
+  });
+
+  it('parses fuzzy misspelled book citations safely', () => {
+    const parser = TestBed.inject(ScriptureRefParserService);
+    expect(parser.parseSearchQuery('mathew 6:33')).toMatchObject({
+      bookNumber: 40,
+      bookName: 'Matthew',
+      chapter: 6,
+      startVerse: 33,
+    });
+    expect(parser.parseSearchQuery('1 corintians 13:4')).toMatchObject({
+      bookNumber: 46,
+      bookName: '1 Corinthians',
+      chapter: 13,
+      startVerse: 4,
+    });
+    expect(parser.parseSearchQuery('pslam 23')).toMatchObject({
+      bookNumber: 19,
+      chapter: 23,
+      startVerse: 1,
+    });
+    expect(parser.parseSearchQuery('join 5')).toBeNull();
   });
 });

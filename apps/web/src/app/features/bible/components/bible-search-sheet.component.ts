@@ -249,8 +249,8 @@ export class BibleSearchSheetComponent {
     const raw = this.query().trim();
     if (raw.length < 2) return;
 
-    // 1. Check if the query is a direct scripture reference (e.g. "John 3:16")
-    const parsed = this.parser.parse(raw).find((t) => t.ref !== null)?.ref;
+    // 1. Check if the query is a direct scripture reference (e.g. "John 3:16" or "mathew 6:33")
+    const parsed = this.parser.parseSearchQuery(raw);
     if (parsed) {
       this.jumpTo.emit({
         bookNumber: parsed.bookNumber,

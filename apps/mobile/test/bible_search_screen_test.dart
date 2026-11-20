@@ -54,6 +54,32 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  group('BibleSearchService', () {
+    test('parses fuzzy misspelled book citations without false positives on prose', () {
+      final service = BibleSearchService(dio: Dio());
+      final mat = service.parseDirectReference('mathew 6:33');
+      expect(mat?.bookNumber, 40);
+      expect(mat?.bookName, 'Matthew');
+      expect(mat?.chapter, 6);
+      expect(mat?.startVerse, 33);
+
+      final cor = service.parseDirectReference('1 corintians 13:4');
+      expect(cor?.bookNumber, 46);
+      expect(cor?.chapter, 13);
+      expect(cor?.startVerse, 4);
+
+      final pslam = service.parseDirectReference('pslam 23');
+      expect(pslam?.bookNumber, 19);
+      expect(pslam?.chapter, 23);
+
+      final luke = service.parseDirectReference('Luke 17');
+      expect(luke?.bookNumber, 42);
+      expect(luke?.chapter, 17);
+
+      expect(service.parseDirectReference('join 5'), isNull);
+    });
+  });
+
   group('BibleSearchHit', () {
     test('formats passage ranges and resolves canonical book key', () {
       final hit = BibleSearchHit.fromJson({
