@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { UsersModule } from './modules/users/users.module';
+import { UserItemsModule } from './modules/user-items/user-items.module';
 import { VideosModule } from './modules/videos/videos.module';
 import { ChannelsModule } from './modules/channels/channels.module';
 import { YoutubeModule } from './modules/youtube/youtube.module';
@@ -30,6 +31,7 @@ import { BibleModule } from './modules/bible/bible.module';
     HealthModule,
     PrismaModule,
     UsersModule,
+    UserItemsModule,
     StorageModule,
     VideosModule,
     ChannelsModule,

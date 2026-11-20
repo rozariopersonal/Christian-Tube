@@ -1,8 +1,13 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import {
+  SyncUserItem,
+  UserItemsSyncService,
+} from '../../../core/services/user-items-sync.service';
 import { OnlineBibleService } from './online-bible.service';
 import {
   BOOK_ABBREVS,
@@ -24,9 +29,11 @@ const INCOMPLETE_VERSIONS = new Set(['nasb', 'nlt', 'msg']);
 @Injectable({ providedIn: 'root' })
 export class BibleService {
   private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
   private readonly releases = inject(ReleaseDataService);
   private readonly appearance = inject(ReaderAppearanceService);
   private readonly onlineBible = inject(OnlineBibleService);
+  private readonly itemsSync = inject(UserItemsSyncService);
 
   readonly version = signal<string>(
     this.readState().version ??
@@ -44,15 +51,37 @@ export class BibleService {
   readonly fallbackNotice = signal<string | null>(null);
   readonly compareVersions = signal<string[]>([]);
 
-  readonly highlights = signal<Record<string, string>>(
-    this.readJson<Record<string, string>>(KEY_HIGHLIGHTS, {}),
-  );
-  readonly bookmarks = signal<BibleBookmark[]>(
-    this.readJson<BibleBookmark[]>(KEY_BOOKMARKS, []),
-  );
-  readonly notes = signal<Record<string, string>>(
-    this.readJson<Record<string, string>>(KEY_NOTES, {}),
-  );
+  readonly highlights = signal<Record<string, string>>({});
+  readonly bookmarks = signal<BibleBookmark[]>([]);
+  readonly notes = signal<Record<string, string>>({});
+
+  private syncedUserId: string | null = null;
+
+  constructor() {
+    this.reloadAnnotationsFromCache();
+
+    effect(() => {
+      const uid = this.auth.currentUser()?.id ?? null;
+      if (uid !== this.syncedUserId) {
+        this.syncedUserId = uid;
+        this.reloadAnnotationsFromCache();
+      }
+    });
+
+    effect(() => {
+      const remote = this.itemsSync.remoteItems();
+      if (!this.auth.isAuthenticated()) return;
+      this.applyRemoteBibleItems(remote);
+    });
+  }
+
+  private reloadAnnotationsFromCache(): void {
+    this.highlights.set(
+      this.readUserJson<Record<string, string>>(KEY_HIGHLIGHTS, {}),
+    );
+    this.bookmarks.set(this.readUserJson<BibleBookmark[]>(KEY_BOOKMARKS, []));
+    this.notes.set(this.readUserJson<Record<string, string>>(KEY_NOTES, {}));
+  }
 
   readonly currentBook = computed(
     () =>
@@ -538,13 +567,30 @@ export class BibleService {
       delete next[key];
     }
     this.highlights.set(next);
-    this.writeJson(KEY_HIGHLIGHTS, next);
+    this.writeUserJson(KEY_HIGHLIGHTS, next);
+
+    if (this.auth.isAuthenticated()) {
+      this.itemsSync.enqueueItem({
+        id: `bible_hl:${key}`,
+        itemType: 'highlight',
+        feature: 'bible',
+        targetId: key,
+        versionId: this.version(),
+        book: this.currentBook().name,
+        chapter: this.chapter(),
+        verseStart: verseNum,
+        verseEnd: verseNum,
+        color,
+        deleted: !color,
+      });
+    }
   }
 
   toggleBookmark(verse: BibleVerse): void {
     const key = this.verseKey(verse.verse);
     const existing = this.bookmarks();
-    const next = existing.some((b) => b.key === key)
+    const removing = existing.some((b) => b.key === key);
+    const next = removing
       ? existing.filter((b) => b.key !== key)
       : [
           {
@@ -559,7 +605,24 @@ export class BibleService {
           ...existing,
         ];
     this.bookmarks.set(next);
-    this.writeJson(KEY_BOOKMARKS, next);
+    this.writeUserJson(KEY_BOOKMARKS, next);
+
+    if (this.auth.isAuthenticated()) {
+      this.itemsSync.enqueueItem({
+        id: `bible_bm:${key}`,
+        itemType: 'bookmark',
+        feature: 'bible',
+        targetId: key,
+        versionId: this.version(),
+        book: this.currentBook().name,
+        chapter: this.chapter(),
+        verseStart: verse.verse,
+        verseEnd: verse.verse,
+        text: verse.text,
+        payloadJson: JSON.stringify({ bookNumber: this.bookNumber() }),
+        deleted: removing,
+      });
+    }
   }
 
   isBookmarked(verseNum: number): boolean {
@@ -570,13 +633,30 @@ export class BibleService {
   saveNote(verseNum: number, text: string): void {
     const key = this.verseKey(verseNum);
     const next = { ...this.notes() };
-    if (text.trim()) {
-      next[key] = text.trim();
+    const clean = text.trim();
+    if (clean) {
+      next[key] = clean;
     } else {
       delete next[key];
     }
     this.notes.set(next);
-    this.writeJson(KEY_NOTES, next);
+    this.writeUserJson(KEY_NOTES, next);
+
+    if (this.auth.isAuthenticated()) {
+      this.itemsSync.enqueueItem({
+        id: `bible_note:${key}`,
+        itemType: 'note',
+        feature: 'bible',
+        targetId: key,
+        versionId: this.version(),
+        book: this.currentBook().name,
+        chapter: this.chapter(),
+        verseStart: verseNum,
+        verseEnd: verseNum,
+        text: clean,
+        deleted: !clean,
+      });
+    }
   }
 
   private saveState(): void {
@@ -593,6 +673,76 @@ export class BibleService {
     chapter?: number;
   } {
     return this.readJson(KEY_STATE, {});
+  }
+
+  private applyRemoteBibleItems(remote: SyncUserItem[]): void {
+    const pending = this.itemsSync.pendingItems();
+    const mergedById = new Map<string, SyncUserItem>();
+    for (const item of remote) {
+      if (item.feature === 'bible') {
+        mergedById.set(item.id, item);
+      }
+    }
+    for (const op of Object.values(pending)) {
+      if (op.feature === 'bible') {
+        mergedById.set(op.id, op);
+      }
+    }
+    if (mergedById.size === 0) return;
+
+    const nextHl: Record<string, string> = {};
+    const nextBm: BibleBookmark[] = [];
+    const nextNotes: Record<string, string> = {};
+
+    for (const item of mergedById.values()) {
+      if (item.deleted) continue;
+      if (item.itemType === 'highlight') {
+        nextHl[item.targetId] = item.color ?? '#FEF08A';
+      } else if (item.itemType === 'note') {
+        if (item.text) nextNotes[item.targetId] = item.text;
+      } else if (item.itemType === 'bookmark') {
+        let bookNumber = 1;
+        if (item.payloadJson) {
+          try {
+            bookNumber = Number(JSON.parse(item.payloadJson)?.bookNumber ?? 1);
+          } catch {
+            bookNumber = 1;
+          }
+        } else if (item.targetId.includes(':')) {
+          bookNumber = Number(item.targetId.split(':')[0]) || 1;
+        }
+        nextBm.push({
+          key: item.targetId,
+          bookNumber,
+          bookName: item.book ?? '',
+          chapter: item.chapter ?? 1,
+          verse: item.verseStart ?? 1,
+          text: item.text ?? '',
+          createdAt: item.createdAt ?? item.updatedAt,
+        });
+      }
+    }
+
+    this.highlights.set(nextHl);
+    this.writeUserJson(KEY_HIGHLIGHTS, nextHl);
+    this.bookmarks.set(nextBm);
+    this.writeUserJson(KEY_BOOKMARKS, nextBm);
+    this.notes.set(nextNotes);
+    this.writeUserJson(KEY_NOTES, nextNotes);
+  }
+
+  private readUserJson<T>(baseKey: string, fallback: T): T {
+    const key = this.auth.isAuthenticated()
+      ? this.itemsSync.userCacheKey(baseKey)
+      : baseKey;
+    return this.readJson(key, fallback);
+  }
+
+  private writeUserJson(baseKey: string, value: unknown): void {
+    const key = this.auth.isAuthenticated()
+      ? this.itemsSync.userCacheKey(baseKey)
+      : baseKey;
+    this.writeJson(key, value);
   }
 
   private readJson<T>(key: string, fallback: T): T {

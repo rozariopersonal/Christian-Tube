@@ -14,8 +14,11 @@ class UserItem {
   static const String typeHighlight = 'highlight';
   static const String typeBookmark = 'bookmark';
   static const String typeNote = 'note';
+  static const String typeTextRange = 'text_range';
 
   static const String featureBible = 'bible';
+  static const String featureBook = 'book';
+  static const String featureArticle = 'article';
 
   final String userId;
   final String id;
@@ -28,15 +31,19 @@ class UserItem {
   final int chapter;
   final int verseStart;
   final int verseEnd;
+  final int startOffset;
+  final int endOffset;
 
   /// Canonical anchor string (`Book:Chapter:Verse` for bible items; the raw
   /// target id for book/article notes).
   final String targetId;
 
-  /// Highlight color index; null for non-highlight items.
+  /// Highlight color index or hex string; null for non-highlight items.
   final int? colorIndex;
+  final String? color;
   final String text;
   final String? contextText;
+  final String? payloadJson;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -53,10 +60,14 @@ class UserItem {
     this.chapter = 0,
     this.verseStart = 0,
     this.verseEnd = 0,
+    this.startOffset = 0,
+    this.endOffset = 0,
     required this.targetId,
     this.colorIndex,
+    this.color,
     this.text = '',
     this.contextText,
+    this.payloadJson,
     required this.createdAt,
     required this.updatedAt,
     this.deleted = false,
@@ -130,10 +141,14 @@ class UserItem {
         'chapter': chapter,
         'verseStart': verseStart,
         'verseEnd': verseEnd,
+        'startOffset': startOffset,
+        'endOffset': endOffset,
         'targetId': targetId,
         'colorIndex': colorIndex,
+        if (color != null) 'color': color,
         'text': text,
         'contextText': contextText,
+        if (payloadJson != null) 'payloadJson': payloadJson,
         'createdAt': createdAt.toUtc().toIso8601String(),
         'updatedAt': updatedAt.toUtc().toIso8601String(),
         'deleted': deleted,
@@ -149,10 +164,14 @@ class UserItem {
         chapter: (json['chapter'] as num?)?.toInt() ?? 0,
         verseStart: (json['verseStart'] as num?)?.toInt() ?? 0,
         verseEnd: (json['verseEnd'] as num?)?.toInt() ?? 0,
+        startOffset: (json['startOffset'] as num?)?.toInt() ?? 0,
+        endOffset: (json['endOffset'] as num?)?.toInt() ?? 0,
         targetId: json['targetId'] as String? ?? '',
         colorIndex: (json['colorIndex'] as num?)?.toInt(),
+        color: json['color'] as String?,
         text: json['text'] as String? ?? '',
         contextText: json['contextText'] as String?,
+        payloadJson: json['payloadJson'] as String?,
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0),
         updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
