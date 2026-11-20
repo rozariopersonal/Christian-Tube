@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AppConfig } from '../../../core/config/app-config';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -430,10 +430,12 @@ export class VideoFeedComponent implements OnInit {
       const subKey = [...this.channels.subscribedIds()].sort().join(',');
       if (subKey !== this.lastSyncedSubKey) {
         this.lastSyncedSubKey = subKey;
-        void this.videos.fetchShorts(true);
-        if (this.filterMode() === 'following') {
-          this.applyFilter();
-        }
+        untracked(() => {
+          void this.videos.fetchShorts(true);
+          if (this.filterMode() === 'following') {
+            this.applyFilter();
+          }
+        });
       }
     });
   }

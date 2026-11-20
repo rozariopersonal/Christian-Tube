@@ -1,4 +1,4 @@
-import { Component, OnInit, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { VideoCardComponent } from '../../../shared/ui/video-card.component';
@@ -204,7 +204,9 @@ export class SubscriptionsComponent implements OnInit {
       const subKey = [...this.channels.subscribedIds()].sort().join(',');
       if (subKey !== this.lastSyncedSubKey) {
         this.lastSyncedSubKey = subKey;
-        void this.loadMore(true);
+        untracked(() => {
+          void this.loadMore(true);
+        });
       }
     });
   }

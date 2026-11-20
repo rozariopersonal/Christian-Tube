@@ -7,6 +7,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
@@ -463,7 +464,9 @@ export class ShortsComponent implements OnInit {
       const subKey = [...this.channelService.subscribedIds()].sort().join(',');
       if (subKey !== this.lastLoadedSubKey && this.activeIndex() === null) {
         this.lastLoadedSubKey = subKey;
-        void this.videos.fetchShorts(true);
+        untracked(() => {
+          void this.videos.fetchShorts(true);
+        });
       }
     });
   }

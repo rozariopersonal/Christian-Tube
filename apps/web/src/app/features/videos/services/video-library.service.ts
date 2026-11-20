@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import { UserSyncService } from '../../../core/services/user-sync.service';
 import { Video, normalizeVideo } from '../models/video.model';
@@ -37,7 +37,7 @@ export class VideoLibraryService {
     () => new Set(this.watchLater().map((v) => v.id)),
   );
 
-  private syncedForUserId: string | null = null;
+  private syncedForUserId: string | null | undefined = undefined;
 
   constructor() {
     this.reloadFromUserCache();
@@ -47,14 +47,14 @@ export class VideoLibraryService {
       const nextUid = user?.id ?? null;
       if (nextUid !== this.syncedForUserId) {
         this.syncedForUserId = nextUid;
-        this.reloadFromUserCache();
+        untracked(() => this.reloadFromUserCache());
       }
     });
 
     effect(() => {
       const remote = this.userSync.remoteState();
       if (!remote) return;
-      this.applyRemoteState(remote);
+      untracked(() => this.applyRemoteState(remote));
     });
   }
 

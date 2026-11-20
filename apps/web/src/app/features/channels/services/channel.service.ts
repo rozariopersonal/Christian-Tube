@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -22,7 +22,7 @@ export class ChannelService {
   readonly channelRequests = signal<ChannelRequest[]>([]);
   readonly isLoading = signal<boolean>(false);
 
-  private syncedUserId: string | null = null;
+  private syncedUserId: string | null | undefined = undefined;
   private inFlightSubscriptionsSync: Promise<void> | null = null;
   private subscriptionMutationVersion = 0;
 
@@ -34,23 +34,30 @@ export class ChannelService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
-      if (user && user.id !== this.syncedUserId) {
-        this.syncedUserId = user.id;
-        this.setLocalSubscriptions(this.readLocalSubscriptions());
-        void this.loadSubscriptions();
-      } else if (!user) {
-        this.syncedUserId = null;
-        this.setLocalSubscriptions(this.readLocalSubscriptions());
+      const nextUid = user?.id ?? null;
+      if (nextUid !== this.syncedUserId) {
+        this.syncedUserId = nextUid;
+        untracked(() => {
+          const localIds = this.readLocalSubscriptions();
+          if (!this.areSameIdSets(localIds, this.subscribedIds())) {
+            this.setLocalSubscriptions(localIds);
+          }
+          if (user) {
+            void this.loadSubscriptions();
+          }
+        });
       }
     });
 
     effect(() => {
       const remote = this.userSync.remoteState();
       if (!remote?.subscriptions) return;
-      const projected = this.projectSubscriptions(remote.subscriptions);
-      if (!this.areSameIdSets(projected, this.subscribedIds())) {
-        this.setLocalSubscriptions(projected);
-      }
+      untracked(() => {
+        const projected = this.projectSubscriptions(remote.subscriptions!);
+        if (!this.areSameIdSets(projected, this.subscribedIds())) {
+          this.setLocalSubscriptions(projected);
+        }
+      });
     });
   }
 

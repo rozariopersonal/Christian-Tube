@@ -1,4 +1,4 @@
-import { Injectable, effect, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal, untracked } from '@angular/core';
 import { AuthService } from '../auth/auth.service';
 import { APP_COLOR_THEMES, AppColorTheme, ThemeMode, ThemeService } from '../theme/theme.service';
 import { ReaderAppearanceService } from './reader-appearance.service';
@@ -20,41 +20,43 @@ export class ContentPreferencesService {
     effect(() => {
       const remote = this.userSync.remoteState()?.preferences;
       if (!remote) return;
-      const pending = this.userSync.pendingOps();
+      untracked(() => {
+        const pending = this.userSync.pendingOps();
 
-      if (
-        !pending['pref:languages'] &&
-        Array.isArray(remote.languages) &&
-        remote.languages.length > 0
-      ) {
-        this.preferredLanguages.set(remote.languages);
-        try {
-          localStorage.setItem(
-            KEY_PREFERRED_LANGUAGES,
-            JSON.stringify(remote.languages),
-          );
-        } catch {
-          // ignore
+        if (
+          !pending['pref:languages'] &&
+          Array.isArray(remote.languages) &&
+          remote.languages.length > 0
+        ) {
+          this.preferredLanguages.set(remote.languages);
+          try {
+            localStorage.setItem(
+              KEY_PREFERRED_LANGUAGES,
+              JSON.stringify(remote.languages),
+            );
+          } catch {
+            // ignore
+          }
         }
-      }
-      if (!pending['pref:primaryBibleVersionId'] && remote.primaryBibleVersionId) {
-        this.appearance.setPrimaryBibleVersion(remote.primaryBibleVersionId, false);
-      }
-      if (
-        !pending['pref:themeMode'] &&
-        (remote.themeMode === 'system' ||
-          remote.themeMode === 'light' ||
-          remote.themeMode === 'dark')
-      ) {
-        this.theme.setThemeMode(remote.themeMode as ThemeMode, false);
-      }
-      if (
-        !pending['pref:accentColor'] &&
-        remote.accentColor &&
-        APP_COLOR_THEMES.some((c) => c.id === remote.accentColor)
-      ) {
-        this.theme.setColorTheme(remote.accentColor as AppColorTheme['id'], false);
-      }
+        if (!pending['pref:primaryBibleVersionId'] && remote.primaryBibleVersionId) {
+          this.appearance.setPrimaryBibleVersion(remote.primaryBibleVersionId, false);
+        }
+        if (
+          !pending['pref:themeMode'] &&
+          (remote.themeMode === 'system' ||
+            remote.themeMode === 'light' ||
+            remote.themeMode === 'dark')
+        ) {
+          this.theme.setThemeMode(remote.themeMode as ThemeMode, false);
+        }
+        if (
+          !pending['pref:accentColor'] &&
+          remote.accentColor &&
+          APP_COLOR_THEMES.some((c) => c.id === remote.accentColor)
+        ) {
+          this.theme.setColorTheme(remote.accentColor as AppColorTheme['id'], false);
+        }
+      });
     });
   }
 
