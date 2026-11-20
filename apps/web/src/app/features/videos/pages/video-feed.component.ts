@@ -54,15 +54,6 @@ import { VideoService } from '../services/video.service';
           </button>
 
           @if (channels.subscribedChannels().length > 0) {
-            <button
-              type="button"
-              class="pill-chip"
-              [class.active]="filterMode() === 'following'"
-              (click)="selectFollowing()"
-            >
-              Followed Channels
-            </button>
-
             @for (ch of channels.subscribedChannels(); track ch.id) {
               <button
                 type="button"
@@ -416,7 +407,7 @@ export class VideoFeedComponent implements OnInit {
   readonly auth = inject(AuthService);
 
   readonly appName = AppConfig.appName;
-  readonly filterMode = signal<'all' | 'following' | 'channel'>('all');
+  readonly filterMode = signal<'all' | 'channel'>('all');
   readonly selectedChannelId = signal<string | null>(null);
 
   readonly topBatch = computed(() => this.videos.videos().slice(0, 6));
@@ -427,12 +418,20 @@ export class VideoFeedComponent implements OnInit {
 
   constructor() {
     effect(() => {
-      const subKey = [...this.channels.subscribedIds()].sort().join(',');
+      const subs = this.channels.subscribedIds();
+      const subKey = [...subs].sort().join(',');
       if (subKey !== this.lastSyncedSubKey) {
         this.lastSyncedSubKey = subKey;
         untracked(() => {
           void this.videos.fetchShorts(true);
-          if (this.filterMode() === 'following') {
+          const activeChannel = this.selectedChannelId();
+          if (
+            this.filterMode() === 'channel' &&
+            activeChannel &&
+            !subs.includes(activeChannel)
+          ) {
+            this.selectAll();
+          } else if (this.filterMode() === 'all') {
             this.applyFilter();
           }
         });
@@ -449,12 +448,6 @@ export class VideoFeedComponent implements OnInit {
 
   selectAll(): void {
     this.filterMode.set('all');
-    this.selectedChannelId.set(null);
-    this.applyFilter();
-  }
-
-  selectFollowing(): void {
-    this.filterMode.set('following');
     this.selectedChannelId.set(null);
     this.applyFilter();
   }
@@ -476,7 +469,7 @@ export class VideoFeedComponent implements OnInit {
       channelId: mode === 'channel' ? this.selectedChannelId() : null,
       category: 'All',
       subscribedIds: subs,
-      onlySubscribed: mode === 'following' && subs.length > 0,
+      onlySubscribed: mode === 'all' && subs.length > 0,
     });
   }
 }

@@ -30,13 +30,11 @@ interface NavDestination {
 const PRIMARY_NAV: readonly NavDestination[] = [
   { label: 'Home', route: '/feed', icon: 'home' },
   { label: 'Shorts', route: '/shorts', icon: 'smart_display' },
-  { label: 'Following', route: '/subscriptions', icon: 'subscriptions' },
 ];
 
 const YOU_NAV: readonly NavDestination[] = [
   { label: 'History', route: '/history', icon: 'history' },
   { label: 'Watch Later', route: '/watch-later', icon: 'watch_later' },
-  { label: 'All Channels', route: '/channels', icon: 'video_library' },
 ];
 
 const STUDY_NAV: readonly NavDestination[] = [
@@ -45,18 +43,19 @@ const STUDY_NAV: readonly NavDestination[] = [
   { label: 'Books', route: '/books', icon: 'auto_stories' },
   { label: 'Articles', route: '/articles', icon: 'article' },
   { label: 'Audio', route: '/audio', icon: 'headphones' },
+  { label: 'Channels', route: '/channels', icon: 'video_library' },
   { label: 'Settings', route: '/settings', icon: 'tune' },
 ];
 
 const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
   { label: 'Videos', route: '/feed', icon: 'home' },
   { label: 'Shorts', route: '/shorts', icon: 'smart_display' },
-  { label: 'Following', route: '/subscriptions', icon: 'subscriptions' },
   { label: 'Words', route: '/words', icon: 'auto_awesome' },
   { label: 'Bible', route: '/bible', icon: 'menu_book' },
   { label: 'Books', route: '/books', icon: 'auto_stories' },
   { label: 'Articles', route: '/articles', icon: 'article' },
   { label: 'Audio', route: '/audio', icon: 'headphones' },
+  { label: 'Channels', route: '/channels', icon: 'video_library' },
   { label: 'Settings', route: '/settings', icon: 'tune' },
 ];
 
@@ -255,30 +254,6 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
                     </a>
                   }
                 </div>
-
-                @if (channels.subscribedChannels().length > 0) {
-                  <div class="nav-divider"></div>
-                  <div class="nav-group">
-                    <span class="nav-heading">Following</span>
-                    @for (ch of channels.subscribedChannels(); track ch.id) {
-                      <a
-                        class="side-link"
-                        [routerLink]="['/channels', ch.id]"
-                        routerLinkActive="active"
-                        (click)="closeDrawerIfNeeded()"
-                      >
-                        @if (ch.avatarUrl) {
-                          <img class="side-avatar" [src]="ch.avatarUrl" [alt]="ch.title" />
-                        } @else {
-                          <span class="side-avatar fallback">
-                            {{ ch.title.slice(0, 1).toUpperCase() }}
-                          </span>
-                        }
-                        <span class="side-label-trunc">{{ ch.title }}</span>
-                      </a>
-                    }
-                  </div>
-                }
 
                 @if (auth.isAdmin()) {
                   <div class="nav-divider"></div>
