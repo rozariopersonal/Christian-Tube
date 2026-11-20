@@ -7,8 +7,11 @@ import {
   LETTER_SPACING_PRESETS,
   LINE_HEIGHT_PRESETS,
   READER_FONTS,
+  READER_FONT_LANGUAGES,
   ReaderAppearanceService,
+  classifySystemFontLanguage,
 } from './reader-appearance.service';
+import { ReleaseDataService } from '../api/release-data.service';
 
 describe('ReaderAppearanceService', () => {
   let service: ReaderAppearanceService;
@@ -143,6 +146,36 @@ describe('ReaderAppearanceService', () => {
       'Wide',
     ]);
   });
+
+  it('groups reading fonts by language and supports on-demand font downloads', async () => {
+    const groups = service.fontsByLanguage();
+    expect(groups.map((g) => g.code)).toEqual(
+      READER_FONT_LANGUAGES.map((l) => l.code),
+    );
+
+    const tamilGroup = groups.find((g) => g.code === 'ta');
+    expect(tamilGroup).toBeTruthy();
+    expect(tamilGroup!.fonts.map((f) => f.id)).toContain('noto-tamil');
+    expect(tamilGroup!.fonts.map((f) => f.id)).toContain('mukta-malar');
+    expect(tamilGroup!.onDemandCount).toBeGreaterThanOrEqual(5);
+
+    const releases = TestBed.inject(ReleaseDataService);
+    const loadSpy = vi.spyOn(releases, 'loadFont').mockResolvedValue(true);
+
+    const ok = await service.downloadFont('mukta-malar');
+    expect(ok).toBe(true);
+    expect(loadSpy).toHaveBeenCalledWith('Mukta Malar', 'Mukta_Malar-Regular.ttf');
+    expect(service.isFontDownloaded('mukta-malar')).toBe(true);
+  });
+
+  it('classifies system font names into language groups', () => {
+    expect(classifySystemFontLanguage('Latha')).toBe('ta');
+    expect(classifySystemFontLanguage('Mangal')).toBe('hi');
+    expect(classifySystemFontLanguage('Gautami')).toBe('te');
+    expect(classifySystemFontLanguage('Kartika')).toBe('ml');
+    expect(classifySystemFontLanguage('Tunga')).toBe('kn');
+    expect(classifySystemFontLanguage('Georgia')).toBe('en');
+  });
 });
 
 describe('ReaderTypographyToggleComponent', () => {
@@ -187,6 +220,26 @@ describe('ReaderTypographyToggleComponent', () => {
     expect(appearance.fontId()).toBe('literata');
     expect(el.querySelector('.font-menu-popover')).toBeNull();
     expect(fontTrigger?.textContent).toContain('Literata');
+  });
+
+  it('filters fonts by language group inside the font menu popover', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const fontTrigger = el.querySelector<HTMLButtonElement>('button[aria-label="Select font family"]');
+    fontTrigger!.click();
+    fixture.detectChanges();
+
+    const sectionsAll = el.querySelectorAll('.font-group-section');
+    expect(sectionsAll.length).toBe(READER_FONT_LANGUAGES.length);
+
+    const langChips = el.querySelectorAll<HTMLButtonElement>('.lang-chip');
+    // index 0 is 'All', index 1 is 'EN', index 2 is Tamil ('தமிழ்')
+    expect(langChips.length).toBe(READER_FONT_LANGUAGES.length + 1);
+    langChips[2].click();
+    fixture.detectChanges();
+
+    const sectionsTamil = el.querySelectorAll('.font-group-section');
+    expect(sectionsTamil.length).toBe(1);
+    expect(sectionsTamil[0].textContent).toContain('Tamil');
   });
 
   it('steps font size up and down via steppers', () => {

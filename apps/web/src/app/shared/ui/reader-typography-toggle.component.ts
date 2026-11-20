@@ -13,6 +13,8 @@ import {
   LINE_HEIGHT_PRESETS,
   READER_FONTS,
   ReaderAppearanceService,
+  ReaderFontGroup,
+  ReaderFontLanguageCode,
   ReaderFontOption,
 } from '../../core/services/reader-appearance.service';
 
@@ -47,23 +49,122 @@ import {
               aria-label="Font family selection"
               (click)="$event.stopPropagation()"
             >
-              <div class="popover-title">Font Family</div>
-              @for (f of fonts; track f.id) {
+              <div class="popover-head">
+                <div class="popover-title">Reading Fonts by Language</div>
+                @if (appearance.canQueryLocalFonts()) {
+                  <button
+                    type="button"
+                    class="scan-sys-btn"
+                    [disabled]="appearance.scanningSystemFonts()"
+                    title="List all installed system fonts from your device"
+                    (click)="appearance.scanLocalSystemFonts()"
+                  >
+                    <span class="material-symbols-rounded">computer</span>
+                    <span>{{ appearance.scanningSystemFonts() ? 'Scanning...' : 'System Fonts' }}</span>
+                  </button>
+                }
+              </div>
+
+              <div class="lang-filter-row" role="tablist" aria-label="Filter fonts by language">
                 <button
                   type="button"
-                  class="font-menu-item"
-                  [class.active]="appearance.fontId() === f.id"
-                  [style.font-family]="f.cssFamily"
-                  role="menuitemradio"
-                  [attr.aria-checked]="appearance.fontId() === f.id"
-                  (click)="selectFont(f.id)"
+                  class="lang-chip"
+                  [class.active]="selectedLang() === 'all'"
+                  (click)="selectedLang.set('all')"
                 >
-                  <span class="font-preview">{{ f.label }}</span>
-                  @if (appearance.fontId() === f.id) {
-                    <span class="material-symbols-rounded check-icon" aria-hidden="true">check</span>
-                  }
+                  All
                 </button>
-              }
+                @for (grp of fontGroups(); track grp.code) {
+                  <button
+                    type="button"
+                    class="lang-chip"
+                    [class.active]="selectedLang() === grp.code"
+                    (click)="selectedLang.set(grp.code)"
+                  >
+                    {{ grp.code === 'en' ? 'EN' : grp.nativeLabel }}
+                  </button>
+                }
+              </div>
+
+              <div class="font-groups-scroll">
+                @for (grp of visibleFontGroups(); track grp.code) {
+                  <div class="font-group-section">
+                    <div class="font-group-header">
+                      <span class="font-group-title">
+                        {{ grp.label }}
+                        @if (grp.nativeLabel !== grp.label) {
+                          <span class="font-group-native">· {{ grp.nativeLabel }}</span>
+                        }
+                      </span>
+                      @if (grp.downloadedCount < grp.onDemandCount) {
+                        <button
+                          type="button"
+                          class="group-dl-btn"
+                          [disabled]="appearance.isLanguageDownloading(grp.code)"
+                          title="Download all {{ grp.label }} reading fonts for offline/instant use"
+                          (click)="downloadGroup(grp.code, $event)"
+                        >
+                          <span class="material-symbols-rounded">download</span>
+                          <span>
+                            {{
+                              appearance.isLanguageDownloading(grp.code)
+                                ? 'Loading...'
+                                : 'Get All (' + (grp.onDemandCount - grp.downloadedCount) + ')'
+                            }}
+                          </span>
+                        </button>
+                      }
+                    </div>
+
+                    @for (f of grp.fonts; track f.id) {
+                      <button
+                        type="button"
+                        class="font-menu-item"
+                        [class.active]="appearance.fontId() === f.id"
+                        [style.font-family]="f.cssFamily"
+                        role="menuitemradio"
+                        [attr.aria-checked]="appearance.fontId() === f.id"
+                        (click)="selectFont(f.id)"
+                      >
+                        <div class="font-item-main">
+                          <span class="font-preview">{{ f.label }}</span>
+                          @if (f.subtitle) {
+                            <span class="font-subtitle">{{ f.subtitle }}</span>
+                          }
+                        </div>
+                        <div class="font-item-meta">
+                          @if (appearance.isFontDownloading(f)) {
+                            <span
+                              class="material-symbols-rounded dl-status-icon"
+                              title="Downloading font..."
+                              aria-hidden="true"
+                            >
+                              downloading
+                            </span>
+                          } @else if (appearance.fontId() === f.id) {
+                            <span
+                              class="material-symbols-rounded check-icon"
+                              aria-hidden="true"
+                            >
+                              check
+                            </span>
+                          } @else if (!appearance.isFontDownloaded(f)) {
+                            <span
+                              class="material-symbols-rounded dl-status-icon"
+                              title="Downloaded on demand when selected"
+                              aria-hidden="true"
+                            >
+                              cloud_download
+                            </span>
+                          } @else if (f.source === 'system') {
+                            <span class="font-source-tag">System</span>
+                          }
+                        </div>
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
             </div>
           }
         </div>
@@ -367,17 +468,25 @@ import {
       .font-menu-popover {
         position: absolute;
         top: calc(100% + 8px);
-        left: 0;
-        min-width: 190px;
-        padding: 6px;
+        right: 0;
+        width: min(320px, calc(100vw - 24px));
+        padding: 8px;
         border-radius: var(--radius-md);
         background-color: var(--surface);
         border: 1px solid var(--surface-border);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
         z-index: 60;
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 6px;
+      }
+
+      .popover-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 2px 4px 0;
       }
 
       .popover-title {
@@ -386,7 +495,117 @@ import {
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: var(--on-surface-muted);
-        padding: 6px 8px 4px;
+      }
+
+      .scan-sys-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--on-surface);
+      }
+
+      .scan-sys-btn:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .scan-sys-btn .material-symbols-rounded {
+        font-size: 13px;
+      }
+
+      .lang-filter-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding: 2px 2px 4px;
+        border-bottom: 1px solid var(--surface-border);
+      }
+
+      .lang-filter-row::-webkit-scrollbar {
+        display: none;
+      }
+
+      .lang-chip {
+        height: 24px;
+        padding: 0 8px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--on-surface-muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .lang-chip.active {
+        background-color: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+      }
+
+      .font-groups-scroll {
+        max-height: 340px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-right: 2px;
+      }
+
+      .font-group-section {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .font-group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 4px 8px 2px;
+      }
+
+      .font-group-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--on-surface-muted);
+      }
+
+      .font-group-native {
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .group-dl-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 7px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .group-dl-btn:hover:not(:disabled) {
+        background-color: var(--accent-soft);
+      }
+
+      .group-dl-btn .material-symbols-rounded {
+        font-size: 12px;
       }
 
       .font-menu-item {
@@ -394,7 +613,7 @@ import {
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        padding: 8px 10px;
+        padding: 7px 10px;
         border-radius: var(--radius-sm);
         font-size: 13.5px;
         color: var(--on-surface);
@@ -413,16 +632,52 @@ import {
         font-weight: 700;
       }
 
+      .font-item-main {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        gap: 1px;
+      }
+
       .font-preview {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
 
+      .font-subtitle {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 10.5px;
+        font-weight: 500;
+        color: var(--on-surface-muted);
+      }
+
+      .font-item-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+
       .check-icon {
         font-size: 16px;
         color: var(--accent);
         flex-shrink: 0;
+      }
+
+      .dl-status-icon {
+        font-size: 15px;
+        color: var(--on-surface-muted);
+      }
+
+      .font-source-tag {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 9.5px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        color: var(--on-surface-muted);
       }
 
       /* Spacing Popover */
@@ -537,6 +792,15 @@ export class ReaderTypographyToggleComponent {
   readonly Math = Math;
 
   readonly fonts = READER_FONTS;
+  readonly fontGroups = this.appearance.fontsByLanguage;
+  readonly selectedLang = signal<'all' | ReaderFontLanguageCode>('all');
+  readonly visibleFontGroups = computed<readonly ReaderFontGroup[]>(() => {
+    const lang = this.selectedLang();
+    const groups = this.fontGroups();
+    if (lang === 'all') return groups;
+    return groups.filter((g) => g.code === lang);
+  });
+
   readonly linePresets = LINE_HEIGHT_PRESETS;
   readonly letterPresets = LETTER_SPACING_PRESETS;
 
@@ -562,6 +826,11 @@ export class ReaderTypographyToggleComponent {
   selectFont(fontId: string): void {
     this.appearance.setFont(fontId);
     this.fontMenuOpen.set(false);
+  }
+
+  downloadGroup(lang: ReaderFontLanguageCode, event: MouseEvent): void {
+    event.stopPropagation();
+    void this.appearance.downloadLanguageFonts(lang);
   }
 
   toggleSpacing(event: MouseEvent): void {

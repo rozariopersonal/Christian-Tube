@@ -185,19 +185,60 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
       <section class="settings-card">
         <h2>Reader Typography</h2>
         <div class="field-group">
-          <span class="label">Reader Font</span>
-          <div class="chip-wrap">
-            @for (f of fonts; track f.id) {
+          <div class="account-row">
+            <span class="label">Reader Fonts (Grouped by Language)</span>
+            @if (appearance.canQueryLocalFonts()) {
               <button
                 type="button"
                 class="pill-chip"
-                [class.active]="appearance.fontId() === f.id"
-                (click)="appearance.setFont(f.id)"
+                [disabled]="appearance.scanningSystemFonts()"
+                (click)="appearance.scanLocalSystemFonts()"
               >
-                {{ f.label }}
+                <span class="material-symbols-rounded btn-icon">computer</span>
+                {{ appearance.scanningSystemFonts() ? 'Scanning...' : 'Load System Fonts' }}
               </button>
             }
           </div>
+          @for (grp of appearance.fontsByLanguage(); track grp.code) {
+            <div class="font-lang-group">
+              <div class="account-row">
+                <span class="label">
+                  {{ grp.label }}
+                  @if (grp.nativeLabel !== grp.label) {
+                    · {{ grp.nativeLabel }}
+                  }
+                </span>
+                @if (grp.downloadedCount < grp.onDemandCount) {
+                  <button
+                    type="button"
+                    class="pill-chip"
+                    [disabled]="appearance.isLanguageDownloading(grp.code)"
+                    (click)="appearance.downloadLanguageFonts(grp.code)"
+                  >
+                    <span class="material-symbols-rounded btn-icon">download</span>
+                    {{
+                      appearance.isLanguageDownloading(grp.code)
+                        ? 'Downloading...'
+                        : 'Download All (' + (grp.onDemandCount - grp.downloadedCount) + ')'
+                    }}
+                  </button>
+                }
+              </div>
+              <div class="chip-wrap">
+                @for (f of grp.fonts; track f.id) {
+                  <button
+                    type="button"
+                    class="pill-chip"
+                    [class.active]="appearance.fontId() === f.id"
+                    [style.font-family]="f.cssFamily"
+                    (click)="appearance.setFont(f.id)"
+                  >
+                    {{ f.label }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
         </div>
 
         <div class="field-group">
@@ -391,6 +432,16 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
         display: flex;
         flex-direction: column;
         gap: 8px;
+      }
+
+      .font-lang-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px 12px;
+        border-radius: var(--radius-md);
+        background-color: var(--bg);
+        border: 1px solid var(--surface-border);
       }
 
       .label {
