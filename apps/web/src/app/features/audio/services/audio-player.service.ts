@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import { UserSyncService } from '../../../core/services/user-sync.service';
 import { AudioTrack } from '../models/audio.model';
@@ -35,46 +35,51 @@ export class AudioPlayerService {
 
   constructor() {
     effect(() => {
-      if (!this.auth.currentUser()) {
-        if (this.audio && !this.audio.paused) {
-          this.audio.pause();
-        }
-        this.currentTrack.set(null);
-        this.position.set(0);
-        this.duration.set(0);
-        return;
-      }
+      const user = this.auth.currentUser();
       const audioPb = this.userSync.remoteState()?.audioPlayback;
-      if (!audioPb || this.isPlaying()) return;
-      if (this.userSync.pendingOps()['audio_playback:audio']) return;
-
-      let parsedTrack: AudioTrack | null = null;
-      if (audioPb.payloadJson) {
-        try {
-          parsedTrack = JSON.parse(audioPb.payloadJson) as AudioTrack;
-        } catch {
-          parsedTrack = null;
+      untracked(() => {
+        if (!user) {
+          if (this.audio && !this.audio.paused) {
+            this.audio.pause();
+          }
+          if (this.currentTrack() !== null) {
+            this.currentTrack.set(null);
+            this.position.set(0);
+            this.duration.set(0);
+          }
+          return;
         }
-      }
-      if (!parsedTrack && !audioPb.trackId) return;
-      const track: AudioTrack = parsedTrack ?? {
-        id: audioPb.trackId ?? '',
-        seriesId: '',
-        seriesTitle: '',
-        title: 'Audio Track',
-        speaker: '',
-        audioUrl: '',
-        durationSeconds: audioPb.durationSeconds ?? 0,
-      };
-      this.currentTrack.set(track);
-      this.saveLastTrack(track);
-      if (audioPb.positionSeconds > 0) {
-        this.position.set(audioPb.positionSeconds);
-        this.pendingSeekSeconds = audioPb.positionSeconds;
-      }
-      if (audioPb.durationSeconds > 0) {
-        this.duration.set(audioPb.durationSeconds);
-      }
+        if (!audioPb || this.isPlaying()) return;
+        if (this.userSync.pendingOps()['audio_playback:audio']) return;
+
+        let parsedTrack: AudioTrack | null = null;
+        if (audioPb.payloadJson) {
+          try {
+            parsedTrack = JSON.parse(audioPb.payloadJson) as AudioTrack;
+          } catch {
+            parsedTrack = null;
+          }
+        }
+        if (!parsedTrack && !audioPb.trackId) return;
+        const track: AudioTrack = parsedTrack ?? {
+          id: audioPb.trackId ?? '',
+          seriesId: '',
+          seriesTitle: '',
+          title: 'Audio Track',
+          speaker: '',
+          audioUrl: '',
+          durationSeconds: audioPb.durationSeconds ?? 0,
+        };
+        this.currentTrack.set(track);
+        this.saveLastTrack(track);
+        if (audioPb.positionSeconds > 0) {
+          this.position.set(audioPb.positionSeconds);
+          this.pendingSeekSeconds = audioPb.positionSeconds;
+        }
+        if (audioPb.durationSeconds > 0) {
+          this.duration.set(audioPb.durationSeconds);
+        }
+      });
     });
 
     if (this.audio) {

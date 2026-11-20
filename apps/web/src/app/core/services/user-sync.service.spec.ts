@@ -5,6 +5,13 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { AuthService } from '../auth/auth.service';
+import { AudioPlayerService } from '../../features/audio/services/audio-player.service';
+import { BibleService } from '../../features/bible/services/bible.service';
+import { BookHighlightsService } from '../../features/books/services/book-highlights.service';
+import { ChannelService } from '../../features/channels/services/channel.service';
+import { VideoLibraryService } from '../../features/videos/services/video-library.service';
+import { ContentPreferencesService } from './content-preferences.service';
+import { UserItemsSyncService } from './user-items-sync.service';
 import { UserSyncService } from './user-sync.service';
 
 describe('UserSyncService', () => {
@@ -157,5 +164,92 @@ describe('UserSyncService', () => {
     expect(localStorage.getItem('ct_web_watch_history_v1_u1')).toBeNull();
     expect(localStorage.getItem('ct_web_sync_pending_v2_u1')).toBeNull();
     expect(localStorage.getItem('audio_last_track')).toBeNull();
+  });
+
+  it('hydrates all feature services from remoteState without re-triggering infinite effect loops', async () => {
+    const videoLibrary = TestBed.inject(VideoLibraryService);
+    const channels = TestBed.inject(ChannelService);
+    const prefs = TestBed.inject(ContentPreferencesService);
+    const bookHighlights = TestBed.inject(BookHighlightsService);
+    const bible = TestBed.inject(BibleService);
+    const audio = TestBed.inject(AudioPlayerService);
+    TestBed.inject(UserItemsSyncService);
+
+    authService.currentUser.set({
+      id: 'u-full',
+      email: 'full@example.com',
+      displayName: 'Full User',
+    });
+    TestBed.flushEffects();
+    await Promise.resolve();
+
+    const subsReq = httpMock.expectOne((r) => r.url.endsWith('/api/channels/subscriptions'));
+    subsReq.flush({ channelIds: ['ch-1'], channels: [] });
+
+    const stateReq = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
+    stateReq.flush({
+      serverTime: Date.now(),
+      preferences: { languages: ['en', 'ta'], themeMode: 'dark' },
+      subscriptions: ['ch-1'],
+      watchLater: [{ video: { id: 'v1', title: 'Video 1' }, updatedAt: 1000 }],
+      videoHistory: [
+        {
+          video: { id: 'v2', title: 'Video 2' },
+          progressSeconds: 30,
+          durationSeconds: 120,
+          watchedAt: 2000,
+        },
+      ],
+      videoPlayheads: { v2: { positionSeconds: 30, updatedAt: 2000 } },
+      audioPlayback: {
+        trackId: 't1',
+        positionSeconds: 15,
+        durationSeconds: 300,
+        updatedAt: 3000,
+      },
+    });
+
+    const itemsReq = httpMock.expectOne((r) => r.url.endsWith('/api/user/items'));
+    itemsReq.flush({
+      serverTime: Date.now(),
+      items: [
+        {
+          id: 'range:book:b1:0:1:0-5',
+          itemType: 'text_range',
+          feature: 'book',
+          targetId: 'book:b1:0',
+          verseStart: 1,
+          startOffset: 0,
+          endOffset: 5,
+          text: 'Grace',
+          color: '#FEF08A',
+          deleted: false,
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'bible_hl:1:1:1',
+          itemType: 'highlight',
+          feature: 'bible',
+          targetId: '1:1:1',
+          color: '#FEF08A',
+          deleted: false,
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    await Promise.resolve();
+    TestBed.flushEffects();
+
+    expect(videoLibrary.watchLater().map((v) => v.id)).toEqual(['v1']);
+    expect(videoLibrary.history().map((h) => h.video.id)).toEqual(['v2']);
+    expect(videoLibrary.getVideoPosition('v2')).toBe(30);
+    expect(channels.subscribedIds()).toEqual(['ch-1']);
+    expect(prefs.preferredLanguages()).toEqual(['en', 'ta']);
+    expect(bookHighlights.rangesForLine('book:b1:0', 1)).toHaveLength(1);
+    expect(bible.highlights()['1:1:1']).toBe('#FEF08A');
+    expect(audio.currentTrack()?.id).toBe('t1');
+
+    httpMock.match((r) => r.url.includes('manifest.json')).forEach((r) => r.flush({}));
   });
 });

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, effect, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../api/api.service';
 import { AuthService } from '../auth/auth.service';
@@ -81,28 +81,30 @@ export class UserSyncService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
-      if (user) {
-        const prevUserId = this.activeUserId;
-        this.activeUserId = user.id;
-        this.authPaused = false;
+      untracked(() => {
+        if (user) {
+          const prevUserId = this.activeUserId;
+          this.activeUserId = user.id;
+          this.authPaused = false;
 
-        if (user.id.startsWith('guest_')) {
-          this.writeStorage(KEY_LAST_GUEST_ID, user.id);
-        } else {
-          this.handoffGuestPendingOps(user.id);
-        }
+          if (user.id.startsWith('guest_')) {
+            this.writeStorage(KEY_LAST_GUEST_ID, user.id);
+          } else {
+            this.handoffGuestPendingOps(user.id);
+          }
 
-        if (prevUserId !== user.id) {
-          this.pendingOps.set(this.readPendingMap(user.id));
+          if (prevUserId !== user.id) {
+            this.pendingOps.set(this.readPendingMap(user.id));
+            this.remoteState.set(null);
+            void this.pullAndFlush(true);
+          }
+        } else if (this.activeUserId !== null) {
+          this.activeUserId = null;
+          this.authPaused = false;
+          this.pendingOps.set({});
           this.remoteState.set(null);
-          void this.pullAndFlush(true);
         }
-      } else {
-        this.activeUserId = null;
-        this.authPaused = false;
-        this.pendingOps.set({});
-        this.remoteState.set(null);
-      }
+      });
     });
 
     if (typeof window !== 'undefined') {

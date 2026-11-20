@@ -1,4 +1,4 @@
-import { Injectable, effect, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal, untracked } from '@angular/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import {
   SyncUserItem,
@@ -50,7 +50,7 @@ export class BookHighlightsService {
   readonly bookmarks = signal<Record<string, BookBookmark>>({});
   readonly textRanges = signal<Record<string, TextHighlightRange[]>>({});
 
-  private syncedUserId: string | null = null;
+  private syncedUserId: string | null | undefined = undefined;
 
   constructor() {
     this.reloadFromUserCache();
@@ -59,14 +59,16 @@ export class BookHighlightsService {
       const uid = this.auth.currentUser()?.id ?? null;
       if (uid !== this.syncedUserId) {
         this.syncedUserId = uid;
-        this.reloadFromUserCache();
+        untracked(() => this.reloadFromUserCache());
       }
     });
 
     effect(() => {
       const remote = this.itemsSync.remoteItems();
-      if (!this.auth.isAuthenticated()) return;
-      this.applyRemoteItems(remote);
+      untracked(() => {
+        if (!this.auth.isAuthenticated()) return;
+        this.applyRemoteItems(remote);
+      });
     });
   }
 

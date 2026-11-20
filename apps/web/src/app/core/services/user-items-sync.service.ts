@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, effect, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../api/api.service';
 import { AuthService } from '../auth/auth.service';
@@ -49,21 +49,23 @@ export class UserItemsSyncService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
-      if (user) {
-        const changed = this.activeUserId !== user.id;
-        this.activeUserId = user.id;
-        this.authPaused = false;
-        if (changed) {
-          this.pendingItems.set(this.readPendingMap(user.id));
+      untracked(() => {
+        if (user) {
+          const changed = this.activeUserId !== user.id;
+          this.activeUserId = user.id;
+          this.authPaused = false;
+          if (changed) {
+            this.pendingItems.set(this.readPendingMap(user.id));
+            this.remoteItems.set([]);
+            void this.pullAndFlush(true);
+          }
+        } else if (this.activeUserId !== null) {
+          this.activeUserId = null;
+          this.authPaused = false;
+          this.pendingItems.set({});
           this.remoteItems.set([]);
-          void this.pullAndFlush(true);
         }
-      } else {
-        this.activeUserId = null;
-        this.authPaused = false;
-        this.pendingItems.set({});
-        this.remoteItems.set([]);
-      }
+      });
     });
 
     if (typeof window !== 'undefined') {

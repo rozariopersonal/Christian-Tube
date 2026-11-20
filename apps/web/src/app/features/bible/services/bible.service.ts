@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -55,7 +55,7 @@ export class BibleService {
   readonly bookmarks = signal<BibleBookmark[]>([]);
   readonly notes = signal<Record<string, string>>({});
 
-  private syncedUserId: string | null = null;
+  private syncedUserId: string | null | undefined = undefined;
 
   constructor() {
     this.reloadAnnotationsFromCache();
@@ -64,14 +64,16 @@ export class BibleService {
       const uid = this.auth.currentUser()?.id ?? null;
       if (uid !== this.syncedUserId) {
         this.syncedUserId = uid;
-        this.reloadAnnotationsFromCache();
+        untracked(() => this.reloadAnnotationsFromCache());
       }
     });
 
     effect(() => {
       const remote = this.itemsSync.remoteItems();
-      if (!this.auth.isAuthenticated()) return;
-      this.applyRemoteBibleItems(remote);
+      untracked(() => {
+        if (!this.auth.isAuthenticated()) return;
+        this.applyRemoteBibleItems(remote);
+      });
     });
   }
 
