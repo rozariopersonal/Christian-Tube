@@ -82,6 +82,12 @@ class UserSyncService extends ChangeNotifier {
   @visibleForTesting
   UserSyncService.forTesting({Dio? dio}) : _dio = dio ?? ApiClient().dio;
 
+  @visibleForTesting
+  void setActiveUserForTesting(String userId) {
+    _activeUserId = userId;
+    _authPaused = false;
+  }
+
   static const String _keyClockOffset = 'mobile_clock_offset_v1';
   static const String _keyPendingPrefix = 'mobile_sync_pending_v2_';
   static const String _keyLastGuestId = 'mobile_last_guest_id_v1';

@@ -19,14 +19,17 @@ class ChannelService extends ChangeNotifier {
   AuthService? get authService => _authService;
 
   late final Dio _dio;
+  late final UserSyncService _syncService;
 
-  ChannelService._internal({Dio? dio}) : _dio = dio ?? ApiClient().dio {
+  ChannelService._internal({Dio? dio, UserSyncService? syncService})
+      : _dio = dio ?? ApiClient().dio,
+        _syncService = syncService ?? UserSyncService.instance {
     _loadFromPrefs();
-    UserSyncService.instance.addListener(_onSyncStateChanged);
+    _syncService.addListener(_onSyncStateChanged);
   }
 
   void _onSyncStateChanged() {
-    if (UserSyncService.instance.activeUserId == null) {
+    if (_syncService.activeUserId == null) {
       if (_subscribedIds.isNotEmpty) {
         _subscribedIds.clear();
         _syncSubscriptionStatus();
@@ -34,7 +37,7 @@ class ChannelService extends ChangeNotifier {
       }
       return;
     }
-    final remote = UserSyncService.instance.remoteState;
+    final remote = _syncService.remoteState;
     final subs = remote?['subscriptions'];
     if (subs is! List) return;
     final serverIds = subs.whereType<String>().toSet();
@@ -49,7 +52,7 @@ class ChannelService extends ChangeNotifier {
 
   Set<String> _projectWithPendingOps(Set<String> serverIds) {
     final result = Set<String>.from(serverIds);
-    for (final op in UserSyncService.instance.pendingOps.values) {
+    for (final op in _syncService.pendingOps.values) {
       if (op.kind != 'subscription') continue;
       if (op.isActive == true) {
         result.add(op.itemId);
@@ -61,8 +64,12 @@ class ChannelService extends ChangeNotifier {
   }
 
   @visibleForTesting
-  ChannelService.forTesting({Dio? dio, AuthService? authService})
-      : _dio = dio ?? ApiClient().dio {
+  ChannelService.forTesting({
+    Dio? dio,
+    AuthService? authService,
+    UserSyncService? syncService,
+  })  : _dio = dio ?? ApiClient().dio,
+        _syncService = syncService ?? UserSyncService.instance {
     attachToAuth(authService);
   }
 
@@ -139,7 +146,11 @@ class ChannelService extends ChangeNotifier {
     }
     if (_isAuthenticated && newIds.isNotEmpty) {
       for (final id in newIds) {
-        _syncSubscriptionToBackend(id, true, false);
+        if (_syncService.activeUserId != null) {
+          unawaited(_syncService.enqueueSubscription(id, true));
+        } else {
+          _syncSubscriptionToBackend(id, true, false);
+        }
       }
     }
   }
@@ -537,7 +548,11 @@ class ChannelService extends ChangeNotifier {
     } catch (_) {}
 
     if (_isAuthenticated) {
-      unawaited(UserSyncService.instance.enqueueSubscription(channelId, willSubscribe));
+      if (_syncService.activeUserId != null) {
+        unawaited(_syncService.enqueueSubscription(channelId, willSubscribe));
+      } else {
+        _syncSubscriptionToBackend(channelId, willSubscribe, wasSubscribed);
+      }
     }
   }
 

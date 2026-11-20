@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/services/user_preference_service.dart';
+import 'package:mobile/core/services/user_sync_service.dart';
 import 'package:mobile/features/auth/auth_service.dart';
 import 'package:mobile/features/channels/channel_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -78,9 +79,13 @@ void main() {
 
   test('authenticated toggleSubscribe subscribes via POST to the backend', () async {
     final adapter = StubAdapter();
+    final dio = testDio(adapter);
+    final syncService = UserSyncService.forTesting(dio: dio)
+      ..setActiveUserForTesting('u1');
     final service = ChannelService.forTesting(
-      dio: testDio(adapter),
+      dio: dio,
       authService: StubAuth(true),
+      syncService: syncService,
     );
 
     service.toggleSubscribe('c1');
@@ -94,9 +99,13 @@ void main() {
 
   test('authenticated second toggle unsubscribes via DELETE to the backend', () async {
     final adapter = StubAdapter();
+    final dio = testDio(adapter);
+    final syncService = UserSyncService.forTesting(dio: dio)
+      ..setActiveUserForTesting('u1');
     final service = ChannelService.forTesting(
-      dio: testDio(adapter),
+      dio: dio,
       authService: StubAuth(true),
+      syncService: syncService,
     );
 
     service.toggleSubscribe('c1');
@@ -110,19 +119,22 @@ void main() {
     expect(adapter.requests[1].path, '/api/channels/c1/subscribe');
   });
 
-  test('authenticated toggle reverts locally when the backend sync fails', () async {
+  test('authenticated toggle keeps optimistic state in outbox when the backend sync fails', () async {
     final adapter = StubAdapter(fail: true);
+    final dio = testDio(adapter);
+    final syncService = UserSyncService.forTesting(dio: dio)
+      ..setActiveUserForTesting('u1');
     final service = ChannelService.forTesting(
-      dio: testDio(adapter),
+      dio: dio,
       authService: StubAuth(true),
+      syncService: syncService,
     );
 
     service.toggleSubscribe('c1');
     await settle();
 
-    expect(service.subscribedChannelIds, isEmpty);
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getStringList('subscribed_channel_ids'), isNot(contains('c1')));
+    expect(service.subscribedChannelIds, contains('c1'));
+    expect(syncService.pendingOps.containsKey('sub:c1'), isTrue);
   });
 
   test('authenticated loadSubscriptions pulls the authoritative list from the backend', () async {
@@ -379,9 +391,13 @@ void main() {
       };
 
       final auth = StubAuth(true);
+      final dio = testDio(adapter);
+      final syncService = UserSyncService.forTesting(dio: dio)
+        ..setActiveUserForTesting('u1');
       final service = ChannelService.forTesting(
-        dio: testDio(adapter),
+        dio: dio,
         authService: auth,
+        syncService: syncService,
       );
 
       service.seedSubscribedIds({'local_c1'});
