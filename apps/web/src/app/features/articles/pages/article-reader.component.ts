@@ -19,6 +19,7 @@ import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { HeaderSlotService } from '../../../core/services/header-slot.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
 import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
+import { ReaderTypographyToggleComponent } from '../../../shared/ui/reader-typography-toggle.component';
 import { ReaderSpreadFooterComponent } from '../../../shared/ui/reader-spread-footer.component';
 import { computeSpreadMetrics, scrollToSpreadPage } from '../../../shared/ui/spread-pager';
 import {
@@ -44,6 +45,7 @@ import { ArticlesService } from '../services/articles.service';
   standalone: true,
   imports: [
     ReaderColumnsToggleComponent,
+    ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
     TextSelectionPopoverComponent,
     BookAppearanceSheetComponent,
@@ -61,6 +63,7 @@ import { ArticlesService } from '../services/articles.service';
 
     <ng-template #topbarRight>
       <app-reader-columns-toggle />
+      <app-reader-typography-toggle />
       <div class="tb-actions-pill">
         <button
           type="button"
@@ -72,31 +75,12 @@ import { ArticlesService } from '../services/articles.service';
         </button>
         <button
           type="button"
-          class="tb-action-btn tb-font-step"
-          title="Decrease font size"
-          aria-label="Decrease font size"
-          [disabled]="appearance.fontSize() <= 13"
-          (click)="appearance.setFontSize(appearance.fontSize() - 1)"
-        >
-          <span class="material-symbols-rounded">remove</span>
-        </button>
-        <button
-          type="button"
-          class="tb-action-btn tb-aa-btn"
-          title="Display & Layout"
+          class="tb-action-btn"
+          title="Display & Themes"
+          aria-label="Display & Themes"
           (click)="showAppearance.set(true)"
         >
-          Aa
-        </button>
-        <button
-          type="button"
-          class="tb-action-btn tb-font-step"
-          title="Increase font size"
-          aria-label="Increase font size"
-          [disabled]="appearance.fontSize() >= 28"
-          (click)="appearance.setFontSize(appearance.fontSize() + 1)"
-        >
-          <span class="material-symbols-rounded">add</span>
+          <span class="material-symbols-rounded">palette</span>
         </button>
       </div>
     </ng-template>
@@ -376,18 +360,8 @@ import { ArticlesService } from '../services/articles.service';
         cursor: default;
       }
 
-      .tb-font-step .material-symbols-rounded {
-        font-size: 16px;
-      }
-
       .tb-action-btn .material-symbols-rounded {
         font-size: 18px;
-      }
-
-      .tb-aa-btn {
-        font-family: Georgia, serif;
-        font-weight: 700;
-        font-size: 14px;
       }
 
       .bar-title {

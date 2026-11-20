@@ -23,6 +23,7 @@ import { HeaderSlotService } from '../../../core/services/header-slot.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
+import { ReaderTypographyToggleComponent } from '../../../shared/ui/reader-typography-toggle.component';
 import { ReaderSpreadFooterComponent } from '../../../shared/ui/reader-spread-footer.component';
 import {
   computeSpreadMetrics,
@@ -71,6 +72,7 @@ interface AppendedBibleChapter {
     FormsModule,
     InfiniteScrollTriggerDirective,
     ReaderColumnsToggleComponent,
+    ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
     BibleVersionSheetComponent,
     BibleBookChapterSheetComponent,
@@ -144,6 +146,7 @@ interface AppendedBibleChapter {
 
       <ng-template #topbarRight>
         <app-reader-columns-toggle [showLayoutToggle]="true" />
+        <app-reader-typography-toggle />
         <div class="tb-actions-pill">
           <button
             type="button"
@@ -159,31 +162,12 @@ interface AppendedBibleChapter {
           </button>
           <button
             type="button"
-            class="tb-action-btn tb-font-step"
-            title="Decrease font size"
-            aria-label="Decrease font size"
-            [disabled]="appearance.fontSize() <= 13"
-            (click)="appearance.setFontSize(appearance.fontSize() - 1)"
-          >
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <button
-            type="button"
-            class="tb-action-btn tb-aa-btn"
-            title="Reader Appearance"
+            class="tb-action-btn"
+            title="Reader Appearance & Themes"
+            aria-label="Reader Appearance & Themes"
             (click)="showAppearance.set(true)"
           >
-            Aa
-          </button>
-          <button
-            type="button"
-            class="tb-action-btn tb-font-step"
-            title="Increase font size"
-            aria-label="Increase font size"
-            [disabled]="appearance.fontSize() >= 28"
-            (click)="appearance.setFontSize(appearance.fontSize() + 1)"
-          >
-            <span class="material-symbols-rounded">add</span>
+            <span class="material-symbols-rounded">palette</span>
           </button>
           <div class="menu-wrap">
             <button
@@ -1102,18 +1086,8 @@ interface AppendedBibleChapter {
         cursor: default;
       }
 
-      .tb-font-step .material-symbols-rounded {
-        font-size: 16px;
-      }
-
       .tb-action-btn .material-symbols-rounded {
         font-size: 18px;
-      }
-
-      .tb-aa-btn {
-        font-family: Georgia, serif;
-        font-weight: 700;
-        font-size: 14px;
       }
 
       .compare-btn {

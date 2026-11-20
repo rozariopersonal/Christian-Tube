@@ -23,6 +23,7 @@ import { ReaderAppearanceService } from '../../../core/services/reader-appearanc
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
+import { ReaderTypographyToggleComponent } from '../../../shared/ui/reader-typography-toggle.component';
 import { ReaderSpreadFooterComponent } from '../../../shared/ui/reader-spread-footer.component';
 import {
   computeSpreadMetrics,
@@ -97,6 +98,7 @@ interface ImageSpread {
     InfiniteScrollTriggerDirective,
     ModalSheetComponent,
     ReaderColumnsToggleComponent,
+    ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
     TextSelectionPopoverComponent,
     BookTocSheetComponent,
@@ -168,8 +170,42 @@ interface ImageSpread {
     <ng-template #topbarRight>
       <app-reader-columns-toggle
         [maxColumns]="isImageBook() ? 2 : 3"
-        [hideSpacing]="isImageBook()"
       />
+      @if (!isImageBook()) {
+        <app-reader-typography-toggle />
+      } @else {
+        <div class="tb-actions-pill tb-zoom-pill" role="group" aria-label="Image zoom controls">
+          <button
+            type="button"
+            class="tb-action-btn"
+            title="Zoom out"
+            aria-label="Zoom out"
+            [disabled]="imageZoom() <= 1"
+            (click)="setImageZoom(imageZoom() - 0.25)"
+          >
+            <span class="material-symbols-rounded">remove</span>
+          </button>
+          <button
+            type="button"
+            class="tb-action-btn tb-zoom-val"
+            title="Reset zoom"
+            aria-label="Reset zoom"
+            (click)="setImageZoom(1)"
+          >
+            {{ Math.round(imageZoom() * 100) }}%
+          </button>
+          <button
+            type="button"
+            class="tb-action-btn"
+            title="Zoom in"
+            aria-label="Zoom in"
+            [disabled]="imageZoom() >= 2.5"
+            (click)="setImageZoom(imageZoom() + 0.25)"
+          >
+            <span class="material-symbols-rounded">add</span>
+          </button>
+        </div>
+      }
       <div class="tb-actions-pill">
         <button
           type="button"
@@ -181,43 +217,12 @@ interface ImageSpread {
         </button>
         <button
           type="button"
-          class="tb-action-btn tb-font-step"
-          [title]="isImageBook() ? 'Zoom out' : 'Decrease font size'"
-          [attr.aria-label]="isImageBook() ? 'Zoom out' : 'Decrease font size'"
-          [disabled]="isImageBook() ? imageZoom() <= 1 : appearance.fontSize() <= 13"
-          (click)="
-            isImageBook()
-              ? setImageZoom(imageZoom() - 0.25)
-              : appearance.setFontSize(appearance.fontSize() - 1)
-          "
+          class="tb-action-btn"
+          title="Display & Themes"
+          aria-label="Display & Themes"
+          (click)="showAppearance.set(true)"
         >
-          <span class="material-symbols-rounded">remove</span>
-        </button>
-        <button
-          type="button"
-          class="tb-action-btn tb-aa-btn"
-          [title]="isImageBook() ? 'Reset zoom / Display & Paper' : 'Display & Layout'"
-          (click)="
-            isImageBook() && imageZoom() > 1
-              ? setImageZoom(1)
-              : showAppearance.set(true)
-          "
-        >
-          {{ isImageBook() && imageZoom() > 1 ? Math.round(imageZoom() * 100) + '%' : 'Aa' }}
-        </button>
-        <button
-          type="button"
-          class="tb-action-btn tb-font-step"
-          [title]="isImageBook() ? 'Zoom in' : 'Increase font size'"
-          [attr.aria-label]="isImageBook() ? 'Zoom in' : 'Increase font size'"
-          [disabled]="isImageBook() ? imageZoom() >= 2.5 : appearance.fontSize() >= 28"
-          (click)="
-            isImageBook()
-              ? setImageZoom(imageZoom() + 0.25)
-              : appearance.setFontSize(appearance.fontSize() + 1)
-          "
-        >
-          <span class="material-symbols-rounded">add</span>
+          <span class="material-symbols-rounded">palette</span>
         </button>
         <div class="tb-menu-wrap">
           <button
@@ -1279,18 +1284,16 @@ interface ImageSpread {
         cursor: default;
       }
 
-      .tb-font-step .material-symbols-rounded {
-        font-size: 16px;
-      }
-
       .tb-action-btn .material-symbols-rounded {
         font-size: 18px;
       }
 
-      .tb-aa-btn {
-        font-family: Georgia, serif;
+      .tb-zoom-val {
+        width: auto;
+        padding: 0 6px;
+        font-size: 11px;
         font-weight: 700;
-        font-size: 14px;
+        font-variant-numeric: tabular-nums;
       }
 
       .tb-menu-wrap {
