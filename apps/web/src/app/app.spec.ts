@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { ReleaseDataService } from './core/api/release-data.service';
+import { MainShellComponent } from './core/layout/main-shell.component';
 import {
   ScreenClassService,
   needsCollapsedActions,
@@ -11,6 +12,7 @@ import {
   supportsPersistentSidebar,
 } from './core/layout/screen-class.service';
 import { APP_COLOR_THEMES, ThemeService } from './core/theme/theme.service';
+import { BooksService } from './features/books/services/books.service';
 import { ScriptureRefParserService } from './features/books/services/scripture-ref-parser.service';
 
 describe('App & Phase 1 Core Services', () => {
@@ -121,5 +123,46 @@ describe('App & Phase 1 Core Services', () => {
     expect(taggedRef?.bookNumber).toBe(19);
     expect(taggedRef?.chapter).toBe(23);
     expect(taggedRef?.startVerse).toBe(1);
+  });
+
+  it('places Channels in the left sidebar immediately before Settings and not in topbar', () => {
+    const screen = TestBed.inject(ScreenClassService);
+    screen.width.set(1280);
+    const fixture = TestBed.createComponent(MainShellComponent);
+    fixture.detectChanges();
+
+    const shell = fixture.componentInstance;
+    const miniRoutes = shell.miniRailNav.map((d) => d.route);
+    const channelsMiniIdx = miniRoutes.indexOf('/channels');
+    const settingsMiniIdx = miniRoutes.indexOf('/settings');
+    expect(channelsMiniIdx).toBeGreaterThan(-1);
+    expect(channelsMiniIdx).toBe(settingsMiniIdx - 1);
+
+    const studyRoutes = shell.studyNav.map((d) => d.route);
+    const channelsStudyIdx = studyRoutes.indexOf('/channels');
+    const settingsStudyIdx = studyRoutes.indexOf('/settings');
+    expect(channelsStudyIdx).toBeGreaterThan(-1);
+    expect(channelsStudyIdx).toBe(settingsStudyIdx - 1);
+
+    const el = fixture.nativeElement as HTMLElement;
+    const topbarChannelsLink = el.querySelector('.topbar-right a[routerLink="/channels"]');
+    expect(topbarChannelsLink).toBeNull();
+  });
+
+  it('infers book language from bookId prefix and generates multi-mirror page & cover image URLs', () => {
+    const books = TestBed.inject(BooksService);
+    expect(books.inferBookLanguage('ta_a_good_family')).toBe('ta');
+    expect(books.inferBookLanguage('hi_woman_why_are_you_weeping')).toBe('hi');
+    expect(books.inferBookLanguage('a_godly_family_life')).toBe('en');
+
+    const pageUrls = books.pageImageUrls('ta_a_good_family', 'p1.jpg');
+    expect(pageUrls.length).toBeGreaterThanOrEqual(4);
+    expect(pageUrls[0]).toContain('cdn.jsdelivr.net/gh/rozariopersonal/Christian-Tube-Releases@main/books/ta/ta_a_good_family/pages/p1.jpg');
+    expect(pageUrls[1]).toContain('raw.githubusercontent.com/rozariopersonal/Christian-Tube-Releases/main/books/ta/ta_a_good_family/pages/p1.jpg');
+
+    const coverUrls = books.coverUrls('a_godly_family_life.jpg');
+    expect(coverUrls.length).toBe(2);
+    expect(coverUrls[0]).toContain('cdn.jsdelivr.net');
+    expect(coverUrls[1]).toContain('raw.githubusercontent.com');
   });
 });

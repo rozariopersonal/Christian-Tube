@@ -1,6 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { BookCatalogItem, BookReadingProgress } from '../models/book.model';
+import { BooksService } from '../services/books.service';
 
 @Component({
   selector: 'app-book-card',
@@ -10,12 +18,13 @@ import { BookCatalogItem, BookReadingProgress } from '../models/book.model';
   template: `
     <a class="book-card" [routerLink]="['/books', book().id]">
       <div class="cover-wrap">
-        @if (coverUrl()) {
+        @if (activeCoverUrl(); as src) {
           <img
             class="cover"
-            [src]="coverUrl()"
+            [src]="src"
             [alt]="book().title"
             loading="lazy"
+            (error)="onCoverError()"
           />
         } @else {
           <div class="cover fallback-jacket">
@@ -125,9 +134,31 @@ import { BookCatalogItem, BookReadingProgress } from '../models/book.model';
   ],
 })
 export class BookCardComponent {
+  private readonly booksService = inject(BooksService);
   readonly book = input.required<BookCatalogItem>();
   readonly progress = input<BookReadingProgress | undefined>();
   readonly coverUrl = input<string | null>(null);
+
+  private readonly fallbackIdx = signal<number>(0);
+
+  readonly candidateUrls = computed<string[]>(() => {
+    const file = this.book().coverFile;
+    if (file) {
+      return this.booksService.coverUrls(file);
+    }
+    const explicit = this.coverUrl();
+    return explicit ? [explicit] : [];
+  });
+
+  readonly activeCoverUrl = computed<string | null>(() => {
+    const urls = this.candidateUrls();
+    const idx = this.fallbackIdx();
+    return idx < urls.length ? urls[idx] : null;
+  });
+
+  onCoverError(): void {
+    this.fallbackIdx.update((i) => i + 1);
+  }
 
   readonly progressPercent = computed(() => {
     const p = this.progress();

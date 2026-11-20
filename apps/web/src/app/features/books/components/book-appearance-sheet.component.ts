@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  output,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   LETTER_SPACING_PRESETS,
@@ -6,6 +13,8 @@ import {
   READER_FONTS,
   READER_PAPER_THEMES,
   ReaderAppearanceService,
+  ReaderFontGroup,
+  ReaderFontLanguageCode,
 } from '../../../core/services/reader-appearance.service';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 
@@ -36,17 +45,97 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
       </div>
 
       <div class="appearance-section">
-        <label class="label">Font Family</label>
+        <div class="section-head">
+          <label class="label">Font Family (Grouped by Language)</label>
+          @if (appearance.canQueryLocalFonts()) {
+            <button
+              type="button"
+              class="sys-scan-btn"
+              [disabled]="appearance.scanningSystemFonts()"
+              (click)="appearance.scanLocalSystemFonts()"
+            >
+              <span class="material-symbols-rounded">computer</span>
+              <span>{{ appearance.scanningSystemFonts() ? 'Scanning...' : 'Load System Fonts' }}</span>
+            </button>
+          }
+        </div>
+
         <div class="chip-wrap">
-          @for (f of fonts; track f.id) {
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="selectedLang() === 'all'"
+            (click)="selectedLang.set('all')"
+          >
+            All Languages
+          </button>
+          @for (grp of fontGroups(); track grp.code) {
             <button
               type="button"
               class="pill-chip"
-              [class.active]="appearance.fontId() === f.id"
-              (click)="appearance.setFont(f.id)"
+              [class.active]="selectedLang() === grp.code"
+              (click)="selectedLang.set(grp.code)"
             >
-              {{ f.label }}
+              {{ grp.code === 'en' ? 'English' : grp.nativeLabel + ' (' + grp.label + ')' }}
             </button>
+          }
+        </div>
+
+        <div class="font-groups-box">
+          @for (grp of visibleFontGroups(); track grp.code) {
+            <div class="font-group-block">
+              <div class="font-group-head">
+                <span class="font-group-label">
+                  {{ grp.label }}
+                  @if (grp.nativeLabel !== grp.label) {
+                    <span class="font-group-native">· {{ grp.nativeLabel }}</span>
+                  }
+                </span>
+                @if (grp.downloadedCount < grp.onDemandCount) {
+                  <button
+                    type="button"
+                    class="dl-all-btn"
+                    [disabled]="appearance.isLanguageDownloading(grp.code)"
+                    (click)="appearance.downloadLanguageFonts(grp.code)"
+                  >
+                    <span class="material-symbols-rounded">download</span>
+                    <span>
+                      {{
+                        appearance.isLanguageDownloading(grp.code)
+                          ? 'Downloading...'
+                          : 'Download All (' + (grp.onDemandCount - grp.downloadedCount) + ')'
+                      }}
+                    </span>
+                  </button>
+                }
+              </div>
+
+              <div class="chip-wrap">
+                @for (f of grp.fonts; track f.id) {
+                  <button
+                    type="button"
+                    class="pill-chip font-chip"
+                    [class.active]="appearance.fontId() === f.id"
+                    [style.font-family]="f.cssFamily"
+                    (click)="appearance.setFont(f.id)"
+                  >
+                    <span>{{ f.label }}</span>
+                    @if (appearance.isFontDownloading(f)) {
+                      <span class="material-symbols-rounded chip-dl-icon" title="Downloading...">
+                        downloading
+                      </span>
+                    } @else if (!appearance.isFontDownloaded(f)) {
+                      <span
+                        class="material-symbols-rounded chip-dl-icon"
+                        title="Downloaded on demand"
+                      >
+                        cloud_download
+                      </span>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
           }
         </div>
       </div>
@@ -288,12 +377,83 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 12px;
       }
+
+      .sys-scan-btn,
+      .dl-all-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .sys-scan-btn .material-symbols-rounded,
+      .dl-all-btn .material-symbols-rounded {
+        font-size: 14px;
+      }
+
+      .font-groups-box {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 260px;
+        overflow-y: auto;
+        padding: 10px;
+        border-radius: var(--radius-md);
+        background-color: var(--bg);
+        border: 1px solid var(--surface-border);
+      }
+
+      .font-group-block {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .font-group-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .font-group-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--on-surface-muted);
+      }
+
+      .font-group-native {
+        color: var(--accent);
+      }
+
+      .font-chip {
+        gap: 5px;
+      }
+
+      .chip-dl-icon {
+        font-size: 14px;
+        opacity: 0.75;
+      }
     `,
   ],
 })
 export class BookAppearanceSheetComponent {
   readonly appearance = inject(ReaderAppearanceService);
   readonly fonts = READER_FONTS;
+  readonly fontGroups = this.appearance.fontsByLanguage;
+  readonly selectedLang = signal<'all' | ReaderFontLanguageCode>('all');
+  readonly visibleFontGroups = computed<readonly ReaderFontGroup[]>(() => {
+    const lang = this.selectedLang();
+    const groups = this.fontGroups();
+    if (lang === 'all') return groups;
+    return groups.filter((g) => g.code === lang);
+  });
   readonly paperThemes = READER_PAPER_THEMES;
   readonly linePresets = LINE_HEIGHT_PRESETS;
   readonly letterPresets = LETTER_SPACING_PRESETS;

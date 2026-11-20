@@ -9,6 +9,7 @@ import {
 
 const KEY_BOOK_PROGRESS = 'books_reading_progress';
 const MAX_BOOK_PRELOAD_BYTES = 1_048_576; // 1 MB
+const KNOWN_LANG_PREFIXES = ['ta', 'hi', 'te', 'kn', 'ml', 'de'] as const;
 
 @Injectable({ providedIn: 'root' })
 export class BooksService {
@@ -40,34 +41,78 @@ export class BooksService {
     }
   }
 
-  coverUrl(coverFile?: string): string {
-    if (!coverFile) return '';
-    return this.releases.assetUrl(`books/covers/${coverFile}`);
+  /**
+   * Resolves a book's language code from explicit `lang`, catalog metadata,
+   * or bookId prefix (e.g. `ta_...`, `hi_...`, `te_...`, `kn_...`, `ml_...`, `de_...`).
+   */
+  inferBookLanguage(bookId: string, lang?: string): string {
+    if (lang && lang.trim().length > 0 && lang.trim().toLowerCase() !== 'all') {
+      return lang.trim().toLowerCase();
+    }
+    const cleanId = (bookId ?? '').trim();
+    const match = this.catalog().find((b) => b.id === cleanId);
+    if (match?.lang && match.lang.trim().length > 0) {
+      return match.lang.trim().toLowerCase();
+    }
+    for (const prefix of KNOWN_LANG_PREFIXES) {
+      if (cleanId.startsWith(`${prefix}_`)) {
+        return prefix;
+      }
+    }
+    return 'en';
   }
 
-  pageImageUrls(bookId: string, fileName: string, lang?: string): string[] {
-    const clean = fileName.trim();
+  coverUrls(coverFile?: string): string[] {
+    const clean = (coverFile ?? '').trim();
     if (!clean) return [];
+    return this.releases.urlsFor(`books/covers/${clean}`);
+  }
+
+  coverUrl(coverFile?: string): string {
+    return this.coverUrls(coverFile)[0] ?? '';
+  }
+
+  /**
+   * Returns all candidate URLs (both jsDelivr CDN and raw GitHub fallback mirrors)
+   * for a book page image, checking the language-specific directory first for non-English books.
+   */
+  pageImageUrls(bookId: string, fileName: string, lang?: string): string[] {
+    const clean = (fileName ?? '').trim();
+    if (!clean || !bookId) return [];
+    const resolvedLang = this.inferBookLanguage(bookId, lang);
     const urls: string[] = [];
-    if (lang && lang !== 'en') {
-      urls.push(this.releases.assetUrl(`books/${lang}/${bookId}/pages/${clean}`));
+    if (resolvedLang !== 'en') {
+      urls.push(
+        ...this.releases.urlsFor(`books/${resolvedLang}/${bookId}/pages/${clean}`),
+      );
     }
-    urls.push(this.releases.assetUrl(`books/${bookId}/pages/${clean}`));
-    urls.push(this.releases.assetUrl(`books/en/${bookId}/pages/${clean}`));
-    return urls;
+    urls.push(...this.releases.urlsFor(`books/${bookId}/pages/${clean}`));
+    urls.push(...this.releases.urlsFor(`books/en/${bookId}/pages/${clean}`));
+    return Array.from(new Set(urls));
   }
 
   async fetchToc(bookId: string, lang?: string): Promise<BookToc> {
-    try {
-      return await this.releases.getJson<BookToc>(`books/${bookId}/toc.json`);
-    } catch {
-      if (lang) {
-        return await this.releases.getJson<BookToc>(
-          `books/${lang}/${bookId}/toc.json`,
-        );
+    const resolvedLang = this.inferBookLanguage(bookId, lang);
+    const candidatePaths =
+      resolvedLang !== 'en'
+        ? [
+            `books/${resolvedLang}/${bookId}/toc.json`,
+            `books/${bookId}/toc.json`,
+            `books/en/${bookId}/toc.json`,
+          ]
+        : [
+            `books/${bookId}/toc.json`,
+            `books/en/${bookId}/toc.json`,
+          ];
+
+    for (const path of candidatePaths) {
+      try {
+        return await this.releases.getJson<BookToc>(path);
+      } catch {
+        // try next candidate path
       }
-      throw new Error('Table of contents not found');
     }
+    throw new Error('Table of contents not found');
   }
 
   async fetchChapter(
@@ -75,30 +120,50 @@ export class BooksService {
     chapterIndex: number,
     lang?: string,
     totalChapters?: number,
+    options?: { skipPreload?: boolean },
   ): Promise<BookLine[]> {
-    let lines: BookLine[];
-    try {
-      lines = await this.releases.getJson<BookLine[]>(
-        `books/${bookId}/chapters/${chapterIndex}.json`,
-      );
-      this.preloadBookInBackground(bookId, chapterIndex, lines, totalChapters);
-      return lines;
-    } catch {
-      if (lang) {
-        lines = await this.releases.getJson<BookLine[]>(
-          `books/${lang}/${bookId}/chapters/${chapterIndex}.json`,
-        );
-        this.preloadBookInBackground(
-          bookId,
-          chapterIndex,
-          lines,
-          totalChapters,
-          lang,
-        );
+    const resolvedLang = this.inferBookLanguage(bookId, lang);
+    const candidatePaths: Array<{ path: string; langUsed?: string }> =
+      resolvedLang !== 'en'
+        ? [
+            {
+              path: `books/${resolvedLang}/${bookId}/chapters/${chapterIndex}.json`,
+              langUsed: resolvedLang,
+            },
+            {
+              path: `books/${bookId}/chapters/${chapterIndex}.json`,
+              langUsed: undefined,
+            },
+          ]
+        : [
+            {
+              path: `books/${bookId}/chapters/${chapterIndex}.json`,
+              langUsed: undefined,
+            },
+            {
+              path: `books/en/${bookId}/chapters/${chapterIndex}.json`,
+              langUsed: 'en',
+            },
+          ];
+
+    for (const candidate of candidatePaths) {
+      try {
+        const lines = await this.releases.getJson<BookLine[]>(candidate.path);
+        if (!options?.skipPreload) {
+          this.preloadBookInBackground(
+            bookId,
+            chapterIndex,
+            lines,
+            totalChapters,
+            candidate.langUsed,
+          );
+        }
         return lines;
+      } catch {
+        // try next candidate path
       }
-      throw new Error('Chapter not found');
     }
+    throw new Error('Chapter not found');
   }
 
   private preloadBookInBackground(

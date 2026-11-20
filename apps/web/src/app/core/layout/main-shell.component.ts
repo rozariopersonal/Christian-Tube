@@ -180,9 +180,6 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
               <ng-container *ngTemplateOutlet="rTpl" />
               <span class="topbar-divider" aria-hidden="true"></span>
             }
-            <a class="icon-btn" routerLink="/channels" title="Browse Channels" aria-label="Browse Channels">
-              <span class="material-symbols-rounded">video_library</span>
-            </a>
             <button
               type="button"
               class="icon-btn"
@@ -812,6 +809,7 @@ export class MainShellComponent implements OnInit {
     { label: 'Books', route: '/books', icon: 'auto_stories' },
     { label: 'Articles', route: '/articles', icon: 'article' },
     { label: 'Audio', route: '/audio', icon: 'headphones' },
+    { label: 'Channels', route: '/channels', icon: 'video_library' },
     { label: 'Settings', route: '/settings', icon: 'tune' },
   ];
 

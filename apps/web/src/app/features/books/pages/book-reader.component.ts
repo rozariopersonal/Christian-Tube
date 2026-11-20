@@ -578,7 +578,7 @@ interface ImageSpread {
                   [style.--img-zoom]="imageZoom()"
                 >
                   @for (p of spread.pages; track p.fileName) {
-                    @let st = imageStatusMap()[p.fileName] ?? 'loading';
+                    @let st = pageImageStatus(p.fileName);
                     <div
                       class="image-spread-frame"
                       (dblclick)="toggleImageZoom()"
@@ -836,6 +836,17 @@ interface ImageSpread {
                       >
                         {{ line.text }}
                       </h3>
+                    } @else if (isImageLine(line)) {
+                      <div class="book-page-img-wrap">
+                        <img
+                          class="book-page-img"
+                          [src]="pageImageUrl(line.text)"
+                          (load)="onPageImageLoad(line.text)"
+                          (error)="onPageImageError($event, line.text)"
+                          [alt]="(toc()?.title || 'Book') + ' page ' + (line.page ?? '')"
+                          loading="lazy"
+                        />
+                      </div>
                     } @else {
                       <div class="chapter-para" [class.is-quote]="isQuoteLine(line)">
                         <p class="para-text">
@@ -909,6 +920,7 @@ interface ImageSpread {
                     <img
                       class="book-page-img"
                       [src]="pageImageUrl(line.text)"
+                      (load)="onPageImageLoad(line.text)"
                       (error)="onPageImageError($event, line.text)"
                       [alt]="(toc()?.title || 'Book') + ' page ' + (line.page ?? '')"
                       loading="lazy"
@@ -1729,6 +1741,7 @@ interface ImageSpread {
         min-height: 0;
         display: grid;
         grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
         gap: 20px;
         align-items: center;
         justify-items: center;
@@ -1741,6 +1754,7 @@ interface ImageSpread {
       }
 
       .image-spread-deck.zoomed {
+        grid-template-rows: auto;
         overflow: auto;
         align-items: start;
       }
@@ -2123,11 +2137,14 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
   readonly imageSpreadIndex = signal<number>(0);
   readonly imageZoom = signal<number>(1);
   readonly imageStatusMap = signal<Record<string, 'loading' | 'loaded' | 'error'>>({});
+  readonly imageFallbackIndexMap = signal<Record<string, number>>({});
+  readonly imageRetryCountMap = signal<Record<string, number>>({});
   readonly Math = Math;
   readonly fullBookChapters = signal<SpreadBookChapter[]>([]);
   private fullBookLoadedForId = '';
   private fullBookLoadingForId = '';
   private pendingLastSpreadPage = false;
+  private lastInternalUrlKey = '';
 
   constructor() {
     this.destroyRef.onDestroy(() => {
@@ -2174,13 +2191,17 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       if (!this.isImageBook() || !this.isPaginated()) return;
       const spreads = this.imageSpreads();
       const idx = this.imageSpreadIndex();
-      for (const offset of [1, 2]) {
+      for (const offset of [1, 2, -1]) {
         const upcoming = spreads[idx + offset];
         if (!upcoming) continue;
         for (const p of upcoming.pages) {
+          if (this.pageImageStatus(p.fileName) === 'loaded') continue;
           const url = this.pageImageUrl(p.fileName);
-          if (url) {
+          if (url && typeof Image !== 'undefined') {
             const img = new Image();
+            img.onload = () => this.onPageImageLoad(p.fileName);
+            img.onerror = (ev) =>
+              this.onPageImageError(ev as unknown as Event, p.fileName);
             img.src = url;
           }
         }
@@ -2531,7 +2552,11 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
 
   readonly isImageBook = computed(() => {
     const list = this.lines();
-    return list.length > 0 && list.every((l) => this.isImageLine(l));
+    return (
+      list.length > 0 &&
+      list.some((l) => this.isImageLine(l)) &&
+      list.every((l) => this.isImageLine(l) || Boolean(l.isHeading))
+    );
   });
 
   readonly imageCols = computed<1 | 2>(() =>
@@ -2596,42 +2621,65 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
     return (line.contentType ?? '').toLowerCase() === 'img';
   }
 
+  private imageKey(fileName: string): string {
+    return `${this.currentBookId()}:${fileName.trim()}`;
+  }
+
+  pageImageStatus(fileName: string): 'loading' | 'loaded' | 'error' {
+    return this.imageStatusMap()[this.imageKey(fileName)] ?? 'loading';
+  }
+
   pageImageUrl(fileName: string): string {
-    return (
-      this.booksService.pageImageUrls(
-        this.currentBookId(),
-        fileName,
-        this.currentBookLang(),
-      )[0] ?? ''
+    const clean = fileName.trim();
+    if (!clean) return '';
+    const key = this.imageKey(clean);
+    const urls = this.booksService.pageImageUrls(
+      this.currentBookId(),
+      clean,
+      this.currentBookLang(),
     );
+    if (urls.length === 0) return '';
+    const idx = Math.min(
+      urls.length - 1,
+      this.imageFallbackIndexMap()[key] ?? 0,
+    );
+    const base = urls[idx] ?? urls[0];
+    const retry = this.imageRetryCountMap()[key] ?? 0;
+    if (retry <= 0) return base;
+    const sep = base.includes('?') ? '&' : '?';
+    return `${base}${sep}retry=${retry}`;
   }
 
   onPageImageLoad(fileName: string): void {
-    const clean = fileName.trim();
-    if (this.imageStatusMap()[clean] === 'loaded') return;
-    this.imageStatusMap.update((m) => ({ ...m, [clean]: 'loaded' }));
+    const key = this.imageKey(fileName);
+    if (this.imageStatusMap()[key] === 'loaded') return;
+    this.imageStatusMap.update((m) => ({ ...m, [key]: 'loaded' }));
   }
 
-  onPageImageError(event: Event, fileName: string): void {
-    const img = event.target as HTMLImageElement | null;
-    if (!img) return;
+  onPageImageError(_event: Event, fileName: string): void {
+    const clean = fileName.trim();
+    const key = this.imageKey(clean);
     const urls = this.booksService.pageImageUrls(
       this.currentBookId(),
-      fileName,
+      clean,
       this.currentBookLang(),
     );
-    const nextIdx = Number(img.dataset['fallbackIdx'] ?? '0') + 1;
+    const nextIdx = (this.imageFallbackIndexMap()[key] ?? 0) + 1;
     if (nextIdx < urls.length) {
-      img.dataset['fallbackIdx'] = String(nextIdx);
-      img.src = urls[nextIdx];
+      this.imageFallbackIndexMap.update((m) => ({ ...m, [key]: nextIdx }));
       return;
     }
-    this.imageStatusMap.update((m) => ({ ...m, [fileName.trim()]: 'error' }));
+    this.imageStatusMap.update((m) => ({ ...m, [key]: 'error' }));
   }
 
   retryPageImage(fileName: string): void {
-    const clean = fileName.trim();
-    this.imageStatusMap.update((m) => ({ ...m, [clean]: 'loading' }));
+    const key = this.imageKey(fileName);
+    this.imageFallbackIndexMap.update((m) => ({ ...m, [key]: 0 }));
+    this.imageRetryCountMap.update((m) => ({
+      ...m,
+      [key]: (m[key] ?? 0) + 1,
+    }));
+    this.imageStatusMap.update((m) => ({ ...m, [key]: 'loading' }));
   }
 
   setImageZoom(next: number): void {
@@ -2757,6 +2805,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       const idx = this.imageSpreads().findIndex((s) => s.chapterIndex === ch);
       if (idx >= 0) {
         this.goToImageSpread(idx);
+        this.lastInternalUrlKey = `${this.currentBookId()}:${ch}::`;
         void this.router.navigate(['/books', this.currentBookId()], {
           queryParams: { chapter: ch },
           replaceUrl: true,
@@ -2779,6 +2828,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
     if (match) {
       this.lines.set(match.lines);
     }
+    this.lastInternalUrlKey = `${this.currentBookId()}:${ch}::`;
     void this.router.navigate(['/books', this.currentBookId()], {
       queryParams: { chapter: ch },
       replaceUrl: true,
@@ -2799,42 +2849,62 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
     try {
       const lang = this.currentBookLang();
       const total = toc.chapters.length;
-      const loaded = await Promise.all(
-        toc.chapters.map(async (meta): Promise<SpreadBookChapter> => {
-          const rawLines = await this.booksService.fetchChapter(
-            bookId,
-            meta.chapterIndex,
-            lang,
-            total,
-          );
-          const words = rawLines.reduce(
-            (acc, l) => acc + (l.text ? l.text.split(/\s+/).length : 0),
-            0,
-          );
-          return {
-            chapterIndex: meta.chapterIndex,
-            title: meta.title ?? '',
-            minutes: Math.max(1, Math.round(words / 220)),
-            lines: rawLines,
-            parsedLines: rawLines.map((line, index) => ({
-              line,
-              tokens: line.isHeading
-                ? []
-                : this.scriptureParser.parse(line.text),
-              hidden:
-                index === 0 &&
-                Boolean(line.isHeading) &&
-                this.isDuplicateChapterHeading(line.text, meta.title ?? ''),
-            })),
-          };
-        }),
-      );
+      const loaded: SpreadBookChapter[] = [];
+      const batchSize = 4;
+
+      for (let i = 0; i < toc.chapters.length; i += batchSize) {
+        if (this.currentBookId() !== bookId) return;
+        const slice = toc.chapters.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          slice.map(async (meta): Promise<SpreadBookChapter> => {
+            const rawLines = await this.booksService.fetchChapter(
+              bookId,
+              meta.chapterIndex,
+              lang,
+              total,
+              { skipPreload: true },
+            );
+            const words = rawLines.reduce(
+              (acc, l) => acc + (l.text ? l.text.split(/\s+/).length : 0),
+              0,
+            );
+            return {
+              chapterIndex: meta.chapterIndex,
+              title: meta.title ?? '',
+              minutes: Math.max(1, Math.round(words / 220)),
+              lines: rawLines,
+              parsedLines: rawLines.map((line, index) => ({
+                line,
+                tokens: line.isHeading
+                  ? []
+                  : this.scriptureParser.parse(line.text),
+                hidden:
+                  index === 0 &&
+                  Boolean(line.isHeading) &&
+                  this.isDuplicateChapterHeading(line.text, meta.title ?? ''),
+              })),
+            };
+          }),
+        );
+        loaded.push(...batchResults);
+      }
+
       if (this.currentBookId() !== bookId) return;
       this.fullBookChapters.set(loaded);
       this.fullBookLoadedForId = bookId;
+      if (this.isImageBook()) {
+        const targetSpreadIdx = this.imageSpreads().findIndex(
+          (s) => s.chapterIndex === this.chapterIndex(),
+        );
+        if (targetSpreadIdx >= 0) {
+          this.imageSpreadIndex.set(targetSpreadIdx);
+        }
+      }
       setTimeout(() => {
         this.refreshSpreadMetrics();
-        this.scrollToSpreadChapter(this.chapterIndex());
+        if (!this.isImageBook()) {
+          this.scrollToSpreadChapter(this.chapterIndex());
+        }
       }, 20);
     } finally {
       if (this.fullBookLoadingForId === bookId) {
@@ -3031,11 +3101,15 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
         const targetPage = pageRaw ? Number(pageRaw) : undefined;
         const targetLine = lineRaw ? Number(lineRaw) : undefined;
 
+        const urlKey = `${id}:${targetChapter ?? ''}:${targetPage ?? ''}:${targetLine ?? ''}`;
+        if (urlKey === this.lastInternalUrlKey) {
+          return;
+        }
+
         const sameBook = id === this.currentBookId() && this.toc() !== null;
         if (
           sameBook &&
-          targetChapter === this.chapterIndex() &&
-          !targetPage &&
+          (targetChapter === undefined || targetChapter === this.chapterIndex()) &&
           !targetLine
         ) {
           return;
@@ -3058,21 +3132,28 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
     bookId: string,
     target?: { chapter?: number; page?: number; line?: number },
   ): Promise<void> {
+    const isNewBook = this.currentBookId() !== bookId;
     this.currentBookId.set(bookId);
-    this.fullBookChapters.set([]);
-    this.fullBookLoadedForId = '';
-    this.fullBookLoadingForId = '';
-    this.imageSpreadIndex.set(0);
+    if (isNewBook) {
+      this.fullBookChapters.set([]);
+      this.fullBookLoadedForId = '';
+      this.fullBookLoadingForId = '';
+      this.imageSpreadIndex.set(0);
+    }
     this.loading.set(true);
     this.error.set(null);
     this.selectedIndex.set(null);
     const catalogItem = this.booksService
       .catalog()
       .find((b) => b.id === bookId);
-    this.currentBookLang.set(catalogItem?.lang);
+    const resolvedLang = this.booksService.inferBookLanguage(
+      bookId,
+      catalogItem?.lang,
+    );
+    this.currentBookLang.set(resolvedLang);
 
     try {
-      const toc = await this.booksService.fetchToc(bookId, catalogItem?.lang);
+      const toc = await this.booksService.fetchToc(bookId, resolvedLang);
       this.toc.set(toc);
       let initialCh =
         target?.chapter ??
@@ -3151,6 +3232,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
 
       const chapterMeta = toc?.chapters.find((c) => c.chapterIndex === ch);
       const syncPage = target?.page ?? chapterMeta?.startPage;
+      this.lastInternalUrlKey = `${bookId}:${ch}:${syncPage ?? ''}:${target?.line ?? ''}`;
       void this.router.navigate(['/books', bookId], {
         queryParams: {
           chapter: ch,

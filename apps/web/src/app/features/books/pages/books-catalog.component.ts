@@ -101,6 +101,7 @@ import { BooksService } from '../services/books.service';
                     [src]="booksService.coverUrl(p.coverFile)"
                     [alt]="p.title"
                     loading="lazy"
+                    (error)="onRecentCoverError($event, p.coverFile)"
                   />
                 }
                 <div class="recent-info">
@@ -315,6 +316,19 @@ export class BooksCatalogComponent implements OnInit {
 
   langLabel(code: string): string {
     return languageMetaFromCode(code).englishName;
+  }
+
+  onRecentCoverError(event: Event, coverFile: string): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img) return;
+    const urls = this.booksService.coverUrls(coverFile);
+    const nextIdx = Number(img.dataset['fallbackIdx'] ?? '0') + 1;
+    if (nextIdx < urls.length) {
+      img.dataset['fallbackIdx'] = String(nextIdx);
+      img.src = urls[nextIdx];
+      return;
+    }
+    img.style.display = 'none';
   }
 
   selectAllQuickLanguages(): void {

@@ -16,8 +16,12 @@ export class ReleaseDataService {
   private readonly idb = inject(IndexedDbCacheService);
   private readonly memoryCache = new Map<string, unknown>();
   private readonly inFlight = new Map<string, Promise<unknown>>();
+  private readonly inFlightFonts = new Map<string, Promise<boolean>>();
   private readonly loadedFonts = new Set<string>();
+  private readonly loadingFonts = new Set<string>();
 
+  readonly loadedFontFamilies = signal<ReadonlySet<string>>(new Set());
+  readonly loadingFontFamilies = signal<ReadonlySet<string>>(new Set());
   readonly revision = signal<string>(this.readCachedRevision());
 
   constructor() {
@@ -147,19 +151,47 @@ export class ReleaseDataService {
     }
   }
 
-  async loadFont(family: string, fileName: string): Promise<void> {
-    if (typeof FontFace === 'undefined' || this.loadedFonts.has(family)) return;
-    for (const url of this.urlsFor(`fonts/${fileName}`)) {
-      try {
-        const font = new FontFace(family, `url("${url}")`);
-        const loaded = await font.load();
-        document.fonts.add(loaded);
-        this.loadedFonts.add(family);
-        return;
-      } catch {
-        // try next mirror
-      }
+  isFontLoaded(family: string): boolean {
+    return this.loadedFontFamilies().has(family);
+  }
+
+  isFontLoading(family: string): boolean {
+    return this.loadingFontFamilies().has(family);
+  }
+
+  async loadFont(family: string, fileName: string): Promise<boolean> {
+    if (this.loadedFonts.has(family)) return true;
+    if (typeof FontFace === 'undefined' || typeof document === 'undefined' || !document.fonts) {
+      return false;
     }
+    const existing = this.inFlightFonts.get(family);
+    if (existing) return existing;
+
+    this.loadingFonts.add(family);
+    this.loadingFontFamilies.set(new Set(this.loadingFonts));
+
+    const task = (async (): Promise<boolean> => {
+      for (const url of this.urlsFor(`fonts/${fileName}`)) {
+        try {
+          const font = new FontFace(family, `url("${url}")`);
+          const loaded = await font.load();
+          document.fonts.add(loaded);
+          this.loadedFonts.add(family);
+          this.loadedFontFamilies.set(new Set(this.loadedFonts));
+          return true;
+        } catch {
+          // try next mirror
+        }
+      }
+      return false;
+    })().finally(() => {
+      this.inFlightFonts.delete(family);
+      this.loadingFonts.delete(family);
+      this.loadingFontFamilies.set(new Set(this.loadingFonts));
+    });
+
+    this.inFlightFonts.set(family, task);
+    return task;
   }
 
   clearCache(): void {
