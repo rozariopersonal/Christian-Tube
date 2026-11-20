@@ -62,6 +62,10 @@ export class VideoLibraryService {
     this.history.set(this.readUserJson(HISTORY_STORAGE_KEY, []));
     this.watchLater.set(this.readUserJson(WATCH_LATER_STORAGE_KEY, []));
     this.playheads.set(this.readUserJson(PLAYHEADS_STORAGE_KEY, {}));
+    this.recentSearches.set(this.readJson(RECENT_SEARCHES_KEY, []));
+    if (!this.auth.isAuthenticated()) {
+      this.queue.set([]);
+    }
   }
 
   isWatchLater(videoId: string): boolean {

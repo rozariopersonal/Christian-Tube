@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../api/api.service';
 import { AppConfig } from '../config/app-config';
+import { IndexedDbCacheService } from '../storage/indexed-db-cache.service';
 
 export interface AuthUser {
   id: string;
@@ -42,6 +43,7 @@ const KEY_TOKEN = 'auth_token';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly api = inject(ApiService);
+  private readonly idbCache = inject(IndexedDbCacheService);
 
   readonly currentUser = signal<AuthUser | null>(this.readStoredUser());
   readonly isAdmin = signal<boolean>(false);
@@ -117,52 +119,27 @@ export class AuthService {
     } catch {
       // ignore
     }
+    this.wipeWebStorage();
+    void this.idbCache.clear();
+    this.currentUser.set(null);
+    this.isAdmin.set(false);
+    this.lastError.set(null);
+    queueMicrotask(() => this.wipeWebStorage());
+  }
+
+  private wipeWebStorage(): void {
     try {
-      localStorage.removeItem(KEY_USER);
-      localStorage.removeItem(KEY_TOKEN);
-      const prefixes = [
-        'subscribed_channel_ids',
-        'ct_web_watch_history_',
-        'ct_web_watch_later_',
-        'ct_web_video_playheads_',
-        'ct_web_recent_searches_',
-        'ct_web_autoplay_',
-        'ct_web_sync_pending_',
-        'ct_web_user_items_pending_',
-        'ct_web_clock_offset_',
-        'ct_web_last_guest_id_',
-        'bible_highlights',
-        'bible_bookmarks',
-        'bible_notes',
-        'bible_reader_state',
-        'book_highlights',
-        'book_bookmarks',
-        'reader_text_highlights',
-      ];
-      const exactKeys = [
-        'audio_last_track',
-        'preferred_languages',
-        'primary_bible_version',
-      ];
-      for (const k of exactKeys) {
-        localStorage.removeItem(k);
-      }
-      const allKeys: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k) allKeys.push(k);
-      }
-      for (const k of allKeys) {
-        if (prefixes.some((p) => k.startsWith(p))) {
-          localStorage.removeItem(k);
-        }
+      localStorage.clear();
+    } catch {
+      // ignore
+    }
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear();
       }
     } catch {
       // ignore
     }
-    this.currentUser.set(null);
-    this.isAdmin.set(false);
-    this.lastError.set(null);
   }
 
   async checkIsAdmin(email?: string): Promise<boolean> {

@@ -38,12 +38,17 @@ export class ChannelService {
       if (nextUid !== this.syncedUserId) {
         this.syncedUserId = nextUid;
         untracked(() => {
-          const localIds = this.readLocalSubscriptions();
-          if (!this.areSameIdSets(localIds, this.subscribedIds())) {
-            this.setLocalSubscriptions(localIds);
-          }
           if (user) {
+            const localIds = this.readLocalSubscriptions();
+            if (!this.areSameIdSets(localIds, this.subscribedIds())) {
+              this.setLocalSubscriptions(localIds);
+            }
             void this.loadSubscriptions();
+          } else {
+            this.subscribedIds.set([]);
+            this.channels.update((list) =>
+              list.map((c) => ({ ...c, isSubscribed: false })),
+            );
           }
         });
       }
