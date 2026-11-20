@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { VideoCardComponent } from '../../../shared/ui/video-card.component';
@@ -197,13 +197,22 @@ export class SubscriptionsComponent implements OnInit {
 
   private offset = 0;
   private readonly limit = 24;
+  private lastSyncedSubKey = [...this.channels.subscribedIds()].sort().join(',');
 
-  async ngOnInit(): Promise<void> {
-    await Promise.all([
-      this.channels.loadSubscriptions(),
-      this.channels.fetchChannels(),
-    ]);
-    await this.loadMore(true);
+  constructor() {
+    effect(() => {
+      const subKey = [...this.channels.subscribedIds()].sort().join(',');
+      if (subKey !== this.lastSyncedSubKey) {
+        this.lastSyncedSubKey = subKey;
+        void this.loadMore(true);
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    void this.channels.loadSubscriptions();
+    void this.channels.fetchChannels();
+    void this.loadMore(true);
   }
 
   selectChannel(channelId: string | null): void {

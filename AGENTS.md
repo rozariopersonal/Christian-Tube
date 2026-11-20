@@ -705,6 +705,40 @@ docker compose --env-file envs/neon.env up -d <service>
 
 ---
 
+---
+
+## User State & Multi-Device Sync Standard
+
+All user-owned state (channel follows, preferences, watch later, video history, video playheads, and audio playback) **must** follow the unified, non-blocking sync contract across `apps/backend`, `apps/web`, and `apps/mobile`.
+
+### 1. Backend Contract (`apps/backend`)
+
+- **Normalized per-item storage**:
+  - `UserWatchItem` (`@@unique([userId, itemType, itemId])`) is the source of truth for `watch_later`, `video_history`, `video_playhead`, and `audio_playback`. **Must not** store new multi-item lists as overwritten `UserPlayback.payloadJson` blobs.
+  - `ChannelSubscription` uses soft-delete tombstones (`isActive`, `clientUpdatedAt`) so offline unfollows are not resurrected; all active subscription queries **must** filter `isActive: true`.
+  - `UserPreference` stores `fieldTimestamps` (`Json?`) for per-field Last-Write-Wins (LWW); `savePreferences()` **must not** delete or overwrite `ChannelSubscription` rows.
+- **Atomic LWW & Clock Safety**:
+  - Writes **must** use atomic SQL `INSERT ... ON CONFLICT ... DO UPDATE ... WHERE "clientUpdatedAt" <= EXCLUDED."clientUpdatedAt"` (or `SELECT ... FOR UPDATE` inside `$transaction` for `UserPreference.fieldTimestamps`), clamping `clientUpdatedAt` to `min(incoming, serverNow + 60s)`.
+  - All authenticated write paths (`savePreferences`, `upsertWatchItemsBatch`, `subscribe`, `unsubscribe`) **must** call collision-safe `ensureUser(...)`.
+  - `POST /api/users/sync` **must** require `AuthGuard` and derive `id` and `email` from `@CurrentUser()`.
+- **Direct Postgres Reads for Mutable User State**:
+  - `GET /api/user/state` returns the complete bounded snapshot (`serverTime`, `preferences`, `subscriptions`, `subscriptionTombstones`, `watchLater`, `videoHistory`, `videoPlayheads`, `audioPlayback`) directly from Postgres.
+  - **Must not** cache mutable per-user state in process-local `Map`s or 24h Redis keys (Redis is for public catalog data).
+
+### 2. Client Contract (`apps/web` & `apps/mobile`)
+
+- **Non-blocking Local-First UX**:
+  - Clients **must** hydrate immediately from local storage (`localStorage` / `SharedPreferences`) and **must not** `await` remote sync before rendering feeds, shorts, or pages.
+  - Background pulls (`GET /api/user/state`) run asynchronously on startup, sign-in, page navigation (where needed), and foreground resume (`visibilitychange` on Web, `AppLifecycleState.resumed` on Mobile).
+- **Acyclic `UserSyncService` & Coalesced Outbox**:
+  - Web (`apps/web/src/app/core/services/user-sync.service.ts`) and Mobile (`apps/mobile/lib/core/services/user_sync_service.dart`) own `clockOffsetMs = serverTime - Date.now()` and a `userId`-scoped coalesced pending map keyed by `(type, itemId)`.
+  - Feature services **must** inject `UserSyncService` one-way (never create circular DI) and project `merge(serverSlice, pendingOps)` so incoming pulls never overwrite unflushed local edits.
+  - **Error policy**: Evict ops only on `ok` or permanent `400/404/422`; **pause on `401`** without deleting pending ops; retry `408/429/5xx` with backoff.
+  - **Account isolation & Guest handoff**: User caches and outboxes **must** be namespaced by `userId` (never use a shared hardcoded guest email), with a one-time Guest → Authenticated handoff on Google sign-in.
+  - **No stale cache-union resurrections**: Clients **must not** auto-re-subscribe to channels by diffing stale local caches against server subscriptions.
+
+---
+
 ## General repository rules
 
 - Run `flutter analyze` and `flutter test` in `apps/mobile` after any UI change;

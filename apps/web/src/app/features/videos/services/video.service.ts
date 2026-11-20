@@ -1,11 +1,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
+import { ChannelService } from '../../channels/services/channel.service';
 import { Video, normalizeVideo } from '../models/video.model';
 
 @Injectable({ providedIn: 'root' })
 export class VideoService {
   private readonly api = inject(ApiService);
+  private readonly channelService = inject(ChannelService);
 
   readonly videos = signal<Video[]>([]);
   readonly isLoading = signal<boolean>(false);
@@ -19,6 +21,7 @@ export class VideoService {
 
   private offset = 0;
   private shortsOffset = 0;
+  private lastShortsChannelKey: string | null = null;
   private readonly limit = 24;
   private readonly shortsLimit = 30;
   private activeChannelId: string | null = null;
@@ -168,6 +171,21 @@ export class VideoService {
   }
 
   async fetchShorts(refresh = false): Promise<void> {
+    const followedIds = this.channelService.subscribedIds();
+    if (followedIds.length === 0) {
+      this.shorts.set([]);
+      this.shortsOffset = 0;
+      this.shortsHasMore.set(false);
+      this.shortsError.set(null);
+      this.lastShortsChannelKey = '';
+      return;
+    }
+
+    const channelKey = [...followedIds].sort().join(',');
+    if (this.lastShortsChannelKey !== null && this.lastShortsChannelKey !== channelKey) {
+      refresh = true;
+    }
+
     if (this.shortsLoading()) return;
     if (!refresh && this.shorts().length > 0 && !this.shortsHasMore()) return;
     if (refresh) {
@@ -182,6 +200,7 @@ export class VideoService {
       const res = await firstValueFrom(
         this.api.get<unknown>('/api/videos', {
           type: 'SHORT',
+          channelIds: followedIds.join(','),
           limit: this.shortsLimit,
           offset: this.shortsOffset,
         }),
@@ -196,6 +215,7 @@ export class VideoService {
           ...list.filter((s) => !existing.has(s.id)),
         ]);
       }
+      this.lastShortsChannelKey = channelKey;
       this.shortsOffset += list.length;
       this.shortsHasMore.set(list.length >= this.shortsLimit);
     } catch (err) {

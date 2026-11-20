@@ -1,5 +1,7 @@
 import { Injectable, Logger, NotFoundException, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncService } from '../sync/sync.service';
@@ -519,38 +521,69 @@ export class ChannelsService {
 
   // --- User Channel Subscriptions ---
 
+  private clampClientTimestamp(raw?: number | string | Date | null): Date {
+    const now = Date.now();
+    const maxAllowed = now + 60_000;
+    if (!raw) return new Date(now);
+    const parsed =
+      raw instanceof Date
+        ? raw.getTime()
+        : typeof raw === 'number'
+          ? raw
+          : Date.parse(String(raw));
+    if (!Number.isFinite(parsed) || parsed <= 0) return new Date(now);
+    return new Date(Math.min(parsed, maxAllowed));
+  }
+
   private async ensureUser(user: { userId: string; email?: string | null }) {
     const email = (user.email || '').trim().toLowerCase();
-    await this.prisma.user.upsert({
-      where: { id: user.userId },
-      update: {
-        email: email || undefined,
-        role: 'USER',
-        lastLoginAt: new Date(),
-      },
-      create: {
-        id: user.userId,
-        email: email || `guest:${user.userId}`,
-        role: 'USER',
-        displayName: 'User',
-        isBlocked: false,
-        lastLoginAt: new Date(),
-      },
-    });
+    try {
+      await this.prisma.user.upsert({
+        where: { id: user.userId },
+        update: {
+          email: email || undefined,
+          role: 'USER',
+          lastLoginAt: new Date(),
+        },
+        create: {
+          id: user.userId,
+          email: email || `guest_${user.userId}@christianapp.local`,
+          role: 'USER',
+          displayName: 'User',
+          isBlocked: false,
+          lastLoginAt: new Date(),
+        },
+      });
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        await this.prisma.user.upsert({
+          where: { id: user.userId },
+          update: {
+            role: 'USER',
+            lastLoginAt: new Date(),
+          },
+          create: {
+            id: user.userId,
+            email: `guest_${user.userId}@christianapp.local`,
+            role: 'USER',
+            displayName: 'User',
+            isBlocked: false,
+            lastLoginAt: new Date(),
+          },
+        });
+      } else {
+        throw err;
+      }
+    }
   }
 
   async listSubscriptions(userId: string) {
-    if (this.cache) {
-      return this.cache.getOrSet(`user:${userId}`, 'subs', 86400, () =>
-        this.listSubscriptionsUncached(userId),
-      );
-    }
     return this.listSubscriptionsUncached(userId);
   }
 
   private async listSubscriptionsUncached(userId: string) {
     const rows = await this.prisma.channelSubscription.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       include: {
         channel: {
           include: { _count: { select: { videos: true } } },
@@ -569,7 +602,11 @@ export class ChannelsService {
     };
   }
 
-  async subscribe(user: { userId: string; email?: string | null }, channelId: string) {
+  async subscribe(
+    user: { userId: string; email?: string | null },
+    channelId: string,
+    clientUpdatedAt?: number | string | Date,
+  ) {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
     });
@@ -578,29 +615,54 @@ export class ChannelsService {
     }
 
     await this.ensureUser(user);
+    const ts = this.clampClientTimestamp(clientUpdatedAt);
+    await this.upsertSubscriptionAtomic(user.userId, channelId, true, ts);
 
-    await this.prisma.channelSubscription.upsert({
-      where: {
-        userId_channelId: { userId: user.userId, channelId },
-      },
-      update: {},
-      create: {
-        userId: user.userId,
-        channelId,
-      },
-    });
-
-    await this.cache?.invalidate(`user:${user.userId}`);
-
-    return { status: 'subscribed', channelId };
+    return { status: 'subscribed', channelId, clientUpdatedAt: ts.getTime() };
   }
 
-  async unsubscribe(userId: string, channelId: string) {
-    await this.prisma.channelSubscription.deleteMany({
-      where: { userId, channelId },
-    });
-    await this.cache?.invalidate(`user:${userId}`);
-    return { status: 'unsubscribed', channelId };
+  async unsubscribe(
+    userId: string,
+    channelId: string,
+    clientUpdatedAt?: number | string | Date,
+  ) {
+    const ts = this.clampClientTimestamp(clientUpdatedAt);
+    await this.upsertSubscriptionAtomic(userId, channelId, false, ts);
+    return { status: 'unsubscribed', channelId, clientUpdatedAt: ts.getTime() };
+  }
+
+  private async upsertSubscriptionAtomic(
+    userId: string,
+    channelId: string,
+    isActive: boolean,
+    ts: Date,
+  ) {
+    if (typeof (this.prisma as any).$executeRaw === 'function') {
+      await (this.prisma as any).$executeRaw(
+        Prisma.sql`
+          INSERT INTO "ChannelSubscription" ("id", "userId", "channelId", "isActive", "clientUpdatedAt", "createdAt")
+          VALUES (${randomUUID()}, ${userId}, ${channelId}, ${isActive}, ${ts}, NOW())
+          ON CONFLICT ("userId", "channelId") DO UPDATE
+          SET "isActive" = EXCLUDED."isActive",
+              "clientUpdatedAt" = EXCLUDED."clientUpdatedAt"
+          WHERE "ChannelSubscription"."clientUpdatedAt" <= EXCLUDED."clientUpdatedAt"
+        `,
+      );
+      return;
+    }
+
+    if (isActive) {
+      await this.prisma.channelSubscription.upsert({
+        where: { userId_channelId: { userId, channelId } },
+        update: { isActive: true, clientUpdatedAt: ts },
+        create: { userId, channelId, isActive: true, clientUpdatedAt: ts },
+      });
+    } else {
+      await this.prisma.channelSubscription.updateMany({
+        where: { userId, channelId, clientUpdatedAt: { lte: ts } },
+        data: { isActive: false, clientUpdatedAt: ts },
+      });
+    }
   }
 
   // --- Channel Requests Workflow ---

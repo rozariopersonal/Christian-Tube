@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -6,6 +7,7 @@ import '../../core/api/api_client.dart';
 import '../../core/models/user.dart';
 import '../../core/models/user_preference.dart';
 import '../../core/services/user_preference_service.dart';
+import '../../core/services/user_sync_service.dart';
 import '../../core/config/app_config.dart';
 
 class AuthService extends ChangeNotifier {
@@ -51,6 +53,7 @@ class AuthService extends ChangeNotifier {
     if (userJson != null) {
       try {
         _currentUser = User.fromJson(jsonDecode(userJson));
+        unawaited(UserSyncService.instance.onUserChanged(_currentUser?.id));
         await checkIsAdmin(_currentUser?.email);
         notifyListeners();
       } catch (e) {
@@ -181,6 +184,7 @@ class AuthService extends ChangeNotifier {
         }
 
         _syncUserWithBackend(user);
+        unawaited(UserSyncService.instance.onUserChanged(user.id));
         await checkIsAdmin(user.email);
 
         _isLoading = false;
@@ -260,6 +264,7 @@ class AuthService extends ChangeNotifier {
     await prefs.setString('auth_token', user.idToken ?? '');
 
     _syncUserWithBackend(user);
+    unawaited(UserSyncService.instance.onUserChanged(user.id));
     if (hasCustomEmail) {
       await checkIsAdmin(user.email);
     } else {
@@ -281,6 +286,7 @@ class AuthService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('current_user');
     await prefs.remove('auth_token');
+    await UserSyncService.instance.clearAllDeviceData();
     await UserPreferenceService.instance.clearForSignOut();
     notifyListeners();
   }

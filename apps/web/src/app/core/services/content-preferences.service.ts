@@ -1,27 +1,59 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
-import { ApiService } from '../api/api.service';
 import { AuthService } from '../auth/auth.service';
+import { APP_COLOR_THEMES, AppColorTheme, ThemeMode, ThemeService } from '../theme/theme.service';
+import { ReaderAppearanceService } from './reader-appearance.service';
+import { UserSyncService } from './user-sync.service';
 import { SUPPORTED_LANGUAGES, canonicalLanguageCode } from '../../shared/ui/language-meta';
 
 const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
 
 @Injectable({ providedIn: 'root' })
 export class ContentPreferencesService {
-  private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
+  private readonly theme = inject(ThemeService);
+  private readonly appearance = inject(ReaderAppearanceService);
+  private readonly userSync = inject(UserSyncService);
 
   readonly preferredLanguages = signal<string[]>(this.readLocalLanguages());
-  private syncedUserId: string | null = null;
 
   constructor() {
     effect(() => {
-      const user = this.auth.currentUser();
-      if (user && user.id !== this.syncedUserId) {
-        this.syncedUserId = user.id;
-        void this.loadRemote();
-      } else if (!user) {
-        this.syncedUserId = null;
+      const remote = this.userSync.remoteState()?.preferences;
+      if (!remote) return;
+      const pending = this.userSync.pendingOps();
+
+      if (
+        !pending['pref:languages'] &&
+        Array.isArray(remote.languages) &&
+        remote.languages.length > 0
+      ) {
+        this.preferredLanguages.set(remote.languages);
+        try {
+          localStorage.setItem(
+            KEY_PREFERRED_LANGUAGES,
+            JSON.stringify(remote.languages),
+          );
+        } catch {
+          // ignore
+        }
+      }
+      if (!pending['pref:primaryBibleVersionId'] && remote.primaryBibleVersionId) {
+        this.appearance.setPrimaryBibleVersion(remote.primaryBibleVersionId, false);
+      }
+      if (
+        !pending['pref:themeMode'] &&
+        (remote.themeMode === 'system' ||
+          remote.themeMode === 'light' ||
+          remote.themeMode === 'dark')
+      ) {
+        this.theme.setThemeMode(remote.themeMode as ThemeMode, false);
+      }
+      if (
+        !pending['pref:accentColor'] &&
+        remote.accentColor &&
+        APP_COLOR_THEMES.some((c) => c.id === remote.accentColor)
+      ) {
+        this.theme.setColorTheme(remote.accentColor as AppColorTheme['id'], false);
       }
     });
   }
@@ -43,9 +75,7 @@ export class ContentPreferencesService {
       // ignore
     }
     if (this.auth.isAuthenticated()) {
-      void firstValueFrom(
-        this.api.put('/api/user/preferences', { languages: clean }),
-      ).catch(() => {});
+      this.userSync.enqueuePreference('languages', clean);
     }
   }
 
@@ -61,27 +91,6 @@ export class ContentPreferencesService {
         canonicalLanguageCode(englishLanguageName).toLowerCase() === code.toLowerCase()
       );
     });
-  }
-
-  private async loadRemote(): Promise<void> {
-    try {
-      const pref = await firstValueFrom(
-        this.api.get<{ languages?: string[] }>('/api/user/preferences'),
-      );
-      if (Array.isArray(pref?.languages) && pref.languages.length > 0) {
-        this.preferredLanguages.set(pref.languages);
-        try {
-          localStorage.setItem(
-            KEY_PREFERRED_LANGUAGES,
-            JSON.stringify(pref.languages),
-          );
-        } catch {
-          // ignore
-        }
-      }
-    } catch {
-      // keep local fallback
-    }
   }
 
   private readLocalLanguages(): string[] {

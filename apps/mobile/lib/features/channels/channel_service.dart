@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -8,6 +9,7 @@ import '../../core/models/channel.dart';
 import '../../core/models/channel_request.dart';
 import '../auth/auth_service.dart';
 import '../../core/services/user_preference_service.dart';
+import '../../core/services/user_sync_service.dart';
 
 class ChannelService extends ChangeNotifier {
   static final ChannelService _instance = ChannelService._internal();
@@ -17,14 +19,57 @@ class ChannelService extends ChangeNotifier {
   AuthService? get authService => _authService;
 
   late final Dio _dio;
+  late final UserSyncService _syncService;
 
-  ChannelService._internal({Dio? dio}) : _dio = dio ?? ApiClient().dio {
+  ChannelService._internal({Dio? dio, UserSyncService? syncService})
+      : _dio = dio ?? ApiClient().dio,
+        _syncService = syncService ?? UserSyncService.instance {
     _loadFromPrefs();
+    _syncService.addListener(_onSyncStateChanged);
+  }
+
+  void _onSyncStateChanged() {
+    if (_syncService.activeUserId == null) {
+      if (_subscribedIds.isNotEmpty) {
+        _subscribedIds.clear();
+        _syncSubscriptionStatus();
+        notifyListeners();
+      }
+      return;
+    }
+    final remote = _syncService.remoteState;
+    final subs = remote?['subscriptions'];
+    if (subs is! List) return;
+    final serverIds = subs.whereType<String>().toSet();
+    final projected = _projectWithPendingOps(serverIds);
+    if (!setEquals(projected, _subscribedIds)) {
+      _subscribedIds = projected;
+      _saveToPrefs();
+      _syncSubscriptionStatus();
+      notifyListeners();
+    }
+  }
+
+  Set<String> _projectWithPendingOps(Set<String> serverIds) {
+    final result = Set<String>.from(serverIds);
+    for (final op in _syncService.pendingOps.values) {
+      if (op.kind != 'subscription') continue;
+      if (op.isActive == true) {
+        result.add(op.itemId);
+      } else {
+        result.remove(op.itemId);
+      }
+    }
+    return result;
   }
 
   @visibleForTesting
-  ChannelService.forTesting({Dio? dio, AuthService? authService})
-      : _dio = dio ?? ApiClient().dio {
+  ChannelService.forTesting({
+    Dio? dio,
+    AuthService? authService,
+    UserSyncService? syncService,
+  })  : _dio = dio ?? ApiClient().dio,
+        _syncService = syncService ?? UserSyncService.instance {
     attachToAuth(authService);
   }
 
@@ -54,6 +99,8 @@ class ChannelService extends ChangeNotifier {
   bool _isLoadingRequests = false;
   Set<String> _subscribedIds = {};
   final Map<String, String> _channelNamesById = {};
+  int _subscriptionMutationVersion = 0;
+  Future<void>? _inFlightSubscriptionsSync;
 
   List<Channel> get channels => _channels;
   List<Channel> get shortsChannels =>
@@ -88,6 +135,7 @@ class ChannelService extends ChangeNotifier {
   /// Seeds initial followed channel IDs (e.g. from onboarding or user preferences).
   void seedSubscribedIds(Set<String> ids) {
     if (ids.isEmpty) return;
+    _subscriptionMutationVersion++;
     final newIds = ids.difference(_subscribedIds);
     final merged = {..._subscribedIds, ...ids};
     if (merged.length != _subscribedIds.length) {
@@ -98,7 +146,11 @@ class ChannelService extends ChangeNotifier {
     }
     if (_isAuthenticated && newIds.isNotEmpty) {
       for (final id in newIds) {
-        _syncSubscriptionToBackend(id, true, false);
+        if (_syncService.activeUserId != null) {
+          unawaited(_syncService.enqueueSubscription(id, true));
+        } else {
+          _syncSubscriptionToBackend(id, true, false);
+        }
       }
     }
   }
@@ -111,6 +163,21 @@ class ChannelService extends ChangeNotifier {
   }
 
   Future<void> loadSubscriptions() async {
+    if (_inFlightSubscriptionsSync != null) {
+      return _inFlightSubscriptionsSync!;
+    }
+    final future = _performLoadSubscriptions();
+    _inFlightSubscriptionsSync = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_inFlightSubscriptionsSync, future)) {
+        _inFlightSubscriptionsSync = null;
+      }
+    }
+  }
+
+  Future<void> _performLoadSubscriptions() async {
     if (_isAuthenticated) {
       if (_subscribedIds.isEmpty) {
         await _loadFromPrefs();
@@ -123,6 +190,7 @@ class ChannelService extends ChangeNotifier {
   }
 
   Future<void> _loadFromBackend() async {
+    final versionBefore = _subscriptionMutationVersion;
     try {
       dynamic response;
       try {
@@ -131,13 +199,16 @@ class ChannelService extends ChangeNotifier {
         response = await _dio.get('/channels/subscriptions');
       }
 
+      if (versionBefore != _subscriptionMutationVersion) {
+        return;
+      }
+
       if (response.statusCode == 200 && response.data != null) {
         final channelIds = (response.data['channelIds'] as List?)
                 ?.whereType<String>()
                 .toSet() ??
             const <String>{};
-        final localOnlyIds = _subscribedIds.difference(channelIds);
-        _subscribedIds = {..._subscribedIds, ...channelIds};
+        _subscribedIds = _projectWithPendingOps(channelIds);
 
         final subscribedChannels = response.data['channels'];
         if (subscribedChannels is List) {
@@ -151,12 +222,6 @@ class ChannelService extends ChangeNotifier {
 
         await _saveToPrefs();
         _syncSubscriptionStatus();
-
-        if (_isAuthenticated && localOnlyIds.isNotEmpty) {
-          for (final id in localOnlyIds) {
-            _syncSubscriptionToBackend(id, true, false);
-          }
-        }
       }
     } catch (e) {
       debugPrint('Error loading subscriptions from backend: $e');
@@ -461,6 +526,7 @@ class ChannelService extends ChangeNotifier {
   }
 
   void toggleSubscribe(String channelId) {
+    _subscriptionMutationVersion++;
     final wasSubscribed = _subscribedIds.contains(channelId);
     final willSubscribe = !wasSubscribed;
 
@@ -482,7 +548,11 @@ class ChannelService extends ChangeNotifier {
     } catch (_) {}
 
     if (_isAuthenticated) {
-      _syncSubscriptionToBackend(channelId, willSubscribe, wasSubscribed);
+      if (_syncService.activeUserId != null) {
+        unawaited(_syncService.enqueueSubscription(channelId, willSubscribe));
+      } else {
+        _syncSubscriptionToBackend(channelId, willSubscribe, wasSubscribed);
+      }
     }
   }
 

@@ -44,14 +44,22 @@ export class ChannelsController {
 
   @UseGuards(AuthGuard)
   @Post(':id/subscribe')
-  async subscribe(@CurrentUser() user: CurrentUserType, @Param('id') id: string) {
-    return this.channelsService.subscribe(user, id);
+  async subscribe(
+    @CurrentUser() user: CurrentUserType,
+    @Param('id') id: string,
+    @Body() body?: { clientUpdatedAt?: number | string },
+  ) {
+    return this.channelsService.subscribe(user, id, body?.clientUpdatedAt);
   }
 
   @UseGuards(AuthGuard)
   @Delete(':id/subscribe')
-  async unsubscribe(@CurrentUser() user: CurrentUserType, @Param('id') id: string) {
-    return this.channelsService.unsubscribe(user.userId, id);
+  async unsubscribe(
+    @CurrentUser() user: CurrentUserType,
+    @Param('id') id: string,
+    @Query('clientUpdatedAt') clientUpdatedAt?: string,
+  ) {
+    return this.channelsService.unsubscribe(user.userId, id, clientUpdatedAt);
   }
 
   @Get(':id')

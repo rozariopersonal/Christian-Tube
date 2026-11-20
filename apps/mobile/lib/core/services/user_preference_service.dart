@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,7 @@ import '../../features/bible/services/bible_settings_service.dart';
 import '../../features/channels/channel_service.dart';
 import '../../features/auth/auth_service.dart';
 import 'lockscreen_word_feed_service.dart';
+import 'user_sync_service.dart';
 
 class UserPreferenceService extends ChangeNotifier {
   static const String _prefStorageKey = 'ct_user_preferences_v1';
@@ -107,6 +109,8 @@ class UserPreferenceService extends ChangeNotifier {
     AuthService? auth,
     bool syncWithBackend = true,
   }) async {
+    final prevJson = _preferences.toJson();
+    final nextJson = newPreferences.toJson();
     _preferences = newPreferences;
     notifyListeners();
 
@@ -124,28 +128,19 @@ class UserPreferenceService extends ChangeNotifier {
     // 2. Apply to runtime controllers (library languages, bible, channels, lockscreen)
     await applyToRuntimeControllers(newPreferences);
 
-    // 3. Sync to backend if authenticated
+    // 3. Sync only changed fields via UserSyncService outbox (per-field LWW)
     final isAuthenticated = auth?.isAuthenticated ?? false;
     if (syncWithBackend && isAuthenticated) {
-      try {
-        dynamic response;
-        try {
-          response = await _apiClient.dio.put(
-            '/api/user/preferences',
-            data: newPreferences.toJson(),
-          );
-        } catch (_) {
-          response = await _apiClient.dio.put(
-            '/user/preferences',
-            data: newPreferences.toJson(),
+      for (final entry in nextJson.entries) {
+        if (entry.key == 'videoChannelIds' || entry.key == 'shortsChannelIds') {
+          continue;
+        }
+        final prevVal = prevJson[entry.key];
+        if (jsonEncode(prevVal) != jsonEncode(entry.value)) {
+          unawaited(
+            UserSyncService.instance.enqueuePreference(entry.key, entry.value),
           );
         }
-
-        if (response.statusCode == 200 && response.data != null) {
-          debugPrint('User preferences successfully synced to database.');
-        }
-      } catch (e) {
-        debugPrint('UserPreferenceService backend sync error: $e');
       }
     }
   }

@@ -1,4 +1,6 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { AuthService } from '../../../core/auth/auth.service';
+import { UserSyncService } from '../../../core/services/user-sync.service';
 import { AudioTrack } from '../models/audio.model';
 import { AudioLibraryService } from './audio-library.service';
 
@@ -7,8 +9,15 @@ const KEY_LAST_TRACK = 'audio_last_track';
 @Injectable({ providedIn: 'root' })
 export class AudioPlayerService {
   private readonly library = inject(AudioLibraryService);
+  private readonly auth = inject(AuthService);
+  private readonly userSync = inject(UserSyncService);
   private readonly audio =
     typeof Audio !== 'undefined' ? new Audio() : null;
+
+  private lastPushedAt = 0;
+  private lastPushedTrackId: string | null = null;
+  private lastPushedPos = 0;
+  private pendingSeekSeconds: number | null = null;
 
   readonly currentTrack = signal<AudioTrack | null>(this.readLastTrack());
   readonly queue = signal<AudioTrack[]>([]);
@@ -25,21 +34,75 @@ export class AudioPlayerService {
   });
 
   constructor() {
+    effect(() => {
+      if (!this.auth.currentUser()) {
+        if (this.audio && !this.audio.paused) {
+          this.audio.pause();
+        }
+        this.currentTrack.set(null);
+        this.position.set(0);
+        this.duration.set(0);
+        return;
+      }
+      const audioPb = this.userSync.remoteState()?.audioPlayback;
+      if (!audioPb || this.isPlaying()) return;
+      if (this.userSync.pendingOps()['audio_playback:audio']) return;
+
+      let parsedTrack: AudioTrack | null = null;
+      if (audioPb.payloadJson) {
+        try {
+          parsedTrack = JSON.parse(audioPb.payloadJson) as AudioTrack;
+        } catch {
+          parsedTrack = null;
+        }
+      }
+      if (!parsedTrack && !audioPb.trackId) return;
+      const track: AudioTrack = parsedTrack ?? {
+        id: audioPb.trackId ?? '',
+        seriesId: '',
+        seriesTitle: '',
+        title: 'Audio Track',
+        speaker: '',
+        audioUrl: '',
+        durationSeconds: audioPb.durationSeconds ?? 0,
+      };
+      this.currentTrack.set(track);
+      this.saveLastTrack(track);
+      if (audioPb.positionSeconds > 0) {
+        this.position.set(audioPb.positionSeconds);
+        this.pendingSeekSeconds = audioPb.positionSeconds;
+      }
+      if (audioPb.durationSeconds > 0) {
+        this.duration.set(audioPb.durationSeconds);
+      }
+    });
+
     if (this.audio) {
       this.audio.preload = 'auto';
       this.audio.addEventListener('timeupdate', () => {
-        this.position.set(this.audio!.currentTime || 0);
+        const pos = this.audio!.currentTime || 0;
+        this.position.set(pos);
+        this.pushRemotePlayback(false);
       });
       this.audio.addEventListener('loadedmetadata', () => {
         this.duration.set(
           this.audio!.duration || this.currentTrack()?.durationSeconds || 0,
         );
+        if (this.pendingSeekSeconds !== null && this.pendingSeekSeconds > 0) {
+          this.audio!.currentTime = this.pendingSeekSeconds;
+          this.position.set(this.pendingSeekSeconds);
+          this.pendingSeekSeconds = null;
+        }
       });
       this.audio.addEventListener('play', () => {
         this.error.set(null);
         this.isPlaying.set(true);
+        this.pushRemotePlayback(true);
       });
-      this.audio.addEventListener('pause', () => this.isPlaying.set(false));
+      this.audio.addEventListener('pause', () => {
+        this.isPlaying.set(false);
+        this.pushRemotePlayback(true);
+      });
       this.audio.addEventListener('ended', () => this.next());
       this.audio.addEventListener('error', () => {
         this.isPlaying.set(false);
@@ -50,6 +113,7 @@ export class AudioPlayerService {
 
   playTrack(track: AudioTrack, queue: AudioTrack[] = []): void {
     this.error.set(null);
+    this.pendingSeekSeconds = null;
     this.currentTrack.set(track);
     if (queue.length > 0) {
       this.queue.set(queue);
@@ -79,7 +143,11 @@ export class AudioPlayerService {
     const track = this.currentTrack();
     if (!this.audio || !track) return;
     if (!this.audio.src) {
+      const resumeAt = this.position();
       this.playTrack(track, this.queue());
+      if (resumeAt > 0) {
+        this.pendingSeekSeconds = resumeAt;
+      }
       return;
     }
     if (this.audio.paused) {
@@ -130,6 +198,34 @@ export class AudioPlayerService {
     } else {
       this.seekTo(0);
     }
+  }
+
+  private pushRemotePlayback(force: boolean): void {
+    if (!this.auth.isAuthenticated()) return;
+    const track = this.currentTrack();
+    if (!track) return;
+    const pos = Math.round(this.position());
+    const now = Date.now();
+    if (
+      !force &&
+      this.lastPushedTrackId === track.id &&
+      now - this.lastPushedAt < 10000 &&
+      Math.abs(pos - this.lastPushedPos) < 10
+    ) {
+      return;
+    }
+    this.lastPushedTrackId = track.id;
+    this.lastPushedAt = now;
+    this.lastPushedPos = pos;
+
+    this.userSync.enqueueWatchItem({
+      itemType: 'audio_playback',
+      itemId: 'audio',
+      positionSeconds: pos,
+      durationSeconds: Math.round(this.duration() || track.durationSeconds || 0),
+      payloadJson: JSON.stringify(track),
+      isDeleted: false,
+    });
   }
 
   private saveLastTrack(track: AudioTrack): void {

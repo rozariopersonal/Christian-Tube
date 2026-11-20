@@ -1,5 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { ReleaseDataService } from '../api/release-data.service';
+import { AuthService } from '../auth/auth.service';
+import { UserSyncService } from './user-sync.service';
 import { AppConfig } from '../config/app-config';
 import { ScreenClass } from '../layout/screen-class.service';
 
@@ -65,6 +67,8 @@ const KEY_SINGLE_COL_PAGINATED = 'reader_single_col_paginated';
 @Injectable({ providedIn: 'root' })
 export class ReaderAppearanceService {
   private readonly releases = inject(ReleaseDataService);
+  private readonly auth = inject(AuthService);
+  private readonly userSync = inject(UserSyncService);
 
   readonly fontId = signal<string>(this.readStr(KEY_FONT_ID, 'system'));
   readonly fontSize = signal<number>(this.readNum(KEY_FONT_SIZE, 17, 13, 28));
@@ -120,9 +124,12 @@ export class ReaderAppearanceService {
     this.writeStr(KEY_LINE_HEIGHT, String(clamped));
   }
 
-  setPrimaryBibleVersion(version: string): void {
+  setPrimaryBibleVersion(version: string, sync = true): void {
     this.primaryBibleVersion.set(version);
     this.writeStr(KEY_PRIMARY_BIBLE, version);
+    if (sync && this.auth.isAuthenticated()) {
+      this.userSync.enqueuePreference('primaryBibleVersionId', version.toUpperCase());
+    }
   }
 
   setPaperTheme(theme: ReaderPaperTheme): void {

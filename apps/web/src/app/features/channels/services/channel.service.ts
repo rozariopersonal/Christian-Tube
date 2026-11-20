@@ -1,6 +1,8 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
+import { AuthService } from '../../../core/auth/auth.service';
+import { UserSyncService } from '../../../core/services/user-sync.service';
 import {
   Channel,
   ChannelRequest,
@@ -12,16 +14,45 @@ const KEY_SUBSCRIPTIONS = 'subscribed_channel_ids';
 @Injectable({ providedIn: 'root' })
 export class ChannelService {
   private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
+  private readonly userSync = inject(UserSyncService);
 
   readonly channels = signal<Channel[]>([]);
   readonly subscribedIds = signal<string[]>(this.readLocalSubscriptions());
   readonly channelRequests = signal<ChannelRequest[]>([]);
   readonly isLoading = signal<boolean>(false);
 
+  private syncedUserId: string | null = null;
+  private inFlightSubscriptionsSync: Promise<void> | null = null;
+  private subscriptionMutationVersion = 0;
+
   readonly subscribedChannels = computed(() => {
     const ids = new Set(this.subscribedIds());
     return this.channels().filter((c) => ids.has(c.id));
   });
+
+  constructor() {
+    effect(() => {
+      const user = this.auth.currentUser();
+      if (user && user.id !== this.syncedUserId) {
+        this.syncedUserId = user.id;
+        this.setLocalSubscriptions(this.readLocalSubscriptions());
+        void this.loadSubscriptions();
+      } else if (!user) {
+        this.syncedUserId = null;
+        this.setLocalSubscriptions(this.readLocalSubscriptions());
+      }
+    });
+
+    effect(() => {
+      const remote = this.userSync.remoteState();
+      if (!remote?.subscriptions) return;
+      const projected = this.projectSubscriptions(remote.subscriptions);
+      if (!this.areSameIdSets(projected, this.subscribedIds())) {
+        this.setLocalSubscriptions(projected);
+      }
+    });
+  }
 
   async fetchChannels(): Promise<void> {
     this.isLoading.set(true);
@@ -71,30 +102,44 @@ export class ChannelService {
   }
 
   async loadSubscriptions(): Promise<void> {
-    try {
-      const res = await firstValueFrom(
-        this.api.get<unknown>('/api/channels/subscriptions'),
-      );
-      const list = Array.isArray(res)
-        ? (res as Record<string, unknown>[])
-        : ((res as Record<string, unknown>)?.['subscriptions'] as Record<
-            string,
-            unknown
-          >[]) ?? [];
-      const ids = list
-        .map((c) => String(c['id'] ?? c['channelId'] ?? ''))
-        .filter(Boolean);
-      if (ids.length > 0) {
-        this.setLocalSubscriptions(ids);
-      }
-    } catch {
-      // fallback to local storage
+    if (!this.auth.isAuthenticated()) {
+      return;
     }
+    if (this.inFlightSubscriptionsSync) {
+      return this.inFlightSubscriptionsSync;
+    }
+
+    const versionBefore = this.subscriptionMutationVersion;
+    this.inFlightSubscriptionsSync = (async () => {
+      try {
+        const res = await firstValueFrom(
+          this.api.get<unknown>('/api/channels/subscriptions'),
+        );
+        if (versionBefore !== this.subscriptionMutationVersion) {
+          return;
+        }
+        const ids = this.extractSubscriptionIds(res);
+        if (ids !== null) {
+          const projected = this.projectSubscriptions(ids);
+          if (!this.areSameIdSets(projected, this.subscribedIds())) {
+            this.setLocalSubscriptions(projected);
+          }
+        }
+      } catch {
+        // fallback to local storage
+      } finally {
+        this.inFlightSubscriptionsSync = null;
+      }
+    })();
+
+    return this.inFlightSubscriptionsSync;
   }
 
   async toggleSubscribe(channelId: string): Promise<void> {
+    this.subscriptionMutationVersion++;
     const current = new Set(this.subscribedIds());
     const wasSubscribed = current.has(channelId);
+    const willSubscribe = !wasSubscribed;
     if (wasSubscribed) {
       current.delete(channelId);
     } else {
@@ -102,31 +147,25 @@ export class ChannelService {
     }
     this.setLocalSubscriptions([...current]);
 
-    try {
-      if (wasSubscribed) {
-        await firstValueFrom(
-          this.api.delete(`/api/channels/${channelId}/subscribe`),
-        );
-      } else {
-        await firstValueFrom(
-          this.api.post(`/api/channels/${channelId}/subscribe`, {}),
-        );
-      }
-    } catch {
-      // keep optimistic local state for guest/offline usage
+    if (!this.auth.isAuthenticated()) {
+      return;
     }
+
+    this.userSync.enqueueSubscription(channelId, willSubscribe);
   }
 
   async subscribeMany(channelIds: string[]): Promise<void> {
+    this.subscriptionMutationVersion++;
     const merged = Array.from(
       new Set([...this.subscribedIds(), ...channelIds]),
     );
     this.setLocalSubscriptions(merged);
-    await Promise.allSettled(
-      channelIds.map((id) =>
-        firstValueFrom(this.api.post(`/api/channels/${id}/subscribe`, {})),
-      ),
-    );
+    if (!this.auth.isAuthenticated()) {
+      return;
+    }
+    for (const id of channelIds) {
+      this.userSync.enqueueSubscription(id, true);
+    }
   }
 
   async fetchChannelDetails(channelId: string): Promise<Channel | null> {
@@ -229,6 +268,59 @@ export class ChannelService {
     }
   }
 
+  private extractSubscriptionIds(res: unknown): string[] | null {
+    if (Array.isArray(res)) {
+      return res
+        .map((c) =>
+          typeof c === 'string'
+            ? c
+            : String(
+                (c as Record<string, unknown>)?.['id'] ??
+                  (c as Record<string, unknown>)?.['channelId'] ??
+                  '',
+              ),
+        )
+        .filter(Boolean);
+    }
+    if (res && typeof res === 'object') {
+      const obj = res as Record<string, unknown>;
+      if (Array.isArray(obj['channelIds'])) {
+        return obj['channelIds'].map(String).filter(Boolean);
+      }
+      const list = Array.isArray(obj['channels'])
+        ? (obj['channels'] as Record<string, unknown>[])
+        : Array.isArray(obj['subscriptions'])
+          ? (obj['subscriptions'] as Record<string, unknown>[])
+          : null;
+      if (list) {
+        return list
+          .map((c) => String(c['id'] ?? c['channelId'] ?? ''))
+          .filter(Boolean);
+      }
+    }
+    return null;
+  }
+
+  private areSameIdSets(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    const setB = new Set(b);
+    return a.every((id) => setB.has(id));
+  }
+
+  private projectSubscriptions(serverIds: string[]): string[] {
+    const result = new Set(serverIds);
+    const pending = this.userSync.pendingOps();
+    for (const op of Object.values(pending)) {
+      if (op.kind !== 'subscription') continue;
+      if (op.isActive) {
+        result.add(op.itemId);
+      } else {
+        result.delete(op.itemId);
+      }
+    }
+    return [...result];
+  }
+
   private setLocalSubscriptions(ids: string[]): void {
     this.subscribedIds.set(ids);
     const idSet = new Set(ids);
@@ -236,7 +328,10 @@ export class ChannelService {
       list.map((c) => ({ ...c, isSubscribed: idSet.has(c.id) })),
     );
     try {
-      localStorage.setItem(KEY_SUBSCRIPTIONS, JSON.stringify(ids));
+      const storageKey = this.auth.isAuthenticated()
+        ? this.userSync.userCacheKey(KEY_SUBSCRIPTIONS)
+        : KEY_SUBSCRIPTIONS;
+      localStorage.setItem(storageKey, JSON.stringify(ids));
     } catch {
       // ignore
     }
@@ -244,7 +339,12 @@ export class ChannelService {
 
   private readLocalSubscriptions(): string[] {
     try {
-      const raw = localStorage.getItem(KEY_SUBSCRIPTIONS);
+      const storageKey = this.auth.isAuthenticated()
+        ? this.userSync.userCacheKey(KEY_SUBSCRIPTIONS)
+        : KEY_SUBSCRIPTIONS;
+      const raw =
+        localStorage.getItem(storageKey) ??
+        localStorage.getItem(KEY_SUBSCRIPTIONS);
       const parsed = raw ? (JSON.parse(raw) as unknown) : [];
       return Array.isArray(parsed) ? parsed.map(String) : [];
     } catch {

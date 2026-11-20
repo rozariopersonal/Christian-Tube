@@ -19,8 +19,23 @@ describe('UsersService', () => {
         upsert: jest.fn(),
       },
       channelSubscription: {
+        findMany: jest.fn(),
         upsert: jest.fn(),
         deleteMany: jest.fn(),
+      },
+      userWatchItem: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        createMany: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      video: {
+        findMany: jest.fn(),
+      },
+      userPlayback: {
+        findFirst: jest.fn(),
+        update: jest.fn(),
+        upsert: jest.fn(),
       },
     };
     configService = {
@@ -96,7 +111,7 @@ describe('UsersService', () => {
   });
 
   describe('savePreferences', () => {
-    it('upserts preferences and syncs channel subscriptions', async () => {
+    it('upserts preferences without clobbering channel subscriptions', async () => {
       const savedPref = {
         userId: 'u1',
         languages: ['en', 'ta'],
@@ -129,37 +144,152 @@ describe('UsersService', () => {
           }),
         }),
       );
-      expect(prisma.channelSubscription.upsert).toHaveBeenCalledTimes(3); // c1, c2, c3 unique
+      expect(prisma.channelSubscription.upsert).not.toHaveBeenCalled();
+      expect(prisma.channelSubscription.deleteMany).not.toHaveBeenCalled();
       expect(res).toEqual(savedPref);
     });
   });
 
-  describe('Upstash user preferences caching', () => {
-    it('caches getPreferences under user:<id> for 24h and invalidates on savePreferences', async () => {
+  describe('savePlayback & getPlayback', () => {
+    it('retrieves playback by userId or userEmail even when userId differs from email', async () => {
+      prisma.userPlayback.findFirst.mockResolvedValue(null);
+      prisma.userPlayback.upsert.mockResolvedValue({ id: 'pb1' });
+
+      await service.savePlayback({
+        userId: 'google-sub-123',
+        userEmail: 'User@Example.com',
+        mediaType: 'audio',
+        trackId: 'track-1',
+        positionSeconds: 42,
+        durationSeconds: 300,
+      });
+
+      expect(prisma.userPlayback.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userEmail_mediaType: {
+              userEmail: 'user@example.com',
+              mediaType: 'audio',
+            },
+          },
+        }),
+      );
+
+      prisma.userPlayback.findFirst.mockResolvedValue({
+        id: 'pb1',
+        userId: 'google-sub-123',
+        userEmail: 'user@example.com',
+        mediaType: 'audio',
+        trackId: 'track-1',
+        positionSeconds: 42,
+      });
+
+      const found = await service.getPlayback({
+        userId: 'google-sub-123',
+        userEmail: 'user@example.com',
+        mediaType: 'audio',
+      });
+
+      expect(prisma.userPlayback.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            mediaType: 'audio',
+            OR: [
+              { userId: 'google-sub-123' },
+              { userEmail: 'google-sub-123' },
+              { userEmail: 'user@example.com' },
+            ],
+          },
+        }),
+      );
+      expect(found?.trackId).toBe('track-1');
+    });
+  });
+
+  describe('Direct DB preference reads & per-field LWW', () => {
+    it('reads preferences directly from Postgres without stale 24h cache', async () => {
       const cache = {
-        getOrSet: jest.fn((_ns, _k, _ttl, fn) => fn()),
+        getOrSet: jest.fn(),
         invalidate: jest.fn().mockResolvedValue(undefined),
       };
       const cachedService = new UsersService(prisma, configService, cache as any);
       prisma.userPreference.findUnique.mockResolvedValue({ userId: 'u1', themeMode: 'dark' });
-      prisma.userPreference.upsert.mockResolvedValue({
-        userId: 'u1',
-        themeMode: 'light',
-        videoChannelIds: [],
-        shortsChannelIds: [],
-      });
 
       const got = await cachedService.getPreferences('u1');
       expect(got).toEqual({ userId: 'u1', themeMode: 'dark' });
-      expect(cache.getOrSet).toHaveBeenCalledWith(
-        'user:u1',
-        'prefs',
-        86400,
-        expect.any(Function),
-      );
+      expect(cache.getOrSet).not.toHaveBeenCalled();
+    });
 
-      await cachedService.savePreferences('u1', { themeMode: 'light' });
-      expect(cache.invalidate).toHaveBeenCalledWith('user:u1');
+    it('rejects stale field updates using fieldTimestamps while accepting newer fields', async () => {
+      prisma.userPreference.findUnique.mockResolvedValue({
+        userId: 'u1',
+        themeMode: 'dark',
+        languages: ['ta'],
+        fieldTimestamps: { themeMode: 2000, languages: 1000 },
+      });
+      prisma.userPreference.upsert.mockResolvedValue({ userId: 'u1' });
+
+      await service.savePreferences('u1', {
+        themeMode: 'light', // stale (1500 < 2000)
+        languages: ['en'],  // newer (2500 > 1000)
+        fieldTimestamps: { themeMode: 1500, languages: 2500 },
+      });
+
+      expect(prisma.userPreference.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({
+            languages: ['en'],
+            fieldTimestamps: { themeMode: 2000, languages: 2500 },
+          }),
+        }),
+      );
+      const updateArg = prisma.userPreference.upsert.mock.calls[0][0].update;
+      expect(updateArg.themeMode).toBeUndefined();
+    });
+  });
+
+  describe('upsertWatchItemsBatch & getSyncState', () => {
+    it('returns per-op ok/rejected statuses and uses clientUpdatedAt LWW guard', async () => {
+      const res = await service.upsertWatchItemsBatch('u1', 'u1@example.com', [
+        { opId: 'op1', itemType: 'video_playhead', itemId: 'vid-1', positionSeconds: 55, clientUpdatedAt: 5000 },
+        { opId: 'op2', itemType: 'invalid_type' as any, itemId: 'vid-2' },
+      ]);
+
+      expect(res.results).toEqual([
+        { opId: 'op1', status: 'ok' },
+        { opId: 'op2', status: 'rejected' },
+      ]);
+      expect(prisma.userWatchItem.createMany).toHaveBeenCalledTimes(1);
+      expect(prisma.userWatchItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: 'u1',
+            itemType: 'video_playhead',
+            itemId: 'vid-1',
+            clientUpdatedAt: { lte: new Date(5000) },
+          }),
+        }),
+      );
+    });
+
+    it('returns bounded hydrated state from getSyncState', async () => {
+      prisma.userPreference.findUnique.mockResolvedValue({ userId: 'u1', languages: ['en'] });
+      prisma.channelSubscription.findMany.mockResolvedValue([
+        { channelId: 'ch-1', isActive: true, clientUpdatedAt: new Date(1000) },
+        { channelId: 'ch-2', isActive: false, clientUpdatedAt: new Date(2000) },
+      ]);
+      prisma.userWatchItem.findMany
+        .mockResolvedValueOnce([{ itemId: 'v-wl', isDeleted: false, clientUpdatedAt: new Date(3000) }]) // watch_later
+        .mockResolvedValueOnce([]) // video_history
+        .mockResolvedValueOnce([{ itemId: 'v-wl', positionSeconds: 12, isDeleted: false, clientUpdatedAt: new Date(4000) }]); // video_playhead
+      prisma.userWatchItem.findFirst.mockResolvedValue(null);
+      prisma.video.findMany.mockResolvedValue([{ id: 'v-wl', title: 'Test Video' }]);
+
+      const state = await service.getSyncState('u1', 'u1@example.com');
+      expect(state.subscriptions).toEqual(['ch-1']);
+      expect(state.subscriptionTombstones).toEqual({ 'ch-2': 2000 });
+      expect(state.watchLater).toHaveLength(1);
+      expect(state.videoPlayheads['v-wl']).toEqual({ positionSeconds: 12, updatedAt: 4000 });
     });
   });
 });

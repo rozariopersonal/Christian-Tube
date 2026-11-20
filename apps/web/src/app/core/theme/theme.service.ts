@@ -1,5 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { AuthService } from '../auth/auth.service';
+import { UserSyncService } from '../services/user-sync.service';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -38,6 +40,8 @@ const KEY_APP_FONT = 'app_font_family';
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
   private readonly doc = inject(DOCUMENT);
+  private readonly auth = inject(AuthService);
+  private readonly userSync = inject(UserSyncService);
   private readonly systemDark = signal(
     typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-color-scheme: dark)').matches,
@@ -82,15 +86,21 @@ export class ThemeService {
     });
   }
 
-  setThemeMode(mode: ThemeMode): void {
+  setThemeMode(mode: ThemeMode, sync = true): void {
     this.themeMode.set(mode);
     this.writeStorage(KEY_THEME_MODE, mode);
+    if (sync && this.auth.isAuthenticated()) {
+      this.userSync.enqueuePreference('themeMode', mode);
+    }
   }
 
-  setColorTheme(id: AppColorTheme['id']): void {
+  setColorTheme(id: AppColorTheme['id'], sync = true): void {
     const found = APP_COLOR_THEMES.find((c) => c.id === id) ?? APP_COLOR_THEMES[0];
     this.colorTheme.set(found);
     this.writeStorage(KEY_COLOR_THEME, found.id);
+    if (sync && this.auth.isAuthenticated()) {
+      this.userSync.enqueuePreference('accentColor', found.id);
+    }
   }
 
   setAmoled(enabled: boolean): void {

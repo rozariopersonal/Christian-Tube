@@ -194,16 +194,18 @@ model Channel {
 }
 
 model ChannelSubscription {
-  id        String   @id @default(uuid())
-  userId    String
-  channelId String
-  createdAt DateTime @default(now())
+  id              String   @id @default(uuid())
+  userId          String
+  channelId       String
+  isActive        Boolean  @default(true)
+  clientUpdatedAt DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@unique([userId, channelId])
-  @@index([userId])
+  @@index([userId, isActive])
   @@index([channelId])
   @@index([createdAt])
 }
@@ -231,6 +233,7 @@ model User {
   subscriptions ChannelSubscription[]
   shortCreations ShortCreation[]
   preference    UserPreference?
+  watchItems    UserWatchItem[]
 
   @@index([isBlocked])
   @@index([email])
@@ -251,6 +254,7 @@ model UserPreference {
   lockScreenWordFeedEnabled        Boolean  @default(false)
   lockScreenRefreshIntervalMinutes Int      @default(60)
   hasCompletedOnboarding           Boolean  @default(false)
+  fieldTimestamps                  Json?
   createdAt                        DateTime @default(now())
   updatedAt                        DateTime @updatedAt
 
@@ -341,6 +345,24 @@ model UserPlayback {
   @@index([userId])
   @@index([mediaType])
   @@index([updatedAt])
+}
+
+model UserWatchItem {
+  id              String   @id @default(uuid())
+  userId          String
+  itemType        String   // "watch_later" | "video_history" | "video_playhead" | "audio_playback"
+  itemId          String   // videoId or "audio"
+  positionSeconds Int      @default(0)
+  durationSeconds Int      @default(0)
+  payloadJson     String?  @db.Text
+  isDeleted       Boolean  @default(false)
+  clientUpdatedAt DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemType, itemId])
+  @@index([userId, itemType, isDeleted, clientUpdatedAt])
 }
 
 model AudioSeries {

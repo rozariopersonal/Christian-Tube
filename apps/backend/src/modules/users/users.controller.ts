@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -18,11 +19,24 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @UseGuards(AuthGuard)
   @Post('sync')
   async syncUser(
-    @Body() body: { id: string; email: string; displayName?: string; photoUrl?: string },
+    @CurrentUser() user: CurrentUserType,
+    @Body() body: { id?: string; email?: string; displayName?: string; photoUrl?: string },
   ) {
-    return this.usersService.syncUser(body);
+    return this.usersService.syncUser({
+      id: user.userId,
+      email: user.email || body?.email || '',
+      displayName: body?.displayName,
+      photoUrl: body?.photoUrl,
+    });
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('state')
+  async getSyncState(@CurrentUser() user: CurrentUserType) {
+    return this.usersService.getSyncState(user.userId, user.email);
   }
 
   @UseGuards(AuthGuard)
@@ -37,7 +51,29 @@ export class UsersController {
     @CurrentUser() user: CurrentUserType,
     @Body() body: any,
   ) {
-    return this.usersService.savePreferences(user.userId, body);
+    return this.usersService.savePreferences(user.userId, body, user.email);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('preferences')
+  async patchPreferences(
+    @CurrentUser() user: CurrentUserType,
+    @Body() body: any,
+  ) {
+    return this.usersService.savePreferences(user.userId, body, user.email);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('watch-items/batch')
+  async upsertWatchItemsBatch(
+    @CurrentUser() user: CurrentUserType,
+    @Body() body: { items?: any[] },
+  ) {
+    return this.usersService.upsertWatchItemsBatch(
+      user.userId,
+      user.email,
+      Array.isArray(body?.items) ? body.items : [],
+    );
   }
 
   @UseGuards(AuthGuard)

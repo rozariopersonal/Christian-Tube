@@ -4,6 +4,7 @@ import {
   HostListener,
   OnInit,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -31,7 +32,7 @@ import { VideoService } from '../services/video.service';
           <button
             type="button"
             class="stage-pill"
-            (click)="activeIndex.set(null)"
+            (click)="exitStage()"
           >
             <span class="material-symbols-rounded">grid_view</span>
             Shorts
@@ -141,8 +142,15 @@ import { VideoService } from '../services/video.service';
               Retry
             </button>
           </div>
+        } @else if (channelService.subscribedIds().length === 0) {
+          <div class="empty-state">
+            <span class="material-symbols-rounded empty-icon">subscriptions</span>
+            <h2>Follow channels to watch Shorts</h2>
+            <p class="muted">Shorts from channels you follow will appear here.</p>
+            <a class="pill-chip active" routerLink="/channels">Browse Channels</a>
+          </div>
         } @else if (videos.shorts().length === 0) {
-          <p class="status-msg">No shorts available right now.</p>
+          <p class="status-msg">No shorts available from your followed channels right now.</p>
         } @else {
           <div class="shorts-grid">
             @for (s of videos.shorts(); track s.id; let i = $index) {
@@ -415,6 +423,28 @@ import { VideoService } from '../services/video.service';
         padding: 36px 0;
         color: var(--on-surface-muted);
       }
+
+      .empty-state {
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-lg);
+        padding: 36px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        text-align: center;
+      }
+
+      .empty-icon {
+        font-size: 40px;
+        color: var(--on-surface-muted);
+      }
+
+      .muted {
+        margin: 0;
+        color: var(--on-surface-muted);
+      }
     `,
   ],
 })
@@ -426,6 +456,17 @@ export class ShortsComponent implements OnInit {
   readonly activeIndex = signal<number | null>(null);
   private lastWheelNavAt = 0;
   private touchStartY: number | null = null;
+  private lastLoadedSubKey = [...this.channelService.subscribedIds()].sort().join(',');
+
+  constructor() {
+    effect(() => {
+      const subKey = [...this.channelService.subscribedIds()].sort().join(',');
+      if (subKey !== this.lastLoadedSubKey && this.activeIndex() === null) {
+        this.lastLoadedSubKey = subKey;
+        void this.videos.fetchShorts(true);
+      }
+    });
+  }
 
   readonly activeShort = computed<Video | null>(() => {
     const idx = this.activeIndex();
@@ -448,7 +489,7 @@ export class ShortsComponent implements OnInit {
   onKeyDown(event: KeyboardEvent): void {
     if (this.activeIndex() === null) return;
     if (event.key === 'Escape') {
-      this.activeIndex.set(null);
+      this.exitStage();
     } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
       event.preventDefault();
       this.next();
@@ -492,6 +533,15 @@ export class ShortsComponent implements OnInit {
   ngOnInit(): void {
     void this.videos.fetchShorts();
     void this.channelService.loadSubscriptions();
+  }
+
+  exitStage(): void {
+    this.activeIndex.set(null);
+    const subKey = [...this.channelService.subscribedIds()].sort().join(',');
+    if (subKey !== this.lastLoadedSubKey) {
+      this.lastLoadedSubKey = subKey;
+      void this.videos.fetchShorts(true);
+    }
   }
 
   isFollowing(channelId: string): boolean {

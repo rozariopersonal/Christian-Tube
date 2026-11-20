@@ -12,6 +12,7 @@ function makeService(cache?: { getOrSet: jest.Mock; invalidate: jest.Mock }) {
     channelSubscription: {
       findMany: jest.fn(),
       upsert: jest.fn(),
+      updateMany: jest.fn(),
       deleteMany: jest.fn(),
     },
     user: {
@@ -66,7 +67,7 @@ describe('ChannelsService subscriptions', () => {
 
       expect(prisma.channelSubscription.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 'u1' },
+          where: { userId: 'u1', isActive: true },
           include: {
             channel: { include: { _count: { select: { videos: true } } } },
           },
@@ -115,10 +116,10 @@ describe('ChannelsService subscriptions', () => {
       );
       expect(prisma.channelSubscription.upsert).toHaveBeenCalledWith({
         where: { userId_channelId: { userId: 'u1', channelId: 'c1' } },
-        update: {},
-        create: { userId: 'u1', channelId: 'c1' },
+        update: expect.objectContaining({ isActive: true, clientUpdatedAt: expect.any(Date) }),
+        create: expect.objectContaining({ userId: 'u1', channelId: 'c1', isActive: true, clientUpdatedAt: expect.any(Date) }),
       });
-      expect(out).toEqual({ status: 'subscribed', channelId: 'c1' });
+      expect(out).toMatchObject({ status: 'subscribed', channelId: 'c1' });
     });
 
     it('creates a synthetic guest email when the token has no email', async () => {
@@ -131,7 +132,7 @@ describe('ChannelsService subscriptions', () => {
 
       expect(prisma.user.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          create: expect.objectContaining({ id: 'guest_1', email: 'guest:guest_1' }),
+          create: expect.objectContaining({ id: 'guest_1', email: 'guest_guest_1@christianapp.local' }),
         }),
       );
     });
@@ -148,55 +149,42 @@ describe('ChannelsService subscriptions', () => {
   });
 
   describe('unsubscribe', () => {
-    it('removes the user+channel subscription row', async () => {
+    it('tombstones the user+channel subscription row with LWW timestamp', async () => {
       const { service, prisma } = makeService();
-      prisma.channelSubscription.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.channelSubscription.updateMany.mockResolvedValue({ count: 1 });
 
       const out = await service.unsubscribe('u1', 'c1');
 
-      expect(prisma.channelSubscription.deleteMany).toHaveBeenCalledWith({
-        where: { userId: 'u1', channelId: 'c1' },
+      expect(prisma.channelSubscription.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'u1', channelId: 'c1', clientUpdatedAt: { lte: expect.any(Date) } },
+        data: { isActive: false, clientUpdatedAt: expect.any(Date) },
       });
-      expect(out).toEqual({ status: 'unsubscribed', channelId: 'c1' });
+      expect(out).toMatchObject({ status: 'unsubscribed', channelId: 'c1' });
     });
 
     it('is idempotent when the subscription does not exist', async () => {
       const { service, prisma } = makeService();
-      prisma.channelSubscription.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.channelSubscription.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.unsubscribe('u1', 'c1')).resolves.toEqual({
+      await expect(service.unsubscribe('u1', 'c1')).resolves.toMatchObject({
         status: 'unsubscribed',
         channelId: 'c1',
       });
     });
   });
 
-  describe('Upstash subscription caching', () => {
-    it('caches listSubscriptions for 24h and invalidates on subscribe/unsubscribe', async () => {
+  describe('Direct DB subscription reads (no stale 24h Redis cache)', () => {
+    it('reads active subscriptions directly from Postgres', async () => {
       const cache = {
-        getOrSet: jest.fn((_ns, _k, _ttl, fn) => fn()),
+        getOrSet: jest.fn(),
         invalidate: jest.fn().mockResolvedValue(undefined),
       };
       const { service, prisma } = makeService(cache);
-      prisma.channelSubscription.findMany.mockResolvedValue([]);
-      prisma.channel.findUnique.mockResolvedValue({ id: 'c1' });
-      prisma.user.upsert.mockResolvedValue({ id: 'u1' });
-      prisma.channelSubscription.upsert.mockResolvedValue({ id: 'sub1' });
-      prisma.channelSubscription.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.channelSubscription.findMany.mockResolvedValue([subscriptionRow('u1', 'c1')]);
 
-      await service.listSubscriptions('u1');
-      expect(cache.getOrSet).toHaveBeenCalledWith(
-        'user:u1',
-        'subs',
-        86400,
-        expect.any(Function),
-      );
-
-      await service.subscribe({ userId: 'u1', email: 'u@example.com' }, 'c1');
-      await service.unsubscribe('u1', 'c1');
-      expect(cache.invalidate).toHaveBeenCalledTimes(2);
-      expect(cache.invalidate).toHaveBeenNthCalledWith(1, 'user:u1');
-      expect(cache.invalidate).toHaveBeenNthCalledWith(2, 'user:u1');
+      const out = await service.listSubscriptions('u1');
+      expect(out.channelIds).toEqual(['c1']);
+      expect(cache.getOrSet).not.toHaveBeenCalled();
     });
   });
 });
