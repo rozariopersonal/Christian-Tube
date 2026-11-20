@@ -31,6 +31,7 @@ class BookBlockWidget extends StatelessWidget {
   final List<BookHighlight> highlightCache;
   final Key Function(int pageNum, int startLine) resolveBlockKey;
   final TapGestureRecognizer Function(ParsedScriptureRef? parsed, String refText) makeRecognizer;
+  final TapGestureRecognizer Function(BookHighlight highlight)? makeHighlightRecognizer;
 
   const BookBlockWidget({
     super.key,
@@ -45,6 +46,7 @@ class BookBlockWidget extends StatelessWidget {
     required this.highlightCache,
     required this.resolveBlockKey,
     required this.makeRecognizer,
+    this.makeHighlightRecognizer,
   });
 
   List<InlineSpan> _format(String text) {
@@ -55,6 +57,7 @@ class BookBlockWidget extends StatelessWidget {
       appearance,
       highlightCache,
       makeRecognizer: makeRecognizer,
+      makeHighlightRecognizer: makeHighlightRecognizer,
     );
   }
 

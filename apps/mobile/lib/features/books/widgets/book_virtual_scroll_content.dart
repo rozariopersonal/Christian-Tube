@@ -33,6 +33,7 @@ class BookVirtualScrollContent extends StatelessWidget {
     required this.itemScrollController,
     required this.itemPositionsListener,
     required this.makeRecognizer,
+    this.makeHighlightRecognizer,
     required this.onTriggerFetch,
     required this.buildSelectionToolbar,
   });
@@ -53,6 +54,8 @@ class BookVirtualScrollContent extends StatelessWidget {
   final ItemPositionsListener itemPositionsListener;
   final TapGestureRecognizer Function(
       ParsedScriptureRef? parsed, String refText) makeRecognizer;
+  final TapGestureRecognizer Function(BookHighlight highlight)?
+      makeHighlightRecognizer;
   final void Function(int chapterIndex) onTriggerFetch;
   final Widget Function(
       BuildContext context, SelectableRegionState selectableRegionState)
@@ -115,6 +118,7 @@ class BookVirtualScrollContent extends StatelessWidget {
       appearance: appearance,
       highlightCache: highlightCache(line.pageNumber),
       makeRecognizer: makeRecognizer,
+      makeHighlightRecognizer: makeHighlightRecognizer,
       paragraphBreakAfter:
           BookParagraphGrouper.isParagraphBreakBetween(line, next),
     );

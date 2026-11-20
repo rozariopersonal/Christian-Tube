@@ -8,6 +8,7 @@ export interface HighlightedSpanToken {
   text: string;
   ref?: ParsedScriptureRef | null;
   highlightColor?: string;
+  highlightRange?: TextHighlightRange;
 }
 
 export interface InlineToolbarAnchor {
@@ -96,6 +97,7 @@ export function applyHighlightRangesToTokens(
           text: tok.text.slice(segStart - tokStart, segEnd - tokStart),
           ref: tok.ref,
           highlightColor: r.color,
+          highlightRange: r,
         });
       }
       cursor = Math.max(cursor, segEnd);
@@ -144,6 +146,28 @@ export function extractLineTextSelection(): TextSelectionAnchor | null {
     end,
     text,
     ...anchorPos,
+  };
+}
+
+export function selectHighlightElement(
+  target: HTMLElement,
+  range: TextHighlightRange,
+): TextSelectionAnchor {
+  const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+  if (sel) {
+    const domRange = document.createRange();
+    domRange.selectNodeContents(target);
+    sel.removeAllRanges();
+    sel.addRange(domRange);
+  }
+  const rect = target.getBoundingClientRect();
+  return {
+    ...computeInlineToolbarAnchor(rect),
+    scopeKey: range.scopeKey,
+    line: range.line,
+    start: range.start,
+    end: range.end,
+    text: range.text,
   };
 }
 

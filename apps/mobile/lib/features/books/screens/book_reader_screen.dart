@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
@@ -12,6 +15,7 @@ import '../services/book_paragraph_grouper.dart';
 import '../services/reading_position_tracker.dart';
 import '../services/scripture_ref_parser.dart';
 import '../../engines/scripture/services/book_name_service.dart';
+import '../../../../shared/ui/floating_selection_bar.dart';
 import '../../../../shared/ui/reader_appearance_sheet.dart';
 import '../widgets/book_highlights_sheet.dart';
 import '../widgets/book_toc_sheet.dart';
@@ -70,6 +74,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   late BookReaderController _controller;
   late BookReaderViewCoordinator _coordinator;
   bool _isPopping = false;
+  BookHighlight? _selectedHighlight;
 
   bool get _isDualPage => ScreenClass.of(context) == ScreenClass.expanded;
 
@@ -243,6 +248,58 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     }
   }
 
+  TapGestureRecognizer _makeHighlightRecognizer(BookHighlight highlight) {
+    final r = TapGestureRecognizer()
+      ..onTap = () {
+        if (!mounted) return;
+        setState(() {
+          _selectedHighlight =
+              _selectedHighlight?.id == highlight.id ? null : highlight;
+        });
+      };
+    _coordinator.tapRecognizers.add(r);
+    return r;
+  }
+
+  Future<void> _clearHighlightByText(String text, int pageNum) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    final cached = _controller.pageLoader.highlightCache(pageNum) ?? const [];
+    for (final h in cached) {
+      if (h.text == trimmed ||
+          h.text.contains(trimmed) ||
+          trimmed.contains(h.text)) {
+        await _controller.deleteHighlight(h.id);
+      }
+    }
+    _controller.pageLoader.invalidatePage(pageNum);
+    if (mounted) setState(() => _selectedHighlight = null);
+  }
+
+  Future<void> _recolorSelectedHighlight(
+      BookHighlight h, int colorIndex) async {
+    final updated = BookHighlight(
+      id: h.id,
+      bookId: h.bookId,
+      chapterIndex: h.chapterIndex,
+      pageNumber: h.pageNumber,
+      startChar: h.startChar,
+      endChar: h.endChar,
+      text: h.text,
+      color: colorIndex,
+      createdAt: h.createdAt,
+    );
+    await _controller.saveHighlight(updated);
+    _controller.pageLoader.invalidatePage(h.pageNumber);
+    if (mounted) setState(() => _selectedHighlight = null);
+  }
+
+  Future<void> _deleteSelectedHighlight(BookHighlight h) async {
+    await _controller.deleteHighlight(h.id);
+    _controller.pageLoader.invalidatePage(h.pageNumber);
+    if (mounted) setState(() => _selectedHighlight = null);
+  }
+
   Widget _buildSelectionToolbar(BuildContext context, SelectableRegionState selectableRegionState, int pageNum) {
     return buildReaderSelectionToolbar(
       context,
@@ -251,6 +308,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       onHighlight: (text, page) => _createHighlight(text, 0, page, color: 0),
       onHighlightWithColor: (text, page, colorIndex) =>
           _createHighlight(text, 0, page, color: colorIndex),
+      onClearHighlight: _clearHighlightByText,
     );
   }
 
@@ -306,6 +364,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         itemScrollController: _coordinator.itemScrollController,
         itemPositionsListener: _coordinator.itemPositionsListener,
         makeRecognizer: _coordinator.createScriptureRecognizer,
+        makeHighlightRecognizer: _makeHighlightRecognizer,
         onTriggerFetch: _controller.fetchChapter,
         buildSelectionToolbar: (context, state) =>
             _buildSelectionToolbar(context, state, s.currentPage),
@@ -333,6 +392,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       highlightCache: pageHighlights,
       resolveBlockKey: _coordinator.resolveBlockKey,
       makeRecognizer: _coordinator.createScriptureRecognizer,
+      makeHighlightRecognizer: _makeHighlightRecognizer,
     );
   }
 
@@ -403,11 +463,59 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                         ),
                       ),
                     )
-                  : continuous
-                      ? _buildContinuousContent(tokens)
-                      : isDualPage
-                          ? _buildDualPageSpreadView(tokens)
-                          : _buildMobilePageView(tokens),
+                  : Stack(
+                      children: [
+                        continuous
+                            ? _buildContinuousContent(tokens)
+                            : isDualPage
+                                ? _buildDualPageSpreadView(tokens)
+                                : _buildMobilePageView(tokens),
+                        if (_selectedHighlight != null)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 12,
+                            child: Center(
+                              child: FloatingSelectionBar(
+                                currentColorIndex: _selectedHighlight!.color,
+                                hasHighlight: true,
+                                onSwatch: (c) => _recolorSelectedHighlight(
+                                  _selectedHighlight!,
+                                  c,
+                                ),
+                                onClearHighlight: () => _deleteSelectedHighlight(
+                                  _selectedHighlight!,
+                                ),
+                                onDismiss: () =>
+                                    setState(() => _selectedHighlight = null),
+                                actions: [
+                                  SelectionBarAction(
+                                    icon: Icons.copy_rounded,
+                                    tooltip: 'Copy',
+                                    onTap: () {
+                                      Clipboard.setData(
+                                        ClipboardData(
+                                          text: _selectedHighlight!.text,
+                                        ),
+                                      );
+                                      setState(() => _selectedHighlight = null);
+                                    },
+                                  ),
+                                  SelectionBarAction(
+                                    icon: Icons.ios_share_rounded,
+                                    tooltip: 'Share',
+                                    onTap: () {
+                                      final txt = _selectedHighlight!.text;
+                                      setState(() => _selectedHighlight = null);
+                                      Share.share(txt);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
           bottomNavigationBar: s.showChrome && s.book != null
               ? ReaderNavigationBar(
                   controller: _controller,

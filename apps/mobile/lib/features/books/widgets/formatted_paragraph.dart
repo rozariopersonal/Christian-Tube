@@ -30,6 +30,7 @@ class FormattedParagraphBuilder {
     ReaderAppearance appearance,
     List<BookHighlight> highlights, {
     required TapGestureRecognizer Function(ParsedScriptureRef? parsed, String refText) makeRecognizer,
+    TapGestureRecognizer Function(BookHighlight highlight)? makeHighlightRecognizer,
   }) {
     final fontFamily = ScriptureThemeCatalog.resolveFontFamily(
       appearance.fontFamily,
@@ -55,7 +56,15 @@ class FormattedParagraphBuilder {
           recognizer: makeRecognizer(token.ref, token.text),
         ));
       } else {
-        _appendSpansWithHighlights(spans, token.text, textColor, fontFamily, appearance, highlights);
+        _appendSpansWithHighlights(
+          spans,
+          token.text,
+          textColor,
+          fontFamily,
+          appearance,
+          highlights,
+          makeHighlightRecognizer: makeHighlightRecognizer,
+        );
       }
     }
 
@@ -68,8 +77,9 @@ class FormattedParagraphBuilder {
     Color textColor,
     String? fontFamily,
     ReaderAppearance appearance,
-    List<BookHighlight> highlights,
-  ) {
+    List<BookHighlight> highlights, {
+    TapGestureRecognizer Function(BookHighlight highlight)? makeHighlightRecognizer,
+  }) {
     final baseStyle = TextStyle(
       color: textColor,
       fontSize: appearance.fontSize,
@@ -109,6 +119,7 @@ class FormattedParagraphBuilder {
             backgroundColor:
                 ReaderAppearance.highlightColorByIndex(matchedHighlight.color).withValues(alpha: 0.38),
           ),
+          recognizer: makeHighlightRecognizer?.call(matchedHighlight),
         ));
         current = nextMatchStart + matchedHighlight.text.length;
       } else {
