@@ -63,7 +63,7 @@ describe('BibleService', () => {
                   v: 1,
                   endV: 5,
                   kind: 'window',
-                  text: '1. ...',
+                  text: 'God loved the world...',
                 },
               },
             ],
@@ -111,7 +111,7 @@ describe('BibleService', () => {
           data: 'God loved the world',
           topK: 50,
           includeMetadata: true,
-          fusionAlgorithm: 'DBSF',
+          queryMode: 'DENSE',
         }),
       }),
     );
@@ -123,7 +123,7 @@ describe('BibleService', () => {
           data: 'God loved the world',
           topK: 50,
           includeMetadata: true,
-          fusionAlgorithm: 'DBSF',
+          queryMode: 'DENSE',
         }),
       }),
     );
@@ -141,7 +141,7 @@ describe('BibleService', () => {
           verse: 1,
           endVerse: 5,
           reference: '2 Samuel 11:1-5',
-          text: '1. ...',
+          text: 'God loved the world...',
         },
         {
           id: '43:3:16',
@@ -168,7 +168,7 @@ describe('BibleService', () => {
             result: [
               {
                 id: 'w:43:11:34-38',
-                score: 0.0333,
+                score: 0.9,
                 metadata: {
                   b: 43,
                   n: 'John',
@@ -189,7 +189,7 @@ describe('BibleService', () => {
           result: [
             {
               id: '43:11:35',
-              score: 0.0333,
+              score: 0.9,
               metadata: {
                 b: 43,
                 n: 'John',
@@ -227,7 +227,7 @@ describe('BibleService', () => {
           result: [
             {
               id: '43:11:35',
-              score: 0.0333,
+              score: 0.9,
               metadata: { b: 43, n: 'John', c: 11, v: 35, text: 'Jesus wept.' },
             },
           ],
@@ -237,6 +237,52 @@ describe('BibleService', () => {
 
     const fallback = await svc.search('jesus wept', 2);
     expect(fallback.results.map((r) => r.reference)).toEqual(['John 11:35']);
+  });
+
+  it('filters out low-score noise below minimum threshold and adaptive cutoff', async () => {
+    global.fetch = jest.fn(async (url: string) => {
+      if (url.endsWith('/query-data/windows')) {
+        return { ok: true, json: async () => ({ result: [] }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          result: [
+            {
+              id: '43:11:35',
+              score: 0.89,
+              metadata: { b: 43, n: 'John', c: 11, v: 35, text: 'Jesus wept.' },
+            },
+            {
+              id: '41:10:47',
+              score: 0.83,
+              metadata: {
+                b: 41,
+                n: 'Mark',
+                c: 10,
+                v: 47,
+                text: 'He began to cry out, Jesus have mercy on me!',
+              },
+            },
+            {
+              id: '1:1:1',
+              score: 0.71,
+              metadata: { b: 1, n: 'Genesis', c: 1, v: 1, text: 'In the beginning...' },
+            },
+          ],
+        }),
+      };
+    }) as any;
+
+    const svc = new BibleService(
+      makeConfig({
+        'upstashVector.restUrl': 'https://example-vector.upstash.io',
+        'upstashVector.restToken': 'vec-token',
+      }),
+    );
+
+    const res = await svc.search('jesus cried', 20);
+    expect(res.results.map((r) => r.reference)).toEqual(['John 11:35']);
   });
 
   it('caches Bible search results in CacheService for 30 days', async () => {
@@ -261,7 +307,7 @@ describe('BibleService', () => {
     await svc.search('  Peace  of   God ', 15);
     expect(cache.getOrSet).toHaveBeenCalledWith(
       'bible',
-      'search:v2:15:peace of god',
+      'search:v3:15:peace of god',
       2592000,
       expect.any(Function),
     );

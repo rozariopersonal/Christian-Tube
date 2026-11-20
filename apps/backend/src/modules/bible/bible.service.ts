@@ -27,6 +27,36 @@ interface RawVectorHit {
   metadata?: Record<string, any>;
 }
 
+const MIN_DENSE_SCORE = 0.745;
+const KEYWORD_BONUS_WEIGHT = 0.04;
+const STOP_WORDS = new Set([
+  'the',
+  'and',
+  'for',
+  'with',
+  'that',
+  'this',
+  'was',
+  'were',
+  'are',
+  'his',
+  'her',
+  'him',
+  'you',
+  'your',
+  'from',
+  'into',
+  'who',
+  'what',
+  'when',
+  'where',
+  'why',
+  'how',
+  'come',
+  'without',
+  'not',
+]);
+
 @Injectable()
 export class BibleService {
   private readonly logger = new Logger(BibleService.name);
@@ -78,7 +108,7 @@ export class BibleService {
       : 20;
 
     const normalized = query.toLowerCase().replace(/\s+/g, ' ');
-    const cacheKey = `search:v2:${limit}:${normalized}`;
+    const cacheKey = `search:v3:${limit}:${normalized}`;
 
     try {
       if (this.cache) {
@@ -102,9 +132,10 @@ export class BibleService {
     query: string,
     limit: number,
   ): Promise<BibleSearchResponse> {
+    const fetchTopK = Math.min(50, Math.max(limit, 25));
     const [verseHits, windowHits] = await Promise.all([
-      this.queryNamespace(query, limit, ''),
-      this.queryNamespace(query, limit, 'windows').catch((err: any) => {
+      this.queryNamespace(query, fetchTopK, ''),
+      this.queryNamespace(query, fetchTopK, 'windows').catch((err: any) => {
         this.logger.warn(
           `Upstash Vector windows namespace query failed for "${query}": ${err?.message || err}`,
         );
@@ -120,19 +151,50 @@ export class BibleService {
       combined.push(hit);
     }
 
-    combined.sort((a, b) => {
-      const diff = b.score - a.score;
+    const maxDense = combined.reduce((m, h) => Math.max(m, h.score), 0);
+    const adaptiveGap =
+      maxDense >= 0.86 ? 0.052 : maxDense >= 0.8 ? 0.055 : 0.06;
+    const cutoff = Math.max(MIN_DENSE_SCORE, maxDense - adaptiveGap);
+    const filtered = combined.filter((h) => h.score >= cutoff);
+
+    const terms = this.extractContentTerms(query);
+    const rankScores = new Map<string, number>();
+    for (const hit of filtered) {
+      const kw = this.keywordMatchFraction(hit.text, terms);
+      rankScores.set(hit.id, hit.score + KEYWORD_BONUS_WEIGHT * kw);
+    }
+
+    filtered.sort((a, b) => {
+      const diff = (rankScores.get(b.id) ?? b.score) - (rankScores.get(a.id) ?? a.score);
       if (Math.abs(diff) > 1e-6) return diff;
       if (a.kind !== b.kind) return a.kind === 'verse' ? -1 : 1;
       return 0;
     });
 
-    const results = combined.slice(0, limit);
+    const results = filtered.slice(0, limit);
     return {
       query,
       count: results.length,
       results,
     };
+  }
+
+  private extractContentTerms(query: string): string[] {
+    return query
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+  }
+
+  private keywordMatchFraction(text: string, terms: string[]): number {
+    if (terms.length === 0 || !text) return 0;
+    const low = text.toLowerCase();
+    let hits = 0;
+    for (const term of terms) {
+      if (new RegExp(`\\b${term}`).test(low)) hits++;
+    }
+    return hits / terms.length;
   }
 
   private async queryNamespace(
@@ -157,7 +219,7 @@ export class BibleService {
           data: query,
           topK: limit,
           includeMetadata: true,
-          fusionAlgorithm: 'DBSF',
+          queryMode: 'DENSE',
         }),
         signal: controller.signal,
       });

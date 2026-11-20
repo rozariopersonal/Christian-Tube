@@ -91,6 +91,25 @@ class BibleSearchHit {
     );
   }
 
+  BibleSearchHit copyWith({
+    String? bookName,
+    String? reference,
+    String? text,
+  }) {
+    return BibleSearchHit(
+      id: id,
+      score: score,
+      kind: kind,
+      bookNumber: bookNumber,
+      bookName: bookName ?? this.bookName,
+      chapter: chapter,
+      verse: verse,
+      endVerse: endVerse,
+      reference: reference ?? this.reference,
+      text: text ?? this.text,
+    );
+  }
+
   static int? _asInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();

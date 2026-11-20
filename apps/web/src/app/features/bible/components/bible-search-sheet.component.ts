@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   input,
   output,
@@ -11,8 +12,9 @@ import { Router } from '@angular/router';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 import { ScriptureRefParserService } from '../../books/services/scripture-ref-parser.service';
-import { BibleBook, BibleVerse } from '../models/bible.model';
+import { BIBLE_VERSIONS, BibleBook, BibleVerse } from '../models/bible.model';
 import { BibleService } from '../services/bible.service';
+import { BibleVersionSheetComponent } from './bible-version-sheet.component';
 
 export interface BibleSearchHit {
   bookNumber: number;
@@ -28,7 +30,7 @@ export interface BibleSearchHit {
 @Component({
   selector: 'app-bible-search-sheet',
   standalone: true,
-  imports: [FormsModule, ModalSheetComponent],
+  imports: [FormsModule, ModalSheetComponent, BibleVersionSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-modal-sheet title="Search Bible" (closed)="closed.emit()">
@@ -43,6 +45,14 @@ export interface BibleSearchHit {
             (ngModelChange)="query.set($event)"
           />
         </div>
+        <button
+          type="button"
+          class="pill-chip"
+          (click)="showVersionPicker.set(true)"
+          aria-label="Bible Version"
+        >
+          {{ activeVersionLabel() }} ▾
+        </button>
         <button type="submit" class="pill-chip active">Search</button>
       </form>
 
@@ -78,6 +88,14 @@ export interface BibleSearchHit {
         }
       }
     </app-modal-sheet>
+
+    @if (showVersionPicker()) {
+      <app-bible-version-sheet
+        [activeVersionId]="bible.version()"
+        (versionSelected)="onVersionChange($event)"
+        (closed)="showVersionPicker.set(false)"
+      />
+    }
   `,
   styles: [
     `
@@ -192,7 +210,31 @@ export class BibleSearchSheetComponent {
   readonly query = signal<string>('');
   readonly searching = signal<boolean>(false);
   readonly searched = signal<boolean>(false);
+  readonly showVersionPicker = signal<boolean>(false);
   readonly results = signal<BibleSearchHit[]>([]);
+  private rawResults: BibleSearchHit[] = [];
+
+  readonly activeVersionLabel = computed(
+    () =>
+      BIBLE_VERSIONS.find((v) => v.id === this.bible.version())?.label ??
+      this.bible.version().toUpperCase(),
+  );
+
+  async onVersionChange(versionId: string): Promise<void> {
+    this.showVersionPicker.set(false);
+    await this.bible.loadVersion(
+      versionId,
+      this.bible.bookNumber(),
+      this.bible.chapter(),
+    );
+    if (this.rawResults.length > 0) {
+      const resolved = await this.bible.resolveSearchHitsInVersion(
+        this.rawResults,
+        this.bible.version(),
+      );
+      this.results.set(resolved);
+    }
+  }
 
   openFullResults(): void {
     const q = this.query().trim();
@@ -220,6 +262,7 @@ export class BibleSearchSheetComponent {
 
     this.searching.set(true);
     this.searched.set(true);
+    this.rawResults = [];
 
     // 2. Semantic + hybrid passage search via backend
     try {
@@ -240,11 +283,14 @@ export class BibleSearchSheetComponent {
           text: item.text,
         });
       }
-      if (mapped.length > 0) {
-        this.results.set(mapped);
-        this.searching.set(false);
-        return;
-      }
+      this.rawResults = mapped;
+      const localized = await this.bible.resolveSearchHitsInVersion(
+        mapped,
+        this.bible.version(),
+      );
+      this.results.set(localized);
+      this.searching.set(false);
+      return;
     } catch {
       // Fall through to current-book local scan if offline
     }

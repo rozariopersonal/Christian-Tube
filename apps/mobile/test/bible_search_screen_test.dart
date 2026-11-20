@@ -10,7 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeBibleSearchService extends BibleSearchService {
   final List<BibleSearchHit> stubHits;
+  int searchCalls = 0;
   String? lastQuery;
+  String? lastLocalizedVersion;
 
   _FakeBibleSearchService(this.stubHits) : super(dio: Dio());
 
@@ -20,8 +22,20 @@ class _FakeBibleSearchService extends BibleSearchService {
     String? versionId,
     int limit = 30,
   }) async {
+    searchCalls++;
     lastQuery = query;
     return stubHits;
+  }
+
+  @override
+  Future<List<BibleSearchHit>> localizeHits(
+    List<BibleSearchHit> hits, {
+    required String versionId,
+  }) async {
+    lastLocalizedVersion = versionId;
+    return hits
+        .map((h) => h.copyWith(text: '[$versionId] ${h.text}'))
+        .toList();
   }
 }
 
@@ -62,7 +76,8 @@ void main() {
   });
 
   group('BibleSearchController', () {
-    test('filters OT, NT, and Current Book scopes accurately', () async {
+    test('filters scopes and switches result versions without re-querying backend',
+        () async {
       final hits = [
         const BibleSearchHit(
           id: '26:37:1-5',
@@ -91,13 +106,22 @@ void main() {
       final service = _FakeBibleSearchService(hits);
       final controller = BibleSearchController(
         service: service,
+        versionId: 'WEB',
         currentBook: 'John',
       );
 
       await controller.search('John 11:35');
+      expect(service.searchCalls, 1);
       expect(service.lastQuery, 'John 11:35');
+      expect(service.lastLocalizedVersion, 'WEB');
       expect(controller.state.directRef?.bookNumber, 43);
       expect(controller.state.filteredResults.length, 2);
+      expect(controller.state.filteredResults.last.text, '[WEB] Jesus wept.');
+
+      await controller.setVersion('KJV');
+      expect(service.searchCalls, 1);
+      expect(controller.state.versionId, 'KJV');
+      expect(controller.state.filteredResults.last.text, '[KJV] Jesus wept.');
 
       controller.setScope(BibleSearchScope.ot);
       expect(controller.state.filteredResults.map((e) => e.bookName), ['Ezekiel']);
@@ -110,7 +134,51 @@ void main() {
     });
   });
 
-  group('BibleSearchScreen responsive layout', () {
+  group('BibleSearchScreen interaction & responsive layout', () {
+    testWidgets('does not trigger search on keystrokes until explicit submit',
+        (tester) async {
+      final service = _FakeBibleSearchService(const [
+        BibleSearchHit(
+          id: '43:11:35',
+          score: 0.90,
+          kind: 'verse',
+          bookNumber: 43,
+          bookName: 'John',
+          chapter: 11,
+          verse: 35,
+          reference: 'John 11:35',
+          text: 'Jesus wept.',
+        ),
+      ]);
+      final controller = BibleSearchController(
+        service: service,
+        versionId: 'WEB',
+        currentBook: 'John',
+      );
+
+      await tester.pumpWidget(
+        _wrapWithSize(
+          BibleSearchScreen(
+            versionId: 'WEB',
+            currentBook: 'John',
+            controller: controller,
+          ),
+          400,
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), 'jesus cried');
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(service.searchCalls, 0);
+
+      await tester.tap(find.byTooltip('Search Bible'));
+      await tester.pumpAndSettle();
+      expect(service.searchCalls, 1);
+      expect(service.lastQuery, 'jesus cried');
+      expect(find.text('John 11:35'), findsOneWidget);
+      expect(find.text('[WEB] Jesus wept.'), findsOneWidget);
+    });
+
     for (final width in [320.0, 600.0, 840.0, 1400.0]) {
       testWidgets('renders results without overflow at ${width.toInt()}px', (
         tester,
@@ -125,7 +193,7 @@ void main() {
         final service = _FakeBibleSearchService(const [
           BibleSearchHit(
             id: '43:11:35',
-            score: 1.67,
+            score: 0.90,
             kind: 'verse',
             bookNumber: 43,
             bookName: 'John',
@@ -136,7 +204,7 @@ void main() {
           ),
           BibleSearchHit(
             id: 'w:43:11:34-38',
-            score: 1.27,
+            score: 0.85,
             kind: 'passage',
             bookNumber: 43,
             bookName: 'John',
@@ -149,6 +217,7 @@ void main() {
         ]);
         final controller = BibleSearchController(
           service: service,
+          versionId: 'KJV',
           currentBook: 'John',
         );
 
@@ -156,6 +225,7 @@ void main() {
           _wrapWithSize(
             BibleSearchScreen(
               initialQuery: 'jesus wept',
+              versionId: 'KJV',
               currentBook: 'John',
               controller: controller,
             ),

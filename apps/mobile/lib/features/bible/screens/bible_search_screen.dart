@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../shared/ui/bible_version_pill.dart';
 import '../../books/services/scripture_ref_parser.dart';
 import '../controllers/bible_search_controller.dart';
 import '../models/bible_book.dart';
@@ -11,9 +10,9 @@ import '../models/bible_reference.dart';
 import '../models/bible_search_hit.dart';
 import '../services/bible_passage_navigator.dart';
 
-/// Full-screen Bible search and results view backed by hybrid semantic +
-/// passage window search, direct scripture reference parsing, and offline
-/// SQLite fallback.
+/// Full-screen Bible search and results view triggered on explicit submit,
+/// displaying matches in the currently active Bible version with an inline
+/// version switcher.
 class BibleSearchScreen extends StatefulWidget {
   final String? initialQuery;
   final String? versionId;
@@ -38,7 +37,6 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
   late final BibleSearchController _controller;
   late final bool _ownsController;
   late final TextEditingController _textController;
-  Timer? _debounce;
 
   @override
   void initState() {
@@ -59,7 +57,6 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _controller.removeListener(_onStateChanged);
     if (_ownsController) _controller.dispose();
     _textController.dispose();
@@ -70,22 +67,7 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
     if (mounted) setState(() {});
   }
 
-  void _onQueryChanged(String value) {
-    setState(() {});
-    _debounce?.cancel();
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      _controller.clear();
-      return;
-    }
-    if (trimmed.length < 2) return;
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      if (mounted) _controller.search(trimmed);
-    });
-  }
-
   void _submitSearch([String? raw]) {
-    _debounce?.cancel();
     _controller.search(raw ?? _textController.text);
   }
 
@@ -110,7 +92,7 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
         bookNumber: bookNumber,
         chapter: chapter,
         verse: verse,
-        versionId: widget.versionId,
+        versionId: _controller.state.versionId,
       ),
     );
   }
@@ -129,7 +111,7 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
           controller: _textController,
           autofocus: _textController.text.isEmpty,
           textInputAction: TextInputAction.search,
-          onChanged: _onQueryChanged,
+          onChanged: (_) => setState(() {}),
           onSubmitted: _submitSearch,
           decoration: InputDecoration(
             hintText: 'Search verses, topics, or John 3:16...',
@@ -145,7 +127,6 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
               icon: const Icon(Icons.clear),
               tooltip: 'Clear',
               onPressed: () {
-                _debounce?.cancel();
                 _textController.clear();
                 _controller.clear();
               },
@@ -162,11 +143,13 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _ScopeBar(
+            _FilterBar(
               scopes: _controller.availableScopes,
-              selected: state.scope,
+              selectedScope: state.scope,
+              activeVersionId: state.versionId,
               currentBookLabel: widget.currentBook,
-              onSelect: _controller.setScope,
+              onSelectScope: _controller.setScope,
+              onSelectVersion: _controller.setVersion,
             ),
             if (state.directRef != null) ...[
               const SizedBox(height: 8),
@@ -177,7 +160,7 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
                     bookNumber: state.directRef!.bookNumber,
                     chapter: state.directRef!.chapter,
                     verse: state.directRef!.startVerse,
-                    versionId: widget.versionId,
+                    versionId: state.versionId,
                   ),
                 ),
               ),
@@ -209,7 +192,7 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
                   size: 48, color: tokens.onSurfaceDisabled),
               const SizedBox(height: 12),
               Text(
-                'Search by verse quote, topic, story, or reference\n(e.g. "jesus wept", "dry bones", "John 3:16")',
+                'Type a phrase, story, or reference and tap Search\n(e.g. "jesus wept", "dry bones", "John 3:16")',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: tokens.onSurfaceMuted,
                 ),
@@ -233,7 +216,7 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
                   size: 48, color: tokens.onSurfaceDisabled),
               const SizedBox(height: 12),
               Text(
-                'No verses matched "${state.query}"',
+                'No matching verses found for "${state.query}"',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: tokens.onSurfaceMuted,
                 ),
@@ -251,11 +234,25 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
         if (hits.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              '${hits.length} result${hits.length == 1 ? '' : 's'} for "${state.query}"',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: tokens.onSurfaceMuted,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${hits.length} result${hits.length == 1 ? '' : 's'} · ${state.versionId.toUpperCase()}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: tokens.onSurfaceMuted,
+                    ),
+                  ),
+                ),
+                if (state.isTranslating)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
             ),
           ),
         Expanded(
@@ -274,40 +271,52 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
   }
 }
 
-class _ScopeBar extends StatelessWidget {
+class _FilterBar extends StatelessWidget {
   final List<BibleSearchScope> scopes;
-  final BibleSearchScope selected;
+  final BibleSearchScope selectedScope;
+  final String activeVersionId;
   final String? currentBookLabel;
-  final ValueChanged<BibleSearchScope> onSelect;
+  final ValueChanged<BibleSearchScope> onSelectScope;
+  final ValueChanged<String> onSelectVersion;
 
-  const _ScopeBar({
+  const _FilterBar({
     required this.scopes,
-    required this.selected,
+    required this.selectedScope,
+    required this.activeVersionId,
     this.currentBookLabel,
-    required this.onSelect,
+    required this.onSelectScope,
+    required this.onSelectVersion,
   });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 44,
-      child: ListView.separated(
+      height: 46,
+      child: ListView(
         scrollDirection: Axis.horizontal,
-        itemCount: scopes.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final scope = scopes[index];
-          final label = scope == BibleSearchScope.book &&
-                  currentBookLabel != null &&
-                  currentBookLabel!.isNotEmpty
-              ? currentBookLabel!
-              : scope.label;
-          return ChoiceChip(
-            label: Text(label),
-            selected: scope == selected,
-            onSelected: (_) => onSelect(scope),
-          );
-        },
+        children: [
+          Center(
+            child: BibleVersionPill(
+              activeVersionId: activeVersionId,
+              onSelectVersion: onSelectVersion,
+            ),
+          ),
+          const SizedBox(width: 8),
+          for (final scope in scopes) ...[
+            ChoiceChip(
+              label: Text(
+                scope == BibleSearchScope.book &&
+                        currentBookLabel != null &&
+                        currentBookLabel!.isNotEmpty
+                    ? currentBookLabel!
+                    : scope.label,
+              ),
+              selected: scope == selectedScope,
+              onSelected: (_) => onSelectScope(scope),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
       ),
     );
   }

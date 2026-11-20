@@ -442,6 +442,93 @@ export class BibleService {
     );
   }
 
+  /**
+   * Resolves verse and multi-verse passage hit texts into [versionId] so search
+   * results render in whichever Bible translation is currently active.
+   */
+  async resolveSearchHitsInVersion<
+    T extends {
+      bookNumber: number | null;
+      bookName?: string | null;
+      chapter: number | null;
+      verse: number | null;
+      endVerse?: number | null;
+      reference?: string;
+      text: string;
+    },
+  >(hits: readonly T[], versionId: string): Promise<T[]> {
+    const targetVersion = versionId.trim().toLowerCase();
+    if (!targetVersion || hits.length === 0) return [...hits];
+
+    const uniqueChapters = new Map<string, { bookNumber: number; chapter: number }>();
+    for (const hit of hits) {
+      if (hit.bookNumber == null || hit.chapter == null) continue;
+      const key = `${hit.bookNumber}:${hit.chapter}`;
+      if (!uniqueChapters.has(key)) {
+        uniqueChapters.set(key, { bookNumber: hit.bookNumber, chapter: hit.chapter });
+      }
+    }
+
+    const chapterMap = new Map<string, BibleVerse[]>();
+    await Promise.all(
+      Array.from(uniqueChapters.entries()).map(async ([key, ref]) => {
+        const verses = await this.fetchChapterVerses(
+          targetVersion,
+          ref.bookNumber,
+          ref.chapter,
+          false,
+        );
+        if (verses.length > 0) {
+          chapterMap.set(key, verses);
+        }
+      }),
+    );
+
+    const localBooks = this.books();
+    return hits.map((hit) => {
+      if (hit.bookNumber == null || hit.chapter == null || hit.verse == null) {
+        return hit;
+      }
+      const key = `${hit.bookNumber}:${hit.chapter}`;
+      const verses = chapterMap.get(key);
+      const localBookName =
+        localBooks.find((b) => b.bookNumber === hit.bookNumber)?.name ??
+        hit.bookName ??
+        `Book ${hit.bookNumber}`;
+      const endV = hit.endVerse;
+      const localizedRef =
+        endV != null && endV > hit.verse
+          ? `${localBookName} ${hit.chapter}:${hit.verse}-${endV}`
+          : `${localBookName} ${hit.chapter}:${hit.verse}`;
+
+      if (!verses || verses.length === 0) {
+        return { ...hit, bookName: localBookName, reference: localizedRef };
+      }
+
+      let resolvedText = '';
+      if (endV != null && endV > hit.verse) {
+        const range = verses.filter(
+          (v) => v.verse >= hit.verse! && v.verse <= endV,
+        );
+        if (range.length > 0) {
+          resolvedText = range.map((v) => `${v.verse}. ${v.text}`).join(' ');
+        }
+      } else {
+        const match = verses.find((v) => v.verse === hit.verse);
+        if (match?.text) {
+          resolvedText = match.text;
+        }
+      }
+
+      return {
+        ...hit,
+        bookName: localBookName,
+        reference: localizedRef,
+        text: resolvedText || hit.text,
+      };
+    });
+  }
+
   setHighlight(verseNum: number, color: string | null): void {
     const key = this.verseKey(verseNum);
     const next = { ...this.highlights() };

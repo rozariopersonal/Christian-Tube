@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_tokens.dart';
+import '../../../shared/ui/bible_version_pill.dart';
 import '../controllers/bible_search_controller.dart';
 import '../models/bible_search_hit.dart';
 
@@ -29,7 +28,6 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
   late final BibleSearchController _searchController;
   late final bool _ownsController;
   final TextEditingController _textController = TextEditingController();
-  Timer? _debounce;
 
   @override
   void initState() {
@@ -45,7 +43,6 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _searchController.removeListener(_onStateChanged);
     if (_ownsController) _searchController.dispose();
     _textController.dispose();
@@ -56,22 +53,7 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
     if (mounted) setState(() {});
   }
 
-  void _onChanged(String value) {
-    setState(() {});
-    _debounce?.cancel();
-    final term = value.trim();
-    if (term.isEmpty) {
-      _searchController.clear();
-      return;
-    }
-    if (term.length < 2) return;
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      if (mounted) _searchController.search(term);
-    });
-  }
-
   void _submit([String? value]) {
-    _debounce?.cancel();
     _searchController.search(value ?? _textController.text);
   }
 
@@ -86,9 +68,10 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
 
   void _openFullScreen() {
     final q = _textController.text.trim();
+    final activeVer = _searchController.state.versionId;
     Navigator.pop(context);
     context.push(
-      '/bible/search?q=${Uri.encodeComponent(q)}&version=${Uri.encodeComponent(widget.versionId)}',
+      '/bible/search?q=${Uri.encodeComponent(q)}&version=${Uri.encodeComponent(activeVer)}',
     );
   }
 
@@ -96,6 +79,7 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = context.tokens;
+    final state = _searchController.state;
 
     return SafeArea(
       child: Padding(
@@ -138,10 +122,15 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
+                      BibleVersionPill(
+                        activeVersionId: state.versionId,
+                        onSelectVersion: _searchController.setVersion,
+                      ),
+                      const SizedBox(width: 4),
                       if (_textController.text.trim().length >= 2)
                         TextButton(
                           onPressed: _openFullScreen,
-                          child: const Text('Full screen'),
+                          child: const Text('Full'),
                         ),
                       IconButton(
                         icon: const Icon(Icons.close),
@@ -152,29 +141,39 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _textController,
-                    autofocus: true,
-                    textInputAction: TextInputAction.search,
-                    onChanged: _onChanged,
-                    onSubmitted: _submit,
-                    decoration: InputDecoration(
-                      hintText: 'Search verses, topics, or John 3:16…',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _textController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _debounce?.cancel();
-                                _textController.clear();
-                                _searchController.clear();
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _textController,
+                          autofocus: true,
+                          textInputAction: TextInputAction.search,
+                          onChanged: (_) => setState(() {}),
+                          onSubmitted: _submit,
+                          decoration: InputDecoration(
+                            hintText: 'Search verses, topics, or John 3:16…',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _textController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _textController.clear();
+                                      _searchController.clear();
+                                    },
+                                  )
+                                : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: _submit,
+                        child: const Text('Go'),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -200,7 +199,7 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            'Type keywords, a story, or a reference like "John 3:16"',
+            'Type keywords, a story, or "John 3:16", then tap Go',
             style: TextStyle(color: tokens.onSurfaceMuted),
             textAlign: TextAlign.center,
           ),
@@ -212,7 +211,7 @@ class _BibleSearchSheetState extends State<BibleSearchSheet> {
     if (hits.isEmpty && state.directRef == null) {
       return Center(
         child: Text(
-          'No results found for "${state.query}"',
+          'No matching verses found for "${state.query}"',
           style: TextStyle(color: tokens.onSurfaceMuted),
           textAlign: TextAlign.center,
         ),
