@@ -1,36 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/layout/shell_back_handler.dart';
+import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/core/theme/highlight_palette.dart';
 import 'package:mobile/features/bible/models/bible_verse.dart';
 import 'package:mobile/features/bible/widgets/verse_action_bar.dart';
+import 'package:mobile/shared/services/highlight_usage_service.dart';
+import 'package:mobile/shared/ui/floating_selection_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-Widget sheet(
-    {VoidCallback? onClear,
-    VoidCallback? onStudy,
-    VoidCallback? onCopy,
-    VoidCallback? onShare,
-    VoidCallback? onBookmark,
-    VoidCallback? onNote,
-    ValueChanged<int>? onColor,
-    bool hasHighlight = false,
-    bool isBookmarked = false,
-    String? studyLabel,
-    VoidCallback? onRemove}) {
+Widget bar({
+  VoidCallback? onClear,
+  VoidCallback? onStudy,
+  VoidCallback? onCopy,
+  VoidCallback? onShare,
+  VoidCallback? onBookmark,
+  VoidCallback? onNote,
+  ValueChanged<int>? onColor,
+  VoidCallback? onRemove,
+  int selectedCount = 1,
+  int? currentColorIndex,
+  bool hasHighlight = false,
+  bool isBookmarked = false,
+}) {
   return VerseActionBar(
-    verseLabel: 'John 3:16',
+    selectedCount: selectedCount,
     onCopy: onCopy ?? () {},
     onShare: onShare ?? () {},
     onBookmark: onBookmark ?? () {},
-    onHighlight: () {},
     onNote: onNote ?? () {},
     onClear: onClear ?? () {},
     onStudy: onStudy ?? () {},
-    onHighlightColor: onColor,
+    onHighlightColor: onColor ?? (_) {},
+    onRemoveHighlight: onRemove,
+    currentColorIndex: currentColorIndex,
     hasHighlight: hasHighlight,
     isBookmarked: isBookmarked,
-    studyLabel: studyLabel,
-    onRemoveHighlight: onRemove,
   );
 }
 
@@ -47,202 +52,192 @@ Future<void> mount(
     tester.view.resetDevicePixelRatio();
   });
   await tester.pumpWidget(MaterialApp(
+    theme: ThemeData(extensions: const [AppTokens.light]),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context)
           .copyWith(textScaler: TextScaler.linear(textScale)),
       child: child!,
     ),
-    home: ShellBackHandler(path: '/bible', child: Scaffold(body: child)),
+    home: ShellBackHandler(
+      path: '/bible',
+      child: Scaffold(
+        body: Align(alignment: Alignment.bottomCenter, child: child),
+      ),
+    ),
   ));
   await tester.pumpAndSettle();
 }
 
 void main() {
-  setUp(ShellBackHandler.resetInterceptors);
+  setUp(() {
+    ShellBackHandler.resetInterceptors();
+    SharedPreferences.setMockInitialValues({});
+    HighlightUsageService.instance.resetForTest();
+  });
   tearDown(ShellBackHandler.resetInterceptors);
 
-  testWidgets('keeps verse actions and all highlight colors available',
+  testWidgets('shows default swatches then bookmark, share and study icons',
       (tester) async {
-    final actions = <String>[];
+    final calls = <String>[];
     int? color;
     await mount(
-        tester,
-        sheet(
-          onCopy: () => actions.add('Copy'),
-          onShare: () => actions.add('Share'),
-          onBookmark: () => actions.add('Bookmark'),
-          onNote: () => actions.add('Note'),
-          onColor: (value) => color = value,
-        ));
-    for (final label in ['Copy', 'Share', 'Bookmark', 'Note']) {
-      await tester.tap(find.text(label));
+      tester,
+      bar(
+        onBookmark: () => calls.add('bookmark'),
+        onShare: () => calls.add('share'),
+        onStudy: () => calls.add('study'),
+        onColor: (c) => color = c,
+      ),
+    );
+    for (final i in HighlightUsageService.defaultOrder) {
+      expect(find.byKey(FloatingSelectionBar.swatchKey(i)), findsOneWidget);
     }
-    expect(actions, ['Copy', 'Share', 'Bookmark', 'Note']);
-    final colors = find.bySemanticsLabel('Highlight color');
-    expect(colors, findsNWidgets(HighlightPalette.count));
-    await tester.scrollUntilVisible(colors.last, 80);
-    await tester.tap(colors.last);
-    expect(color, HighlightPalette.count - 1);
-    expect(find.text('Open Verse Study'), findsOneWidget);
-    expect(find.byType(BackdropFilter), findsNothing);
+    await tester.tap(find.byKey(FloatingSelectionBar.swatchKey(2)));
+    await tester.tap(find.byKey(VerseActionBar.bookmarkKey));
+    await tester.tap(find.byKey(VerseActionBar.shareKey));
+    await tester.tap(find.byKey(VerseActionBar.studyKey));
+    expect(color, 2);
+    expect(calls, ['bookmark', 'share', 'study']);
   });
 
-  testWidgets('Study pushes a page and Back restores the selected verse sheet',
+  testWidgets('is a single row: swatches, actions share one vertical band',
       (tester) async {
-    var clearCount = 0;
-    var studyCount = 0;
+    await mount(tester, bar());
+    final swatchY =
+        tester.getCenter(find.byKey(FloatingSelectionBar.swatchKey(0))).dy;
+    for (final k in [
+      FloatingSelectionBar.expandKey,
+      VerseActionBar.bookmarkKey,
+      VerseActionBar.shareKey,
+      VerseActionBar.studyKey,
+      FloatingSelectionBar.overflowKey,
+    ]) {
+      expect(tester.getCenter(find.byKey(k)).dy, closeTo(swatchY, 1));
+    }
+    expect(find.byKey(FloatingSelectionBar.panelKey), findsNothing);
+  });
+
+  testWidgets('chevron expands the full palette and picking collapses it',
+      (tester) async {
+    int? color;
+    await mount(tester, bar(onColor: (c) => color = c));
+    await tester.tap(find.byKey(FloatingSelectionBar.expandKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(FloatingSelectionBar.panelKey), findsOneWidget);
+    for (var i = 0; i < HighlightPalette.count; i++) {
+      expect(find.byKey(FloatingSelectionBar.panelSwatchKey(i)),
+          findsOneWidget);
+    }
+    await tester.tap(find.byKey(FloatingSelectionBar.panelSwatchKey(13)));
+    await tester.pumpAndSettle();
+    expect(color, 13);
+    expect(find.byKey(FloatingSelectionBar.panelKey), findsNothing);
+  });
+
+  testWidgets('Back collapses the palette first, then clears the selection',
+      (tester) async {
+    var cleared = 0;
+    await mount(tester, bar(onClear: () => cleared++));
+    await tester.tap(find.byKey(FloatingSelectionBar.expandKey));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(FloatingSelectionBar.panelKey), findsNothing);
+    expect(cleared, 0);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(cleared, 1);
+  });
+
+  testWidgets('tapping the active swatch removes the highlight',
+      (tester) async {
+    var removed = 0;
+    int? color;
     await mount(
-        tester,
-        Builder(
-            builder: (context) => sheet(
-                  onClear: () => clearCount++,
-                  onStudy: () {
-                    studyCount++;
-                    Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => Scaffold(
-                          appBar: AppBar(
-                        automaticallyImplyLeading: false,
-                        title: const Text('Study (John 3:16)'),
-                      )),
-                    ));
-                  },
-                )));
-    expect(studyCount, 0);
-    await tester.tap(find.byKey(VerseActionBar.studyPromptKey));
-    await tester.pumpAndSettle();
-    expect(studyCount, 1);
-    expect(find.text('Study (John 3:16)'), findsOneWidget);
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(find.text('Open Verse Study'), findsOneWidget);
-    expect(clearCount, 0);
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(clearCount, greaterThan(0));
+      tester,
+      bar(
+        currentColorIndex: 0,
+        hasHighlight: true,
+        onRemove: () => removed++,
+        onColor: (c) => color = c,
+      ),
+    );
+    await tester.tap(find.byKey(FloatingSelectionBar.swatchKey(0)));
+    expect(removed, 1);
+    expect(color, isNull);
   });
 
-  testWidgets('upward swipe does not expand or open Study', (tester) async {
-    var studyCount = 0;
-    var clearCount = 0;
-    await mount(tester,
-        sheet(onStudy: () => studyCount++, onClear: () => clearCount++));
-    final before = tester.getSize(find.byType(BottomSheet));
-    await tester.drag(find.text('John 3:16'), const Offset(0, -220));
+  testWidgets('overflow menu exposes Copy and Note', (tester) async {
+    final calls = <String>[];
+    await mount(
+      tester,
+      bar(onCopy: () => calls.add('copy'), onNote: () => calls.add('note')),
+    );
+    await tester.tap(find.byKey(FloatingSelectionBar.overflowKey));
     await tester.pumpAndSettle();
-    expect(studyCount, 0);
-    expect(clearCount, 0);
-    expect(tester.getSize(find.byType(BottomSheet)), before);
-    expect(find.text('Highlight'), findsOneWidget);
+    await tester.tap(find.text('Copy'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(FloatingSelectionBar.overflowKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Note'));
+    await tester.pumpAndSettle();
+    expect(calls, ['copy', 'note']);
   });
 
-  testWidgets('downward swipe dismisses once even when grabbed during exit',
-      (tester) async {
-    var clearCount = 0;
-    await mount(tester, sheet(onClear: () => clearCount++));
-    final header = tester.getCenter(find.text('John 3:16'));
-    await tester.flingFrom(header, const Offset(0, 100), 1000);
-    await tester.pump(const Duration(milliseconds: 16));
-    final gesture = await tester.startGesture(header + const Offset(0, 110));
-    await gesture.moveBy(const Offset(0, 30));
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(clearCount, 1);
-  });
-
-  testWidgets('canceled drag returns fully open and remains interactive',
-      (tester) async {
-    var clearCount = 0;
-    await mount(tester, sheet(onClear: () => clearCount++));
-    final before = tester.getTopLeft(find.text('John 3:16'));
-    final gesture =
-        await tester.startGesture(tester.getCenter(find.text('John 3:16')));
-    await gesture.moveBy(const Offset(0, 70));
-    await tester.pump();
-    await gesture.moveBy(const Offset(0, 30));
-    await tester.pump();
-    expect(
-        tester.getTopLeft(find.text('John 3:16')).dy, greaterThan(before.dy));
-    await gesture.cancel();
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.text('John 3:16')), before);
-    expect(clearCount, 0);
-    await tester.tap(find.byKey(VerseActionBar.closeButtonKey));
-    await tester.pumpAndSettle();
-    expect(clearCount, 1);
-  });
-
-  test('formatVerseNumbers groups consecutive numbers and comma-separates non-consecutive', () {
-    expect(formatVerseNumbers([]), '');
-    expect(formatVerseNumbers([1]), '1');
-    expect(formatVerseNumbers([1, 2, 3]), '1-3');
-    expect(formatVerseNumbers([1, 5]), '1, 5');
-    expect(formatVerseNumbers([1, 2, 4, 5, 6, 9]), '1-2, 4-6, 9');
-    expect(formatVerseNumbers([5, 1, 3, 2]), '1-3, 5');
-  });
-
-  testWidgets('displays Bookmarked and filled icon when isBookmarked is true', (tester) async {
-    await mount(tester, sheet(isBookmarked: true));
-    expect(find.text('Bookmarked'), findsOneWidget);
+  testWidgets('bookmarked state uses the filled icon', (tester) async {
+    await mount(tester, bar(isBookmarked: true));
     expect(find.byIcon(Icons.bookmark_rounded), findsOneWidget);
-    expect(find.text('Bookmark'), findsNothing);
   });
 
-  testWidgets('renders custom multi-verse studyLabel when provided', (tester) async {
-    await mount(tester, sheet(studyLabel: 'Open Verse Study (v. 16)'));
-    expect(find.text('Open Verse Study (v. 16)'), findsOneWidget);
-  });
-
-  testWidgets('highlight color swatches expose accessible names', (tester) async {
-    await mount(tester, sheet());
-    expect(HighlightPalette.names.length, 15);
-    expect(HighlightPalette.nameFor(0), 'Mustard');
-    expect(HighlightPalette.nameFor(14), 'Navy');
-    expect(find.byTooltip('Mustard'), findsOneWidget);
+  testWidgets('most-used colours replace defaults after use', (tester) async {
+    final usage = HighlightUsageService.instance;
+    await usage.load();
+    await usage.record(9);
+    await usage.record(9);
+    await usage.record(12);
+    expect(usage.topColors(), [9, 12, 0]);
+    await mount(tester, bar());
+    expect(find.byKey(FloatingSelectionBar.swatchKey(9)), findsOneWidget);
+    expect(find.byKey(FloatingSelectionBar.swatchKey(12)), findsOneWidget);
+    expect(find.byKey(FloatingSelectionBar.swatchKey(0)), findsOneWidget);
+    expect(find.byKey(FloatingSelectionBar.swatchKey(4)), findsNothing);
   });
 
   for (final width in [320.0, 600.0, 840.0, 1400.0]) {
-    testWidgets('scrolls without overflow at width $width with enlarged text',
+    testWidgets('single line without overflow at $width with 2x text',
         (tester) async {
-      var studied = false;
-      var removed = false;
       await mount(
-          tester,
-          sheet(
-            hasHighlight: true,
-            onRemove: () => removed = true,
-            onStudy: () => studied = true,
-          ),
-          size: Size(width, 640),
-          textScale: 2);
+        tester,
+        bar(selectedCount: 12, hasHighlight: true, onRemove: () {}),
+        size: Size(width, 640),
+        textScale: 2,
+      );
       expect(tester.takeException(), isNull);
-      final surface = find
-          .descendant(
-              of: find.byType(BottomSheet), matching: find.byType(Material))
-          .first;
-      expect(tester.getSize(surface).width, lessThanOrEqualTo(640));
-      expect(tester.getCenter(surface).dx, closeTo(width / 2, 1));
-      await tester.scrollUntilVisible(find.text('Remove highlight'), 100);
-      await tester.tap(find.text('Remove highlight'));
-      expect(removed, isTrue);
-      await tester.scrollUntilVisible(
-          find.byKey(VerseActionBar.studyPromptKey), 100);
-      await tester.tap(find.byKey(VerseActionBar.studyPromptKey));
-      expect(studied, isTrue);
+      final box = tester.getSize(find.byType(FloatingSelectionBar));
+      expect(box.width, lessThanOrEqualTo(FloatingSelectionBar.maxBarWidth));
+      expect(box.width, lessThanOrEqualTo(width));
+      expect(box.height, lessThan(60));
+      await tester.tap(find.byKey(FloatingSelectionBar.expandKey));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets('landscape body scrolls while the drag handle stays reachable',
-      (tester) async {
-    var studied = false;
-    await mount(tester, sheet(onStudy: () => studied = true),
-        size: const Size(640, 320));
-    await tester.scrollUntilVisible(
-        find.byKey(VerseActionBar.studyPromptKey), 100);
-    await tester.tap(find.byKey(VerseActionBar.studyPromptKey));
-    expect(studied, isTrue);
-    expect(find.byKey(VerseActionBar.closeButtonKey).hitTestable(),
-        findsOneWidget);
-    expect(tester.takeException(), isNull);
+  test('usage service ties break by recency and persist', () async {
+    final usage = HighlightUsageService.instance;
+    await usage.load();
+    await usage.record(5);
+    await usage.record(7);
+    expect(usage.topColors(2), [7, 5]);
+    usage.resetForTest();
+    await usage.load();
+    expect(usage.topColors(2), [7, 5]);
+  });
+
+  test('formatVerseNumbers groups consecutive numbers', () {
+    expect(formatVerseNumbers([]), '');
+    expect(formatVerseNumbers([1, 2, 3]), '1-3');
+    expect(formatVerseNumbers([1, 5]), '1, 5');
+    expect(formatVerseNumbers([5, 1, 3, 2]), '1-3, 5');
   });
 }

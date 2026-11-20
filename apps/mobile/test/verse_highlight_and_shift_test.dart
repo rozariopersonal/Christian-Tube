@@ -204,7 +204,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('VerseActionBar renders actions, palette and a separate Study button', (tester) async {
+    testWidgets('VerseActionBar renders a single-line icon bar with swatches', (tester) async {
       await tester.pumpWidget(
         wrapWithTokens(
           VerseActionBar(
@@ -212,7 +212,7 @@ void main() {
             onCopy: () {},
             onShare: () {},
             onBookmark: () {},
-            onHighlight: () {},
+            onHighlightColor: (_) {},
             onNote: () {},
             onClear: () {},
             onStudy: () {},
@@ -221,14 +221,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The sheet contains actions; Study opens through an explicit button.
-      expect(find.text('Copy'), findsOneWidget);
-      expect(find.text('Share'), findsOneWidget);
-      expect(find.text('Bookmark'), findsOneWidget);
-      expect(find.text('Note'), findsOneWidget);
-      expect(find.text('Highlight'), findsOneWidget);
-      expect(find.bySemanticsLabel('Highlight color'), findsWidgets);
-      expect(find.text('Open Verse Study'), findsOneWidget);
+      expect(find.byKey(VerseActionBar.bookmarkKey), findsOneWidget);
+      expect(find.byKey(VerseActionBar.shareKey), findsOneWidget);
+      expect(find.byKey(VerseActionBar.studyKey), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('^Highlight ')), findsNWidgets(3));
       expect(find.byType(BackdropFilter), findsNothing);
     });
   });
