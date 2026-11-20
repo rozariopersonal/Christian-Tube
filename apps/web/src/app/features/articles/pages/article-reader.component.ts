@@ -27,6 +27,7 @@ import {
   applyHighlightRangesToTokens,
   extractLineTextSelection,
 } from '../../../shared/ui/text-highlight.util';
+import { contrastColorFor } from '../../../shared/ui/highlight-palette';
 import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
 import { BookAppearanceSheetComponent } from '../../books/components/book-appearance-sheet.component';
 import { DictionarySheetComponent } from '../../books/components/dictionary-sheet.component';
@@ -192,12 +193,17 @@ import { ArticlesService } from '../services/articles.service';
                         class="scripture-link"
                         [class.inline-hl]="!!tok.highlightColor"
                         [style.background-color]="tok.highlightColor ?? null"
+                        [style.color]="tok.highlightColor ? contrastColor(tok.highlightColor) : null"
                         (click)="activeScriptureRef.set(tok.ref!)"
                       >
                         {{ tok.text }}
                       </button>
                     } @else if (tok.highlightColor) {
-                      <mark class="inline-hl" [style.background-color]="tok.highlightColor">{{ tok.text }}</mark>
+                      <mark
+                        class="inline-hl"
+                        [style.background-color]="tok.highlightColor"
+                        [style.color]="contrastColor(tok.highlightColor)"
+                      >{{ tok.text }}</mark>
                     } @else {
                       <span>{{ tok.text }}</span>
                     }
@@ -830,6 +836,10 @@ export class ArticleReaderComponent implements OnInit, AfterViewInit {
     if (firstWord && firstWord.length >= 2) {
       this.lookupWord.set(firstWord);
     }
+  }
+
+  contrastColor(hex: string): string {
+    return contrastColorFor(hex);
   }
 
   shareArticle(): void {

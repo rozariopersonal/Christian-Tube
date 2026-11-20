@@ -240,22 +240,23 @@ void main() {
   });
 
   group('HighlightPalette', () {
-    test('has 15 colors', () {
-      expect(HighlightPalette.count, 15);
-      expect(HighlightPalette.colors.length, 15);
+    test('has 28 colors (4 shades x 7 theme accents)', () {
+      expect(HighlightPalette.count, 28);
+      expect(HighlightPalette.colors.length, 28);
+      expect(HighlightPalette.names.length, 28);
     });
 
     test('dark colors get white foreground, light colors get dark', () {
-      // Deep shades → white text.
-      for (final i in [10, 11, 12, 13, 14]) {
+      // Deep shades (row 3: indices 21..27) → white text.
+      for (var i = 21; i < 28; i++) {
         expect(
           HighlightPalette.onColorFor(i),
           const Color(0xFFFFFFFF),
           reason: 'deep color $i should render white text',
         );
       }
-      // Light shades → dark text (luminance-based contrast).
-      for (final i in [0, 1, 2, 4]) {
+      // Light shades (row 0: indices 0..6) → dark text (luminance-based contrast).
+      for (var i = 0; i < 7; i++) {
         expect(
           HighlightPalette.onColorFor(i).computeLuminance(),
           lessThan(0.3),
@@ -277,6 +278,15 @@ void main() {
         expect(contrast, greaterThan(1.5),
             reason: 'color $i contrast is too low');
       }
+    });
+
+    test('migrates legacy 15-color and 4-color book indices', () {
+      expect(HighlightPalette.migrateLegacyIndex(0), 4); // Mustard -> Amber Light
+      expect(HighlightPalette.migrateLegacyIndex(2), 2); // Sage -> Green Light
+      expect(HighlightPalette.migrateLegacyIndex(12), 22); // Crimson -> Red Deep
+      expect(HighlightPalette.migrateLegacyIndex(20), 20); // New index unchanged
+      expect(HighlightPalette.migrateLegacyBookIndex(0), 4);
+      expect(HighlightPalette.migrateLegacyBookIndex(3), 5);
     });
   });
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/core/theme/highlight_palette.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -219,18 +220,7 @@ class ReaderAppearance extends ChangeNotifier {
 
   Color mutedTextColor(AppTokens tokens) => tokens.onSurfaceMuted;
 
-  /// Maps a highlight [colorIndex] (0..3) to its rendered [Color].
-  static Color highlightColorByIndex(int colorIndex) {
-    switch (colorIndex) {
-      case 1:
-        return const Color(0xFF81C784); // Green
-      case 2:
-        return const Color(0xFF64B5F6); // Blue
-      case 3:
-        return const Color(0xFFF48FB1); // Pink
-      case 0:
-      default:
-        return const Color(0xFFFFD54F); // Amber / Yellow
-    }
-  }
+  /// Maps a highlight [colorIndex] to its rendered [Color].
+  static Color highlightColorByIndex(int colorIndex) =>
+      HighlightPalette.colorFor(colorIndex);
 }

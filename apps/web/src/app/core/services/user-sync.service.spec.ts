@@ -250,7 +250,7 @@ describe('UserSyncService', () => {
     expect(channels.subscribedIds()).toEqual(['ch-1']);
     expect(prefs.preferredLanguages()).toEqual(['en', 'ta']);
     expect(bookHighlights.rangesForLine('book:b1:0', 1)).toHaveLength(1);
-    expect(bible.highlights()['1:1:1']).toBe('#FEF08A');
+    expect(bible.highlights()['1:1:1']).toBe('#FCE0B1');
     expect(audio.currentTrack()?.id).toBe('t1');
 
     httpMock.match((r) => r.url.includes('manifest.json')).forEach((r) => r.flush({}));

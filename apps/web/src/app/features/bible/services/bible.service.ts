@@ -1,6 +1,10 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
+import {
+  DEFAULT_HIGHLIGHT_HEX,
+  migrateLegacyWebHex,
+} from '../../../shared/ui/highlight-palette';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
@@ -78,9 +82,16 @@ export class BibleService {
   }
 
   private reloadAnnotationsFromCache(): void {
-    this.highlights.set(
-      this.readUserJson<Record<string, string>>(KEY_HIGHLIGHTS, {}),
-    );
+    const rawHl = this.readUserJson<Record<string, string>>(KEY_HIGHLIGHTS, {});
+    const migratedHl: Record<string, string> = {};
+    let changed = false;
+    for (const [k, v] of Object.entries(rawHl)) {
+      const next = migrateLegacyWebHex(v);
+      if (next !== v) changed = true;
+      migratedHl[k] = next;
+    }
+    if (changed) this.writeUserJson(KEY_HIGHLIGHTS, migratedHl);
+    this.highlights.set(migratedHl);
     this.bookmarks.set(this.readUserJson<BibleBookmark[]>(KEY_BOOKMARKS, []));
     this.notes.set(this.readUserJson<Record<string, string>>(KEY_NOTES, {}));
   }
@@ -699,7 +710,9 @@ export class BibleService {
     for (const item of mergedById.values()) {
       if (item.deleted) continue;
       if (item.itemType === 'highlight') {
-        nextHl[item.targetId] = item.color ?? '#FEF08A';
+        nextHl[item.targetId] = migrateLegacyWebHex(
+          item.color ?? DEFAULT_HIGHLIGHT_HEX,
+        );
       } else if (item.itemType === 'note') {
         if (item.text) nextNotes[item.targetId] = item.text;
       } else if (item.itemType === 'bookmark') {
