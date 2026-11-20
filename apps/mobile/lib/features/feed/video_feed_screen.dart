@@ -200,9 +200,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            subscribedChannels.isNotEmpty
-                                ? 'Followed Channels'
-                                : 'All',
+                            'All',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: _selectedCategory == 'All'
