@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../shared/ui/floating_selection_bar.dart';
-import '../../dictionary/widgets/glossary_entry_sheet.dart';
 
 /// Builds the inline text-selection toolbar for Book & Article readers.
 ///
@@ -44,24 +43,6 @@ Widget buildReaderSelectionToolbar(
     }
   }
 
-  void define() {
-    selectableRegionState.hideToolbar();
-    final words = selectedText
-        .split(RegExp(r'\s+'))
-        .map(
-          (w) => w.replaceAll(
-            RegExp(
-              r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]''',
-            ),
-            '',
-          ),
-        )
-        .where((w) => w.isNotEmpty)
-        .toList();
-    final lookupWord = words.isNotEmpty ? words.first : selectedText;
-    GlossaryEntrySheet.show(context, word: lookupWord);
-  }
-
   return CustomSingleChildLayout(
     delegate: TextSelectionToolbarLayoutDelegate(
       anchorAbove: anchors.primaryAnchor,
@@ -88,11 +69,6 @@ Widget buildReaderSelectionToolbar(
               if (selectedText.isNotEmpty) onNote(selectedText, pageNum);
             },
           ),
-        SelectionBarAction(
-          icon: Icons.menu_book_rounded,
-          tooltip: 'Define',
-          onTap: define,
-        ),
         SelectionBarAction(
           icon: Icons.copy_rounded,
           tooltip: 'Copy',

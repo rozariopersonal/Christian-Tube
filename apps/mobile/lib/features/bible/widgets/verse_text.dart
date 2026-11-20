@@ -268,8 +268,8 @@ class _VerseTextState extends State<VerseText> {
         continue;
       }
 
-      final recognizer = LongPressGestureRecognizer()
-        ..onLongPress = () {
+      final recognizer = DoubleTapGestureRecognizer()
+        ..onDoubleTap = () {
           if (mounted) {
             GlossaryEntrySheet.show(
               context,

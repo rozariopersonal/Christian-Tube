@@ -13,6 +13,7 @@ import 'package:mobile/features/engines/scripture/services/book_name_service.dar
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/shared/services/reader_fonts_service.dart';
+import 'package:mobile/shared/ui/double_tap_dictionary_area.dart';
 import 'package:mobile/shared/ui/widgets/reader_appearance_action_button.dart';
 import 'package:share_plus/share_plus.dart';
 import '../controllers/article_reader_controller.dart';
@@ -327,7 +328,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
             fontWeight: appearance.fontWeight,
             fontStyle: appearance.fontStyle,
           ),
-          child: SelectionArea(
+          child: DoubleTapDictionaryArea(
             contextMenuBuilder: (context, selectableRegionState) {
               return buildReaderSelectionToolbar(
                 context,

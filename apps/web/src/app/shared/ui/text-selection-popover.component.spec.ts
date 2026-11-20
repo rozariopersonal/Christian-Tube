@@ -35,17 +35,15 @@ describe('TextSelectionPopoverComponent (Consolidated Inline Reader Toolbar)', (
     usage.resetForTest();
   });
 
-  it('renders 3 default accent swatches and emits highlight/clear/define/copy/share/closed', () => {
+  it('renders 3 default accent swatches and emits highlight/clear/copy/share/closed', () => {
     const highlighted: string[] = [];
     let cleared = 0;
-    let defined = 0;
     let copied = 0;
     let shared = 0;
     let closed = 0;
 
     component.highlight.subscribe((c) => highlighted.push(c));
     component.clear.subscribe(() => cleared++);
-    component.define.subscribe(() => defined++);
     component.copy.subscribe(() => copied++);
     component.share.subscribe(() => shared++);
     component.closed.subscribe(() => closed++);
@@ -62,8 +60,7 @@ describe('TextSelectionPopoverComponent (Consolidated Inline Reader Toolbar)', (
     el.querySelector<HTMLButtonElement>('button[aria-label="Clear highlight"]')?.click();
     expect(cleared).toBe(1);
 
-    el.querySelector<HTMLButtonElement>('button[aria-label="Define"]')?.click();
-    expect(defined).toBe(1);
+    expect(el.querySelector('button[aria-label="Define"]')).toBeNull();
 
     el.querySelector<HTMLButtonElement>('button[aria-label="Copy"]')?.click();
     expect(copied).toBe(1);

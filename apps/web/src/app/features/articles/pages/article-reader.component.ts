@@ -232,7 +232,6 @@ import { ArticlesService } from '../services/articles.service';
           [anchor]="selAnchor"
           (highlight)="highlightSelection($event)"
           (clear)="clearSelectionHighlight()"
-          (define)="defineSelection()"
           (copy)="copySelection()"
           (share)="shareArticle(); clearSelectionPopover()"
           (closed)="clearSelectionPopover()"
