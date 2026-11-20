@@ -1,13 +1,25 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/user.dart';
 import '../../core/models/user_preference.dart';
 import '../../core/services/user_preference_service.dart';
 import '../../core/services/user_sync_service.dart';
+import '../../shared/services/reader_fonts_service.dart';
+import '../articles/services/articles_download_manager.dart';
+import '../audio/services/audio_local_library.dart';
+import '../bible/services/study/bible_study_updater.dart';
+import '../books/services/book_service.dart';
+import '../dictionary/services/dictionary_download_manager.dart';
+import '../engines/scripture/services/bible_download_manager.dart';
+import '../songs/services/songs_download_manager.dart';
 import '../user_items/services/user_item_sync_service.dart';
 import '../../core/config/app_config.dart';
 
@@ -284,12 +296,84 @@ class AuthService extends ChangeNotifier {
 
     _currentUser = null;
     _isAdmin = false;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('current_user');
-    await prefs.remove('auth_token');
     await UserSyncService.instance.clearAllDeviceData();
     await UserItemSyncService.instance.clearForSignOut();
     await UserPreferenceService.instance.clearForSignOut();
+    await _wipeAllDownloadsAndLocalDatabases();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    } catch (_) {}
+
     notifyListeners();
+  }
+
+  Future<void> _wipeAllDownloadsAndLocalDatabases() async {
+    try {
+      await AudioLocalLibrary().removeAll();
+    } catch (_) {}
+    try {
+      await ReaderFontsService.instance.removeAllDownloadedFonts();
+    } catch (_) {}
+    try {
+      final articlesMgr = ArticlesDownloadManager();
+      for (final lang in articlesMgr.installedLanguages.toList()) {
+        await articlesMgr.deleteLanguage(lang);
+      }
+    } catch (_) {}
+    try {
+      final dictMgr = DictionaryDownloadManager();
+      for (final id in dictMgr.installedIds.toList()) {
+        await dictMgr.deleteDictionary(id);
+      }
+    } catch (_) {}
+    try {
+      await SongsDownloadManager().delete();
+    } catch (_) {}
+    try {
+      await BookService.instance.removeAllBooks();
+    } catch (_) {}
+    try {
+      final bibleMgr = BibleDownloadManager();
+      for (final meta in BibleDownloadManager.catalog) {
+        if (bibleMgr.isInstalled(meta.id)) {
+          await bibleMgr.removeVersion(meta.id);
+        }
+      }
+    } catch (_) {}
+    try {
+      await BibleStudyUpdater.removeDownload('taobvsi');
+    } catch (_) {}
+
+    if (!kIsWeb) {
+      try {
+        final dbDirPath = await getDatabasesPath();
+        final dbDir = Directory(dbDirPath);
+        if (await dbDir.exists()) {
+          for (final entity in dbDir.listSync()) {
+            if (entity is File &&
+                (entity.path.endsWith('.db') ||
+                    entity.path.endsWith('.sqlite'))) {
+              try {
+                await deleteDatabase(entity.path);
+              } catch (_) {
+                try {
+                  await entity.delete();
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      } catch (_) {}
+
+      try {
+        final docsDir = await getApplicationDocumentsDirectory();
+        final downloadsDir = Directory(p.join(docsDir.path, 'downloads'));
+        if (await downloadsDir.exists()) {
+          await downloadsDir.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
   }
 }
