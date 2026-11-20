@@ -243,6 +243,8 @@ import { ArticlesService } from '../services/articles.service';
           (clear)="clearSelectionHighlight()"
           (define)="defineSelection()"
           (copy)="copySelection()"
+          (share)="shareArticle(); clearSelectionPopover()"
+          (closed)="clearSelectionPopover()"
         />
       }
 
@@ -771,6 +773,10 @@ export class ArticleReaderComponent implements OnInit, AfterViewInit {
     const anchor = this.selectionAnchor();
     if (!anchor) return;
     void navigator.clipboard?.writeText(anchor.text);
+    this.clearSelectionPopover();
+  }
+
+  clearSelectionPopover(): void {
     window.getSelection()?.removeAllRanges();
     this.selectionAnchor.set(null);
   }

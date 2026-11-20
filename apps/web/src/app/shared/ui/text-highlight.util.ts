@@ -10,14 +10,51 @@ export interface HighlightedSpanToken {
   highlightColor?: string;
 }
 
-export interface TextSelectionAnchor {
+export interface InlineToolbarAnchor {
+  top: number;
+  left: number;
+  placement?: 'above' | 'below';
+}
+
+export interface TextSelectionAnchor extends InlineToolbarAnchor {
   scopeKey: string;
   line: number;
   start: number;
   end: number;
   text: string;
-  top: number;
-  left: number;
+}
+
+export function computeInlineToolbarAnchor(
+  rect: Pick<DOMRect, 'top' | 'bottom' | 'left' | 'width'>,
+): InlineToolbarAnchor {
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
+  const placeBelow = rect.top < 116;
+  const rawTop = placeBelow ? rect.bottom + 8 : rect.top - 8;
+  const top = Math.min(vh - 64, Math.max(64, rawTop));
+  const halfClamp = Math.min(200, vw / 2);
+  const centerX = rect.left + rect.width / 2;
+  const left = Math.min(vw - halfClamp, Math.max(halfClamp, centerX));
+  return {
+    top,
+    left,
+    placement: placeBelow ? 'below' : 'above',
+  };
+}
+
+export function computeElementToolbarAnchor(
+  el: HTMLElement | null,
+): InlineToolbarAnchor | null {
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) {
+    return {
+      top: 120,
+      left: typeof window !== 'undefined' ? window.innerWidth / 2 : 300,
+      placement: 'below',
+    };
+  }
+  return computeInlineToolbarAnchor(rect);
 }
 
 export function applyHighlightRangesToTokens(
@@ -99,17 +136,14 @@ export function extractLineTextSelection(): TextSelectionAnchor | null {
   if (end <= start) return null;
 
   const rect = range.getBoundingClientRect();
+  const anchorPos = computeInlineToolbarAnchor(rect);
   return {
     scopeKey,
     line,
     start,
     end,
     text,
-    top: Math.max(64, rect.top - 48),
-    left: Math.min(
-      window.innerWidth - 160,
-      Math.max(160, rect.left + rect.width / 2),
-    ),
+    ...anchorPos,
   };
 }
 

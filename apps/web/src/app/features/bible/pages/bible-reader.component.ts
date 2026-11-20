@@ -44,8 +44,13 @@ import { BibleParallelSheetComponent } from '../components/bible-parallel-sheet.
 import { BibleSearchSheetComponent } from '../components/bible-search-sheet.component';
 import { BibleSidebarComponent } from '../components/bible-sidebar.component';
 import { BibleStudySheetComponent } from '../components/bible-study-sheet.component';
-import { BibleVerseActionBarComponent } from '../components/bible-verse-action-bar.component';
 import { BibleVersionSheetComponent } from '../components/bible-version-sheet.component';
+import {
+  InlineToolbarAnchor,
+  computeElementToolbarAnchor,
+  computeInlineToolbarAnchor,
+} from '../../../shared/ui/text-highlight.util';
+import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
 import { BIBLE_VERSIONS, BibleVerse } from '../models/bible.model';
 import { BibleReaderStateService } from '../services/bible-reader-state.service';
 import { BibleService } from '../services/bible.service';
@@ -70,7 +75,7 @@ interface AppendedBibleChapter {
     BibleVersionSheetComponent,
     BibleBookChapterSheetComponent,
     BibleSidebarComponent,
-    BibleVerseActionBarComponent,
+    TextSelectionPopoverComponent,
     BibleAppearanceSheetComponent,
     BibleBookmarksSheetComponent,
     BibleCrossRefsSheetComponent,
@@ -744,20 +749,30 @@ interface AppendedBibleChapter {
       </div>
 
       @if (state.selectedVerse(); as selected) {
-        <app-bible-verse-action-bar
-          [verse]="selected"
+        <app-text-selection-popover
+          [anchor]="verseToolbarAnchor() ?? defaultToolbarAnchor"
+          [activeColor]="bible.highlights()[bible.verseKey(selected.verse)] ?? null"
+          [showBookmark]="true"
           [isBookmarked]="bible.isBookmarked(selected.verse)"
+          [showNote]="true"
+          [hasNote]="!!state.noteFor(selected.verse)"
+          [showCompare]="true"
+          [showDefine]="true"
+          [showCopy]="true"
+          [showShare]="true"
+          [showClose]="true"
           [crossRefCount]="state.selectedCrossRefs().length"
           [studyTermCount]="state.selectedStudyTerms().length"
-          (copy)="state.copySelected()"
-          (share)="sharePassage(selected.verse)"
+          (highlight)="bible.setHighlight(selected.verse, $event)"
+          (clear)="bible.setHighlight(selected.verse, null)"
           (toggleBookmark)="bible.toggleBookmark(selected)"
           (openNote)="showNoteModal.set(true)"
           (compare)="showCompare.set(true)"
           (define)="defineSelected()"
+          (copy)="state.copySelected()"
+          (share)="sharePassage(selected.verse)"
           (openCrossRefs)="showCrossRefs.set(true)"
           (openStudy)="showStudy.set(true)"
-          (highlightChanged)="bible.setHighlight(selected.verse, $event)"
           (closed)="state.clearSelection()"
         />
       }
@@ -1729,8 +1744,21 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
     return Math.max(1, Math.round(words / 200));
   });
 
+  readonly verseToolbarAnchor = signal<InlineToolbarAnchor | null>(null);
+  readonly defaultToolbarAnchor: InlineToolbarAnchor = {
+    top: 120,
+    left: 240,
+    placement: 'below',
+  };
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.refreshVerseToolbarAnchor();
+  }
+
   @HostListener('window:scroll')
   onWindowScroll(): void {
+    this.refreshVerseToolbarAnchor();
     if (this.spreadMode()) return;
     this.syncVisibleChapterFromScroll();
     if (window.scrollY > 180) {
@@ -2258,9 +2286,36 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
     this.appendedChapters.set(appUpdated);
   }
 
+  private refreshVerseToolbarAnchor(): void {
+    const selected = this.state.selectedVerse();
+    if (!selected) {
+      this.verseToolbarAnchor.set(null);
+      return;
+    }
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim()) {
+      const rangeRect = sel.getRangeAt(0).getBoundingClientRect();
+      if (rangeRect.width > 0 || rangeRect.height > 0) {
+        this.verseToolbarAnchor.set(computeInlineToolbarAnchor(rangeRect));
+        return;
+      }
+    }
+    const el = document.getElementById(`verse-${selected.verse}`);
+    this.verseToolbarAnchor.set(
+      computeElementToolbarAnchor(el) ?? {
+        top: 120,
+        left: typeof window !== 'undefined' ? window.innerWidth / 2 : 240,
+        placement: 'below',
+      },
+    );
+  }
+
   private focusVerse(verseNum: number): void {
     const match = this.bible.verses().find((v) => v.verse === verseNum);
-    if (match) this.state.toggleSelectVerse(match);
+    if (match) {
+      this.state.selectedVerse.set(match);
+      this.refreshVerseToolbarAnchor();
+    }
     setTimeout(() => {
       const el = document.getElementById(`verse-${verseNum}`);
       if (!el) return;
@@ -2273,13 +2328,20 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       } else {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
+      this.refreshVerseToolbarAnchor();
+      setTimeout(() => this.refreshVerseToolbarAnchor(), 260);
     }, 60);
   }
 
   onVerseTap(v: BibleVerse): void {
     const sel = window.getSelection()?.toString().trim();
-    if (sel) return;
+    if (sel) {
+      this.state.selectedVerse.set(v);
+      this.refreshVerseToolbarAnchor();
+      return;
+    }
     this.state.toggleSelectVerse(v);
+    this.refreshVerseToolbarAnchor();
   }
 
   openVerseCrossRefs(v: BibleVerse): void {

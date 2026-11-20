@@ -118,6 +118,7 @@ class _VerseActionBarState extends State<VerseActionBar>
               : MediaQuery.sizeOf(context).height;
           return Align(
             alignment: Alignment.bottomCenter,
+            heightFactor: constraints.maxHeight.isFinite ? null : 1.0,
             child: Padding(
               padding: widget.margin ?? EdgeInsets.zero,
               child: ClipRect(
@@ -134,15 +135,18 @@ class _VerseActionBarState extends State<VerseActionBar>
                       animationController: _animation,
                       onClosing: _dismiss,
                       enableDrag: widget.onClear != null,
-                      showDragHandle: widget.onClear != null,
+                      showDragHandle:
+                          constraints.maxHeight.isFinite && widget.onClear != null,
                       backgroundColor: tokens.surface,
                       shadowColor: tokens.scrim,
                       elevation: 8,
                       clipBehavior: Clip.antiAlias,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(AppDimens.radiusLg),
-                        ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: constraints.maxHeight.isFinite
+                            ? const BorderRadius.vertical(
+                                top: Radius.circular(AppDimens.radiusLg),
+                              )
+                            : BorderRadius.circular(AppDimens.radiusLg),
                       ),
                       constraints: BoxConstraints(
                         maxWidth: 640,
@@ -241,14 +245,14 @@ class _VerseActionBarState extends State<VerseActionBar>
                             if (widget.onStudy != null)
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
-                                  AppDimens.lg,
-                                  AppDimens.xs,
-                                  AppDimens.lg,
-                                  AppDimens.sm,
+                                  AppDimens.md,
+                                  2,
+                                  AppDimens.md,
+                                  6,
                                 ),
                                 child: SizedBox(
                                   width: double.infinity,
-                                  height: 40,
+                                  height: 32,
                                   child: FilledButton.tonal(
                                     key: VerseActionBar.studyPromptKey,
                                     onPressed: widget.onStudy,

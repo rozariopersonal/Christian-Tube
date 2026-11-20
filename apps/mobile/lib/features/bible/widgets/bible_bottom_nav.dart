@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../shared/services/reader_appearance.dart';
-import '../models/bible_verse.dart';
-import '../widgets/verse_action_bar.dart';
 import '../controllers/bible_controller.dart';
 
 class BibleBottomNav extends StatelessWidget {
@@ -35,36 +33,6 @@ class BibleBottomNav extends StatelessWidget {
     final s = controller.state;
     final appearance = controller.appearance;
 
-    if (s.selectedVerses.isNotEmpty) {
-      final book = s.selectedBook ?? controller.currentBook;
-      final chapter = s.selectedChapter ?? controller.currentChapter;
-      final sortedVerses = s.selectedVerses.toList()..sort();
-      final verseLabel = sortedVerses.length == 1
-          ? '${controller.displayBookName(book)} $chapter:${sortedVerses.first}'
-          : '${controller.displayBookName(book)} $chapter:${formatVerseNumbers(sortedVerses)} (${sortedVerses.length} verses)';
-      final studyLabel = sortedVerses.length > 1
-          ? 'Open Verse Study (v. ${sortedVerses.first})'
-          : 'Open Verse Study';
-
-      return VerseActionBar(
-        selectedCount: s.selectedVerses.length,
-        appearance: appearance,
-        onCopy: onCopy,
-        onShare: onShare,
-        onBookmark: onBookmark,
-        onHighlight: onHighlight,
-        onHighlightColor: (color) => controller.applyHighlight(color),
-        onRemoveHighlight: () => controller.removeHighlight(),
-        currentColorIndex: s.highlightColorForSelection,
-        hasHighlight: s.selectionHasHighlight,
-        isBookmarked: s.selectionIsBookmarked,
-        verseLabel: verseLabel,
-        studyLabel: studyLabel,
-        onNote: onNote,
-        onClear: onClear,
-        onStudy: onStudy,
-      );
-    }
     return _ChapterNav(
       appearance: appearance,
       canFetchPrev: s.canFetchPrev,

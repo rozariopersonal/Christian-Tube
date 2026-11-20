@@ -660,59 +660,37 @@ class _BibleScreenState extends State<BibleScreen> {
           onOpenBookmarks: _openBookmarks,
           onPushManager: _pushManager,
         ),
-        body: Stack(
+        body: Column(
           children: [
-            Positioned.fill(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: BibleContent(
-                      controller: _controller,
-                      itemScrollController: _itemScrollController,
-                      itemPositionsListener: _itemPositionsListener,
-                      onVerseTap: (v, {book, chapter}) =>
-                          _controller.toggleVerseSelection(v, book: book, chapter: chapter),
-                      onCopy: _copySelectedVerses,
-                      onShare: _shareSelectedVerses,
-                      onBookmark: _bookmarkSelectedVerses,
-                      onClear: _controller.clearSelection,
-                      onOpenStudyPage: _openVerseStudyScreen,
-                      onPushManager: _pushManager,
-                      onRedownloadDefault: _controller.redownloadDefault,
-                    ),
-                  ),
-                  if (s.selectedVerses.isEmpty)
-                    BibleBottomNav(
-                      controller: _controller,
-                      onShowBookChapterSelector: _showBookChapterSelector,
-                      onCopy: _copySelectedVerses,
-                      onShare: _shareSelectedVerses,
-                      onBookmark: _bookmarkSelectedVerses,
-                      onHighlight: _highlightSelectedVerses,
-                      onNote: _openNoteEditor,
-                      onClear: _controller.clearSelection,
-                      onStudy: null,
-                    ),
-                ],
+            Expanded(
+              child: BibleContent(
+                controller: _controller,
+                itemScrollController: _itemScrollController,
+                itemPositionsListener: _itemPositionsListener,
+                onVerseTap: (v, {book, chapter}) =>
+                    _controller.toggleVerseSelection(v, book: book, chapter: chapter),
+                onCopy: _copySelectedVerses,
+                onShare: _shareSelectedVerses,
+                onBookmark: _bookmarkSelectedVerses,
+                onHighlight: _highlightSelectedVerses,
+                onNote: _openNoteEditor,
+                onClear: _controller.clearSelection,
+                onOpenStudyPage: _openVerseStudyScreen,
+                onPushManager: _pushManager,
+                onRedownloadDefault: _controller.redownloadDefault,
               ),
             ),
-            if (s.selectedVerses.isNotEmpty)
-              Positioned.fill(
-                child: BibleBottomNav(
-                  controller: _controller,
-                  onShowBookChapterSelector: _showBookChapterSelector,
-                  onCopy: _copySelectedVerses,
-                  onShare: _shareSelectedVerses,
-                  onBookmark: _bookmarkSelectedVerses,
-                  onHighlight: _highlightSelectedVerses,
-                  onNote: _openNoteEditor,
-                  onClear: _controller.clearSelection,
-                  onStudy: () => _openVerseStudyScreen(
-                    s.selectedVerses.first,
-                    book: s.selectedBook,
-                    chapter: s.selectedChapter,
-                  ),
-                ),
+            if (s.selectedVerses.isEmpty)
+              BibleBottomNav(
+                controller: _controller,
+                onShowBookChapterSelector: _showBookChapterSelector,
+                onCopy: _copySelectedVerses,
+                onShare: _shareSelectedVerses,
+                onBookmark: _bookmarkSelectedVerses,
+                onHighlight: _highlightSelectedVerses,
+                onNote: _openNoteEditor,
+                onClear: _controller.clearSelection,
+                onStudy: null,
               ),
           ],
         ),

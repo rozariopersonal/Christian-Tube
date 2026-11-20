@@ -37,10 +37,10 @@ class VerseActionSheetBody extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppDimens.lg,
-        AppDimens.xs,
-        AppDimens.lg,
-        AppDimens.sm,
+        AppDimens.md,
+        2,
+        AppDimens.md,
+        2,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -54,7 +54,7 @@ class VerseActionSheetBody extends StatelessWidget {
                 color: tokens.surfaceBorder.withValues(alpha: 0.6),
               ),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
             child: Row(
               children: [
                 Expanded(
@@ -91,40 +91,42 @@ class VerseActionSheetBody extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 3),
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: AppDimens.sm,
-            runSpacing: AppDimens.xs,
+            runSpacing: 0,
             children: [
               Text(
                 'Highlight',
-                style: textTheme.labelMedium?.copyWith(
+                style: textTheme.labelSmall?.copyWith(
                   color: tokens.onSurfaceMuted,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
+                  letterSpacing: 0.2,
                 ),
               ),
               if (hasHighlight && onRemoveHighlight != null)
                 TextButton.icon(
                   onPressed: onRemoveHighlight,
-                  icon: const Icon(Icons.format_color_reset, size: 15),
+                  icon: const Icon(Icons.format_color_reset, size: 14),
                   label: const Text('Remove highlight'),
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     foregroundColor: tokens.onSurfaceMuted,
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                    minimumSize: const Size(0, 22),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     textStyle: textTheme.labelSmall,
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Center(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 240),
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
               decoration: BoxDecoration(
                 color: tokens.surfaceVariant.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(AppDimens.radiusMd),
@@ -137,7 +139,7 @@ class VerseActionSheetBody extends StatelessWidget {
                 children: [
                   for (var row = 0; row < 3; row++)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 1),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -170,11 +172,11 @@ class VerseActionSheetBody extends StatelessWidget {
               : onHighlight(),
           radius: AppDimens.md,
           child: SizedBox.square(
-            dimension: 36,
+            dimension: 24,
             child: Center(
               child: Container(
-                width: 26,
-                height: 26,
+                width: 20,
+                height: 20,
                 decoration: BoxDecoration(
                   color: color,
                   shape: BoxShape.circle,
@@ -241,12 +243,12 @@ class _Action extends StatelessWidget {
             color: bgColor,
             borderRadius: BorderRadius.circular(AppDimens.radiusSm),
           ),
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 20, color: fgColor),
-              const SizedBox(height: 3),
+              Icon(icon, size: 17, color: fgColor),
+              const SizedBox(height: 1),
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
