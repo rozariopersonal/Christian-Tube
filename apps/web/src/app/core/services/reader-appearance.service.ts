@@ -8,27 +8,31 @@ import { ScreenClass } from '../layout/screen-class.service';
 export interface ReaderFontOption {
   id: string;
   label: string;
+  shortLabel?: string;
   cssFamily: string;
   releaseFile?: string;
 }
 
 export const READER_FONTS: readonly ReaderFontOption[] = [
-  { id: 'system', label: 'System Sans', cssFamily: "'Inter', system-ui, sans-serif" },
+  { id: 'system', label: 'System Sans', shortLabel: 'System', cssFamily: "'Inter', system-ui, sans-serif" },
   {
     id: 'literata',
     label: 'Literata (Serif)',
+    shortLabel: 'Literata',
     cssFamily: "'Literata', Georgia, serif",
     releaseFile: 'Literata_Regular.ttf',
   },
   {
     id: 'merriweather',
     label: 'Merriweather (Serif)',
+    shortLabel: 'Merriweather',
     cssFamily: "'Merriweather', Georgia, serif",
     releaseFile: 'Merriweather_Regular.ttf',
   },
   {
     id: 'noto-tamil',
     label: 'Noto Sans Tamil',
+    shortLabel: 'Noto Tamil',
     cssFamily: "'Noto Sans Tamil', 'Inter', sans-serif",
     releaseFile: 'NotoSansTamil_Regular.ttf',
   },
@@ -138,6 +142,10 @@ export class ReaderAppearanceService {
     const clamped = Math.min(28, Math.max(13, Math.round(size)));
     this.fontSize.set(clamped);
     this.writeStr(KEY_FONT_SIZE, String(clamped));
+  }
+
+  stepFontSize(delta: number): void {
+    this.setFontSize(this.fontSize() + delta);
   }
 
   setLineHeight(lh: number): void {

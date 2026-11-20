@@ -2,9 +2,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReaderColumnsToggleComponent } from '../../shared/ui/reader-columns-toggle.component';
+import { ReaderTypographyToggleComponent } from '../../shared/ui/reader-typography-toggle.component';
 import {
   LETTER_SPACING_PRESETS,
   LINE_HEIGHT_PRESETS,
+  READER_FONTS,
   ReaderAppearanceService,
 } from './reader-appearance.service';
 
@@ -28,6 +30,37 @@ describe('ReaderAppearanceService', () => {
     expect(service.lineHeight()).toBe(1.65);
     expect(service.letterSpacing()).toBe(0);
     expect(service.formatLetterSpacing()).toBe('Normal (0em)');
+  });
+
+  it('clamps and persists font size via setFontSize and stepFontSize', () => {
+    service.setFontSize(20);
+    expect(service.fontSize()).toBe(20);
+    expect(localStorage.getItem('reader_font_size')).toBe('20');
+
+    service.stepFontSize(2);
+    expect(service.fontSize()).toBe(22);
+
+    service.stepFontSize(-5);
+    expect(service.fontSize()).toBe(17);
+
+    service.stepFontSize(-20);
+    expect(service.fontSize()).toBe(13); // min clamped to 13
+
+    service.stepFontSize(50);
+    expect(service.fontSize()).toBe(28); // max clamped to 28
+  });
+
+  it('updates font and resolves activeFont with shortLabel', () => {
+    expect(service.activeFont().id).toBe('system');
+    expect(service.activeFont().shortLabel).toBe('System');
+
+    service.setFont('literata');
+    expect(service.fontId()).toBe('literata');
+    expect(service.activeFont().shortLabel).toBe('Literata');
+    expect(localStorage.getItem('reader_font_id')).toBe('literata');
+
+    service.setFont('unknown-font');
+    expect(service.activeFont().id).toBe('system');
   });
 
   it('clamps and persists lineHeight via setLineHeight and stepLineHeight', () => {
@@ -93,7 +126,12 @@ describe('ReaderAppearanceService', () => {
     expect(hydrated.letterSpacing()).toBe(0.05);
   });
 
-  it('exposes standard line height and letter spacing presets', () => {
+  it('exposes standard fonts, line height, and letter spacing presets', () => {
+    expect(READER_FONTS.map((f) => f.id)).toContain('system');
+    expect(READER_FONTS.map((f) => f.id)).toContain('literata');
+    expect(READER_FONTS.map((f) => f.id)).toContain('merriweather');
+    expect(READER_FONTS.map((f) => f.id)).toContain('noto-tamil');
+
     expect(LINE_HEIGHT_PRESETS.map((p) => p.label)).toEqual([
       'Tight',
       'Normal',
@@ -107,7 +145,93 @@ describe('ReaderAppearanceService', () => {
   });
 });
 
-describe('ReaderColumnsToggleComponent spacing toolbar', () => {
+describe('ReaderTypographyToggleComponent', () => {
+  let fixture: ComponentFixture<ReaderTypographyToggleComponent>;
+  let appearance: ReaderAppearanceService;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    await TestBed.configureTestingModule({
+      imports: [ReaderTypographyToggleComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+
+    appearance = TestBed.inject(ReaderAppearanceService);
+    fixture = TestBed.createComponent(ReaderTypographyToggleComponent);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    TestBed.resetTestingModule();
+  });
+
+  it('renders font family trigger and allows selecting font from dropdown', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const fontTrigger = el.querySelector<HTMLButtonElement>('button[aria-label="Select font family"]');
+    expect(fontTrigger).toBeTruthy();
+    expect(fontTrigger?.textContent).toContain('System');
+
+    fontTrigger!.click();
+    fixture.detectChanges();
+
+    const menu = el.querySelector('.font-menu-popover');
+    expect(menu).toBeTruthy();
+
+    const literataItem = el.querySelectorAll<HTMLButtonElement>('.font-menu-item')[1];
+    expect(literataItem?.textContent).toContain('Literata');
+
+    literataItem!.click();
+    fixture.detectChanges();
+
+    expect(appearance.fontId()).toBe('literata');
+    expect(el.querySelector('.font-menu-popover')).toBeNull();
+    expect(fontTrigger?.textContent).toContain('Literata');
+  });
+
+  it('steps font size up and down via steppers', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const initialSize = appearance.fontSize();
+
+    const incBtn = el.querySelector<HTMLButtonElement>('button[aria-label="Increase font size"]');
+    const decBtn = el.querySelector<HTMLButtonElement>('button[aria-label="Decrease font size"]');
+    expect(incBtn).toBeTruthy();
+    expect(decBtn).toBeTruthy();
+
+    incBtn!.click();
+    fixture.detectChanges();
+    expect(appearance.fontSize()).toBe(initialSize + 1);
+
+    decBtn!.click();
+    fixture.detectChanges();
+    expect(appearance.fontSize()).toBe(initialSize);
+  });
+
+  it('renders spacing popover and updates line and letter spacing', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const spacingBtn = el.querySelector<HTMLButtonElement>('button[aria-label="Line and letter spacing"]');
+    expect(spacingBtn).toBeTruthy();
+
+    spacingBtn!.click();
+    fixture.detectChanges();
+
+    expect(el.querySelector('.spacing-popover')).toBeTruthy();
+
+    el.querySelector<HTMLButtonElement>('button[aria-label="Increase line spacing"]')?.click();
+    fixture.detectChanges();
+    expect(appearance.lineHeight()).toBe(1.7);
+
+    el.querySelector<HTMLButtonElement>('button[aria-label="Increase letter spacing"]')?.click();
+    fixture.detectChanges();
+    expect(appearance.letterSpacing()).toBe(0.01);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(el.querySelector('.spacing-popover')).toBeNull();
+  });
+});
+
+describe('ReaderColumnsToggleComponent', () => {
   let fixture: ComponentFixture<ReaderColumnsToggleComponent>;
   let appearance: ReaderAppearanceService;
 
@@ -128,37 +252,21 @@ describe('ReaderColumnsToggleComponent spacing toolbar', () => {
     TestBed.resetTestingModule();
   });
 
-  it('renders line and letter spacing triggers and updates appearance from popover', () => {
-    const el = fixture.nativeElement as HTMLElement;
-    const lineBtn = el.querySelector<HTMLButtonElement>('button[aria-label="Line spacing"]');
-    const letterBtn = el.querySelector<HTMLButtonElement>('button[aria-label="Letter spacing"]');
-    expect(lineBtn).toBeTruthy();
-    expect(letterBtn).toBeTruthy();
-
-    lineBtn!.click();
-    fixture.detectChanges();
-
-    expect(el.querySelector('.spacing-popover')).toBeTruthy();
-
-    el.querySelector<HTMLButtonElement>('button[aria-label="Increase line spacing"]')?.click();
-    fixture.detectChanges();
-    expect(appearance.lineHeight()).toBe(1.7);
-
-    el.querySelector<HTMLButtonElement>('button[aria-label="Increase letter spacing"]')?.click();
-    fixture.detectChanges();
-    expect(appearance.letterSpacing()).toBe(0.01);
-
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    fixture.detectChanges();
-    expect(el.querySelector('.spacing-popover')).toBeNull();
-  });
-
-  it('hides spacing controls when hideSpacing is true', () => {
-    fixture.componentRef.setInput('hideSpacing', true);
+  it('toggles Bible layout when showLayoutToggle is true', () => {
+    fixture.componentRef.setInput('showLayoutToggle', true);
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('button[aria-label="Line spacing"]')).toBeNull();
-    expect(el.querySelector('button[aria-label="Letter spacing"]')).toBeNull();
+    const paraBtn = el.querySelector<HTMLButtonElement>('button[aria-label="Paragraph flow"]');
+    expect(paraBtn).toBeTruthy();
+
+    paraBtn!.click();
+    fixture.detectChanges();
+    expect(appearance.bibleLayout()).toBe('paragraph');
+
+    const verseBtn = el.querySelector<HTMLButtonElement>('button[aria-label="Verse by verse"]');
+    verseBtn!.click();
+    fixture.detectChanges();
+    expect(appearance.bibleLayout()).toBe('verses');
   });
 });
