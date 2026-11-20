@@ -5,12 +5,15 @@ import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 import '../../core/models/short.dart';
+import '../../shared/ui/bible_version_pill.dart';
 import '../../shared/ui/search_video_card.dart';
 import '../../core/config/app_config.dart';
 import '../bible/models/bible_reference.dart';
 import '../bible/models/bible_search_hit.dart';
 import '../bible/services/bible_passage_navigator.dart';
 import '../bible/services/bible_search_service.dart';
+import '../bible/services/bible_settings_service.dart';
+import '../engines/scripture/services/bible_download_manager.dart';
 
 enum _GlobalSearchFilter { all, videos, bible }
 
@@ -26,11 +29,31 @@ class _SearchScreenState extends State<SearchScreen> {
   final ApiClient _apiClient = ApiClient();
   final BibleSearchService _bibleSearch = BibleSearchService();
   List<Video> _searchResults = [];
+  List<BibleSearchHit> _rawBibleResults = [];
   List<BibleSearchHit> _bibleResults = [];
+  String _bibleVersionId = BibleDownloadManager.defaultVersionId;
   _GlobalSearchFilter _filter = _GlobalSearchFilter.all;
   bool _isLoading = false;
 
   bool get _bibleEnabled => AppConfig.instanceId != 'centum_academy';
+
+  @override
+  void initState() {
+    super.initState();
+    if (_bibleEnabled) {
+      _loadActiveVersion();
+    }
+  }
+
+  Future<void> _loadActiveVersion() async {
+    try {
+      final settings = await BibleSettingsService().loadSettings();
+      final saved = settings.lastVersion?.trim();
+      if (mounted && saved != null && saved.isNotEmpty) {
+        setState(() => _bibleVersionId = saved);
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -46,19 +69,41 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final videosFuture = _fetchVideos(trimmed);
       final bibleFuture = _bibleEnabled
-          ? _bibleSearch.search(trimmed, limit: 20)
+          ? _bibleSearch.search(trimmed, versionId: _bibleVersionId, limit: 20)
           : Future<List<BibleSearchHit>>.value(const []);
 
       final results = await Future.wait([videosFuture, bibleFuture]);
+      final rawBible = results[1] as List<BibleSearchHit>;
+      final localizedBible = _bibleEnabled && rawBible.isNotEmpty
+          ? await _bibleSearch.localizeHits(
+              rawBible,
+              versionId: _bibleVersionId,
+            )
+          : rawBible;
       if (!mounted) return;
       setState(() {
         _searchResults = results[0] as List<Video>;
-        _bibleResults = results[1] as List<BibleSearchHit>;
+        _rawBibleResults = rawBible;
+        _bibleResults = localizedBible;
       });
     } catch (e) {
       debugPrint('Search error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _switchBibleVersion(String newVersionId) async {
+    final clean = newVersionId.trim();
+    if (clean.isEmpty || clean == _bibleVersionId) return;
+    setState(() => _bibleVersionId = clean);
+    if (_rawBibleResults.isEmpty) return;
+    final localized = await _bibleSearch.localizeHits(
+      _rawBibleResults,
+      versionId: clean,
+    );
+    if (mounted) {
+      setState(() => _bibleResults = localized);
     }
   }
 
@@ -100,7 +145,12 @@ class _SearchScreenState extends State<SearchScreen> {
     final bookNum = hit.bookNumber;
     if (chapter == null || verse == null || bookNum == null) return;
     BiblePassageNavigator.instance.navigateTo(
-      BibleReference(bookNumber: bookNum, chapter: chapter, verse: verse),
+      BibleReference(
+        bookNumber: bookNum,
+        chapter: chapter,
+        verse: verse,
+        versionId: _bibleVersionId,
+      ),
       context: context,
     );
   }
@@ -136,6 +186,7 @@ class _SearchScreenState extends State<SearchScreen> {
               _searchController.clear();
               setState(() {
                 _searchResults = [];
+                _rawBibleResults = [];
                 _bibleResults = [];
               });
             },
@@ -207,18 +258,24 @@ class _SearchScreenState extends State<SearchScreen> {
                                                 fontWeight: FontWeight.w700),
                                       ),
                                     ),
+                                    BibleVersionPill(
+                                      activeVersionId: _bibleVersionId,
+                                      onSelectVersion: _switchBibleVersion,
+                                    ),
                                     if (_filter == _GlobalSearchFilter.all &&
-                                        _bibleResults.length > 3)
+                                        _bibleResults.length > 3) ...[
+                                      const SizedBox(width: 4),
                                       TextButton(
                                         onPressed: () {
                                           final q =
                                               _searchController.text.trim();
                                           context.push(
-                                            '/bible/search?q=${Uri.encodeComponent(q)}',
+                                            '/bible/search?q=${Uri.encodeComponent(q)}&version=${Uri.encodeComponent(_bibleVersionId)}',
                                           );
                                         },
                                         child: const Text('See all Bible'),
                                       ),
+                                    ],
                                   ],
                                 ),
                               ),

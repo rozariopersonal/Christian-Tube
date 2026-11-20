@@ -73,4 +73,40 @@ describe('BibleService semantic search', () => {
     expect(res.results[1].kind).toBe('passage');
     expect(res.results[1].endVerse).toBe(38);
   });
+
+  it('resolves displayed hits into another Bible version cleanly', async () => {
+    const resolvePromise = service.resolveSearchHitsInVersion(
+      [
+        {
+          bookNumber: 43,
+          bookName: 'John',
+          chapter: 11,
+          verse: 34,
+          endVerse: 35,
+          reference: 'John 11:34-35',
+          text: 'WEB original',
+        },
+      ],
+      'kjv',
+    );
+
+    const manifestReqs = httpMock.match((r) => r.url.includes('manifest.json'));
+    for (const m of manifestReqs) {
+      m.flush({ revision: '1' });
+    }
+    await new Promise((r) => setTimeout(r, 0));
+
+    const req = httpMock.expectOne((r) =>
+      r.url.includes('bibles/kjv/43/11.json'),
+    );
+    req.flush([
+      { verse: 34, text: 'And said, Where have ye laid him?' },
+      { verse: 35, text: 'Jesus wept.' },
+    ]);
+
+    const localized = await resolvePromise;
+    expect(localized[0].text).toBe(
+      '34. And said, Where have ye laid him? 35. Jesus wept.',
+    );
+  });
 });

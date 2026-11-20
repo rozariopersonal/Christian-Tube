@@ -3,7 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
-import { BibleSemanticHit } from '../../bible/models/bible.model';
+import { BibleVersionSheetComponent } from '../../bible/components/bible-version-sheet.component';
+import { BIBLE_VERSIONS, BibleSemanticHit } from '../../bible/models/bible.model';
 import { BibleService } from '../../bible/services/bible.service';
 import { ChannelService } from '../../channels/services/channel.service';
 import { Video, formatTimeAgo, formatViewCount } from '../models/video.model';
@@ -19,20 +20,23 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
     FormsModule,
     RouterLink,
     InfiniteScrollTriggerDirective,
+    BibleVersionSheetComponent,
   ],
   template: `
     <div class="search-page max-width-box">
       @if (screen.isCompact()) {
-        <div class="search-bar">
+        <form class="search-bar" (ngSubmit)="submitCompactSearch()">
           <span class="material-symbols-rounded search-icon">search</span>
           <input
             type="search"
             class="search-input"
-            placeholder="Search videos & channels..."
+            placeholder="Search videos, Bible & channels..."
             [ngModel]="query()"
-            (ngModelChange)="onQueryChange($event)"
+            name="qCompact"
+            (ngModelChange)="query.set($event)"
           />
-        </div>
+          <button type="submit" class="pill-chip active">Go</button>
+        </form>
       }
 
       <div class="filter-bar">
@@ -74,15 +78,25 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
           <section class="section">
             <div class="section-head">
               <h2 class="section-title">Bible</h2>
-              @if (typeFilter() === 'ALL' && bibleResults().length > 3) {
-                <a
-                  class="see-all-link"
-                  [routerLink]="['/bible/search']"
-                  [queryParams]="{ q: query().trim(), scope: 'all' }"
+              <div class="bible-head-actions">
+                <button
+                  type="button"
+                  class="pill-chip"
+                  (click)="showBibleVersionPicker.set(true)"
+                  aria-label="Bible Version"
                 >
-                  See all Bible results
-                </a>
-              }
+                  {{ bibleVersionLabel(bibleService.version()) }} ▾
+                </button>
+                @if (typeFilter() === 'ALL' && bibleResults().length > 3) {
+                  <a
+                    class="see-all-link"
+                    [routerLink]="['/bible/search']"
+                    [queryParams]="{ q: query().trim(), scope: 'all' }"
+                  >
+                    See all Bible results
+                  </a>
+                }
+              </div>
             </div>
             <div class="bible-rows">
               @for (b of visibleBibleResults(); track b.id) {
@@ -190,6 +204,14 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
         }
       }
     </div>
+
+    @if (showBibleVersionPicker()) {
+      <app-bible-version-sheet
+        [activeVersionId]="bibleService.version()"
+        (versionSelected)="onBibleVersionChange($event)"
+        (closed)="showBibleVersionPicker.set(false)"
+      />
+    }
   `,
   styles: [
     `
@@ -275,6 +297,12 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
 
       .section-head .section-title {
         margin-bottom: 0;
+      }
+
+      .bible-head-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
 
       .see-all-link {
@@ -495,12 +523,13 @@ export class SearchComponent implements OnInit {
   readonly sort = signal<SearchSort>('relevance');
   readonly results = signal<Video[]>([]);
   readonly bibleResults = signal<BibleSemanticHit[]>([]);
+  readonly showBibleVersionPicker = signal<boolean>(false);
   readonly loading = signal<boolean>(false);
   readonly hasMore = signal<boolean>(true);
 
   private offset = 0;
   private readonly limit = 24;
-  private debounceHandle: ReturnType<typeof setTimeout> | null = null;
+  private rawBibleResults: BibleSemanticHit[] = [];
 
   readonly matchedChannels = computed(() => {
     const q = this.query().trim().toLowerCase();
@@ -527,6 +556,12 @@ export class SearchComponent implements OnInit {
   ngOnInit(): void {
     void this.channels.fetchChannels();
     void this.channels.loadSubscriptions();
+    if (this.bibleService.books().length === 0) {
+      void this.bibleService.loadChapter(
+        this.bibleService.bookNumber(),
+        this.bibleService.chapter(),
+      );
+    }
     this.route.queryParamMap.subscribe((qp) => {
       const q = qp.get('q') ?? '';
       if (q !== this.query()) {
@@ -536,18 +571,34 @@ export class SearchComponent implements OnInit {
     });
   }
 
-  onQueryChange(value: string): void {
-    this.query.set(value);
-    if (this.debounceHandle) clearTimeout(this.debounceHandle);
-    this.debounceHandle = setTimeout(() => {
-      void this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams: { q: value.trim() || null },
-        queryParamsHandling: 'merge',
-        replaceUrl: true,
-      });
-      void this.loadMore(true);
-    }, 300);
+  submitCompactSearch(): void {
+    const q = this.query().trim();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { q: q || null },
+      queryParamsHandling: 'merge',
+    });
+    void this.loadMore(true);
+  }
+
+  bibleVersionLabel(id: string): string {
+    return BIBLE_VERSIONS.find((v) => v.id === id)?.label ?? id.toUpperCase();
+  }
+
+  async onBibleVersionChange(versionId: string): Promise<void> {
+    this.showBibleVersionPicker.set(false);
+    await this.bibleService.loadVersion(
+      versionId,
+      this.bibleService.bookNumber(),
+      this.bibleService.chapter(),
+    );
+    if (this.rawBibleResults.length > 0) {
+      const localized = await this.bibleService.resolveSearchHitsInVersion(
+        this.rawBibleResults,
+        this.bibleService.version(),
+      );
+      this.bibleResults.set(localized);
+    }
   }
 
   selectType(f: SearchTypeFilter): void {
@@ -566,6 +617,7 @@ export class SearchComponent implements OnInit {
     const q = this.query().trim();
     if (!q) {
       this.results.set([]);
+      this.rawBibleResults = [];
       this.bibleResults.set([]);
       this.hasMore.set(false);
       return;
@@ -587,15 +639,16 @@ export class SearchComponent implements OnInit {
           count: 0,
           results: [],
         }));
+        const filtered = (res.results || []).filter(
+          (h) => h.bookNumber != null && h.chapter != null && h.verse != null,
+        );
+        this.rawBibleResults = filtered;
+        const localized = await this.bibleService.resolveSearchHitsInVersion(
+          filtered,
+          this.bibleService.version(),
+        );
         if (this.query().trim() === q) {
-          this.bibleResults.set(
-            (res.results || []).filter(
-              (h) =>
-                h.bookNumber != null &&
-                h.chapter != null &&
-                h.verse != null,
-            ),
-          );
+          this.bibleResults.set(localized);
         }
         return;
       }
@@ -603,20 +656,24 @@ export class SearchComponent implements OnInit {
       if (refresh && f === 'ALL') {
         void this.bibleService
           .searchSemantic(q, 12)
-          .then((res) => {
+          .then(async (res) => {
+            const filtered = (res.results || []).filter(
+              (h) => h.bookNumber != null && h.chapter != null && h.verse != null,
+            );
+            this.rawBibleResults = filtered;
+            const localized = await this.bibleService.resolveSearchHitsInVersion(
+              filtered,
+              this.bibleService.version(),
+            );
             if (this.query().trim() === q) {
-              this.bibleResults.set(
-                (res.results || []).filter(
-                  (h) =>
-                    h.bookNumber != null &&
-                    h.chapter != null &&
-                    h.verse != null,
-                ),
-              );
+              this.bibleResults.set(localized);
             }
           })
           .catch(() => {
-            if (this.query().trim() === q) this.bibleResults.set([]);
+            if (this.query().trim() === q) {
+              this.rawBibleResults = [];
+              this.bibleResults.set([]);
+            }
           });
       }
 

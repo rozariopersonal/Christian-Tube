@@ -83,6 +83,14 @@ type SearchScope = 'book' | 'ot' | 'nt' | 'all';
             {{ s.id === 'book' ? bible.currentBook().name : s.label }}
           </button>
         }
+        <button
+          type="button"
+          class="pill-chip version-switch-chip"
+          (click)="showVersionPicker.set(true)"
+          aria-label="Switch Bible Version"
+        >
+          {{ versionLabel(bible.version()) }} ▾
+        </button>
       </div>
 
       @if (directRef(); as ref) {
@@ -266,6 +274,14 @@ type SearchScope = 'book' | 'ot' | 'nt' | 'all';
         color: var(--on-surface-muted);
       }
 
+      .version-switch-chip {
+        margin-left: auto;
+        border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 600;
+      }
+
       .ref-jump-card {
         display: flex;
         align-items: center;
@@ -391,6 +407,7 @@ export class BibleSearchPageComponent implements OnInit, AfterViewInit {
   readonly maxResults = 60;
 
   private searchRunId = 0;
+  private rawResults: BibleSearchHit[] = [];
 
   constructor() {
     this.destroyRef.onDestroy(() => this.headerSlot.clear());
@@ -467,7 +484,13 @@ export class BibleSearchPageComponent implements OnInit, AfterViewInit {
       this.bible.bookNumber(),
       this.bible.chapter(),
     );
-    if (this.activeQuery().length >= 2) {
+    if (this.rawResults.length > 0) {
+      const resolved = await this.bible.resolveSearchHitsInVersion(
+        this.rawResults,
+        this.bible.version(),
+      );
+      this.results.set(resolved);
+    } else if (this.activeQuery().length >= 2) {
       void this.executeSearch(this.activeQuery(), this.scope());
     }
   }
@@ -503,11 +526,14 @@ export class BibleSearchPageComponent implements OnInit, AfterViewInit {
 
     this.searching.set(true);
     this.searched.set(true);
+    this.rawResults = [];
     this.results.set([]);
 
+    let remoteSucceeded = false;
     try {
       const remote = await this.bible.searchSemantic(trimmed, 50);
       if (runId !== this.searchRunId) return;
+      remoteSucceeded = true;
 
       const currentBookNum = this.bible.bookNumber();
       const mapped: BibleSearchHit[] = [];
@@ -536,7 +562,20 @@ export class BibleSearchPageComponent implements OnInit, AfterViewInit {
       }
 
       if (mapped.length > 0) {
-        this.results.set(mapped);
+        this.rawResults = mapped;
+        const localized = await this.bible.resolveSearchHitsInVersion(
+          mapped,
+          this.bible.version(),
+        );
+        if (runId !== this.searchRunId) return;
+        this.results.set(localized);
+        this.searching.set(false);
+        return;
+      }
+
+      // If semantic search succeeded with 0 relevant hits above threshold for broad scopes,
+      // don't download hundreds of chapters for client-side substring scanning.
+      if (remoteSucceeded && scope !== 'book') {
         this.searching.set(false);
         return;
       }
