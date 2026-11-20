@@ -59,6 +59,11 @@ class _BibleScreenState extends State<BibleScreen> {
   bool _isProgrammaticScrolling = false;
   Timer? _highlightTimer;
   Timer? _programmaticScrollTimer;
+  final LayerLink _verseActionLink = LayerLink();
+  final GlobalKey _verseAnchorKey = GlobalKey();
+  final GlobalKey _readerStackKey = GlobalKey();
+  bool _placeActionBarBelow = false;
+  bool _anchorOffscreen = false;
 
   @override
   void initState() {
@@ -168,12 +173,44 @@ class _BibleScreenState extends State<BibleScreen> {
     if (first == null) return;
     final ref = s.index!.rowToReference(first.index);
     _controller.updateVisibleChapter(ref.bookNumber, ref.chapter, verse: ref.verse);
+    if (s.selectedVerses.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateAnchorPlacement());
+    }
+  }
+
+  void _updateAnchorPlacement() {
+    if (!mounted || _controller.state.selectedVerses.isEmpty) return;
+    final stackObj = _readerStackKey.currentContext?.findRenderObject();
+    final anchorObj = _verseAnchorKey.currentContext?.findRenderObject();
+    if (stackObj is! RenderBox ||
+        !stackObj.attached ||
+        anchorObj is! RenderBox ||
+        !anchorObj.attached) {
+      if (!_anchorOffscreen) {
+        setState(() => _anchorOffscreen = true);
+      }
+      return;
+    }
+    final top = anchorObj.localToGlobal(Offset.zero, ancestor: stackObj).dy;
+    final bottom = top + anchorObj.size.height;
+    final stackHeight = stackObj.size.height;
+    final offscreen = bottom <= 0 || top >= stackHeight;
+    final placeBelow = !offscreen && top < 68.0;
+    if (offscreen != _anchorOffscreen || placeBelow != _placeActionBarBelow) {
+      setState(() {
+        _anchorOffscreen = offscreen;
+        _placeActionBarBelow = placeBelow;
+      });
+    }
   }
 
   void _onControllerUpdate() {
     if (!mounted) return;
     setState(() {});
     final s = _controller.state;
+    if (s.selectedVerses.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateAnchorPlacement());
+    }
     if (s.isLoading) return;
 
     final target = _controller.consumeScrollTargetIfReady();
@@ -661,12 +698,15 @@ class _BibleScreenState extends State<BibleScreen> {
           onOpenBookmarks: _openBookmarks,
           onPushManager: _pushManager,
         ),
-        body: Stack(
-          children: [
-            Column(
+        body: Column(
           children: [
             Expanded(
-              child: BibleContent(
+              child: Stack(
+                key: _readerStackKey,
+                clipBehavior: Clip.none,
+                children: [
+                  
+BibleContent(
                 controller: _controller,
                 itemScrollController: _itemScrollController,
                 itemPositionsListener: _itemPositionsListener,
@@ -681,9 +721,39 @@ class _BibleScreenState extends State<BibleScreen> {
                 onOpenStudyPage: _openVerseStudyScreen,
                 onPushManager: _pushManager,
                 onRedownloadDefault: _controller.redownloadDefault,
+                    anchorLink: _verseActionLink,
+                    anchorKey: _verseAnchorKey,
+                  ),
+                  if (s.selectedVerses.isNotEmpty && !_anchorOffscreen)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      child: CompositedTransformFollower(
+                        link: _verseActionLink,
+                        showWhenUnlinked: false,
+                        targetAnchor: _placeActionBarBelow
+                            ? Alignment.bottomCenter
+                            : Alignment.topCenter,
+                        followerAnchor: _placeActionBarBelow
+                            ? Alignment.topCenter
+                            : Alignment.bottomCenter,
+                        offset: Offset(0, _placeActionBarBelow ? 6 : -6),
+                        child: _buildSelectionBar(
+                          s,
+                          expandBelow: _placeActionBarBelow,
+                        ),
+                      ),
+                    )
+                  else if (s.selectedVerses.isNotEmpty)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 12,
+                      child: Center(child: _buildSelectionBar(s)),
+                    ),
+                ],
               ),
             ),
-            if (s.selectedVerses.isEmpty)
               BibleBottomNav(
                 controller: _controller,
                 onShowBookChapterSelector: _showBookChapterSelector,
@@ -697,24 +767,16 @@ class _BibleScreenState extends State<BibleScreen> {
               ),
           ],
         ),
-            if (s.selectedVerses.isNotEmpty)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 12 + MediaQuery.paddingOf(context).bottom,
-                child: Center(child: _buildSelectionBar(s)),
-              ),
-          ],
-        ),
       ),
     );
   },
 );
 }
 
-  Widget _buildSelectionBar(BibleControllerState s) {
+  Widget _buildSelectionBar(BibleControllerState s, {bool expandBelow = false}) {
     return VerseActionBar(
       selectedCount: s.selectedVerses.length,
+      expandBelow: expandBelow,
       onCopy: _copySelectedVerses,
       onShare: _shareSelectedVerses,
       onBookmark: _bookmarkSelectedVerses,

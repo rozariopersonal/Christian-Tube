@@ -24,6 +24,7 @@ class VerseActionBar extends StatelessWidget {
     this.currentColorIndex,
     this.hasHighlight = false,
     this.isBookmarked = false,
+    this.expandBelow = false,
   });
 
   final int selectedCount;
@@ -38,6 +39,7 @@ class VerseActionBar extends StatelessWidget {
   final int? currentColorIndex;
   final bool hasHighlight;
   final bool isBookmarked;
+  final bool expandBelow;
 
   static const bookmarkKey = Key('verse_bar_bookmark');
   static const shareKey = Key('verse_bar_share');
@@ -48,6 +50,7 @@ class VerseActionBar extends StatelessWidget {
     if (selectedCount == 0) return const SizedBox.shrink();
     return FloatingSelectionBar(
       countBadge: selectedCount,
+      expandBelow: expandBelow,
       currentColorIndex: currentColorIndex,
       hasHighlight: hasHighlight,
       onSwatch: onHighlightColor,
