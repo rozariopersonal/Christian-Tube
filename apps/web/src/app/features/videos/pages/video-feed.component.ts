@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AppConfig } from '../../../core/config/app-config';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -423,11 +423,24 @@ export class VideoFeedComponent implements OnInit {
   readonly restBatch = computed(() => this.videos.videos().slice(6));
   readonly shelfShorts = computed(() => this.videos.shorts().slice(0, 8));
 
-  async ngOnInit(): Promise<void> {
-    await Promise.all([
-      this.channels.loadSubscriptions(),
-      this.channels.fetchChannels(),
-    ]);
+  private lastSyncedSubKey = [...this.channels.subscribedIds()].sort().join(',');
+
+  constructor() {
+    effect(() => {
+      const subKey = [...this.channels.subscribedIds()].sort().join(',');
+      if (subKey !== this.lastSyncedSubKey) {
+        this.lastSyncedSubKey = subKey;
+        void this.videos.fetchShorts(true);
+        if (this.filterMode() === 'following') {
+          this.applyFilter();
+        }
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    void this.channels.loadSubscriptions();
+    void this.channels.fetchChannels();
     this.applyFilter();
     void this.videos.fetchShorts();
   }

@@ -100,7 +100,7 @@ export class AuthService {
     const token = cleanEmail ? `token_${id}::${cleanEmail}` : `token_${id}`;
     const user: AuthUser = {
       id,
-      email: cleanEmail || 'guest@christianapp.local',
+      email: cleanEmail || `guest_${id}@christianapp.local`,
       displayName: cleanEmail ? cleanEmail.split('@')[0] : 'Guest User',
       idToken: token,
     };

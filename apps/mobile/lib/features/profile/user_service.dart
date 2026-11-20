@@ -1,22 +1,27 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/playlist.dart';
 import '../../core/models/video.dart';
+import '../../core/services/user_sync_service.dart';
 
 class UserService extends ChangeNotifier {
   static final UserService _instance = UserService._internal();
   factory UserService() => _instance;
   UserService._internal() {
     loadLocalHistory();
+    UserSyncService.instance.addListener(_onSyncStateChanged);
   }
 
   final ApiClient _apiClient = ApiClient();
   static const String _historyStorageKey = 'user_watch_history_v1';
+  static const String _playheadsStorageKey = 'video_playheads_map_v1';
 
   List<Playlist> _playlists = [];
   List<Video> _history = [];
+  Map<String, Map<String, dynamic>> _playheads = {};
   List<Map<String, dynamic>> _registeredUsers = [];
   bool _isLoadingUsers = false;
 
@@ -34,9 +39,161 @@ class UserService extends ChangeNotifier {
         _history = list.map((v) => Video.fromJson(v as Map<String, dynamic>)).toList();
         notifyListeners();
       }
+      final rawPlayheads = prefs.getString(_playheadsStorageKey);
+      if (rawPlayheads != null && rawPlayheads.isNotEmpty) {
+        final decoded = jsonDecode(rawPlayheads) as Map<String, dynamic>;
+        _playheads = decoded.map(
+          (k, v) => MapEntry(k, Map<String, dynamic>.from(v as Map)),
+        );
+      }
     } catch (e) {
       debugPrint('Error loading local watch history: $e');
     }
+    // Non-blocking background sync from backend
+    _syncHistoryAndPlayheadsFromBackend();
+  }
+
+  Future<void> _syncHistoryAndPlayheadsFromBackend() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null || token.isEmpty) return;
+
+      final histRes = await _apiClient.dio.get(
+        '/api/user/playback',
+        queryParameters: {'mediaType': 'video_history'},
+      );
+      if (histRes.statusCode == 200 && histRes.data is Map) {
+        final payloadJson = (histRes.data as Map)['payloadJson'] as String?;
+        if (payloadJson != null && payloadJson.isNotEmpty) {
+          final List<dynamic> remoteList = jsonDecode(payloadJson);
+          final existingIds = _history.map((v) => v.id).toSet();
+          final merged = [..._history];
+          for (final item in remoteList) {
+            if (item is Map<String, dynamic>) {
+              final videoMap = item['video'] is Map<String, dynamic>
+                  ? item['video'] as Map<String, dynamic>
+                  : item;
+              final video = Video.fromJson(videoMap);
+              if (video.id.isNotEmpty && !existingIds.contains(video.id)) {
+                existingIds.add(video.id);
+                merged.add(video);
+              }
+            }
+          }
+          _history = merged.take(100).toList();
+          await prefs.setString(
+            _historyStorageKey,
+            jsonEncode(_history.map((v) => v.toJson()).toList()),
+          );
+          notifyListeners();
+        }
+      }
+
+      final phRes = await _apiClient.dio.get(
+        '/api/user/playback',
+        queryParameters: {'mediaType': 'video_playheads'},
+      );
+      if (phRes.statusCode == 200 && phRes.data is Map) {
+        final payloadJson = (phRes.data as Map)['payloadJson'] as String?;
+        if (payloadJson != null && payloadJson.isNotEmpty) {
+          final decoded = jsonDecode(payloadJson) as Map<String, dynamic>;
+          for (final entry in decoded.entries) {
+            if (entry.value is Map) {
+              final remoteMap = Map<String, dynamic>.from(entry.value as Map);
+              final remoteUpdated = (remoteMap['updatedAt'] as num?)?.toInt() ?? 0;
+              final localUpdated =
+                  (_playheads[entry.key]?['updatedAt'] as num?)?.toInt() ?? 0;
+              if (remoteUpdated > localUpdated) {
+                _playheads[entry.key] = remoteMap;
+              }
+            }
+          }
+          await prefs.setString(_playheadsStorageKey, jsonEncode(_playheads));
+        }
+      }
+    } catch (_) {
+      // Non-critical offline fallback
+    }
+  }
+
+  Future<void> _onSyncStateChanged() async {
+    final remote = UserSyncService.instance.remoteState;
+    if (remote == null) return;
+    final pending = UserSyncService.instance.pendingOps;
+    var changed = false;
+
+    final remoteHistory = remote['videoHistory'];
+    if (remoteHistory is List) {
+      final tombstones = (remote['videoHistoryTombstones'] as Map?) ?? {};
+      final existingIds = _history.map((v) => v.id).toSet();
+      final next = _history.where((v) {
+        final op = pending['video_history:${v.id}'];
+        if (op?.isDeleted == true) return false;
+        if (tombstones.containsKey(v.id) && op == null) return false;
+        return true;
+      }).toList();
+      final nextIds = next.map((v) => v.id).toSet();
+      for (final item in remoteHistory.whereType<Map>()) {
+        final videoMap = item['video'] is Map
+            ? Map<String, dynamic>.from(item['video'] as Map)
+            : Map<String, dynamic>.from(item);
+        final video = Video.fromJson(videoMap);
+        final op = pending['video_history:${video.id}'];
+        if (video.id.isNotEmpty &&
+            op?.isDeleted != true &&
+            !nextIds.contains(video.id)) {
+          nextIds.add(video.id);
+          next.add(video);
+          changed = true;
+        }
+      }
+      if (next.length != existingIds.length || changed) {
+        _history = next.take(100).toList();
+        changed = true;
+      }
+    }
+
+    final remotePlayheads = remote['videoPlayheads'];
+    if (remotePlayheads is Map) {
+      for (final entry in remotePlayheads.entries) {
+        final vid = entry.key.toString();
+        if (entry.value is Map && !pending.containsKey('video_playhead:$vid')) {
+          final map = Map<String, dynamic>.from(entry.value as Map);
+          final remoteUpdated = (map['updatedAt'] as num?)?.toInt() ?? 0;
+          final localUpdated = (_playheads[vid]?['updatedAt'] as num?)?.toInt() ?? 0;
+          if (remoteUpdated >= localUpdated) {
+            _playheads[vid] = map;
+          }
+        }
+      }
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_playheadsStorageKey, jsonEncode(_playheads));
+      } catch (_) {}
+    }
+
+    if (changed) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          _historyStorageKey,
+          jsonEncode(_history.map((v) => v.toJson()).toList()),
+        );
+      } catch (_) {}
+      notifyListeners();
+    }
+  }
+
+  Future<void> _persistHistoryItemToSync(Video video, {bool isDeleted = false}) async {
+    unawaited(
+      UserSyncService.instance.enqueueWatchItem(
+        itemType: 'video_history',
+        itemId: video.id,
+        positionSeconds: (_playheads[video.id]?['positionSeconds'] as num?)?.toInt() ?? 0,
+        isDeleted: isDeleted,
+      ),
+    );
   }
 
   Future<void> addToHistory(Video video) async {
@@ -60,10 +217,8 @@ class UserService extends ChangeNotifier {
       debugPrint('Error persisting watch history: $e');
     }
 
-    // 2. Sync with backend if available
-    try {
-      await _apiClient.dio.post('/user/history', data: {'videoId': video.id});
-    } catch (_) {}
+    // 2. Enqueue atomic sync op
+    await _persistHistoryItemToSync(video, isDeleted: false);
   }
 
   Future<void> removeFromHistory(String videoId) async {
@@ -78,9 +233,13 @@ class UserService extends ChangeNotifier {
       debugPrint('Error updating watch history: $e');
     }
 
-    try {
-      await _apiClient.dio.delete('/user/history/$videoId');
-    } catch (_) {}
+    unawaited(
+      UserSyncService.instance.enqueueWatchItem(
+        itemType: 'video_history',
+        itemId: videoId,
+        isDeleted: true,
+      ),
+    );
   }
 
   Future<void> clearHistory() async {
@@ -196,22 +355,26 @@ class UserService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('$_videoPositionPrefix$videoId', seconds);
 
-      // Best-effort sync with backend if online
-      final userJson = prefs.getString('current_user');
-      String? email;
-      if (userJson != null && userJson.isNotEmpty) {
-        try {
-          email = jsonDecode(userJson)['email'] as String?;
-        } catch (_) {}
-      }
-
-      await _apiClient.dio.post('/user/playback', data: {
-        'userEmail': email,
-        'trackId': videoId,
-        'mediaType': 'video',
+      _playheads[videoId] = {
         'positionSeconds': seconds.round(),
-        'updatedAt': DateTime.now().toUtc().toIso8601String(),
-      });
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      };
+      if (_playheads.length > 200) {
+        final sorted = _playheads.entries.toList()
+          ..sort((a, b) => ((b.value['updatedAt'] as num?)?.toInt() ?? 0)
+              .compareTo((a.value['updatedAt'] as num?)?.toInt() ?? 0));
+        _playheads = Map.fromEntries(sorted.take(200));
+      }
+      await prefs.setString(_playheadsStorageKey, jsonEncode(_playheads));
+
+      unawaited(
+        UserSyncService.instance.enqueueWatchItem(
+          itemType: 'video_playhead',
+          itemId: videoId,
+          positionSeconds: seconds.round(),
+          isDeleted: false,
+        ),
+      );
     } catch (_) {}
   }
 
@@ -219,6 +382,8 @@ class UserService extends ChangeNotifier {
   Future<double> getVideoPosition(String videoId) async {
     if (videoId.isEmpty) return 0.0;
     try {
+      final synced = (_playheads[videoId]?['positionSeconds'] as num?)?.toDouble();
+      if (synced != null && synced > 0) return synced;
       final prefs = await SharedPreferences.getInstance();
       return prefs.getDouble('$_videoPositionPrefix$videoId') ?? 0.0;
     } catch (_) {
