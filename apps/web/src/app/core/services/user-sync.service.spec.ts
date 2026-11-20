@@ -148,22 +148,25 @@ describe('UserSyncService', () => {
     await Promise.resolve();
   });
 
-  it('clears all on-device user data from localStorage on signOut', () => {
+  it('clears all on-device user data from localStorage on signOut', async () => {
+    const channels = TestBed.inject(ChannelService);
+    const videoLibrary = TestBed.inject(VideoLibraryService);
+
     localStorage.setItem('current_user', JSON.stringify({ id: 'u1' }));
     localStorage.setItem('auth_token', 'tok');
     localStorage.setItem('subscribed_channel_ids_u1', JSON.stringify(['ch-1']));
     localStorage.setItem('ct_web_watch_history_v1_u1', JSON.stringify([{ id: 'v1' }]));
     localStorage.setItem('ct_web_sync_pending_v2_u1', JSON.stringify({ x: 1 }));
     localStorage.setItem('audio_last_track', JSON.stringify({ id: 't1' }));
+    localStorage.setItem('theme_mode', 'dark');
 
     authService.signOut();
+    TestBed.flushEffects();
+    await Promise.resolve();
 
-    expect(localStorage.getItem('current_user')).toBeNull();
-    expect(localStorage.getItem('auth_token')).toBeNull();
-    expect(localStorage.getItem('subscribed_channel_ids_u1')).toBeNull();
-    expect(localStorage.getItem('ct_web_watch_history_v1_u1')).toBeNull();
-    expect(localStorage.getItem('ct_web_sync_pending_v2_u1')).toBeNull();
-    expect(localStorage.getItem('audio_last_track')).toBeNull();
+    expect(localStorage.length).toBe(0);
+    expect(channels.subscribedIds()).toEqual([]);
+    expect(videoLibrary.history()).toEqual([]);
   });
 
   it('hydrates all feature services from remoteState without re-triggering infinite effect loops', async () => {
