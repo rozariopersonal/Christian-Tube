@@ -26,13 +26,17 @@ import {
   TextSelectionAnchor,
   applyHighlightRangesToTokens,
   extractLineTextSelection,
+  selectHighlightElement,
 } from '../../../shared/ui/text-highlight.util';
 import { contrastColorFor } from '../../../shared/ui/highlight-palette';
 import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
 import { BookAppearanceSheetComponent } from '../../books/components/book-appearance-sheet.component';
 import { DictionarySheetComponent } from '../../books/components/dictionary-sheet.component';
 import { ScriptureVerseSheetComponent } from '../../books/components/scripture-verse-sheet.component';
-import { BookHighlightsService } from '../../books/services/book-highlights.service';
+import {
+  BookHighlightsService,
+  TextHighlightRange,
+} from '../../books/services/book-highlights.service';
 import {
   ParsedScriptureRef,
   ScriptureRefParserService,
@@ -203,6 +207,7 @@ import { ArticlesService } from '../services/articles.service';
                         class="inline-hl"
                         [style.background-color]="tok.highlightColor"
                         [style.color]="contrastColor(tok.highlightColor)"
+                        (click)="onHighlightMarkClick($event, tok.highlightRange)"
                       >{{ tok.text }}</mark>
                     } @else {
                       <span>{{ tok.text }}</span>
@@ -230,6 +235,7 @@ import { ArticlesService } from '../services/articles.service';
       @if (selectionAnchor(); as selAnchor) {
         <app-text-selection-popover
           [anchor]="selAnchor"
+          [activeColor]="activeSelectionColor()"
           (highlight)="highlightSelection($event)"
           (clear)="clearSelectionHighlight()"
           (copy)="copySelection()"
@@ -554,6 +560,7 @@ import { ArticlesService } from '../services/articles.service';
         color: #111827;
         border-radius: 3px;
         padding: 1px 0;
+        cursor: pointer;
       }
 
       .scripture-link {
@@ -710,6 +717,34 @@ export class ArticleReaderComponent implements OnInit, AfterViewInit {
     setTimeout(() => {
       this.selectionAnchor.set(extractLineTextSelection());
     }, 10);
+  }
+
+  readonly activeSelectionColor = computed<string | null>(() => {
+    const selAnchor = this.selectionAnchor();
+    if (!selAnchor) return null;
+    const ranges = this.highlightsService.rangesForLine(
+      selAnchor.scopeKey,
+      selAnchor.line,
+    );
+    const match = ranges.find(
+      (r) => r.end > selAnchor.start && r.start < selAnchor.end,
+    );
+    return match?.color ?? null;
+  });
+
+  onHighlightMarkClick(
+    event: MouseEvent,
+    range: TextHighlightRange | undefined,
+  ): void {
+    if (!range) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) {
+      return;
+    }
+    event.stopPropagation();
+    this.selectionAnchor.set(
+      selectHighlightElement(event.currentTarget as HTMLElement, range),
+    );
   }
 
   highlightSelection(color: string): void {

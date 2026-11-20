@@ -6,7 +6,11 @@ import {
   migrateLegacyWebHex,
 } from './highlight-palette';
 import { TextSelectionPopoverComponent } from './text-selection-popover.component';
-import { computeInlineToolbarAnchor } from './text-highlight.util';
+import {
+  applyHighlightRangesToTokens,
+  computeInlineToolbarAnchor,
+  selectHighlightElement,
+} from './text-highlight.util';
 
 describe('TextSelectionPopoverComponent (Consolidated Inline Reader Toolbar)', () => {
   let fixture: ComponentFixture<TextSelectionPopoverComponent>;
@@ -190,5 +194,36 @@ describe('TextSelectionPopoverComponent (Consolidated Inline Reader Toolbar)', (
       width: 120,
     });
     expect(below.placement).toBe('below');
+  });
+
+  it('attaches highlightRange to tokens and selects clicked highlight element', () => {
+    const range = {
+      id: 'book:b1:0:1-6-11',
+      scopeKey: 'book:b1:0',
+      line: 1,
+      start: 8,
+      end: 13,
+      text: 'grace',
+      color: '#FCE0B1',
+      createdAt: '2026-01-01T00:00:00Z',
+    };
+    const tokens = applyHighlightRangesToTokens(
+      [{ text: 'Amazing grace indeed', ref: null }],
+      [range],
+    );
+    const hlToken = tokens.find((t) => !!t.highlightColor);
+    expect(hlToken?.text).toBe('grace');
+    expect(hlToken?.highlightRange).toEqual(range);
+
+    const mark = document.createElement('mark');
+    mark.textContent = 'grace';
+    document.body.appendChild(mark);
+    const anchor = selectHighlightElement(mark, range);
+    expect(anchor.scopeKey).toBe('book:b1:0');
+    expect(anchor.start).toBe(8);
+    expect(anchor.end).toBe(13);
+    expect(anchor.text).toBe('grace');
+    expect(window.getSelection()?.toString()).toBe('grace');
+    mark.remove();
   });
 });

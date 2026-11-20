@@ -29,6 +29,7 @@ class BookLineItem extends StatelessWidget {
     required this.appearance,
     required this.highlightCache,
     required this.makeRecognizer,
+    this.makeHighlightRecognizer,
     this.paragraphBreakAfter = false,
   });
 
@@ -39,6 +40,8 @@ class BookLineItem extends StatelessWidget {
   final List<BookHighlight> highlightCache;
   final TapGestureRecognizer Function(
       ParsedScriptureRef? parsed, String refText) makeRecognizer;
+  final TapGestureRecognizer Function(BookHighlight highlight)?
+      makeHighlightRecognizer;
   final bool paragraphBreakAfter;
 
   List<InlineSpan> _format(String text) {
@@ -49,6 +52,7 @@ class BookLineItem extends StatelessWidget {
       appearance,
       highlightCache,
       makeRecognizer: makeRecognizer,
+      makeHighlightRecognizer: makeHighlightRecognizer,
     );
   }
 

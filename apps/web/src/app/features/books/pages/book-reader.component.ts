@@ -37,6 +37,7 @@ import {
   applyHighlightRangesToTokens,
   computeElementToolbarAnchor,
   extractLineTextSelection,
+  selectHighlightElement,
 } from '../../../shared/ui/text-highlight.util';
 import { contrastColorFor } from '../../../shared/ui/highlight-palette';
 import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
@@ -52,6 +53,7 @@ import {
   BookBookmark,
   BookHighlight,
   BookHighlightsService,
+  TextHighlightRange,
 } from '../services/book-highlights.service';
 import { BooksService } from '../services/books.service';
 import {
@@ -687,12 +689,7 @@ interface ImageSpread {
                               [id]="'spread-line-' + ch.chapterIndex + '-' + $index"
                               class="chapter-para"
                               [class.is-quote]="isQuoteLine(line)"
-                              [class.selected]="
-                                chapterIndex() === ch.chapterIndex &&
-                                selectedIndex() === $index
-                              "
                               [style.background-color]="hl ? hl + '55' : null"
-                              (click)="toggleSelectLine($index, ch.chapterIndex)"
                             >
                               <p
                                 class="para-text"
@@ -718,6 +715,7 @@ interface ImageSpread {
                                       class="inline-hl"
                                       [style.background-color]="tok.highlightColor"
                                       [style.color]="contrastColor(tok.highlightColor)"
+                                      (click)="onHighlightMarkClick($event, tok.highlightRange)"
                                     >{{ tok.text }}</mark>
                                   } @else {
                                     <span>{{ tok.text }}</span>
@@ -921,9 +919,7 @@ interface ImageSpread {
                     [id]="'book-line-' + $index"
                     class="chapter-para"
                     [class.is-quote]="isQuoteLine(line)"
-                    [class.selected]="selectedIndex() === $index"
                     [style.background-color]="hl ? hl + '55' : null"
-                    (click)="toggleSelectLine($index)"
                   >
                     <p
                       class="para-text"
@@ -949,6 +945,7 @@ interface ImageSpread {
                             class="inline-hl"
                             [style.background-color]="tok.highlightColor"
                             [style.color]="contrastColor(tok.highlightColor)"
+                            (click)="onHighlightMarkClick($event, tok.highlightRange)"
                           >{{ tok.text }}</mark>
                         } @else {
                           <span>{{ tok.text }}</span>
@@ -2037,6 +2034,7 @@ interface ImageSpread {
         color: #111827;
         border-radius: 3px;
         padding: 1px 0;
+        cursor: pointer;
       }
 
       .chapter-para.is-quote {
@@ -2303,6 +2301,23 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
         this.lineToolbarAnchor.set(null);
       }
     }, 10);
+  }
+
+  onHighlightMarkClick(
+    event: MouseEvent,
+    range: TextHighlightRange | undefined,
+  ): void {
+    if (!range) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) {
+      return;
+    }
+    event.stopPropagation();
+    this.selectedIndex.set(null);
+    this.lineToolbarAnchor.set(null);
+    this.selectionAnchor.set(
+      selectHighlightElement(event.currentTarget as HTMLElement, range),
+    );
   }
 
   private refreshLineToolbarAnchor(): void {
