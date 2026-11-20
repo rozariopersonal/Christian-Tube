@@ -347,7 +347,7 @@ test.describe('ChristianApp Web E2E', () => {
     await page.goto('/bible?version=kjv&book=GEN&chapter=1&verse=2');
     await expect(page.locator('#verse-2.selected')).toBeVisible();
     await expect(
-      page.locator('app-bible-verse-action-bar').getByRole('button', { name: /Share/i }),
+      page.locator('app-text-selection-popover').getByRole('button', { name: /Share/i }),
     ).toBeVisible();
 
     // Book deep link (matching DeepLinkService.book / chapter)

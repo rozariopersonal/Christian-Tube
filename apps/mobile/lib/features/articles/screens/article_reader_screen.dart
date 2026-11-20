@@ -1,12 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/features/books/models/book_highlight.dart';
+import 'package:mobile/features/books/services/book_service.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
+import 'package:mobile/features/books/widgets/reader_selection_toolbar.dart';
 import 'package:mobile/features/books/widgets/scripture_verse_popup.dart';
-import 'package:mobile/features/dictionary/widgets/glossary_entry_sheet.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/features/engines/scripture/services/book_name_service.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -84,6 +85,32 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
   void _onFontsChanged() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _saveArticleHighlight(String text, int colorIndex) async {
+    final clean = text.trim();
+    if (clean.isEmpty) return;
+    final scopeId = 'article_${widget.articleId}_${widget.lang}';
+    final highlight = BookHighlight(
+      id: '${scopeId}_${DateTime.now().millisecondsSinceEpoch}',
+      bookId: scopeId,
+      chapterIndex: 1,
+      pageNumber: 1,
+      startChar: 0,
+      endChar: clean.length,
+      text: clean,
+      color: colorIndex,
+      createdAt: DateTime.now().toIso8601String(),
+    );
+    await BookService.instance.saveHighlight(highlight);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Highlight saved'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
   }
 
   /// Disposes every recognizer created so far. Called before each build pass
@@ -302,44 +329,13 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
           ),
           child: SelectionArea(
             contextMenuBuilder: (context, selectableRegionState) {
-              String selectedText = '';
-              try {
-                final dynamic dyn = selectableRegionState;
-                final dynamic content = dyn.getSelectedContent();
-                if (content != null &&
-                    content.plainText != null &&
-                    (content.plainText as String).trim().isNotEmpty) {
-                  selectedText = (content.plainText as String).trim();
-                }
-              } catch (_) {}
-
-              return AdaptiveTextSelectionToolbar.buttonItems(
-                anchors: selectableRegionState.contextMenuAnchors,
-                buttonItems: [
-                  ContextMenuButtonItem(
-                    label: 'Define',
-                    onPressed: () {
-                      selectableRegionState.hideToolbar();
-                      final words = selectedText
-                          .split(RegExp(r'\s+'))
-                          .map((w) => w.replaceAll(RegExp(r'''[^\w\-\u0900-\u097F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]'''), ''))
-                          .where((w) => w.isNotEmpty)
-                          .toList();
-                      final lookupWord =
-                          words.isNotEmpty ? words.first : selectedText;
-                      GlossaryEntrySheet.show(context, word: lookupWord);
-                    },
-                  ),
-                  ContextMenuButtonItem(
-                    label: 'Copy',
-                    onPressed: () {
-                      selectableRegionState.hideToolbar();
-                      if (selectedText.isNotEmpty) {
-                        Clipboard.setData(ClipboardData(text: selectedText));
-                      }
-                    },
-                  ),
-                ],
+              return buildReaderSelectionToolbar(
+                context,
+                selectableRegionState,
+                1,
+                onHighlight: (text, _) => _saveArticleHighlight(text, 0),
+                onHighlightWithColor: (text, _, colorIndex) =>
+                    _saveArticleHighlight(text, colorIndex),
               );
             },
             child: CustomScrollView(

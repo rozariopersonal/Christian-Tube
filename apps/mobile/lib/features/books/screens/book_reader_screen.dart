@@ -249,6 +249,8 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       selectableRegionState,
       pageNum,
       onHighlight: (text, page) => _createHighlight(text, 0, page, color: 0),
+      onHighlightWithColor: (text, page, colorIndex) =>
+          _createHighlight(text, 0, page, color: colorIndex),
     );
   }
 

@@ -31,14 +31,15 @@ import {
 } from '../../../shared/ui/spread-pager';
 import {
   HighlightedSpanToken,
+  InlineToolbarAnchor,
   TextSelectionAnchor,
   applyHighlightRangesToTokens,
+  computeElementToolbarAnchor,
   extractLineTextSelection,
 } from '../../../shared/ui/text-highlight.util';
 import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
 import { BookAppearanceSheetComponent } from '../components/book-appearance-sheet.component';
 import { BookHighlightsSheetComponent } from '../components/book-highlights-sheet.component';
-import { BookLineActionBarComponent } from '../components/book-line-action-bar.component';
 import { BookReaderNavComponent } from '../components/book-reader-nav.component';
 import { BookSearchSheetComponent } from '../components/book-search-sheet.component';
 import { BookTocSheetComponent } from '../components/book-toc-sheet.component';
@@ -101,7 +102,6 @@ interface ImageSpread {
     BookTocSheetComponent,
     BookAppearanceSheetComponent,
     BookHighlightsSheetComponent,
-    BookLineActionBarComponent,
     BookReaderNavComponent,
     BookSearchSheetComponent,
     DictionarySheetComponent,
@@ -944,27 +944,27 @@ interface ImageSpread {
         </div>
       </div>
 
-      @if (selectionAnchor(); as selAnchor) {
+      @if (activeToolbarAnchor(); as selAnchor) {
         <app-text-selection-popover
           [anchor]="selAnchor"
-          (highlight)="highlightSelection($event)"
-          (clear)="clearSelectionHighlight()"
-          (define)="defineSelection()"
-          (copy)="copySelection()"
+          [activeColor]="activeToolbarColor()"
+          [showNote]="activeTargetLineIndex() !== null"
+          [hasNote]="activeTargetHasNote()"
+          [showDefine]="true"
+          [showCopy]="true"
+          [showShare]="true"
+          [showClose]="true"
+          (highlight)="onInlineHighlight($event)"
+          (clear)="onInlineClearHighlight()"
+          (openNote)="openNoteEditorForActive()"
+          (define)="onInlineDefine()"
+          (copy)="onInlineCopy()"
+          (share)="onInlineShare()"
+          (closed)="clearInlineSelection()"
         />
       }
 
-      @if (selectedLine(); as sel) {
-        <app-book-line-action-bar
-          [line]="sel"
-          (define)="defineSelected()"
-          (openNote)="openNoteEditor()"
-          (copy)="copySelected()"
-          (share)="shareLocation(selectedIndex()!)"
-          (highlightChanged)="setHighlight(selectedIndex()!, sel, $event)"
-          (closed)="selectedIndex.set(null)"
-        />
-      } @else if (!isDesktop() && !isPaginated() && !immersive() && !loading() && toc()) {
+      @if (!isDesktop() && !isPaginated() && !immersive() && !loading() && toc()) {
         <app-book-reader-nav
           [chapterIndex]="displayChapterIndex()"
           [totalChapters]="toc()!.chapters.length || 1"
@@ -2230,6 +2230,36 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
   readonly activeScriptureRef = signal<ParsedScriptureRef | null>(null);
   readonly lookupWord = signal<string | null>(null);
   readonly selectionAnchor = signal<TextSelectionAnchor | null>(null);
+  readonly lineToolbarAnchor = signal<InlineToolbarAnchor | null>(null);
+
+  readonly activeToolbarAnchor = computed<InlineToolbarAnchor | null>(
+    () => this.selectionAnchor() ?? this.lineToolbarAnchor(),
+  );
+
+  readonly activeTargetLineIndex = computed<number | null>(
+    () => this.selectionAnchor()?.line ?? this.selectedIndex(),
+  );
+
+  readonly activeToolbarColor = computed<string | null>(() => {
+    const selAnchor = this.selectionAnchor();
+    if (selAnchor) {
+      const ranges = this.highlightsService.rangesForLine(
+        selAnchor.scopeKey,
+        selAnchor.line,
+      );
+      const match = ranges.find(
+        (r) => r.end > selAnchor.start && r.start < selAnchor.end,
+      );
+      return match?.color ?? null;
+    }
+    const idx = this.selectedIndex();
+    return idx !== null ? this.highlightColor(idx) : null;
+  });
+
+  readonly activeTargetHasNote = computed<boolean>(() => {
+    const idx = this.activeTargetLineIndex();
+    return idx !== null ? Boolean(this.noteFor(idx)) : false;
+  });
 
   bookScopeKey(chIdx: number): string {
     return `book:${this.currentBookId()}:${chIdx}`;
@@ -2247,8 +2277,96 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
 
   onTextSelectionChange(): void {
     setTimeout(() => {
-      this.selectionAnchor.set(extractLineTextSelection());
+      const extracted = extractLineTextSelection();
+      this.selectionAnchor.set(extracted);
+      if (extracted) {
+        this.selectedIndex.set(null);
+        this.lineToolbarAnchor.set(null);
+      }
     }, 10);
+  }
+
+  private refreshLineToolbarAnchor(): void {
+    const idx = this.selectedIndex();
+    if (idx === null) {
+      this.lineToolbarAnchor.set(null);
+      return;
+    }
+    const ch = this.chapterIndex();
+    const el =
+      document.getElementById(`spread-line-${ch}-${idx}`) ??
+      document.getElementById(`book-line-${idx}`);
+    this.lineToolbarAnchor.set(
+      computeElementToolbarAnchor(el) ?? {
+        top: 120,
+        left: typeof window !== 'undefined' ? window.innerWidth / 2 : 240,
+        placement: 'below',
+      },
+    );
+  }
+
+  onInlineHighlight(color: string): void {
+    if (this.selectionAnchor()) {
+      this.highlightSelection(color);
+      return;
+    }
+    const idx = this.selectedIndex();
+    const sel = this.selectedLine();
+    if (idx !== null && sel) {
+      this.setHighlight(idx, sel, color);
+    }
+  }
+
+  onInlineClearHighlight(): void {
+    if (this.selectionAnchor()) {
+      this.clearSelectionHighlight();
+      return;
+    }
+    const idx = this.selectedIndex();
+    const sel = this.selectedLine();
+    if (idx !== null && sel) {
+      this.setHighlight(idx, sel, null);
+    }
+  }
+
+  openNoteEditorForActive(): void {
+    const selAnchor = this.selectionAnchor();
+    if (selAnchor) {
+      this.selectedIndex.set(selAnchor.line);
+      window.getSelection()?.removeAllRanges();
+      this.selectionAnchor.set(null);
+      this.refreshLineToolbarAnchor();
+    }
+    this.openNoteEditor();
+  }
+
+  onInlineDefine(): void {
+    if (this.selectionAnchor()) {
+      this.defineSelection();
+      return;
+    }
+    this.defineSelected();
+  }
+
+  onInlineCopy(): void {
+    if (this.selectionAnchor()) {
+      this.copySelection();
+      return;
+    }
+    this.copySelected();
+  }
+
+  onInlineShare(): void {
+    const idx = this.activeTargetLineIndex();
+    this.shareLocation(idx ?? undefined);
+    this.clearInlineSelection();
+  }
+
+  clearInlineSelection(): void {
+    window.getSelection()?.removeAllRanges();
+    this.selectionAnchor.set(null);
+    this.selectedIndex.set(null);
+    this.lineToolbarAnchor.set(null);
   }
 
   highlightSelection(color: string): void {
@@ -2739,8 +2857,14 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       : false;
   });
 
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.refreshLineToolbarAnchor();
+  }
+
   @HostListener('window:scroll')
   onWindowScroll(): void {
+    this.refreshLineToolbarAnchor();
     if (this.isPaginated()) return;
     this.syncVisibleChapterFromScroll();
     if (window.scrollY > 180) {
@@ -3044,6 +3168,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
   toggleSelectLine(index: number, chIdx?: number): void {
     const sel = window.getSelection()?.toString().trim();
     if (sel) return;
+    this.selectionAnchor.set(null);
     if (chIdx !== undefined && chIdx !== this.chapterIndex()) {
       this.chapterIndex.set(chIdx);
       const match = this.fullBookChapters().find(
@@ -3051,9 +3176,11 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       );
       if (match) this.lines.set(match.lines);
       this.selectedIndex.set(index);
+      this.refreshLineToolbarAnchor();
       return;
     }
     this.selectedIndex.set(this.selectedIndex() === index ? null : index);
+    this.refreshLineToolbarAnchor();
   }
 
   lookupFromSelection(): void {

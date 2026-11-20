@@ -39,6 +39,7 @@ class VerseItem extends StatelessWidget {
   final void Function(int initialTab)? onOpenStudyPage;
   final int? bookNumber;
   final int? chapter;
+  final Widget? inlineActionBar;
 
   const VerseItem({
     super.key,
@@ -60,11 +61,12 @@ class VerseItem extends StatelessWidget {
     this.onOpenStudyPage,
     this.bookNumber,
     this.chapter,
+    this.inlineActionBar,
   });
 
   @override
   Widget build(BuildContext context) {
-    return VerseText(
+    final verseText = VerseText(
       verse: verse,
       isSelected: isSelected,
       isHighlighted: isHighlighted,
@@ -76,6 +78,20 @@ class VerseItem extends StatelessWidget {
       hasNote: hasNote,
       bookNumber: bookNumber,
       chapter: chapter,
+    );
+    if (inlineActionBar == null) {
+      return verseText;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        verseText,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+          child: inlineActionBar!,
+        ),
+      ],
     );
   }
 }
