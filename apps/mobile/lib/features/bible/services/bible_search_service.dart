@@ -19,14 +19,99 @@ class BibleSearchService {
   })  : _dioProvider = dio != null ? (() => dio) : (() => ApiClient().dio),
         _localBible = localBible ?? LocalBibleService();
 
-  /// Parses a direct scripture citation like "John 3:16" or "1 Cor 13:4".
+  /// Parses a direct scripture citation like "John 3:16", "Psalm 23", or
+  /// misspelled book queries like "mathew 6:33" / "1 corintians 13:4".
   ParsedScriptureRef? parseDirectReference(String query) {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return null;
     for (final token in ScriptureRefParser.tokenize(trimmed)) {
       if (token.ref != null) return token.ref;
     }
-    return null;
+    return _parseFuzzyReference(trimmed);
+  }
+
+  ParsedScriptureRef? _parseFuzzyReference(String trimmed) {
+    final match = RegExp(
+      r'^((?:[123](?:st|nd|rd)?|I{1,3})\.?\s+)?([A-Za-z]{3,20}(?:\s+of\s+(?:solomon|songs))?)\s+(\d{1,3})(?:[:.]\s*(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?)?$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (match == null) return null;
+
+    var ord = (match.group(1) ?? '').trim().replaceAll('.', '').toLowerCase();
+    if (ord == 'i' || ord == '1st') ord = '1';
+    if (ord == 'ii' || ord == '2nd') ord = '2';
+    if (ord == 'iii' || ord == '3rd') ord = '3';
+    ord = ord.replaceAll(RegExp(r'(st|nd|rd)$'), '');
+
+    final word = (match.group(2) ?? '').trim().toLowerCase();
+    final maxDist = word.length <= 4 ? 0 : (word.length <= 7 ? 1 : 2);
+
+    int? bookNum;
+    String? bookName;
+    var bestDist = maxDist + 1;
+    final keys = bibleBooks.keys.toList();
+    for (var i = 0; i < keys.length; i++) {
+      final candidate = keys[i];
+      final lower = candidate.toLowerCase();
+      final numMatch = RegExp(r'^([123])\s+(.+)$').firstMatch(lower);
+      final cOrd = numMatch?.group(1) ?? '';
+      final cWord = numMatch?.group(2) ?? lower;
+      if (ord != cOrd) continue;
+
+      var dist = _damerau(word, cWord);
+      if (cWord.length > 4 && cWord.endsWith('s')) {
+        final singularDist = _damerau(word, cWord.substring(0, cWord.length - 1));
+        if (singularDist < dist) dist = singularDist;
+      }
+      if (dist <= maxDist && dist < bestDist) {
+        bestDist = dist;
+        bookNum = i + 1;
+        bookName = candidate;
+        if (dist == 0) break;
+      }
+    }
+
+    if (bookNum == null || bookName == null) return null;
+    final chapter = int.tryParse(match.group(3) ?? '');
+    if (chapter == null || chapter < 1 || chapter > 150) return null;
+
+    return ParsedScriptureRef(
+      bookNumber: bookNum,
+      bookName: bookName,
+      chapter: chapter,
+      startVerse: int.tryParse(match.group(4) ?? '') ?? 1,
+      endVerse: int.tryParse(match.group(5) ?? ''),
+      rawMatch: trimmed,
+    );
+  }
+
+  static int _damerau(String a, String b) {
+    final m = a.length;
+    final n = b.length;
+    final dp = List.generate(m + 1, (_) => List<int>.filled(n + 1, 0));
+    for (var i = 0; i <= m; i++) {
+      dp[i][0] = i;
+    }
+    for (var j = 0; j <= n; j++) {
+      dp[0][j] = j;
+    }
+    for (var i = 1; i <= m; i++) {
+      for (var j = 1; j <= n; j++) {
+        final cost = a.codeUnitAt(i - 1) == b.codeUnitAt(j - 1) ? 0 : 1;
+        var v = dp[i - 1][j] + 1;
+        if (dp[i][j - 1] + 1 < v) v = dp[i][j - 1] + 1;
+        if (dp[i - 1][j - 1] + cost < v) v = dp[i - 1][j - 1] + cost;
+        if (i > 1 &&
+            j > 1 &&
+            a.codeUnitAt(i - 1) == b.codeUnitAt(j - 2) &&
+            a.codeUnitAt(i - 2) == b.codeUnitAt(j - 1)) {
+          final trans = dp[i - 2][j - 2] + 1;
+          if (trans < v) v = trans;
+        }
+        dp[i][j] = v;
+      }
+    }
+    return dp[m][n];
   }
 
   Future<List<BibleSearchHit>> search(

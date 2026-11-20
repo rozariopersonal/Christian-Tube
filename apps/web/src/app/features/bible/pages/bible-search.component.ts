@@ -513,7 +513,7 @@ export class BibleSearchPageComponent implements OnInit, AfterViewInit {
     const trimmed = raw.trim();
     this.activeQuery.set(trimmed);
 
-    const parsed = this.parser.parse(trimmed).find((t) => t.ref !== null)?.ref;
+    const parsed = this.parser.parseSearchQuery(trimmed);
     this.directRef.set(
       parsed
         ? {

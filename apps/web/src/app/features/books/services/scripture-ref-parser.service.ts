@@ -197,4 +197,91 @@ export class ScriptureRefParserService {
     }
     return tokens.length > 0 ? tokens : [{ text, ref: null }];
   }
+
+  /**
+   * Parses user Bible search input cleanly, supporting chapter-only citations
+   * ("Psalm 23") and minor book-name typos ("mathew 6:33", "1 corintians 13:4")
+   * with length-scaled edit distance so short words never misfire.
+   */
+  parseSearchQuery(text: string): ParsedScriptureRef | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+
+    const strict = this.parse(trimmed).find((t) => t.ref !== null)?.ref;
+    if (strict) return strict;
+
+    const m = trimmed.match(
+      /^((?:[123](?:st|nd|rd)?|I{1,3})\.?\s+)?([A-Za-z]{3,20}(?:\s+of\s+(?:solomon|songs))?)\s+(\d{1,3})(?:[:.]\s*(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?)?$/i,
+    );
+    if (!m) return null;
+
+    const ordRaw = (m[1] ?? '').trim().replace(/\.$/, '').toLowerCase();
+    const ord =
+      ordRaw === 'i' || ordRaw === '1st'
+        ? '1'
+        : ordRaw === 'ii' || ordRaw === '2nd'
+          ? '2'
+          : ordRaw === 'iii' || ordRaw === '3rd'
+            ? '3'
+            : ordRaw.replace(/(st|nd|rd)$/, '');
+    const word = m[2].trim().toLowerCase();
+    const key = ord ? `${ord} ${word}` : word;
+    let bookNumber: number | undefined = ABBREV_TO_BOOK[key];
+
+    if (!bookNumber) {
+      const maxDist = word.length <= 4 ? 0 : word.length <= 7 ? 1 : 2;
+      let bestDist = maxDist + 1;
+      for (let b = 1; b < BOOK_NAMES.length; b++) {
+        const parts = BOOK_NAMES[b].toLowerCase().match(/^([123])\s+(.+)$/);
+        const bOrd = parts ? parts[1] : '';
+        const bWord = parts ? parts[2] : BOOK_NAMES[b].toLowerCase();
+        if (ord !== bOrd) continue;
+        const dist = Math.min(
+          damerauDistance(word, bWord),
+          bWord.length > 4 && bWord.endsWith('s')
+            ? damerauDistance(word, bWord.slice(0, -1))
+            : maxDist + 1,
+        );
+        if (dist <= maxDist && dist < bestDist) {
+          bestDist = dist;
+          bookNumber = b;
+          if (dist === 0) break;
+        }
+      }
+    }
+
+    if (!bookNumber) return null;
+    const chapter = Number(m[3]);
+    if (!Number.isFinite(chapter) || chapter < 1 || chapter > 150) return null;
+
+    return {
+      bookNumber,
+      bookName: BOOK_NAMES[bookNumber],
+      chapter,
+      startVerse: m[4] ? Number(m[4]) : 1,
+      endVerse: m[5] ? Number(m[5]) : undefined,
+      rawMatch: trimmed,
+    };
+  }
+}
+
+function damerauDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () =>
+    new Array<number>(n + 1).fill(0),
+  );
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let val = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        val = Math.min(val, dp[i - 2][j - 2] + 1);
+      }
+      dp[i][j] = val;
+    }
+  }
+  return dp[m][n];
 }
