@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/bible/models/bible_book.dart';
 import 'package:mobile/features/engines/scripture/adapters/web_bible_data_adapter.dart';
@@ -10,6 +13,26 @@ class _AllowAllHttpOverrides extends HttpOverrides {
     return super.createHttpClient(context)
       ..badCertificateCallback = (cert, host, port) => true;
   }
+}
+
+class _ApiBibleFixtureAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final content = <Map<String, dynamic>>[];
+    for (var verse = 1; verse <= 6; verse++) {
+      content.add({'name': 'verse', 'attrs': {'number': verse == 1 ? '1-2' : '$verse'}});
+      content.add({'type': 'text', 'text': 'Verse $verse'});
+    }
+    return ResponseBody.fromString(jsonEncode({'data': {'content': content}}), 200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]});
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
 
 void main() {
@@ -113,15 +136,18 @@ void main() {
       expect((v16!['text'] as String).toLowerCase(), contains('begotten son'));
     }, timeout: const Timeout(Duration(seconds: 25)));
 
-    test('fetches Genesis 1 (book 1, ch 1) for MSG with clubbed verse spans', () async {
-      final verses = await OnlineBibleService.fetchLiveChapter('MSG', 1, 1);
-      expect(verses, isNotEmpty);
-      expect(verses.length, greaterThan(5));
-      final v1 = verses.where((v) => v['verse'] == 1).firstOrNull;
-      expect(v1, isNotNull);
-      expect((v1!['text'] as String).isNotEmpty, isTrue);
-      expect(v1['verse_span'], isNotNull);
-    }, timeout: const Timeout(Duration(seconds: 25)));
+    test('parses MSG chapter responses with clubbed verse spans', () async {
+      final previous = OnlineBibleService.swapHttpClientAdapter(_ApiBibleFixtureAdapter());
+      try {
+        final verses = await OnlineBibleService.fetchLiveChapter('MSG', 1, 1);
+        expect(verses, hasLength(6));
+        expect(verses.first['text'], 'Verse 1');
+        expect(verses.first['verse_span'], '1-2');
+        expect(verses.first['verse_end'], 2);
+      } finally {
+        OnlineBibleService.swapHttpClientAdapter(previous);
+      }
+    });
   });
 
   group('Canonical Bible Chapter Navigation Helpers', () {
