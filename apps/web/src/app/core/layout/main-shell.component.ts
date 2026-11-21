@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { GoogleSignInButtonComponent } from '../auth/google-sign-in-button.component';
 import { AppConfig } from '../config/app-config';
 import { HeaderSearchService } from '../services/header-search.service';
 import { HeaderSlotService } from '../services/header-slot.service';
@@ -70,6 +71,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
     FormsModule,
     MiniPlayerComponent,
     VideoMiniPlayerComponent,
+    GoogleSignInButtonComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -214,10 +216,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
             @if (auth.lastError(); as error) { <span>{{ error }}</span> }
           </div>
           <div class="session-prompt-actions">
-            <button type="button" class="pill-chip active google-sign-in" (click)="auth.promptGoogleSignIn()">
-              <img src="google-g.svg" alt="" aria-hidden="true" />
-              Sign in with Google
-            </button>
+            <app-google-sign-in-button />
             <button type="button" class="pill-chip" (click)="auth.sessionPromptDismissed.set(true)">Later</button>
           </div>
         </div>
@@ -387,19 +386,6 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         gap: 8px;
       }
 
-      .google-sign-in {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .google-sign-in img {
-        width: 20px;
-        height: 20px;
-        padding: 2px;
-        border-radius: 50%;
-        background: #fff;
-      }
 
       .yt-topbar {
         position: sticky;

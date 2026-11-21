@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { GoogleSignInButtonComponent } from '../../../core/auth/google-sign-in-button.component';
 import {
   READER_FONTS,
   ReaderAppearanceService,
@@ -24,7 +25,7 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
 @Component({
   selector: 'app-settings-page',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, GoogleSignInButtonComponent],
   template: `
     <div class="settings-page max-width-box">
       <header class="page-head">
@@ -53,9 +54,7 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
           @if (auth.sessionNeedsSignIn()) {
             <div class="account-actions">
               <p class="muted">Your session has expired. Sign in again to resume syncing.</p>
-              <button type="button" class="pill-chip active" (click)="auth.promptGoogleSignIn()">
-                Sign in again
-              </button>
+              <app-google-sign-in-button />
             </div>
           }
         } @else {
