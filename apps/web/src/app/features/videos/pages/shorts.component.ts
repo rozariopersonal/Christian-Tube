@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   HostListener,
+  OnDestroy,
   OnInit,
   computed,
   effect,
@@ -10,7 +11,7 @@ import {
   untracked,
 } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { ChannelService } from '../../channels/services/channel.service';
 import { Video, formatViewCount } from '../models/video.model';
@@ -39,12 +40,24 @@ import { VideoService } from '../services/video.service';
             Shorts
           </button>
           <span class="stage-counter">
-            {{ activeIndex()! + 1 }} / {{ videos.shorts().length }}
+            {{ activeIndex()! + 1 }} / {{ visibleShorts().length }}
           </span>
         </div>
 
-        <div class="stage-center">
-          <div class="vertical-player">
+        <div
+          class="stage-center"
+          [class.transition-exit-next]="transitionPhase() === 'exit' && transitionDirection() === 'next'"
+          [class.transition-exit-prev]="transitionPhase() === 'exit' && transitionDirection() === 'prev'"
+          [class.transition-enter-next]="transitionPhase() === 'enter' && transitionDirection() === 'next'"
+          [class.transition-enter-prev]="transitionPhase() === 'enter' && transitionDirection() === 'prev'"
+          (animationend)="onPlayerAnimationEnd($event)"
+        >
+          <div
+            class="vertical-player"
+            (wheel)="onPlayerWheel($event)"
+            (touchstart)="onPlayerTouchStart($event)"
+            (touchend)="onPlayerTouchEnd($event)"
+          >
             @if (current.streamUrl) {
               <video
                 class="short-media"
@@ -62,6 +75,17 @@ import { VideoService } from '../services/video.service';
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowfullscreen
               ></iframe>
+              <div
+                class="embed-gesture-surface"
+                aria-hidden="true"
+                (wheel)="onPlayerWheel($event)"
+                (touchstart)="onPlayerTouchStart($event)"
+                (touchend)="onPlayerTouchEnd($event)"
+              >
+                <span class="gesture-zone gesture-zone-top"></span>
+                <span class="gesture-zone gesture-zone-left"></span>
+                <span class="gesture-zone gesture-zone-right"></span>
+              </div>
             }
 
             <div class="bottom-overlay">
@@ -92,7 +116,7 @@ import { VideoService } from '../services/video.service';
               type="button"
               class="rail-btn"
               title="Previous Short"
-              [disabled]="activeIndex()! <= 0"
+              [disabled]="activeIndex()! <= 0 || transitionPhase() !== 'idle'"
               (click)="prev()"
             >
               <span class="material-symbols-rounded">keyboard_arrow_up</span>
@@ -101,7 +125,7 @@ import { VideoService } from '../services/video.service';
               type="button"
               class="rail-btn"
               title="Next Short"
-              [disabled]="activeIndex()! >= videos.shorts().length - 1"
+              [disabled]="activeIndex()! >= visibleShorts().length - 1 || transitionPhase() !== 'idle'"
               (click)="next()"
             >
               <span class="material-symbols-rounded">keyboard_arrow_down</span>
@@ -130,6 +154,34 @@ import { VideoService } from '../services/video.service';
           <h1 class="font-display">Shorts</h1>
         </header>
 
+        <div class="shorts-filter-strip" aria-label="Filter shorts by channel">
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="selectedChannelId() === null"
+            (click)="selectShortChannel(null)"
+          >
+            All
+          </button>
+          @for (ch of shortChannels(); track ch.id) {
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="selectedChannelId() === ch.id"
+              (click)="selectShortChannel(ch.id)"
+            >
+              @if (ch.avatarUrl) {
+                <img class="chip-avatar" [src]="ch.avatarUrl" [alt]="ch.title" />
+              } @else {
+                <span class="chip-avatar fallback">
+                  {{ ch.title.slice(0, 1).toUpperCase() }}
+                </span>
+              }
+              {{ ch.title }}
+            </button>
+          }
+        </div>
+
         @if (videos.shortsLoading() && videos.shorts().length === 0) {
           <p class="status-msg">Loading shorts...</p>
         } @else if (videos.shortsError()) {
@@ -150,11 +202,17 @@ import { VideoService } from '../services/video.service';
             <p class="muted">Shorts from channels you follow will appear here.</p>
             <a class="pill-chip active" routerLink="/channels">Browse Channels</a>
           </div>
-        } @else if (videos.shorts().length === 0) {
-          <p class="status-msg">No shorts available from your followed channels right now.</p>
+        } @else if (visibleShorts().length === 0) {
+          <p class="status-msg">
+            @if (selectedChannelId()) {
+              No shorts available from this channel right now.
+            } @else {
+              No shorts available from your followed channels right now.
+            }
+          </p>
         } @else {
           <div class="shorts-grid">
-            @for (s of videos.shorts(); track s.id; let i = $index) {
+            @for (s of visibleShorts(); track s.id; let i = $index) {
               <button
                 type="button"
                 class="short-tile"
@@ -200,6 +258,41 @@ import { VideoService } from '../services/video.service';
       .shorts-page {
         padding-top: 16px;
         padding-bottom: 32px;
+      }
+
+      .shorts-filter-strip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        padding: 4px 0 12px;
+      }
+
+      .shorts-filter-strip::-webkit-scrollbar {
+        display: none;
+      }
+
+      .shorts-filter-strip .pill-chip {
+        flex: 0 0 auto;
+      }
+
+      .chip-avatar {
+        width: 18px;
+        height: 18px;
+        border-radius: var(--radius-pill);
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+
+      .chip-avatar.fallback {
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        font-weight: 700;
+        background-color: var(--accent-soft);
+        color: var(--accent);
       }
 
       .page-head h1 {
@@ -319,6 +412,74 @@ import { VideoService } from '../services/video.service';
         gap: 14px;
       }
 
+      .stage-center.transition-exit-next,
+      .stage-center.transition-exit-prev,
+      .stage-center.transition-enter-next,
+      .stage-center.transition-enter-prev {
+        will-change: transform, opacity;
+      }
+
+      .stage-center.transition-exit-next {
+        animation: shorts-exit-next 180ms cubic-bezier(0.4, 0, 1, 1) both;
+      }
+
+      .stage-center.transition-exit-prev {
+        animation: shorts-exit-prev 180ms cubic-bezier(0.4, 0, 1, 1) both;
+      }
+
+      .stage-center.transition-enter-next {
+        animation: shorts-enter-next 220ms cubic-bezier(0, 0, 0.2, 1) both;
+      }
+
+      .stage-center.transition-enter-prev {
+        animation: shorts-enter-prev 220ms cubic-bezier(0, 0, 0.2, 1) both;
+      }
+
+      @keyframes shorts-exit-next {
+        to {
+          transform: translate3d(0, -110%, 0);
+          opacity: 0.35;
+        }
+      }
+
+      @keyframes shorts-exit-prev {
+        to {
+          transform: translate3d(0, 110%, 0);
+          opacity: 0.35;
+        }
+      }
+
+      @keyframes shorts-enter-next {
+        from {
+          transform: translate3d(0, 110%, 0);
+          opacity: 0.35;
+        }
+        to {
+          transform: translate3d(0, 0, 0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes shorts-enter-prev {
+        from {
+          transform: translate3d(0, -110%, 0);
+          opacity: 0.35;
+        }
+        to {
+          transform: translate3d(0, 0, 0);
+          opacity: 1;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .stage-center.transition-exit-next,
+        .stage-center.transition-exit-prev,
+        .stage-center.transition-enter-next,
+        .stage-center.transition-enter-prev {
+          animation-duration: 1ms;
+        }
+      }
+
       .vertical-player {
         position: relative;
         height: 100%;
@@ -338,11 +499,47 @@ import { VideoService } from '../services/video.service';
         display: block;
       }
 
+      .embed-gesture-surface {
+        position: absolute;
+        inset: 0 0 96px;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      .gesture-zone {
+        position: absolute;
+        display: block;
+        background: transparent;
+        pointer-events: auto;
+        touch-action: none;
+      }
+
+      .gesture-zone-top {
+        inset: 0 0 auto;
+        height: 16%;
+      }
+
+      .gesture-zone-left,
+      .gesture-zone-right {
+        top: 16%;
+        bottom: 0;
+        width: 18%;
+      }
+
+      .gesture-zone-left {
+        left: 0;
+      }
+
+      .gesture-zone-right {
+        right: 0;
+      }
+
       .bottom-overlay {
         position: absolute;
         left: 0;
         right: 0;
         bottom: 0;
+        z-index: 2;
         padding: 36px 14px 14px;
         background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
         pointer-events: none;
@@ -449,17 +646,50 @@ import { VideoService } from '../services/video.service';
     `,
   ],
 })
-export class ShortsComponent implements OnInit {
+export class ShortsComponent implements OnInit, OnDestroy {
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly route = inject(ActivatedRoute);
   readonly videos = inject(VideoService);
   readonly channelService = inject(ChannelService);
 
   readonly activeIndex = signal<number | null>(null);
-  private lastWheelNavAt = 0;
+  readonly selectedChannelId = signal<string | null>(null);
+  readonly shortChannels = computed(() => {
+    const channelsWithLoadedShorts = new Set(
+      this.videos.shorts().map((short) => short.channelId),
+    );
+    return this.channelService
+      .subscribedChannels()
+      .filter((channel) => channelsWithLoadedShorts.has(channel.id));
+  });
+  readonly visibleShorts = computed(() => {
+    const channelId = this.selectedChannelId();
+    const shorts = this.videos.shorts();
+    return channelId ? shorts.filter((short) => short.channelId === channelId) : shorts;
+  });
+  readonly transitionPhase = signal<'idle' | 'exit' | 'enter'>('idle');
+  readonly transitionDirection = signal<'next' | 'prev'>('next');
+  private readonly requestedShortId = signal<string | null>(
+    this.route.snapshot.queryParamMap.get('shortId'),
+  );
+  private accumulatedWheelDelta = 0;
+  private wheelGestureLocked = false;
+  private wheelGestureResetTimer: ReturnType<typeof setTimeout> | null = null;
   private touchStartY: number | null = null;
   private lastLoadedSubKey = [...this.channelService.subscribedIds()].sort().join(',');
 
   constructor() {
+    effect(() => {
+      const shortId = this.requestedShortId();
+      if (!shortId) return;
+
+      const index = this.videos.shorts().findIndex((short) => short.id === shortId);
+      if (index >= 0) {
+        this.activeIndex.set(index);
+        this.requestedShortId.set(null);
+      }
+    });
+
     effect(() => {
       const subKey = [...this.channelService.subscribedIds()].sort().join(',');
       if (subKey !== this.lastLoadedSubKey && this.activeIndex() === null) {
@@ -474,7 +704,7 @@ export class ShortsComponent implements OnInit {
   readonly activeShort = computed<Video | null>(() => {
     const idx = this.activeIndex();
     if (idx === null) return null;
-    return this.videos.shorts()[idx] ?? null;
+    return this.visibleShorts()[idx] ?? null;
   });
 
   readonly activeEmbedUrl = computed<SafeResourceUrl | null>(() => {
@@ -504,23 +734,65 @@ export class ShortsComponent implements OnInit {
 
   onStageWheel(event: WheelEvent): void {
     if (this.activeIndex() === null) return;
-    if (Math.abs(event.deltaY) < 16) return;
+
+    const delta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.deltaY;
+    if (delta === 0) return;
+
     event.preventDefault();
-    const now = Date.now();
-    if (now - this.lastWheelNavAt < 380) return;
-    this.lastWheelNavAt = now;
-    if (event.deltaY > 0) {
-      this.next();
-    } else {
-      this.prev();
+    this.armWheelGestureReset();
+
+    if (this.wheelGestureLocked) return;
+    if (this.transitionPhase() !== 'idle') {
+      this.accumulatedWheelDelta = 0;
+      this.wheelGestureLocked = true;
+      return;
     }
+
+    const normalizedDelta =
+      event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? delta * 40
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? delta * window.innerHeight
+          : delta;
+    this.accumulatedWheelDelta += normalizedDelta;
+    if (Math.abs(this.accumulatedWheelDelta) < 48) return;
+
+    const direction = this.accumulatedWheelDelta > 0 ? 'next' : 'prev';
+    this.accumulatedWheelDelta = 0;
+    this.wheelGestureLocked = true;
+    this.navigateShort(direction);
+  }
+
+  private armWheelGestureReset(): void {
+    if (this.wheelGestureResetTimer !== null) {
+      clearTimeout(this.wheelGestureResetTimer);
+    }
+    this.wheelGestureResetTimer = setTimeout(() => {
+      this.wheelGestureLocked = false;
+      this.accumulatedWheelDelta = 0;
+      this.wheelGestureResetTimer = null;
+    }, 500);
+  }
+
+  onPlayerWheel(event: WheelEvent): void {
+    event.stopPropagation();
+    this.onStageWheel(event);
   }
 
   onTouchStart(event: TouchEvent): void {
     this.touchStartY = event.touches[0]?.clientY ?? null;
   }
 
+  onPlayerTouchStart(event: TouchEvent): void {
+    event.stopPropagation();
+    this.onTouchStart(event);
+  }
+
   onTouchEnd(event: TouchEvent): void {
+    if (this.transitionPhase() !== 'idle') return;
     if (this.touchStartY === null) return;
     const endY = event.changedTouches[0]?.clientY ?? this.touchStartY;
     const dy = endY - this.touchStartY;
@@ -533,9 +805,21 @@ export class ShortsComponent implements OnInit {
     }
   }
 
+  onPlayerTouchEnd(event: TouchEvent): void {
+    event.stopPropagation();
+    this.onTouchEnd(event);
+  }
+
   ngOnInit(): void {
     void this.videos.fetchShorts();
     void this.channelService.loadSubscriptions();
+    void this.channelService.fetchChannels();
+  }
+
+  ngOnDestroy(): void {
+    if (this.wheelGestureResetTimer !== null) {
+      clearTimeout(this.wheelGestureResetTimer);
+    }
   }
 
   exitStage(): void {
@@ -551,19 +835,77 @@ export class ShortsComponent implements OnInit {
     return this.channelService.subscribedIds().includes(channelId);
   }
 
-  prev(): void {
-    const idx = this.activeIndex();
-    if (idx !== null && idx > 0) {
-      this.activeIndex.set(idx - 1);
+  selectShortChannel(channelId: string | null): void {
+    const currentShortId = this.activeShort()?.id;
+    this.selectedChannelId.set(channelId);
+
+    const filteredShorts = channelId
+      ? this.videos.shorts().filter((short) => short.channelId === channelId)
+      : this.videos.shorts();
+
+    if (this.activeIndex() !== null) {
+      const currentIndex = filteredShorts.findIndex(
+        (short) => short.id === currentShortId,
+      );
+      this.activeIndex.set(
+        currentIndex >= 0 ? currentIndex : filteredShorts.length > 0 ? 0 : null,
+      );
+      this.transitionPhase.set('idle');
+    }
+
+    this.accumulatedWheelDelta = 0;
+    this.wheelGestureLocked = false;
+    if (this.wheelGestureResetTimer !== null) {
+      clearTimeout(this.wheelGestureResetTimer);
+      this.wheelGestureResetTimer = null;
     }
   }
 
+  prev(): void {
+    this.navigateShort('prev');
+  }
+
   next(): void {
-    const idx = this.activeIndex();
-    const list = this.videos.shorts();
-    if (idx !== null && idx + 1 < list.length) {
-      this.activeIndex.set(idx + 1);
-      if (idx + 3 >= list.length && this.videos.shortsHasMore()) {
+    this.navigateShort('next');
+  }
+
+  onPlayerAnimationEnd(event: AnimationEvent): void {
+    if (event.target !== event.currentTarget) return;
+
+    if (this.transitionPhase() === 'exit') {
+      const index = this.activeIndex();
+      const targetIndex =
+        index === null
+          ? null
+          : this.transitionDirection() === 'next'
+            ? index + 1
+            : index - 1;
+      if (
+        targetIndex !== null &&
+        targetIndex >= 0 &&
+        targetIndex < this.visibleShorts().length
+      ) {
+        this.activeIndex.set(targetIndex);
+      }
+      this.transitionPhase.set('enter');
+    } else if (this.transitionPhase() === 'enter') {
+      this.transitionPhase.set('idle');
+    }
+  }
+
+  private navigateShort(direction: 'next' | 'prev'): void {
+    const index = this.activeIndex();
+    if (index === null || this.transitionPhase() !== 'idle') return;
+
+    const list = this.visibleShorts();
+    const targetIndex = direction === 'next' ? index + 1 : index - 1;
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+
+    this.transitionDirection.set(direction);
+    this.transitionPhase.set('exit');
+
+    if (direction === 'next') {
+      if (index + 3 >= list.length && this.videos.shortsHasMore()) {
         void this.videos.fetchShorts();
       }
     }
