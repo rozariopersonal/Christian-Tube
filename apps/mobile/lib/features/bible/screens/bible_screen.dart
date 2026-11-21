@@ -524,7 +524,7 @@ class _BibleScreenState extends State<BibleScreen> {
     );
     final shareBody = text.isEmpty
         ? '$header\n\n$link'
-        : '$header\n$text\n\n— Christian Tube Bible\n$link';
+        : '$header\n$text\n\n— ChristianApp Bible\n$link';
     Share.share(shareBody);
     _controller.clearSelection();
   }

@@ -614,7 +614,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             child: Text(
               AppConfig.appName.isNotEmpty
                   ? AppConfig.appName
-                  : 'ChristianTube',
+                  : 'ChristianApp',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),

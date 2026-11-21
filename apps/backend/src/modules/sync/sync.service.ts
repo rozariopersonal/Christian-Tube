@@ -671,7 +671,7 @@ export class SyncService implements OnModuleInit {
     const title = snippet?.title || 'Christian Short';
     const description = snippet?.description || '';
     const channelId = snippet?.channelId || 'UCSaJppP4zb2vivjxYfTqOKw';
-    const channelName = snippet?.channelTitle || 'Christian Tube';
+    const channelName = snippet?.channelTitle || 'ChristianApp';
     const isSong = isSongChannel(channelName);
     const publishedAt = snippet?.publishedAt ? new Date(snippet.publishedAt) : new Date();
     const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || 'PT60S');

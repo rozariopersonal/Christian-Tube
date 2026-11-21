@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-transcribe.py — Local Whisper (faster-whisper) transcription for PrivateTube videos.
+transcribe.py — Local Whisper (faster-whisper) transcription for ChristianApp videos.
 
 Downloads the audio for pending videos from YouTube (via yt-dlp), runs the Whisper
 model locally on this machine, and writes the transcript back to the PostgreSQL

@@ -32,7 +32,7 @@ def _download(hf_path: str, dest: str, min_bytes: int):
 
     url = f"https://huggingface.co/{MODEL_ID}/resolve/main/{hf_path}"
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "christiantube-embedder/builder"})
+        req = urllib.request.Request(url, headers={"User-Agent": "christianapp-embedder/builder"})
         with urllib.request.urlopen(req, timeout=DEFAULT_DOWNLOAD_TIMEOUT_SECONDS) as resp, \
                 open(dest, "wb") as out:
             shutil.copyfileobj(resp, out)

@@ -97,11 +97,11 @@ class AppPromoCatalog {
     if (effectiveInstance != 'christian_tube') {
       return _genericContent(code);
     }
-    return _christianTubeContent[code] ?? _christianTubeContent['en']!;
+    return _christianAppContent[code] ?? _christianAppContent['en']!;
   }
 
   static AppPromoContent _genericContent(String code) {
-    final base = _christianTubeContent[code] ?? _christianTubeContent['en']!;
+    final base = _christianAppContent[code] ?? _christianAppContent['en']!;
     return AppPromoContent(
       languageCode: base.languageCode,
       subtitle: AppConfig.appName,
@@ -122,7 +122,7 @@ class AppPromoCatalog {
     );
   }
 
-  static const Map<String, AppPromoContent> _christianTubeContent = {
+  static const Map<String, AppPromoContent> _christianAppContent = {
     'en': AppPromoContent(
       languageCode: 'en',
       subtitle: 'All CFC Content in one App',

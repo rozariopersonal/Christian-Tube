@@ -9,7 +9,7 @@ const String scopes = 'https://www.googleapis.com/auth/youtube.upload https://ww
 
 void main() async {
   print('\n======================================================');
-  print('🎥 Christian-Tube YouTube OAuth Refresh Token Setup');
+  print('🎥 ChristianApp YouTube OAuth Refresh Token Setup');
   print('======================================================\n');
 
   final authUri = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {

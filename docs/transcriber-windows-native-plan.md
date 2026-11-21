@@ -155,7 +155,7 @@ point `LLM_URL`/`WHISPER_URL` at it.
 ```powershell
 docker compose -f docker-compose.transcriber.yml up -d --build worker
 # 1) resume-insights through native LLM (proves LLM_URL + retry/chunk):
-docker exec -it christiantube-transcriber sh -c \
+docker exec -it christianapp-transcriber sh -c \
   "cd /app && python -u worker.py --insights-resume --video-id 2qWx-wQ7JJo"
 # 2) fresh whisper path on a short video, sanity-diff transcript quality
 ```
