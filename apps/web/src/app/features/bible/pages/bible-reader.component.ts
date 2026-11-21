@@ -21,6 +21,7 @@ import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { HeaderSearchService } from '../../../core/services/header-search.service';
 import { HeaderSlotService } from '../../../core/services/header-slot.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { ReaderFullscreenService } from '../../../core/services/reader-fullscreen.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
 import { ReaderTypographyToggleComponent } from '../../../shared/ui/reader-typography-toggle.component';
@@ -52,6 +53,7 @@ import {
   computeInlineToolbarAnchor,
 } from '../../../shared/ui/text-highlight.util';
 import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
+import { ReaderAutoFullscreenToggleComponent } from '../../../shared/ui/reader-auto-fullscreen-toggle.component';
 import { BIBLE_VERSIONS, BibleVerse } from '../models/bible.model';
 import { BibleReaderStateService } from '../services/bible-reader-state.service';
 import { BibleService } from '../services/bible.service';
@@ -78,6 +80,7 @@ interface AppendedBibleChapter {
     BibleBookChapterSheetComponent,
     BibleSidebarComponent,
     TextSelectionPopoverComponent,
+    ReaderAutoFullscreenToggleComponent,
     BibleAppearanceSheetComponent,
     BibleBookmarksSheetComponent,
     BibleCrossRefsSheetComponent,
@@ -96,6 +99,9 @@ interface AppendedBibleChapter {
       [attr.data-paper]="appearance.paperTheme()"
       [class.immersive]="immersive()"
       [class.spread-mode]="spreadMode()"
+      (pointerdown)="readerFullscreen.noteActivity('bible')"
+      (wheel)="readerFullscreen.noteActivity('bible')"
+      (touchstart)="readerFullscreen.noteActivity('bible')"
     >
       <ng-template #topbarCenter>
         @if (!isDesktop()) {
@@ -147,6 +153,7 @@ interface AppendedBibleChapter {
       <ng-template #topbarRight>
         <app-reader-columns-toggle [showLayoutToggle]="true" />
         <app-reader-typography-toggle />
+        <app-reader-auto-fullscreen-toggle />
         <div class="tb-actions-pill">
           <button
             type="button"
@@ -342,6 +349,7 @@ interface AppendedBibleChapter {
                 >
                   <span class="material-symbols-rounded">fullscreen</span>
                 </button>
+                <app-reader-auto-fullscreen-toggle />
               } @else {
                 <div class="menu-wrap">
                   <button
@@ -1600,6 +1608,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly screen = inject(ScreenClassService);
+  readonly readerFullscreen = inject(ReaderFullscreenService);
   readonly isDesktop = this.screen.isDesktop;
   readonly effectiveCols = computed(() =>
     this.appearance.effectiveColumns(this.screen.screenClass()),
@@ -1819,6 +1828,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    this.readerFullscreen.noteActivity('bible');
     const target = event.target as HTMLElement | null;
     if (
       target &&
@@ -1883,6 +1893,8 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   }
 
   constructor() {
+    this.destroyRef.onDestroy(this.readerFullscreen.registerReader('bible', () => this.immersive.set(true)));
+    effect(() => this.readerFullscreen.setFullscreen('bible', this.immersive()));
     this.destroyRef.onDestroy(() => {
       this.headerSlot.clear();
       this.spreadResizeObserver?.disconnect();

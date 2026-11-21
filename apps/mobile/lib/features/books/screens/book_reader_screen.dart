@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../../core/services/reader_fullscreen_service.dart';
 import '../controllers/book_reader_controller.dart';
 import '../controllers/book_reader_view_coordinator.dart';
 import '../models/book_highlight.dart';
@@ -27,6 +28,7 @@ import '../widgets/reader_appbar.dart';
 import '../widgets/reader_navigation_bar.dart';
 import '../widgets/reader_selection_toolbar.dart';
 import '../widgets/scripture_verse_popup.dart';
+import '../../../../shared/ui/reader_fullscreen_button.dart';
 
 /// Adaptive reading screen featuring:
 /// - Horizontal swiping page view for mobile screens
@@ -71,6 +73,8 @@ class BookReaderScreen extends StatefulWidget {
 }
 
 class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBindingObserver {
+  static const String _readerId = 'book';
+  final ReaderFullscreenService _fullscreen = ReaderFullscreenService.instance;
   late BookReaderController _controller;
   late BookReaderViewCoordinator _coordinator;
   bool _isPopping = false;
@@ -81,6 +85,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   @override
   void initState() {
     super.initState();
+    _fullscreen.attach(_readerId);
     WidgetsBinding.instance.addObserver(this);
     // Prewarm localized book names so scripture references inside the book
     // (in any supported language) resolve to tappable verse popups.
@@ -144,6 +149,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   /// then always pop so a failing flush can never strand the user on the
   /// reader page.
   Future<void> _handleBack(Object? result) async {
+    if (_fullscreen.isFullscreenFor(_readerId)) {
+      _fullscreen.exit(_readerId);
+      return;
+    }
+    if (!_controller.state.showChrome) {
+      _controller.toggleChrome();
+      return;
+    }
     if (_isPopping) return;
     _isPopping = true;
     try {
@@ -163,6 +176,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
   @override
   void dispose() {
+    _fullscreen.detach(_readerId);
     WidgetsBinding.instance.removeObserver(this);
     if (_controller.hasUnsavedProgress) {
       unawaited(_controller.flushProgressToDb());
@@ -410,16 +424,18 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     final rightPage = validLeftPage + 1 <= totalPages ? validLeftPage + 1 : null;
 
     return ListenableBuilder(
-      listenable: appearance,
+      listenable: Listenable.merge([appearance, _fullscreen]),
       builder: (context, _) => PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
           _handleBack(result);
         },
-        child: Scaffold(
+        child: Listener(
+          onPointerDown: (_) => _fullscreen.noteActivity(_readerId),
+          child: Scaffold(
           backgroundColor: bgColor,
-          appBar: s.showChrome
+          appBar: s.showChrome && !_fullscreen.isFullscreenFor(_readerId)
               ? BookReaderAppBar(
                   controller: _controller,
                   tokens: tokens,
@@ -431,6 +447,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                   onOpenToc: () => _openToc(isDualPage),
                   onOpenHighlights: _openHighlights,
                   onShowAppearance: () => _showAppearanceSheet(context),
+                  onToggleFullscreen: () => _fullscreen.toggle(_readerId),
                 )
               : null,
           body: s.isLoading
@@ -514,9 +531,15 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                               ),
                             ),
                           ),
+                        if (_fullscreen.isFullscreenFor(_readerId))
+                          ReaderFullscreenButton(
+                            onExit: () => _fullscreen.exit(_readerId),
+                          ),
                       ],
                     ),
-          bottomNavigationBar: s.showChrome && s.book != null
+          bottomNavigationBar: s.showChrome &&
+                  s.book != null &&
+                  !_fullscreen.isFullscreenFor(_readerId)
               ? ReaderNavigationBar(
                   controller: _controller,
                   tokens: tokens,
@@ -541,6 +564,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                   },
                 )
               : null,
+          ),
         ),
       ),
     );

@@ -206,6 +206,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
             width: size.width,
             isLandscape: isLandscape,
             isShortPlaying: service.isShortPlaying,
+            isReaderFullscreen: service.isReaderFullscreen,
             isExplicitlyHidden: service.isExplicitlyHidden,
             currentPath: currentPath,
             isWatchRoute: currentPath.startsWith('/watch'),

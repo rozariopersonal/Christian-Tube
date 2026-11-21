@@ -25,6 +25,8 @@ import '../widgets/bible_content.dart';
 import '../widgets/verse_action_bar.dart';
 import '../widgets/bible_bottom_nav.dart';
 import '../../../core/services/bottom_bar_visibility_service.dart';
+import '../../../core/services/reader_fullscreen_service.dart';
+import '../../../shared/ui/reader_fullscreen_button.dart';
 
 class BibleScreen extends StatefulWidget {
   const BibleScreen({
@@ -51,6 +53,8 @@ class BibleScreen extends StatefulWidget {
 }
 
 class _BibleScreenState extends State<BibleScreen> {
+  static const String _readerId = 'bible';
+  final ReaderFullscreenService _fullscreen = ReaderFullscreenService.instance;
   late final BibleController _controller;
   final ItemScrollController _itemScrollController = ItemScrollController();
   final ItemPositionsListener _itemPositionsListener =
@@ -68,6 +72,7 @@ class _BibleScreenState extends State<BibleScreen> {
   @override
   void initState() {
     super.initState();
+    _fullscreen.attach(_readerId);
     if (widget.controller != null) {
       _controller = widget.controller!;
     } else {
@@ -116,6 +121,7 @@ class _BibleScreenState extends State<BibleScreen> {
 
   @override
   void dispose() {
+    _fullscreen.detach(_readerId);
     BottomBarVisibilityService.instance.resetBibleNav();
     _highlightTimer?.cancel();
     _programmaticScrollTimer?.cancel();
@@ -668,16 +674,26 @@ class _BibleScreenState extends State<BibleScreen> {
     final tokens = context.tokens;
     final appearance = _controller.appearance;
     return ListenableBuilder(
-      listenable: Listenable.merge([appearance, BottomBarVisibilityService.instance]),
+      listenable: Listenable.merge([
+        appearance,
+        BottomBarVisibilityService.instance,
+        _fullscreen,
+      ]),
       builder: (context, _) {
         final isNavHidden = BottomBarVisibilityService.instance.isBibleNavHidden;
-        final hasInScreenInterception = s.selectedVerses.isNotEmpty || isNavHidden;
+        final isFullscreen = _fullscreen.isFullscreenFor(_readerId);
+        final hasInScreenInterception =
+            s.selectedVerses.isNotEmpty || isNavHidden || isFullscreen;
         return PopScope(
           canPop: !hasInScreenInterception,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             if (s.selectedVerses.isNotEmpty) {
               _controller.clearSelection();
+              return;
+            }
+            if (_fullscreen.isFullscreenFor(_readerId)) {
+              _fullscreen.exit(_readerId);
               return;
             }
             if (BottomBarVisibilityService.instance.isBibleNavHidden) {
@@ -689,17 +705,23 @@ class _BibleScreenState extends State<BibleScreen> {
               return;
             }
           },
-          child: Scaffold(
+          child: Listener(
+            onPointerDown: (_) => _fullscreen.noteActivity(_readerId),
+            child: Scaffold(
           backgroundColor: appearance.background(tokens),
-        appBar: BibleAppBar(
+        appBar: isFullscreen ? null : BibleAppBar(
           controller: _controller,
           onShowSearch: _showSearch,
           onShowReadingSettings: _showReadingSettings,
           onOpenBookmarks: _openBookmarks,
           onPushManager: _pushManager,
+          onToggleFullscreen: () => _fullscreen.toggle(_readerId),
         ),
-        body: Column(
+        body: Stack(
+          fit: StackFit.expand,
           children: [
+            Column(
+              children: [
             Expanded(
               child: Stack(
                 key: _readerStackKey,
@@ -754,7 +776,7 @@ BibleContent(
                 ],
               ),
             ),
-              BibleBottomNav(
+              if (!isFullscreen) BibleBottomNav(
                 controller: _controller,
                 onShowBookChapterSelector: _showBookChapterSelector,
                 onCopy: _copySelectedVerses,
@@ -765,9 +787,16 @@ BibleContent(
                 onClear: _controller.clearSelection,
                 onStudy: null,
               ),
+              ],
+            ),
+            if (isFullscreen)
+              ReaderFullscreenButton(
+                onExit: () => _fullscreen.exit(_readerId),
+              ),
           ],
         ),
       ),
+          ),
     );
   },
 );
