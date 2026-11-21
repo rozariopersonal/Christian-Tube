@@ -118,9 +118,13 @@ import { VideoService } from '../services/video.service';
                 </div>
                 <a class="shelf-more" routerLink="/shorts">View all</a>
               </div>
-              <div class="shelf-strip">
+              <div class="shelf-strip" (scroll)="onShortsScroll($event)">
                 @for (short of shelfShorts(); track short.id) {
-                  <a class="shelf-card" routerLink="/shorts">
+                  <a
+                    class="shelf-card"
+                    routerLink="/shorts"
+                    [queryParams]="{ shortId: short.id }"
+                  >
                     <div class="shelf-thumb-wrap">
                       <img
                         class="shelf-thumb"
@@ -132,6 +136,9 @@ import { VideoService } from '../services/video.service';
                     <h3 class="shelf-card-title">{{ short.title }}</h3>
                     <span class="shelf-card-sub">{{ short.channelTitle }}</span>
                   </a>
+                }
+                @if (videos.shortsLoading()) {
+                  <span class="shelf-loading">Loading more shorts...</span>
                 }
               </div>
             </section>
@@ -303,8 +310,23 @@ import { VideoService } from '../services/video.service';
         grid-auto-columns: minmax(150px, 180px);
         gap: 12px;
         overflow-x: auto;
-        scrollbar-width: thin;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
         padding-bottom: 4px;
+      }
+
+      .shelf-strip::-webkit-scrollbar {
+        display: none;
+      }
+
+      .shelf-loading {
+        align-self: center;
+        min-width: 160px;
+        padding: 10px 0;
+        text-align: center;
+        font-size: 13px;
+        color: var(--on-surface-muted);
       }
 
       .shelf-card {
@@ -412,7 +434,7 @@ export class VideoFeedComponent implements OnInit {
 
   readonly topBatch = computed(() => this.videos.videos().slice(0, 6));
   readonly restBatch = computed(() => this.videos.videos().slice(6));
-  readonly shelfShorts = computed(() => this.videos.shorts().slice(0, 8));
+  readonly shelfShorts = computed(() => this.videos.shorts());
 
   private lastSyncedSubKey = [...this.channels.subscribedIds()].sort().join(',');
 
@@ -460,6 +482,16 @@ export class VideoFeedComponent implements OnInit {
 
   reload(): void {
     this.applyFilter();
+  }
+
+  onShortsScroll(event: Event): void {
+    const element = event.currentTarget as HTMLElement;
+    const nearEnd =
+      element.scrollLeft + element.clientWidth >= element.scrollWidth - 120;
+
+    if (nearEnd && this.videos.shortsHasMore() && !this.videos.shortsLoading()) {
+      void this.videos.fetchShorts();
+    }
   }
 
   private applyFilter(): void {
