@@ -49,8 +49,24 @@ export class AuthService {
   readonly isAdmin = signal<boolean>(false);
   readonly isLoading = signal<boolean>(false);
   readonly lastError = signal<string | null>(null);
+  readonly sessionNeedsSignIn = signal<boolean>(this.hasExpiredCredential());
+  readonly sessionPromptDismissed = signal<boolean>(false);
 
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
+
+  canSync(): boolean {
+    if (this.sessionNeedsSignIn()) return false;
+    if (this.hasExpiredCredential()) {
+      this.markSessionRejected();
+      return false;
+    }
+    return true;
+  }
+
+  markSessionRejected(): void {
+    if (!this.sessionNeedsSignIn()) this.sessionPromptDismissed.set(false);
+    this.sessionNeedsSignIn.set(true);
+  }
 
   private googleInitialized = false;
 
@@ -89,6 +105,7 @@ export class AuthService {
   }
 
   promptGoogleSignIn(): void {
+    this.lastError.set(null);
     if (!this.initGoogleSignIn()) {
       this.lastError.set('Google Sign-In is still loading. Please try again.');
       return;
@@ -124,6 +141,8 @@ export class AuthService {
     this.currentUser.set(null);
     this.isAdmin.set(false);
     this.lastError.set(null);
+    this.sessionNeedsSignIn.set(false);
+    this.sessionPromptDismissed.set(false);
     queueMicrotask(() => this.wipeWebStorage());
   }
 
@@ -204,12 +223,25 @@ export class AuthService {
   }
 
   private saveSession(user: AuthUser, token: string): void {
-    this.currentUser.set(user);
     try {
       localStorage.setItem(KEY_USER, JSON.stringify(user));
       localStorage.setItem(KEY_TOKEN, token);
     } catch {
       // ignore
+    }
+    this.sessionNeedsSignIn.set(false);
+    this.sessionPromptDismissed.set(false);
+    this.currentUser.set(user);
+  }
+
+  private hasExpiredCredential(): boolean {
+    try {
+      const token = localStorage.getItem(KEY_TOKEN);
+      if (!token || token.startsWith('token_')) return false;
+      const payload = this.decodeJwtPayload(token);
+      return typeof payload['exp'] === 'number' && payload['exp'] * 1000 <= Date.now();
+    } catch {
+      return false;
     }
   }
 

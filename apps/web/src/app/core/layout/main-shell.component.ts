@@ -206,6 +206,22 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         </header>
       }
 
+      @if (auth.currentUser() && auth.sessionNeedsSignIn() && !auth.sessionPromptDismissed()) {
+        <div class="session-prompt" role="alert">
+          <div class="session-prompt-copy">
+            <strong>Sign in again to resume syncing</strong>
+            <span>Your local changes are saved on this device.</span>
+            @if (auth.lastError(); as error) { <span>{{ error }}</span> }
+          </div>
+          <div class="session-prompt-actions">
+            <button type="button" class="pill-chip active google-sign-in" (click)="auth.promptGoogleSignIn()">
+              <img src="google-g.svg" alt="" aria-hidden="true" />
+              Sign in with Google
+            </button>
+            <button type="button" class="pill-chip" (click)="auth.sessionPromptDismissed.set(true)">Later</button>
+          </div>
+        </div>
+      }
       <div class="shell-body" [class.has-sidebar]="screen.isMediumOrExpanded()">
         @if (screen.isMediumOrExpanded()) {
           @if (isDrawerMode() && drawerOpen()) {
@@ -346,6 +362,43 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         display: flex;
         flex-direction: column;
         background-color: var(--bg);
+      }
+
+      .session-prompt {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px 16px;
+        padding: 12px 16px;
+        background: var(--surface-variant);
+        border-bottom: 1px solid var(--surface-border);
+      }
+
+      .session-prompt-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .session-prompt-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .google-sign-in {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .google-sign-in img {
+        width: 20px;
+        height: 20px;
+        padding: 2px;
+        border-radius: 50%;
+        background: #fff;
       }
 
       .yt-topbar {

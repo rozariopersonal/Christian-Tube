@@ -13,6 +13,10 @@ interface VideoQuery {
   sort?: "latest" | "popular" | "oldest" | "relevance";
   limit?: number;
   offset?: number;
+  publishedBefore?: string;
+  beforeId?: string;
+  publishedAfter?: string;
+  afterId?: string;
 }
 
 interface BaseFilterSql {
@@ -40,12 +44,17 @@ export class VideosService {
     const search = (query.search || "").trim().toLowerCase();
     return [
       `type=${query.type || "VIDEO"}`,
+      `sort=${query.sort || "latest"}`,
       `cat=${query.category || "All"}`,
       `ch=${query.channelId || ""}`,
       `chs=${channelIds}`,
       `q=${search}`,
       `lim=${limit}`,
       `off=${offset}`,
+      `before=${query.publishedBefore || ""}`,
+      `beforeId=${query.beforeId || ""}`,
+      `after=${query.publishedAfter || ""}`,
+      `afterId=${query.afterId || ""}`,
     ].join(":");
   }
 
@@ -72,6 +81,36 @@ export class VideosService {
     this.applyVideoTypeFilter(where, query.type);
     this.applyCategoryFilter(where, query.category);
     this.applyChannelFilter(where, query.channelId, query.channelIds);
+
+    if (query.publishedBefore) {
+      const before = new Date(query.publishedBefore);
+      if (!Number.isNaN(before.getTime())) {
+        where.AND = [
+          ...(where.AND || []),
+          {
+            OR: [
+              { publishedAt: { lt: before } },
+              ...(query.beforeId
+                ? [{ publishedAt: before, id: { lt: query.beforeId } }]
+                : []),
+            ],
+          },
+        ];
+      }
+    }
+
+    if (query.publishedAfter) {
+      const after = new Date(query.publishedAfter);
+      if (!Number.isNaN(after.getTime())) {
+        where.AND = [
+          ...(where.AND || []),
+          { OR: [
+            { publishedAt: { gt: after } },
+            ...(query.afterId ? [{ publishedAt: after, id: { gt: query.afterId } }] : []),
+          ] },
+        ];
+      }
+    }
 
     const limit = query.limit ? Number(query.limit) : 50;
     const offset = query.offset ? Number(query.offset) : 0;
@@ -449,8 +488,10 @@ export class VideosService {
 
   private resolveOrderBy(sort?: VideoQuery["sort"]) {
     if (sort === "popular") return { viewCount: "desc" as const };
-    if (sort === "oldest") return { publishedAt: "asc" as const };
-    return { publishedAt: "desc" as const };
+    if (sort === "oldest") {
+      return [{ publishedAt: "asc" as const }, { id: "asc" as const }];
+    }
+    return [{ publishedAt: "desc" as const }, { id: "desc" as const }];
   }
 
   private async fetchKeywords(
@@ -486,6 +527,26 @@ export class VideosService {
       channelAvatarUrl: v.channelThumbnail || v.channel?.thumbnail || null,
       channelTitle: v.channelName || v.channel?.name || "Channel",
     };
+  }
+
+  async getChannelPosition(id: string) {
+    const video = await this.prisma.video.findUnique({
+      where: { id },
+      select: { id: true, channelId: true, publishedAt: true },
+    });
+    if (!video) throw new NotFoundException('Video not found');
+    const base = { channelId: video.channelId, type: 'VIDEO' as const, channel: { isActive: true } };
+    const [newer, older] = await Promise.all([
+      this.prisma.video.count({ where: { ...base, OR: [
+        { publishedAt: { gt: video.publishedAt } },
+        { publishedAt: video.publishedAt, id: { gt: video.id } },
+      ] } }),
+      this.prisma.video.count({ where: { ...base, OR: [
+        { publishedAt: { lt: video.publishedAt } },
+        { publishedAt: video.publishedAt, id: { lt: video.id } },
+      ] } }),
+    ]);
+    return { newer, older };
   }
 
   async findOne(id: string) {

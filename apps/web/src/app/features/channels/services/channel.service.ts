@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
@@ -34,6 +35,7 @@ export class ChannelService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
+      const needsSignIn = this.auth.sessionNeedsSignIn();
       const nextUid = user?.id ?? null;
       if (nextUid !== this.syncedUserId) {
         this.syncedUserId = nextUid;
@@ -43,7 +45,7 @@ export class ChannelService {
             if (!this.areSameIdSets(localIds, this.subscribedIds())) {
               this.setLocalSubscriptions(localIds);
             }
-            void this.loadSubscriptions();
+            if (!needsSignIn) void this.loadSubscriptions();
           } else {
             this.subscribedIds.set([]);
             this.channels.update((list) =>
@@ -114,7 +116,7 @@ export class ChannelService {
   }
 
   async loadSubscriptions(): Promise<void> {
-    if (!this.auth.isAuthenticated()) {
+    if (!this.auth.isAuthenticated() || !this.auth.canSync()) {
       return;
     }
     if (this.inFlightSubscriptionsSync) {
@@ -137,7 +139,8 @@ export class ChannelService {
             this.setLocalSubscriptions(projected);
           }
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof HttpErrorResponse && error.status === 401) this.auth.markSessionRejected();
         // fallback to local storage
       } finally {
         this.inFlightSubscriptionsSync = null;

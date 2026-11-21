@@ -50,6 +50,14 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
               Sign Out
             </button>
           </div>
+          @if (auth.sessionNeedsSignIn()) {
+            <div class="account-actions">
+              <p class="muted">Your session has expired. Sign in again to resume syncing.</p>
+              <button type="button" class="pill-chip active" (click)="auth.promptGoogleSignIn()">
+                Sign in again
+              </button>
+            </div>
+          }
         } @else {
           <div class="account-actions">
             <p class="muted">Sign in to sync followed channels &amp; preferences.</p>

@@ -73,6 +73,7 @@ export class UserSyncService {
   private clockOffsetMs = this.readClockOffset();
   private activeUserId: string | null = null;
   private authPaused = false;
+  private syncAllowed = false;
   private lastPullAt = 0;
   private inFlightSync: Promise<void> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -81,9 +82,22 @@ export class UserSyncService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
+      const needsSignIn = this.auth.sessionNeedsSignIn();
       untracked(() => {
         if (user) {
+          if (needsSignIn || !this.auth.canSync()) {
+            if (this.activeUserId !== user.id) {
+              this.activeUserId = user.id;
+              this.pendingOps.set(this.readPendingMap(user.id));
+              this.remoteState.set(null);
+            }
+            this.syncAllowed = false;
+            return;
+          }
           const prevUserId = this.activeUserId;
+          const wasPaused = this.authPaused;
+          const resumed = !this.syncAllowed;
+          this.syncAllowed = true;
           this.activeUserId = user.id;
           this.authPaused = false;
 
@@ -96,10 +110,11 @@ export class UserSyncService {
           if (prevUserId !== user.id) {
             this.pendingOps.set(this.readPendingMap(user.id));
             this.remoteState.set(null);
-            void this.pullAndFlush(true);
           }
+          if (prevUserId !== user.id || wasPaused || resumed) void this.pullAndFlush(true);
         } else if (this.activeUserId !== null) {
           this.activeUserId = null;
+          this.syncAllowed = false;
           this.authPaused = false;
           this.pendingOps.set({});
           this.remoteState.set(null);
@@ -204,7 +219,7 @@ export class UserSyncService {
 
   async pullAndFlush(force = false): Promise<void> {
     const userId = this.auth.currentUser()?.id;
-    if (!userId) return;
+    if (!userId || !this.auth.canSync()) return;
     const now = Date.now();
     if (!force && now - this.lastPullAt < 15_000) {
       return;
@@ -233,6 +248,7 @@ export class UserSyncService {
       } catch (err) {
         if (this.isAuthError(err)) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
         }
       } finally {
         this.isSyncing.set(false);
@@ -245,7 +261,7 @@ export class UserSyncService {
 
   async flushOutbox(): Promise<void> {
     const userId = this.auth.currentUser()?.id;
-    if (!userId || this.authPaused) return;
+    if (!userId || this.authPaused || !this.auth.canSync()) return;
 
     const currentMap = this.readPendingMap(userId);
     const entries = Object.entries(currentMap);
@@ -299,6 +315,7 @@ export class UserSyncService {
       } catch (err) {
         if (this.isAuthError(err)) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
           return;
         }
         if (this.isPermanentClientError(err)) {
@@ -327,6 +344,7 @@ export class UserSyncService {
       } catch (err) {
         if (this.isAuthError(err)) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
           return;
         }
         if (this.isPermanentClientError(err)) {
@@ -357,6 +375,7 @@ export class UserSyncService {
       } catch (err) {
         if (this.isAuthError(err)) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
           return;
         }
         if (this.isPermanentClientError(err)) {
