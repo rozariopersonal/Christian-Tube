@@ -49,33 +49,34 @@ class ReaderFullscreenPreferenceControl extends StatelessWidget {
       listenable: ReaderFullscreenService.instance,
       builder: (context, _) {
         final service = ReaderFullscreenService.instance;
-        return Row(
-          children: [
-            Icon(Icons.fullscreen_rounded, color: tokens.onSurfaceMuted),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Auto fullscreen', style: TextStyle(color: tokens.onSurface, fontWeight: FontWeight.w600)),
-                  Text('After inactivity while reading', style: TextStyle(color: tokens.onSurfaceMuted, fontSize: 12)),
-                ],
+        return ListTile(
+          dense: true,
+          minTileHeight: 36,
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.timer_outlined, color: tokens.onSurfaceMuted),
+          title: Text(
+            'Auto fullscreen',
+            style: TextStyle(color: tokens.onSurface),
+          ),
+          trailing: PopupMenuButton<int>(
+            padding: EdgeInsets.zero,
+            tooltip: 'Automatic fullscreen delay',
+            color: tokens.surface,
+            onSelected: service.setAutoFullscreenSeconds,
+            itemBuilder: (context) => ReaderFullscreenService.supportedDelays
+                .map((seconds) => PopupMenuItem(
+                      value: seconds,
+                      child: Text(readerFullscreenDelayLabel(seconds)),
+                    ))
+                .toList(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Text(
+                readerFullscreenDelayLabel(service.autoFullscreenSeconds),
+                style: TextStyle(color: tokens.onSurface),
               ),
             ),
-            DropdownButton<int>(
-              value: service.autoFullscreenSeconds,
-              underline: const SizedBox.shrink(),
-              dropdownColor: tokens.surface,
-              style: TextStyle(color: tokens.onSurface),
-              items: ReaderFullscreenService.supportedDelays.map((seconds) => DropdownMenuItem(
-                value: seconds,
-                child: Text(readerFullscreenDelayLabel(seconds)),
-              )).toList(),
-              onChanged: (seconds) {
-                if (seconds != null) service.setAutoFullscreenSeconds(seconds);
-              },
-            ),
-          ],
+          ),
         );
       },
     );

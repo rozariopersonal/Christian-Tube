@@ -143,9 +143,7 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
 
                             // Line Spacing Selector (Tight, Standard, Relaxed)
                             LineSpacingSelector(appearance: appearance),
-                            const SizedBox(height: 18),
-                            Divider(color: borderCol, height: 1),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 6),
                             const ReaderFullscreenPreferenceControl(),
                           ],
                         ),
