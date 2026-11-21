@@ -6,6 +6,11 @@ import { YoutubeService, ExtractedVideo } from '../youtube/youtube.service';
 import { CacheService } from '../cache/cache.service';
 import { extractVideoMetadata, isSongChannel } from './metadata-extractor';
 
+function isActiveOrUpcomingBroadcast(video: any): boolean {
+  const broadcastState = video?.snippet?.liveBroadcastContent;
+  return broadcastState === 'live' || broadcastState === 'upcoming';
+}
+
 @Injectable()
 export class SyncService implements OnModuleInit {
   private readonly logger = new Logger(SyncService.name);
@@ -188,6 +193,11 @@ export class SyncService implements OnModuleInit {
         if (!videoId) continue;
 
         const detail = detailMap.get(videoId);
+        if (!detail) continue;
+        // Do not sync upcoming or active broadcasts as ordinary videos. They
+        // can be reconsidered after YouTube marks them as regular VODs.
+        if (isActiveOrUpcomingBroadcast(detail)) continue;
+
         const snippet = detail?.snippet || it.snippet;
         const contentDetails = detail?.contentDetails;
         const stats = detail?.statistics;
@@ -342,12 +352,9 @@ export class SyncService implements OnModuleInit {
       syncedCount++;
     }
 
-    // 3. Multi-batch HTML channel /streams tab scraping (Live broadcasts)
-    const scrapedStreamsResult = await this.youtubeService.scrapeChannelStreamsTab(channelId, maxBatches);
-    for (const v of scrapedStreamsResult.videos) {
-      await this.upsertScrapedVideo(v, channel, defaultCategory);
-      syncedCount++;
-    }
+    // Do not scrape the /streams tab here: without YouTube API metadata it
+    // mixes upcoming/live events with completed broadcasts. Completed archives
+    // can enter through the /videos tab once YouTube publishes them as VODs.
 
     // 4. Multi-batch HTML channel /shorts tab scraping
     const isSong = isSongChannel(channel.name, channel.category);
@@ -373,6 +380,16 @@ export class SyncService implements OnModuleInit {
    * Helper to upsert a scraped video into PostgreSQL
    */
   private async upsertScrapedVideo(v: ExtractedVideo, channel: any, defaultCategory?: string | null) {
+    // HTML/RSS fallback sources do not reliably expose broadcast state. Treat
+    // entries without a resolved duration as unknown and retry them on a later
+    // sync instead of storing live/scheduled broadcasts as 0:00 videos.
+    if (!v.durationSeconds || v.durationSeconds <= 0) {
+      this.logger.debug(
+        `Skipping video ${v.videoId}: duration/broadcast state is unresolved`,
+      );
+      return;
+    }
+
     const isSong = isSongChannel(channel.name, channel.category);
     const hasShortsTag = v.title.toLowerCase().includes('#short');
     const finalType = isSong ? (hasShortsTag ? 'SHORT' : 'VIDEO') : v.videoType;
@@ -477,6 +494,16 @@ export class SyncService implements OnModuleInit {
 
       if (!videoId || !channelId) return;
 
+      // WebSub's Atom payload does not distinguish scheduled/live broadcasts
+      // from ordinary uploads. Require authoritative video metadata before
+      // accepting a push; daily channel sync can ingest it later if eligible.
+      if (!this.youtubeService.hasApiKey()) {
+        this.logger.debug(
+          `Skipping WebSub video ${videoId}: YouTube API metadata is unavailable`,
+        );
+        return;
+      }
+
       this.logger.log(`⚡ Live WebSub video publish event: "${title}" (${videoId}) on channel ${channelId}`);
 
       const channel = await this.prisma.channel.findUnique({ where: { id: channelId } });
@@ -490,6 +517,12 @@ export class SyncService implements OnModuleInit {
           const item = detailMap.get(videoId);
 
           if (item) {
+            if (isActiveOrUpcomingBroadcast(item)) {
+              this.logger.log(
+                `Skipping WebSub broadcast ${videoId}: ${item.snippet?.liveBroadcastContent}`,
+              );
+              return;
+            }
             const snippet = item.snippet;
             const contentDetails = item.contentDetails;
             const stats = item.statistics;
@@ -554,42 +587,9 @@ export class SyncService implements OnModuleInit {
         }
       }
 
-      // Fallback direct upsert from XML payload
-      const fallbackMeta = extractVideoMetadata({
-        title,
-        description: '',
-        channelTitle: channelName,
-      });
-
-      await this.prisma.video.upsert({
-        where: { id: videoId },
-        update: {
-          title,
-          publishedAt,
-          channelName,
-          channelThumbnail: channelThumb,
-          category,
-          metadata: fallbackMeta as any,
-        },
-        create: {
-          id: videoId,
-          type: 'VIDEO',
-          title,
-          description: '',
-          thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-          channelId,
-          channelName,
-          channelThumbnail: channelThumb,
-          publishedAt,
-          duration: '0:00',
-          viewCount: 0,
-          category,
-          metadata: fallbackMeta as any,
-        },
-      });
-
-      this.logger.log(`✅ Live synced new video "${title}" (${videoId}) via WebSub push XML`);
-      await this.cache?.invalidate('videos', 'channels');
+      // Metadata lookup failed or returned no video. Do not fall back to the
+      // WebSub XML payload because it cannot prove this is not a broadcast.
+      return;
     } catch (err: any) {
       this.logger.error(`Error handling WebSub push notification payload: ${err.message}`);
     }
@@ -655,6 +655,13 @@ export class SyncService implements OnModuleInit {
     const item = detailMap.get(videoId);
     if (!item) {
       this.logger.warn(`Could not find details for video ${videoId} from YouTube API`);
+      return null;
+    }
+
+    if (isActiveOrUpcomingBroadcast(item)) {
+      this.logger.log(
+        `Skipping direct video sync for ${videoId}: ${item.snippet?.liveBroadcastContent}`,
+      );
       return null;
     }
 
