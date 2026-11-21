@@ -94,14 +94,15 @@ export class AuthService {
     return true;
   }
 
-  renderGoogleButton(element: HTMLElement): void {
-    if (!this.initGoogleSignIn()) return;
-    window.google?.accounts?.id?.renderButton(element, {
+  renderGoogleButton(element: HTMLElement): boolean {
+    if (!this.initGoogleSignIn()) return false;
+    window.google!.accounts!.id!.renderButton(element, {
       theme: 'outline',
       size: 'large',
-      width: 280,
+      width: 220,
       text: 'continue_with',
     });
+    return true;
   }
 
   promptGoogleSignIn(): void {
