@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
@@ -9,6 +8,7 @@ import 'package:mobile/features/engines/scripture/models/scripture_theme_state.d
 import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'formatted_paragraph.dart';
+import 'scanned_page_image.dart';
 
 /// Renders a single structural [BookRenderBlock] (paragraph, heading,
 /// blockquote, chapter header, scanned-page image) into its widget tree.
@@ -65,42 +65,10 @@ class BookBlockWidget extends StatelessWidget {
     final url = GitHubDataService.bookPageImageUrl(bookId, fileName);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: CachedNetworkImage(
-            imageUrl: url,
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.medium,
-            fadeInDuration: const Duration(milliseconds: 120),
-            placeholder: (context, _) => SizedBox(
-              height: 160,
-              child: Center(
-                child: SizedBox(
-                  width: 26,
-                  height: 26,
-                  child: CircularProgressIndicator(
-                    color: tokens.accent,
-                    strokeWidth: 2.5,
-                  ),
-                ),
-              ),
-            ),
-            errorWidget: (context, _, __) => Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: appearance.surfaceVariant(tokens).withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  'Page image unavailable',
-                  style: TextStyle(color: appearance.mutedTextColor(tokens), fontSize: 12),
-                ),
-              ),
-            ),
-          ),
-        ),
+      child: ScannedPageImage(
+        imageUrl: url,
+        tokens: tokens,
+        appearance: appearance,
       ),
     );
   }
