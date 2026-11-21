@@ -39,6 +39,8 @@ class BookReaderViewCoordinator {
   final void Function(ParsedScriptureRef? parsed, String refText) _onOpenScripture;
 
   late final PageController _pageController;
+  final TransformationController zoomController =
+      TransformationController();
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener = ItemPositionsListener.create();
   final Map<int, GlobalKey> pageKeys = {};
@@ -310,6 +312,7 @@ class BookReaderViewCoordinator {
   void dispose() {
     controller.appearance.removeListener(_onAppearanceChanged);
     _pageController.dispose();
+    zoomController.dispose();
     for (final r in tapRecognizers) {
       r.dispose();
     }
