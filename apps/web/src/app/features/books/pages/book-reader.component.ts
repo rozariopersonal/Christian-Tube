@@ -20,6 +20,7 @@ import { combineLatest } from 'rxjs';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { HeaderSlotService } from '../../../core/services/header-slot.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { ReaderFullscreenService } from '../../../core/services/reader-fullscreen.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
@@ -41,6 +42,7 @@ import {
 } from '../../../shared/ui/text-highlight.util';
 import { contrastColorFor } from '../../../shared/ui/highlight-palette';
 import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
+import { ReaderAutoFullscreenToggleComponent } from '../../../shared/ui/reader-auto-fullscreen-toggle.component';
 import { BookAppearanceSheetComponent } from '../components/book-appearance-sheet.component';
 import { BookHighlightsSheetComponent } from '../components/book-highlights-sheet.component';
 import { BookReaderNavComponent } from '../components/book-reader-nav.component';
@@ -104,6 +106,7 @@ interface ImageSpread {
     ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
     TextSelectionPopoverComponent,
+    ReaderAutoFullscreenToggleComponent,
     BookTocSheetComponent,
     BookAppearanceSheetComponent,
     BookHighlightsSheetComponent,
@@ -171,6 +174,7 @@ interface ImageSpread {
     </ng-template>
 
     <ng-template #topbarRight>
+      <app-reader-auto-fullscreen-toggle />
       <app-reader-columns-toggle
         [maxColumns]="isImageBook() ? 2 : 3"
       />
@@ -280,6 +284,9 @@ interface ImageSpread {
       [attr.data-paper]="appearance.paperTheme()"
       [class.immersive]="immersive()"
       [class.spread-mode]="isPaginated()"
+      (pointerdown)="readerFullscreen.noteActivity('book')"
+      (wheel)="readerFullscreen.noteActivity('book')"
+      (touchstart)="readerFullscreen.noteActivity('book')"
     >
       @if (!immersive() && screen.isCompact()) {
         <header class="reader-bar">
@@ -401,6 +408,7 @@ interface ImageSpread {
               >
                 <span class="material-symbols-rounded">fullscreen</span>
               </button>
+              <app-reader-auto-fullscreen-toggle />
             </div>
           </div>
         </header>
@@ -2147,6 +2155,8 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
   private lastInternalUrlKey = '';
 
   constructor() {
+    this.destroyRef.onDestroy(this.readerFullscreen.registerReader('book', () => this.immersive.set(true)));
+    effect(() => this.readerFullscreen.setFullscreen('book', this.immersive()));
     this.destroyRef.onDestroy(() => {
       this.headerSlot.clear();
       this.spreadResizeObserver?.disconnect();
@@ -2217,6 +2227,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
   private readonly booksService = inject(BooksService);
   private readonly highlightsService = inject(BookHighlightsService);
   private readonly scriptureParser = inject(ScriptureRefParserService);
+  readonly readerFullscreen = inject(ReaderFullscreenService);
   readonly screen = inject(ScreenClassService);
   readonly appearance = inject(ReaderAppearanceService);
   readonly isDesktop = this.screen.isDesktop;
@@ -3024,6 +3035,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    this.readerFullscreen.noteActivity('book');
     const target = event.target as HTMLElement | null;
     if (
       target &&

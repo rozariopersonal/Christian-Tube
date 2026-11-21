@@ -1,8 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile/core/layout/adaptivity.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/core/services/reader_fullscreen_service.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
 import 'package:mobile/features/books/services/book_service.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
@@ -15,6 +17,8 @@ import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/shared/services/reader_fonts_service.dart';
 import 'package:mobile/shared/ui/double_tap_dictionary_area.dart';
 import 'package:mobile/shared/ui/widgets/reader_appearance_action_button.dart';
+import 'package:mobile/shared/ui/reader_fullscreen_button.dart';
+import 'package:mobile/shared/ui/reader_appearance_sheet.dart';
 import 'package:share_plus/share_plus.dart';
 import '../controllers/article_reader_controller.dart';
 import '../models/wftw_index_entry.dart';
@@ -39,6 +43,8 @@ class ArticleReaderScreen extends StatefulWidget {
 }
 
 class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
+  static const String _readerId = 'article';
+  final ReaderFullscreenService _fullscreen = ReaderFullscreenService.instance;
   late final ArticleReaderController _controller;
   final ScrollController _scrollController = ScrollController();
   final List<GestureRecognizer> _recognizers = [];
@@ -46,6 +52,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
   @override
   void initState() {
     super.initState();
+    _fullscreen.attach(_readerId);
     _controller = ArticleReaderController(
       widget.articleId,
       lang: widget.lang,
@@ -63,6 +70,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
   @override
   void dispose() {
+    _fullscreen.detach(_readerId);
     _controller.appearance.removeListener(_onAppearanceChanged);
     ReaderFontsService.instance.removeListener(_onFontsChanged);
     _disposeRecognizers();
@@ -86,6 +94,20 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
   void _onFontsChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _shareArticle() {
+    final article = _controller.state.article;
+    if (article == null) return;
+    final link = DeepLinkService.article(widget.articleId, lang: widget.lang);
+    final buffer = StringBuffer()
+      ..writeln(article.title)
+      ..writeln('By ${article.author} • ${article.date}\n');
+    for (final line in article.lines.take(12)) {
+      buffer.writeln(line.text);
+    }
+    buffer.writeln('${AppLocalizations.maybeOf(context)?.readOnApp ?? 'Read on App'}: $link');
+    Share.share(buffer.toString(), subject: article.title);
   }
 
   Future<void> _saveArticleHighlight(String text, int colorIndex) async {
@@ -191,7 +213,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     final tokens = context.tokens;
 
     return ListenableBuilder(
-      listenable: Listenable.merge([_controller, _controller.appearance]),
+      listenable: Listenable.merge([_controller, _controller.appearance, _fullscreen]),
       builder: (context, _) {
         _disposeRecognizers();
         final l10n = AppLocalizations.maybeOf(context);
@@ -204,9 +226,19 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
         final title = state.article?.title ?? widget.initialTitle ?? l10n?.appTitle ?? 'Article';
 
-        return Scaffold(
+        final isFullscreen = _fullscreen.isFullscreenFor(_readerId);
+        return PopScope(
+          canPop: !isFullscreen,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && _fullscreen.isFullscreenFor(_readerId)) {
+              _fullscreen.exit(_readerId);
+            }
+          },
+          child: Listener(
+            onPointerDown: (_) => _fullscreen.noteActivity(_readerId),
+            child: Scaffold(
           backgroundColor: appearance.background(tokens),
-          appBar: AppBar(
+          appBar: isFullscreen ? null : AppBar(
             backgroundColor: appearance.surface(tokens),
             elevation: 0,
             title: Text(
@@ -220,37 +252,59 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
               ),
             ),
             automaticallyImplyLeading: false,
-            actions: [
+            actions: needsCollapsedActions(MediaQuery.sizeOf(context).width)
+                ? [
+                    PopupMenuButton<String>(
+                      tooltip: 'Reader options',
+                      color: appearance.surface(tokens),
+                      onSelected: (value) {
+                        if (value == 'appearance') {
+                          showReaderAppearanceSheet(context, appearance);
+                        } else if (value == 'fullscreen') {
+                          _fullscreen.toggle(_readerId);
+                        } else if (value == 'share') {
+                          _shareArticle();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(value: 'appearance', child: Text('Reading appearance')),
+                        const PopupMenuItem(value: 'fullscreen', child: Text('Fullscreen reading')),
+                        if (state.article != null)
+                          const PopupMenuItem(value: 'share', child: Text('Share article')),
+                      ],
+                    ),
+                  ]
+                : [
               // Standardized Aa typography appearance button
               ReaderAppearanceActionButton(appearance: appearance),
+              IconButton(
+                tooltip: 'Enter fullscreen reading',
+                icon: Icon(Icons.fullscreen_rounded,
+                    color: appearance.textColor(tokens)),
+                onPressed: () => _fullscreen.toggle(_readerId),
+              ),
 
               // Share button
               if (state.article != null)
                 IconButton(
                   icon: Icon(Icons.share_rounded, color: appearance.textColor(tokens)),
                   tooltip: l10n?.share ?? 'Share',
-                  onPressed: () {
-                    final article = state.article!;
-                    final link = DeepLinkService.article(
-                      widget.articleId,
-                      lang: widget.lang,
-                    );
-                    final buffer = StringBuffer();
-                    buffer.writeln(article.title);
-                    buffer.writeln('By ${article.author} • ${article.date}\n');
-                    for (final l in article.lines.take(12)) {
-                      buffer.writeln(l.text);
-                    }
-                    buffer.writeln('${l10n?.readOnApp ?? 'Read on App'}: $link');
-                    Share.share(
-                      buffer.toString(),
-                      subject: article.title,
-                    );
-                  },
+                  onPressed: _shareArticle,
                 ),
             ],
           ),
-          body: _buildBody(state, tokens, fontFamily, appearance, l10n),
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildBody(state, tokens, fontFamily, appearance, l10n),
+              if (isFullscreen)
+                ReaderFullscreenButton(
+                  onExit: () => _fullscreen.exit(_readerId),
+                ),
+            ],
+          ),
+            ),
+          ),
         );
       },
     );
