@@ -95,7 +95,7 @@ class AudioPlaybackService {
     final imageUrl = track.displayImageUrl;
     final mediaItem = MediaItem(
       id: track.id,
-      album: track.speaker.isNotEmpty ? track.speaker : 'ChristianTube',
+      album: track.speaker.isNotEmpty ? track.speaker : 'ChristianApp',
       title: track.title,
       artist: track.speaker,
       artUri: (imageUrl != null && imageUrl.isNotEmpty) ? Uri.tryParse(imageUrl) : null,

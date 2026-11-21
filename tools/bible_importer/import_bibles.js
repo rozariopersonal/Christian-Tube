@@ -1,5 +1,5 @@
 /**
- * Unified Bible Importer for Christian-Tube
+ * Unified Bible Importer for ChristianApp
  * 
  * Supports:
  * - API.Bible (American Bible Society)

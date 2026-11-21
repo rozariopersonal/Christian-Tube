@@ -1,5 +1,5 @@
 /**
- * YouTube OAuth Refresh Token Generator for Christian-Tube
+ * YouTube OAuth Refresh Token Generator for ChristianApp
  * 
  * Usage:
  *   node scripts/get-youtube-token.js
@@ -33,7 +33,7 @@ function openBrowser(targetUrl) {
 
 async function main() {
   console.log('\n======================================================');
-  console.log('🎥 Christian-Tube YouTube OAuth Refresh Token Setup');
+  console.log('🎥 ChristianApp YouTube OAuth Refresh Token Setup');
   console.log('======================================================\n');
 
   const backendEnvPath = path.resolve(__dirname, '../apps/backend/.env');
@@ -92,7 +92,7 @@ async function main() {
               <body style="font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 40px; background: #0F172A; color: #F8FAFC;">
                 <h1 style="color: #F59E0B;">✅ Authorization Successful!</h1>
                 <p>Google OAuth code received. Permanent refresh token is being generated...</p>
-                <p style="color: #94A3B8;">You can now close this tab and return to Christian-Tube.</p>
+                <p style="color: #94A3B8;">You can now close this tab and return to ChristianApp.</p>
               </body>
             </html>
           `);

@@ -1,7 +1,7 @@
 {
-  "name": "@privatetube/backend",
+  "name": "@christianapp/backend",
   "version": "1.0.0",
-  "description": "PrivateTube Multi-Instance NestJS Backend Engine",
+  "description": "ChristianApp Multi-Instance NestJS Backend Engine",
   "author": "Arul Rozario",
   "private": true,
   "license": "UNLICENSED",

@@ -10,7 +10,7 @@ import '../widgets/songs_tab.dart';
 import '../widgets/fonts_tab.dart';
 import '../widgets/common/global_downloads_banner.dart';
 
-/// Single unified screen managing all offline downloads for Christian Tube:
+/// Single unified screen managing all offline downloads for ChristianApp:
 /// Bibles, Dictionaries, Books & Commentaries, Audio Sermons, and Songbooks.
 class DownloadsManagerScreen extends StatefulWidget {
   final int initialTab;

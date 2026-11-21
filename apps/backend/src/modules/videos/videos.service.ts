@@ -622,7 +622,7 @@ export class VideosService {
     let channelId =
       this.configService.get<string>("shorts.customChannelId") ||
       "UCSaJppP4zb2vivjxYfTqOKw";
-    let channelName = "Christian-Tube";
+    let channelName = "ChristianApp";
     let channelThumbnail: string | null = null;
     let publishedAt = new Date();
     let duration = "PT60S";
