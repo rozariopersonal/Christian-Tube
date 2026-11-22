@@ -1,125 +1,118 @@
+import 'dart:convert';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/features/books/controllers/reader_canvas_controller.dart';
 import 'package:mobile/features/books/widgets/book_reader_zoom_canvas.dart';
 
 void main() {
-  testWidgets('reader zoom applies to the whole canvas at supported widths',
+  testWidgets(
+      'canvas pinch wins over page and vertical scrolling from a gutter',
       (tester) async {
-    final controller = TransformationController();
-    addTearDown(controller.dispose);
-    addTearDown(tester.view.resetPhysicalSize);
+    final zoom = ReaderCanvasController();
+    final pages = PageController();
+    final scroll = ScrollController();
+    addTearDown(zoom.dispose);
+    addTearDown(pages.dispose);
+    addTearDown(scroll.dispose);
+    tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
 
-    for (final width in [320.0, 600.0, 840.0, 1400.0]) {
-      tester.view.physicalSize = Size(width, 800);
-      tester.view.devicePixelRatio = 1;
+    final scan = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8A'
+      'AwsB/ax/TaUAAAAASUVORK5CYII=',
+    );
+    final canvas = find.byType(BookReaderZoomCanvas);
+    for (final size in const [
+      Size(320, 640),
+      Size(600, 400),
+      Size(840, 650),
+      Size(1400, 800),
+    ]) {
+      tester.view.physicalSize = size;
+      zoom.value = Matrix4.identity();
       await tester.pumpWidget(
         MaterialApp(
-          theme: ThemeData(extensions: const [AppTokens.light]),
           home: Scaffold(
             body: BookReaderZoomCanvas(
-              controller: controller,
-              child: const Column(
+              controller: zoom,
+              child: PageView(
+                controller: pages,
                 children: [
-                  Text('Book text'),
-                  SizedBox(height: 24),
-                  Icon(Icons.image),
+                  SingleChildScrollView(
+                    controller: scroll,
+                    child: SizedBox(
+                      height: 1400,
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Image.memory(scan, width: 60, height: 60),
+                      ),
+                    ),
+                  ),
+                  const Center(child: Text('Next page')),
                 ],
               ),
             ),
           ),
         ),
       );
-
-      final viewer = tester.widget<InteractiveViewer>(
-        find.byType(InteractiveViewer),
-      );
-      expect(viewer.minScale, BookReaderZoomCanvas.minScale);
-      expect(viewer.maxScale, BookReaderZoomCanvas.maxScale);
-      expect(viewer.transformationController, same(controller));
-      expect(
-        find.descendant(
-          of: find.byType(InteractiveViewer),
-          matching: find.text('Book text'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(InteractiveViewer),
-          matching: find.byIcon(Icons.image),
-        ),
-        findsOneWidget,
-      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(canvas), size);
       expect(tester.takeException(), isNull);
+      expect(find.byTooltip('Zoom in'), findsNothing);
+
+      final center = tester.getCenter(canvas);
+      final first = await tester.startGesture(center - const Offset(30, 0));
+      final second = await tester.startGesture(center + const Offset(30, 0));
+      // Large first move would exceed the child PageView's drag threshold.
+      await first.moveBy(const Offset(-40, 0));
+      await second.moveBy(const Offset(40, 0));
+      await tester.pump();
+      expect(zoom.value.getMaxScaleOnAxis(), closeTo(140 / 60, 0.001));
+      expect(zoom.toScene(center).dx, closeTo(center.dx, 0.01));
+      expect(zoom.toScene(center).dy, closeTo(center.dy, 0.01));
+      expect(pages.page, 0);
+      expect(scroll.offset, 0);
+      await first.up();
+      await second.up();
+      await tester.pump();
+
+      final beforePan = zoom.value.getTranslation();
+      await tester.dragFrom(center, const Offset(-30, -40));
+      expect(zoom.value.getTranslation().x, lessThan(beforePan.x));
+      expect(zoom.value.getTranslation().y, lessThan(beforePan.y));
+      expect(scroll.offset, 0);
+      expect(pages.page, 0);
+
+      final inwardLeft =
+          await tester.startGesture(center - const Offset(70, 0));
+      final inwardRight =
+          await tester.startGesture(center + const Offset(70, 0));
+      await inwardLeft.moveBy(const Offset(45, 0));
+      await inwardRight.moveBy(const Offset(-45, 0));
+      await inwardLeft.up();
+      await inwardRight.up();
+      await tester.pump();
+      expect(zoom.value, Matrix4.identity());
     }
 
-    controller.value = Matrix4.diagonal3Values(2.0, 2.0, 2.0);
-    await tester.pump();
-    expect(controller.value.getMaxScaleOnAxis(), 2.0);
-  });
-
-  testWidgets('pinch gestures zoom the complete reader canvas', (tester) async {
-    final controller = TransformationController();
-    addTearDown(controller.dispose);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(extensions: const [AppTokens.light]),
-        home: Scaffold(
-          body: BookReaderZoomCanvas(
-            controller: controller,
-            child: const Column(
-              children: [
-                Text('Book text'),
-                SizedBox(height: 24),
-                Icon(Icons.image),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final firstFinger =
-        await tester.startGesture(const Offset(120, 400), pointer: 1);
-    final secondFinger =
-        await tester.startGesture(const Offset(200, 400), pointer: 2);
+    await tester.drag(canvas, const Offset(0, -120));
+    await tester.pumpAndSettle();
+    expect(scroll.offset, greaterThan(0));
+    final trackpad =
+        await tester.createGesture(kind: PointerDeviceKind.trackpad);
+    await trackpad.panZoomStart(tester.getCenter(canvas));
+    await trackpad.panZoomUpdate(tester.getCenter(canvas), scale: 1.5);
+    expect(zoom.value.getMaxScaleOnAxis(), 1.5);
+    await trackpad.panZoomEnd();
+    zoom.reset();
     await tester.pump();
 
-    for (var step = 1; step <= 4; step++) {
-      final offset = step * 10.0;
-      await firstFinger.moveTo(Offset(120 - offset, 400));
-      await secondFinger.moveTo(Offset(200 + offset, 400));
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-
-    expect(controller.value.getMaxScaleOnAxis(), greaterThan(1.0));
-
-    await firstFinger.up();
-    await secondFinger.up();
-    await tester.pump();
-  });
-
-  testWidgets('reader zoom controls are not displayed', (tester) async {
-    final controller = TransformationController();
-    addTearDown(controller.dispose);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(extensions: const [AppTokens.light]),
-        home: Scaffold(
-          body: BookReaderZoomCanvas(
-            controller: controller,
-            child: const Center(child: Text('Book text')),
-          ),
-        ),
-      ),
-    );
-
-    expect(find.byTooltip('Zoom in'), findsNothing);
-    expect(find.byTooltip('Zoom out'), findsNothing);
-    expect(find.byTooltip('Reset zoom'), findsNothing);
+    await tester.fling(canvas, const Offset(-450, 0), 1600);
+    await tester.pumpAndSettle();
+    expect(pages.page, 1);
+    expect(find.text('Next page'), findsOneWidget);
   });
 }

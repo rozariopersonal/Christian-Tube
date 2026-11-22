@@ -9,6 +9,7 @@ import '../services/book_paragraph_grouper.dart';
 import '../services/page_loader.dart';
 import '../services/reading_position_tracker.dart';
 import '../services/scripture_ref_parser.dart';
+import 'reader_canvas_controller.dart';
 
 /// Owns the book reader's view-layer coordination.
 ///
@@ -39,8 +40,7 @@ class BookReaderViewCoordinator {
   final void Function(ParsedScriptureRef? parsed, String refText) _onOpenScripture;
 
   late final PageController _pageController;
-  final TransformationController zoomController =
-      TransformationController();
+  final zoomController = ReaderCanvasController();
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener = ItemPositionsListener.create();
   final Map<int, GlobalKey> pageKeys = {};
@@ -197,6 +197,7 @@ class BookReaderViewCoordinator {
 
   void handlePageChanged(int page) {
     if (controller.state.currentPage == page) return;
+    zoomController.reset();
     controller.setVisiblePage(page);
     _markProgressFromPage(page);
     _preloadAdjacentPages(page, isDualPage: false);
@@ -208,6 +209,7 @@ class BookReaderViewCoordinator {
     final totalPages = book.totalPages;
     final newLeft = (controller.state.spreadLeftPage + delta).clamp(1, totalPages);
     if (newLeft != controller.state.spreadLeftPage) {
+      zoomController.reset();
       controller.setSpreadLeftPage(newLeft);
       _markProgressFromPage(newLeft);
       _preloadAdjacentPages(newLeft, isDualPage: true);
@@ -223,6 +225,7 @@ class BookReaderViewCoordinator {
       await controller.prepareForJump();
       final row = await controller.rowForPage(targetPage);
       if (row == null || !_isAttached()) return;
+      zoomController.reset();
       // Apply the target page immediately so chrome (nav "Page X of Y",
       // chapter title) reflects the destination without waiting for the
       // scroll animation's positions callback.
@@ -233,6 +236,7 @@ class BookReaderViewCoordinator {
     }
 
     if (_isDualPage()) {
+      zoomController.reset();
       final newLeft = PageLoader.spreadLeftForPage(targetPage, book.totalPages);
       controller.setSpreadLeftPage(newLeft);
       _markProgressFromPage(newLeft);

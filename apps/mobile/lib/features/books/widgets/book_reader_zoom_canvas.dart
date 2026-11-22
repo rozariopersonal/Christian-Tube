@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Adds one zoomable canvas around all content in the book reader viewport.
+import '../controllers/reader_canvas_controller.dart';
+import '../controllers/reader_canvas_gesture_recognizer.dart';
+
+/// A fixed viewport whose content can be transformed by a canvas-wide pinch.
 class BookReaderZoomCanvas extends StatelessWidget {
   const BookReaderZoomCanvas({
     super.key,
@@ -8,25 +11,43 @@ class BookReaderZoomCanvas extends StatelessWidget {
     required this.child,
   });
 
-  static const minScale = 1.0;
-  static const maxScale = 4.0;
-
-  final TransformationController controller;
+  final ReaderCanvasController controller;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        InteractiveViewer(
-          transformationController: controller,
-          minScale: minScale,
-          maxScale: maxScale,
-          trackpadScrollCausesScale: true,
-          child: child,
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewport = constraints.biggest;
+        return SizedBox.fromSize(
+          size: viewport,
+          child: RawGestureDetector(
+            behavior: HitTestBehavior.opaque,
+            gestures: {
+              ReaderCanvasGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<
+                      ReaderCanvasGestureRecognizer>(
+                ReaderCanvasGestureRecognizer.new,
+                (recognizer) {
+                  recognizer.canPan = () => controller.isZoomed;
+                  recognizer.onTransform = (from, to, factor) =>
+                      controller.applyGesture(viewport, from, to, factor);
+                },
+              ),
+            },
+            child: ClipRect(
+              child: ValueListenableBuilder<Matrix4>(
+                valueListenable: controller,
+                child: RepaintBoundary(child: child),
+                builder: (context, matrix, content) => Transform(
+                  transform: controller.matrixForViewport(viewport, matrix),
+                  child: content,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

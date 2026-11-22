@@ -44,6 +44,7 @@ import { contrastColorFor } from '../../../shared/ui/highlight-palette';
 import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
 import { ReaderAutoFullscreenToggleComponent } from '../../../shared/ui/reader-auto-fullscreen-toggle.component';
 import { BookAppearanceSheetComponent } from '../components/book-appearance-sheet.component';
+import { BookCanvasZoomDirective } from '../components/book-canvas-zoom.directive';
 import { BookHighlightsSheetComponent } from '../components/book-highlights-sheet.component';
 import { BookReaderNavComponent } from '../components/book-reader-nav.component';
 import { BookSearchSheetComponent } from '../components/book-search-sheet.component';
@@ -109,6 +110,7 @@ interface ImageSpread {
     ReaderAutoFullscreenToggleComponent,
     BookTocSheetComponent,
     BookAppearanceSheetComponent,
+    BookCanvasZoomDirective,
     BookHighlightsSheetComponent,
     BookReaderNavComponent,
     BookSearchSheetComponent,
@@ -177,41 +179,10 @@ interface ImageSpread {
       <app-reader-auto-fullscreen-toggle />
       <app-reader-columns-toggle
         [maxColumns]="isImageBook() ? 2 : 3"
+        [allowContinuous]="!isImageBook()"
       />
       @if (!isImageBook()) {
         <app-reader-typography-toggle />
-      } @else {
-        <div class="tb-actions-pill tb-zoom-pill" role="group" aria-label="Image zoom controls">
-          <button
-            type="button"
-            class="tb-action-btn"
-            title="Zoom out"
-            aria-label="Zoom out"
-            [disabled]="imageZoom() <= 1"
-            (click)="setImageZoom(imageZoom() - 0.25)"
-          >
-            <span class="material-symbols-rounded">remove</span>
-          </button>
-          <button
-            type="button"
-            class="tb-action-btn tb-zoom-val"
-            title="Reset zoom"
-            aria-label="Reset zoom"
-            (click)="setImageZoom(1)"
-          >
-            {{ Math.round(imageZoom() * 100) }}%
-          </button>
-          <button
-            type="button"
-            class="tb-action-btn"
-            title="Zoom in"
-            aria-label="Zoom in"
-            [disabled]="imageZoom() >= 2.5"
-            (click)="setImageZoom(imageZoom() + 0.25)"
-          >
-            <span class="material-symbols-rounded">add</span>
-          </button>
-        </div>
       }
       <div class="tb-actions-pill">
         <button
@@ -566,7 +537,7 @@ interface ImageSpread {
             <p class="status-msg">Loading chapter...</p>
           } @else if (error()) {
             <p class="status-msg">{{ error() }}</p>
-          } @else if (isImageBook() && isPaginated()) {
+          } @else if (isImageBook()) {
             @if (activeImageSpread(); as spread) {
               <div class="image-spread-stage">
                 @if (imageSpreadIndex() > 0) {
@@ -580,48 +551,48 @@ interface ImageSpread {
                   </button>
                 }
                 <div
-                  class="image-spread-deck"
-                  [class.two-up]="imageCols() === 2"
-                  [class.zoomed]="imageZoom() > 1"
-                  [style.--img-zoom]="imageZoom()"
+                  class="image-spread-viewport"
+                  [appBookCanvasZoom]="imageCanvasKey()"
+                  [zoomContent]="imageCanvas"
+                  (turnPage)="goToImageSpread(imageSpreadIndex() + $event)"
                 >
-                  @for (p of spread.pages; track p.fileName) {
-                    @let st = pageImageStatus(p.fileName);
-                    <div
-                      class="image-spread-frame"
-                      (dblclick)="toggleImageZoom()"
-                    >
-                      @if (st === 'loading') {
-                        <div class="img-skeleton" aria-hidden="true"></div>
-                      }
-                      @if (st === 'error') {
-                        <div class="img-error-card">
-                          <span class="material-symbols-rounded">broken_image</span>
-                          <span>Page {{ p.pageNumber ?? '' }} unavailable</span>
-                          <button
-                            type="button"
-                            class="pill-chip"
-                            (click)="retryPageImage(p.fileName)"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      } @else {
-                        <img
-                          class="image-spread-img"
-                          [class.ready]="st === 'loaded'"
-                          [src]="pageImageUrl(p.fileName)"
-                          (load)="onPageImageLoad(p.fileName)"
-                          (error)="onPageImageError($event, p.fileName)"
-                          [alt]="(toc()?.title || 'Book') + ' page ' + (p.pageNumber ?? '')"
-                          loading="eager"
-                        />
-                      }
-                      @if (p.pageNumber !== undefined) {
-                        <span class="img-page-badge">p. {{ p.pageNumber }}</span>
-                      }
-                    </div>
-                  }
+                  <div #imageCanvas class="image-spread-deck" [class.two-up]="imageCols() === 2">
+                    @for (p of spread.pages; track p.fileName) {
+                      @let st = pageImageStatus(p.fileName);
+                      <div class="image-spread-frame">
+                        @if (st === 'loading') {
+                          <div class="img-skeleton" aria-hidden="true"></div>
+                        }
+                        @if (st === 'error') {
+                          <div class="img-error-card">
+                            <span class="material-symbols-rounded">broken_image</span>
+                            <span>Page {{ p.pageNumber ?? '' }} unavailable</span>
+                            <button
+                              type="button"
+                              class="pill-chip"
+                              (click)="retryPageImage(p.fileName)"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        } @else {
+                          <img
+                            class="image-spread-img"
+                            [class.ready]="st === 'loaded'"
+                            [src]="pageImageUrl(p.fileName)"
+                            (load)="onPageImageLoad(p.fileName)"
+                            (error)="onPageImageError($event, p.fileName)"
+                            [alt]="(toc()?.title || 'Book') + ' page ' + (p.pageNumber ?? '')"
+                            loading="eager"
+                            draggable="false"
+                          />
+                        }
+                        @if (p.pageNumber !== undefined) {
+                          <span class="img-page-badge">p. {{ p.pageNumber }}</span>
+                        }
+                      </div>
+                    }
+                  </div>
                 </div>
                 @if (imageSpreadIndex() < imageSpreads().length - 1) {
                   <button
@@ -1314,14 +1285,6 @@ interface ImageSpread {
         font-size: 18px;
       }
 
-      .tb-zoom-val {
-        width: auto;
-        padding: 0 6px;
-        font-size: 11px;
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-      }
-
       .tb-menu-wrap {
         position: relative;
       }
@@ -1744,8 +1707,17 @@ interface ImageSpread {
         flex-direction: column;
       }
 
-      .image-spread-deck {
+      .image-spread-viewport {
         flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        touch-action: none;
+        user-select: none;
+      }
+
+      .image-spread-deck {
+        height: 100%;
+        box-sizing: border-box;
         min-height: 0;
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -1754,17 +1726,11 @@ interface ImageSpread {
         align-items: center;
         justify-items: center;
         padding: 4px 36px 12px;
-        overflow: hidden;
+        transform-origin: top left;
       }
 
       .image-spread-deck.two-up {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .image-spread-deck.zoomed {
-        grid-template-rows: auto;
-        overflow: auto;
-        align-items: start;
       }
 
       .image-spread-frame {
@@ -1775,11 +1741,6 @@ interface ImageSpread {
         display: flex;
         align-items: center;
         justify-content: center;
-      }
-
-      .image-spread-deck.zoomed .image-spread-frame {
-        height: auto;
-        min-height: 100%;
       }
 
       .image-spread-img {
@@ -1797,13 +1758,6 @@ interface ImageSpread {
 
       .image-spread-img.ready {
         opacity: 1;
-      }
-
-      .image-spread-deck.zoomed .image-spread-img {
-        max-height: none;
-        max-width: none;
-        width: calc(100% * var(--img-zoom, 1));
-        cursor: zoom-out;
       }
 
       .book-reader-page[data-paper='night'] .image-spread-img,
@@ -2142,8 +2096,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
 
   readonly spreadPage = signal<number>(1);
   readonly spreadTotalPages = signal<number>(1);
-  readonly imageSpreadIndex = signal<number>(0);
-  readonly imageZoom = signal<number>(1);
+  private readonly imageSpreadAnchor = signal<{ chapterIndex: number; fileName: string } | null>(null);
   readonly imageStatusMap = signal<Record<string, 'loading' | 'loaded' | 'error'>>({});
   readonly imageFallbackIndexMap = signal<Record<string, number>>({});
   readonly imageRetryCountMap = signal<Record<string, number>>({});
@@ -2198,7 +2151,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       }
     });
     effect(() => {
-      if (!this.isImageBook() || !this.isPaginated()) return;
+      if (!this.isImageBook()) return;
       const spreads = this.imageSpreads();
       const idx = this.imageSpreadIndex();
       for (const offset of [1, 2, -1]) {
@@ -2558,7 +2511,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
   );
 
   readonly isPaginated = computed(
-    () => this.effectiveCols() >= 2 || this.appearance.singleColPaginated(),
+    () => this.isImageBook() || this.effectiveCols() >= 2 || this.appearance.singleColPaginated(),
   );
 
   readonly isImageBook = computed(() => {
@@ -2614,11 +2567,28 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
     return list[idx] ?? null;
   });
 
+  readonly imageCanvasKey = computed(() => {
+    const spread = this.activeImageSpread();
+    return spread
+      ? JSON.stringify([this.currentBookId(), spread.chapterIndex, spread.pages.map((page) => page.fileName)])
+      : '';
+  });
+
+  readonly imageSpreadIndex = computed(() => {
+    const anchor = this.imageSpreadAnchor();
+    if (!anchor) return 0;
+    return Math.max(0, this.imageSpreads().findIndex((spread) =>
+      spread.chapterIndex === anchor.chapterIndex &&
+      spread.pages.some((page) => page.fileName === anchor.fileName),
+    ));
+  });
+
   goToImageSpread(nextIdx: number): void {
     const list = this.imageSpreads();
     if (list.length === 0) return;
     const clamped = Math.min(list.length - 1, Math.max(0, nextIdx));
-    this.imageSpreadIndex.set(clamped);
+    if (clamped === this.imageSpreadIndex() && this.imageSpreadAnchor()) return;
+    this.selectImageSpread(list[clamped]);
     const ch = list[clamped].chapterIndex;
     if (ch > 0 && ch !== this.visibleChapterIndex()) {
       this.visibleChapterIndex.set(ch);
@@ -2626,6 +2596,13 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       const match = this.fullBookChapters().find((c) => c.chapterIndex === ch);
       if (match) this.lines.set(match.lines);
     }
+  }
+
+  private selectImageSpread(spread: ImageSpread): void {
+    this.imageSpreadAnchor.set({
+      chapterIndex: spread.chapterIndex,
+      fileName: spread.pages[0].fileName,
+    });
   }
 
   isImageLine(line: BookLine): boolean {
@@ -2691,15 +2668,6 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       [key]: (m[key] ?? 0) + 1,
     }));
     this.imageStatusMap.update((m) => ({ ...m, [key]: 'loading' }));
-  }
-
-  setImageZoom(next: number): void {
-    const clamped = Math.min(2.5, Math.max(1, Number(next.toFixed(2))));
-    this.imageZoom.set(clamped);
-  }
-
-  toggleImageZoom(): void {
-    this.setImageZoom(this.imageZoom() > 1 ? 1 : 1.5);
   }
 
   readonly spreadFooterLabel = computed(() => {
@@ -2903,12 +2871,12 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       if (this.currentBookId() !== bookId) return;
       this.fullBookChapters.set(loaded);
       this.fullBookLoadedForId = bookId;
-      if (this.isImageBook()) {
+      if (this.isImageBook() && !this.imageSpreadAnchor()) {
         const targetSpreadIdx = this.imageSpreads().findIndex(
           (s) => s.chapterIndex === this.chapterIndex(),
         );
         if (targetSpreadIdx >= 0) {
-          this.imageSpreadIndex.set(targetSpreadIdx);
+          this.selectImageSpread(this.imageSpreads()[targetSpreadIdx]);
         }
       }
       setTimeout(() => {
@@ -3150,7 +3118,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit {
       this.fullBookChapters.set([]);
       this.fullBookLoadedForId = '';
       this.fullBookLoadingForId = '';
-      this.imageSpreadIndex.set(0);
+      this.imageSpreadAnchor.set(null);
     }
     this.loading.set(true);
     this.error.set(null);
