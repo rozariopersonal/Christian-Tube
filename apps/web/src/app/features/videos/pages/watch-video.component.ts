@@ -985,14 +985,17 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   });
 
   readonly isLiked = computed(() => {
-    const id = this.video()?.id;
-    return id ? this.userSync.isLiked('liked_video', id) : false;
+    const v = this.video();
+    if (!v) return false;
+    const itemType = v.type === 'SHORT' ? 'liked_short' : 'liked_video';
+    return this.userSync.isLiked(itemType, v.id);
   });
 
   toggleLike(): void {
     const video = this.video();
     if (!video) return;
-    this.userSync.setLiked({ itemType: 'liked_video', itemId: video.id, liked: !this.isLiked() });
+    const itemType = video.type === 'SHORT' ? 'liked_short' : 'liked_video';
+    this.userSync.setLiked({ itemType, itemId: video.id, liked: !this.isLiked() });
   }
 
   readonly nextUpVideo = computed<Video | null>(() => {

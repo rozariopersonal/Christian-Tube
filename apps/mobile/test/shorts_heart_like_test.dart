@@ -52,6 +52,10 @@ void main() {
     expect(find.text('Like'), findsOneWidget);
     expect(find.byIcon(Icons.thumb_up_rounded), findsNothing);
     expect(find.byIcon(Icons.thumb_up_outlined), findsNothing);
+
+    await tester.tap(find.text('Like'));
+    await tester.pump();
+    expect(find.text('Sign in to save liked Shorts'), findsOneWidget);
   });
 
   testWidgets('ShortPlayerOverlay double-tap invokes onDoubleTapLike and renders burst',

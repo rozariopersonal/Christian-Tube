@@ -446,8 +446,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.video_library_outlined,
-                  size: 56, color: context.tokens.onSurfaceMuted),
+              Icon(
+                _showLikedOnly
+                    ? Icons.favorite_border_rounded
+                    : Icons.video_library_outlined,
+                size: 56,
+                color: context.tokens.onSurfaceMuted,
+              ),
               const SizedBox(height: 16),
               Text(
                 _showLikedOnly ? 'No liked videos yet.' : 'No videos found for selected filter',
