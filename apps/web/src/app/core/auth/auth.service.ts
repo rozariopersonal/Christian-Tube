@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../api/api.service';
 import { AppConfig } from '../config/app-config';
@@ -43,6 +44,9 @@ const KEY_TOKEN = 'auth_token';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly api = inject(ApiService);
+  private readonly http = inject(HttpClient);
+  private sessionExchange: Promise<void> | null = null;
+  private nextSessionExchangeAt = 0;
   private readonly idbCache = inject(IndexedDbCacheService);
 
   readonly currentUser = signal<AuthUser | null>(this.readStoredUser());
@@ -56,6 +60,7 @@ export class AuthService {
 
   canSync(): boolean {
     if (this.sessionNeedsSignIn()) return false;
+    void this.upgradeSession();
     if (this.hasExpiredCredential()) {
       this.markSessionRejected();
       return false;
@@ -72,6 +77,13 @@ export class AuthService {
 
   constructor() {
     const user = this.currentUser();
+    void this.upgradeSession();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.nextSessionExchangeAt = 0;
+        void this.upgradeSession();
+      });
+    }
     if (user?.email) {
       void this.checkIsAdmin(user.email);
     }
@@ -137,6 +149,12 @@ export class AuthService {
     } catch {
       // ignore
     }
+    const token = this.readToken();
+    if (token?.startsWith('session_')) {
+      void firstValueFrom(this.http.delete(`${AppConfig.apiBaseUrl}/api/auth/session`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })).catch(() => { /* The local sign-out still succeeds while offline. */ });
+    }
     this.wipeWebStorage();
     void this.idbCache.clear();
     this.currentUser.set(null);
@@ -198,6 +216,7 @@ export class AuthService {
         idToken,
       };
       this.saveSession(user, idToken);
+      void this.upgradeSession();
       await this.syncUser(user);
       await this.checkIsAdmin(user.email);
     } catch (err) {
@@ -233,6 +252,49 @@ export class AuthService {
     this.sessionNeedsSignIn.set(false);
     this.sessionPromptDismissed.set(false);
     this.currentUser.set(user);
+  }
+
+  private readToken(): string | null {
+    try { return localStorage.getItem(KEY_TOKEN); } catch { return null; }
+  }
+
+  private upgradeSession(): Promise<void> {
+    if (this.sessionExchange) return this.sessionExchange;
+    const token = this.readToken();
+    if (Date.now() < this.nextSessionExchangeAt) return Promise.resolve();
+    if (!token || token.startsWith('token_') || token.startsWith('session_') || this.hasExpiredCredential()) {
+      return Promise.resolve();
+    }
+    const user = this.currentUser();
+    if (!user) return Promise.resolve();
+    this.sessionExchange = (async () => {
+      try {
+        const result = await firstValueFrom(this.http.post<{ token: string }>(
+          `${AppConfig.apiBaseUrl}/api/auth/session`, {},
+          { headers: { Authorization: `Bearer ${token}` } },
+        ));
+        if (!/^session_[A-Za-z0-9_-]{43}$/.test(result.token)) return;
+        // A sign-out or account switch while the request was in flight wins.
+        if (this.readToken() !== token || this.currentUser()?.id !== user.id) {
+          void firstValueFrom(this.http.delete(`${AppConfig.apiBaseUrl}/api/auth/session`, {
+            headers: { Authorization: `Bearer ${result.token}` },
+          })).catch(() => {});
+          return;
+        }
+        const { idToken: _idToken, ...storedUser } = user;
+        this.saveSession(storedUser, result.token);
+      } catch {
+        // Keep the Google credential and retry, without flooding an unavailable server.
+        this.nextSessionExchangeAt = Date.now() + 60_000;
+      }
+    })().finally(() => {
+      this.sessionExchange = null;
+      if (this.readToken() && this.readToken() !== token && !this.readToken()?.startsWith('session_')) {
+        this.nextSessionExchangeAt = 0;
+        void this.upgradeSession();
+      }
+    });
+    return this.sessionExchange;
   }
 
   private hasExpiredCredential(): boolean {
