@@ -86,9 +86,14 @@ void main() {
         await tester.startGesture(const Offset(120, 400), pointer: 1);
     final secondFinger =
         await tester.startGesture(const Offset(200, 400), pointer: 2);
-    await firstFinger.moveTo(const Offset(80, 400));
-    await secondFinger.moveTo(const Offset(240, 400));
     await tester.pump();
+
+    for (var step = 1; step <= 4; step++) {
+      final offset = step * 10.0;
+      await firstFinger.moveTo(Offset(120 - offset, 400));
+      await secondFinger.moveTo(Offset(200 + offset, 400));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
 
     expect(controller.value.getMaxScaleOnAxis(), greaterThan(1.0));
 
