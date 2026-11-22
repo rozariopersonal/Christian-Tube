@@ -26,6 +26,17 @@ void main() {
   };
 
   group('UpdateDialog Responsive & Layout Tests', () {
+    testWidgets('shows the grouped version and highlights in light theme', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData.light().copyWith(extensions: const [AppTokens.light]),
+        home: const Scaffold(body: UpdateDialog(updateData: sampleUpdateData)),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('AVAILABLE VERSION'), findsOneWidget);
+      expect(find.text('Performance improvements'), findsOneWidget);
+      expect(find.text('Skip this version'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
     testWidgets('remains usable with large text on a narrow screen', (tester) async {
       tester.view.physicalSize = const Size(640, 1200);
       tester.view.devicePixelRatio = 2;
