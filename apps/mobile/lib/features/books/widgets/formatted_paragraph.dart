@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/painting.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
+import 'package:mobile/features/books/models/book_line.dart';
+import 'package:mobile/features/books/services/book_highlight_ranges.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
@@ -29,103 +31,94 @@ class FormattedParagraphBuilder {
     AppTokens tokens,
     ReaderAppearance appearance,
     List<BookHighlight> highlights, {
-    required TapGestureRecognizer Function(ParsedScriptureRef? parsed, String refText) makeRecognizer,
-    TapGestureRecognizer Function(BookHighlight highlight)? makeHighlightRecognizer,
+    required TapGestureRecognizer Function(
+            ParsedScriptureRef? parsed, String refText)
+        makeRecognizer,
+    TapGestureRecognizer Function(BookHighlight highlight)?
+        makeHighlightRecognizer,
+    List<BookLine> sourceLines = const [],
+    TextStyle? textStyle,
   }) {
     final fontFamily = ScriptureThemeCatalog.resolveFontFamily(
       appearance.fontFamily,
       appearance.languageCode,
     );
     final textTokens = ScriptureRefParser.tokenize(pageText);
-
     final spans = <InlineSpan>[];
-
-    for (final token in textTokens) {
-      if (token.isReference && token.ref != null) {
-        spans.add(TextSpan(
-          text: token.text,
-          style: TextStyle(
-            color: tokens.accent,
-            fontWeight: FontWeight.bold,
-            decoration: TextDecoration.underline,
-            decorationColor: tokens.accent.withValues(alpha: 0.6),
-            fontSize: appearance.fontSize,
-            height: appearance.lineHeight,
-            fontFamily: fontFamily,
-          ),
-          recognizer: makeRecognizer(token.ref, token.text),
+    final ranges =
+        BookHighlightRanges.project(pageText, sourceLines, highlights);
+    // Older highlights have no stored location; retain their original display.
+    for (final highlight in highlights) {
+      if (BookHighlightRanges.lineNumber(highlight) != null ||
+          highlight.text.isEmpty) {
+        continue;
+      }
+      var start = pageText.indexOf(highlight.text);
+      while (start >= 0) {
+        ranges.add((
+          start: start,
+          end: start + highlight.text.length,
+          highlight: highlight
         ));
-      } else {
-        _appendSpansWithHighlights(
-          spans,
-          token.text,
-          textColor,
-          fontFamily,
-          appearance,
-          highlights,
-          makeHighlightRecognizer: makeHighlightRecognizer,
+        start = pageText.indexOf(highlight.text, start + highlight.text.length);
+      }
+    }
+    final baseStyle = textStyle ??
+        TextStyle(
+          color: textColor,
+          fontSize: appearance.fontSize,
+          height: appearance.lineHeight,
+          fontFamily: fontFamily,
+          fontWeight: appearance.fontWeight,
+          fontStyle: appearance.fontStyle,
+          decoration: appearance.textDecoration,
         );
-      }
-    }
-
-    return spans;
-  }
-
-  static void _appendSpansWithHighlights(
-    List<InlineSpan> spans,
-    String text,
-    Color textColor,
-    String? fontFamily,
-    ReaderAppearance appearance,
-    List<BookHighlight> highlights, {
-    TapGestureRecognizer Function(BookHighlight highlight)? makeHighlightRecognizer,
-  }) {
-    final baseStyle = TextStyle(
-      color: textColor,
-      fontSize: appearance.fontSize,
-      height: appearance.lineHeight,
-      fontFamily: fontFamily,
-      fontWeight: appearance.fontWeight,
-      fontStyle: appearance.fontStyle,
-      decoration: appearance.textDecoration,
-    );
-
-    if (highlights.isEmpty) {
-      spans.add(TextSpan(text: text, style: baseStyle));
-      return;
-    }
-
-    int current = 0;
-    while (current < text.length) {
-      int nextMatchStart = text.length;
-      BookHighlight? matchedHighlight;
-
-      for (final h in highlights) {
-        if (h.text.isEmpty) continue;
-        final idx = text.indexOf(h.text, current);
-        if (idx != -1 && idx < nextMatchStart) {
-          nextMatchStart = idx;
-          matchedHighlight = h;
+    var tokenStart = 0;
+    for (final token in textTokens) {
+      final tokenEnd = tokenStart + token.text.length;
+      final boundaries = <int>{tokenStart, tokenEnd};
+      for (final range in ranges) {
+        if (range.start < tokenEnd && range.end > tokenStart) {
+          boundaries.add(range.start.clamp(tokenStart, tokenEnd));
+          boundaries.add(range.end.clamp(tokenStart, tokenEnd));
         }
       }
-
-      if (matchedHighlight != null && nextMatchStart < text.length) {
-        if (nextMatchStart > current) {
-          spans.add(TextSpan(text: text.substring(current, nextMatchStart), style: baseStyle));
+      final cuts = boundaries.toList()..sort();
+      for (var i = 0; i + 1 < cuts.length; i++) {
+        final start = cuts[i], end = cuts[i + 1];
+        BookHighlight? highlight;
+        for (final range in ranges) {
+          if (range.start <= start && range.end >= end) {
+            highlight = range.highlight;
+          }
+        }
+        final reference = token.isReference && token.ref != null;
+        var style = reference
+            ? baseStyle.copyWith(
+                color: tokens.accent,
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+                decorationColor: tokens.accent.withValues(alpha: 0.6),
+              )
+            : baseStyle;
+        if (highlight != null) {
+          style = style.copyWith(
+              backgroundColor:
+                  ReaderAppearance.highlightColorByIndex(highlight.color)
+                      .withValues(alpha: 0.38));
         }
         spans.add(TextSpan(
-          text: matchedHighlight.text,
-          style: baseStyle.copyWith(
-            backgroundColor:
-                ReaderAppearance.highlightColorByIndex(matchedHighlight.color).withValues(alpha: 0.38),
-          ),
-          recognizer: makeHighlightRecognizer?.call(matchedHighlight),
+          text: token.text.substring(start - tokenStart, end - tokenStart),
+          style: style,
+          recognizer: highlight != null && makeHighlightRecognizer != null
+              ? makeHighlightRecognizer(highlight)
+              : reference
+                  ? makeRecognizer(token.ref, token.text)
+                  : null,
         ));
-        current = nextMatchStart + matchedHighlight.text.length;
-      } else {
-        spans.add(TextSpan(text: text.substring(current), style: baseStyle));
-        break;
       }
+      tokenStart = tokenEnd;
     }
+    return spans;
   }
 }

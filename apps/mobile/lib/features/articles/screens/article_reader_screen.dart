@@ -1,5 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:mobile/shared/ui/reader_selection_line.dart';
 import 'package:mobile/core/layout/adaptivity.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
@@ -48,6 +50,9 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
   late final ArticleReaderController _controller;
   final ScrollController _scrollController = ScrollController();
   final List<GestureRecognizer> _recognizers = [];
+  final Map<int, SelectedContentRange> _selectedRanges = {};
+  List<BookHighlight> _articleHighlights = const [];
+  String get _articleScope => 'article_${widget.articleId}_${widget.lang}';
 
   @override
   void initState() {
@@ -58,6 +63,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
       lang: widget.lang,
       syncService: widget.syncService,
     );
+    _loadArticleHighlights();
     _controller.appearance.addListener(_onAppearanceChanged);
     ReaderFontsService.instance.addListener(_onFontsChanged);
 
@@ -102,7 +108,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     final link = DeepLinkService.article(widget.articleId, lang: widget.lang);
     final buffer = StringBuffer()
       ..writeln(article.title)
-      ..writeln('By ${article.author} • ${article.date}\n');
+      ..writeln('By ${article.author} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${article.date}\n');
     for (final line in article.lines.take(12)) {
       buffer.writeln(line.text);
     }
@@ -110,30 +116,59 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     Share.share(buffer.toString(), subject: article.title);
   }
 
-  Future<void> _saveArticleHighlight(String text, int colorIndex) async {
-    final clean = text.trim();
-    if (clean.isEmpty) return;
-    final scopeId = 'article_${widget.articleId}_${widget.lang}';
-    final highlight = BookHighlight(
-      id: '${scopeId}_${DateTime.now().millisecondsSinceEpoch}',
-      bookId: scopeId,
-      chapterIndex: 1,
-      pageNumber: 1,
-      startChar: 0,
-      endChar: clean.length,
-      text: clean,
-      color: colorIndex,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-    await BookService.instance.saveHighlight(highlight);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Highlight saved'),
-          duration: Duration(seconds: 1),
-        ),
-      );
+  Future<void> _loadArticleHighlights() async {
+    try {
+      final highlights = await BookService.instance.getHighlightsForBook(_articleScope);
+      if (mounted) setState(() => _articleHighlights = highlights);
+    } catch (_) {
+      // The reader remains usable if annotation storage is unavailable.
     }
+  }
+
+  Future<void> _saveArticleHighlight(String text, int colorIndex) async {
+    final article = _controller.state.article;
+    if (article == null) return;
+    final ranges = Map<int, SelectedContentRange>.of(_selectedRanges);
+    var saved = 0;
+    for (final entry in ranges.entries) {
+      if (entry.key < 0 || entry.key >= article.lines.length) continue;
+      final line = article.lines[entry.key].text;
+      final start = entry.value.startOffset.clamp(0, line.length);
+      final end = entry.value.endOffset.clamp(start, line.length);
+      if (start == end) continue;
+      final highlight = BookHighlight(
+        id: 'article_range_${widget.articleId}_${widget.lang}_${entry.key}_${DateTime.now().microsecondsSinceEpoch}',
+        bookId: _articleScope,
+        chapterIndex: 1,
+        pageNumber: entry.key + 1,
+        startChar: start,
+        endChar: end,
+        text: line.substring(start, end),
+        color: colorIndex,
+        createdAt: DateTime.now().toIso8601String(),
+      );
+      await BookService.instance.saveHighlight(highlight);
+      saved++;
+    }
+    if (saved == 0) return;
+    await _loadArticleHighlights();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Highlight saved'), duration: Duration(seconds: 1),
+      ));
+    }
+  }
+
+  Future<void> _clearArticleHighlights(String text, int page) async {
+    final ranges = Map<int, SelectedContentRange>.of(_selectedRanges);
+    for (final h in _articleHighlights) {
+      if (!h.id.startsWith('article_range_')) continue;
+      final range = ranges[h.pageNumber - 1];
+      if (range != null && h.startChar < range.endOffset && h.endChar > range.startOffset) {
+        await BookService.instance.deleteHighlight(h.id);
+      }
+    }
+    await _loadArticleHighlights();
   }
 
   /// Disposes every recognizer created so far. Called before each build pass
@@ -171,13 +206,15 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     String? fontFamily,
     ReaderAppearance appearance,
     AppTokens tokens,
-  ) {
+    int lineIndex, {
+    bool isHeading = false,
+  }) {
     final baseStyle = TextStyle(
       color: textColor,
-      fontSize: appearance.fontSize,
-      height: appearance.lineHeight,
+      fontSize: isHeading ? appearance.fontSize * 1.25 : appearance.fontSize,
+      height: isHeading ? 1.3 : appearance.lineHeight,
       fontFamily: fontFamily,
-      fontWeight: appearance.fontWeight,
+      fontWeight: isHeading ? FontWeight.bold : appearance.fontWeight,
       fontStyle: appearance.fontStyle,
       decoration: appearance.textDecoration,
     );
@@ -185,24 +222,44 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     final textTokens = ScriptureRefParser.tokenize(text);
     final spans = <InlineSpan>[];
 
+    var offset = 0;
+    final highlights = _articleHighlights.where((h) =>
+        h.id.startsWith('article_range_') && h.pageNumber == lineIndex + 1);
     for (final token in textTokens) {
-      if (token.isReference && token.ref != null) {
+      final tokenStart = offset;
+      final tokenEnd = tokenStart + token.text.length;
+      final boundaries = <int>{tokenStart, tokenEnd};
+      for (final h in highlights) {
+        if (h.startChar < tokenEnd && h.endChar > tokenStart) {
+          boundaries.add(h.startChar.clamp(tokenStart, tokenEnd));
+          boundaries.add(h.endChar.clamp(tokenStart, tokenEnd));
+        }
+      }
+      final cuts = boundaries.toList()..sort();
+      for (var i = 0; i + 1 < cuts.length; i++) {
+        final start = cuts[i], end = cuts[i + 1];
+        BookHighlight? highlight;
+        for (final h in highlights) {
+          if (h.startChar <= start && h.endChar >= end) highlight = h;
+        }
+        final isReference = token.isReference && token.ref != null;
+        var style = isReference
+            ? baseStyle.copyWith(
+                color: tokens.accent, fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+                decorationColor: tokens.accent.withValues(alpha: 0.6))
+            : baseStyle;
+        if (highlight != null) {
+          style = style.copyWith(backgroundColor:
+              ReaderAppearance.highlightColorByIndex(highlight.color).withValues(alpha: 0.38));
+        }
         spans.add(TextSpan(
-          text: token.text,
-          style: baseStyle.copyWith(
-            color: tokens.accent,
-            fontWeight: FontWeight.bold,
-            decoration: TextDecoration.underline,
-            decorationColor: tokens.accent.withValues(alpha: 0.6),
-          ),
-          recognizer: _makeRecognizer(token.ref, token.text),
-        ));
-      } else {
-        spans.add(TextSpan(
-          text: token.text,
-          style: baseStyle,
+          text: token.text.substring(start - tokenStart, end - tokenStart),
+          style: style,
+          recognizer: isReference ? _makeRecognizer(token.ref, token.text) : null,
         ));
       }
+      offset = tokenEnd;
     }
 
     return spans;
@@ -383,11 +440,13 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
             fontStyle: appearance.fontStyle,
           ),
           child: DoubleTapDictionaryArea(
-            contextMenuBuilder: (context, selectableRegionState) {
+            contextMenuBuilder: (context, selectableRegionState, selectedText) {
               return buildReaderSelectionToolbar(
                 context,
                 selectableRegionState,
                 1,
+                selectedText: selectedText,
+                onClearHighlight: _clearArticleHighlights,
                 onHighlight: (text, _) => _saveArticleHighlight(text, 0),
                 onHighlightWithColor: (text, _, colorIndex) =>
                     _saveArticleHighlight(text, colorIndex),
@@ -440,34 +499,29 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                     const SizedBox(height: 20),
 
                     // Paragraphs & Headings
-                    ...article.lines.map((line) {
-                      if (line.isHeading) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 24, bottom: 12),
-                          child: Text(
-                            line.text,
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: appearance.fontSize * 1.25,
-                              fontWeight: FontWeight.bold,
-                              height: 1.3,
-                              fontFamily: fontFamily,
-                            ),
-                          ),
-                        );
-                      }
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text.rich(
-                          TextSpan(
-                            children: _buildSpans(
-                              line.text,
-                              textColor,
-                              fontFamily,
-                              appearance,
-                              tokens,
-                            ),
+                    ...article.lines.asMap().entries.map((entry) {
+                      final line = entry.value;
+                      final lineIndex = entry.key;
+                      return ReaderSelectionLine(
+                        key: ValueKey('article-line-$lineIndex'),
+                        onSelection: (range) {
+                          if (range == null || range.startOffset == range.endOffset) {
+                            _selectedRanges.remove(lineIndex);
+                          } else {
+                            _selectedRanges[lineIndex] = range;
+                          }
+                        },
+                        child: Padding(
+                          padding: line.isHeading
+                              ? const EdgeInsets.only(top: 24, bottom: 12)
+                              : const EdgeInsets.only(bottom: 16),
+                          child: Text.rich(
+                            TextSpan(children: _buildSpans(line.text, textColor,
+                                fontFamily, appearance, tokens, lineIndex, isHeading: line.isHeading)),
+                            style: line.isHeading ? TextStyle(
+                              color: textColor, fontSize: appearance.fontSize * 1.25,
+                              fontWeight: FontWeight.bold, height: 1.3, fontFamily: fontFamily,
+                            ) : null,
                           ),
                         ),
                       );
