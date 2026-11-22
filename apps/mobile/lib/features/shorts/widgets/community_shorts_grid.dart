@@ -82,7 +82,12 @@ class CommunityShortsGrid extends StatelessWidget {
                     children: [
                       FilterChip(
                         label: const Text('Liked'),
-                        avatar: const Icon(Icons.thumb_up_alt_outlined, size: 17),
+                        avatar: Icon(
+                          likedOnly
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          size: 17,
+                        ),
                         selected: likedOnly,
                         onSelected: onLikedOnlyChanged,
                       ),

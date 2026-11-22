@@ -41,7 +41,7 @@ describe('VideoFeedComponent', () => {
 
     const chips = (fixture.nativeElement as HTMLElement).querySelectorAll('.pill-chip');
     expect(Array.from(chips).map((c) => c.textContent?.trim())).toEqual([
-      'thumb_up Liked',
+      'favorite Liked',
       'All',
     ]);
     expect(spy).toHaveBeenCalledWith(
@@ -76,7 +76,7 @@ describe('VideoFeedComponent', () => {
       (fixture.nativeElement as HTMLElement).querySelectorAll('.pill-chip'),
     ).map((c) => c.textContent?.trim());
     expect(labels).not.toContain('Followed Channels');
-    expect(labels).toContain('thumb_up Liked');
+    expect(labels).toContain('favorite Liked');
     expect(labels.find((label) => label === 'All')).toBe('All');
     expect(labels.find((label) => label?.includes('Grace Church'))).toContain(
       'Grace Church',

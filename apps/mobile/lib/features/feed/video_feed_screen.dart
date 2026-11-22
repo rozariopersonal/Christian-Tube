@@ -213,9 +213,23 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       },
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
+                        margin: const EdgeInsets.only(right: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(color: _selectedCategory == 'Liked' ? tokens.onSurface : tokens.surfaceVariant, borderRadius: BorderRadius.circular(8)),
-                        child: Center(child: Text('Liked', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _selectedCategory == 'Liked' ? tokens.surface : tokens.onSurfaceMuted))),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _selectedCategory == 'Liked'
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              size: 16,
+                              color: _selectedCategory == 'Liked' ? tokens.surface : tokens.onSurfaceMuted,
+                            ),
+                            const SizedBox(width: 6),
+                            Text('Liked', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _selectedCategory == 'Liked' ? tokens.surface : tokens.onSurfaceMuted)),
+                          ],
+                        ),
                       ),
                     ),
                     // "All" / "All Subscriptions" Pill

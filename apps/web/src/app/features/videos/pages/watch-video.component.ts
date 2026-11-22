@@ -177,7 +177,7 @@ function ensureYouTubeIframeApi(): Promise<void> {
 
                 <div class="bar-actions">
                   <button type="button" class="pill-chip" [class.active]="isLiked()" (click)="toggleLike()" [attr.aria-pressed]="isLiked()">
-                    <span class="material-symbols-rounded">{{ isLiked() ? 'thumb_up' : 'thumb_up_off_alt' }}</span>
+                    <span class="material-symbols-rounded" [class.filled]="isLiked()">favorite</span>
                     {{ isLiked() ? 'Liked' : 'Like' }}
                   </button>
                   <button

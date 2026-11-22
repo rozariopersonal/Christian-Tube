@@ -47,7 +47,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
 
         <div class="filter-strip max-width-box">
           <button type="button" class="pill-chip" [class.active]="filterMode() === 'liked'" (click)="selectLiked()">
-            <span class="material-symbols-rounded">thumb_up</span> Liked
+            <span class="material-symbols-rounded" [class.filled]="filterMode() === 'liked'">favorite</span> Liked
           </button>
           <button
             type="button"
@@ -101,7 +101,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
           </div>
         } @else if (displayVideos().length === 0) {
           <div class="state-card">
-              <span class="material-symbols-rounded state-icon">{{ filterMode() === 'liked' ? 'thumb_up_off_alt' : 'video_library' }}</span>
+              <span class="material-symbols-rounded state-icon">{{ filterMode() === 'liked' ? 'favorite' : 'video_library' }}</span>
               <p>{{ filterMode() === 'liked' ? 'No liked videos yet.' : 'No videos found for this category.' }}</p>
             <button type="button" class="pill-chip active" (click)="selectAll()">
               Show All Videos
