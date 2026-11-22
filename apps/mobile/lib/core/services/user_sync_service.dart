@@ -70,6 +70,8 @@ class SyncOp {
 }
 
 class UserSyncService extends ChangeNotifier {
+  static const String likedVideoType = 'liked_video';
+  static const String likedShortType = 'liked_short';
   static final UserSyncService instance = UserSyncService._internal();
   factory UserSyncService() => instance;
 
@@ -110,6 +112,102 @@ class UserSyncService extends ChangeNotifier {
   Map<String, SyncOp> get pendingOps => Map.unmodifiable(_pendingOps);
   String? get activeUserId => _activeUserId;
   int get acknowledgementVersion => _acknowledgementVersion;
+
+  Set<String> likedIds(String itemType) {
+    final ids = <String>{
+      for (final item in likedItems(itemType))
+        if (item['id'] is String) item['id'] as String,
+    };
+    final tombstoneKey = itemType == likedVideoType
+        ? 'likedVideoTombstones'
+        : 'likedShortTombstones';
+    final tombstones = _remoteState?[tombstoneKey];
+    if (tombstones is Map) {
+      for (final id in tombstones.keys) { ids.remove(id.toString()); }
+    }
+    for (final op in _pendingOps.values) {
+      if (op.kind != 'watch_item' || op.itemType != itemType) continue;
+      if (op.isDeleted) {
+        ids.remove(op.itemId);
+      } else {
+        ids.add(op.itemId);
+      }
+    }
+    return ids;
+  }
+
+  List<Map<String, dynamic>> likedItems(String itemType) {
+    final itemsById = <String, Map<String, dynamic>>{};
+    final itemsKey = itemType == likedVideoType ? 'likedVideos' : 'likedShorts';
+    final tombstoneKey = itemType == likedVideoType
+        ? 'likedVideoTombstones'
+        : 'likedShortTombstones';
+    final rows = _remoteState?[itemsKey];
+    if (rows is List) {
+      for (final row in rows.whereType<Map>()) {
+        final video = row['video'];
+        if (video is Map && video['id'] != null) {
+          final id = video['id'].toString();
+          itemsById[id] = Map<String, dynamic>.from(video)..['id'] = id;
+        }
+      }
+    }
+    final tombstones = _remoteState?[tombstoneKey];
+    if (tombstones is Map) {
+      for (final id in tombstones.keys) {
+        itemsById.remove(id.toString());
+      }
+    }
+    for (final op in _pendingOps.values) {
+      if (op.kind != 'watch_item' || op.itemType != itemType) continue;
+      if (op.isDeleted) {
+        itemsById.remove(op.itemId);
+      } else {
+        itemsById.putIfAbsent(op.itemId, () => {'id': op.itemId});
+      }
+    }
+    return itemsById.values.toList(growable: false);
+  }
+
+  bool isLiked(String itemType, String itemId) =>
+      itemId.isNotEmpty && likedIds(itemType).contains(itemId);
+
+  Future<void> setLiked({
+    required String itemType,
+    required String itemId,
+    required bool liked,
+  }) async {
+    final state = _remoteState;
+    if (state != null) {
+      final isVideo = itemType == likedVideoType;
+      final itemsKey = isVideo ? 'likedVideos' : 'likedShorts';
+      final tombstonesKey =
+          isVideo ? 'likedVideoTombstones' : 'likedShortTombstones';
+      final rows = ((state[itemsKey] as List?) ?? const [])
+          .whereType<Map>()
+          .where((row) => (row['video'] as Map?)?['id']?.toString() != itemId)
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+      final tombstones = Map<String, dynamic>.from(
+        (state[tombstonesKey] as Map?) ?? const {},
+      );
+      final timestamp = nowServerAligned();
+      if (liked) {
+        tombstones.remove(itemId);
+        rows.insert(0, {'video': {'id': itemId}, 'likedAt': timestamp});
+      } else {
+        tombstones[itemId] = timestamp;
+      }
+      _remoteState = {...state, itemsKey: rows, tombstonesKey: tombstones};
+      notifyListeners();
+    }
+    await enqueueWatchItem(
+      itemType: itemType,
+      itemId: itemId,
+      isDeleted: !liked,
+    );
+    unawaited(pullAndFlush(force: true));
+  }
 
   int nowServerAligned() => DateTime.now().millisecondsSinceEpoch + _clockOffsetMs;
 

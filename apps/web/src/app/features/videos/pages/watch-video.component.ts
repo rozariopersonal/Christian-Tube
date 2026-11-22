@@ -26,6 +26,7 @@ import {
 import { VideoLibraryService } from '../services/video-library.service';
 import { VideoPlayerService } from '../services/video-player.service';
 import { VideoService } from '../services/video.service';
+import { UserSyncService } from '../../../core/services/user-sync.service';
 
 interface DescriptionSegment {
   text: string;
@@ -175,6 +176,10 @@ function ensureYouTubeIframeApi(): Promise<void> {
                 }
 
                 <div class="bar-actions">
+                  <button type="button" class="pill-chip" [class.active]="isLiked()" (click)="toggleLike()" [attr.aria-pressed]="isLiked()">
+                    <span class="material-symbols-rounded">{{ isLiked() ? 'thumb_up' : 'thumb_up_off_alt' }}</span>
+                    {{ isLiked() ? 'Liked' : 'Like' }}
+                  </button>
                   <button
                     type="button"
                     class="pill-chip"
@@ -866,6 +871,7 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   readonly channels = inject(ChannelService);
   readonly screen = inject(ScreenClassService);
   readonly library = inject(VideoLibraryService);
+  readonly userSync = inject(UserSyncService);
   private readonly playerService = inject(VideoPlayerService);
   private readonly zone = inject(NgZone);
   private readonly destroyRef = inject(DestroyRef);
@@ -977,6 +983,17 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
     const id = this.video()?.id;
     return id ? this.library.isWatchLater(id) : false;
   });
+
+  readonly isLiked = computed(() => {
+    const id = this.video()?.id;
+    return id ? this.userSync.isLiked('liked_video', id) : false;
+  });
+
+  toggleLike(): void {
+    const video = this.video();
+    if (!video) return;
+    this.userSync.setLiked({ itemType: 'liked_video', itemId: video.id, liked: !this.isLiked() });
+  }
 
   readonly nextUpVideo = computed<Video | null>(() => {
     const currentId = this.video()?.id;

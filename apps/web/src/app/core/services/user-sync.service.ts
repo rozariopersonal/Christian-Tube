@@ -8,7 +8,9 @@ export type SyncWatchItemType =
   | 'watch_later'
   | 'video_history'
   | 'video_playhead'
-  | 'audio_playback';
+  | 'audio_playback'
+  | 'liked_video'
+  | 'liked_short';
 
 export interface SyncOp {
   opId: string;
@@ -47,6 +49,10 @@ export interface RemoteSyncState {
     watchedAt: number;
   }>;
   videoHistoryTombstones?: Record<string, number>;
+  likedVideos?: Array<{ video: Record<string, unknown>; likedAt: number }>;
+  likedVideoTombstones?: Record<string, number>;
+  likedShorts?: Array<{ video: Record<string, unknown>; likedAt: number }>;
+  likedShortTombstones?: Record<string, number>;
   videoPlayheads?: Record<string, { positionSeconds: number; updatedAt: number }>;
   audioPlayback?: {
     trackId?: string;
@@ -221,6 +227,50 @@ export class UserSyncService {
     };
     this.saveOp(userId, key, op);
     void this.flushOutbox();
+  }
+
+  likedItems(itemType: 'liked_video' | 'liked_short'): Array<Record<string, unknown>> {
+    const state = this.remoteState();
+    const items = itemType === 'liked_video' ? state?.likedVideos : state?.likedShorts;
+    const tombstones = itemType === 'liked_video' ? state?.likedVideoTombstones : state?.likedShortTombstones;
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const item of items ?? []) {
+      const id = item.video['id'];
+      if (typeof id === 'string' && id) byId.set(id, { ...item.video, id });
+    }
+    for (const id of Object.keys(tombstones ?? {})) byId.delete(id);
+    for (const op of Object.values(this.pendingOps())) {
+      if (op.kind !== 'watch_item' || op.itemType !== itemType) continue;
+      if (op.isDeleted) byId.delete(op.itemId);
+      else byId.set(op.itemId, byId.get(op.itemId) ?? { id: op.itemId });
+    }
+    return [...byId.values()];
+  }
+
+  likedIds(itemType: 'liked_video' | 'liked_short'): Set<string> {
+    return new Set(this.likedItems(itemType).map((item) => item['id']).filter((id): id is string => typeof id === 'string' && !!id));
+  }
+
+  isLiked(itemType: 'liked_video' | 'liked_short', itemId: string): boolean {
+    return !!itemId && this.likedIds(itemType).has(itemId);
+  }
+
+  setLiked(input: { itemType: 'liked_video' | 'liked_short'; itemId: string; liked: boolean }): void {
+    this.remoteState.update((state) => {
+      if (!state) return state;
+      const isVideo = input.itemType === 'liked_video';
+      const itemsKey = isVideo ? 'likedVideos' : 'likedShorts';
+      const tombstonesKey = isVideo ? 'likedVideoTombstones' : 'likedShortTombstones';
+      const items = (state[itemsKey] ?? []).filter((item) => String(item.video['id'] ?? '') !== input.itemId);
+      const tombstones = { ...(state[tombstonesKey] ?? {}) };
+      if (input.liked) {
+        delete tombstones[input.itemId];
+        items.unshift({ video: { id: input.itemId }, likedAt: this.nowServerAligned() });
+      } else tombstones[input.itemId] = this.nowServerAligned();
+      return { ...state, [itemsKey]: items, [tombstonesKey]: tombstones };
+    });
+    this.enqueueWatchItem({ itemType: input.itemType, itemId: input.itemId, isDeleted: !input.liked });
+    void this.pullAndFlush(true);
   }
 
   async pullAndFlush(force = false): Promise<void> {
