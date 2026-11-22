@@ -1,8 +1,16 @@
-import { Injectable, NotFoundException, Logger, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ServiceUnavailableException,
+  Logger,
+  Optional,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmbeddingService } from "../embedding/embedding.service";
 import { CacheService } from "../cache/cache.service";
+import { YoutubeService } from "../youtube/youtube.service";
 
 interface VideoQuery {
   category?: string;
@@ -33,6 +41,7 @@ export class VideosService {
     private readonly configService: ConfigService,
     private readonly embeddingService: EmbeddingService,
     @Optional() private readonly cache?: CacheService,
+    @Optional() private readonly youtubeService?: YoutubeService,
   ) {}
 
   private buildFeedCacheKey(query: VideoQuery): string {
@@ -614,8 +623,54 @@ export class VideosService {
     description?: string;
     category?: string;
   }) {
-    const videoId = body.youtubeVideoId.trim();
-    const apiKey = this.configService.get<string>("youtubeApiKey");
+    const videoId = body.youtubeVideoId?.trim();
+    if (!videoId) {
+      throw new BadRequestException("youtubeVideoId is required");
+    }
+
+    if (!this.youtubeService) {
+      throw new ServiceUnavailableException(
+        "YouTube verification service is unavailable",
+      );
+    }
+
+    const visibilityMap = await this.youtubeService.verifyVideosVisibility(
+      [videoId],
+      { allowShortsOAuth: true },
+    );
+    const visibility = visibilityMap.get(videoId);
+
+    if (visibility?.status === "private") {
+      await this.prisma.video
+        .deleteMany({ where: { id: videoId } })
+        .catch(() => {});
+      await (this.prisma as any).shortCreation
+        ?.deleteMany?.({ where: { youtubeVideoId: videoId } })
+        .catch(() => {});
+      await this.cache?.invalidate("videos", "channels");
+      this.logger.warn(`Rejected private video import for ${videoId}`);
+      throw new BadRequestException("Private videos cannot be imported");
+    }
+
+    if (visibility?.status === "error") {
+      this.logger.warn(
+        `Visibility check error for import ${videoId}: ${visibility.errorMessage || "unknown"}`,
+      );
+      throw new ServiceUnavailableException(
+        "Unable to verify video visibility with YouTube",
+      );
+    }
+
+    if (!visibility || visibility.status !== "eligible" || !visibility.item) {
+      this.logger.warn(
+        `Rejected unverified video import for ${videoId} (status: ${visibility?.status || "unknown"})`,
+      );
+      throw new BadRequestException(
+        "Video visibility could not be verified on YouTube",
+      );
+    }
+
+    const item = visibility.item;
     let title = body.title || "Inspirational Short";
     let description = body.description || "";
     let thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
@@ -649,51 +704,37 @@ export class VideosService {
       }
     }
 
-    // Try to fetch YouTube metadata if API key is present
-    if (apiKey) {
-      try {
-        const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?key=${apiKey}&id=${encodeURIComponent(videoId)}&part=snippet,contentDetails,statistics`;
-        const res = await fetch(detailsUrl);
-        const data = await res.json();
-        const item = data.items?.[0];
+    const snippet = item.snippet;
+    if (snippet) {
+      title = snippet.title || title;
+      description = snippet.description || description;
+      thumbnail =
+        snippet.thumbnails?.maxres?.url ||
+        snippet.thumbnails?.high?.url ||
+        snippet.thumbnails?.medium?.url ||
+        thumbnail;
+      publishedAt = snippet.publishedAt
+        ? new Date(snippet.publishedAt)
+        : publishedAt;
+      duration = item.contentDetails?.duration || duration;
 
-        if (item) {
-          const snippet = item.snippet;
-          title = snippet.title || title;
-          description = snippet.description || description;
-          thumbnail =
-            snippet.thumbnails?.maxres?.url ||
-            snippet.thumbnails?.high?.url ||
-            snippet.thumbnails?.medium?.url ||
-            thumbnail;
-          publishedAt = snippet.publishedAt
-            ? new Date(snippet.publishedAt)
-            : publishedAt;
-          duration = item.contentDetails?.duration || duration;
-
-          // Parse embedded <!-- CT_META: {...} --> from description if present
-          const jsonMatch = description.match(
-            /<!--\s*CT_META:\s*(\{.*?\})\s*-->/s,
-          );
-          if (jsonMatch) {
-            try {
-              const meta = JSON.parse(jsonMatch[1]);
-              parsedMeta.creatorName =
-                meta.creatorName || parsedMeta.creatorName;
-              parsedMeta.creatorEmail =
-                meta.creatorEmail || parsedMeta.creatorEmail;
-              parsedMeta.sourceVideoId =
-                meta.sourceVideoId || parsedMeta.sourceVideoId;
-              parsedMeta.clipStartTime =
-                meta.startTime ?? parsedMeta.clipStartTime;
-              parsedMeta.clipEndTime = meta.endTime ?? parsedMeta.clipEndTime;
-            } catch (_) {}
-          }
-        }
-      } catch (e: any) {
-        this.logger.warn(
-          `Could not fetch details from YouTube for ${videoId}: ${e.message}`,
-        );
+      // Parse embedded <!-- CT_META: {...} --> from description if present
+      const jsonMatch = description.match(
+        /<!--\s*CT_META:\s*(\{.*?\})\s*-->/s,
+      );
+      if (jsonMatch) {
+        try {
+          const meta = JSON.parse(jsonMatch[1]);
+          parsedMeta.creatorName =
+            meta.creatorName || parsedMeta.creatorName;
+          parsedMeta.creatorEmail =
+            meta.creatorEmail || parsedMeta.creatorEmail;
+          parsedMeta.sourceVideoId =
+            meta.sourceVideoId || parsedMeta.sourceVideoId;
+          parsedMeta.clipStartTime =
+            meta.startTime ?? parsedMeta.clipStartTime;
+          parsedMeta.clipEndTime = meta.endTime ?? parsedMeta.clipEndTime;
+        } catch (_) {}
       }
     }
 

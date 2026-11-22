@@ -17,10 +17,12 @@ function makeService(
   embedQuery: number[] | null = null,
   config: Record<string, unknown> = {},
   cache?: { getOrSet: jest.Mock; invalidate: jest.Mock },
+  youtubeServiceOverride?: { verifyVideosVisibility: jest.Mock },
 ) {
   const prisma = {
-    video: { findMany: jest.fn(), findUnique: jest.fn(), upsert: jest.fn() },
+    video: { findMany: jest.fn(), findUnique: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     channel: { upsert: jest.fn() },
+    shortCreation: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $queryRawUnsafe: jest.fn(),
     $executeRawUnsafe: jest.fn().mockResolvedValue(1),
   };
@@ -30,13 +32,33 @@ function makeService(
     modelVersion: 1,
     embedQuery: jest.fn().mockResolvedValue(embedQuery),
   };
+  const youtubeService = youtubeServiceOverride || {
+    verifyVideosVisibility: jest.fn().mockImplementation(async (ids: string[]) =>
+      new Map(
+        ids.map((id) => [
+          id,
+          {
+            videoId: id,
+            status: 'eligible',
+            item: {
+              id,
+              snippet: { title: `Verified ${id}`, description: '' },
+              contentDetails: { duration: 'PT45S' },
+              status: { privacyStatus: 'public' },
+            },
+          },
+        ]),
+      ),
+    ),
+  };
   const service = new VideosService(
     prisma as any,
     configService as any,
     embeddingService as any,
     cache as any,
+    youtubeService as any,
   );
-  return { service, prisma, configService, embeddingService, cache };
+  return { service, prisma, configService, embeddingService, cache, youtubeService };
 }
 
 describe('VideosService', () => {
@@ -347,6 +369,48 @@ describe('VideosService', () => {
       await service.importShortVideo({ youtubeVideoId: 'short2', title: 'Short 2' });
 
       expect(cache.invalidate).toHaveBeenCalledWith('videos', 'channels');
+    });
+
+    it('rejects private videos without upserting caller-supplied metadata', async () => {
+      const youtubeService = {
+        verifyVideosVisibility: jest.fn().mockResolvedValue(
+          new Map([['priv1', { videoId: 'priv1', status: 'private' }]]),
+        ),
+      };
+      const { service, prisma } = makeService(null, {}, undefined, youtubeService);
+
+      await expect(
+        service.importShortVideo({ youtubeVideoId: 'priv1', title: 'Caller Private Title' }),
+      ).rejects.toThrow('Private videos cannot be imported');
+
+      expect(prisma.channel.upsert).not.toHaveBeenCalled();
+      expect(prisma.video.upsert).not.toHaveBeenCalled();
+      expect(prisma.video.deleteMany).toHaveBeenCalledWith({ where: { id: 'priv1' } });
+    });
+
+    it('fails closed when YouTube cannot verify visibility (unavailable or error)', async () => {
+      const youtubeService = {
+        verifyVideosVisibility: jest
+          .fn()
+          .mockResolvedValueOnce(
+            new Map([['unavail1', { videoId: 'unavail1', status: 'unavailable' }]]),
+          )
+          .mockResolvedValueOnce(
+            new Map([['err1', { videoId: 'err1', status: 'error', errorMessage: 'quota' }]]),
+          ),
+      };
+      const { service, prisma } = makeService(null, {}, undefined, youtubeService);
+
+      await expect(
+        service.importShortVideo({ youtubeVideoId: 'unavail1', title: 'Caller Title' }),
+      ).rejects.toThrow('Video visibility could not be verified on YouTube');
+      await expect(
+        service.importShortVideo({ youtubeVideoId: 'err1', title: 'Caller Title' }),
+      ).rejects.toThrow('Unable to verify video visibility with YouTube');
+
+      expect(prisma.channel.upsert).not.toHaveBeenCalled();
+      expect(prisma.video.upsert).not.toHaveBeenCalled();
+      expect(prisma.video.deleteMany).not.toHaveBeenCalled();
     });
   });
 

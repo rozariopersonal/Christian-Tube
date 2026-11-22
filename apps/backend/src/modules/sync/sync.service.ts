@@ -27,6 +27,34 @@ export class SyncService implements OnModuleInit {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  private async removeConfirmedPrivateVideo(videoId: string): Promise<boolean> {
+    let removed = false;
+    try {
+      const deletedVideos = await this.prisma.video.deleteMany({
+        where: { id: videoId },
+      });
+      if (deletedVideos.count > 0) {
+        removed = true;
+      }
+      const shortCreationModel = (this.prisma as any).shortCreation;
+      if (shortCreationModel?.deleteMany) {
+        const deletedCreations = await shortCreationModel.deleteMany({
+          where: { youtubeVideoId: videoId },
+        });
+        if (deletedCreations?.count > 0) {
+          removed = true;
+        }
+      }
+      if (removed) {
+        this.logger.log(`Removed confirmed private video record: ${videoId}`);
+        await this.cache?.invalidate('videos', 'channels');
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to remove confirmed private video ${videoId}: ${err.message}`);
+    }
+    return removed;
+  }
+
   async onModuleInit() {
     const syncOnBoot = process.env.SYNC_ON_BOOT === 'true' || this.configService.get<string>('SYNC_ON_BOOT') === 'true';
     setTimeout(async () => {
@@ -186,21 +214,36 @@ export class SyncService implements OnModuleInit {
         .map((it: any) => it.contentDetails?.videoId || it.snippet?.resourceId?.videoId)
         .filter(Boolean);
 
-      const detailMap = await this.youtubeService.fetchVideosDetails(videoIds);
+      const visibilityMap = await this.youtubeService.verifyVideosVisibility(videoIds, {
+        allowShortsOAuth: true,
+        expectedChannelId: channelId,
+      });
 
       for (const it of items) {
         const videoId = it.contentDetails?.videoId || it.snippet?.resourceId?.videoId;
         if (!videoId) continue;
 
-        const detail = detailMap.get(videoId);
-        if (!detail) continue;
+        const visibility = visibilityMap.get(videoId);
+        if (!visibility) continue;
+
+        if (visibility.status === 'private') {
+          await this.removeConfirmedPrivateVideo(videoId);
+          continue;
+        }
+
+        if (visibility.status !== 'eligible' || !visibility.item) {
+          continue;
+        }
+
+        const detail = visibility.item;
         // Do not sync upcoming or active broadcasts as ordinary videos. They
         // can be reconsidered after YouTube marks them as regular VODs.
         if (isActiveOrUpcomingBroadcast(detail)) continue;
 
-        const snippet = detail?.snippet || it.snippet;
-        const contentDetails = detail?.contentDetails;
-        const stats = detail?.statistics;
+        const snippet = detail.snippet;
+        if (!snippet) continue;
+        const contentDetails = detail.contentDetails;
+        const stats = detail.statistics;
 
         const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || '');
         const durationSeconds = this.youtubeService.parseIsoDurationSeconds(contentDetails?.duration || '');
@@ -380,6 +423,11 @@ export class SyncService implements OnModuleInit {
    * Helper to upsert a scraped video into PostgreSQL
    */
   private async upsertScrapedVideo(v: ExtractedVideo, channel: any, defaultCategory?: string | null) {
+    const normalizedTitle = (v.title || '').trim().toLowerCase();
+    if (normalizedTitle === 'private video' || normalizedTitle === '[private video]') {
+      return;
+    }
+
     // HTML/RSS fallback sources do not reliably expose broadcast state. Treat
     // entries without a resolved duration as unknown and retry them on a later
     // sync instead of storing live/scheduled broadcasts as 0:00 videos.
@@ -494,102 +542,96 @@ export class SyncService implements OnModuleInit {
 
       if (!videoId || !channelId) return;
 
-      // WebSub's Atom payload does not distinguish scheduled/live broadcasts
-      // from ordinary uploads. Require authoritative video metadata before
-      // accepting a push; daily channel sync can ingest it later if eligible.
-      if (!this.youtubeService.hasApiKey()) {
-        this.logger.debug(
-          `Skipping WebSub video ${videoId}: YouTube API metadata is unavailable`,
-        );
-        return;
-      }
-
-      this.logger.log(`⚡ Live WebSub video publish event: "${title}" (${videoId}) on channel ${channelId}`);
+      this.logger.log(`⚡ Live WebSub video push event: ${videoId} on channel ${channelId}`);
 
       const channel = await this.prisma.channel.findUnique({ where: { id: channelId } });
       const channelName = channel?.name || 'Channel';
       const channelThumb = channel?.thumbnail || null;
       const category = channel?.category || 'General';
 
-      if (this.youtubeService.hasApiKey()) {
-        try {
-          const detailMap = await this.youtubeService.fetchVideosDetails([videoId]);
-          const item = detailMap.get(videoId);
+      const visibilityMap = await this.youtubeService.verifyVideosVisibility([videoId], {
+        allowShortsOAuth: true,
+        expectedChannelId: channelId,
+      });
+      const visibility = visibilityMap.get(videoId);
 
-          if (item) {
-            if (isActiveOrUpcomingBroadcast(item)) {
-              this.logger.log(
-                `Skipping WebSub broadcast ${videoId}: ${item.snippet?.liveBroadcastContent}`,
-              );
-              return;
-            }
-            const snippet = item.snippet;
-            const contentDetails = item.contentDetails;
-            const stats = item.statistics;
-
-            const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || '');
-            const durationSeconds = this.youtubeService.parseIsoDurationSeconds(contentDetails?.duration || '');
-            const hasShortsTag = (snippet?.title || '').toLowerCase().includes('#short') ||
-                                 (snippet?.description || '').toLowerCase().includes('#short');
-            const isSong = isSongChannel(channel.name, channel.category);
-            const isShort = isSong ? hasShortsTag : ((durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag);
-            const videoType = isShort ? 'SHORT' : 'VIDEO';
-            const finalCategory = isSong ? 'Songs' : (channel.category || 'General');
-            const thumb =
-              snippet?.thumbnails?.maxres?.url ||
-              snippet?.thumbnails?.high?.url ||
-              snippet?.thumbnails?.medium?.url ||
-              `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-
-            const videoMetadata = extractVideoMetadata({
-              title: snippet?.title || title,
-              description: snippet?.description || '',
-              channelTitle: snippet?.channelTitle || channelName,
-            });
-
-            await this.prisma.video.upsert({
-              where: { id: videoId },
-              update: {
-                type: videoType,
-                title: snippet?.title || title,
-                description: snippet?.description || '',
-                thumbnail: thumb,
-                publishedAt: snippet?.publishedAt ? new Date(snippet.publishedAt) : publishedAt,
-                duration,
-                viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
-                channelName: snippet?.channelTitle || channelName,
-                channelThumbnail: channelThumb,
-                category: finalCategory,
-                metadata: videoMetadata as any,
-              },
-              create: {
-                id: videoId,
-                type: videoType,
-                title: snippet?.title || title,
-                description: snippet?.description || '',
-                thumbnail: thumb,
-                channelId,
-                channelName: snippet?.channelTitle || channelName,
-                channelThumbnail: channelThumb,
-                publishedAt: snippet?.publishedAt ? new Date(snippet.publishedAt) : publishedAt,
-                duration,
-                viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
-                category,
-                metadata: videoMetadata as any,
-              },
-            });
-            this.logger.log(`✅ Live synced new video "${title}" (${videoId}) via WebSub push`);
-            await this.cache?.invalidate('videos', 'channels');
-            return;
-          }
-        } catch (apiErr: any) {
-          this.logger.warn(`Could not fetch details for live WebSub video ${videoId}: ${apiErr.message}`);
-        }
+      if (visibility?.status === 'private') {
+        await this.removeConfirmedPrivateVideo(videoId);
+        return;
       }
 
-      // Metadata lookup failed or returned no video. Do not fall back to the
-      // WebSub XML payload because it cannot prove this is not a broadcast.
-      return;
+      if (!visibility || visibility.status !== 'eligible' || !visibility.item) {
+        this.logger.warn(
+          `Skipping WebSub video ${videoId} (visibility: ${visibility?.status || 'unknown'})`,
+        );
+        return;
+      }
+
+      const item = visibility.item;
+      if (isActiveOrUpcomingBroadcast(item)) {
+        this.logger.log(
+          `Skipping WebSub broadcast ${videoId}: ${item.snippet?.liveBroadcastContent}`,
+        );
+        return;
+      }
+
+      const snippet = item.snippet;
+      const contentDetails = item.contentDetails;
+      const stats = item.statistics;
+
+      const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || '');
+      const durationSeconds = this.youtubeService.parseIsoDurationSeconds(contentDetails?.duration || '');
+      const hasShortsTag = (snippet?.title || '').toLowerCase().includes('#short') ||
+                           (snippet?.description || '').toLowerCase().includes('#short');
+      const isSong = isSongChannel(channel?.name, channel?.category);
+      const isShort = isSong ? hasShortsTag : ((durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag);
+      const videoType = isShort ? 'SHORT' : 'VIDEO';
+      const finalCategory = isSong ? 'Songs' : (channel?.category || 'General');
+      const thumb =
+        snippet?.thumbnails?.maxres?.url ||
+        snippet?.thumbnails?.high?.url ||
+        snippet?.thumbnails?.medium?.url ||
+        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+      const videoMetadata = extractVideoMetadata({
+        title: snippet?.title || title,
+        description: snippet?.description || '',
+        channelTitle: snippet?.channelTitle || channelName,
+      });
+
+      await this.prisma.video.upsert({
+        where: { id: videoId },
+        update: {
+          type: videoType,
+          title: snippet?.title || title,
+          description: snippet?.description || '',
+          thumbnail: thumb,
+          publishedAt: snippet?.publishedAt ? new Date(snippet.publishedAt) : publishedAt,
+          duration,
+          viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
+          channelName: snippet?.channelTitle || channelName,
+          channelThumbnail: channelThumb,
+          category: finalCategory,
+          metadata: videoMetadata as any,
+        },
+        create: {
+          id: videoId,
+          type: videoType,
+          title: snippet?.title || title,
+          description: snippet?.description || '',
+          thumbnail: thumb,
+          channelId,
+          channelName: snippet?.channelTitle || channelName,
+          channelThumbnail: channelThumb,
+          publishedAt: snippet?.publishedAt ? new Date(snippet.publishedAt) : publishedAt,
+          duration,
+          viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : 0,
+          category,
+          metadata: videoMetadata as any,
+        },
+      });
+      this.logger.log(`✅ Live synced new video ${videoId} via WebSub push`);
+      await this.cache?.invalidate('videos', 'channels');
     } catch (err: any) {
       this.logger.error(`Error handling WebSub push notification payload: ${err.message}`);
     }
@@ -617,9 +659,17 @@ export class SyncService implements OnModuleInit {
 
       for (let i = 0; i < videoIds.length; i += 50) {
         const chunk = videoIds.slice(i, i + 50);
-        const detailMap = await this.youtubeService.fetchVideosDetails(chunk);
+        const visibilityMap = await this.youtubeService.verifyVideosVisibility(chunk);
 
-        for (const [id, item] of detailMap.entries()) {
+        for (const [id, visibility] of visibilityMap.entries()) {
+          if (visibility.status === 'private') {
+            await this.removeConfirmedPrivateVideo(id);
+            continue;
+          }
+          if (visibility.status !== 'eligible' || !visibility.item) {
+            continue;
+          }
+          const item = visibility.item;
           const vObj = videos.find((v) => v.id === id);
           const isSong = isSongChannel(vObj?.channelName);
           const contentDetails = item.contentDetails;
@@ -651,20 +701,36 @@ export class SyncService implements OnModuleInit {
 
   async syncSingleVideo(videoId: string) {
     this.logger.log(`Directly syncing video from YouTube: ${videoId}`);
-    const detailMap = await this.youtubeService.fetchVideosDetails([videoId]);
-    const item = detailMap.get(videoId);
-    if (!item) {
-      this.logger.warn(`Could not find details for video ${videoId} from YouTube API`);
+    const existing = await this.prisma.video.findUnique({
+      where: { id: videoId },
+      select: { channelId: true },
+    });
+    const customChannelId = this.configService.get<string>('shorts.customChannelId');
+    const visibilityMap = await this.youtubeService.verifyVideosVisibility([videoId], {
+      allowShortsOAuth: true,
+      expectedChannelId: existing?.channelId || customChannelId || undefined,
+    });
+    const visibility = visibilityMap.get(videoId);
+
+    if (visibility?.status === 'private') {
+      await this.removeConfirmedPrivateVideo(videoId);
       return null;
     }
 
+    if (!visibility || visibility.status !== 'eligible' || !visibility.item) {
+      this.logger.warn(
+        `Skipping single video sync for ${videoId} (visibility: ${visibility?.status || 'unknown'})`,
+      );
+      return null;
+    }
+
+    const item = visibility.item;
     if (isActiveOrUpcomingBroadcast(item)) {
       this.logger.log(
         `Skipping direct video sync for ${videoId}: ${item.snippet?.liveBroadcastContent}`,
       );
       return null;
     }
-
     const snippet = item.snippet;
     const contentDetails = item.contentDetails;
     const stats = item.statistics;
