@@ -243,6 +243,48 @@ void main() {
       expect(params['channelIds'], 'enA');
     });
 
+    test('channel filter requests multiple selected channels', () async {
+      final controller = buildController(responses: ['[]', '[]']);
+      await _settle();
+
+      await controller.updateSubscriptionContext(
+        isAuthenticated: true,
+        subscribedChannelIds: {'enA', 'taC', 'hiB'},
+      );
+      final allFollowedCacheKey = controller.activeCacheKey;
+
+      await controller.setChannelFilter({'taC', 'hiB'});
+
+      expect(adapter.requests, hasLength(2));
+      final ids =
+          (adapter.requests.last.queryParameters['channelIds'] as String)
+              .split(',');
+      expect(ids, containsAll(['taC', 'hiB']));
+      expect(ids, hasLength(2));
+      expect(controller.selectedChannelIds, {'taC', 'hiB'});
+      expect(controller.activeCacheKey, isNot(allFollowedCacheKey));
+    });
+
+    test('clearing channel selection restores the followed feed', () async {
+      final controller = buildController(responses: ['[]', '[]', '[]']);
+      await _settle();
+
+      await controller.updateSubscriptionContext(
+        isAuthenticated: true,
+        subscribedChannelIds: {'enA', 'taC'},
+      );
+      await controller.setChannelFilter({'taC'});
+      await controller.setChannelFilter(const {});
+
+      expect(adapter.requests, hasLength(3));
+      final ids =
+          (adapter.requests.last.queryParameters['channelIds'] as String)
+              .split(',');
+      expect(ids, containsAll(['enA', 'taC']));
+      expect(ids, hasLength(2));
+      expect(controller.selectedChannelIds, isEmpty);
+    });
+
     test('constructor initialized with subscriptions loads scoped cache instead of generic all cache', () async {
       final controller = buildController(
         responses: [],
