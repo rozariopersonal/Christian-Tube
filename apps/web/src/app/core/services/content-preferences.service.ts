@@ -97,7 +97,8 @@ export class ContentPreferencesService {
 
   private readLocalLanguages(): string[] {
     try {
-      const raw = localStorage.getItem(KEY_PREFERRED_LANGUAGES);
+      const raw = localStorage.getItem(KEY_PREFERRED_LANGUAGES) ??
+        localStorage.getItem('selected_languages');
       const parsed = raw ? (JSON.parse(raw) as unknown) : null;
       return Array.isArray(parsed) && parsed.length > 0
         ? parsed.map(String)

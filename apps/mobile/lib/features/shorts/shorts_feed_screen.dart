@@ -115,16 +115,9 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   }
 
   Set<String> get _subscribedShortsChannelIds {
-    final prefShorts = _preferenceService.preferences.shortsChannelIds.toSet();
-    final allSubs = _channelService.subscribedChannelIds;
+    final candidateIds = _preferenceService.preferences
+        .shortsFeedChannels(_channelService.subscribedChannelIds);
     final channels = _channelService.channels;
-
-    Set<String> candidateIds;
-    if (prefShorts.isNotEmpty) {
-      candidateIds = prefShorts;
-    } else {
-      candidateIds = allSubs;
-    }
 
     if (candidateIds.isEmpty) return const {};
 

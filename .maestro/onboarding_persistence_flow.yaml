@@ -1,0 +1,47 @@
+appId: org.rozario.christiantube.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Later"
+    optional: true
+- tapOn:
+    text: "Allow"
+    optional: true
+- tapOn:
+    text: "^Continue as Guest$"
+- assertVisible: "Select Content Languages"
+- tapOn: "Tamil"
+- tapOn: "Continue"
+- assertVisible: "Follow Video Channels"
+- extendedWaitUntil:
+    visible: "Following"
+    timeout: 30000
+- tapOn: "Clear"
+- tapOn:
+    text: "Follow"
+    index: 0
+- tapOn: "Continue"
+- assertVisible: "Follow Shorts Channels"
+- tapOn: "Clear"
+- tapOn: "Continue"
+- stopApp
+- launchApp
+- assertVisible:
+    text: ".*Bible Versions.*"
+- tapOn: "Back"
+- assertVisible: "Follow Shorts Channels"
+- assertNotVisible: "Following"
+- tapOn: "Back"
+- assertVisible: "Follow Video Channels"
+- assertVisible: "Following"
+- tapOn: "Continue"
+- tapOn: "Continue"
+- tapOn: "Continue"
+- assertVisible: "Personalize Your App"
+- tapOn: "Get Started"
+- assertVisible: "ChristianApp"
+- stopApp
+- launchApp
+- assertVisible: "ChristianApp"
+- assertNotVisible: "Personalize Your App"
