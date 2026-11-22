@@ -25,6 +25,7 @@ import '../../core/config/app_config.dart';
 import 'widgets/youtube_playlist_widget.dart';
 import 'players/universal_video_player.dart';
 import 'widgets/shorts_trimmer_sheet.dart';
+import 'widgets/video_action_bar.dart';
 import '../../core/models/short.dart';
 import '../audio/controllers/audio_player_controller.dart';
 import '../audio/models/audio_track.dart';
@@ -74,7 +75,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   List<Video> _playlist = [];
   int _playlistIndex = 0;
   bool _isDescriptionExpanded = false;
-  bool _isDisliked = false;
 
   AudioTrack? _matchedAudioTrack;
 
@@ -807,7 +807,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             children: [
               Expanded(child: channelWidget),
               const SizedBox(width: 16),
-              actionsWidget,
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: actionsWidget,
+                  ),
+                ),
+              ),
             ],
           );
         }
@@ -976,138 +984,42 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
-  // ── Action Buttons (Like, Dislike, Clip, Share, Save, YouTube) ─────────────
+  // ── Action Buttons (Like, Clip, Share, Save, YouTube) ──────────────────────
   Widget _buildActionButtons(BuildContext context) {
-    final tokens = context.tokens;
     return AnimatedBuilder(
       animation: UserSyncService.instance,
       builder: (context, _) {
-        final isLiked = _video != null && UserSyncService.instance.isLiked(
-          UserSyncService.likedVideoType,
-          _video!.id,
-        );
-        return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (_matchedAudioTrack != null) ...[
-          _buildActionPill(
-            icon: Icons.headphones,
-            label: 'Listen to Audio',
-            onTap: () {
-              final pos = _currentPositionSeconds.toInt();
-              pausePlatformMainVideo();
-              AudioPlayerController.instance.playTrack(
-                _matchedAudioTrack!,
-                resumePositionSec: pos,
-              );
-              FullAudioPlayerSheet.show(context);
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-
-        // Like / Dislike Segmented Pill
-        Container(
-          decoration: BoxDecoration(
-            color: tokens.surfaceVariant,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
-                borderRadius:
-                    const BorderRadius.horizontal(left: Radius.circular(20)),
-                onTap: () {
-                  if (_video != null) {
-                    UserSyncService.instance.setLiked(
-                      itemType: UserSyncService.likedVideoType,
-                      itemId: _video!.id,
-                      liked: !isLiked,
-                    );
-                  }
-                  if (!isLiked) setState(() => _isDisliked = false);
+        final targetId = _video?.id ?? _activeVideoId;
+        final isLiked = targetId.isNotEmpty &&
+            UserSyncService.instance.isLiked(
+              UserSyncService.likedVideoType,
+              targetId,
+            );
+        return VideoActionBar(
+          isLiked: isLiked,
+          onToggleLike: () {
+            if (targetId.isEmpty) return;
+            UserSyncService.instance.setLiked(
+              itemType: UserSyncService.likedVideoType,
+              itemId: targetId,
+              liked: !isLiked,
+            );
+          },
+          matchedAudioTrack: _matchedAudioTrack,
+          onListenAudio: _matchedAudioTrack == null
+              ? null
+              : () {
+                  final pos = _currentPositionSeconds.toInt();
+                  pausePlatformMainVideo();
+                  AudioPlayerController.instance.playTrack(
+                    _matchedAudioTrack!,
+                    resumePositionSec: pos,
+                  );
+                  FullAudioPlayerSheet.show(context);
                 },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                        size: 16,
-                        color: isLiked
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        isLiked ? 'Liked' : 'Like',
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 18,
-                color: tokens.surfaceBorder,
-              ),
-              InkWell(
-                borderRadius:
-                    const BorderRadius.horizontal(right: Radius.circular(20)),
-                onTap: () {
-                  setState(() {
-                    _isDisliked = !_isDisliked;
-                  });
-                  if (_isDisliked && isLiked && _video != null) {
-                    UserSyncService.instance.setLiked(
-                      itemType: UserSyncService.likedVideoType,
-                      itemId: _video!.id,
-                      liked: false,
-                    );
-                  }
-                },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  child: Icon(
-                    _isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined,
-                    size: 16,
-                    color: _isDisliked
-                        ? Theme.of(context).colorScheme.error
-                        : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        // Clip Short
-        _buildActionPill(
-          icon: Icons.content_cut,
-          label: 'Clip',
-          onTap: _openShortsTrimmer,
-        ),
-        const SizedBox(width: 8),
-
-        // Share
-        _buildActionPill(
-          icon: Icons.share_outlined,
-          label: 'Share',
-          onTap: _shareVideo,
-        ),
-        const SizedBox(width: 8),
-
-        // Save
-        _buildActionPill(
-          icon: Icons.bookmark_add_outlined,
-          label: 'Save',
-          onTap: () {
+          onClip: _openShortsTrimmer,
+          onShare: _shareVideo,
+          onSave: () {
             if (_video != null) {
               VideoOptionsBottomSheet.show(
                 context,
@@ -1115,16 +1027,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               );
             }
           },
-        ),
-        const SizedBox(width: 8),
-
-        // YouTube
-        _buildActionPill(
-          icon: Icons.open_in_new,
-          label: 'YouTube',
-          onTap: _openInYouTubeApp,
-        ),
-      ],
+          onOpenYouTube: _openInYouTubeApp,
         );
       },
     );
@@ -1347,34 +1250,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildActionPill({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: context.tokens.surfaceVariant,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16),
-            const SizedBox(width: 6),
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      ),
     );
   }
 }

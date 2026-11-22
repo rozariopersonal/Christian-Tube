@@ -117,11 +117,12 @@ import { normalizeVideo } from '../models/video.model';
             <button
               type="button"
               class="rail-btn"
+              [class.active]="isShortLiked(current.id)"
               [attr.aria-pressed]="isShortLiked(current.id)"
-              [title]="isShortLiked(current.id) ? 'Unlike Short' : 'Like Short'"
+              [title]="isShortLiked(current.id) ? 'Liked' : 'Like'"
               (click)="toggleShortLike(current)"
             >
-              <span class="material-symbols-rounded">{{ isShortLiked(current.id) ? 'thumb_up' : 'thumb_up_off_alt' }}</span>
+              <span class="material-symbols-rounded" [class.filled]="isShortLiked(current.id)">favorite</span>
             </button>
             <button
               type="button"
@@ -167,7 +168,7 @@ import { normalizeVideo } from '../models/video.model';
 
         <div class="shorts-filter-strip" aria-label="Filter shorts by channel">
           <button type="button" class="pill-chip" [class.active]="onlyLiked()" (click)="toggleLikedFilter()">
-            <span class="material-symbols-rounded">thumb_up</span> Liked
+            <span class="material-symbols-rounded" [class.filled]="onlyLiked()">favorite</span> Liked
           </button>
           <button
             type="button"
@@ -621,6 +622,7 @@ import { normalizeVideo } from '../models/video.model';
         place-items: center;
       }
 
+      .rail-btn.active,
       .rail-btn:hover:not([disabled]) {
         background-color: var(--accent-soft);
         color: var(--accent);

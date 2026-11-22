@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import '../../../core/models/short.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../core/services/user_sync_service.dart';
+import '../../../core/theme/app_tokens.dart';
 import 'shorts_chrome.dart';
 
 class ShortActionBar extends StatelessWidget {
@@ -38,49 +40,78 @@ class ShortActionBar extends StatelessWidget {
           UserSyncService.likedShortType,
           short.id,
         );
-        return GestureDetector(
-          onTap: () => UserSyncService.instance.setLiked(
-            itemType: UserSyncService.likedShortType,
-            itemId: short.id,
-            liked: !isLiked,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(13),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: context.shortsChromeFill,
-                  border: Border.all(color: context.shortsChromeFg, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: context.shortsChromeShadow.withValues(alpha: 0.54),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+        return Semantics(
+          button: true,
+          toggled: isLiked,
+          label: isLiked ? 'Liked, tap to remove like' : 'Like',
+          child: GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              UserSyncService.instance.setLiked(
+                itemType: UserSyncService.likedShortType,
+                itemId: short.id,
+                liked: !isLiked,
+              );
+            },
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedScale(
+                    scale: isLiked ? 1.12 : 1.0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutBack,
+                    child: Container(
+                      padding: const EdgeInsets.all(13),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isLiked
+                            ? context.accent.withValues(alpha: 0.22)
+                            : context.shortsChromeFill,
+                        border: Border.all(
+                          color: isLiked
+                              ? context.accent
+                              : context.shortsChromeFg,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: context.shortsChromeShadow
+                                .withValues(alpha: 0.54),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        isLiked
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color:
+                            isLiked ? context.accent : context.shortsChromeFg,
+                        size: 24,
+                      ),
                     ),
-                  ],
-                ),
-                child: Icon(
-                  isLiked ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
-                  color: isLiked ? context.accent : context.shortsChromeFg,
-                  size: 24,
-                ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    isLiked ? 'Liked' : 'Like',
+                    style: TextStyle(
+                      color: isLiked ? context.accent : context.shortsChromeFg,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      shadows: [
+                        Shadow(
+                            color: context.shortsChromeShadow, blurRadius: 6),
+                        Shadow(
+                            color: context.shortsChromeShadow, blurRadius: 2),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 5),
-              Text(
-                isLiked ? 'Liked' : 'Like',
-                style: TextStyle(
-                  color: context.shortsChromeFg,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  shadows: [
-                    Shadow(color: context.shortsChromeShadow, blurRadius: 6),
-                    Shadow(color: context.shortsChromeShadow, blurRadius: 2),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -135,7 +166,7 @@ class ShortActionBar extends StatelessWidget {
             style: TextStyle(
               color: context.shortsChromeFg,
               fontWeight: FontWeight.bold,
-              fontSize: 12,
+              fontSize: 13,
               shadows: [
                 Shadow(color: context.shortsChromeShadow, blurRadius: 6),
                 Shadow(color: context.shortsChromeShadow, blurRadius: 2),
