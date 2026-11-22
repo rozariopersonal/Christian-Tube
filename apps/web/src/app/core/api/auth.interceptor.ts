@@ -2,7 +2,7 @@ import { HttpInterceptorFn } from '@angular/common/http';
 import { AppConfig } from '../config/app-config';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!req.url.startsWith(AppConfig.apiBaseUrl)) {
+  if (!req.url.startsWith(AppConfig.apiBaseUrl) || req.headers.has('Authorization')) {
     return next(req);
   }
 

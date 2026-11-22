@@ -44,6 +44,7 @@ describe('GoogleSignInButtonComponent', () => {
     expect(auth.currentUser()?.id).toBe('u1');
     expect(localStorage.getItem('auth_token')).toBe(token);
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne((request) => request.url.endsWith('/api/auth/session')).flush({ token: `session_${'a'.repeat(43)}` });
     http.expectOne((request) => request.url.endsWith('/api/users/sync')).flush({});
     await Promise.resolve();
     http.match((request) => request.url.includes('/channels/check-admin')).forEach((request) => request.flush({ isAdmin: false }));
