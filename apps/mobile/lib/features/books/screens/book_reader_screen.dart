@@ -481,65 +481,66 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                         ),
                       ),
                     )
-                  : BookReaderZoomCanvas(
-                      controller: _coordinator.zoomController,
-                      child: Stack(
-                        children: [
-                          continuous
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        BookReaderZoomCanvas(
+                          controller: _coordinator.zoomController,
+                          child: continuous
                               ? _buildContinuousContent(tokens)
                               : isDualPage
                                   ? _buildDualPageSpreadView(tokens)
                                   : _buildMobilePageView(tokens),
-                          if (_selectedHighlight != null)
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 12,
-                              child: Center(
-                                child: FloatingSelectionBar(
-                                  currentColorIndex: _selectedHighlight!.color,
-                                  hasHighlight: true,
-                                  onSwatch: (c) => _recolorSelectedHighlight(
-                                    _selectedHighlight!,
-                                    c,
-                                  ),
-                                  onClearHighlight: () => _deleteSelectedHighlight(
-                                    _selectedHighlight!,
-                                  ),
-                                  onDismiss: () =>
-                                      setState(() => _selectedHighlight = null),
-                                  actions: [
-                                    SelectionBarAction(
-                                      icon: Icons.copy_rounded,
-                                      tooltip: 'Copy',
-                                      onTap: () {
-                                        Clipboard.setData(
-                                          ClipboardData(
-                                            text: _selectedHighlight!.text,
-                                          ),
-                                        );
-                                        setState(() => _selectedHighlight = null);
-                                      },
-                                    ),
-                                    SelectionBarAction(
-                                      icon: Icons.ios_share_rounded,
-                                      tooltip: 'Share',
-                                      onTap: () {
-                                        final txt = _selectedHighlight!.text;
-                                        setState(() => _selectedHighlight = null);
-                                        Share.share(txt);
-                                      },
-                                    ),
-                                  ],
+                        ),
+                        if (_selectedHighlight != null)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 12,
+                            child: Center(
+                              child: FloatingSelectionBar(
+                                currentColorIndex: _selectedHighlight!.color,
+                                hasHighlight: true,
+                                onSwatch: (c) => _recolorSelectedHighlight(
+                                  _selectedHighlight!,
+                                  c,
                                 ),
+                                onClearHighlight: () => _deleteSelectedHighlight(
+                                  _selectedHighlight!,
+                                ),
+                                onDismiss: () =>
+                                    setState(() => _selectedHighlight = null),
+                                actions: [
+                                  SelectionBarAction(
+                                    icon: Icons.copy_rounded,
+                                    tooltip: 'Copy',
+                                    onTap: () {
+                                      Clipboard.setData(
+                                        ClipboardData(
+                                          text: _selectedHighlight!.text,
+                                        ),
+                                      );
+                                      setState(() => _selectedHighlight = null);
+                                    },
+                                  ),
+                                  SelectionBarAction(
+                                    icon: Icons.ios_share_rounded,
+                                    tooltip: 'Share',
+                                    onTap: () {
+                                      final txt = _selectedHighlight!.text;
+                                      setState(() => _selectedHighlight = null);
+                                      Share.share(txt);
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
-                          if (_fullscreen.isFullscreenFor(_readerId))
-                            ReaderFullscreenButton(
-                              onExit: () => _fullscreen.exit(_readerId),
-                            ),
-                        ],
-                      ),
+                          ),
+                        if (_fullscreen.isFullscreenFor(_readerId))
+                          ReaderFullscreenButton(
+                            onExit: () => _fullscreen.exit(_readerId),
+                          ),
+                      ],
                     ),
           bottomNavigationBar: s.showChrome &&
                   s.book != null &&
