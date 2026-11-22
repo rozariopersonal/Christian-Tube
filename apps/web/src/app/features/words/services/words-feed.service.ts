@@ -36,6 +36,7 @@ export class WordsFeedService {
   private activePool: WordFeedItem[] = [];
   private seenIds: string[] = [];
   private loadGeneration = 0;
+  private hydrationGeneration = 0;
   private readonly pageSize = 24;
 
   readonly versionId = (): string => this.prefs.activeVersionId();
@@ -184,6 +185,7 @@ export class WordsFeedService {
 
   async rehydrateVersion(activeIndex: number): Promise<void> {
     const gen = this.loadGeneration;
+    const hydrationGen = ++this.hydrationGeneration;
     const list = [...this.items()];
     if (list.length === 0) return;
 
@@ -194,65 +196,26 @@ export class WordsFeedService {
       ...(activeIndex + 1 < list.length ? [activeIndex + 1] : []),
       ...(activeIndex - 1 >= 0 ? [activeIndex - 1] : []),
     ]);
+    const update = async (indices: number[]) => {
+      const hydrated = await Promise.all(indices.map((idx) => this.hydrateItem(list[idx], ver, cmpIds)));
+      if (gen !== this.loadGeneration || hydrationGen !== this.hydrationGeneration) return;
+      const byId = new Map(hydrated.map((item) => [item.id, item]));
+      this.items.update((current) => current.map((item) => {
+        const result = byId.get(item.id);
+        return result ? { ...item, verseText: result.verseText, resolvedVersion: result.resolvedVersion, comparisons: result.comparisons } : item;
+      }));
+    };
 
-    await Promise.all(
-      [...eager].map(async (idx) => {
-        list[idx] = await this.hydrateItem(list[idx], ver, cmpIds);
-      }),
-    );
-    if (gen !== this.loadGeneration) return;
-    this.items.set([...list]);
-
-    // Hydrate remaining loaded items in small batches
+    await update([...eager]);
     for (let i = 0; i < list.length; i += 4) {
-      if (gen !== this.loadGeneration) return;
-      const indices = [i, i + 1, i + 2, i + 3].filter(
-        (idx) => idx < list.length && !eager.has(idx),
-      );
-      if (indices.length === 0) continue;
-      await Promise.all(
-        indices.map(async (idx) => {
-          list[idx] = await this.hydrateItem(list[idx], ver, cmpIds);
-        }),
-      );
-      if (gen !== this.loadGeneration) return;
-      this.items.set([...list]);
+      if (gen !== this.loadGeneration || hydrationGen !== this.hydrationGeneration) return;
+      const indices = [i, i + 1, i + 2, i + 3].filter((idx) => idx < list.length && !eager.has(idx));
+      if (indices.length) await update(indices);
     }
   }
 
   async rehydrateComparison(activeIndex: number): Promise<void> {
-    const gen = this.loadGeneration;
-    const list = [...this.items()];
-    if (list.length === 0) return;
-    const cmpIds = this.comparisonVersionIds();
-
-    const eager = new Set<number>([
-      activeIndex,
-      ...(activeIndex + 1 < list.length ? [activeIndex + 1] : []),
-    ]);
-
-    await Promise.all(
-      [...eager].map(async (idx) => {
-        list[idx] = await this.hydrateComparisonOnly(list[idx], cmpIds);
-      }),
-    );
-    if (gen !== this.loadGeneration) return;
-    this.items.set([...list]);
-
-    for (let i = 0; i < list.length; i += 4) {
-      if (gen !== this.loadGeneration) return;
-      const indices = [i, i + 1, i + 2, i + 3].filter(
-        (idx) => idx < list.length && !eager.has(idx),
-      );
-      if (indices.length === 0) continue;
-      await Promise.all(
-        indices.map(async (idx) => {
-          list[idx] = await this.hydrateComparisonOnly(list[idx], cmpIds);
-        }),
-      );
-      if (gen !== this.loadGeneration) return;
-      this.items.set([...list]);
-    }
+    await this.rehydrateVersion(activeIndex);
   }
 
   syncSavedFlags(): void {
@@ -277,19 +240,18 @@ export class WordsFeedService {
       }
     }
 
-    const ver = this.versionId();
-    const cmpIds = this.comparisonVersionIds();
+    let hydrationGen: number;
+    let hydrated: WordFeedItem[];
+    do {
+      hydrationGen = this.hydrationGeneration;
+      const ver = this.versionId();
+      const cmpIds = this.comparisonVersionIds();
+      hydrated = await Promise.all(slice.map((item) => this.hydrateItem(item, ver, cmpIds)));
+      if (gen !== this.loadGeneration) return;
+    } while (hydrationGen !== this.hydrationGeneration);
+
     const saved = this.prefs.savedIds();
-
-    const hydrated = await Promise.all(
-      slice.map(async (item) => {
-        const withSaved = { ...item, isSaved: saved.has(item.id) };
-        return this.hydrateItem(withSaved, ver, cmpIds);
-      }),
-    );
-
-    if (gen !== this.loadGeneration) return;
-    this.items.update((cur) => [...cur, ...hydrated]);
+    this.items.update((cur) => [...cur, ...hydrated.map((item) => ({ ...item, isSaved: saved.has(item.id) }))]);
   }
 
   private async getFullPool(): Promise<WordFeedItem[]> {

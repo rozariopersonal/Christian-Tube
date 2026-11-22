@@ -216,6 +216,27 @@ describe('Web Word Feed Feature', () => {
     expect(items[1].referenceLabel).toBe('Romans 8:28');
   });
 
+  it('keeps the latest version when an older request finishes last', async () => {
+    const releases = TestBed.inject(ReleaseDataService);
+    const prefs = TestBed.inject(WordsPreferencesService);
+    const service = TestBed.inject(WordsFeedService);
+    service.items.set([{ ...MOCK_SCRIPTURES[1], id: 'john', verseText: 'KJV', resolvedVersion: 'kjv' }]);
+
+    let finishWeb!: (verses: { verse: number; text: string }[]) => void;
+    vi.spyOn(releases, 'getJson').mockImplementation((path: string) => {
+      if (path.includes('/web/')) return new Promise((resolve) => { finishWeb = resolve; });
+      return Promise.resolve([{ verse: 16, text: 'ASV' }]);
+    });
+    prefs.setVersion('web');
+    const older = service.rehydrateVersion(0);
+    prefs.setVersion('asv');
+    await service.rehydrateVersion(0);
+    finishWeb([{ verse: 16, text: 'WEB' }]);
+    await older;
+    expect(service.items()[0].resolvedVersion).toBe('asv');
+    expect(service.items()[0].verseText).toBe('ASV');
+  });
+
   it('renders WordsFeedComponent and supports stepping font scale & bookmarks', async () => {
     const releases = TestBed.inject(ReleaseDataService);
     const prefs = TestBed.inject(WordsPreferencesService);
