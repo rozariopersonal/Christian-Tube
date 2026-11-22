@@ -13,6 +13,36 @@ export interface ExtractedVideo {
   videoType: 'VIDEO' | 'SHORT';
 }
 
+export type VideoVisibilityStatus = 'eligible' | 'private' | 'unavailable' | 'error';
+
+export interface VideoVisibilityResult {
+  videoId: string;
+  status: VideoVisibilityStatus;
+  item?: any;
+  errorMessage?: string;
+}
+
+export interface VerifyVideosVisibilityOptions {
+  /**
+   * When true, if the public API-key lookup omits a video and Shorts OAuth is configured,
+   * query with the Shorts channel OAuth token strictly for videos owned by `shorts.customChannelId`.
+   */
+  allowShortsOAuth?: boolean;
+  /**
+   * Optional channel ID associated with the caller context. When provided, Shorts OAuth is
+   * only attempted if it matches `shorts.customChannelId`.
+   */
+  expectedChannelId?: string;
+}
+
+export function classifyVideoVisibility(item: any): VideoVisibilityStatus {
+  if (!item) return 'unavailable';
+  const privacyStatus = item.status?.privacyStatus;
+  if (privacyStatus === 'private') return 'private';
+  if (privacyStatus === 'public' || privacyStatus === 'unlisted') return 'eligible';
+  return 'unavailable';
+}
+
 export function parseIsoDurationSeconds(duration: string): number {
   if (!duration) return 0;
   const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
@@ -377,24 +407,194 @@ export class YoutubeService {
     };
   }
 
+  hasShortsOAuth(): boolean {
+    const clientId = this.configService.get<string>('youtubeClientId');
+    const clientSecret = this.configService.get<string>('youtubeClientSecret');
+    const refreshToken = this.configService.get<string>('youtubeRefreshToken');
+    const customChannelId = this.configService.get<string>('shorts.customChannelId');
+    return !!(clientId && clientSecret && refreshToken && customChannelId);
+  }
+
+  private async getShortsOAuthAccessToken(): Promise<string> {
+    const clientId = this.configService.get<string>('youtubeClientId');
+    const clientSecret = this.configService.get<string>('youtubeClientSecret');
+    const refreshToken = this.configService.get<string>('youtubeRefreshToken');
+    if (!clientId || !clientSecret || !refreshToken) {
+      throw new Error('Shorts OAuth credentials are not configured');
+    }
+
+    const tokenRes = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }).toString(),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 10000,
+      },
+    );
+
+    const accessToken = tokenRes.data?.access_token;
+    if (!accessToken) {
+      throw new Error('Failed to obtain YouTube OAuth access token');
+    }
+    return accessToken;
+  }
+
+  private async fetchVideosBatch(videoIds: string[], accessToken?: string): Promise<Map<string, any>> {
+    const map = new Map<string, any>();
+    if (!videoIds.length) return map;
+
+    const idsStr = videoIds.map((id) => encodeURIComponent(id)).join(',');
+    const detailsUrl = accessToken
+      ? `https://www.googleapis.com/youtube/v3/videos?id=${idsStr}&part=snippet,contentDetails,statistics,status`
+      : `https://www.googleapis.com/youtube/v3/videos?key=${this.apiKey}&id=${idsStr}&part=snippet,contentDetails,statistics,status`;
+
+    const res = await axios.get(detailsUrl, {
+      ...(accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {}),
+      timeout: 12000,
+    });
+
+    for (const it of res.data?.items || []) {
+      map.set(it.id, it);
+    }
+    return map;
+  }
+
   /**
-   * Fetch multi-ID video details (durations, statistics, snippet)
+   * Fetch multi-ID video details (durations, statistics, snippet, status) in batches of 50.
    */
   async fetchVideosDetails(videoIds: string[]): Promise<Map<string, any>> {
     const map = new Map<string, any>();
-    if (!videoIds.length || !this.apiKey) return map;
+    const uniqueIds = Array.from(new Set(videoIds.filter(Boolean)));
+    if (!uniqueIds.length || !this.apiKey) return map;
 
     try {
-      const idsStr = videoIds.join(',');
-      const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?key=${this.apiKey}&id=${idsStr}&part=snippet,contentDetails,statistics`;
-      const res = await axios.get(detailsUrl, { timeout: 12000 });
-      for (const it of res.data?.items || []) {
-        map.set(it.id, it);
+      for (let i = 0; i < uniqueIds.length; i += 50) {
+        const chunk = uniqueIds.slice(i, i + 50);
+        const batchMap = await this.fetchVideosBatch(chunk);
+        for (const [id, item] of batchMap.entries()) {
+          map.set(id, item);
+        }
       }
     } catch (e: any) {
       this.logger.warn(`Error fetching video details: ${e.message}`);
     }
     return map;
+  }
+
+  /**
+   * Verify visibility for one or more video IDs in batched `videos.list` calls (part=...,status).
+   * Distinguishes `eligible` (public/unlisted), `private` (confirmed private),
+   * `unavailable` (omitted or unverified status), and `error` (missing key / network / quota error).
+   */
+  async verifyVideosVisibility(
+    videoIds: string[],
+    options: VerifyVideosVisibilityOptions = {},
+  ): Promise<Map<string, VideoVisibilityResult>> {
+    const results = new Map<string, VideoVisibilityResult>();
+    const uniqueIds = Array.from(new Set(videoIds.filter(Boolean)));
+    if (!uniqueIds.length) return results;
+
+    const customChannelId = this.configService.get<string>('shorts.customChannelId');
+    const canUseShortsOAuth =
+      !!options.allowShortsOAuth &&
+      this.hasShortsOAuth() &&
+      (!options.expectedChannelId || options.expectedChannelId === customChannelId);
+
+    if (!this.apiKey && !canUseShortsOAuth) {
+      for (const id of uniqueIds) {
+        results.set(id, {
+          videoId: id,
+          status: 'error',
+          errorMessage: 'YouTube API key is not configured',
+        });
+      }
+      return results;
+    }
+
+    const unresolvedForOAuth: string[] = [];
+
+    if (this.apiKey) {
+      for (let i = 0; i < uniqueIds.length; i += 50) {
+        const chunk = uniqueIds.slice(i, i + 50);
+        try {
+          const batchMap = await this.fetchVideosBatch(chunk);
+          for (const id of chunk) {
+            const item = batchMap.get(id);
+            if (!item) {
+              results.set(id, { videoId: id, status: 'unavailable' });
+              if (canUseShortsOAuth) {
+                unresolvedForOAuth.push(id);
+              }
+            } else {
+              const status = classifyVideoVisibility(item);
+              results.set(id, { videoId: id, status, item: status === 'eligible' ? item : undefined });
+            }
+          }
+        } catch (e: any) {
+          this.logger.warn(`Visibility check failed for batch (${chunk.length} IDs): ${e.message}`);
+          for (const id of chunk) {
+            results.set(id, {
+              videoId: id,
+              status: 'error',
+              errorMessage: e.message,
+            });
+          }
+        }
+      }
+    } else if (canUseShortsOAuth) {
+      unresolvedForOAuth.push(...uniqueIds);
+    }
+
+    if (canUseShortsOAuth && unresolvedForOAuth.length > 0) {
+      try {
+        const accessToken = await this.getShortsOAuthAccessToken();
+        for (let i = 0; i < unresolvedForOAuth.length; i += 50) {
+          const chunk = unresolvedForOAuth.slice(i, i + 50);
+          try {
+            const oauthMap = await this.fetchVideosBatch(chunk, accessToken);
+            for (const id of chunk) {
+              const item = oauthMap.get(id);
+              if (!item) {
+                results.set(id, { videoId: id, status: 'unavailable' });
+                continue;
+              }
+              // Reuse Shorts OAuth only for videos owned by the configured Shorts channel
+              if (customChannelId && item.snippet?.channelId && item.snippet.channelId !== customChannelId) {
+                results.set(id, { videoId: id, status: 'unavailable' });
+                continue;
+              }
+              const status = classifyVideoVisibility(item);
+              results.set(id, { videoId: id, status, item: status === 'eligible' ? item : undefined });
+            }
+          } catch (oauthBatchErr: any) {
+            this.logger.warn(`Shorts OAuth visibility check failed: ${oauthBatchErr.message}`);
+            for (const id of chunk) {
+              results.set(id, {
+                videoId: id,
+                status: 'error',
+                errorMessage: oauthBatchErr.message,
+              });
+            }
+          }
+        }
+      } catch (tokenErr: any) {
+        this.logger.warn(`Shorts OAuth token error during visibility check: ${tokenErr.message}`);
+        for (const id of unresolvedForOAuth) {
+          results.set(id, {
+            videoId: id,
+            status: 'error',
+            errorMessage: tokenErr.message,
+          });
+        }
+      }
+    }
+
+    return results;
   }
 
   /**
