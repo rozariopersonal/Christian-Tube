@@ -83,9 +83,9 @@ export class AuthService implements OnDestroy {
   private readonly tokenStore = inject(AuthTokenStore);
 
   readonly currentUser = signal<AuthUser | null>(this.tokenStore.readUser());
-  readonly sessionExpired = signal<boolean>(
-    this.tokenStore.readSessionExpired(),
-  );
+  readonly sessionExpired = signal<boolean>(this.computeInitialExpired());
+  readonly sessionNeedsSignIn = this.sessionExpired;
+  readonly sessionPromptDismissed = signal<boolean>(false);
   readonly isAdmin = signal<boolean>(false);
   readonly isLoading = signal<boolean>(false);
   readonly lastError = signal<string | null>(null);
@@ -101,6 +101,7 @@ export class AuthService implements OnDestroy {
   private lastRefreshFailureAt = 0;
   private unsubExternal: (() => void) | null = null;
   private bootstrapStarted = false;
+  private signedOutDuringBootstrap = false;
 
   constructor() {
     this.unsubExternal = this.tokenStore.subscribeExternalChanges((msg) => {
@@ -123,7 +124,7 @@ export class AuthService implements OnDestroy {
     if (user?.email) {
       void this.checkIsAdmin(user.email);
     }
-    if (user && !this.tokenStore.getRefreshToken()) {
+    if (user && !this.tokenStore.getRefreshToken() && !this.sessionExpired()) {
       void this.bootstrapLegacySession(user);
     }
   }
@@ -131,6 +132,12 @@ export class AuthService implements OnDestroy {
   ngOnDestroy(): void {
     this.unsubExternal?.();
     this.unsubExternal = null;
+  }
+
+  markSessionRejected(): void {
+    this.tokenStore.markSessionExpired();
+    this.sessionPromptDismissed.set(false);
+    this.sessionExpired.set(true);
   }
 
   initGoogleSignIn(): boolean {
@@ -152,8 +159,8 @@ export class AuthService implements OnDestroy {
     return true;
   }
 
-  renderGoogleButton(element: HTMLElement): void {
-    if (!this.initGoogleSignIn()) return;
+  renderGoogleButton(element: HTMLElement): boolean {
+    if (!this.initGoogleSignIn()) return false;
     element.innerHTML = '';
     window.google?.accounts?.id?.renderButton(element, {
       theme: 'outline',
@@ -161,6 +168,7 @@ export class AuthService implements OnDestroy {
       width: 280,
       text: 'continue_with',
     });
+    return true;
   }
 
   promptGoogleSignIn(): void {
@@ -200,6 +208,7 @@ export class AuthService implements OnDestroy {
       });
       this.currentUser.set(user);
       this.sessionExpired.set(false);
+      this.sessionPromptDismissed.set(false);
       this.isAdmin.set(false);
     } catch (err) {
       this.lastError.set(
@@ -220,7 +229,6 @@ export class AuthService implements OnDestroy {
 
     const tokenBeforeWait = this.tokenStore.getAccessToken();
     const run = async (): Promise<string | null> => {
-      // Re-read inside lock: another tab may have already rotated tokens
       const latestAccess = this.tokenStore.getAccessToken();
       if (
         latestAccess &&
@@ -263,7 +271,6 @@ export class AuthService implements OnDestroy {
           this.sessionExpired.set(true);
           return null;
         }
-        // Network error / 5xx / timeout: keep session intact, back off 30s
         this.lastRefreshFailureAt = Date.now();
         return null;
       }
@@ -288,6 +295,7 @@ export class AuthService implements OnDestroy {
   }
 
   signOut(): void {
+    this.signedOutDuringBootstrap = true;
     const accessToken = this.tokenStore.getAccessToken();
     const sessionId = this.tokenStore.getSessionId();
     if (accessToken && sessionId) {
@@ -309,6 +317,7 @@ export class AuthService implements OnDestroy {
     void this.idbCache.clear();
     this.currentUser.set(null);
     this.sessionExpired.set(false);
+    this.sessionPromptDismissed.set(false);
     this.isAdmin.set(false);
     this.lastError.set(null);
     this.lastRefreshFailureAt = 0;
@@ -403,6 +412,7 @@ export class AuthService implements OnDestroy {
       });
       this.currentUser.set(user);
       this.sessionExpired.set(false);
+      this.sessionPromptDismissed.set(false);
       await this.syncUser(user);
       await this.checkIsAdmin(user.email);
     } catch (err) {
@@ -412,6 +422,25 @@ export class AuthService implements OnDestroy {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  private computeInitialExpired(): boolean {
+    if (this.tokenStore.readSessionExpired()) return true;
+    const user = this.tokenStore.readUser();
+    if (!user || user.isGuest || user.id.startsWith('guest_')) return false;
+    if (this.tokenStore.getRefreshToken()) return false;
+
+    const token = this.tokenStore.getAccessToken() ?? user.idToken;
+    if (!token) return true;
+    if (token.startsWith('session_') || token.startsWith('token_')) return false;
+
+    const payload = this.decodeJwtPayload(token);
+    const exp = typeof payload['exp'] === 'number' ? payload['exp'] : null;
+    if (exp !== null && exp * 1000 <= Date.now()) {
+      this.tokenStore.markSessionExpired();
+      return true;
+    }
+    return false;
   }
 
   private async confirmAccountSwitch(
@@ -431,6 +460,7 @@ export class AuthService implements OnDestroy {
   private async bootstrapLegacySession(user: AuthUser): Promise<void> {
     if (this.bootstrapStarted) return;
     this.bootstrapStarted = true;
+    this.signedOutDuringBootstrap = false;
 
     const isLegacyGuest = Boolean(user.isGuest) || user.id.startsWith('guest_');
     if (isLegacyGuest) {
@@ -445,6 +475,16 @@ export class AuthService implements OnDestroy {
             },
           ),
         );
+        if (this.signedOutDuringBootstrap) {
+          void firstValueFrom(
+            this.rawHttp.post(
+              `${AppConfig.apiBaseUrl}/api/auth/logout`,
+              {},
+              { headers: { Authorization: `Bearer ${res.accessToken}` } },
+            ),
+          ).catch(() => {});
+          return;
+        }
         const migratedUser: AuthUser = {
           id: res.user.id,
           email: '',
@@ -464,6 +504,58 @@ export class AuthService implements OnDestroy {
         // Offline or server unavailable; legacy token or local cache remains
       }
       return;
+    }
+
+    const legacyToken = this.tokenStore.getAccessToken() ?? user.idToken;
+    if (
+      legacyToken &&
+      !legacyToken.startsWith('session_') &&
+      legacyToken.split('.').length === 3
+    ) {
+      const payload = this.decodeJwtPayload(legacyToken);
+      const exp = typeof payload['exp'] === 'number' ? payload['exp'] : null;
+      if (exp !== null && exp * 1000 > Date.now()) {
+        try {
+          const res = await firstValueFrom(
+            this.rawHttp.post<BackendSessionResponse>(
+              `${AppConfig.apiBaseUrl}/api/auth/google`,
+              {
+                idToken: legacyToken,
+                deviceId: this.tokenStore.getDeviceId(),
+                deviceLabel: this.tokenStore.getDeviceLabel(),
+              },
+            ),
+          );
+          if (this.signedOutDuringBootstrap) {
+            void firstValueFrom(
+              this.rawHttp.post(
+                `${AppConfig.apiBaseUrl}/api/auth/logout`,
+                {},
+                { headers: { Authorization: `Bearer ${res.accessToken}` } },
+              ),
+            ).catch(() => {});
+            return;
+          }
+          const upgraded: AuthUser = {
+            id: res.user.id,
+            email: res.user.email ?? user.email,
+            displayName: res.user.displayName || user.displayName,
+            photoUrl: res.user.photoUrl ?? user.photoUrl,
+            isGuest: false,
+          };
+          this.tokenStore.saveSession({
+            user: upgraded,
+            accessToken: res.accessToken,
+            refreshToken: res.refreshToken,
+            sessionId: res.sessionId,
+          });
+          this.currentUser.set(upgraded);
+          this.sessionExpired.set(false);
+          return;
+        } catch {
+          // Non-fatal; fall through
+        }
+      }
     }
 
     if (this.initGoogleSignIn()) {

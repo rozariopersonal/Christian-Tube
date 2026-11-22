@@ -39,7 +39,7 @@ export default () => {
   return {
     port: parseInt(process.env.PORT || '3000', 10),
     instanceId,
-    appName: process.env.APP_NAME || instanceConfig.appName || 'PrivateTube',
+    appName: process.env.APP_NAME || instanceConfig.appName || 'ChristianApp',
     databaseUrl: process.env.DATABASE_URL,
     googleClientId: process.env.GOOGLE_CLIENT_ID || instanceConfig.googleClientId,
     googleClientIds,

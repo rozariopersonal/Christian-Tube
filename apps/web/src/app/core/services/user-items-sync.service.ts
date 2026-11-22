@@ -42,6 +42,7 @@ export class UserItemsSyncService {
   private activeUserId: string | null = null;
   private authPaused = false;
   private wasExpired = false;
+  private syncAllowed = false;
   private lastPullAt = 0;
   private inFlightSync: Promise<void> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -51,12 +52,24 @@ export class UserItemsSyncService {
     effect(() => {
       const user = this.auth.currentUser();
       const expired = this.auth.sessionExpired();
+      const needsSignIn = this.auth.sessionNeedsSignIn();
       untracked(() => {
         const recovered = this.wasExpired && !expired;
         this.wasExpired = expired;
 
         if (user) {
+          if (needsSignIn || !this.auth.canSync()) {
+            if (this.activeUserId !== user.id) {
+              this.activeUserId = user.id;
+              this.pendingItems.set(this.readPendingMap(user.id));
+              this.remoteItems.set([]);
+            }
+            this.syncAllowed = false;
+            return;
+          }
           const changed = this.activeUserId !== user.id;
+          const resumed = !this.syncAllowed;
+          this.syncAllowed = true;
           this.activeUserId = user.id;
           if (!expired) {
             this.authPaused = false;
@@ -64,14 +77,13 @@ export class UserItemsSyncService {
           if (changed) {
             this.pendingItems.set(this.readPendingMap(user.id));
             this.remoteItems.set([]);
-            if (!expired) {
-              void this.pullAndFlush(true);
-            }
-          } else if (recovered) {
+          }
+          if (changed || resumed || recovered) {
             void this.pullAndFlush(true);
           }
         } else if (this.activeUserId !== null) {
           this.activeUserId = null;
+          this.syncAllowed = false;
           this.authPaused = false;
           this.pendingItems.set({});
           this.remoteItems.set([]);
@@ -141,6 +153,7 @@ export class UserItemsSyncService {
       } catch (err) {
         if (err instanceof HttpErrorResponse && err.status === 401) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
         }
       } finally {
         this.inFlightSync = null;
@@ -185,6 +198,7 @@ export class UserItemsSyncService {
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 401) {
         this.authPaused = true;
+        this.auth.markSessionRejected();
         return;
       }
       if (

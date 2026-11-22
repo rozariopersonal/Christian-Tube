@@ -18,7 +18,7 @@ class MobilePageView extends StatefulWidget {
   final VoidCallback onToggleChrome;
   final void Function(int pageNum) onTriggerFetch;
   final void Function(int pageNum) onRetry;
-  final Widget Function(BuildContext context, SelectableRegionState state, int pageNum) buildSelectionToolbar;
+  final Widget Function(BuildContext context, SelectableRegionState state, int pageNum, String selectedText) buildSelectionToolbar;
   final Widget Function(BookRenderBlock block, int pageNum, Color textColor, AppTokens tokens) buildBlock;
   final void Function(int pageNum) onPageChanged;
 
@@ -135,7 +135,7 @@ class _MobilePageViewState extends State<MobilePageView> {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 60),
       child: DoubleTapDictionaryArea(
-        contextMenuBuilder: (context, state) => widget.buildSelectionToolbar(context, state, pageNum),
+        contextMenuBuilder: (context, state, text) => widget.buildSelectionToolbar(context, state, pageNum, text),
         child: content,
       ),
     );

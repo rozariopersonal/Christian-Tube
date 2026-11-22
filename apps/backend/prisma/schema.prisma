@@ -353,8 +353,8 @@ model UserPlayback {
 model UserWatchItem {
   id              String   @id @default(uuid())
   userId          String
-  itemType        String   // "watch_later" | "video_history" | "video_playhead" | "audio_playback"
-  itemId          String   // videoId or "audio"
+  itemType        String   // watch_later | video_history | video_playhead | audio_playback | liked_video | liked_short
+  itemId          String   // videoId, shortId, or "audio"
   positionSeconds Int      @default(0)
   durationSeconds Int      @default(0)
   payloadJson     String?  @db.Text
@@ -464,5 +464,14 @@ model UserSession {
   createdAt           DateTime  @default(now())
 
   @@index([userId])
+  @@index([expiresAt])
+}
+
+model WebSession {
+  tokenHash String   @id
+  userId    String
+  email     String
+  expiresAt DateTime
+
   @@index([expiresAt])
 }

@@ -77,6 +77,33 @@ describe('UserSyncService', () => {
     await Promise.resolve();
   });
 
+  it('keeps a followed channel when an older state pull completes after the write', async () => {
+    authService.currentUser.set({
+      id: 'user-1',
+      email: 'u1@example.com',
+      displayName: 'U1',
+    });
+    TestBed.flushEffects();
+    await Promise.resolve();
+    httpMock.expectOne((r) => r.url.endsWith('/api/user/state'))
+      .flush({ serverTime: Date.now(), subscriptions: [] });
+    await Promise.resolve();
+
+    const pull = userSync.pullAndFlush(true);
+    await Promise.resolve();
+    const stale = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
+
+    userSync.enqueueSubscription('ch-new', true);
+    httpMock.expectOne((r) => r.url.endsWith('/api/channels/ch-new/subscribe'))
+      .flush({ status: 'subscribed', channelId: 'ch-new' });
+    await Promise.resolve();
+    expect(userSync.pendingOps()['sub:ch-new']).toBeUndefined();
+
+    stale.flush({ serverTime: Date.now(), subscriptions: [] });
+    await pull;
+    expect(userSync.remoteState()?.subscriptions).toEqual(['ch-new']);
+  });
+
   it('preserves pending ops on 401 and drops rejected ops on 404', async () => {
     authService.currentUser.set({
       id: 'user-1',

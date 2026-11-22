@@ -1,8 +1,9 @@
-import { Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ServiceUnavailableException, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
+import { YoutubeService } from '../youtube/youtube.service';
 
 export interface InitiateUploadDto {
   title: string;
@@ -36,6 +37,7 @@ export class ShortsService {
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly youtubeService: YoutubeService,
     @Optional() private readonly cache?: CacheService,
   ) {}
 
@@ -126,12 +128,12 @@ export class ShortsService {
       dto.description || cleanTitle,
       '',
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-      '✂️ Clipped via Christian-Tube',
+      '✂️ Clipped via ChristianApp',
       dto.creatorName ? `👤 Clipped by: ${dto.creatorName}` : '',
       dto.creatorEmail ? `📧 Contact: ${dto.creatorEmail}` : '',
       dto.sourceVideoId ? `📖 Original Video: https://youtube.com/watch?v=${dto.sourceVideoId}` : '',
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-      '#Shorts #ChristianTube #Faith #Sermon',
+      '#Shorts #ChristianApp #Faith #Sermon',
       '',
       `<!-- CT_META: ${JSON.stringify(metadataPayload)} -->`,
     ].filter(Boolean).join('\n');
@@ -223,6 +225,36 @@ export class ShortsService {
     clipEndTime?: number;
     cropOffsetX?: number;
   }) {
+    const videoId = data.youtubeVideoId?.trim();
+    if (!videoId) {
+      throw new BadRequestException('youtubeVideoId is required');
+    }
+
+    const visibilityMap = await this.youtubeService.verifyVideosVisibility([videoId], {
+      allowShortsOAuth: true,
+    });
+    const visibility = visibilityMap.get(videoId);
+
+    if (visibility?.status === 'private') {
+      await this.prisma.video.deleteMany({ where: { id: videoId } }).catch(() => {});
+      await (this.prisma as any).shortCreation
+        ?.deleteMany?.({ where: { youtubeVideoId: videoId } })
+        .catch(() => {});
+      await this.cache?.invalidate('videos', 'channels');
+      this.logger.warn(`Rejected private Short creation for video ${videoId}`);
+      throw new BadRequestException('Private videos cannot be synced');
+    }
+
+    if (visibility?.status === 'error') {
+      this.logger.warn(`Visibility check error for Short creation ${videoId}: ${visibility.errorMessage || 'unknown'}`);
+      throw new ServiceUnavailableException('Unable to verify video visibility with YouTube');
+    }
+
+    if (!visibility || visibility.status !== 'eligible' || !visibility.item) {
+      this.logger.warn(`Rejected unverified Short creation for video ${videoId} (status: ${visibility?.status || 'unknown'})`);
+      throw new BadRequestException('Video visibility could not be verified on YouTube');
+    }
+
     try {
       // 0. Increment daily quota — charged only when a real YouTube ID is confirmed
       try {

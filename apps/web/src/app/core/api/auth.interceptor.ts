@@ -21,7 +21,7 @@ function isAuthEndpoint(url: string): boolean {
 }
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!req.url.startsWith(AppConfig.apiBaseUrl)) {
+  if (!req.url.startsWith(AppConfig.apiBaseUrl) || req.headers.has('Authorization')) {
     return next(req);
   }
 

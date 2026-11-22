@@ -8,6 +8,7 @@ import 'widgets/font_family_tile.dart';
 import 'widgets/font_size_stepper_slider.dart';
 import 'widgets/line_spacing_selector.dart';
 import 'widgets/text_formatting_bar.dart';
+import 'reader_fullscreen_button.dart';
 
 /// Shows the streamlined reading appearance sheet with formatting controls and
 /// drill-down typography browser.
@@ -142,6 +143,8 @@ void showReaderAppearanceSheet(BuildContext context, ReaderAppearance appearance
 
                             // Line Spacing Selector (Tight, Standard, Relaxed)
                             LineSpacingSelector(appearance: appearance),
+                            const SizedBox(height: 6),
+                            const ReaderFullscreenPreferenceControl(),
                           ],
                         ),
                       ),

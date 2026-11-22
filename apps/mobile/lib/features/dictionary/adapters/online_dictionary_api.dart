@@ -109,7 +109,7 @@ class OnlineDictionaryApi {
       final titlesQuery = candidateTitles.join('|');
       final headers = <String, String>{};
       if (!kIsWeb) {
-        headers['User-Agent'] = 'ChristianTubeApp/1.0 (https://github.com/rozariopersonal/Christian-Tube; contact@example.com)';
+        headers['User-Agent'] = 'ChristianApp/1.0 (https://github.com/rozariopersonal/Christian-Tube; contact@example.com)';
       }
 
       final res = await dio.get<dynamic>(

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// Represents a measured snapshot of offline storage consumption across all
-/// download categories in Christian Tube.
+/// download categories in ChristianApp.
 @immutable
 class StorageBreakdown {
   final int biblesBytes;

@@ -10,6 +10,7 @@ import { GoogleJwksService } from '../services/google-jwks.service';
 import { AppJwtService } from '../modules/auth/app-jwt.service';
 import { PrismaService } from '../modules/prisma/prisma.service';
 import { AuthGuard } from './auth.guard';
+import { SessionService } from './session.service';
 
 @Injectable()
 export class AdminGuard extends AuthGuard implements CanActivate {
@@ -18,8 +19,9 @@ export class AdminGuard extends AuthGuard implements CanActivate {
     private readonly adminConfigService: ConfigService,
     @Optional() appJwtService?: AppJwtService,
     @Optional() prisma?: PrismaService,
+    @Optional() sessions?: SessionService,
   ) {
-    super(googleJwksService, appJwtService, prisma, adminConfigService);
+    super(googleJwksService, appJwtService, prisma, adminConfigService, sessions);
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

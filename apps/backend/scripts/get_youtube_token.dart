@@ -62,7 +62,7 @@ void main() async {
             <html>
               <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background: #0F172A; color: white;">
                 <h1 style="color: #10B981;">✅ Authorization Successful!</h1>
-                <p>Your YouTube Refresh Token has been acquired and saved to Christian-Tube.</p>
+                <p>Your YouTube Refresh Token has been acquired and saved to ChristianApp.</p>
                 <p>You can close this tab now.</p>
               </body>
             </html>

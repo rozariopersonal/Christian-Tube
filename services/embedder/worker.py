@@ -595,7 +595,7 @@ def invalidate_upstash_cache(*namespaces: str) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ChristianTube video embedding worker")
+    parser = argparse.ArgumentParser(description="ChristianApp video embedding worker")
     parser.add_argument("--once", action="store_true", help="Process one batch and exit")
     parser.add_argument("--redo", action="store_true", help="Re-embed completed videos when content changed")
     parser.add_argument("--retry-failed", action="store_true", help="Include previously failed videos")

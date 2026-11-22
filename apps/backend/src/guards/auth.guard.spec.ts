@@ -67,6 +67,7 @@ describe('AuthGuard', () => {
       email: 'user@gmail.com',
       role: 'USER',
       isGuest: false,
+      isGoogle: true,
     });
   });
 

@@ -52,7 +52,8 @@ shell navigation:
   The bottom bar **must not** remain visible at these sizes.
 - The bottom bar **must not** be hidden in landscape on tablets/web — an
   alternate (rail) must be present there. Hidden nav is only acceptable for
-  fullscreen players/shorts (via `BottomBarVisibilityService`).
+  fullscreen players/shorts or an active Bible, book, or article fullscreen
+  reading session (via `BottomBarVisibilityService`).
 
 ### 3. Content width — never stretch
 

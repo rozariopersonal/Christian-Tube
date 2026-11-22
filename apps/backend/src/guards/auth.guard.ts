@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleJwksService } from '../services/google-jwks.service';
 import { AppJwtService } from '../modules/auth/app-jwt.service';
 import { PrismaService } from '../modules/prisma/prisma.service';
+import { SessionService } from './session.service';
 
 const GOOGLE_SUB_PATTERN = /^\d{18,30}$/;
 
@@ -22,6 +23,7 @@ export class AuthGuard implements CanActivate {
     @Optional() private readonly appJwtService?: AppJwtService,
     @Optional() private readonly prisma?: PrismaService,
     @Optional() protected readonly configService?: ConfigService,
+    @Optional() private readonly sessions?: SessionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -59,7 +61,15 @@ export class AuthGuard implements CanActivate {
       }
     }
 
-    // 2. Legacy guest token (non-admin; ::email claim is ignored for authz)
+    // 2. Legacy WebSession token (`session_*`)
+    if (token.startsWith('session_') && this.sessions) {
+      const user = await this.sessions.authenticate(token);
+      if (!user) throw new UnauthorizedException('Invalid or expired session');
+      request.user = { ...user, role: 'USER', isGuest: false };
+      return true;
+    }
+
+    // 3. Legacy guest token (non-admin; ::email claim is ignored for authz)
     if (this.googleJwksService.isGuestToken(token)) {
       const userId = this.googleJwksService.parseGuestToken(token);
       if (!userId) {
@@ -110,7 +120,7 @@ export class AuthGuard implements CanActivate {
       return true;
     }
 
-    // 3. Legacy Google idToken (JWKS verification, sunset path)
+    // 4. Legacy Google idToken (JWKS verification, sunset path)
     try {
       const payload = await this.googleJwksService.verifyIdToken(token);
       this.logger.debug(
@@ -121,6 +131,7 @@ export class AuthGuard implements CanActivate {
         email: (payload.email as string) || '',
         role: 'USER',
         isGuest: false,
+        isGoogle: true,
       };
       return true;
     } catch (error) {
