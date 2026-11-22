@@ -9,6 +9,7 @@ class UserPreference {
   final List<String> bibleVersionIds;
   final String themeMode;
   final String accentColor;
+  final String defaultPage;
   final bool dailyReminderEnabled;
   final String dailyReminderTime;
   final bool lockScreenWordFeedEnabled;
@@ -23,6 +24,7 @@ class UserPreference {
     this.bibleVersionIds = const ['NASB'],
     this.themeMode = 'system',
     this.accentColor = 'blue',
+    this.defaultPage = 'feed',
     this.dailyReminderEnabled = false,
     this.dailyReminderTime = '07:00',
     this.lockScreenWordFeedEnabled = false,
@@ -51,6 +53,10 @@ class UserPreference {
       bibleVersionIds: parseStringList(json['bibleVersionIds'], const ['NASB']),
       themeMode: (json['themeMode'] as String?) ?? 'system',
       accentColor: (json['accentColor'] as String?) ?? 'blue',
+      defaultPage:
+          (json['defaultPage'] as String?)?.trim().isNotEmpty == true
+              ? (json['defaultPage'] as String).trim()
+              : 'feed',
       dailyReminderEnabled: json['dailyReminderEnabled'] == true,
       dailyReminderTime: (json['dailyReminderTime'] as String?) ?? '07:00',
       lockScreenWordFeedEnabled: json['lockScreenWordFeedEnabled'] == true,
@@ -69,6 +75,7 @@ class UserPreference {
       'bibleVersionIds': bibleVersionIds,
       'themeMode': themeMode,
       'accentColor': accentColor,
+      'defaultPage': defaultPage,
       'dailyReminderEnabled': dailyReminderEnabled,
       'dailyReminderTime': dailyReminderTime,
       'lockScreenWordFeedEnabled': lockScreenWordFeedEnabled,
@@ -85,6 +92,7 @@ class UserPreference {
     List<String>? bibleVersionIds,
     String? themeMode,
     String? accentColor,
+    String? defaultPage,
     bool? dailyReminderEnabled,
     String? dailyReminderTime,
     bool? lockScreenWordFeedEnabled,
@@ -100,6 +108,7 @@ class UserPreference {
       bibleVersionIds: bibleVersionIds ?? this.bibleVersionIds,
       themeMode: themeMode ?? this.themeMode,
       accentColor: accentColor ?? this.accentColor,
+      defaultPage: defaultPage ?? this.defaultPage,
       dailyReminderEnabled: dailyReminderEnabled ?? this.dailyReminderEnabled,
       dailyReminderTime: dailyReminderTime ?? this.dailyReminderTime,
       lockScreenWordFeedEnabled:
@@ -123,6 +132,7 @@ class UserPreference {
           listEquals(bibleVersionIds, other.bibleVersionIds) &&
           themeMode == other.themeMode &&
           accentColor == other.accentColor &&
+          defaultPage == other.defaultPage &&
           dailyReminderEnabled == other.dailyReminderEnabled &&
           dailyReminderTime == other.dailyReminderTime &&
           lockScreenWordFeedEnabled == other.lockScreenWordFeedEnabled &&
@@ -139,6 +149,7 @@ class UserPreference {
         Object.hashAll(bibleVersionIds),
         themeMode,
         accentColor,
+        defaultPage,
         dailyReminderEnabled,
         dailyReminderTime,
         lockScreenWordFeedEnabled,

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_client.dart';
+import '../config/app_config.dart';
+import '../engines/active_engine.g.dart';
 import '../models/user_preference.dart';
 import '../../shared/services/library_languages_controller.dart';
 import '../../features/bible/services/bible_settings_service.dart';
@@ -29,6 +31,30 @@ class UserPreferenceService extends ChangeNotifier {
       _deviceOnboardingCompleted || _preferences.hasCompletedOnboarding;
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
+
+  /// Resolves the user's configured [UserPreference.defaultPage] to a valid
+  /// GoRouter path for the current app configuration.
+  String get defaultRoutePath => resolveRoutePath(_preferences.defaultPage);
+
+  static String resolveRoutePath(String? page) {
+    final normalized = (page ?? 'feed').trim().toLowerCase();
+    switch (normalized) {
+      case 'shorts':
+        return '/shorts';
+      case 'bible':
+        return AppConfig.instanceId != 'centum_academy' ? '/bible' : '/feed';
+      case 'library':
+      case 'books':
+        return AppConfig.instanceId != 'centum_academy' ? '/library' : '/feed';
+      case 'words':
+        return kMicroFeedEnabled ? '/words' : '/feed';
+      case 'audio':
+        return AppConfig.instanceId != 'centum_academy' ? '/audio' : '/feed';
+      case 'feed':
+      default:
+        return '/feed';
+    }
+  }
 
   UserPreferenceService._internal({ApiClient? apiClient})
       : _apiClient = apiClient ?? ApiClient() {
@@ -129,7 +155,8 @@ class UserPreferenceService extends ChangeNotifier {
     await applyToRuntimeControllers(newPreferences);
 
     // 3. Sync only changed fields via UserSyncService outbox (per-field LWW)
-    final isAuthenticated = auth?.isAuthenticated ?? false;
+    final isAuthenticated =
+        auth?.isAuthenticated ?? (UserSyncService.instance.activeUserId != null);
     if (syncWithBackend && isAuthenticated) {
       for (final entry in nextJson.entries) {
         if (entry.key == 'videoChannelIds' || entry.key == 'shortsChannelIds') {
@@ -143,6 +170,18 @@ class UserPreferenceService extends ChangeNotifier {
         }
       }
     }
+  }
+
+  Future<void> setDefaultPage(
+    String page, {
+    AuthService? auth,
+    bool syncWithBackend = true,
+  }) async {
+    final normalized = page.trim().toLowerCase();
+    final safePage = normalized.isEmpty ? 'feed' : normalized;
+    if (_preferences.defaultPage == safePage) return;
+    final updated = _preferences.copyWith(defaultPage: safePage);
+    await savePreferences(updated, auth: auth, syncWithBackend: syncWithBackend);
   }
 
   Future<void> markOnboardingComplete({

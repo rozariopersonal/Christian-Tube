@@ -251,7 +251,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       // 4. Mark completion and proceed to feed
       if (mounted) {
-        context.go('/feed');
+        context.go(_preferenceService.defaultRoutePath);
       }
     } catch (e) {
       debugPrint('Error finishing onboarding: $e');
@@ -259,7 +259,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Preferences saved with offline notice: $e')),
         );
-        context.go('/feed');
+        context.go(_preferenceService.defaultRoutePath);
       }
     } finally {
       if (mounted) {
@@ -497,7 +497,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           auth: widget.authService,
                           syncWithBackend: false,
                         );
-                        if (mounted) context.go('/feed');
+                        if (mounted) context.go(_preferenceService.defaultRoutePath);
                       },
                       child: const Text('Go Directly to Feed'),
                     ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../navigation/navigation_history_service.dart';
 import '../services/bottom_bar_visibility_service.dart';
+import '../services/user_preference_service.dart';
 
 /// Owns system-back behavior for the navigation shell.
 ///
@@ -129,9 +130,10 @@ class ShellBackHandler extends StatelessWidget {
       return;
     }
 
-    // 5. If not on the Home feed root, return to Home.
-    if (path != '/feed') {
-      context.go('/feed');
+    // 5. If not on the configured default root, return to it.
+    final defaultRoute = UserPreferenceService.instance.defaultRoutePath;
+    if (path != defaultRoute) {
+      context.go(defaultRoute);
       return;
     }
 

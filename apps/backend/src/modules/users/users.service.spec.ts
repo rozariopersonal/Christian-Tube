@@ -246,6 +246,35 @@ describe('UsersService', () => {
       const updateArg = prisma.userPreference.upsert.mock.calls[0][0].update;
       expect(updateArg.themeMode).toBeUndefined();
     });
+
+    it('persists defaultPage preference via LWW', async () => {
+      prisma.userPreference.findUnique.mockResolvedValue({
+        userId: 'u1',
+        defaultPage: 'feed',
+        fieldTimestamps: { defaultPage: 1000 },
+      });
+      prisma.userPreference.upsert.mockResolvedValue({
+        userId: 'u1',
+        defaultPage: 'bible',
+      });
+
+      await service.savePreferences('u1', {
+        defaultPage: 'bible',
+        fieldTimestamps: { defaultPage: 2000 },
+      });
+
+      expect(prisma.userPreference.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({
+            defaultPage: 'bible',
+            fieldTimestamps: { defaultPage: 2000 },
+          }),
+          create: expect.objectContaining({
+            defaultPage: 'bible',
+          }),
+        }),
+      );
+    });
   });
 
   describe('upsertWatchItemsBatch & getSyncState', () => {
