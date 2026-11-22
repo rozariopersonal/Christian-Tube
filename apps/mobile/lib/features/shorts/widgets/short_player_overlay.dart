@@ -93,10 +93,14 @@ class ShortPlayerOverlay extends StatelessWidget {
                     ),
                   // Double-Tap Heart Burst Feedback Overlay
                   if (showLikeBurst)
-                    AnimatedScale(
-                      scale: showLikeBurst ? 1.1 : 0.6,
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0.6, end: 1.1),
                       duration: const Duration(milliseconds: 220),
                       curve: Curves.easeOutBack,
+                      builder: (context, scale, child) => Transform.scale(
+                        scale: scale,
+                        child: child,
+                      ),
                       child: Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
@@ -147,11 +151,11 @@ class ShortPlayerOverlay extends StatelessWidget {
           ),
         ),
 
-        // 3. Floating Right Action Bar (Save, Sound, Share)
+        // 3. Floating Right Action Bar (Like, Share)
         // Moved after ShortBottomDetails in the Stack to guarantee it sits on top (z-index)
         Positioned(
           right: 14,
-          bottom: 220, // Increased from 92 to ensure it sits above the bottom details panel
+          bottom: MediaQuery.sizeOf(context).height < 520 ? 140 : 220,
           child: IgnorePointer(
             ignoring: !areControlsVisible,
             child: AnimatedOpacity(

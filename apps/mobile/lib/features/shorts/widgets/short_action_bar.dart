@@ -47,6 +47,16 @@ class ShortActionBar extends StatelessWidget {
           child: GestureDetector(
             onTap: () {
               HapticFeedback.lightImpact();
+              if (UserSyncService.instance.activeUserId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Sign in to save liked Shorts'),
+                    duration: Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
               UserSyncService.instance.setLiked(
                 itemType: UserSyncService.likedShortType,
                 itemId: short.id,

@@ -990,17 +990,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       animation: UserSyncService.instance,
       builder: (context, _) {
         final targetId = _video?.id ?? _activeVideoId;
+        final likeItemType = _video?.type == 'SHORT'
+            ? UserSyncService.likedShortType
+            : UserSyncService.likedVideoType;
         final isLiked = targetId.isNotEmpty &&
-            UserSyncService.instance.isLiked(
-              UserSyncService.likedVideoType,
-              targetId,
-            );
+            UserSyncService.instance.isLiked(likeItemType, targetId);
         return VideoActionBar(
           isLiked: isLiked,
           onToggleLike: () {
             if (targetId.isEmpty) return;
+            if (UserSyncService.instance.activeUserId == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Sign in to save liked videos'),
+                  duration: Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              return;
+            }
             UserSyncService.instance.setLiked(
-              itemType: UserSyncService.likedVideoType,
+              itemType: likeItemType,
               itemId: targetId,
               liked: !isLiked,
             );
