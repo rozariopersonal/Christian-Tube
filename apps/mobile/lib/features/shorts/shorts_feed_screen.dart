@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/models/channel.dart';
 import '../../core/models/short.dart';
 import '../../core/theme/app_tokens.dart';
 import '../auth/auth_service.dart';
@@ -17,6 +18,7 @@ import 'widgets/empty_my_creations.dart';
 import 'widgets/fullscreen_shorts_player.dart';
 import 'widgets/shorts_tab_chip.dart';
 import 'widgets/shorts_chrome.dart';
+import 'widgets/shorts_channel_filter_sheet.dart';
 import 'services/shorts_dialog_service.dart';
 import 'services/community_shorts_controller.dart';
 import '../audio/controllers/audio_player_controller.dart';
@@ -127,6 +129,23 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
       return candidateIds.intersection(shortsChannelsSet);
     }
     return candidateIds;
+  }
+
+  List<Channel> get _shortsFilterChannels {
+    final eligibleIds = _subscribedShortsChannelIds;
+    return _channelService.shortsChannels
+        .where((channel) => eligibleIds.contains(channel.id))
+        .toList();
+  }
+
+  Future<void> _openShortsChannelFilter() async {
+    final selectedIds = await ShortsChannelFilterSheet.show(
+      context,
+      channels: _shortsFilterChannels,
+      selectedChannelIds: _communityController.selectedChannelIds,
+    );
+    if (selectedIds == null || !mounted) return;
+    await _communityController.setChannelFilter(selectedIds);
   }
 
   void _onPreferenceContextChanged() {
@@ -415,7 +434,8 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
           );
         }
 
-        if (_communityController.shorts.isEmpty) {
+        if (_communityController.shorts.isEmpty &&
+            _communityController.selectedChannelIds.isEmpty) {
           return EmptyCommunityShorts(
             onRefresh: _communityController.fetchShorts,
           );
@@ -430,8 +450,9 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             onRefresh: _communityController.fetchShorts,
             isLoadingMore: _communityController.isLoadingMore,
             onShortTap: _openCommunityShortAt,
-            currentFilter: _communityController.filter,
-            onFilterSelected: _communityController.setFilter,
+            filterChannels: _shortsFilterChannels,
+            selectedChannelIds: _communityController.selectedChannelIds,
+            onChannelFilterTap: _openShortsChannelFilter,
           );
         } else {
           currentView = FullscreenShortsPlayer(
