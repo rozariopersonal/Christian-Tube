@@ -136,6 +136,7 @@ class ShortPlayerOverlay extends StatelessWidget {
               child: ShortActionBar(
                 short: short,
                 onShare: onShare,
+                enableLike: localItem == null,
               ),
             ),
           ),

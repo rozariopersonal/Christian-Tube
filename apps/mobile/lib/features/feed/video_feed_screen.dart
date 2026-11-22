@@ -6,6 +6,7 @@ import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
 import '../../core/services/user_preference_service.dart';
+import '../../core/services/user_sync_service.dart';
 import '../../shared/ui/video_card.dart';
 import '../channels/channel_service.dart';
 import 'video_service.dart';
@@ -28,6 +29,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   final ScrollController _scrollController = ScrollController();
 
   String _selectedCategory = 'All';
+  bool _showLikedOnly = false;
 
   @override
   void initState() {
@@ -55,6 +57,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   void _onScroll() {
+    if (_showLikedOnly) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 400) {
       _videoService.fetchVideos();
@@ -72,10 +75,18 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_videoService, _channelService, _preferenceService]),
+      animation: Listenable.merge([_videoService, _channelService, _preferenceService, UserSyncService.instance]),
       builder: (context, _) {
         final tokens = context.tokens;
         final videos = _videoService.videos;
+        final likedIds = UserSyncService.instance.likedIds(UserSyncService.likedVideoType);
+        final likedById = <String, Video>{};
+        for (final item in UserSyncService.instance.likedItems(UserSyncService.likedVideoType)) {
+          final video = Video.fromJson(item);
+          if (video.id.isNotEmpty && video.type != 'SHORT' && video.title.isNotEmpty) likedById[video.id] = video;
+        }
+        for (final video in videos) { if (likedIds.contains(video.id)) likedById[video.id] = video; }
+        final displayVideos = _showLikedOnly ? likedById.values.toList(growable: false) : videos;
         final channels = _channelService.channels;
         final subscribedIds = _videoChannelIds;
         final subscribedChannels =
@@ -186,10 +197,31 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   children: [
+                    InkWell(
+                      onTap: () {
+                        final showingLiked = !_showLikedOnly;
+                        setState(() {
+                          _showLikedOnly = showingLiked;
+                          _selectedCategory = showingLiked ? 'Liked' : 'All';
+                        });
+                        if (!showingLiked) {
+                          _videoService.setFilter(
+                            channelId: null,
+                            onlySubscribed: subscribedIds.isNotEmpty,
+                          );
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(color: _selectedCategory == 'Liked' ? tokens.onSurface : tokens.surfaceVariant, borderRadius: BorderRadius.circular(8)),
+                        child: Center(child: Text('Liked', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _selectedCategory == 'Liked' ? tokens.surface : tokens.onSurfaceMuted))),
+                      ),
+                    ),
                     // "All" / "All Subscriptions" Pill
                     InkWell(
                       onTap: () {
-                        setState(() => _selectedCategory = 'All');
+                        setState(() { _selectedCategory = 'All'; _showLikedOnly = false; });
                         _videoService.setFilter(
                           channelId: null,
                           onlySubscribed: subscribedIds.isNotEmpty,
@@ -229,8 +261,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         padding: const EdgeInsets.only(left: 8),
                         child: InkWell(
                           onTap: () {
-                            setState(() =>
-                                _selectedCategory = isSelected ? 'All' : ch.id);
+                            setState(() {
+                              _showLikedOnly = false;
+                              _selectedCategory = isSelected ? 'All' : ch.id;
+                            });
                             _videoService.setFilter(
                               channelId: isSelected ? null : ch.id,
                               onlySubscribed:
@@ -321,14 +355,14 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               ),
             ),
           ),
-          body: _buildBody(videos, subscribedIds.isEmpty),
+          body: _buildBody(displayVideos, subscribedIds.isEmpty && !_showLikedOnly),
         );
       },
     );
   }
 
   Widget _buildBody(List<Video> videos, bool hasNoSubscriptions) {
-    if (_videoService.isLoading && videos.isEmpty) {
+    if (_videoService.isLoading && videos.isEmpty && !_showLikedOnly) {
       return Center(child: CircularProgressIndicator(color: context.primary));
     }
 
@@ -401,14 +435,14 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               Icon(Icons.video_library_outlined,
                   size: 56, color: context.tokens.onSurfaceMuted),
               const SizedBox(height: 16),
-              const Text(
-                'No videos found for selected filter',
+              Text(
+                _showLikedOnly ? 'No liked videos yet.' : 'No videos found for selected filter',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
-                  setState(() => _selectedCategory = 'All');
+                  setState(() { _selectedCategory = 'All'; _showLikedOnly = false; });
                   _videoService.setFilter(
                       channelId: null, onlySubscribed: true);
                 },
@@ -439,11 +473,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       child: ListView.separated(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: videos.length + 1,
+        itemCount: videos.length + (!_showLikedOnly ? 1 : 0),
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           if (index == videos.length) {
-            if (_videoService.hasMore) {
+            if (_videoService.hasMore && !_showLikedOnly) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(child: CircularProgressIndicator()),
@@ -479,10 +513,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           mainAxisSpacing: 16,
           childAspectRatio: 1.1,
         ),
-        itemCount: videos.length + 1,
+        itemCount: videos.length + (!_showLikedOnly ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == videos.length) {
-            if (_videoService.hasMore) {
+            if (_videoService.hasMore && !_showLikedOnly) {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),

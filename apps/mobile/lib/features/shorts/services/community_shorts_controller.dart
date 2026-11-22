@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/models/short.dart';
+import '../../../core/services/user_sync_service.dart';
 import 'shorts_subscription_filter.dart';
 
 class CommunityShortsController extends ChangeNotifier {
@@ -175,10 +176,34 @@ class CommunityShortsController extends ChangeNotifier {
   bool _hasMore = true;
   bool get hasMore => _hasMore;
 
+  bool _likedOnly = false;
+  bool get likedOnly => _likedOnly;
+
+  List<Short> get displayShorts {
+    final byId = <String, Short>{for (final short in _shorts) short.id: short};
+    if (_likedOnly) {
+      for (final item in UserSyncService.instance.likedItems(UserSyncService.likedShortType)) {
+        if (item['id'] is String && item['title'] is String && (item['title'] as String).isNotEmpty) {
+          byId.putIfAbsent(item['id'] as String, () => Short.fromJson(item));
+        }
+      }
+    }
+    return byId.values.toList(growable: false);
+  }
+
   List<Short> get filteredShorts {
+    final likedIds = UserSyncService.instance.likedIds(UserSyncService.likedShortType);
     final selectedIds = _selectedChannelIds;
-    if (selectedIds == null) return _shorts;
-    return _shorts.where((short) => selectedIds.contains(short.channelId)).toList();
+    return displayShorts.where((short) =>
+      (!_likedOnly || likedIds.contains(short.id)) &&
+      (selectedIds == null || selectedIds.contains(short.channelId))
+    ).toList();
+  }
+
+  void setLikedOnly(bool likedOnly) {
+    if (_likedOnly == likedOnly) return;
+    _likedOnly = likedOnly;
+    _safeNotify();
   }
 
   /// Applies an OR-based channel filter. An empty selection clears the filter.

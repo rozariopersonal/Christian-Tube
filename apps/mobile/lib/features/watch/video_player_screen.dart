@@ -12,6 +12,7 @@ import '../../core/layout/content_width.dart';
 import '../../core/link/deep_link_service.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
+import '../../core/services/user_sync_service.dart';
 import '../../core/models/video.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/ui/channel_avatar.dart';
@@ -73,7 +74,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   List<Video> _playlist = [];
   int _playlistIndex = 0;
   bool _isDescriptionExpanded = false;
-  bool _isLiked = false;
   bool _isDisliked = false;
 
   AudioTrack? _matchedAudioTrack;
@@ -979,7 +979,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // ── Action Buttons (Like, Dislike, Clip, Share, Save, YouTube) ─────────────
   Widget _buildActionButtons(BuildContext context) {
     final tokens = context.tokens;
-    return Row(
+    return AnimatedBuilder(
+      animation: UserSyncService.instance,
+      builder: (context, _) {
+        final isLiked = _video != null && UserSyncService.instance.isLiked(
+          UserSyncService.likedVideoType,
+          _video!.id,
+        );
+        return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (_matchedAudioTrack != null) ...[
@@ -1012,10 +1019,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 borderRadius:
                     const BorderRadius.horizontal(left: Radius.circular(20)),
                 onTap: () {
-                  setState(() {
-                    _isLiked = !_isLiked;
-                    if (_isLiked) _isDisliked = false;
-                  });
+                  if (_video != null) {
+                    UserSyncService.instance.setLiked(
+                      itemType: UserSyncService.likedVideoType,
+                      itemId: _video!.id,
+                      liked: !isLiked,
+                    );
+                  }
+                  if (!isLiked) setState(() => _isDisliked = false);
                 },
                 child: Padding(
                   padding:
@@ -1023,15 +1034,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        _isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                        isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
                         size: 16,
-                        color: _isLiked
+                        color: isLiked
                             ? Theme.of(context).colorScheme.primary
                             : null,
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        _isLiked ? '1' : 'Like',
+                        isLiked ? 'Liked' : 'Like',
                         style: const TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w600),
                       ),
@@ -1050,8 +1061,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 onTap: () {
                   setState(() {
                     _isDisliked = !_isDisliked;
-                    if (_isDisliked) _isLiked = false;
                   });
+                  if (_isDisliked && isLiked && _video != null) {
+                    UserSyncService.instance.setLiked(
+                      itemType: UserSyncService.likedVideoType,
+                      itemId: _video!.id,
+                      liked: false,
+                    );
+                  }
                 },
                 child: Padding(
                   padding:
@@ -1108,6 +1125,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           onTap: _openInYouTubeApp,
         ),
       ],
+        );
+      },
     );
   }
 

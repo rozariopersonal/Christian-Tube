@@ -16,6 +16,8 @@ class CommunityShortsGrid extends StatelessWidget {
   final List<Channel> filterChannels;
   final Set<String> selectedChannelIds;
   final VoidCallback onChannelFilterTap;
+  final bool likedOnly;
+  final ValueChanged<bool> onLikedOnlyChanged;
 
   const CommunityShortsGrid({
     super.key,
@@ -28,6 +30,8 @@ class CommunityShortsGrid extends StatelessWidget {
     required this.filterChannels,
     required this.selectedChannelIds,
     required this.onChannelFilterTap,
+    required this.likedOnly,
+    required this.onLikedOnlyChanged,
   });
 
   @override
@@ -76,6 +80,12 @@ class CommunityShortsGrid extends StatelessWidget {
                     spacing: 10,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
+                      FilterChip(
+                        label: const Text('Liked'),
+                        avatar: const Icon(Icons.thumb_up_alt_outlined, size: 17),
+                        selected: likedOnly,
+                        onSelected: onLikedOnlyChanged,
+                      ),
                       OutlinedButton.icon(
                         onPressed: onChannelFilterTap,
                         icon: const Icon(Icons.tune),
