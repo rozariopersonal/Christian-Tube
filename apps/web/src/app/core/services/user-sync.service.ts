@@ -73,6 +73,12 @@ export class UserSyncService {
   private clockOffsetMs = this.readClockOffset();
   private activeUserId: string | null = null;
   private authPaused = false;
+  private operationSequence = 0;
+  private acknowledgedWrites = 0;
+
+  get acknowledgementVersion(): number {
+    return this.acknowledgedWrites;
+  }
   private syncAllowed = false;
   private lastPullAt = 0;
   private inFlightSync: Promise<void> | null = null;
@@ -162,7 +168,7 @@ export class UserSyncService {
     if (!userId || !channelId) return;
     const key = `sub:${channelId}`;
     const op: SyncOp = {
-      opId: `${key}:${Date.now()}`,
+      opId: `${key}:${Date.now()}:${this.operationSequence++}`,
       userId,
       kind: 'subscription',
       itemId: channelId,
@@ -178,7 +184,7 @@ export class UserSyncService {
     if (!userId || !field) return;
     const key = `pref:${field}`;
     const op: SyncOp = {
-      opId: `${key}:${Date.now()}`,
+      opId: `${key}:${Date.now()}:${this.operationSequence++}`,
       userId,
       kind: 'preference',
       itemId: field,
@@ -234,6 +240,7 @@ export class UserSyncService {
       try {
         await this.flushOutbox();
         if (this.authPaused) return;
+        const version = this.acknowledgementVersion;
         const state = await firstValueFrom(
           this.api.get<RemoteSyncState>('/api/user/state'),
         );
@@ -241,7 +248,8 @@ export class UserSyncService {
           this.clockOffsetMs = state.serverTime - Date.now();
           this.writeStorage(KEY_CLOCK_OFFSET, String(this.clockOffsetMs));
         }
-        if (this.auth.currentUser()?.id === userId && state) {
+        if (this.auth.currentUser()?.id === userId &&
+            version === this.acknowledgementVersion && state) {
           this.remoteState.set(state);
         }
         this.retryDelayMs = 2000;
@@ -279,6 +287,8 @@ export class UserSyncService {
     }
 
     const keysToRemove = new Set<string>();
+    const acknowledgedSubscriptions: Array<[string, SyncOp]> = [];
+    let acknowledgedPreferences: RemoteSyncState['preferences'];
     let shouldRetry = false;
 
     // 1. Batch watch items
@@ -327,6 +337,7 @@ export class UserSyncService {
     }
 
     // 2. Coalesced preferences delta
+    if (this.auth.currentUser()?.id !== userId) return;
     if (prefOps.length > 0) {
       const body: Record<string, unknown> = {};
       const fieldTimestamps: Record<string, number> = {};
@@ -339,7 +350,9 @@ export class UserSyncService {
       body['fieldTimestamps'] = fieldTimestamps;
 
       try {
-        await firstValueFrom(this.api.patch('/api/user/preferences', body));
+        acknowledgedPreferences = await firstValueFrom(
+          this.api.patch<RemoteSyncState['preferences']>('/api/user/preferences', body),
+        );
         for (const [key] of prefOps) keysToRemove.add(key);
       } catch (err) {
         if (this.isAuthError(err)) {
@@ -357,6 +370,7 @@ export class UserSyncService {
 
     // 3. Subscriptions
     for (const [key, op] of subOps) {
+      if (this.auth.currentUser()?.id !== userId) return;
       try {
         if (op.isActive) {
           await firstValueFrom(
@@ -371,6 +385,7 @@ export class UserSyncService {
             ),
           );
         }
+        acknowledgedSubscriptions.push([key, op]);
         keysToRemove.add(key);
       } catch (err) {
         if (this.isAuthError(err)) {
@@ -386,8 +401,14 @@ export class UserSyncService {
       }
     }
 
+    if (this.auth.currentUser()?.id !== userId) return;
     if (keysToRemove.size > 0) {
       const latestMap = this.readPendingMap(userId);
+      const completedSubscriptions = acknowledgedSubscriptions
+        .filter(([key, op]) => latestMap[key]?.opId === op.opId);
+      const preferencesAreCurrent = prefOps.some(([key, op]) =>
+        latestMap[key]?.opId === op.opId,
+      );
       for (const key of keysToRemove) {
         const sentOp = currentMap[key];
         const latestOp = latestMap[key];
@@ -396,6 +417,25 @@ export class UserSyncService {
         }
       }
       this.writePendingMap(userId, latestMap);
+      if (completedSubscriptions.length > 0 ||
+          (acknowledgedPreferences && preferencesAreCurrent)) {
+        this.acknowledgedWrites++;
+        this.remoteState.update((state) => {
+          if (!state) return state;
+          const subscriptions = new Set(state.subscriptions);
+          for (const [, op] of completedSubscriptions) {
+            if (op.isActive) subscriptions.add(op.itemId);
+            else subscriptions.delete(op.itemId);
+          }
+          return {
+            ...state,
+            subscriptions: state.subscriptions ? [...subscriptions] : undefined,
+            preferences: preferencesAreCurrent
+              ? acknowledgedPreferences ?? state.preferences
+              : state.preferences,
+          };
+        });
+      }
     }
 
     if (shouldRetry) {
