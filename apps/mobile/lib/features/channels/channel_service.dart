@@ -566,7 +566,8 @@ class ChannelService extends ChangeNotifier {
     bool hasShorts,
   ) async {
     if (_isAuthenticated) {
-      if (_syncService.activeUserId != null) {
+      if (_authService?.currentUser?.id == _syncService.activeUserId &&
+          _syncService.activeUserId != null) {
         await _syncService.enqueueSubscription(channelId, followed);
       } else {
         try {
@@ -612,7 +613,8 @@ class ChannelService extends ChangeNotifier {
     }
     notifyListeners();
     await _saveToPrefs();
-    if (_isAuthenticated && _syncService.activeUserId != null) {
+    if (_authService?.currentUser?.id == _syncService.activeUserId &&
+        _syncService.activeUserId != null) {
       await _syncService.enqueueSubscriptions(changes);
     }
   }
