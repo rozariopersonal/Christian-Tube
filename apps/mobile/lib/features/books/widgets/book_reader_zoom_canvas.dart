@@ -16,12 +16,17 @@ class BookReaderZoomCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InteractiveViewer(
-      transformationController: controller,
-      minScale: minScale,
-      maxScale: maxScale,
-      trackpadScrollCausesScale: true,
-      child: child,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        InteractiveViewer(
+          transformationController: controller,
+          minScale: minScale,
+          maxScale: maxScale,
+          trackpadScrollCausesScale: true,
+          child: child,
+        ),
+      ],
     );
   }
 }
