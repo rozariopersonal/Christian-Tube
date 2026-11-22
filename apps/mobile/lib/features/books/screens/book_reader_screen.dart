@@ -483,7 +483,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                     )
                   : BookReaderZoomCanvas(
                       controller: _coordinator.zoomController,
-                      tokens: tokens,
                       child: Stack(
                         children: [
                           continuous
