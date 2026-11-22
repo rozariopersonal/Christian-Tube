@@ -41,6 +41,7 @@ export class UserItemsSyncService {
 
   private activeUserId: string | null = null;
   private authPaused = false;
+  private syncAllowed = false;
   private lastPullAt = 0;
   private inFlightSync: Promise<void> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -49,18 +50,31 @@ export class UserItemsSyncService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
+      const needsSignIn = this.auth.sessionNeedsSignIn();
       untracked(() => {
         if (user) {
+          if (needsSignIn || !this.auth.canSync()) {
+            if (this.activeUserId !== user.id) {
+              this.activeUserId = user.id;
+              this.pendingItems.set(this.readPendingMap(user.id));
+              this.remoteItems.set([]);
+            }
+            this.syncAllowed = false;
+            return;
+          }
           const changed = this.activeUserId !== user.id;
+          const resumed = !this.syncAllowed;
+          this.syncAllowed = true;
           this.activeUserId = user.id;
           this.authPaused = false;
           if (changed) {
             this.pendingItems.set(this.readPendingMap(user.id));
             this.remoteItems.set([]);
-            void this.pullAndFlush(true);
           }
+          if (changed || resumed) void this.pullAndFlush(true);
         } else if (this.activeUserId !== null) {
           this.activeUserId = null;
+          this.syncAllowed = false;
           this.authPaused = false;
           this.pendingItems.set({});
           this.remoteItems.set([]);
@@ -108,7 +122,7 @@ export class UserItemsSyncService {
 
   async pullAndFlush(force = false): Promise<void> {
     const userId = this.auth.currentUser()?.id;
-    if (!userId) return;
+    if (!userId || !this.auth.canSync()) return;
     const now = Date.now();
     if (!force && now - this.lastPullAt < 15_000) return;
     if (this.inFlightSync) return this.inFlightSync;
@@ -130,6 +144,7 @@ export class UserItemsSyncService {
       } catch (err) {
         if (err instanceof HttpErrorResponse && err.status === 401) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
         }
       } finally {
         this.inFlightSync = null;
@@ -141,7 +156,7 @@ export class UserItemsSyncService {
 
   async flushOutbox(): Promise<void> {
     const userId = this.auth.currentUser()?.id;
-    if (!userId || this.authPaused) return;
+    if (!userId || this.authPaused || !this.auth.canSync()) return;
 
     const currentMap = this.readPendingMap(userId);
     const entries = Object.entries(currentMap).filter(
@@ -174,6 +189,7 @@ export class UserItemsSyncService {
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 401) {
         this.authPaused = true;
+        this.auth.markSessionRejected();
         return;
       }
       if (

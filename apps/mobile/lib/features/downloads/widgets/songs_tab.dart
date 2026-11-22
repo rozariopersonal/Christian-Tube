@@ -35,7 +35,7 @@ class SongsTab extends StatelessWidget {
                 title: 'Offline Songbook & Hymns',
                 subtitle: 'Full-Text Search (FTS5) Database • ~8.2 MB',
                 description:
-                    'Installs the precompiled Christian Tube songbook catalog locally. Unlocks instant title and lyric search, songbook transliterations, and offline chords/lyrics access even in airplane mode.',
+                    'Installs the precompiled ChristianApp songbook catalog locally. Unlocks instant title and lyric search, songbook transliterations, and offline chords/lyrics access even in airplane mode.',
                 isDownloading: isDownloading,
                 progress: progress,
                 progressLabel: progress > 0

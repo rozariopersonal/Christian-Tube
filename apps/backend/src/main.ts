@@ -7,11 +7,11 @@ import rateLimit from 'express-rate-limit';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const logger = new Logger('PrivateTubeBootstrap');
+  const logger = new Logger('ChristianAppBootstrap');
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
-  const appName = configService.get<string>('appName') || 'PrivateTube';
+  const appName = configService.get<string>('appName') || 'ChristianApp';
   const port = configService.get<number>('port') || 3000;
 
   // XML Body Parser for Google WebSub Push Notifications

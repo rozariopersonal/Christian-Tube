@@ -36,7 +36,10 @@ class BookVirtualScrollContent extends StatelessWidget {
     this.makeHighlightRecognizer,
     required this.onTriggerFetch,
     required this.buildSelectionToolbar,
+    this.wrapLine,
   });
+
+  final Widget Function(BookLine line, Widget child)? wrapLine;
 
   final int totalLines;
 
@@ -58,7 +61,7 @@ class BookVirtualScrollContent extends StatelessWidget {
       makeHighlightRecognizer;
   final void Function(int chapterIndex) onTriggerFetch;
   final Widget Function(
-      BuildContext context, SelectableRegionState selectableRegionState)
+      BuildContext context, SelectableRegionState selectableRegionState, String selectedText)
       buildSelectionToolbar;
 
   @override
@@ -66,8 +69,8 @@ class BookVirtualScrollContent extends StatelessWidget {
     if (totalLines <= 0) return const SizedBox.shrink();
 
     return DoubleTapDictionaryArea(
-      contextMenuBuilder: (context, state) =>
-          buildSelectionToolbar(context, state),
+      contextMenuBuilder: (context, state, text) =>
+          buildSelectionToolbar(context, state, text),
       child: ScrollablePositionedList.builder(
         itemScrollController: itemScrollController,
         itemPositionsListener: itemPositionsListener,
@@ -110,7 +113,7 @@ class BookVirtualScrollContent extends StatelessWidget {
     final next = split.ordinal + 1 < lines.length
         ? lines[split.ordinal + 1]
         : null;
-    return BookLineItem(
+    final item = BookLineItem(
       key: ValueKey('bl-${split.chapterIndex}-${split.ordinal}'),
       line: line,
       textColor: textColor,
@@ -122,6 +125,7 @@ class BookVirtualScrollContent extends StatelessWidget {
       paragraphBreakAfter:
           BookParagraphGrouper.isParagraphBreakBetween(line, next),
     );
+    return wrapLine?.call(line, item) ?? item;
   }
 
   Widget _lineSkeleton(int row) {

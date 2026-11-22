@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../api/api.service';
 import { AppConfig } from '../config/app-config';
@@ -43,19 +44,46 @@ const KEY_TOKEN = 'auth_token';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly api = inject(ApiService);
+  private readonly http = inject(HttpClient);
+  private sessionExchange: Promise<void> | null = null;
+  private nextSessionExchangeAt = 0;
   private readonly idbCache = inject(IndexedDbCacheService);
 
   readonly currentUser = signal<AuthUser | null>(this.readStoredUser());
   readonly isAdmin = signal<boolean>(false);
   readonly isLoading = signal<boolean>(false);
   readonly lastError = signal<string | null>(null);
+  readonly sessionNeedsSignIn = signal<boolean>(this.hasExpiredCredential());
+  readonly sessionPromptDismissed = signal<boolean>(false);
 
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
+
+  canSync(): boolean {
+    if (this.sessionNeedsSignIn()) return false;
+    void this.upgradeSession();
+    if (this.hasExpiredCredential()) {
+      this.markSessionRejected();
+      return false;
+    }
+    return true;
+  }
+
+  markSessionRejected(): void {
+    if (!this.sessionNeedsSignIn()) this.sessionPromptDismissed.set(false);
+    this.sessionNeedsSignIn.set(true);
+  }
 
   private googleInitialized = false;
 
   constructor() {
     const user = this.currentUser();
+    void this.upgradeSession();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.nextSessionExchangeAt = 0;
+        void this.upgradeSession();
+      });
+    }
     if (user?.email) {
       void this.checkIsAdmin(user.email);
     }
@@ -78,17 +106,19 @@ export class AuthService {
     return true;
   }
 
-  renderGoogleButton(element: HTMLElement): void {
-    if (!this.initGoogleSignIn()) return;
-    window.google?.accounts?.id?.renderButton(element, {
+  renderGoogleButton(element: HTMLElement): boolean {
+    if (!this.initGoogleSignIn()) return false;
+    window.google!.accounts!.id!.renderButton(element, {
       theme: 'outline',
       size: 'large',
-      width: 280,
+      width: 220,
       text: 'continue_with',
     });
+    return true;
   }
 
   promptGoogleSignIn(): void {
+    this.lastError.set(null);
     if (!this.initGoogleSignIn()) {
       this.lastError.set('Google Sign-In is still loading. Please try again.');
       return;
@@ -119,11 +149,19 @@ export class AuthService {
     } catch {
       // ignore
     }
+    const token = this.readToken();
+    if (token?.startsWith('session_')) {
+      void firstValueFrom(this.http.delete(`${AppConfig.apiBaseUrl}/api/auth/session`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })).catch(() => { /* The local sign-out still succeeds while offline. */ });
+    }
     this.wipeWebStorage();
     void this.idbCache.clear();
     this.currentUser.set(null);
     this.isAdmin.set(false);
     this.lastError.set(null);
+    this.sessionNeedsSignIn.set(false);
+    this.sessionPromptDismissed.set(false);
     queueMicrotask(() => this.wipeWebStorage());
   }
 
@@ -178,6 +216,7 @@ export class AuthService {
         idToken,
       };
       this.saveSession(user, idToken);
+      void this.upgradeSession();
       await this.syncUser(user);
       await this.checkIsAdmin(user.email);
     } catch (err) {
@@ -204,12 +243,68 @@ export class AuthService {
   }
 
   private saveSession(user: AuthUser, token: string): void {
-    this.currentUser.set(user);
     try {
       localStorage.setItem(KEY_USER, JSON.stringify(user));
       localStorage.setItem(KEY_TOKEN, token);
     } catch {
       // ignore
+    }
+    this.sessionNeedsSignIn.set(false);
+    this.sessionPromptDismissed.set(false);
+    this.currentUser.set(user);
+  }
+
+  private readToken(): string | null {
+    try { return localStorage.getItem(KEY_TOKEN); } catch { return null; }
+  }
+
+  private upgradeSession(): Promise<void> {
+    if (this.sessionExchange) return this.sessionExchange;
+    const token = this.readToken();
+    if (Date.now() < this.nextSessionExchangeAt) return Promise.resolve();
+    if (!token || token.startsWith('token_') || token.startsWith('session_') || this.hasExpiredCredential()) {
+      return Promise.resolve();
+    }
+    const user = this.currentUser();
+    if (!user) return Promise.resolve();
+    this.sessionExchange = (async () => {
+      try {
+        const result = await firstValueFrom(this.http.post<{ token: string }>(
+          `${AppConfig.apiBaseUrl}/api/auth/session`, {},
+          { headers: { Authorization: `Bearer ${token}` } },
+        ));
+        if (!/^session_[A-Za-z0-9_-]{43}$/.test(result.token)) return;
+        // A sign-out or account switch while the request was in flight wins.
+        if (this.readToken() !== token || this.currentUser()?.id !== user.id) {
+          void firstValueFrom(this.http.delete(`${AppConfig.apiBaseUrl}/api/auth/session`, {
+            headers: { Authorization: `Bearer ${result.token}` },
+          })).catch(() => {});
+          return;
+        }
+        const { idToken: _idToken, ...storedUser } = user;
+        this.saveSession(storedUser, result.token);
+      } catch {
+        // Keep the Google credential and retry, without flooding an unavailable server.
+        this.nextSessionExchangeAt = Date.now() + 60_000;
+      }
+    })().finally(() => {
+      this.sessionExchange = null;
+      if (this.readToken() && this.readToken() !== token && !this.readToken()?.startsWith('session_')) {
+        this.nextSessionExchangeAt = 0;
+        void this.upgradeSession();
+      }
+    });
+    return this.sessionExchange;
+  }
+
+  private hasExpiredCredential(): boolean {
+    try {
+      const token = localStorage.getItem(KEY_TOKEN);
+      if (!token || token.startsWith('token_')) return false;
+      const payload = this.decodeJwtPayload(token);
+      return typeof payload['exp'] === 'number' && payload['exp'] * 1000 <= Date.now();
+    } catch {
+      return false;
     }
   }
 

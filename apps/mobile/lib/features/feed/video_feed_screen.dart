@@ -5,6 +5,7 @@ import '../../core/theme/app_tokens.dart';
 import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
+import '../../core/services/user_preference_service.dart';
 import '../../shared/ui/video_card.dart';
 import '../channels/channel_service.dart';
 import 'video_service.dart';
@@ -20,6 +21,10 @@ class VideoFeedScreen extends StatefulWidget {
 class _VideoFeedScreenState extends State<VideoFeedScreen> {
   final VideoService _videoService = VideoService();
   final ChannelService _channelService = ChannelService();
+  final UserPreferenceService _preferenceService = UserPreferenceService.instance;
+
+  Set<String> get _videoChannelIds => _preferenceService.preferences
+      .videoFeedChannels(_channelService.subscribedChannelIds);
   final ScrollController _scrollController = ScrollController();
 
   String _selectedCategory = 'All';
@@ -28,13 +33,14 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   void initState() {
     super.initState();
     _channelService.addListener(_onChannelsChanged);
+    _preferenceService.addListener(_onChannelsChanged);
     _loadInitialFeed();
     _scrollController.addListener(_onScroll);
   }
 
   void _onChannelsChanged() {
     _videoService.updateSubscribedChannelIds(
-      _channelService.subscribedChannelIds,
+      _videoChannelIds,
       triggerRefresh: true,
     );
   }
@@ -43,7 +49,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     await _channelService.loadSubscriptions();
     await _channelService.fetchChannels();
     _videoService.updateSubscribedChannelIds(
-      _channelService.subscribedChannelIds,
+      _videoChannelIds,
       triggerRefresh: true,
     );
   }
@@ -58,6 +64,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   @override
   void dispose() {
     _channelService.removeListener(_onChannelsChanged);
+    _preferenceService.removeListener(_onChannelsChanged);
     _scrollController.dispose();
     super.dispose();
   }
@@ -65,12 +72,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_videoService, _channelService]),
+      animation: Listenable.merge([_videoService, _channelService, _preferenceService]),
       builder: (context, _) {
         final tokens = context.tokens;
         final videos = _videoService.videos;
         final channels = _channelService.channels;
-        final subscribedIds = _channelService.subscribedChannelIds;
+        final subscribedIds = _videoChannelIds;
         final subscribedChannels =
             channels.where((c) => subscribedIds.contains(c.id)).toList();
 
@@ -418,7 +425,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       onRefresh: () async {
         await _channelService.loadSubscriptions();
         _videoService
-            .updateSubscribedChannelIds(_channelService.subscribedChannelIds);
+            .updateSubscribedChannelIds(_videoChannelIds);
         await _videoService.refreshVideos();
       },
       child: ScreenClass.of(context).isCompact

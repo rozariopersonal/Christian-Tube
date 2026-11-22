@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { GoogleSignInButtonComponent } from '../auth/google-sign-in-button.component';
 import { AppConfig } from '../config/app-config';
 import { HeaderSearchService } from '../services/header-search.service';
 import { HeaderSlotService } from '../services/header-slot.service';
@@ -20,6 +21,7 @@ import { ChannelService } from '../../features/channels/services/channel.service
 import { VideoMiniPlayerComponent } from '../../features/videos/components/video-mini-player.component';
 import { VideoLibraryService } from '../../features/videos/services/video-library.service';
 import { ScreenClassService } from './screen-class.service';
+import { ReaderFullscreenService } from '../services/reader-fullscreen.service';
 
 interface NavDestination {
   label: string;
@@ -70,10 +72,11 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
     FormsModule,
     MiniPlayerComponent,
     VideoMiniPlayerComponent,
+    GoogleSignInButtonComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="shell">
+    <div class="shell" [class.reader-fullscreen]="readerFullscreen.activeReader() !== null">
       @if (screen.isMediumOrExpanded()) {
         <header class="yt-topbar">
           <div class="topbar-left">
@@ -206,6 +209,19 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         </header>
       }
 
+      @if (auth.currentUser() && auth.sessionNeedsSignIn() && !auth.sessionPromptDismissed()) {
+        <div class="session-prompt" role="alert">
+          <div class="session-prompt-copy">
+            <strong>Sign in again to resume syncing</strong>
+            <span>Your local changes are saved on this device.</span>
+            @if (auth.lastError(); as error) { <span>{{ error }}</span> }
+          </div>
+          <div class="session-prompt-actions">
+            <app-google-sign-in-button />
+            <button type="button" class="pill-chip" (click)="auth.sessionPromptDismissed.set(true)">Later</button>
+          </div>
+        </div>
+      }
       <div class="shell-body" [class.has-sidebar]="screen.isMediumOrExpanded()">
         @if (screen.isMediumOrExpanded()) {
           @if (isDrawerMode() && drawerOpen()) {
@@ -348,6 +364,30 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         background-color: var(--bg);
       }
 
+      .session-prompt {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px 16px;
+        padding: 12px 16px;
+        background: var(--surface-variant);
+        border-bottom: 1px solid var(--surface-border);
+      }
+
+      .session-prompt-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .session-prompt-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+
       .yt-topbar {
         position: sticky;
         top: 0;
@@ -391,7 +431,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
       .topbar-slot-center {
         flex: 1;
         min-width: 0;
-        overflow: hidden;
+        overflow: visible;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -784,6 +824,42 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
       .bottom-nav::-webkit-scrollbar {
         display: none;
       }
+
+      .shell.reader-fullscreen {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+        --shell-top-offset: 0px;
+      }
+
+      .shell.reader-fullscreen .yt-topbar,
+      .shell.reader-fullscreen .session-prompt,
+      .shell.reader-fullscreen .yt-sidebar,
+      .shell.reader-fullscreen .drawer-backdrop,
+      .shell.reader-fullscreen .bottom-nav,
+      .shell.reader-fullscreen app-video-mini-player,
+      .shell.reader-fullscreen app-mini-player {
+        display: none !important;
+      }
+
+      .shell.reader-fullscreen .shell-body {
+        flex: 1;
+        min-height: 0;
+        height: auto;
+        overflow: hidden;
+      }
+
+      .shell.reader-fullscreen .shell-content {
+        min-height: 0;
+        height: 100%;
+      }
+
+      .shell.reader-fullscreen .shell-content.with-bottom-bar {
+        padding-bottom: 0;
+      }
     `,
   ],
 })
@@ -795,6 +871,7 @@ export class MainShellComponent implements OnInit {
   readonly headerSearch = inject(HeaderSearchService);
   readonly headerSlot = inject(HeaderSlotService);
   readonly theme = inject(ThemeService);
+  readonly readerFullscreen = inject(ReaderFullscreenService);
   private readonly router = inject(Router);
 
   readonly appName = AppConfig.appName;

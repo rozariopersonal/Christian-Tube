@@ -20,7 +20,7 @@ function makeGuard(verifyPayload?: { sub: string; email: string }) {
 
   const config = { get: jest.fn((key: string) => (key === 'adminEmails' ? [ADMIN_EMAIL] : undefined)) };
 
-  return { guard: new AdminGuard(jwks as GoogleJwksService, config as any), request: {} as any };
+  return { guard: new AdminGuard(jwks as GoogleJwksService, config as any, {} as any), request: {} as any };
 }
 
 function makeContext(request: any): any {

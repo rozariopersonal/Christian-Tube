@@ -19,7 +19,7 @@ class DualPageSpreadView extends StatelessWidget {
   final void Function(int pageNum) onTriggerFetch;
   final void Function(int pageNum) onRetry;
   final Widget Function(
-          BuildContext context, SelectableRegionState state, int pageNum)
+          BuildContext context, SelectableRegionState state, int pageNum, String selectedText)
       buildSelectionToolbar;
   final Widget Function(
           BookRenderBlock block, int pageNum, Color textColor, AppTokens tokens)

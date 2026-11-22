@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/update/widgets/update_dialog.dart';
+import 'package:mobile/features/update/services/update_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Widget wrapWithApp(Widget child) {
   return MaterialApp(
@@ -24,6 +26,47 @@ void main() {
   };
 
   group('UpdateDialog Responsive & Layout Tests', () {
+    testWidgets('shows the grouped version and highlights in light theme', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData.light().copyWith(extensions: const [AppTokens.light]),
+        home: const Scaffold(body: UpdateDialog(updateData: sampleUpdateData)),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('AVAILABLE VERSION'), findsOneWidget);
+      expect(find.text('Performance improvements'), findsOneWidget);
+      expect(find.text('Skip this version'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+    testWidgets('remains usable with large text on a narrow screen', (tester) async {
+      tester.view.physicalSize = const Size(640, 1200);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(wrapWithApp(const MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(2)),
+        child: UpdateDialog(updateData: sampleUpdateData),
+      )));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Skip this version'));
+      expect(tester.takeException(), isNull);
+      expect(find.text('Update Now'), findsOneWidget);
+    });
+    testWidgets('skip persists the version and dismisses the dialog', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(wrapWithApp(Builder(builder: (context) => TextButton(
+        onPressed: () => UpdateDialog.show(context, sampleUpdateData),
+        child: const Text('Open'),
+      ))));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Skip this version'));
+      await tester.tap(find.text('Skip this version'));
+      await tester.pumpAndSettle();
+      expect(find.text('Update Available!'), findsNothing);
+      expect(await UpdatePreferences.isSkipped('v1.251.0'), isTrue);
+    });
     const testViewports = [320.0, 600.0, 840.0, 1400.0];
 
     for (final width in testViewports) {
@@ -44,8 +87,8 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.text('Update Available!'), findsOneWidget);
-        expect(find.text('v1.242.0'), findsOneWidget);
-        expect(find.text('v1.251.0'), findsOneWidget);
+        expect(find.textContaining('v1.242.0'), findsOneWidget);
+        expect(find.textContaining('v1.251.0'), findsOneWidget);
         expect(find.text("What's New"), findsOneWidget);
         expect(find.text('Update Now'), findsOneWidget);
         expect(find.text('Later'), findsOneWidget);

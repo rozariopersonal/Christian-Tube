@@ -7,14 +7,16 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { GoogleJwksService } from '../services/google-jwks.service';
 import { AuthGuard } from './auth.guard';
+import { SessionService } from './session.service';
 
 @Injectable()
 export class AdminGuard extends AuthGuard implements CanActivate {
   constructor(
     googleJwksService: GoogleJwksService,
     private readonly configService: ConfigService,
+    sessions: SessionService,
   ) {
-    super(googleJwksService);
+    super(googleJwksService, sessions);
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

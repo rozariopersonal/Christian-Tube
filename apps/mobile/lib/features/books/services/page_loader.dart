@@ -53,8 +53,11 @@ class PageLoader {
   }
 
   /// Persists a new highlight via the data adapter.
-  Future<void> saveHighlight(BookHighlight highlight) =>
-      _bookService.saveHighlight(highlight);
+  Future<void> saveHighlight(BookHighlight highlight) async {
+    await _bookService.saveHighlight(highlight);
+    await loadHighlightsForPage(highlight.pageNumber);
+    onPageStateChanged?.call();
+  }
 
   /// Fetches highlights for [page] into the cache and marks it loaded.
   Future<void> loadHighlightsForPage(int page) async {
@@ -73,6 +76,7 @@ class PageLoader {
     final serviceCached = _bookService.getCachedPageLines(_bookId, page);
     if (serviceCached != null && serviceCached.isNotEmpty) {
       _pageCache[page] = serviceCached;
+      await loadHighlightsForPage(page);
       onPageStateChanged?.call();
       return serviceCached;
     }

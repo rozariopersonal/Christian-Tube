@@ -338,7 +338,7 @@ describe('VideosService', () => {
         expect.objectContaining({
           create: expect.objectContaining({
             id: 'UCSaJppP4zb2vivjxYfTqOKw',
-            name: 'Christian-Tube',
+            name: 'ChristianApp',
             isActive: true,
           }),
         }),

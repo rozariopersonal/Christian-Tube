@@ -6,6 +6,11 @@ import { YoutubeService, ExtractedVideo } from '../youtube/youtube.service';
 import { CacheService } from '../cache/cache.service';
 import { extractVideoMetadata, isSongChannel } from './metadata-extractor';
 
+function isActiveOrUpcomingBroadcast(video: any): boolean {
+  const broadcastState = video?.snippet?.liveBroadcastContent;
+  return broadcastState === 'live' || broadcastState === 'upcoming';
+}
+
 @Injectable()
 export class SyncService implements OnModuleInit {
   private readonly logger = new Logger(SyncService.name);
@@ -231,6 +236,10 @@ export class SyncService implements OnModuleInit {
         }
 
         const detail = visibility.item;
+        // Do not sync upcoming or active broadcasts as ordinary videos. They
+        // can be reconsidered after YouTube marks them as regular VODs.
+        if (isActiveOrUpcomingBroadcast(detail)) continue;
+
         const snippet = detail.snippet;
         if (!snippet) continue;
         const contentDetails = detail.contentDetails;
@@ -386,12 +395,9 @@ export class SyncService implements OnModuleInit {
       syncedCount++;
     }
 
-    // 3. Multi-batch HTML channel /streams tab scraping (Live broadcasts)
-    const scrapedStreamsResult = await this.youtubeService.scrapeChannelStreamsTab(channelId, maxBatches);
-    for (const v of scrapedStreamsResult.videos) {
-      await this.upsertScrapedVideo(v, channel, defaultCategory);
-      syncedCount++;
-    }
+    // Do not scrape the /streams tab here: without YouTube API metadata it
+    // mixes upcoming/live events with completed broadcasts. Completed archives
+    // can enter through the /videos tab once YouTube publishes them as VODs.
 
     // 4. Multi-batch HTML channel /shorts tab scraping
     const isSong = isSongChannel(channel.name, channel.category);
@@ -419,6 +425,16 @@ export class SyncService implements OnModuleInit {
   private async upsertScrapedVideo(v: ExtractedVideo, channel: any, defaultCategory?: string | null) {
     const normalizedTitle = (v.title || '').trim().toLowerCase();
     if (normalizedTitle === 'private video' || normalizedTitle === '[private video]') {
+      return;
+    }
+
+    // HTML/RSS fallback sources do not reliably expose broadcast state. Treat
+    // entries without a resolved duration as unknown and retry them on a later
+    // sync instead of storing live/scheduled broadcasts as 0:00 videos.
+    if (!v.durationSeconds || v.durationSeconds <= 0) {
+      this.logger.debug(
+        `Skipping video ${v.videoId}: duration/broadcast state is unresolved`,
+      );
       return;
     }
 
@@ -552,6 +568,13 @@ export class SyncService implements OnModuleInit {
       }
 
       const item = visibility.item;
+      if (isActiveOrUpcomingBroadcast(item)) {
+        this.logger.log(
+          `Skipping WebSub broadcast ${videoId}: ${item.snippet?.liveBroadcastContent}`,
+        );
+        return;
+      }
+
       const snippet = item.snippet;
       const contentDetails = item.contentDetails;
       const stats = item.statistics;
@@ -702,14 +725,19 @@ export class SyncService implements OnModuleInit {
     }
 
     const item = visibility.item;
-
+    if (isActiveOrUpcomingBroadcast(item)) {
+      this.logger.log(
+        `Skipping direct video sync for ${videoId}: ${item.snippet?.liveBroadcastContent}`,
+      );
+      return null;
+    }
     const snippet = item.snippet;
     const contentDetails = item.contentDetails;
     const stats = item.statistics;
     const title = snippet?.title || 'Christian Short';
     const description = snippet?.description || '';
     const channelId = snippet?.channelId || 'UCSaJppP4zb2vivjxYfTqOKw';
-    const channelName = snippet?.channelTitle || 'Christian Tube';
+    const channelName = snippet?.channelTitle || 'ChristianApp';
     const isSong = isSongChannel(channelName);
     const publishedAt = snippet?.publishedAt ? new Date(snippet.publishedAt) : new Date();
     const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || 'PT60S');

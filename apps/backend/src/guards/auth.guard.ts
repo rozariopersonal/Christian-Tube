@@ -6,12 +6,16 @@ import {
   Logger,
 } from '@nestjs/common';
 import { GoogleJwksService } from '../services/google-jwks.service';
+import { SessionService } from './session.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   protected readonly logger = new Logger(AuthGuard.name);
 
-  constructor(private readonly googleJwksService: GoogleJwksService) {}
+  constructor(
+    private readonly googleJwksService: GoogleJwksService,
+    private readonly sessions: SessionService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -26,6 +30,13 @@ export class AuthGuard implements CanActivate {
 
     if (!token) {
       throw new UnauthorizedException('Token required');
+    }
+
+    if (token.startsWith('session_')) {
+      const user = await this.sessions.authenticate(token);
+      if (!user) throw new UnauthorizedException('Invalid or expired session');
+      request.user = { ...user, role: 'USER' };
+      return true;
     }
 
     if (this.googleJwksService.isGuestToken(token)) {
@@ -48,6 +59,7 @@ export class AuthGuard implements CanActivate {
         userId: payload.sub,
         email: payload.email as string,
         role: 'USER',
+        isGoogle: true,
       };
       return true;
     } catch (error) {

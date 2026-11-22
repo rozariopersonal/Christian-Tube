@@ -444,3 +444,12 @@ model AudioTrack {
   @@index([publishedAt])
   @@index([updatedAt])
 }
+
+model WebSession {
+  tokenHash String   @id
+  userId    String
+  email     String
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
