@@ -43,10 +43,11 @@ void main() {
         theme: ThemeData(extensions: const [AppTokens.light]),
         home: Scaffold(
           body: DoubleTapDictionaryArea(
-            contextMenuBuilder: (context, state) => buildReaderSelectionToolbar(
+            contextMenuBuilder: (context, state, selectedText) => buildReaderSelectionToolbar(
               context,
               state,
               1,
+              selectedText: selectedText,
               onHighlight: (_, __) {},
             ),
             child: const Padding(

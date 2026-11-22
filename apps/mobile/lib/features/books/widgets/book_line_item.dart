@@ -44,7 +44,7 @@ class BookLineItem extends StatelessWidget {
       makeHighlightRecognizer;
   final bool paragraphBreakAfter;
 
-  List<InlineSpan> _format(String text) {
+  List<InlineSpan> _format(String text, {TextStyle? textStyle}) {
     return FormattedParagraphBuilder.build(
       text,
       textColor,
@@ -53,6 +53,8 @@ class BookLineItem extends StatelessWidget {
       highlightCache,
       makeRecognizer: makeRecognizer,
       makeHighlightRecognizer: makeHighlightRecognizer,
+      sourceLines: [line],
+      textStyle: textStyle,
     );
   }
 
@@ -155,30 +157,28 @@ class BookLineItem extends StatelessWidget {
       case 'h2':
         return Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 10),
-          child: Text(
-            block.text,
-            style: TextStyle(
+          child: Text.rich(
+            TextSpan(children: _format(block.text, textStyle: TextStyle(
               color: tokens.accent,
               fontSize: (appearance.fontSize + 3.0).clamp(16.0, 26.0),
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
               fontFamily: fontFamily,
-            ),
+            ))),
           ),
         );
 
       case 'h3':
         return Padding(
           padding: const EdgeInsets.only(top: 18, bottom: 8),
-          child: Text(
-            block.text,
-            style: TextStyle(
+          child: Text.rich(
+            TextSpan(children: _format(block.text, textStyle: TextStyle(
               color: tokens.accent,
               fontSize: (appearance.fontSize + 1.5).clamp(14.0, 22.0),
               fontWeight: FontWeight.w600,
               letterSpacing: 0.15,
               fontFamily: fontFamily,
-            ),
+            ))),
           ),
         );
 

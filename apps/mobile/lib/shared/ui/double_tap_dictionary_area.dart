@@ -11,7 +11,7 @@ class DoubleTapDictionaryArea extends StatefulWidget {
     required this.child,
   });
 
-  final SelectableRegionContextMenuBuilder contextMenuBuilder;
+  final Widget Function(BuildContext context, SelectableRegionState state, String selectedText) contextMenuBuilder;
   final Widget child;
 
   @override
@@ -90,7 +90,8 @@ class _DoubleTapDictionaryAreaState extends State<DoubleTapDictionaryArea> {
       onPointerDown: _onPointerDown,
       onPointerUp: _onPointerUp,
       child: SelectionArea(
-        contextMenuBuilder: widget.contextMenuBuilder,
+        contextMenuBuilder: (context, state) =>
+            widget.contextMenuBuilder(context, state, _selectedText),
         onSelectionChanged: (content) {
           _selectedText = content?.plainText ?? '';
         },

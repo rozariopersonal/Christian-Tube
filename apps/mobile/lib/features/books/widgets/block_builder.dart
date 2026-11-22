@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/core/api/github_data_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
+import 'package:mobile/features/books/models/book_line.dart';
 import 'package:mobile/features/books/services/book_paragraph_grouper.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
@@ -29,6 +30,7 @@ class BookBlockWidget extends StatelessWidget {
   final int? highlightStartLine;
   final int? highlightEndLine;
   final List<BookHighlight> highlightCache;
+  final List<BookLine> sourceLines;
   final Key Function(int pageNum, int startLine) resolveBlockKey;
   final TapGestureRecognizer Function(ParsedScriptureRef? parsed, String refText) makeRecognizer;
   final TapGestureRecognizer Function(BookHighlight highlight)? makeHighlightRecognizer;
@@ -44,12 +46,13 @@ class BookBlockWidget extends StatelessWidget {
     required this.highlightStartLine,
     required this.highlightEndLine,
     required this.highlightCache,
+    this.sourceLines = const [],
     required this.resolveBlockKey,
     required this.makeRecognizer,
     this.makeHighlightRecognizer,
   });
 
-  List<InlineSpan> _format(String text) {
+  List<InlineSpan> _format(String text, {TextStyle? textStyle}) {
     return FormattedParagraphBuilder.build(
       text,
       textColor,
@@ -58,6 +61,8 @@ class BookBlockWidget extends StatelessWidget {
       highlightCache,
       makeRecognizer: makeRecognizer,
       makeHighlightRecognizer: makeHighlightRecognizer,
+      sourceLines: sourceLines,
+      textStyle: textStyle,
     );
   }
 
@@ -156,15 +161,14 @@ class BookBlockWidget extends StatelessWidget {
       case 'h2':
         content = Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 10),
-          child: Text(
-            block.text,
-            style: TextStyle(
+          child: Text.rich(
+            TextSpan(children: _format(block.text, textStyle: TextStyle(
               color: tokens.accent,
               fontSize: (appearance.fontSize + 3.0).clamp(16.0, 26.0),
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
               fontFamily: fontFamily,
-            ),
+            ))),
           ),
         );
         break;
@@ -172,15 +176,14 @@ class BookBlockWidget extends StatelessWidget {
       case 'h3':
         content = Padding(
           padding: const EdgeInsets.only(top: 18, bottom: 8),
-          child: Text(
-            block.text,
-            style: TextStyle(
+          child: Text.rich(
+            TextSpan(children: _format(block.text, textStyle: TextStyle(
               color: tokens.accent,
               fontSize: (appearance.fontSize + 1.5).clamp(14.0, 22.0),
               fontWeight: FontWeight.w600,
               letterSpacing: 0.15,
               fontFamily: fontFamily,
-            ),
+            ))),
           ),
         );
         break;
