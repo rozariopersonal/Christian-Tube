@@ -73,6 +73,7 @@ export class UserSyncService {
   private clockOffsetMs = this.readClockOffset();
   private activeUserId: string | null = null;
   private authPaused = false;
+  private wasExpired = false;
   private lastPullAt = 0;
   private inFlightSync: Promise<void> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -81,11 +82,17 @@ export class UserSyncService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
+      const expired = this.auth.sessionExpired();
       untracked(() => {
+        const recovered = this.wasExpired && !expired;
+        this.wasExpired = expired;
+
         if (user) {
           const prevUserId = this.activeUserId;
           this.activeUserId = user.id;
-          this.authPaused = false;
+          if (!expired) {
+            this.authPaused = false;
+          }
 
           if (user.id.startsWith('guest_')) {
             this.writeStorage(KEY_LAST_GUEST_ID, user.id);
@@ -96,6 +103,10 @@ export class UserSyncService {
           if (prevUserId !== user.id) {
             this.pendingOps.set(this.readPendingMap(user.id));
             this.remoteState.set(null);
+            if (!expired) {
+              void this.pullAndFlush(true);
+            }
+          } else if (recovered) {
             void this.pullAndFlush(true);
           }
         } else if (this.activeUserId !== null) {
@@ -204,7 +215,7 @@ export class UserSyncService {
 
   async pullAndFlush(force = false): Promise<void> {
     const userId = this.auth.currentUser()?.id;
-    if (!userId) return;
+    if (!userId || !this.auth.canSync()) return;
     const now = Date.now();
     if (!force && now - this.lastPullAt < 15_000) {
       return;
@@ -245,7 +256,7 @@ export class UserSyncService {
 
   async flushOutbox(): Promise<void> {
     const userId = this.auth.currentUser()?.id;
-    if (!userId || this.authPaused) return;
+    if (!userId || this.authPaused || !this.auth.canSync()) return;
 
     const currentMap = this.readPendingMap(userId);
     const entries = Object.entries(currentMap);

@@ -175,7 +175,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
           routes: [
             GoRoute(
               path: '/feed',
-              builder: (context, state) => const VideoFeedScreen(),
+              builder: (context, state) => VideoFeedScreen(authService: _authService),
             ),
             GoRoute(
               path: '/shorts',

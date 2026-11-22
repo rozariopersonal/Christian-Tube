@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import '../../auth/auth_service.dart';
 import '../models/audio_track.dart';
 import '../models/playback_state.dart';
 import '../services/audio_playback_service.dart';
@@ -190,6 +191,7 @@ class AudioPlayerController extends ChangeNotifier {
 
   /// Manually triggers a pull from the cloud (e.g. when opening the Audio Library screen or signing in).
   Future<void> syncWithCloud() async {
+    if (AuthService.shared != null && !AuthService.shared!.canSync) return;
     final localUpdatedAt = await _storageService.getLastTrackUpdatedAt();
     await _pullRemotePlayback(localUpdatedAt: localUpdatedAt);
   }

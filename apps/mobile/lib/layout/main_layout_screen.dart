@@ -18,6 +18,7 @@ import '../features/update/update_service.dart';
 import '../features/audio/controllers/audio_player_controller.dart';
 import '../features/audio/widgets/mini_audio_player.dart';
 import '../features/feedback/widgets/floating_feedback_button.dart';
+import '../shared/ui/sync_avatar_button.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   final Widget child;
@@ -56,9 +57,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
         state == AppLifecycleState.detached) {
       AudioPlayerController.instance.flushPlayback();
     } else if (state == AppLifecycleState.resumed) {
-      AudioPlayerController.instance.syncWithCloud();
-      unawaited(UserSyncService.instance.pullAndFlush());
-      unawaited(UserItemSyncService.instance.pullAndPush());
+      unawaited(
+        widget.authService.proactiveRefreshIfNearExpiry().then((_) {
+          AudioPlayerController.instance.syncWithCloud();
+          unawaited(UserSyncService.instance.pullAndFlush());
+          unawaited(UserItemSyncService.instance.pullAndPush());
+        }),
+      );
     }
   }
 
@@ -421,6 +426,15 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
             ),
           )
           .toList(),
+      trailing: Expanded(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: SyncAvatarButton(authService: widget.authService),
+          ),
+        ),
+      ),
     );
   }
 }

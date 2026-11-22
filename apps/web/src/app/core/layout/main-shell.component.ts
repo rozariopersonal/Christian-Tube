@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { AccountAvatarMenuComponent } from '../auth/account-avatar-menu.component';
 import { AppConfig } from '../config/app-config';
 import { HeaderSearchService } from '../services/header-search.service';
 import { HeaderSlotService } from '../services/header-slot.service';
@@ -70,6 +71,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
     FormsModule,
     MiniPlayerComponent,
     VideoMiniPlayerComponent,
+    AccountAvatarMenuComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -191,17 +193,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
                 {{ theme.isDark() ? 'light_mode' : 'dark_mode' }}
               </span>
             </button>
-            <a class="icon-btn" routerLink="/settings" title="Account & Settings" aria-label="Account & Settings">
-              @if (auth.currentUser()?.photoUrl) {
-                <img
-                  class="user-avatar"
-                  [src]="auth.currentUser()!.photoUrl"
-                  [alt]="auth.currentUser()!.displayName"
-                />
-              } @else {
-                <span class="material-symbols-rounded">account_circle</span>
-              }
-            </a>
+            <app-account-avatar-menu />
           </div>
         </header>
       }

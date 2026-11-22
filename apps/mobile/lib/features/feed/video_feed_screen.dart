@@ -5,13 +5,17 @@ import '../../core/theme/app_tokens.dart';
 import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
+import '../../shared/ui/sync_avatar_button.dart';
 import '../../shared/ui/video_card.dart';
+import '../auth/auth_service.dart';
 import '../channels/channel_service.dart';
 import 'video_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class VideoFeedScreen extends StatefulWidget {
-  const VideoFeedScreen({super.key});
+  final AuthService? authService;
+
+  const VideoFeedScreen({super.key, this.authService});
 
   @override
   State<VideoFeedScreen> createState() => _VideoFeedScreenState();
@@ -107,6 +111,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             ),
             actions: collapseActions
                 ? [
+                    if (ScreenClass.of(context).isCompact)
+                      SyncAvatarButton(
+                        authService: widget.authService,
+                        radius: 13,
+                      ),
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
                       tooltip: 'More',
@@ -156,19 +165,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       tooltip: 'Search',
                       onPressed: () => context.push('/search'),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8, left: 2),
-                      child: IconButton(
-                        key: const ValueKey('btn_profile'),
-                        icon: const CircleAvatar(
-                          radius: 14,
-                          backgroundColor: Colors.transparent,
-                          child: Icon(Icons.account_circle, size: 28),
+                    if (ScreenClass.of(context).isCompact)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8, left: 2),
+                        child: SyncAvatarButton(
+                          authService: widget.authService,
                         ),
-                        tooltip: 'Profile',
-                        onPressed: () => context.push('/profile'),
                       ),
-                    ),
                   ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(46),

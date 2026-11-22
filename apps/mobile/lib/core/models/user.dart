@@ -5,6 +5,7 @@ class User {
   final String? photoUrl;
   final String? idToken;
   final DateTime? lastSyncedAt;
+  final bool isGuest;
 
   const User({
     required this.id,
@@ -13,18 +14,22 @@ class User {
     this.photoUrl,
     this.idToken,
     this.lastSyncedAt,
+    this.isGuest = false,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    final id = (json['id'] ?? json['userId'] ?? json['_id'] ?? '').toString();
+    final inferredGuest = id.startsWith('guest_') || id.startsWith('user_');
     return User(
-      id: json['id'] ?? json['userId'] ?? json['_id'] ?? '',
-      email: json['email'] ?? '',
-      displayName: json['displayName'] ?? json['name'] ?? 'User',
-      photoUrl: json['photoUrl'] ?? json['avatarUrl'] ?? json['picture'],
-      idToken: json['idToken'] ?? json['token'],
+      id: id,
+      email: (json['email'] ?? '').toString(),
+      displayName: (json['displayName'] ?? json['name'] ?? 'User').toString(),
+      photoUrl: (json['photoUrl'] ?? json['avatarUrl'] ?? json['picture']) as String?,
+      idToken: (json['idToken'] ?? json['token']) as String?,
       lastSyncedAt: json['lastSyncedAt'] != null
           ? DateTime.tryParse(json['lastSyncedAt'].toString())
           : null,
+      isGuest: json['isGuest'] == true || (json['isGuest'] == null && inferredGuest),
     );
   }
 
@@ -36,6 +41,7 @@ class User {
       'photoUrl': photoUrl,
       'idToken': idToken,
       'lastSyncedAt': lastSyncedAt?.toIso8601String(),
+      'isGuest': isGuest,
     };
   }
 }

@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_client.dart';
+import '../../features/auth/auth_service.dart';
 
 class SyncOp {
   final String opId;
@@ -74,13 +75,23 @@ class UserSyncService extends ChangeNotifier {
   factory UserSyncService() => instance;
 
   final Dio _dio;
+  final bool Function()? _canSyncOverride;
 
-  UserSyncService._internal({Dio? dio}) : _dio = dio ?? ApiClient().dio {
+  UserSyncService._internal({Dio? dio})
+      : _dio = dio ?? ApiClient().dio,
+        _canSyncOverride = null {
     _loadClockOffset();
   }
 
   @visibleForTesting
-  UserSyncService.forTesting({Dio? dio}) : _dio = dio ?? ApiClient().dio;
+  UserSyncService.forTesting({
+    Dio? dio,
+    bool Function()? canSyncCheck,
+  })  : _dio = dio ?? ApiClient().dio,
+        _canSyncOverride = canSyncCheck;
+
+  bool get _canSync =>
+      _canSyncOverride?.call() ?? (AuthService.shared?.canSync ?? true);
 
   @visibleForTesting
   void setActiveUserForTesting(String userId) {
@@ -232,7 +243,7 @@ class UserSyncService extends ChangeNotifier {
 
   Future<void> pullAndFlush({bool force = false}) async {
     final userId = _activeUserId;
-    if (userId == null || userId.isEmpty) return;
+    if (userId == null || userId.isEmpty || !_canSync) return;
 
     final now = DateTime.now();
     if (!force &&
@@ -279,7 +290,7 @@ class UserSyncService extends ChangeNotifier {
 
   Future<void> flushOutbox() async {
     final userId = _activeUserId;
-    if (userId == null || userId.isEmpty || _authPaused) return;
+    if (userId == null || userId.isEmpty || _authPaused || !_canSync) return;
 
     final prefs = await SharedPreferences.getInstance();
     final currentMap = await _readPendingMap(prefs, userId);

@@ -212,11 +212,12 @@ void main() {
 
   group('Onboarding Bug Fixes & Edge Cases Tests', () {
     test('guest sign in generates unique guest identity without admin privilege', () async {
-      final auth = AuthService();
+      final auth = AuthService(registerAsShared: false);
       final user = await auth.signInAsGuest();
 
-      expect(user.email, startsWith('guest_user_'));
-      expect(user.email, endsWith('@guest.local'));
+      expect(user.id, startsWith('guest_'));
+      expect(user.isGuest, isTrue);
+      expect(user.email, isEmpty);
       expect(auth.isAdmin, isFalse);
       expect(user.email, isNot(equals('admin@centumacademy.org')));
     });
