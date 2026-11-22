@@ -431,7 +431,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
       .topbar-slot-center {
         flex: 1;
         min-width: 0;
-        overflow: hidden;
+        overflow: visible;
         display: flex;
         align-items: center;
         justify-content: center;

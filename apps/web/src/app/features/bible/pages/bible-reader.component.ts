@@ -39,14 +39,17 @@ import {
   BibleSelectionTarget,
 } from '../components/bible-book-chapter-sheet.component';
 import { BibleBookmarksSheetComponent } from '../components/bible-bookmarks-sheet.component';
+import {
+  BibleVersionPickerComponent,
+  BibleVersionSelectionEvent,
+} from '../../../shared/ui/bible-version-picker.component';
+import { BibleVersionSelectionService } from '../../../core/services/bible-version-selection.service';
 import { BibleCompareSheetComponent } from '../components/bible-compare-sheet.component';
 import { BibleCrossRefsSheetComponent } from '../components/bible-cross-refs-sheet.component';
 import { BibleNoteSheetComponent } from '../components/bible-note-sheet.component';
-import { BibleParallelSheetComponent } from '../components/bible-parallel-sheet.component';
 import { BibleSearchSheetComponent } from '../components/bible-search-sheet.component';
 import { BibleSidebarComponent } from '../components/bible-sidebar.component';
 import { BibleStudySheetComponent } from '../components/bible-study-sheet.component';
-import { BibleVersionSheetComponent } from '../components/bible-version-sheet.component';
 import {
   InlineToolbarAnchor,
   computeElementToolbarAnchor,
@@ -76,7 +79,7 @@ interface AppendedBibleChapter {
     ReaderColumnsToggleComponent,
     ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
-    BibleVersionSheetComponent,
+    BibleVersionPickerComponent,
     BibleBookChapterSheetComponent,
     BibleSidebarComponent,
     TextSelectionPopoverComponent,
@@ -88,7 +91,6 @@ interface AppendedBibleChapter {
     BibleNoteSheetComponent,
     BibleSearchSheetComponent,
     BibleCompareSheetComponent,
-    BibleParallelSheetComponent,
     DictionarySheetComponent,
   ],
   providers: [BibleReaderStateService],
@@ -106,15 +108,10 @@ interface AppendedBibleChapter {
       <ng-template #topbarCenter>
         @if (!isDesktop()) {
           <div class="tb-bible-center">
-            <button
-              type="button"
-              class="version-pill"
-              (click)="showVersionPicker.set(true)"
-              aria-label="Bible Version"
-            >
-              <span>{{ state.activeVersionInfo().label }}</span>
-              <span class="material-symbols-rounded pill-chev">expand_more</span>
-            </button>
+            <app-bible-version-picker
+              contextKey="bible"
+              (selectionChanged)="onVersionPickerChanged($event)"
+            />
 
             <div class="chapter-nav-group">
               <button
@@ -767,24 +764,6 @@ interface AppendedBibleChapter {
           (openCrossRefs)="showCrossRefs.set(true)"
           (openStudy)="showStudy.set(true)"
           (closed)="state.clearSelection()"
-        />
-      }
-
-      @if (showVersionPicker()) {
-        <app-bible-version-sheet
-          [activeVersionId]="bible.version()"
-          (versionSelected)="selectVersion($event)"
-          (closed)="showVersionPicker.set(false)"
-        />
-      }
-
-      @if (showParallelPicker()) {
-        <app-bible-parallel-sheet
-          [primaryId]="bible.version()"
-          [compareIds]="bible.compareVersions()"
-          (toggled)="toggleParallelVersion($event)"
-          (cleared)="clearParallelVersions()"
-          (closed)="showParallelPicker.set(false)"
         />
       }
 
@@ -2013,6 +1992,8 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
     this.hasScrolledDown = false;
   }
 
+  private readonly versionSelection = inject(BibleVersionSelectionService);
+
   private async initFromRoute(
     version?: string,
     book?: string,
@@ -2021,7 +2002,15 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   ): Promise<void> {
     this.routeReady.set(false);
     this.resetInfiniteChapters();
-    await this.bible.init({ version, book, chapter });
+    const ctxComparisons = this.versionSelection.getComparisonVersions('bible');
+    if (version) {
+      this.versionSelection.setSelection('bible', version, ctxComparisons);
+    }
+    const targetVersion = version ?? this.versionSelection.getPrimaryVersion('bible');
+    this.bible.compareVersions.set(
+      this.versionSelection.getComparisonVersions('bible'),
+    );
+    await this.bible.init({ version: targetVersion, book, chapter });
     await this.loadPrimaryParallel();
     if (verse && verse > 0) {
       this.focusVerse(verse);
@@ -2386,6 +2375,15 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       });
     } else {
       void navigator.clipboard?.writeText(shareUrl);
+    }
+  }
+
+  onVersionPickerChanged(event: BibleVersionSelectionEvent): void {
+    this.bible.compareVersions.set(event.comparisons);
+    if (event.kind === 'primary') {
+      void this.selectVersion(event.primary);
+    } else {
+      void this.refreshAllParallelMaps();
     }
   }
 

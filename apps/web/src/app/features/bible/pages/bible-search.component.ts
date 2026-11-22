@@ -16,7 +16,10 @@ import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { HeaderSearchService } from '../../../core/services/header-search.service';
 import { HeaderSlotService } from '../../../core/services/header-slot.service';
 import { ScriptureRefParserService } from '../../books/services/scripture-ref-parser.service';
-import { BibleVersionSheetComponent } from '../components/bible-version-sheet.component';
+import {
+  BibleVersionPickerComponent,
+} from '../../../shared/ui/bible-version-picker.component';
+import { BibleVersionSelectionService } from '../../../core/services/bible-version-selection.service';
 import { BIBLE_VERSIONS, BibleBook } from '../models/bible.model';
 import { BibleService } from '../services/bible.service';
 
@@ -36,18 +39,16 @@ type SearchScope = 'book' | 'ot' | 'nt' | 'all';
 @Component({
   selector: 'app-bible-search-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, BibleVersionSheetComponent],
+  imports: [FormsModule, RouterLink, BibleVersionPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ng-template #topbarRight>
-      <button
-        type="button"
-        class="pill-chip"
-        (click)="showVersionPicker.set(true)"
-        aria-label="Bible Version"
-      >
-        {{ versionLabel(bible.version()) }}
-      </button>
+      <app-bible-version-picker
+        contextKey="bible-search"
+        [maxSelections]="1"
+        [alignRight]="true"
+        (selectionChanged)="onVersionChange($event.primary)"
+      />
       <a
         class="pill-chip"
         [routerLink]="['/bible', bible.version(), bible.bookNumber(), bible.chapter()]"
@@ -145,14 +146,6 @@ type SearchScope = 'book' | 'ot' | 'nt' | 'all';
         </div>
       }
     </div>
-
-    @if (showVersionPicker()) {
-      <app-bible-version-sheet
-        [activeVersionId]="bible.version()"
-        (versionSelected)="onVersionChange($event)"
-        (closed)="showVersionPicker.set(false)"
-      />
-    }
   `,
   styles: [
     `
