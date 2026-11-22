@@ -41,6 +41,7 @@ export class UserItemsSyncService {
 
   private activeUserId: string | null = null;
   private authPaused = false;
+  private wasExpired = false;
   private syncAllowed = false;
   private lastPullAt = 0;
   private inFlightSync: Promise<void> | null = null;
@@ -50,8 +51,12 @@ export class UserItemsSyncService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
+      const expired = this.auth.sessionExpired();
       const needsSignIn = this.auth.sessionNeedsSignIn();
       untracked(() => {
+        const recovered = this.wasExpired && !expired;
+        this.wasExpired = expired;
+
         if (user) {
           if (needsSignIn || !this.auth.canSync()) {
             if (this.activeUserId !== user.id) {
@@ -66,12 +71,16 @@ export class UserItemsSyncService {
           const resumed = !this.syncAllowed;
           this.syncAllowed = true;
           this.activeUserId = user.id;
-          this.authPaused = false;
+          if (!expired) {
+            this.authPaused = false;
+          }
           if (changed) {
             this.pendingItems.set(this.readPendingMap(user.id));
             this.remoteItems.set([]);
           }
-          if (changed || resumed) void this.pullAndFlush(true);
+          if (changed || resumed || recovered) {
+            void this.pullAndFlush(true);
+          }
         } else if (this.activeUserId !== null) {
           this.activeUserId = null;
           this.syncAllowed = false;

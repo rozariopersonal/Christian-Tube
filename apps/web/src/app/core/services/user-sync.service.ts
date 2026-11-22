@@ -79,6 +79,7 @@ export class UserSyncService {
   private clockOffsetMs = this.readClockOffset();
   private activeUserId: string | null = null;
   private authPaused = false;
+  private wasExpired = false;
   private operationSequence = 0;
   private acknowledgedWrites = 0;
 
@@ -94,8 +95,12 @@ export class UserSyncService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
+      const expired = this.auth.sessionExpired();
       const needsSignIn = this.auth.sessionNeedsSignIn();
       untracked(() => {
+        const recovered = this.wasExpired && !expired;
+        this.wasExpired = expired;
+
         if (user) {
           if (needsSignIn || !this.auth.canSync()) {
             if (this.activeUserId !== user.id) {
@@ -111,7 +116,9 @@ export class UserSyncService {
           const resumed = !this.syncAllowed;
           this.syncAllowed = true;
           this.activeUserId = user.id;
-          this.authPaused = false;
+          if (!expired) {
+            this.authPaused = false;
+          }
 
           if (user.id.startsWith('guest_')) {
             this.writeStorage(KEY_LAST_GUEST_ID, user.id);
@@ -123,7 +130,9 @@ export class UserSyncService {
             this.pendingOps.set(this.readPendingMap(user.id));
             this.remoteState.set(null);
           }
-          if (prevUserId !== user.id || wasPaused || resumed) void this.pullAndFlush(true);
+          if (prevUserId !== user.id || wasPaused || resumed || recovered) {
+            void this.pullAndFlush(true);
+          }
         } else if (this.activeUserId !== null) {
           this.activeUserId = null;
           this.syncAllowed = false;

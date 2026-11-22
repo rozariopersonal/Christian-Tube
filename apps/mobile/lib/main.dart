@@ -175,7 +175,7 @@ class _ChristianAppState extends State<ChristianApp> {
           routes: [
             GoRoute(
               path: '/feed',
-              builder: (context, state) => const VideoFeedScreen(),
+              builder: (context, state) => VideoFeedScreen(authService: _authService),
             ),
             GoRoute(
               path: '/shorts',

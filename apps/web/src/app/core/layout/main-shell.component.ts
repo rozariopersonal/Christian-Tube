@@ -11,7 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
-import { GoogleSignInButtonComponent } from '../auth/google-sign-in-button.component';
+import { AccountAvatarMenuComponent } from '../auth/account-avatar-menu.component';
 import { AppConfig } from '../config/app-config';
 import { HeaderSearchService } from '../services/header-search.service';
 import { HeaderSlotService } from '../services/header-slot.service';
@@ -72,7 +72,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
     FormsModule,
     MiniPlayerComponent,
     VideoMiniPlayerComponent,
-    GoogleSignInButtonComponent,
+    AccountAvatarMenuComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -194,34 +194,11 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
                 {{ theme.isDark() ? 'light_mode' : 'dark_mode' }}
               </span>
             </button>
-            <a class="icon-btn" routerLink="/settings" title="Account & Settings" aria-label="Account & Settings">
-              @if (auth.currentUser()?.photoUrl) {
-                <img
-                  class="user-avatar"
-                  [src]="auth.currentUser()!.photoUrl"
-                  [alt]="auth.currentUser()!.displayName"
-                />
-              } @else {
-                <span class="material-symbols-rounded">account_circle</span>
-              }
-            </a>
+            <app-account-avatar-menu />
           </div>
         </header>
       }
 
-      @if (auth.currentUser() && auth.sessionNeedsSignIn() && !auth.sessionPromptDismissed()) {
-        <div class="session-prompt" role="alert">
-          <div class="session-prompt-copy">
-            <strong>Sign in again to resume syncing</strong>
-            <span>Your local changes are saved on this device.</span>
-            @if (auth.lastError(); as error) { <span>{{ error }}</span> }
-          </div>
-          <div class="session-prompt-actions">
-            <app-google-sign-in-button />
-            <button type="button" class="pill-chip" (click)="auth.sessionPromptDismissed.set(true)">Later</button>
-          </div>
-        </div>
-      }
       <div class="shell-body" [class.has-sidebar]="screen.isMediumOrExpanded()">
         @if (screen.isMediumOrExpanded()) {
           @if (isDrawerMode() && drawerOpen()) {
@@ -363,30 +340,6 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         flex-direction: column;
         background-color: var(--bg);
       }
-
-      .session-prompt {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px 16px;
-        padding: 12px 16px;
-        background: var(--surface-variant);
-        border-bottom: 1px solid var(--surface-border);
-      }
-
-      .session-prompt-copy {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-
-      .session-prompt-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
 
       .yt-topbar {
         position: sticky;
@@ -836,7 +789,6 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
       }
 
       .shell.reader-fullscreen .yt-topbar,
-      .shell.reader-fullscreen .session-prompt,
       .shell.reader-fullscreen .yt-sidebar,
       .shell.reader-fullscreen .drawer-backdrop,
       .shell.reader-fullscreen .bottom-nav,

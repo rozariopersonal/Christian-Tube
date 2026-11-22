@@ -43,7 +43,7 @@ describe('renewable web sessions', () => {
 
   it('rejects expired sessions instead of treating them as Google credentials', async () => {
     const google = { isGuestToken: jest.fn(), verifyIdToken: jest.fn() };
-    const guard = new AuthGuard(google as any, sessions);
+    const guard = new AuthGuard(google as any, undefined, undefined, undefined, sessions);
     const request = { headers: { authorization: `Bearer session_${'a'.repeat(43)}` } };
     const context = { switchToHttp: () => ({ getRequest: () => request }) };
     await expect(guard.canActivate(context as any)).rejects.toThrow('Invalid or expired session');

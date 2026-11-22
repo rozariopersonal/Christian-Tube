@@ -40,11 +40,18 @@ describe('GoogleSignInButtonComponent', () => {
 
     const token = `header.${btoa(JSON.stringify({ sub: 'u1', email: 'u@example.com', exp: 4102444800 }))}.signature`;
     credentialCallback?.({ credential: token });
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne((request) => request.url.endsWith('/api/auth/google')).flush({
+      accessToken: 'jwt-access-1',
+      refreshToken: 'refresh-1',
+      sessionId: 'sess-1',
+      expiresIn: 900,
+      user: { id: 'u1', email: 'u@example.com', displayName: 'User', photoUrl: null, isGuest: false },
+    });
+    await Promise.resolve();
     expect(auth.sessionNeedsSignIn()).toBe(false);
     expect(auth.currentUser()?.id).toBe('u1');
-    expect(localStorage.getItem('auth_token')).toBe(token);
-    const http = TestBed.inject(HttpTestingController);
-    http.expectOne((request) => request.url.endsWith('/api/auth/session')).flush({ token: `session_${'a'.repeat(43)}` });
+    expect(localStorage.getItem('auth_access_token')).toBe('jwt-access-1');
     http.expectOne((request) => request.url.endsWith('/api/users/sync')).flush({});
     await Promise.resolve();
     http.match((request) => request.url.includes('/channels/check-admin')).forEach((request) => request.flush({ isAdmin: false }));

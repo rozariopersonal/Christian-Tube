@@ -90,8 +90,8 @@ class UserPreferenceService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final isAuthenticated = auth?.isAuthenticated ?? false;
-      if (isAuthenticated) {
+      final canSync = auth?.canSync ?? (AuthService.shared?.canSync ?? false);
+      if (canSync) {
         dynamic response;
         try {
           response = await _apiClient.dio.get('/api/user/preferences');
