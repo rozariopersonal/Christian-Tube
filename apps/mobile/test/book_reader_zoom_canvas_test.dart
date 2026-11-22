@@ -98,4 +98,30 @@ void main() {
     await secondFinger.up();
     await tester.pump();
   });
+
+  testWidgets('visible zoom controls change the canvas scale', (tester) async {
+    final controller = TransformationController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(extensions: const [AppTokens.light]),
+        home: Scaffold(
+          body: BookReaderZoomCanvas(
+            controller: controller,
+            tokens: AppTokens.light,
+            child: const Center(child: Text('Book text')),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Zoom in'));
+    await tester.pump();
+    expect(controller.value.getMaxScaleOnAxis(), greaterThan(1));
+
+    await tester.tap(find.byTooltip('Reset zoom'));
+    await tester.pump();
+    expect(controller.value.getMaxScaleOnAxis(), 1);
+  });
 }
