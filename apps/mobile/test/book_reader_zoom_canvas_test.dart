@@ -20,7 +20,6 @@ void main() {
           home: Scaffold(
             body: BookReaderZoomCanvas(
               controller: controller,
-              tokens: AppTokens.light,
               child: const Column(
                 children: [
                   Text('Book text'),
@@ -71,7 +70,6 @@ void main() {
         home: Scaffold(
           body: BookReaderZoomCanvas(
             controller: controller,
-            tokens: AppTokens.light,
             child: const Column(
               children: [
                 Text('Book text'),
@@ -99,7 +97,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('visible zoom controls change the canvas scale', (tester) async {
+  testWidgets('reader zoom controls are not displayed', (tester) async {
     final controller = TransformationController();
     addTearDown(controller.dispose);
 
@@ -109,19 +107,14 @@ void main() {
         home: Scaffold(
           body: BookReaderZoomCanvas(
             controller: controller,
-            tokens: AppTokens.light,
             child: const Center(child: Text('Book text')),
           ),
         ),
       ),
     );
 
-    await tester.tap(find.byTooltip('Zoom in'));
-    await tester.pump();
-    expect(controller.value.getMaxScaleOnAxis(), greaterThan(1));
-
-    await tester.tap(find.byTooltip('Reset zoom'));
-    await tester.pump();
-    expect(controller.value.getMaxScaleOnAxis(), 1);
+    expect(find.byTooltip('Zoom in'), findsNothing);
+    expect(find.byTooltip('Zoom out'), findsNothing);
+    expect(find.byTooltip('Reset zoom'), findsNothing);
   });
 }
