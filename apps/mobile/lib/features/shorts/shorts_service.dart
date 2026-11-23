@@ -31,7 +31,7 @@ class ShortsService extends ChangeNotifier {
 
         if (allVideos.isNotEmpty) {
           _shorts = allVideos
-              .where((s) => s.type.toUpperCase() == 'SHORT')
+              .where((s) => s.type?.toUpperCase() == 'SHORT')
               .toList();
           return;
         }
