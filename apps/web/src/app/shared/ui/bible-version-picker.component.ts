@@ -187,9 +187,17 @@ export interface BibleVersionSelectionEvent {
   `,
   styles: [
     `
+      :host {
+        display: inline-block;
+        max-width: 100%;
+        min-width: 0;
+      }
+
       .ver-dropdown-wrap {
         position: relative;
         display: inline-block;
+        max-width: 100%;
+        min-width: 0;
       }
 
       .version-trigger {
@@ -197,6 +205,8 @@ export interface BibleVersionSelectionEvent {
         align-items: center;
         gap: 6px;
         height: 34px;
+        max-width: 100%;
+        min-width: 0;
         padding: 0 11px;
         border-radius: var(--radius-pill);
         background-color: var(--surface-variant);
@@ -220,6 +230,9 @@ export interface BibleVersionSelectionEvent {
 
       .trigger-label {
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
       }
 
       .sel-count {
@@ -229,15 +242,18 @@ export interface BibleVersionSelectionEvent {
         color: #ffffff;
         font-size: 10.5px;
         font-weight: 700;
+        flex-shrink: 0;
       }
 
       .pill-icon {
         font-size: 16px;
+        flex-shrink: 0;
       }
 
       .pill-caret {
         font-size: 16px;
         opacity: 0.75;
+        flex-shrink: 0;
       }
 
       .dropdown-panel {

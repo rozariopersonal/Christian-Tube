@@ -105,65 +105,13 @@ interface AppendedBibleChapter {
       (wheel)="readerFullscreen.noteActivity('bible')"
       (touchstart)="readerFullscreen.noteActivity('bible')"
     >
-      <ng-template #topbarCenter>
-        @if (!isDesktop()) {
-          <div class="tb-bible-center">
-            <app-bible-version-picker
-              contextKey="bible"
-              (selectionChanged)="onVersionPickerChanged($event)"
-            />
-
-            <div class="chapter-nav-group">
-              <button
-                type="button"
-                class="nav-step-btn"
-                aria-label="Previous chapter"
-                title="Previous chapter"
-                (click)="prevChapter()"
-              >
-                <span class="material-symbols-rounded">chevron_left</span>
-              </button>
-
-              <button
-                type="button"
-                class="book-btn"
-                (click)="openBookPicker('books')"
-              >
-                <span>{{ displayBookName() }} {{ displayChapter() }}</span>
-                <span class="material-symbols-rounded">expand_more</span>
-              </button>
-
-              <button
-                type="button"
-                class="nav-step-btn"
-                aria-label="Next chapter"
-                title="Next chapter"
-                (click)="nextChapter()"
-              >
-                <span class="material-symbols-rounded">chevron_right</span>
-              </button>
-            </div>
-          </div>
-        }
-      </ng-template>
+      <ng-template #topbarCenter></ng-template>
 
       <ng-template #topbarRight>
         <app-reader-columns-toggle [showLayoutToggle]="true" />
         <app-reader-typography-toggle />
         <app-reader-auto-fullscreen-toggle />
         <div class="tb-actions-pill">
-          <button
-            type="button"
-            class="tb-action-btn compare-btn"
-            [class.active-icon]="bible.compareVersions().length > 0"
-            title="Compare up to 3 Bible versions"
-            (click)="showParallelPicker.set(true)"
-          >
-            <span class="material-symbols-rounded">compare_arrows</span>
-            @if (bible.compareVersions().length > 0) {
-              <span class="compare-count">{{ 1 + bible.compareVersions().length }}</span>
-            }
-          </button>
           <button
             type="button"
             class="tb-action-btn"
@@ -217,7 +165,7 @@ interface AppendedBibleChapter {
         </div>
       </ng-template>
 
-      @if (!immersive() && screen.isCompact()) {
+      @if (!immersive() && !isDesktop()) {
         <header class="bible-bar">
           <div class="bar-inner">
             <div class="bar-left">
@@ -235,15 +183,10 @@ interface AppendedBibleChapter {
                 </button>
               }
 
-              <button
-                type="button"
-                class="version-pill"
-                (click)="showVersionPicker.set(true)"
-                aria-label="Bible Version"
-              >
-                <span>{{ state.activeVersionInfo().label }}</span>
-                <span class="material-symbols-rounded pill-chev">expand_more</span>
-              </button>
+              <app-bible-version-picker
+                contextKey="bible"
+                (selectionChanged)="onVersionPickerChanged($event)"
+              />
 
               <div class="chapter-nav-group">
                 <button
@@ -290,64 +233,8 @@ interface AppendedBibleChapter {
               }
             </div>
 
-            <div class="bar-right">
-              <button
-                type="button"
-                class="icon-btn compare-btn"
-                [class.active-icon]="bible.compareVersions().length > 0"
-                title="Compare up to 3 Bible versions"
-                (click)="showParallelPicker.set(true)"
-              >
-                <span class="material-symbols-rounded">compare_arrows</span>
-                @if (bible.compareVersions().length > 0) {
-                  <span class="compare-count">{{ 1 + bible.compareVersions().length }}</span>
-                }
-              </button>
-
-              <button
-                type="button"
-                class="icon-btn"
-                title="Search Bible"
-                (click)="submitTopbarSearch()"
-              >
-                <span class="material-symbols-rounded">search</span>
-              </button>
-
-              @if (!screen.collapseAppBarActions()) {
-                <button
-                  type="button"
-                  class="icon-btn"
-                  title="Share chapter link"
-                  (click)="sharePassage()"
-                >
-                  <span class="material-symbols-rounded">share</span>
-                </button>
-                <button
-                  type="button"
-                  class="icon-btn"
-                  title="Bookmarks"
-                  (click)="showBookmarks.set(true)"
-                >
-                  <span class="material-symbols-rounded">bookmarks</span>
-                </button>
-                <button
-                  type="button"
-                  class="icon-btn aa-btn"
-                  title="Reader Appearance"
-                  (click)="showAppearance.set(true)"
-                >
-                  Aa
-                </button>
-                <button
-                  type="button"
-                  class="icon-btn"
-                  title="Focus mode (F)"
-                  (click)="immersive.set(true)"
-                >
-                  <span class="material-symbols-rounded">fullscreen</span>
-                </button>
-                <app-reader-auto-fullscreen-toggle />
-              } @else {
+            @if (screen.isCompact()) {
+              <div class="bar-right">
                 <div class="menu-wrap">
                   <button
                     type="button"
@@ -366,6 +253,14 @@ interface AppendedBibleChapter {
                       >
                         <span class="material-symbols-rounded">text_fields</span>
                         Appearance (Aa)
+                      </button>
+                      <button
+                        type="button"
+                        class="menu-item"
+                        (click)="submitTopbarSearch()"
+                      >
+                        <span class="material-symbols-rounded">search</span>
+                        Search Bible
                       </button>
                       <button
                         type="button"
@@ -394,8 +289,8 @@ interface AppendedBibleChapter {
                     </div>
                   }
                 </div>
-              }
-            </div>
+              </div>
+            }
           </div>
         </header>
       } @else if (immersive()) {
@@ -417,7 +312,7 @@ interface AppendedBibleChapter {
             [currentChapter]="displayChapter()"
             [versionLabel]="state.activeVersionInfo().label"
             (selectChapter)="jumpFromSearch($event)"
-            (openVersionPicker)="showVersionPicker.set(true)"
+            (versionChanged)="onVersionPickerChanged($event)"
           />
         }
 
@@ -450,7 +345,7 @@ interface AppendedBibleChapter {
                 [versionLabel]="state.activeVersionInfo().label"
                 [inDrawer]="true"
                 (selectChapter)="selectFromNavigator($event)"
-                (openVersionPicker)="showNavigatorDrawer.set(false); showVersionPicker.set(true)"
+                (versionChanged)="onVersionPickerChanged($event)"
               />
             </div>
           </div>
@@ -877,21 +772,64 @@ interface AppendedBibleChapter {
         position: sticky;
         top: var(--shell-top-offset);
         z-index: 30;
+        border-bottom: 1px solid var(--reader-border, var(--surface-border));
+      }
+
+      .bible-bar::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
         background-color: color-mix(in srgb, var(--reader-bg, var(--bg)) 90%, transparent);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        border-bottom: 1px solid var(--reader-border, var(--surface-border));
       }
 
       .tb-bible-center {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 8px;
         width: 100%;
         max-width: 620px;
         min-width: 0;
         margin: 0 auto;
+      }
+
+      .tb-bible-center app-bible-version-picker {
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+
+      .bar-left app-bible-version-picker {
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+
+      @media (max-width: 599px) {
+        .bar-inner {
+          padding-inline: 8px;
+          gap: 4px;
+        }
+
+        .bar-left {
+          flex: 1;
+          gap: 4px;
+        }
+
+        .bar-left app-bible-version-picker {
+          max-width: 132px;
+        }
+
+        .nav-step-btn {
+          width: 24px;
+        }
+
+        .book-btn {
+          font-size: 13px;
+          padding: 0 4px;
+        }
       }
 
       .tb-search-form {
@@ -1608,8 +1546,6 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
     () => `${this.bible.currentBook().name} ${this.bible.chapter()}`,
   );
 
-  readonly showVersionPicker = signal<boolean>(false);
-  readonly showParallelPicker = signal<boolean>(false);
   readonly showBookPicker = signal<boolean>(false);
   readonly showNavigatorDrawer = signal<boolean>(false);
   readonly bookPickerTab = signal<BiblePickerTab>('books');
@@ -1818,8 +1754,6 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
 
     if (event.key === 'Escape') {
       this.state.clearSelection();
-      this.showVersionPicker.set(false);
-      this.showParallelPicker.set(false);
       this.showBookPicker.set(false);
       this.showNavigatorDrawer.set(false);
       this.showSearch.set(false);
@@ -1839,8 +1773,6 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       return;
     }
     if (
-      this.showVersionPicker() ||
-      this.showParallelPicker() ||
       this.showBookPicker() ||
       this.showNavigatorDrawer() ||
       this.showSearch() ||
@@ -2237,7 +2169,6 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
     this.appendedChapters.update((list) =>
       list.map((c) => ({ ...c, parallelMap: {} })),
     );
-    this.showParallelPicker.set(false);
   }
 
   private async refreshAllParallelMaps(): Promise<void> {
@@ -2388,7 +2319,6 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   }
 
   async selectVersion(versionId: string): Promise<void> {
-    this.showVersionPicker.set(false);
     this.state.clearSelection();
     this.resetInfiniteChapters();
     await this.bible.loadVersion(versionId);
