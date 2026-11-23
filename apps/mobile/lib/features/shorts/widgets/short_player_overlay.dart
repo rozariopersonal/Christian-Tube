@@ -17,6 +17,8 @@ class ShortPlayerOverlay extends StatelessWidget {
   final LocalShortItem? localItem;
   
   final VoidCallback onShare;
+  final VoidCallback? onNote;
+  final bool hasNote;
   
   final bool isScrubbing;
   final double currentPosition;
@@ -41,6 +43,8 @@ class ShortPlayerOverlay extends StatelessWidget {
     required this.short,
     this.localItem,
     required this.onShare,
+    this.onNote,
+    this.hasNote = false,
     required this.isScrubbing,
     required this.currentPosition,
     required this.totalDuration,
@@ -136,6 +140,8 @@ class ShortPlayerOverlay extends StatelessWidget {
               child: ShortActionBar(
                 short: short,
                 onShare: onShare,
+                onNote: onNote,
+                hasNote: hasNote,
               ),
             ),
           ),

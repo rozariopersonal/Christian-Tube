@@ -5,13 +5,15 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { VideoCardComponent } from '../../../shared/ui/video-card.component';
+import { VideoWatchedOverlaysComponent } from '../../../shared/ui/video-watched-overlays.component';
 import { ChannelService } from '../../channels/services/channel.service';
+import { VideoLibraryService } from '../services/video-library.service';
 import { VideoService } from '../services/video.service';
 
 @Component({
   selector: 'app-video-feed',
   standalone: true,
-  imports: [RouterLink, VideoCardComponent, InfiniteScrollTriggerDirective],
+  imports: [RouterLink, VideoCardComponent, InfiniteScrollTriggerDirective, VideoWatchedOverlaysComponent],
   template: `
     <div class="feed-page">
       <header class="feed-header">
@@ -51,6 +53,42 @@ import { VideoService } from '../services/video.service';
             (click)="selectAll()"
           >
             All
+          </button>
+
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="filterMode() === 'watched'"
+            (click)="selectStatus('watched')"
+          >
+            Watched
+          </button>
+
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="filterMode() === 'unwatched'"
+            (click)="selectStatus('unwatched')"
+          >
+            Unwatched
+          </button>
+
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="filterMode() === 'in_progress'"
+            (click)="selectStatus('in_progress')"
+          >
+            In Progress
+          </button>
+
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="filterMode() === 'liked'"
+            (click)="selectStatus('liked')"
+          >
+            Liked
           </button>
 
           @if (channels.subscribedChannels().length > 0) {
@@ -132,6 +170,7 @@ import { VideoService } from '../services/video.service';
                         [alt]="short.title"
                         loading="lazy"
                       />
+                      <app-video-watched-overlays [videoId]="short.id" />
                     </div>
                     <h3 class="shelf-card-title">{{ short.title }}</h3>
                     <span class="shelf-card-sub">{{ short.channelTitle }}</span>
@@ -424,16 +463,35 @@ import { VideoService } from '../services/video.service';
 })
 export class VideoFeedComponent implements OnInit {
   readonly videos = inject(VideoService);
+  readonly library = inject(VideoLibraryService);
   readonly channels = inject(ChannelService);
   readonly screen = inject(ScreenClassService);
   readonly auth = inject(AuthService);
 
   readonly appName = AppConfig.appName;
-  readonly filterMode = signal<'all' | 'channel'>('all');
+  readonly filterMode = signal<
+    'all' | 'watched' | 'unwatched' | 'in_progress' | 'liked' | 'channel'
+  >('all');
   readonly selectedChannelId = signal<string | null>(null);
 
-  readonly topBatch = computed(() => this.videos.videos().slice(0, 6));
-  readonly restBatch = computed(() => this.videos.videos().slice(6));
+  readonly filteredVideos = computed(() => {
+    const list = this.videos.videos();
+    switch (this.filterMode()) {
+      case 'watched':
+        return list.filter((v) => this.library.isWatched(v.id));
+      case 'unwatched':
+        return list.filter((v) => !this.library.isWatched(v.id));
+      case 'in_progress':
+        return list.filter((v) => this.library.isInProgress(v.id));
+      case 'liked':
+        return list.filter((v) => this.library.isLiked(v.id));
+      default:
+        return list;
+    }
+  });
+
+  readonly topBatch = computed(() => this.filteredVideos().slice(0, 6));
+  readonly restBatch = computed(() => this.filteredVideos().slice(6));
   readonly shelfShorts = computed(() => this.videos.shorts());
 
   private lastSyncedSubKey = [...this.channels.subscribedIds()].sort().join(',');
@@ -470,6 +528,16 @@ export class VideoFeedComponent implements OnInit {
 
   selectAll(): void {
     this.filterMode.set('all');
+    this.selectedChannelId.set(null);
+    this.applyFilter();
+  }
+
+  selectStatus(mode: 'watched' | 'unwatched' | 'in_progress' | 'liked'): void {
+    if (this.filterMode() === mode) {
+      this.selectAll();
+      return;
+    }
+    this.filterMode.set(mode);
     this.selectedChannelId.set(null);
     this.applyFilter();
   }

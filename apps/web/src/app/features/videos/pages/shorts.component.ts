@@ -13,14 +13,23 @@ import {
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
+import { NoteEditorModalComponent } from '../../../shared/ui/note-editor-modal.component';
+import { VideoWatchedOverlaysComponent } from '../../../shared/ui/video-watched-overlays.component';
 import { ChannelService } from '../../channels/services/channel.service';
 import { Video, formatViewCount } from '../models/video.model';
+import { VideoLibraryService } from '../services/video-library.service';
+import { VideoNotesService } from '../services/video-notes.service';
 import { VideoService } from '../services/video.service';
 
 @Component({
   selector: 'app-shorts-page',
   standalone: true,
-  imports: [RouterLink, InfiniteScrollTriggerDirective],
+  imports: [
+    RouterLink,
+    InfiniteScrollTriggerDirective,
+    NoteEditorModalComponent,
+    VideoWatchedOverlaysComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (activeShort(); as current) {
@@ -66,6 +75,7 @@ import { VideoService } from '../services/video.service';
                 autoplay
                 playsinline
                 loop
+                (timeupdate)="onShortVideoTimeUpdate($event, current)"
               ></video>
             } @else if (activeEmbedUrl(); as safeUrl) {
               <iframe
@@ -133,6 +143,24 @@ import { VideoService } from '../services/video.service';
             <button
               type="button"
               class="rail-btn"
+              [class.active]="library.isLiked(current.id)"
+              title="Like Short"
+              (click)="library.toggleLike(current.id)"
+            >
+              <span class="material-symbols-rounded">thumb_up</span>
+            </button>
+            <button
+              type="button"
+              class="rail-btn"
+              [class.active]="hasShortNote(current.id)"
+              title="Personal Note"
+              (click)="noteOpen.set(true)"
+            >
+              <span class="material-symbols-rounded">sticky_note_2</span>
+            </button>
+            <button
+              type="button"
+              class="rail-btn"
               title="Share Short"
               (click)="shareShort(current)"
             >
@@ -148,6 +176,17 @@ import { VideoService } from '../services/video.service';
           </div>
         </div>
       </div>
+      @if (noteOpen()) {
+        <app-note-editor-modal
+          [title]="current.title"
+          [contextText]="current.channelTitle"
+          [initialText]="currentShortNote()?.text ?? ''"
+          [hasExistingNote]="currentShortNote() !== null"
+          (saveNote)="saveShortNote($event)"
+          (deleteNote)="deleteShortNote()"
+          (closeModal)="noteOpen.set(false)"
+        />
+      }
     } @else {
       <div class="shorts-page max-width-box">
         <header class="page-head">
@@ -158,10 +197,42 @@ import { VideoService } from '../services/video.service';
           <button
             type="button"
             class="pill-chip"
-            [class.active]="selectedChannelId() === null"
-            (click)="selectShortChannel(null)"
+            [class.active]="selectedChannelId() === null && statusFilter() === 'all'"
+            (click)="selectShortStatus('all')"
           >
             All
+          </button>
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="statusFilter() === 'watched'"
+            (click)="selectShortStatus('watched')"
+          >
+            Watched
+          </button>
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="statusFilter() === 'unwatched'"
+            (click)="selectShortStatus('unwatched')"
+          >
+            Unwatched
+          </button>
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="statusFilter() === 'in_progress'"
+            (click)="selectShortStatus('in_progress')"
+          >
+            In Progress
+          </button>
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="statusFilter() === 'liked'"
+            (click)="selectShortStatus('liked')"
+          >
+            Liked
           </button>
           @for (ch of shortChannels(); track ch.id) {
             <button
@@ -224,6 +295,7 @@ import { VideoService } from '../services/video.service';
                   [alt]="s.title"
                   loading="lazy"
                 />
+                <app-video-watched-overlays [videoId]="s.id" />
                 <div class="short-scrim">
                   <span class="short-title">{{ s.title }}</span>
                   <span class="short-meta">
@@ -650,10 +722,49 @@ export class ShortsComponent implements OnInit, OnDestroy {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly route = inject(ActivatedRoute);
   readonly videos = inject(VideoService);
+  readonly library = inject(VideoLibraryService);
+  readonly notes = inject(VideoNotesService);
+  private lastShortSavedSec = -1;
+
+  onShortVideoTimeUpdate(event: Event, short: Video): void {
+    const el = event.target as HTMLVideoElement | null;
+    if (!el || !Number.isFinite(el.duration) || el.duration <= 0) return;
+    const pos = Math.floor(el.currentTime);
+    const dur = Math.floor(el.duration);
+    if (pos !== this.lastShortSavedSec && (pos % 2 === 0 || pos >= dur - 10)) {
+      this.lastShortSavedSec = pos;
+      this.library.recordProgress(short, pos, dur);
+    }
+  }
+  readonly noteOpen = signal(false);
+
+  readonly currentShortNote = computed(() => {
+    const s = this.activeShort();
+    return s ? this.notes.getNote('short', s.id) : null;
+  });
+
+  hasShortNote(id: string): boolean {
+    return this.notes.hasNote('short', id);
+  }
+
+  saveShortNote(text: string): void {
+    const s = this.activeShort();
+    if (!s) return;
+    this.notes.saveNote('short', s.id, text, s.channelTitle);
+    this.noteOpen.set(false);
+  }
+
+  deleteShortNote(): void {
+    const s = this.activeShort();
+    if (!s) return;
+    this.notes.deleteNote('short', s.id);
+    this.noteOpen.set(false);
+  }
   readonly channelService = inject(ChannelService);
 
   readonly activeIndex = signal<number | null>(null);
   readonly selectedChannelId = signal<string | null>(null);
+  readonly statusFilter = signal<'all' | 'watched' | 'unwatched' | 'in_progress' | 'liked'>('all');
   readonly shortChannels = computed(() => {
     const channelsWithLoadedShorts = new Set(
       this.videos.shorts().map((short) => short.channelId),
@@ -664,8 +775,21 @@ export class ShortsComponent implements OnInit, OnDestroy {
   });
   readonly visibleShorts = computed(() => {
     const channelId = this.selectedChannelId();
-    const shorts = this.videos.shorts();
-    return channelId ? shorts.filter((short) => short.channelId === channelId) : shorts;
+    const status = this.statusFilter();
+    let list = this.videos.shorts();
+    if (channelId) {
+      list = list.filter((short) => short.channelId === channelId);
+    }
+    if (status === 'watched') {
+      list = list.filter((short) => this.library.isWatched(short.id));
+    } else if (status === 'unwatched') {
+      list = list.filter((short) => !this.library.isWatched(short.id));
+    } else if (status === 'in_progress') {
+      list = list.filter((short) => this.library.isInProgress(short.id));
+    } else if (status === 'liked') {
+      list = list.filter((short) => this.library.isLiked(short.id));
+    }
+    return list;
   });
   readonly transitionPhase = signal<'idle' | 'exit' | 'enter'>('idle');
   readonly transitionDirection = signal<'next' | 'prev'>('next');
@@ -720,6 +844,12 @@ export class ShortsComponent implements OnInit, OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    if (this.noteOpen()) {
+      if (event.key === 'Escape') {
+        this.noteOpen.set(false);
+      }
+      return;
+    }
     if (this.activeIndex() === null) return;
     if (event.key === 'Escape') {
       this.exitStage();
@@ -833,6 +963,15 @@ export class ShortsComponent implements OnInit, OnDestroy {
 
   isFollowing(channelId: string): boolean {
     return this.channelService.subscribedIds().includes(channelId);
+  }
+
+  selectShortStatus(status: 'all' | 'watched' | 'unwatched' | 'in_progress' | 'liked'): void {
+    const next =
+      status !== 'all' && this.statusFilter() === status ? 'all' : status;
+    this.statusFilter.set(next);
+    if (next === 'all') {
+      this.selectedChannelId.set(null);
+    }
   }
 
   selectShortChannel(channelId: string | null): void {

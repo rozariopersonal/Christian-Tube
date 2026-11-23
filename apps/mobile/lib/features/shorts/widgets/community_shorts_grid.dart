@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/models/short.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/ui/video_thumbnail_overlays.dart';
 
 class CommunityShortsGrid extends StatelessWidget {
   final List<Short> allShorts;
@@ -94,6 +95,38 @@ class CommunityShortsGrid extends StatelessWidget {
                           label: '✨ Recent',
                           filterKey: 'recent',
                           icon: Icons.schedule_rounded,
+                          currentFilter: currentFilter,
+                          onSelected: onFilterSelected,
+                        ),
+                        const SizedBox(width: 8),
+                        CommunityFilterChip(
+                          label: 'Watched',
+                          filterKey: 'watched',
+                          icon: Icons.check_circle_outline_rounded,
+                          currentFilter: currentFilter,
+                          onSelected: onFilterSelected,
+                        ),
+                        const SizedBox(width: 8),
+                        CommunityFilterChip(
+                          label: 'Unwatched',
+                          filterKey: 'unwatched',
+                          icon: Icons.visibility_off_outlined,
+                          currentFilter: currentFilter,
+                          onSelected: onFilterSelected,
+                        ),
+                        const SizedBox(width: 8),
+                        CommunityFilterChip(
+                          label: 'In Progress',
+                          filterKey: 'in_progress',
+                          icon: Icons.timelapse_rounded,
+                          currentFilter: currentFilter,
+                          onSelected: onFilterSelected,
+                        ),
+                        const SizedBox(width: 8),
+                        CommunityFilterChip(
+                          label: 'Liked',
+                          filterKey: 'liked',
+                          icon: Icons.thumb_up_outlined,
                           currentFilter: currentFilter,
                           onSelected: onFilterSelected,
                         ),
@@ -334,6 +367,18 @@ class CommunityGridCard extends StatelessWidget {
                   ),
                 ),
               ),
+
+            // 4.5 Watched Badge & 5dp Progress Bar
+            Positioned.fill(
+              child: VideoWatchedOverlays(
+                videoId: short.id,
+                duration: short.duration,
+                durationSeconds: durSec > 0 ? durSec : null,
+                compact: true,
+                badgeTopOffset: 34,
+                badgeLeftOffset: 8,
+              ),
+            ),
 
             // 5. Play Icon in Center
             Center(

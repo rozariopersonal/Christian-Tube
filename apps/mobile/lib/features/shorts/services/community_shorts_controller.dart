@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/models/short.dart';
+import '../../profile/user_service.dart';
 import 'shorts_subscription_filter.dart';
 
 class CommunityShortsController extends ChangeNotifier {
@@ -160,6 +161,7 @@ class CommunityShortsController extends ChangeNotifier {
   String get filter => _filter;
 
   List<Short> get filteredShorts {
+    final userService = UserService();
     if (_filter == 'popular') {
       final list = List<Short>.from(_shorts);
       list.sort((a, b) => b.viewCount.compareTo(a.viewCount));
@@ -168,6 +170,33 @@ class CommunityShortsController extends ChangeNotifier {
       final list = List<Short>.from(_shorts);
       list.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
       return list;
+    } else if (_filter == 'watched') {
+      return _shorts
+          .where((s) => userService.isWatched(
+                s.id,
+                duration: s.duration,
+                durationSeconds: s.durationSeconds > 0 ? s.durationSeconds : null,
+              ))
+          .toList();
+    } else if (_filter == 'unwatched') {
+      return _shorts
+          .where((s) => !userService.isWatched(
+                s.id,
+                duration: s.duration,
+                durationSeconds: s.durationSeconds > 0 ? s.durationSeconds : null,
+              ))
+          .toList();
+    } else if (_filter == 'in_progress') {
+      return _shorts.where((s) {
+        final dur = s.durationSeconds > 0 ? s.durationSeconds : null;
+        return userService.progressFraction(s.id,
+                    duration: s.duration, durationSeconds: dur) >
+                0 &&
+            !userService.isWatched(s.id,
+                duration: s.duration, durationSeconds: dur);
+      }).toList();
+    } else if (_filter == 'liked') {
+      return _shorts.where((s) => userService.isVideoLiked(s.id)).toList();
     }
     return _shorts;
   }

@@ -13,6 +13,7 @@ export interface WatchHistoryEntry {
 const HISTORY_STORAGE_KEY = 'ct_web_watch_history_v1';
 const WATCH_LATER_STORAGE_KEY = 'ct_web_watch_later_v1';
 const PLAYHEADS_STORAGE_KEY = 'ct_web_video_playheads_v1';
+const LIKED_VIDEOS_STORAGE_KEY = 'ct_web_liked_videos_v1';
 const AUTOPLAY_STORAGE_KEY = 'ct_web_autoplay_v1';
 const RECENT_SEARCHES_KEY = 'ct_web_recent_searches_v1';
 
@@ -28,6 +29,7 @@ export class VideoLibraryService {
 
   readonly history = signal<WatchHistoryEntry[]>([]);
   readonly watchLater = signal<Video[]>([]);
+  readonly likedIds = signal<string[]>([]);
   readonly playheads = signal<Record<string, VideoPlayheadEntry>>({});
   readonly queue = signal<Video[]>([]);
   readonly autoplay = signal<boolean>(this.readBool(AUTOPLAY_STORAGE_KEY, true));
@@ -61,6 +63,7 @@ export class VideoLibraryService {
   private reloadFromUserCache(): void {
     this.history.set(this.readUserJson(HISTORY_STORAGE_KEY, []));
     this.watchLater.set(this.readUserJson(WATCH_LATER_STORAGE_KEY, []));
+    this.likedIds.set(this.readUserJson(LIKED_VIDEOS_STORAGE_KEY, []));
     this.playheads.set(this.readUserJson(PLAYHEADS_STORAGE_KEY, {}));
     this.recentSearches.set(this.readJson(RECENT_SEARCHES_KEY, []));
     if (!this.auth.isAuthenticated()) {
@@ -70,6 +73,24 @@ export class VideoLibraryService {
 
   isWatchLater(videoId: string): boolean {
     return this.watchLaterIds().has(videoId);
+  }
+
+  isLiked(videoId: string): boolean {
+    return this.likedIds().includes(videoId);
+  }
+
+  toggleLike(videoId: string): boolean {
+    const exists = this.isLiked(videoId);
+    const next = exists
+      ? this.likedIds().filter((id) => id !== videoId)
+      : [videoId, ...this.likedIds()];
+    this.likedIds.set(next);
+    this.writeUserJson(LIKED_VIDEOS_STORAGE_KEY, next);
+    return !exists;
+  }
+
+  isInProgress(videoId: string): boolean {
+    return this.progressFraction(videoId) > 0 && !this.isWatched(videoId);
   }
 
   toggleWatchLater(video: Video): boolean {
@@ -155,6 +176,16 @@ export class VideoLibraryService {
     const ratio = entry.progressSeconds / entry.durationSeconds;
     if (ratio < 0.03) return 0;
     return Math.min(1, ratio);
+  }
+
+  isWatched(videoId: string): boolean {
+    const entry = this.history().find((e) => e.video.id === videoId);
+    if (!entry || entry.durationSeconds <= 0) return false;
+    const threshold =
+      entry.durationSeconds > 10
+        ? entry.durationSeconds - 10
+        : entry.durationSeconds - 1;
+    return entry.progressSeconds >= threshold;
   }
 
   resumeSeconds(videoId: string): number {

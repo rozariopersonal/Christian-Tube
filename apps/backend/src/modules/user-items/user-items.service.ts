@@ -34,7 +34,7 @@ const VALID_ITEM_TYPES = new Set([
   'text_range',
 ]);
 
-const VALID_FEATURES = new Set(['bible', 'book', 'article']);
+const VALID_FEATURES = new Set(['bible', 'book', 'article', 'video', 'short']);
 
 @Injectable()
 export class UserItemsService {

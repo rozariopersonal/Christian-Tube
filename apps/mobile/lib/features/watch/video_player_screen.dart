@@ -13,7 +13,10 @@ import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/video.dart';
 import '../../core/utils/formatters.dart';
+import '../../shared/annotations/user_item.dart';
+import '../../shared/services/note_service.dart';
 import '../../shared/ui/channel_avatar.dart';
+import '../../shared/ui/media_note_helper.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
@@ -63,6 +66,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isDescriptionExpanded = false;
   bool _isLiked = false;
   bool _isDisliked = false;
+  bool _hasNote = false;
   
   AudioTrack? _matchedAudioTrack;
 
@@ -101,7 +105,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     if (widget.startSeconds == null) {
       UserService().getVideoPosition(_activeVideoId).then((saved) {
-        if (mounted && saved > 5) {
+        if (!mounted) return;
+        final dur = UserService.parseDurationSeconds(_video?.duration);
+        final wasWatched =
+            UserService().isWatched(_activeVideoId, durationSeconds: dur);
+        if (wasWatched) {
+          // Re-watching a watched video resets progress to 0 so the user sees
+          // active progress until reaching the last 10 seconds again.
+          UserService().saveVideoPosition(_activeVideoId, 0, durationSeconds: dur);
+        } else if (saved > 5) {
           setState(() {
             _restoredStartSeconds = saved;
           });
@@ -114,6 +126,33 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _loadVideoDetails();
     _loadRelatedVideos();
     _checkAudioTrack();
+    _loadNoteStatus();
+  }
+
+  Future<void> _loadNoteStatus() async {
+    if (mounted) {
+      setState(() => _isLiked = UserService().isVideoLiked(_activeVideoId));
+    }
+    try {
+      final note = await NoteService.instance
+          .getNoteForTarget(UserItem.featureVideo, _activeVideoId);
+      if (mounted) {
+        setState(() => _hasNote = note != null && !note.isEmpty);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _openNoteEditor() async {
+    final hasNote = await showMediaNoteEditor(
+      context,
+      feature: UserItem.featureVideo,
+      targetId: _activeVideoId,
+      title: _video?.title,
+      contextText: _video?.channelTitle,
+    );
+    if (mounted && hasNote != null) {
+      setState(() => _hasNote = hasNote);
+    }
   }
 
   Future<void> _checkAudioTrack() async {
@@ -154,6 +193,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _loadVideoDetails();
     _loadRelatedVideos();
     _checkAudioTrack();
+    _loadNoteStatus();
   }
 
   void _toggleShuffle() {
@@ -286,7 +326,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void dispose() {
     _positionSaveTimer?.cancel();
     if (_currentPositionSeconds > 0) {
-      UserService().saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+      final dur = UserService.parseDurationSeconds(_video?.duration);
+      UserService().saveVideoPosition(
+        _activeVideoId,
+        _currentPositionSeconds,
+        durationSeconds: dur > 0 ? dur : null,
+      );
     }
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -348,8 +393,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _positionSaveTimer?.cancel();
         _positionSaveTimer = Timer(const Duration(seconds: 4), () {
           if (_currentPositionSeconds > 0) {
-            UserService()
-                .saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+            final dur = UserService.parseDurationSeconds(_video?.duration);
+            UserService().saveVideoPosition(
+              _activeVideoId,
+              _currentPositionSeconds,
+              durationSeconds: dur > 0 ? dur : null,
+            );
           }
         });
       },
@@ -845,6 +894,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   setState(() {
                     _isLiked = !_isLiked;
                     if (_isLiked) _isDisliked = false;
+                    UserService().setVideoLiked(_activeVideoId, _isLiked);
                   });
                 },
                 child: Padding(
@@ -880,7 +930,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 onTap: () {
                   setState(() {
                     _isDisliked = !_isDisliked;
-                    if (_isDisliked) _isLiked = false;
+                    if (_isDisliked) {
+                      _isLiked = false;
+                      UserService().setVideoLiked(_activeVideoId, false);
+                    }
                   });
                 },
                 child: Padding(
@@ -905,6 +958,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           icon: Icons.content_cut,
           label: 'Clip',
           onTap: _openShortsTrimmer,
+        ),
+        const SizedBox(width: 8),
+
+        // Personal Note
+        _buildActionPill(
+          icon: _hasNote
+              ? Icons.sticky_note_2_rounded
+              : Icons.sticky_note_2_outlined,
+          label: _hasNote ? 'Note ✓' : 'Note',
+          onTap: _openNoteEditor,
         ),
         const SizedBox(width: 8),
 
