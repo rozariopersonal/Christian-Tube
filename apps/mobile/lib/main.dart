@@ -31,6 +31,7 @@ import 'features/profile/screens/content_preferences_screen.dart';
 import 'features/profile/subscriptions_screen.dart';
 import 'features/profile/user_service.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
+import 'core/navigation/navigation_history_service.dart';
 import 'core/services/user_preference_service.dart';
 import 'features/search/search_screen.dart';
 import 'features/shorts/shorts_feed_screen.dart';
@@ -148,14 +149,20 @@ class _ChristianAppState extends State<ChristianApp> {
     UserItemSyncService.instance.attachTo(_authService);
     _channelService.attachToAuth(_authService);
 
+    final defaultRoute = _preferenceService.defaultRoutePath;
     final initialLoc =
-        _preferenceService.hasCompletedOnboarding ? '/feed' : '/onboarding';
+        _preferenceService.hasCompletedOnboarding ? defaultRoute : '/onboarding';
+    if (_preferenceService.hasCompletedOnboarding) {
+      NavigationHistoryService.instance.setInitialTab(defaultRoute);
+    }
 
     _router = GoRouter(
       initialLocation: initialLoc,
       redirect: (context, state) {
         if (state.matchedLocation == '/' || state.matchedLocation.isEmpty) {
-          return _preferenceService.hasCompletedOnboarding ? '/feed' : '/onboarding';
+          return _preferenceService.hasCompletedOnboarding
+              ? _preferenceService.defaultRoutePath
+              : '/onboarding';
         }
         return null;
       },

@@ -133,6 +133,25 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
       </section>
 
       <section class="settings-card">
+        <h2>Default Page on Open</h2>
+        <div class="field-group">
+          <span class="label">Choose which page opens first when you launch the app</span>
+          <div class="chip-wrap">
+            @for (opt of defaultPageOptions; track opt.id) {
+              <button
+                type="button"
+                class="pill-chip"
+                [class.active]="prefs.defaultPage() === opt.id"
+                (click)="prefs.setDefaultPage(opt.id)"
+              >
+                {{ opt.label }}
+              </button>
+            }
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-card">
         <h2>Content &amp; Languages</h2>
         <div class="field-group">
           <span class="label">Preferred Content Languages</span>
@@ -562,6 +581,15 @@ export class SettingsComponent {
 
   readonly colorThemes = APP_COLOR_THEMES;
   readonly appFonts = APP_FONT_FAMILIES;
+  readonly defaultPageOptions = [
+    { id: 'feed', label: 'Videos' },
+    { id: 'shorts', label: 'Shorts' },
+    { id: 'words', label: 'Words' },
+    { id: 'bible', label: 'Bible' },
+    { id: 'library', label: 'Books' },
+    { id: 'articles', label: 'Articles' },
+    { id: 'audio', label: 'Audio' },
+  ];
   readonly fonts = READER_FONTS;
   readonly bibleVersions = BIBLE_VERSIONS;
   readonly preferredBibleVersions = computed(() => {

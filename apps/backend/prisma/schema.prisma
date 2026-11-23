@@ -252,6 +252,7 @@ model UserPreference {
   bibleVersionIds        String[] @default([])
   themeMode              String?  @default("system")
   accentColor            String?  @default("blue")
+  defaultPage            String?  @default("feed")
   dailyReminderEnabled             Boolean  @default(false)
   dailyReminderTime                String?  @default("07:00")
   lockScreenWordFeedEnabled        Boolean  @default(false)

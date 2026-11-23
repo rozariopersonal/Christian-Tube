@@ -268,7 +268,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         syncAll: true,
       );
       await _draftStore.clear();
-      if (mounted) context.go('/feed');
+      if (mounted) context.go(_preferenceService.defaultRoutePath);
     } catch (error) {
       _showSaveError(error);
     } finally {
@@ -514,7 +514,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           auth: widget.authService,
                           syncWithBackend: false,
                         );
-                        if (mounted) context.go('/feed');
+                        if (mounted) context.go(_preferenceService.defaultRoutePath);
                       },
                       child: const Text('Go Directly to Feed'),
                     ),

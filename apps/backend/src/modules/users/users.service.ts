@@ -47,6 +47,7 @@ const PREF_FIELDS = [
   'bibleVersionIds',
   'themeMode',
   'accentColor',
+  'defaultPage',
   'dailyReminderEnabled',
   'dailyReminderTime',
   'lockScreenWordFeedEnabled',
@@ -171,6 +172,7 @@ export class UsersService {
           shortsChannelIds: [],
           primaryBibleVersionId: 'NASB',
           bibleVersionIds: ['NASB'],
+          defaultPage: 'feed',
           hasCompletedOnboarding: false,
         },
       });
@@ -189,6 +191,7 @@ export class UsersService {
       bibleVersionIds?: string[];
       themeMode?: string;
       accentColor?: string;
+      defaultPage?: string;
       dailyReminderEnabled?: boolean;
       dailyReminderTime?: string;
       lockScreenWordFeedEnabled?: boolean;
@@ -251,6 +254,7 @@ export class UsersService {
           bibleVersionIds: data.bibleVersionIds || [],
           themeMode: data.themeMode || 'system',
           accentColor: data.accentColor || 'blue',
+          defaultPage: data.defaultPage || 'feed',
           dailyReminderEnabled: data.dailyReminderEnabled ?? false,
           dailyReminderTime: data.dailyReminderTime || '07:00',
           lockScreenWordFeedEnabled: data.lockScreenWordFeedEnabled ?? false,

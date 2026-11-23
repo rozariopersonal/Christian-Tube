@@ -35,6 +35,7 @@ export interface RemoteSyncState {
     primaryBibleVersionId?: string;
     themeMode?: string;
     accentColor?: string;
+    defaultPage?: string;
     hasCompletedOnboarding?: boolean;
     fieldTimestamps?: Record<string, number>;
   };
