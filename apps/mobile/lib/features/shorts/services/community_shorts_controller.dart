@@ -255,7 +255,7 @@ class CommunityShortsController extends ChangeNotifier {
 
         if (allVideos.isNotEmpty) {
           final shortsOnly = allVideos
-              .where((s) => s.type.toUpperCase() == 'SHORT')
+              .where((s) => s.type?.toUpperCase() == 'SHORT')
               .toList();
 
           _shorts = shortsOnly;
@@ -309,7 +309,7 @@ class CommunityShortsController extends ChangeNotifier {
         final newVideos = list
             .whereType<Map<String, dynamic>>()
             .map((v) => Short.fromJson(v))
-            .where((s) => s.type.toUpperCase() == 'SHORT')
+            .where((s) => s.type?.toUpperCase() == 'SHORT')
             .toList();
 
         if (newVideos.isEmpty) {

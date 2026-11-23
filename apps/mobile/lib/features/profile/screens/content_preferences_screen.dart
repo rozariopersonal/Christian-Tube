@@ -149,25 +149,6 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
   // -------------------------------------------------------------
   // TAB 1: Content Languages
   // -------------------------------------------------------------
-  Future<void> _setChannelSelection(bool isShorts, Set<String> selected) async {
-    final followed = _channelService.subscribedChannelIds;
-    final previousVideo = _currentPref.videoFeedChannels(followed);
-    final previousShorts = _currentPref.shortsFeedChannels(followed);
-    final video = isShorts ? previousVideo : selected;
-    final shorts = isShorts ? selected : previousShorts;
-    await Future.wait([
-      _updatePreferences(_currentPref.copyWith(
-        videoChannelIds: video.toList(),
-        shortsChannelIds: shorts.toList(),
-        channelSelectionsConfigured: true,
-      )),
-      _channelService.saveChannelSelections(
-        {...previousVideo, ...previousShorts},
-        {...video, ...shorts},
-      ),
-    ]);
-  }
-
   Widget _buildLanguagesTab(BuildContext context) {
     final tokens = context.tokens;
     final allLanguages = LanguageMeta.supportedLanguages.values

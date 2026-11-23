@@ -40,7 +40,7 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
             .toList();
 
         final shortsOnly = allVideos
-            .where((s) => s.type.toUpperCase() == 'SHORT')
+            .where((s) => s.type?.toUpperCase() == 'SHORT')
             .toList();
 
         setState(() {

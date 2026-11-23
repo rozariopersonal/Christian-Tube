@@ -34,7 +34,7 @@ class VideoService extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .where((json) => !Short.isShort(json))
             .map((v) => Video.fromJson(v))
-            .where((v) => v.type.toUpperCase() != 'SHORT')
+            .where((v) => v.type?.toUpperCase() != 'SHORT')
             .toList();
         notifyListeners();
       }
@@ -141,7 +141,7 @@ class VideoService extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .where((json) => !Short.isShort(json))
             .map((v) => Video.fromJson(v))
-            .where((v) => v.type.toUpperCase() != 'SHORT')
+            .where((v) => v.type?.toUpperCase() != 'SHORT')
             .toList();
 
         if (_offset == 0) {
