@@ -38,9 +38,18 @@ class BottomBarVisibilityService extends ChangeNotifier {
 
   bool _isShortPlaying = false;
   bool _isExplicitlyHidden = false;
+  bool _isReaderFullscreen = false;
 
   bool get isShortPlaying => _isShortPlaying;
   bool get isExplicitlyHidden => _isExplicitlyHidden;
+  bool get isReaderFullscreen => _isReaderFullscreen;
+
+  /// Hides shell navigation while a Bible, book, or article reader is immersive.
+  void setReaderFullscreen(bool fullscreen) {
+    if (_isReaderFullscreen == fullscreen) return;
+    _isReaderFullscreen = fullscreen;
+    notifyListeners();
+  }
 
   /// Notify the service whether a short video is currently active/playing.
   void setShortPlaying(bool playing) {
@@ -105,6 +114,7 @@ class BottomBarVisibilityService extends ChangeNotifier {
       width: size.width,
       isLandscape: isLandscape,
       isShortPlaying: _isShortPlaying,
+      isReaderFullscreen: _isReaderFullscreen,
       isExplicitlyHidden: _isExplicitlyHidden,
       currentPath: currentPath,
       isWatchRoute: currentPath.startsWith('/watch'),

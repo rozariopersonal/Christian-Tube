@@ -49,7 +49,7 @@ $PythonDir = Split-Path $Python -Parent
 $ToolDirs = @(
     $PythonDir,
     (Join-Path $PythonDir "Scripts"),
-    "$env:LOCALAPPDATA\ChristianTubeTools"
+    "$env:LOCALAPPDATA\ChristianAppTools"
 ) | Where-Object { $_ -and (Test-Path $_) }
 
 $env:PATH = (($ToolDirs + @($env:PATH)) -join [System.IO.Path]::PathSeparator)

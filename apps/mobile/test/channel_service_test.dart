@@ -97,6 +97,78 @@ void main() {
     expect(adapter.requests.first.path, '/api/channels/c1/subscribe');
   });
 
+  test('successful follow and unfollow update the cached server snapshot', () async {
+    final adapter = StubAdapter(onFetch: (request) {
+      final body = request.path == '/api/user/state'
+          ? {'subscriptions': <String>[]}
+          : {};
+      return ResponseBody.fromString(jsonEncode(body), 200, headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      });
+    });
+    final dio = testDio(adapter);
+    final sync = UserSyncService.forTesting(dio: dio)
+      ..setActiveUserForTesting('u1');
+    final service = ChannelService.forTesting(
+      dio: dio,
+      authService: StubAuth(true),
+      syncService: sync,
+    );
+    addTearDown(service.dispose);
+    await sync.pullAndFlush(force: true);
+
+    service.toggleFollow('c1');
+    await settle();
+    expect(sync.pendingOps, isEmpty);
+    expect(sync.remoteState?['subscriptions'], ['c1']);
+    expect(service.followedChannelIds, {'c1'});
+
+    service.toggleFollow('c1');
+    await settle();
+    expect(sync.pendingOps, isEmpty);
+    expect(sync.remoteState?['subscriptions'], isEmpty);
+    expect(service.followedChannelIds, isEmpty);
+  });
+
+  test('onboarding selection persists additions and removes cleared follows', () async {
+    final adapter = StubAdapter();
+    final service = ChannelService.forTesting(dio: testDio(adapter));
+    addTearDown(service.dispose);
+    service.seedSubscribedIds({'old'});
+    await service.saveChannelSelections({'old'}, {'video', 'shorts'});
+    expect(service.followedChannelIds, {'video', 'shorts'});
+
+    final restored = ChannelService.forTesting(dio: testDio(adapter));
+    addTearDown(restored.dispose);
+    await restored.loadFollowing();
+    expect(restored.followedChannelIds, {'video', 'shorts'});
+  });
+
+  test('overlapping onboarding writes retain every pending field and channel', () async {
+    final sync = UserSyncService.forTesting(dio: testDio(StubAdapter(fail: true)))
+      ..setActiveUserForTesting('onboarding-user');
+    await Future.wait([
+      sync.enqueuePreferences({
+        'videoChannelIds': ['video'],
+        'shortsChannelIds': <String>[],
+      }),
+      sync.enqueueSubscriptions({'video': true, 'old': false}),
+      sync.enqueuePreference('hasCompletedOnboarding', true),
+    ]);
+
+    final prefs = await SharedPreferences.getInstance();
+    final saved = jsonDecode(
+      prefs.getString('mobile_sync_pending_v2_onboarding-user')!,
+    ) as Map<String, dynamic>;
+    expect(saved.keys, unorderedEquals([
+      'pref:videoChannelIds',
+      'pref:shortsChannelIds',
+      'sub:video',
+      'sub:old',
+      'pref:hasCompletedOnboarding',
+    ]));
+  });
+
   test('authenticated second toggle unsubscribes via DELETE to the backend', () async {
     final adapter = StubAdapter();
     final dio = testDio(adapter);

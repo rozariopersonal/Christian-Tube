@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { UserItemsModule } from './modules/user-items/user-items.module';
 import { VideosModule } from './modules/videos/videos.module';
@@ -30,6 +31,7 @@ import { BibleModule } from './modules/bible/bible.module';
     CacheModule,
     HealthModule,
     PrismaModule,
+    AuthModule,
     UsersModule,
     UserItemsModule,
     StorageModule,

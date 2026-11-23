@@ -1,6 +1,6 @@
 # Automated E2E Testing & Quality Gate Guide
 
-Christian-Tube enforces a **Tiered Quality Gate** architecture to ensure that every compiled APK (`christian-app.apk`, `centum-academy.apk`) is thoroughly verified both before and after compilation.
+ChristianApp enforces a **Tiered Quality Gate** architecture to ensure that every compiled APK (`christian-app.apk`, `centum-academy.apk`) is thoroughly verified both before and after compilation.
 
 The exact same tests and flows run **locally** (for developers and AI coding agents) and in **GitHub Actions (CI/CD)** before publishing releases.
 
@@ -8,7 +8,7 @@ The exact same tests and flows run **locally** (for developers and AI coding age
 
 ## Testing Philosophy: The E2E Pyramid
 
-To maintain a fast and stable CI pipeline, Christian-Tube strictly follows this testing distribution rule:
+To maintain a fast and stable CI pipeline, ChristianApp strictly follows this testing distribution rule:
 
 - **E2E Testing (Maestro)**: *Must* cover **every important user action** and critical path journey (e.g., Video Playback, Bible Reading, Offline Downloads, Search). These tests run on the compiled APK and guarantee the app works from the user's perspective.
 - **Unit & Integration Testing (Flutter Test)**: *Must* cover all **minor stuff, edge cases, error handling, state management, and utility functions**. These tests execute in milliseconds and ensure individual components (e.g., date parsers, API error states, widget layout boundaries) function correctly without the overhead of booting an emulator.

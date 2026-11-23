@@ -1,7 +1,7 @@
 {
-  "name": "@privatetube/backend",
+  "name": "@christianapp/backend",
   "version": "1.0.0",
-  "description": "PrivateTube Multi-Instance NestJS Backend Engine",
+  "description": "ChristianApp Multi-Instance NestJS Backend Engine",
   "author": "Arul Rozario",
   "private": true,
   "license": "UNLICENSED",
@@ -16,7 +16,11 @@
     "test": "jest"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
@@ -32,6 +36,7 @@
     "@nestjs/core": "^10.3.0",
     "@nestjs/platform-express": "^10.3.0",
     "@nestjs/schedule": "^4.0.0",
+    "@nestjs/throttler": "^5.2.0",
     "@prisma/client": "^5.16.0",
     "axios": "^1.7.2",
     "class-transformer": "^0.5.1",

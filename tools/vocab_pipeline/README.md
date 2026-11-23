@@ -74,3 +74,7 @@ The processor maintains a real-time Markdown dashboard in `releases/study/taobvs
 * Unique surface words defined vs total target (95,634)
 * Compounding cache hit rate (0ms instant resolution)
 * Accurate remaining ETA based on the Unique Word Model
+
+## Validated processor
+
+See [VALIDATED_PROCESSOR.md](VALIDATED_PROCESSOR.md) for the separately runnable validated processor and trial instructions.

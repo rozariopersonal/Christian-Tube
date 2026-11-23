@@ -16,6 +16,8 @@ import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scro
 import { ChannelService } from '../../channels/services/channel.service';
 import { Video, formatViewCount } from '../models/video.model';
 import { VideoService } from '../services/video.service';
+import { UserSyncService } from '../../../core/services/user-sync.service';
+import { normalizeVideo } from '../models/video.model';
 
 @Component({
   selector: 'app-shorts-page',
@@ -115,6 +117,16 @@ import { VideoService } from '../services/video.service';
             <button
               type="button"
               class="rail-btn"
+              [class.active]="isShortLiked(current.id)"
+              [attr.aria-pressed]="isShortLiked(current.id)"
+              [title]="isShortLiked(current.id) ? 'Liked' : 'Like'"
+              (click)="toggleShortLike(current)"
+            >
+              <span class="material-symbols-rounded" [class.filled]="isShortLiked(current.id)">favorite</span>
+            </button>
+            <button
+              type="button"
+              class="rail-btn"
               title="Previous Short"
               [disabled]="activeIndex()! <= 0 || transitionPhase() !== 'idle'"
               (click)="prev()"
@@ -149,12 +161,15 @@ import { VideoService } from '../services/video.service';
         </div>
       </div>
     } @else {
-      <div class="shorts-page max-width-box">
+      <div class="shorts-page max-width-box wide-grid">
         <header class="page-head">
           <h1 class="font-display">Shorts</h1>
         </header>
 
         <div class="shorts-filter-strip" aria-label="Filter shorts by channel">
+          <button type="button" class="pill-chip" [class.active]="onlyLiked()" (click)="toggleLikedFilter()">
+            <span class="material-symbols-rounded" [class.filled]="onlyLiked()">favorite</span> Liked
+          </button>
           <button
             type="button"
             class="pill-chip"
@@ -195,7 +210,7 @@ import { VideoService } from '../services/video.service';
               Retry
             </button>
           </div>
-        } @else if (channelService.subscribedIds().length === 0) {
+        } @else if (channelService.subscribedIds().length === 0 && !onlyLiked()) {
           <div class="empty-state">
             <span class="material-symbols-rounded empty-icon">subscriptions</span>
             <h2>Follow channels to watch Shorts</h2>
@@ -204,7 +219,9 @@ import { VideoService } from '../services/video.service';
           </div>
         } @else if (visibleShorts().length === 0) {
           <p class="status-msg">
-            @if (selectedChannelId()) {
+            @if (onlyLiked()) {
+              No liked Shorts yet.
+            } @else if (selectedChannelId()) {
               No shorts available from this channel right now.
             } @else {
               No shorts available from your followed channels right now.
@@ -216,7 +233,7 @@ import { VideoService } from '../services/video.service';
               <button
                 type="button"
                 class="short-tile"
-                (click)="activeIndex.set(i)"
+                (click)="openShort(i)"
               >
                 <img
                   class="short-thumb"
@@ -237,7 +254,7 @@ import { VideoService } from '../services/video.service';
             }
           </div>
 
-          @if (videos.shortsHasMore()) {
+          @if (videos.shortsHasMore() && !onlyLiked()) {
             <div
               class="load-more-wrap"
               appInfiniteScrollTrigger
@@ -303,7 +320,7 @@ import { VideoService } from '../services/video.service';
 
       .shorts-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
         gap: 14px;
       }
 
@@ -355,7 +372,7 @@ import { VideoService } from '../services/video.service';
 
       /* In-page Fullscreen Vertical Shorts Stage */
       .shorts-stage {
-        height: calc(100dvh - var(--shell-bottom-height) - var(--shell-top-offset));
+        height: calc(100dvh - var(--shell-bottom-offset, 0px) - var(--shell-top-offset));
         background-color: var(--bg);
         color: var(--on-surface);
         display: flex;
@@ -368,7 +385,6 @@ import { VideoService } from '../services/video.service';
 
       @media (min-width: 600px) {
         .shorts-stage {
-          height: calc(100dvh - var(--shell-top-offset));
           padding: 16px 24px;
         }
       }
@@ -482,10 +498,14 @@ import { VideoService } from '../services/video.service';
 
       .vertical-player {
         position: relative;
-        height: 100%;
+        width: min(
+          calc(100% - 60px),
+          calc((100dvh - var(--shell-bottom-offset, 0px) - var(--shell-top-offset) - 84px) * 9 / 16),
+          440px
+        );
+        height: auto;
         max-height: 780px;
         aspect-ratio: 9 / 16;
-        max-width: calc(100% - 60px);
         background-color: #000000;
         border-radius: var(--radius-lg);
         overflow: hidden;
@@ -542,6 +562,7 @@ import { VideoService } from '../services/video.service';
         z-index: 2;
         padding: 36px 14px 14px;
         background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+        color: #ffffff;
         pointer-events: none;
       }
 
@@ -605,6 +626,7 @@ import { VideoService } from '../services/video.service';
         place-items: center;
       }
 
+      .rail-btn.active,
       .rail-btn:hover:not([disabled]) {
         background-color: var(--accent-soft);
         color: var(--accent);
@@ -651,9 +673,12 @@ export class ShortsComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   readonly videos = inject(VideoService);
   readonly channelService = inject(ChannelService);
+  readonly userSync = inject(UserSyncService);
 
   readonly activeIndex = signal<number | null>(null);
   readonly selectedChannelId = signal<string | null>(null);
+  readonly onlyLiked = signal(false);
+  private readonly playerShorts = signal<Video[] | null>(null);
   readonly shortChannels = computed(() => {
     const channelsWithLoadedShorts = new Set(
       this.videos.shorts().map((short) => short.channelId),
@@ -664,7 +689,21 @@ export class ShortsComponent implements OnInit, OnDestroy {
   });
   readonly visibleShorts = computed(() => {
     const channelId = this.selectedChannelId();
-    const shorts = this.videos.shorts();
+    this.userSync.remoteState();
+    this.userSync.pendingOps();
+    const active = this.activeIndex() !== null ? this.playerShorts() : null;
+    let shorts = active;
+    if (!shorts && this.onlyLiked()) {
+      const byId = new Map<string, Video>();
+      for (const item of this.userSync.likedItems('liked_short')) {
+        const short = normalizeVideo(item);
+        if (short.id && short.title) byId.set(short.id, short);
+      }
+      const ids = this.userSync.likedIds('liked_short');
+      for (const short of this.videos.shorts()) if (ids.has(short.id)) byId.set(short.id, short);
+      shorts = [...byId.values()];
+    }
+    shorts ??= this.videos.shorts();
     return channelId ? shorts.filter((short) => short.channelId === channelId) : shorts;
   });
   readonly transitionPhase = signal<'idle' | 'exit' | 'enter'>('idle');
@@ -685,6 +724,7 @@ export class ShortsComponent implements OnInit, OnDestroy {
 
       const index = this.videos.shorts().findIndex((short) => short.id === shortId);
       if (index >= 0) {
+        this.playerShorts.set([...this.visibleShorts()]);
         this.activeIndex.set(index);
         this.requestedShortId.set(null);
       }
@@ -717,6 +757,23 @@ export class ShortsComponent implements OnInit, OnDestroy {
   });
 
   formatViews = formatViewCount;
+
+  openShort(index: number): void {
+    const shorts = this.visibleShorts();
+    if (index < 0 || index >= shorts.length) return;
+    this.playerShorts.set([...shorts]);
+    this.activeIndex.set(index);
+  }
+
+  isShortLiked(id: string): boolean { return this.userSync.isLiked('liked_short', id); }
+  toggleShortLike(short: Video): void {
+    this.userSync.setLiked({ itemType: 'liked_short', itemId: short.id, liked: !this.isShortLiked(short.id) });
+  }
+  toggleLikedFilter(): void {
+    this.onlyLiked.update((value) => !value);
+    this.activeIndex.set(null);
+    this.playerShorts.set(null);
+  }
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
@@ -824,6 +881,7 @@ export class ShortsComponent implements OnInit, OnDestroy {
 
   exitStage(): void {
     this.activeIndex.set(null);
+    this.playerShorts.set(null);
     const subKey = [...this.channelService.subscribedIds()].sort().join(',');
     if (subKey !== this.lastLoadedSubKey) {
       this.lastLoadedSubKey = subKey;
@@ -837,6 +895,7 @@ export class ShortsComponent implements OnInit, OnDestroy {
 
   selectShortChannel(channelId: string | null): void {
     const currentShortId = this.activeShort()?.id;
+    if (this.activeIndex() !== null) this.playerShorts.set(null);
     this.selectedChannelId.set(channelId);
 
     const filteredShorts = channelId

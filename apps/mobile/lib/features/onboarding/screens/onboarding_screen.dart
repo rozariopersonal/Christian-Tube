@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
+import '../../../core/models/user_preference.dart';
 import '../../../core/services/user_preference_service.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/theme_service.dart';
@@ -16,6 +19,7 @@ import '../../channels/channel_service.dart';
 import '../../engines/scripture/models/bible_version_meta.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../../shared/ui/channel_follow_tile.dart';
+import '../services/onboarding_draft_store.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final AuthService authService;
@@ -35,6 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   final ChannelService _channelService = ChannelService();
   final UserPreferenceService _preferenceService = UserPreferenceService();
+  final OnboardingDraftStore _draftStore = OnboardingDraftStore();
 
   late final TextEditingController _languageSearchController;
   late final TextEditingController _channelSearchController;
@@ -65,6 +70,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _channelsLoaded = false;
   bool _hasRestoredExisting = false;
   bool _isCheckingPrefs = false;
+  bool _restoredDraft = false;
+  bool _hasChannelDefaults = false;
+  bool _movingStep = false;
 
   @override
   void initState() {
@@ -75,13 +83,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _selectedThemeMode = widget.themeService.themeMode;
     _isAmoled = widget.themeService.isAmoled;
 
-    // Load available channels for step 2 & 3
-    _loadChannels();
-
-    // Check if user is already authenticated and has preferences
-    if (widget.authService.isAuthenticated) {
-      _checkExistingPreferences();
-    }
+    _initializeDraft();
     widget.authService.addListener(_onAuthChanged);
   }
 
@@ -92,6 +94,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _channelSearchController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeDraft() async {
+    final draft = await _draftStore.load();
+    if (!mounted) return;
+    if (draft != null && _currentStep == 0) {
+      setState(() {
+        _restoredDraft = true;
+        _hasChannelDefaults = draft.channelsLoaded;
+        _restoreSelections(draft.preferences);
+        _isAmoled = draft.isAmoled;
+        _currentStep = draft.step.clamp(0, _totalSteps - 1);
+      });
+      if (_pageController.hasClients) _pageController.jumpToPage(_currentStep);
+    }
+    _loadChannels();
+    if (widget.authService.isAuthenticated) _checkExistingPreferences();
   }
 
   void _onAuthChanged() {
@@ -105,8 +124,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (mounted) {
       setState(() {
         _channelsLoaded = true;
-        // Pre-select popular channels if empty
-        if (_selectedChannels.isEmpty && _channelService.channels.isNotEmpty) {
+        if (!_hasChannelDefaults && _channelService.channels.isNotEmpty) {
+          _hasChannelDefaults = true;
           final topChannels = _channelService.channels.take(4).map((c) => c.id).toSet();
           _selectedChannels.addAll(topChannels);
         }
@@ -120,52 +139,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       final pref = await _preferenceService.fetchPreferences(auth: widget.authService);
-      if (!mounted) return;
-
-      if (pref.languages.isNotEmpty) {
-        _selectedLanguages.clear();
-        _selectedLanguages.addAll(pref.languages);
-      }
-      final existingChannels = {
-        ...pref.videoChannelIds,
-        ...pref.shortsChannelIds,
-      };
-      if (existingChannels.isNotEmpty) {
-        _selectedChannels.clear();
-        _selectedChannels.addAll(existingChannels);
-      }
-      if (pref.primaryBibleVersionId.isNotEmpty) {
-        _primaryBibleVersion = pref.primaryBibleVersionId;
-      }
-      if (pref.bibleVersionIds.isNotEmpty) {
-        _selectedBibleVersions.clear();
-        _selectedBibleVersions.addAll(pref.bibleVersionIds);
-      }
-      if (pref.themeMode.isNotEmpty) {
-        _selectedThemeMode = pref.themeMode == 'dark'
-            ? ThemeMode.dark
-            : pref.themeMode == 'light'
-                ? ThemeMode.light
-                : ThemeMode.system;
-      }
-      if (pref.accentColor.isNotEmpty) {
-        _selectedColorTheme = AppColorTheme.values.firstWhere(
-          (c) =>
-              c.toString().split('.').last.toLowerCase() ==
-                  pref.accentColor.toLowerCase() ||
-              c.name.toLowerCase() == pref.accentColor.toLowerCase(),
-          orElse: () => _selectedColorTheme,
-        );
-      }
-      _dailyReminderEnabled = pref.dailyReminderEnabled;
-      _dailyReminderTime = pref.dailyReminderTime;
+      if (!mounted || _currentStep != 0 || _restoredDraft) return;
 
       if (pref.hasCompletedOnboarding) {
         setState(() {
+          _restoreSelections(pref);
+          _hasChannelDefaults = true;
           _hasRestoredExisting = true;
         });
-      } else {
-        setState(() {});
       }
     } catch (e) {
       debugPrint('Error checking existing preferences: $e');
@@ -174,90 +155,127 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  void _nextStep() {
-    if (_currentStep < _totalSteps - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeInOutCubic,
-      );
-      setState(() {
-        _currentStep++;
-        _channelSearch = '';
-        _channelSearchController.clear();
-      });
+  void _restoreSelections(UserPreference pref) {
+    _selectedLanguages
+      ..clear()
+      ..addAll(pref.languages);
+    _selectedChannels
+      ..clear()
+      ..addAll(pref.videoChannelIds)
+      ..addAll(pref.shortsChannelIds);
+    _primaryBibleVersion = pref.primaryBibleVersionId;
+    _selectedBibleVersions
+      ..clear()
+      ..addAll(pref.bibleVersionIds);
+    _selectedThemeMode = ThemeMode.values.firstWhere(
+      (mode) => mode.name == pref.themeMode,
+      orElse: () => ThemeMode.system,
+    );
+    _selectedColorTheme = AppColorTheme.values.firstWhere(
+      (theme) => theme.id == pref.accentColor || theme.name == pref.accentColor,
+      orElse: () => _selectedColorTheme,
+    );
+    _dailyReminderEnabled = pref.dailyReminderEnabled;
+    _dailyReminderTime = pref.dailyReminderTime;
+  }
+
+  UserPreference _selectedPreferences({bool completed = false}) {
+    return _preferenceService.preferences.copyWith(
+      languages: _selectedLanguages.toList(),
+      videoChannelIds: _selectedChannels.toList(),
+      shortsChannelIds: _selectedChannels.toList(),
+      channelSelectionsConfigured: true,
+      primaryBibleVersionId: _primaryBibleVersion,
+      bibleVersionIds: _selectedBibleVersions.toList(),
+      themeMode: _selectedThemeMode.name,
+      accentColor: _selectedColorTheme.id,
+      dailyReminderEnabled: _dailyReminderEnabled,
+      dailyReminderTime: _dailyReminderTime,
+      hasCompletedOnboarding: completed,
+    );
+  }
+
+  Future<void> _nextStep() async {
+    if (_currentStep == _totalSteps - 1) {
+      await _finishOnboarding();
     } else {
-      _finishOnboarding();
+      await _changeStep(_currentStep + 1);
     }
   }
 
   void _previousStep() {
-    if (_currentStep > 0) {
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeInOutCubic,
-      );
+    if (_currentStep > 0) _changeStep(_currentStep - 1);
+  }
+
+  Future<void> _saveDraft(int step) => _draftStore.save(OnboardingDraft(
+        step: step,
+        preferences: _selectedPreferences(),
+        isAmoled: _isAmoled,
+        channelsLoaded: _hasChannelDefaults,
+      ));
+
+  void _editSelections(VoidCallback update) {
+    if (_movingStep || _isSaving) return;
+    setState(update);
+    unawaited(_saveDraft(_currentStep).catchError(_showSaveError));
+  }
+
+  Future<void> _changeStep(int step) async {
+    if (_movingStep || _isSaving) return;
+    _movingStep = true;
+    try {
+      await _saveDraft(step);
+      if (!mounted) return;
       setState(() {
-        _currentStep--;
+        _currentStep = step;
         _channelSearch = '';
         _channelSearchController.clear();
       });
+      await _pageController.animateToPage(
+        step,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeInOutCubic,
+      );
+    } catch (error) {
+      _showSaveError(error);
+    } finally {
+      _movingStep = false;
     }
   }
 
   Future<void> _finishOnboarding() async {
+    if (_isSaving || _movingStep) return;
     setState(() => _isSaving = true);
 
     try {
-      // 1. Construct final preference object using copyWith to preserve settings
-      final existingPref = _preferenceService.preferences;
-      final finalPref = existingPref.copyWith(
-        languages: _selectedLanguages.toList(),
-        videoChannelIds: _selectedChannels.toList(),
-        shortsChannelIds: _selectedChannels.toList(),
-        primaryBibleVersionId: _primaryBibleVersion,
-        bibleVersionIds: _selectedBibleVersions.toList(),
-        themeMode: _selectedThemeMode == ThemeMode.dark
-            ? 'dark'
-            : _selectedThemeMode == ThemeMode.light
-                ? 'light'
-                : 'system',
-        accentColor: _selectedColorTheme.toString().split('.').last,
-        dailyReminderEnabled: _dailyReminderEnabled,
-        dailyReminderTime: _dailyReminderTime,
-        hasCompletedOnboarding: true,
-      );
-
-      // 2. Apply theme options
+      final finalPref = _selectedPreferences(completed: true);
       await widget.themeService.setColorTheme(_selectedColorTheme);
       await widget.themeService.setThemeMode(_selectedThemeMode);
       await widget.themeService.setAmoled(_isAmoled);
-
-      // 3. Save preferences locally & to cloud database
+      await _channelService.saveChannelSelections(
+        {..._channelService.subscribedChannelIds},
+        {...finalPref.videoChannelIds, ...finalPref.shortsChannelIds},
+      );
       await _preferenceService.savePreferences(
         finalPref,
         auth: widget.authService,
-        syncWithBackend: widget.authService.isAuthenticated,
+        syncAll: true,
       );
-
-      // Seed ChannelService so subscribed feeds immediately display channels
-      _channelService.seedSubscribedIds(_selectedChannels);
-
-      // 4. Mark completion and proceed to feed
-      if (mounted) {
-        context.go('/feed');
-      }
-    } catch (e) {
-      debugPrint('Error finishing onboarding: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Preferences saved with offline notice: $e')),
-        );
-        context.go('/feed');
-      }
+      await _draftStore.clear();
+      if (mounted) context.go(_preferenceService.defaultRoutePath);
+    } catch (error) {
+      _showSaveError(error);
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _showSaveError(Object error) {
+    debugPrint('Error saving onboarding: $error');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save setup. Please try again.')),
+      );
     }
   }
 
@@ -489,7 +507,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           auth: widget.authService,
                           syncWithBackend: false,
                         );
-                        if (mounted) context.go('/feed');
+                        if (mounted) context.go(_preferenceService.defaultRoutePath);
                       },
                       child: const Text('Go Directly to Feed'),
                     ),
@@ -603,7 +621,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  Icon(Icons.check_circle, color: context.accent, size: 20),
                 ],
               ),
             ),
@@ -714,7 +732,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                 return InkWell(
                   onTap: () {
-                    setState(() {
+                    _editSelections(() {
                       if (isSelected) {
                         if (_selectedLanguages.length > 1) {
                           _selectedLanguages.remove(lang.code);
@@ -771,7 +789,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           value: isSelected,
                           activeColor: context.primary,
                           onChanged: (_) {
-                            setState(() {
+                            _editSelections(() {
                               if (isSelected) {
                                 if (_selectedLanguages.length > 1) {
                                   _selectedLanguages.remove(lang.code);
@@ -827,7 +845,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       subtitle: 'Pick channels to populate your sermons, teachings, and shorts feeds.',
       selectedIds: _selectedChannels,
       onToggle: (id) {
-        setState(() {
+        _editSelections(() {
           if (_selectedChannels.contains(id)) {
             _selectedChannels.remove(id);
           } else {
@@ -836,12 +854,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         });
       },
       onSelectAll: () {
-        setState(() {
+        _editSelections(() {
           _selectedChannels.addAll(_channelService.channels.map((c) => c.id));
         });
       },
       onClearAll: () {
-        setState(() {
+        _editSelections(() {
           _selectedChannels.clear();
         });
       },
@@ -1058,7 +1076,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         icon: const Icon(Icons.add_rounded, size: 18),
                         label: const Text('Add English Bibles'),
                         onPressed: () {
-                          setState(() {
+                          _editSelections(() {
                             _selectedLanguages.add('en');
                             _updateBibleVersionsForLanguages();
                           });
@@ -1116,7 +1134,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               dense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                               onTap: () {
-                                setState(() {
+                                _editSelections(() {
                                   _primaryBibleVersion = b.id;
                                   _selectedBibleVersions.add(b.id);
                                 });
@@ -1170,7 +1188,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                         padding: const EdgeInsets.symmetric(horizontal: 4),
                                       ),
                                       onPressed: () {
-                                        setState(() {
+                                        _editSelections(() {
                                           _primaryBibleVersion = b.id;
                                           _selectedBibleVersions.add(b.id);
                                         });
@@ -1181,7 +1199,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   value: isChecked,
                                   activeColor: context.primary,
                                   onChanged: (val) {
-                                    setState(() {
+                                    _editSelections(() {
                                       if (val == true) {
                                         _selectedBibleVersions.add(b.id);
                                       } else if (!isPrimary) {
@@ -1238,21 +1256,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 label: 'System',
                 icon: Icons.settings_brightness,
                 selected: _selectedThemeMode == ThemeMode.system,
-                onSelected: () => setState(() => _selectedThemeMode = ThemeMode.system),
+                onSelected: () => _editSelections(() => _selectedThemeMode = ThemeMode.system),
               ),
               const SizedBox(width: 8),
               _buildChoiceChip(
                 label: 'Dark',
                 icon: Icons.dark_mode_outlined,
                 selected: _selectedThemeMode == ThemeMode.dark,
-                onSelected: () => setState(() => _selectedThemeMode = ThemeMode.dark),
+                onSelected: () => _editSelections(() => _selectedThemeMode = ThemeMode.dark),
               ),
               const SizedBox(width: 8),
               _buildChoiceChip(
                 label: 'Light',
                 icon: Icons.light_mode_outlined,
                 selected: _selectedThemeMode == ThemeMode.light,
-                onSelected: () => setState(() => _selectedThemeMode = ThemeMode.light),
+                onSelected: () => _editSelections(() => _selectedThemeMode = ThemeMode.light),
               ),
             ],
           ),
@@ -1264,7 +1282,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             subtitle: Text('Deep black background in dark mode', style: TextStyle(fontSize: 12, color: tokens.onSurfaceMuted)),
             value: _isAmoled,
             activeThumbColor: context.accent,
-            onChanged: (val) => setState(() => _isAmoled = val),
+            onChanged: (val) => _editSelections(() => _isAmoled = val),
           ),
           const Divider(height: 24),
 
@@ -1277,7 +1295,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: AppColorTheme.values.map((colTheme) {
               final isSelected = _selectedColorTheme == colTheme;
               return InkWell(
-                onTap: () => setState(() => _selectedColorTheme = colTheme),
+                onTap: () => _editSelections(() => _selectedColorTheme = colTheme),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1323,7 +1341,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             value: _dailyReminderEnabled,
             activeThumbColor: context.accent,
-            onChanged: (val) => setState(() => _dailyReminderEnabled = val),
+            onChanged: (val) => _editSelections(() => _dailyReminderEnabled = val),
           ),
           if (_dailyReminderEnabled) ...[
             const SizedBox(height: 6),
@@ -1345,7 +1363,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   initialTime: const TimeOfDay(hour: 7, minute: 0),
                 );
                 if (time != null && mounted) {
-                  setState(() {
+                  _editSelections(() {
                     final h = time.hour.toString().padLeft(2, '0');
                     final m = time.minute.toString().padLeft(2, '0');
                     _dailyReminderTime = '$h:$m';

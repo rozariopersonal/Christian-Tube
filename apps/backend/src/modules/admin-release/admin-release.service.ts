@@ -37,7 +37,7 @@ export class AdminReleaseService {
     return {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'ChristianTube-AdminRelease/1.0',
+      'User-Agent': 'ChristianApp-AdminRelease/1.0',
     };
   }
 

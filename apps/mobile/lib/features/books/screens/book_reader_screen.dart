@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:mobile/shared/ui/reader_selection_line.dart';
+import 'package:mobile/features/books/services/book_highlight_ranges.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/layout/adaptivity.dart';
 import '../../../../core/layout/content_width.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../../core/services/reader_fullscreen_service.dart';
 import '../controllers/book_reader_controller.dart';
 import '../controllers/book_reader_view_coordinator.dart';
 import '../models/book_highlight.dart';
@@ -20,6 +24,7 @@ import '../../../../shared/ui/reader_appearance_sheet.dart';
 import '../widgets/book_highlights_sheet.dart';
 import '../widgets/book_toc_sheet.dart';
 import '../widgets/book_virtual_scroll_content.dart';
+import '../widgets/book_reader_zoom_canvas.dart';
 import '../widgets/block_builder.dart';
 import '../widgets/dual_page_spread_view.dart';
 import '../widgets/mobile_page_view.dart';
@@ -27,6 +32,7 @@ import '../widgets/reader_appbar.dart';
 import '../widgets/reader_navigation_bar.dart';
 import '../widgets/reader_selection_toolbar.dart';
 import '../widgets/scripture_verse_popup.dart';
+import '../../../../shared/ui/reader_fullscreen_button.dart';
 
 /// Adaptive reading screen featuring:
 /// - Horizontal swiping page view for mobile screens
@@ -71,16 +77,21 @@ class BookReaderScreen extends StatefulWidget {
 }
 
 class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBindingObserver {
+  static const String _readerId = 'book';
+  final ReaderFullscreenService _fullscreen = ReaderFullscreenService.instance;
   late BookReaderController _controller;
   late BookReaderViewCoordinator _coordinator;
   bool _isPopping = false;
   BookHighlight? _selectedHighlight;
+  final Map<String, ({int page, int startLine, int endLine, String text, SelectedContentRange range})> _bookSelection = {};
+  final Set<int> _loadingHighlightPages = {};
 
   bool get _isDualPage => ScreenClass.of(context) == ScreenClass.expanded;
 
   @override
   void initState() {
     super.initState();
+    _fullscreen.attach(_readerId);
     WidgetsBinding.instance.addObserver(this);
     // Prewarm localized book names so scripture references inside the book
     // (in any supported language) resolve to tappable verse popups.
@@ -144,6 +155,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   /// then always pop so a failing flush can never strand the user on the
   /// reader page.
   Future<void> _handleBack(Object? result) async {
+    if (_fullscreen.isFullscreenFor(_readerId)) {
+      _fullscreen.exit(_readerId);
+      return;
+    }
+    if (!_controller.state.showChrome) {
+      _controller.toggleChrome();
+      return;
+    }
     if (_isPopping) return;
     _isPopping = true;
     try {
@@ -163,6 +182,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
   @override
   void dispose() {
+    _fullscreen.detach(_readerId);
     WidgetsBinding.instance.removeObserver(this);
     if (_controller.hasUnsavedProgress) {
       unawaited(_controller.flushProgressToDb());
@@ -215,37 +235,71 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
 
   Future<void> _createHighlight(String text, int startChar, int pageNum, {int color = 0}) async {
     final s = _controller.state;
-    if (s.book == null || text.trim().isEmpty) return;
-
-    int chapterIndex = 1;
-    for (final ch in s.chapters) {
-      if (pageNum >= ch.startPage && pageNum <= ch.endPage) {
-        chapterIndex = ch.chapterIndex;
-        break;
+    if (s.book == null) return;
+    final selections = _bookSelection.values.toList();
+    var saved = 0;
+    for (final selection in selections) {
+      final lines = await _controller.fetchPageLines(selection.page);
+      final source = lines.where((line) => line.lineNumber >= selection.startLine &&
+          line.lineNumber <= selection.endLine);
+      for (final span in BookHighlightRanges.lineSpans(selection.text, source)) {
+        final start = selection.range.startOffset.clamp(span.start, span.end);
+        final end = selection.range.endOffset.clamp(span.start, span.end);
+        if (start >= end) continue;
+        final highlight = BookHighlight(
+          id: 'book_range_${span.line.lineNumber}_${DateTime.now().microsecondsSinceEpoch}_$saved',
+          bookId: s.book!.id,
+          chapterIndex: span.line.chapterIndex,
+          pageNumber: selection.page,
+          startChar: start - span.start,
+          endChar: end - span.start,
+          text: selection.text.substring(start, end),
+          color: color,
+          createdAt: DateTime.now().toIso8601String(),
+        );
+        await _controller.saveHighlight(highlight);
+        saved++;
       }
     }
-
-    final highlight = BookHighlight(
-      id: '${s.book!.id}_${pageNum}_${DateTime.now().millisecondsSinceEpoch}',
-      bookId: s.book!.id,
-      chapterIndex: chapterIndex,
-      pageNumber: pageNum,
-      startChar: startChar,
-      endChar: startChar + text.length,
-      text: text,
-      color: color,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-
-    await _controller.saveHighlight(highlight);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Highlight saved'),
-          duration: Duration(seconds: 1),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(saved == 0 ? 'Select book text to highlight.' : 'Highlight saved'),
+        duration: const Duration(seconds: 1),
+      ));
     }
+  }
+
+  Widget _trackBookSelection({required int page, required int startLine,
+      required int endLine, required String text, required Widget child}) {
+    final key = '$page:$startLine:$endLine';
+    return ReaderSelectionLine(
+      key: ValueKey('book-selection-$key'),
+      onSelection: (range) {
+        if (range == null || range.startOffset == range.endOffset) {
+          _bookSelection.remove(key);
+        } else {
+          _bookSelection[key] = (page: page, startLine: startLine,
+              endLine: endLine, text: text, range: range);
+        }
+      },
+      child: child,
+    );
+  }
+
+  List<BookHighlight> _continuousHighlights(int page) {
+    final cached = _controller.pageLoader.highlightCache(page);
+    if (cached != null) return cached;
+    if (_loadingHighlightPages.add(page)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          await _controller.loadHighlightsForPage(page);
+          if (mounted) setState(() {});
+        } finally {
+          _loadingHighlightPages.remove(page);
+        }
+      });
+    }
+    return const [];
   }
 
   TapGestureRecognizer _makeHighlightRecognizer(BookHighlight highlight) {
@@ -259,21 +313,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       };
     _coordinator.tapRecognizers.add(r);
     return r;
-  }
-
-  Future<void> _clearHighlightByText(String text, int pageNum) async {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
-    final cached = _controller.pageLoader.highlightCache(pageNum) ?? const [];
-    for (final h in cached) {
-      if (h.text == trimmed ||
-          h.text.contains(trimmed) ||
-          trimmed.contains(h.text)) {
-        await _controller.deleteHighlight(h.id);
-      }
-    }
-    _controller.pageLoader.invalidatePage(pageNum);
-    if (mounted) setState(() => _selectedHighlight = null);
   }
 
   Future<void> _recolorSelectedHighlight(
@@ -290,25 +329,25 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       createdAt: h.createdAt,
     );
     await _controller.saveHighlight(updated);
-    _controller.pageLoader.invalidatePage(h.pageNumber);
+    await _controller.loadHighlightsForPage(h.pageNumber);
     if (mounted) setState(() => _selectedHighlight = null);
   }
 
   Future<void> _deleteSelectedHighlight(BookHighlight h) async {
     await _controller.deleteHighlight(h.id);
-    _controller.pageLoader.invalidatePage(h.pageNumber);
+    await _controller.loadHighlightsForPage(h.pageNumber);
     if (mounted) setState(() => _selectedHighlight = null);
   }
 
-  Widget _buildSelectionToolbar(BuildContext context, SelectableRegionState selectableRegionState, int pageNum) {
+  Widget _buildSelectionToolbar(BuildContext context, SelectableRegionState selectableRegionState, int pageNum, String selectedText) {
     return buildReaderSelectionToolbar(
       context,
       selectableRegionState,
       pageNum,
+      selectedText: selectedText,
       onHighlight: (text, page) => _createHighlight(text, 0, page, color: 0),
       onHighlightWithColor: (text, page, colorIndex) =>
           _createHighlight(text, 0, page, color: colorIndex),
-      onClearHighlight: _clearHighlightByText,
     );
   }
 
@@ -356,8 +395,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         index: index,
         isChapterLoaded: _controller.continuousStream.contains,
         chapterLines: _controller.continuousStream.bufferedLines,
-        highlightCache: (page) =>
-            _controller.pageLoader.highlightCache(page) ?? const [],
+        highlightCache: _continuousHighlights,
         appearance: appearance,
         tokens: tokens,
         textColor: appearance.textColor(tokens),
@@ -366,8 +404,14 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
         makeRecognizer: _coordinator.createScriptureRecognizer,
         makeHighlightRecognizer: _makeHighlightRecognizer,
         onTriggerFetch: _controller.fetchChapter,
-        buildSelectionToolbar: (context, state) =>
-            _buildSelectionToolbar(context, state, s.currentPage),
+        wrapLine: (line, child) =>
+            BookParagraphGrouper.blockFromLine(line).type == 'chapter_header'
+                ? child
+                : _trackBookSelection(
+          page: line.pageNumber, startLine: line.lineNumber,
+          endLine: line.lineNumber, text: line.text.trim(), child: child),
+        buildSelectionToolbar: (context, state, text) =>
+            _buildSelectionToolbar(context, state, s.currentPage, text),
       ),
     );
   }
@@ -380,7 +424,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
   ) {
     final appearance = _controller.appearance;
     final pageHighlights = _controller.pageLoader.highlightCache(pageNum) ?? const [];
-    return BookBlockWidget(
+    final child = BookBlockWidget(
       block: block,
       pageNum: pageNum,
       bookId: _controller.state.book?.id ?? '',
@@ -390,10 +434,15 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
       highlightStartLine: widget.highlightStartLine,
       highlightEndLine: widget.highlightEndLine,
       highlightCache: pageHighlights,
+      sourceLines: (_controller.pageCache(pageNum) ?? const []).where((line) =>
+          line.lineNumber >= block.startLine && line.lineNumber <= block.endLine).toList(),
       resolveBlockKey: _coordinator.resolveBlockKey,
       makeRecognizer: _coordinator.createScriptureRecognizer,
       makeHighlightRecognizer: _makeHighlightRecognizer,
     );
+    if (block.type == 'chapter_header' || block.type == 'img') return child;
+    return _trackBookSelection(page: pageNum, startLine: block.startLine,
+        endLine: block.endLine, text: block.text, child: child);
   }
 
   @override
@@ -410,16 +459,18 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
     final rightPage = validLeftPage + 1 <= totalPages ? validLeftPage + 1 : null;
 
     return ListenableBuilder(
-      listenable: appearance,
+      listenable: Listenable.merge([appearance, _fullscreen]),
       builder: (context, _) => PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
           _handleBack(result);
         },
-        child: Scaffold(
+        child: Listener(
+          onPointerDown: (_) => _fullscreen.noteActivity(_readerId),
+          child: Scaffold(
           backgroundColor: bgColor,
-          appBar: s.showChrome
+          appBar: s.showChrome && !_fullscreen.isFullscreenFor(_readerId)
               ? BookReaderAppBar(
                   controller: _controller,
                   tokens: tokens,
@@ -431,6 +482,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                   onOpenToc: () => _openToc(isDualPage),
                   onOpenHighlights: _openHighlights,
                   onShowAppearance: () => _showAppearanceSheet(context),
+                  onToggleFullscreen: () => _fullscreen.toggle(_readerId),
                 )
               : null,
           body: s.isLoading
@@ -464,12 +516,16 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                       ),
                     )
                   : Stack(
+                      fit: StackFit.expand,
                       children: [
-                        continuous
-                            ? _buildContinuousContent(tokens)
-                            : isDualPage
-                                ? _buildDualPageSpreadView(tokens)
-                                : _buildMobilePageView(tokens),
+                        BookReaderZoomCanvas(
+                          controller: _coordinator.zoomController,
+                          child: continuous
+                              ? _buildContinuousContent(tokens)
+                              : isDualPage
+                                  ? _buildDualPageSpreadView(tokens)
+                                  : _buildMobilePageView(tokens),
+                        ),
                         if (_selectedHighlight != null)
                           Positioned(
                             left: 0,
@@ -514,9 +570,15 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                               ),
                             ),
                           ),
+                        if (_fullscreen.isFullscreenFor(_readerId))
+                          ReaderFullscreenButton(
+                            onExit: () => _fullscreen.exit(_readerId),
+                          ),
                       ],
                     ),
-          bottomNavigationBar: s.showChrome && s.book != null
+          bottomNavigationBar: s.showChrome &&
+                  s.book != null &&
+                  !_fullscreen.isFullscreenFor(_readerId)
               ? ReaderNavigationBar(
                   controller: _controller,
                   tokens: tokens,
@@ -541,6 +603,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> with WidgetsBinding
                   },
                 )
               : null,
+          ),
         ),
       ),
     );

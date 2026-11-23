@@ -46,6 +46,61 @@ const ONLINE_CONFIGS: Record<string, OnlineBibleConfig> = {
     provider: 'youVersion',
     youVersionId: 1588,
   },
+  hin_hcv: {
+    versionId: 'hin_hcv',
+    provider: 'apiBible',
+    apiBibleId: '2133003bb8b5e62b-01',
+  },
+  tam_tcv: {
+    versionId: 'tam_tcv',
+    provider: 'apiBible',
+    apiBibleId: '032ec262506b719f-01',
+  },
+  tel_tcv: {
+    versionId: 'tel_tcv',
+    provider: 'apiBible',
+    apiBibleId: '81d6933d39d343f8-03',
+  },
+  mal_mcv: {
+    versionId: 'mal_mcv',
+    provider: 'apiBible',
+    apiBibleId: 'de295e9ba65f6d0f-01',
+  },
+  kan_kcv: {
+    versionId: 'kan_kcv',
+    provider: 'apiBible',
+    apiBibleId: '08389f036844c2de-01',
+  },
+  ben_bcv: {
+    versionId: 'ben_bcv',
+    provider: 'apiBible',
+    apiBibleId: 'efd8a351a07d4264-01',
+  },
+  mar_mcv: {
+    versionId: 'mar_mcv',
+    provider: 'apiBible',
+    apiBibleId: '1c825c8591183bb0-01',
+  },
+  pan_pcv: {
+    versionId: 'pan_pcv',
+    provider: 'apiBible',
+    apiBibleId: '38de522697cd8943-01',
+  },
+  urd_ucv: {
+    versionId: 'urd_ucv',
+    provider: 'apiBible',
+    apiBibleId: 'eecbca904435fce9-01',
+  },
+  guj_irv: {
+    versionId: 'guj_irv',
+    provider: 'apiBible',
+    apiBibleId: 'a3644a98420c2703-01',
+  },
+  asm_irv: {
+    versionId: 'asm_irv',
+    provider: 'apiBible',
+    apiBibleId: 'd199679f805f5b29-01',
+  },
 };
 
 @Injectable({ providedIn: 'root' })

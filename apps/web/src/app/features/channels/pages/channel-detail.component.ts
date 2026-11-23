@@ -204,7 +204,7 @@ type ChannelSort = 'latest' | 'popular' | 'oldest';
 
       .banner {
         width: 100%;
-        height: 190px;
+        height: clamp(110px, 22vw, 190px);
         object-fit: cover;
         border-radius: var(--radius-lg);
         margin-bottom: 18px;
@@ -320,6 +320,8 @@ type ChannelSort = 'latest' | 'popular' | 'oldest';
         background-color: var(--surface-variant);
         border: 1px solid var(--surface-border);
         margin-bottom: 4px;
+        flex: 1 1 160px;
+        max-width: 260px;
       }
 
       .channel-search .material-symbols-rounded {
@@ -328,11 +330,12 @@ type ChannelSort = 'latest' | 'popular' | 'oldest';
       }
 
       .channel-search input {
+        flex: 1;
+        min-width: 0;
         border: none;
         outline: none;
         background: transparent;
         font-size: 13px;
-        width: 150px;
       }
 
       .sort-row {
@@ -352,9 +355,9 @@ type ChannelSort = 'latest' | 'popular' | 'oldest';
         margin-bottom: 24px;
       }
 
-      @media (min-width: 720px) {
+      @media (min-width: 768px) {
         .featured-card {
-          grid-template-columns: 360px 1fr;
+          grid-template-columns: clamp(240px, 36vw, 360px) 1fr;
         }
       }
 

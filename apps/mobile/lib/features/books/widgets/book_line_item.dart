@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/core/api/github_data_service.dart';
@@ -11,6 +10,7 @@ import 'package:mobile/features/books/widgets/formatted_paragraph.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_theme_state.dart';
 import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/shared/services/reader_fonts_service.dart';
+import 'scanned_page_image.dart';
 
 /// Renders a single source [BookLine] as one scroll item in the continuous
 /// reader.
@@ -44,7 +44,7 @@ class BookLineItem extends StatelessWidget {
       makeHighlightRecognizer;
   final bool paragraphBreakAfter;
 
-  List<InlineSpan> _format(String text) {
+  List<InlineSpan> _format(String text, {TextStyle? textStyle}) {
     return FormattedParagraphBuilder.build(
       text,
       textColor,
@@ -53,6 +53,8 @@ class BookLineItem extends StatelessWidget {
       highlightCache,
       makeRecognizer: makeRecognizer,
       makeHighlightRecognizer: makeHighlightRecognizer,
+      sourceLines: [line],
+      textStyle: textStyle,
     );
   }
 
@@ -155,30 +157,28 @@ class BookLineItem extends StatelessWidget {
       case 'h2':
         return Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 10),
-          child: Text(
-            block.text,
-            style: TextStyle(
+          child: Text.rich(
+            TextSpan(children: _format(block.text, textStyle: TextStyle(
               color: tokens.accent,
               fontSize: (appearance.fontSize + 3.0).clamp(16.0, 26.0),
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
               fontFamily: fontFamily,
-            ),
+            ))),
           ),
         );
 
       case 'h3':
         return Padding(
           padding: const EdgeInsets.only(top: 18, bottom: 8),
-          child: Text(
-            block.text,
-            style: TextStyle(
+          child: Text.rich(
+            TextSpan(children: _format(block.text, textStyle: TextStyle(
               color: tokens.accent,
               fontSize: (appearance.fontSize + 1.5).clamp(14.0, 22.0),
               fontWeight: FontWeight.w600,
               letterSpacing: 0.15,
               fontFamily: fontFamily,
-            ),
+            ))),
           ),
         );
 
@@ -208,43 +208,13 @@ class BookLineItem extends StatelessWidget {
         );
 
       case 'img':
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: CachedNetworkImage(
-              imageUrl: GitHubDataService.bookPageImageUrl(
-                  line.bookId, line.text.trim()),
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.medium,
-              fadeInDuration: const Duration(milliseconds: 120),
-              placeholder: (context, _) => Container(
-                height: 160,
-                color: tokens.surfaceVariant.withValues(alpha: 0.3),
-                child: Center(
-                  child: SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      color: tokens.accent,
-                      strokeWidth: 2.5,
-                    ),
-                  ),
-                ),
-              ),
-              errorWidget: (context, _, __) => Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  color: appearance.surfaceVariant(tokens).withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    'Page image unavailable',
-                    style: TextStyle(color: appearance.mutedTextColor(tokens), fontSize: 12),
-                  ),
-                ),
-              ),
-            ),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: ScannedPageImage(
+            imageUrl: GitHubDataService.bookPageImageUrl(
+                line.bookId, line.text.trim()),
+            tokens: tokens,
+            appearance: appearance,
           ),
         );
 

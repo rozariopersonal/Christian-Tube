@@ -165,6 +165,8 @@ import { AudioPlayerService } from '../services/audio-player.service';
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .lang-strip {
@@ -172,6 +174,8 @@ import { AudioPlayerService } from '../services/audio-player.service';
         gap: 8px;
         overflow-x: auto;
         scrollbar-width: none;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .lang-strip::-webkit-scrollbar {
@@ -251,7 +255,7 @@ import { AudioPlayerService } from '../services/audio-player.service';
 
       .series-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
         gap: 18px 14px;
       }
 
