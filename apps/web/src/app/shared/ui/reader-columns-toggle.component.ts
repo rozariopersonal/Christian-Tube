@@ -131,6 +131,18 @@ import { ReaderAppearanceService } from '../../core/services/reader-appearance.s
         background-color: var(--surface-border);
         margin: 0 3px;
       }
+
+      @media (pointer: coarse) {
+        .cols-seg {
+          height: 38px;
+        }
+
+        .col-btn,
+        .layout-btn {
+          width: 32px;
+          height: 32px;
+        }
+      }
     `,
   ],
 })

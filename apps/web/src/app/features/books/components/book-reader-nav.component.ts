@@ -48,20 +48,14 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
     `
       .reader-bottom-bar {
         position: fixed;
-        left: 0;
+        left: var(--sidebar-width, 0px);
         right: 0;
-        bottom: var(--shell-bottom-height);
+        bottom: var(--shell-bottom-offset, 0px);
         z-index: 32;
         background-color: color-mix(in srgb, var(--surface) 86%, transparent);
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
         border-top: 1px solid var(--surface-border);
-      }
-
-      @media (min-width: 600px) {
-        .reader-bottom-bar {
-          bottom: 0;
-        }
       }
 
       .progress-track {

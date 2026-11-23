@@ -102,14 +102,14 @@ function ensureYouTubeIframeApi(): Promise<void> {
   template: `
     <div
       class="watch-shell"
-      [class.two-col]="screen.isMediumOrExpanded()"
+      [class.two-col]="screen.isDesktop()"
     >
       @if (loading()) {
         <div class="loading-box">Loading video...</div>
       } @else if (!video()) {
         <div class="loading-box">Video not found.</div>
       } @else {
-        <div class="watch-columns" [class.two-col]="screen.isMediumOrExpanded()">
+        <div class="watch-columns" [class.two-col]="screen.isDesktop()">
           <div class="primary-col">
             <div class="player-frame" #playerContainer>
               @if (video()!.streamUrl) {
@@ -389,8 +389,8 @@ function ensureYouTubeIframeApi(): Promise<void> {
       }
 
       @if (shareOpen() && video(); as v) {
-        <div class="share-backdrop" (click)="shareOpen.set(false)">
-          <div class="share-modal" (click)="$event.stopPropagation()">
+        <div class="modal-backdrop" (click)="shareOpen.set(false)">
+          <div class="modal-panel share-modal" (click)="$event.stopPropagation()">
             <div class="share-head">
               <h3>Share</h3>
               <button type="button" class="icon-btn" (click)="shareOpen.set(false)">
@@ -461,6 +461,12 @@ function ensureYouTubeIframeApi(): Promise<void> {
         background-color: #000000;
         border-radius: var(--radius-md);
         overflow: hidden;
+      }
+
+      .watch-columns:not(.two-col) .player-frame {
+        max-height: 62dvh;
+        max-width: calc(62dvh * 16 / 9);
+        margin-inline: auto;
       }
 
       .yt-host,
@@ -754,7 +760,7 @@ function ensureYouTubeIframeApi(): Promise<void> {
       }
 
       .rel-thumb {
-        width: 156px;
+        width: clamp(112px, 32vw, 156px);
         aspect-ratio: 16 / 9;
         object-fit: cover;
         border-radius: var(--radius-sm);
@@ -805,25 +811,9 @@ function ensureYouTubeIframeApi(): Promise<void> {
         color: var(--on-surface-muted);
       }
 
-      .share-backdrop {
-        position: fixed;
-        inset: 0;
-        background-color: rgba(0, 0, 0, 0.55);
-        display: grid;
-        place-items: center;
-        padding: 16px;
-        z-index: 80;
-      }
-
       .share-modal {
-        width: 100%;
         max-width: 420px;
-        background-color: var(--surface-elevated);
-        border: 1px solid var(--surface-border);
-        border-radius: var(--radius-lg);
         padding: 16px;
-        display: flex;
-        flex-direction: column;
         gap: 12px;
       }
 

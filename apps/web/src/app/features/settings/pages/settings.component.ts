@@ -512,6 +512,7 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
       }
 
       .select-input {
+        width: 100%;
         max-width: 280px;
         height: 40px;
         padding: 0 12px;

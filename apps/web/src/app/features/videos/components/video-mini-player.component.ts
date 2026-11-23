@@ -74,7 +74,7 @@ import { VideoPlayerService } from '../services/video-player.service';
 
       @media (max-width: 599px) {
         .mini-video-dock {
-          bottom: calc(var(--shell-bottom-height) + env(safe-area-inset-bottom, 0px) + 8px);
+          bottom: calc(var(--shell-bottom-offset, 0px) + env(safe-area-inset-bottom, 0px) + 8px);
           right: 10px;
           width: 260px;
         }

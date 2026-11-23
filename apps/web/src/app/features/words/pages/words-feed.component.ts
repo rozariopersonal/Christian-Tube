@@ -432,7 +432,7 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
 
       .words-stage {
         position: relative;
-        height: calc(100dvh - var(--shell-bottom-height) - var(--shell-top-offset));
+        height: calc(100dvh - var(--shell-bottom-offset, 0px) - var(--shell-top-offset));
         color: #ffffff;
         display: flex;
         flex-direction: column;
@@ -448,7 +448,6 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
 
       @media (min-width: 600px) {
         .words-stage {
-          height: calc(100dvh - var(--shell-top-offset));
           padding: 20px 28px;
         }
       }
@@ -688,6 +687,18 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
         font-size: 18px;
       }
 
+      @media (max-width: 479px) {
+        .stage-body {
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .word-spotlight {
+          width: 100%;
+          flex: 1;
+          min-height: 0;
+        }
+      }
       .status-msg {
         text-align: center;
         display: flex;

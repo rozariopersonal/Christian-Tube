@@ -325,65 +325,111 @@ interface ImageSpread {
             </div>
 
             <div class="bar-actions">
-              <button
-                type="button"
-                class="icon-btn"
-                title="Search inside book"
-                (click)="showSearch.set(true)"
-              >
-                <span class="material-symbols-rounded">search</span>
-              </button>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Bookmark this chapter"
-                (click)="toggleChapterBookmark()"
-              >
-                <span
-                  class="material-symbols-rounded"
-                  [class.filled]="isChapterBookmarked()"
-                  [class.accent-icon]="isChapterBookmarked()"
+              @if (!screen.collapseAppBarActions()) {
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Search inside book"
+                  (click)="showSearch.set(true)"
                 >
-                  bookmark
-                </span>
-              </button>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Notebook (Highlights & Bookmarks)"
-                (click)="showHighlights.set(true)"
-              >
-                <span class="material-symbols-rounded">border_color</span>
-              </button>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Share book link"
-                (click)="shareLocation()"
-              >
-                <span class="material-symbols-rounded">share</span>
-              </button>
-              <button
-                type="button"
-                class="icon-btn aa-btn"
-                title="Display & Layout"
-                (click)="showAppearance.set(true)"
-              >
-                Aa
-              </button>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Focus mode (F)"
-                (click)="immersive.set(true)"
-              >
-                <span class="material-symbols-rounded">fullscreen</span>
-              </button>
-              <app-reader-auto-fullscreen-toggle />
+                  <span class="material-symbols-rounded">search</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn aa-btn"
+                  title="Display & Layout"
+                  (click)="showAppearance.set(true)"
+                >
+                  Aa
+                </button>
+              }
+
+              @if (!screen.collapseReaderActions()) {
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Bookmark this chapter"
+                  (click)="toggleChapterBookmark()"
+                >
+                  <span
+                    class="material-symbols-rounded"
+                    [class.filled]="isChapterBookmarked()"
+                    [class.accent-icon]="isChapterBookmarked()"
+                  >
+                    bookmark
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Notebook (Highlights & Bookmarks)"
+                  (click)="showHighlights.set(true)"
+                >
+                  <span class="material-symbols-rounded">border_color</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Share book link"
+                  (click)="shareLocation()"
+                >
+                  <span class="material-symbols-rounded">share</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Focus mode (F)"
+                  (click)="immersive.set(true)"
+                >
+                  <span class="material-symbols-rounded">fullscreen</span>
+                </button>
+                <app-reader-auto-fullscreen-toggle />
+              } @else {
+                <div class="tb-menu-wrap">
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    aria-label="More book options"
+                    (click)="menuOpen.set(!menuOpen())"
+                  >
+                    <span class="material-symbols-rounded">more_vert</span>
+                  </button>
+                  @if (menuOpen()) {
+                    <div class="tb-overflow-menu" (click)="menuOpen.set(false)">
+                      @if (screen.collapseAppBarActions()) {
+                        <button type="button" class="tb-menu-item" (click)="showSearch.set(true)">
+                          <span class="material-symbols-rounded">search</span>
+                          Search Book
+                        </button>
+                        <button type="button" class="tb-menu-item" (click)="showAppearance.set(true)">
+                          <span class="material-symbols-rounded">text_fields</span>
+                          Appearance (Aa)
+                        </button>
+                      }
+                      <button type="button" class="tb-menu-item" (click)="toggleChapterBookmark()">
+                        <span class="material-symbols-rounded">bookmark</span>
+                        {{ isChapterBookmarked() ? 'Remove Bookmark' : 'Bookmark Chapter' }}
+                      </button>
+                      <button type="button" class="tb-menu-item" (click)="showHighlights.set(true)">
+                        <span class="material-symbols-rounded">border_color</span>
+                        Notebook
+                      </button>
+                      <button type="button" class="tb-menu-item" (click)="shareLocation()">
+                        <span class="material-symbols-rounded">share</span>
+                        Share Book
+                      </button>
+                      <button type="button" class="tb-menu-item" (click)="immersive.set(true)">
+                        <span class="material-symbols-rounded">fullscreen</span>
+                        Focus Mode
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
             </div>
           </div>
         </header>
-      } @else {
+      } @else if (immersive()) {
         <button
           type="button"
           class="exit-focus-btn"
@@ -1659,7 +1705,7 @@ interface ImageSpread {
       }
 
       .book-reader-page.spread-mode {
-        height: calc(100dvh - var(--shell-top-offset));
+        height: calc(100dvh - var(--shell-top-offset) - var(--shell-bottom-offset, 0px));
         min-height: 0;
         overflow: hidden;
         display: flex;

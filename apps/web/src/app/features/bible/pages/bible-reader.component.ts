@@ -105,9 +105,98 @@ interface AppendedBibleChapter {
       (wheel)="readerFullscreen.noteActivity('bible')"
       (touchstart)="readerFullscreen.noteActivity('bible')"
     >
-      <ng-template #topbarCenter></ng-template>
+      <ng-template #topbarCenter>
+        @if (!isDesktop()) {
+          <div class="tb-bible-center">
+            @if (bible.books().length > 0) {
+              <button
+                type="button"
+                class="icon-btn nav-drawer-btn"
+                [class.active-icon]="showNavigatorDrawer()"
+                title="Toggle Bible navigator"
+                aria-label="Toggle Bible navigator"
+                [attr.aria-expanded]="showNavigatorDrawer()"
+                (click)="showNavigatorDrawer.set(!showNavigatorDrawer())"
+              >
+                <span class="material-symbols-rounded">toc</span>
+              </button>
+            }
+
+            <button
+              type="button"
+              class="version-pill"
+              (click)="showVersionPicker.set(true)"
+              aria-label="Bible Version"
+            >
+              <span>{{ state.activeVersionInfo().label }}</span>
+              <span class="material-symbols-rounded pill-chev">expand_more</span>
+            </button>
+
+            <div class="chapter-nav-group">
+              <button
+                type="button"
+                class="nav-step-btn"
+                aria-label="Previous chapter"
+                title="Previous chapter"
+                (click)="prevChapter()"
+              >
+                <span class="material-symbols-rounded">chevron_left</span>
+              </button>
+
+              <button
+                type="button"
+                class="book-btn"
+                (click)="openBookPicker('books')"
+              >
+                <span>{{ displayBookName() }} {{ displayChapter() }}</span>
+                <span class="material-symbols-rounded">expand_more</span>
+              </button>
+
+              <button
+                type="button"
+                class="nav-step-btn"
+                aria-label="Next chapter"
+                title="Next chapter"
+                (click)="nextChapter()"
+              >
+                <span class="material-symbols-rounded">chevron_right</span>
+              </button>
+            </div>
+          </div>
+        }
+      </ng-template>
 
       <ng-template #topbarRight>
+        @if (isDesktop()) {
+          <div class="chapter-nav-group">
+            <button
+              type="button"
+              class="nav-step-btn"
+              aria-label="Previous chapter"
+              title="Previous chapter"
+              (click)="prevChapter()"
+            >
+              <span class="material-symbols-rounded">chevron_left</span>
+            </button>
+            <button
+              type="button"
+              class="book-btn"
+              (click)="openBookPicker('books')"
+            >
+              <span>{{ displayBookName() }} {{ displayChapter() }}</span>
+              <span class="material-symbols-rounded">expand_more</span>
+            </button>
+            <button
+              type="button"
+              class="nav-step-btn"
+              aria-label="Next chapter"
+              title="Next chapter"
+              (click)="nextChapter()"
+            >
+              <span class="material-symbols-rounded">chevron_right</span>
+            </button>
+          </div>
+        }
         <app-reader-columns-toggle [showLayoutToggle]="true" />
         <app-reader-typography-toggle />
         <app-reader-auto-fullscreen-toggle />
@@ -233,8 +322,67 @@ interface AppendedBibleChapter {
               }
             </div>
 
-            @if (screen.isCompact()) {
-              <div class="bar-right">
+            <div class="bar-right">
+              @if (!screen.collapseReaderActions()) {
+                <button
+                  type="button"
+                  class="icon-btn compare-btn"
+                  [class.active-icon]="bible.compareVersions().length > 0"
+                  title="Compare up to 3 Bible versions"
+                  (click)="showParallelPicker.set(true)"
+                >
+                  <span class="material-symbols-rounded">compare_arrows</span>
+                  @if (bible.compareVersions().length > 0) {
+                    <span class="compare-count">{{ 1 + bible.compareVersions().length }}</span>
+                  }
+                </button>
+              }
+
+              @if (!screen.collapseAppBarActions()) {
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Search Bible"
+                  (click)="submitTopbarSearch()"
+                >
+                  <span class="material-symbols-rounded">search</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn aa-btn"
+                  title="Reader Appearance"
+                  (click)="showAppearance.set(true)"
+                >
+                  Aa
+                </button>
+              }
+
+              @if (!screen.collapseReaderActions()) {
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Share chapter link"
+                  (click)="sharePassage()"
+                >
+                  <span class="material-symbols-rounded">share</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Bookmarks"
+                  (click)="showBookmarks.set(true)"
+                >
+                  <span class="material-symbols-rounded">bookmarks</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Focus mode (F)"
+                  (click)="immersive.set(true)"
+                >
+                  <span class="material-symbols-rounded">fullscreen</span>
+                </button>
+              } @else {
                 <div class="menu-wrap">
                   <button
                     type="button"
@@ -246,13 +394,31 @@ interface AppendedBibleChapter {
                   </button>
                   @if (menuOpen()) {
                     <div class="overflow-menu" (click)="menuOpen.set(false)">
+                      @if (screen.collapseAppBarActions()) {
+                        <button
+                          type="button"
+                          class="menu-item"
+                          (click)="submitTopbarSearch()"
+                        >
+                          <span class="material-symbols-rounded">search</span>
+                          Search Bible
+                        </button>
+                        <button
+                          type="button"
+                          class="menu-item"
+                          (click)="showAppearance.set(true)"
+                        >
+                          <span class="material-symbols-rounded">text_fields</span>
+                          Appearance (Aa)
+                        </button>
+                      }
                       <button
                         type="button"
                         class="menu-item"
-                        (click)="showAppearance.set(true)"
+                        (click)="showParallelPicker.set(true)"
                       >
-                        <span class="material-symbols-rounded">text_fields</span>
-                        Appearance (Aa)
+                        <span class="material-symbols-rounded">compare_arrows</span>
+                        Parallel Versions
                       </button>
                       <button
                         type="button"
@@ -1117,7 +1283,7 @@ interface AppendedBibleChapter {
       }
 
       .bible-page.spread-mode {
-        height: calc(100dvh - var(--shell-top-offset));
+        height: calc(100dvh - var(--shell-top-offset) - var(--shell-bottom-offset, 0px));
         min-height: 0;
         overflow: hidden;
         display: flex;
