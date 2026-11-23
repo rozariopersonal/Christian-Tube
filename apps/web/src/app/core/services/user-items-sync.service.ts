@@ -9,7 +9,7 @@ export interface SyncUserItem {
   id: string;
   userId?: string;
   itemType: 'highlight' | 'bookmark' | 'note' | 'text_range';
-  feature: 'bible' | 'book' | 'article';
+  feature: 'bible' | 'book' | 'article' | 'video' | 'short';
   targetId: string;
   versionId?: string;
   book?: string;

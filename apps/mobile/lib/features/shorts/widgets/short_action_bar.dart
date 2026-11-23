@@ -9,12 +9,16 @@ import 'shorts_chrome.dart';
 class ShortActionBar extends StatelessWidget {
   final Short short;
   final VoidCallback onShare;
+  final VoidCallback? onNote;
+  final bool hasNote;
   final bool enableLike;
 
   const ShortActionBar({
     super.key,
     required this.short,
     required this.onShare,
+    this.onNote,
+    this.hasNote = false,
     this.enableLike = true,
   });
 
@@ -27,11 +31,65 @@ class ShortActionBar extends StatelessWidget {
           _buildLikeButton(context),
           const SizedBox(height: 14),
         ],
+        if (onNote != null) ...[
+          _buildNoteButton(context),
+          const SizedBox(height: 14),
+        ],
         _buildShareButton(context),
       ],
     );
   }
 
+  Widget _buildNoteButton(BuildContext context) {
+    return GestureDetector(
+      onTap: onNote,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: hasNote
+                  ? context.accent.withValues(alpha: 0.22)
+                  : context.shortsChromeFill,
+              border: Border.all(
+                color: hasNote ? context.accent : context.shortsChromeFg,
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: context.shortsChromeShadow.withValues(alpha: 0.54),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              hasNote
+                  ? Icons.sticky_note_2_rounded
+                  : Icons.sticky_note_2_outlined,
+              color: hasNote ? context.accent : context.shortsChromeFg,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            hasNote ? 'Note ✓' : 'Note',
+            style: TextStyle(
+              color: hasNote ? context.accent : context.shortsChromeFg,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              shadows: [
+                Shadow(color: context.shortsChromeShadow, blurRadius: 6),
+                Shadow(color: context.shortsChromeShadow, blurRadius: 2),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildLikeButton(BuildContext context) {
     return AnimatedBuilder(
       animation: UserSyncService.instance,
@@ -141,14 +199,7 @@ class ShortActionBar extends StatelessWidget {
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  context.accent,
-                  context.accent,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: context.accent,
               boxShadow: [
                 BoxShadow(
                   color: context.accent.withValues(alpha: 0.65),

@@ -11,6 +11,8 @@ class VideoActionBar extends StatelessWidget {
   final AudioTrack? matchedAudioTrack;
   final VoidCallback? onListenAudio;
   final VoidCallback onClip;
+  final VoidCallback? onNote;
+  final bool hasNote;
   final VoidCallback onShare;
   final VoidCallback onSave;
   final VoidCallback onOpenYouTube;
@@ -22,6 +24,8 @@ class VideoActionBar extends StatelessWidget {
     this.matchedAudioTrack,
     this.onListenAudio,
     required this.onClip,
+    this.onNote,
+    this.hasNote = false,
     required this.onShare,
     required this.onSave,
     required this.onOpenYouTube,
@@ -51,6 +55,16 @@ class VideoActionBar extends StatelessWidget {
           onTap: onClip,
         ),
         const SizedBox(width: 8),
+        if (onNote != null) ...[
+          _ActionPill(
+            icon: hasNote
+                ? Icons.sticky_note_2_rounded
+                : Icons.sticky_note_2_outlined,
+            label: hasNote ? 'Note ✓' : 'Note',
+            onTap: onNote!,
+          ),
+          const SizedBox(width: 8),
+        ],
         _ActionPill(
           icon: Icons.share_outlined,
           label: 'Share',

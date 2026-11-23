@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/models/short.dart';
 import '../../../core/services/user_sync_service.dart';
+import '../../profile/user_service.dart';
 import 'shorts_subscription_filter.dart';
 
 class CommunityShortsController extends ChangeNotifier {
@@ -179,6 +180,9 @@ class CommunityShortsController extends ChangeNotifier {
   bool _likedOnly = false;
   bool get likedOnly => _likedOnly;
 
+  String _watchStatusFilter = 'all';
+  String get watchStatusFilter => _watchStatusFilter;
+
   List<Short> get displayShorts {
     final byId = <String, Short>{for (final short in _shorts) short.id: short};
     if (_likedOnly) {
@@ -194,10 +198,35 @@ class CommunityShortsController extends ChangeNotifier {
   List<Short> get filteredShorts {
     final likedIds = UserSyncService.instance.likedIds(UserSyncService.likedShortType);
     final selectedIds = _selectedChannelIds;
-    return displayShorts.where((short) =>
-      (!_likedOnly || likedIds.contains(short.id)) &&
-      (selectedIds == null || selectedIds.contains(short.channelId))
-    ).toList();
+    final userService = UserService();
+    return displayShorts.where((short) {
+      if (_likedOnly && !likedIds.contains(short.id)) return false;
+      if (selectedIds != null && !selectedIds.contains(short.channelId)) return false;
+      final dur = short.durationSeconds > 0 ? short.durationSeconds : null;
+      switch (_watchStatusFilter) {
+        case 'watched':
+          return userService.isWatched(short.id,
+              duration: short.duration, durationSeconds: dur);
+        case 'unwatched':
+          return !userService.isWatched(short.id,
+              duration: short.duration, durationSeconds: dur);
+        case 'in_progress':
+          return userService.progressFraction(short.id,
+                      duration: short.duration, durationSeconds: dur) >
+                  0 &&
+              !userService.isWatched(short.id,
+                  duration: short.duration, durationSeconds: dur);
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  void setWatchStatusFilter(String filter) {
+    final next = (_watchStatusFilter == filter) ? 'all' : filter;
+    if (_watchStatusFilter == next) return;
+    _watchStatusFilter = next;
+    _safeNotify();
   }
 
   void setLikedOnly(bool likedOnly) {

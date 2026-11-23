@@ -15,7 +15,10 @@ import '../../core/api/api_client.dart';
 import '../../core/services/user_sync_service.dart';
 import '../../core/models/video.dart';
 import '../../core/utils/formatters.dart';
+import '../../shared/annotations/user_item.dart';
+import '../../shared/services/note_service.dart';
 import '../../shared/ui/channel_avatar.dart';
+import '../../shared/ui/media_note_helper.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
@@ -75,7 +78,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   List<Video> _playlist = [];
   int _playlistIndex = 0;
   bool _isDescriptionExpanded = false;
-
+  bool _hasNote = false;
   AudioTrack? _matchedAudioTrack;
 
   double _currentPositionSeconds = 0.0;
@@ -116,7 +119,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     if (widget.startSeconds == null) {
       UserService().getVideoPosition(_activeVideoId).then((saved) {
-        if (mounted && saved > 5) {
+        if (!mounted) return;
+        final dur = UserService.parseDurationSeconds(_video?.duration);
+        final wasWatched =
+            UserService().isWatched(_activeVideoId, durationSeconds: dur);
+        if (wasWatched) {
+          // Re-watching a watched video resets progress to 0 so the user sees
+          // active progress until reaching the last 10 seconds again.
+          UserService().saveVideoPosition(_activeVideoId, 0, durationSeconds: dur);
+        } else if (saved > 5) {
           setState(() {
             _restoredStartSeconds = saved;
           });
@@ -130,6 +141,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (_video != null) _loadRelatedVideos(reset: true);
     _loadVideoDetails();
     _checkAudioTrack();
+    _loadNoteStatus();
+  }
+
+  Future<void> _loadNoteStatus() async {
+    try {
+      final note = await NoteService.instance
+          .getNoteForTarget(UserItem.featureVideo, _activeVideoId);
+      if (mounted) {
+        setState(() => _hasNote = note != null && !note.isEmpty);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _openNoteEditor() async {
+    final hasNote = await showMediaNoteEditor(
+      context,
+      feature: UserItem.featureVideo,
+      targetId: _activeVideoId,
+      title: _video?.title,
+      contextText: _video?.channelTitle,
+    );
+    if (mounted && hasNote != null) {
+      setState(() => _hasNote = hasNote);
+    }
   }
 
   Future<void> _loadAutoplayPreference() async {
@@ -216,6 +251,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     UserService().addToHistory(nextVid);
     _loadVideoDetails();
     _checkAudioTrack();
+    _loadNoteStatus();
   }
 
   void _toggleShuffle() {
@@ -472,7 +508,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ..removeListener(_onWatchScroll)
       ..dispose();
     if (_currentPositionSeconds > 0) {
-      UserService().saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+      final dur = UserService.parseDurationSeconds(_video?.duration);
+      UserService().saveVideoPosition(
+        _activeVideoId,
+        _currentPositionSeconds,
+        durationSeconds: dur > 0 ? dur : null,
+      );
     }
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -534,8 +575,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _positionSaveTimer?.cancel();
         _positionSaveTimer = Timer(const Duration(seconds: 4), () {
           if (_currentPositionSeconds > 0) {
-            UserService()
-                .saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+            final dur = UserService.parseDurationSeconds(_video?.duration);
+            UserService().saveVideoPosition(
+              _activeVideoId,
+              _currentPositionSeconds,
+              durationSeconds: dur > 0 ? dur : null,
+            );
           }
         });
       },
@@ -1028,6 +1073,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   FullAudioPlayerSheet.show(context);
                 },
           onClip: _openShortsTrimmer,
+          onNote: _openNoteEditor,
+          hasNote: _hasNote,
           onShare: _shareVideo,
           onSave: () {
             if (_video != null) {

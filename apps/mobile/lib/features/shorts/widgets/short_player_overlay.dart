@@ -19,6 +19,8 @@ class ShortPlayerOverlay extends StatelessWidget {
   final bool showLikeBurst;
   final VoidCallback? onDoubleTapLike;
   final VoidCallback onShare;
+  final VoidCallback? onNote;
+  final bool hasNote;
   
   final bool isScrubbing;
   final double currentPosition;
@@ -45,6 +47,8 @@ class ShortPlayerOverlay extends StatelessWidget {
     this.showLikeBurst = false,
     this.onDoubleTapLike,
     required this.onShare,
+    this.onNote,
+    this.hasNote = false,
     required this.isScrubbing,
     required this.currentPosition,
     required this.totalDuration,
@@ -164,6 +168,8 @@ class ShortPlayerOverlay extends StatelessWidget {
               child: ShortActionBar(
                 short: short,
                 onShare: onShare,
+                onNote: onNote,
+                hasNote: hasNote,
                 enableLike: localItem == null,
               ),
             ),

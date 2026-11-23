@@ -5,6 +5,7 @@ import '../../../core/models/short.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/ui/channel_avatar.dart';
+import '../../../shared/ui/video_thumbnail_overlays.dart';
 
 class CommunityShortsGrid extends StatelessWidget {
   final List<Short> allShorts;
@@ -18,6 +19,8 @@ class CommunityShortsGrid extends StatelessWidget {
   final VoidCallback onChannelFilterTap;
   final bool likedOnly;
   final ValueChanged<bool> onLikedOnlyChanged;
+  final String watchStatusFilter;
+  final ValueChanged<String>? onWatchStatusChanged;
 
   const CommunityShortsGrid({
     super.key,
@@ -32,6 +35,8 @@ class CommunityShortsGrid extends StatelessWidget {
     required this.onChannelFilterTap,
     required this.likedOnly,
     required this.onLikedOnlyChanged,
+    this.watchStatusFilter = 'all',
+    this.onWatchStatusChanged,
   });
 
   @override
@@ -105,6 +110,24 @@ class CommunityShortsGrid extends StatelessWidget {
                           backgroundColor: context.tokens.surface,
                         ),
                       ),
+                      if (onWatchStatusChanged != null) ...[
+                        FilterChip(
+                          label: const Text('Watched'),
+                          selected: watchStatusFilter == 'watched',
+                          onSelected: (_) => onWatchStatusChanged!('watched'),
+                        ),
+                        FilterChip(
+                          label: const Text('Unwatched'),
+                          selected: watchStatusFilter == 'unwatched',
+                          onSelected: (_) => onWatchStatusChanged!('unwatched'),
+                        ),
+                        FilterChip(
+                          label: const Text('In Progress'),
+                          selected: watchStatusFilter == 'in_progress',
+                          onSelected: (_) =>
+                              onWatchStatusChanged!('in_progress'),
+                        ),
+                      ],
                       for (final channel in filterChannels
                           .where((channel) =>
                               selectedChannelIds.contains(channel.id))
@@ -313,6 +336,18 @@ class CommunityGridCard extends StatelessWidget {
                   ),
                 ),
               ),
+
+            // 4.5 Watched Badge & 5dp Progress Bar
+            Positioned.fill(
+              child: VideoWatchedOverlays(
+                videoId: short.id,
+                duration: short.duration,
+                durationSeconds: durSec > 0 ? durSec : null,
+                compact: true,
+                badgeTopOffset: 34,
+                badgeLeftOffset: 8,
+              ),
+            ),
 
             // 5. Play Icon in Center
             Center(
