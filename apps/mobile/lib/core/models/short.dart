@@ -93,42 +93,10 @@ class Short {
     return 0;
   }
 
-  /// Strict validation: A video is ONLY a Short if duration <= 180s or contains explicit #shorts tag
+  /// Strict validation: A video is a Short if and only if its explicit type is 'SHORT'.
   static bool isShort(Map<String, dynamic> json) {
-    final durationStr = (json['duration'] ?? '').toString().trim();
-    final durationSeconds = parseDurationInSeconds(durationStr);
-
-    if (durationSeconds > 180) {
-      return false;
-    }
-
-    final videoUrl =
-        (json['videoUrl'] ?? json['video_url'] ?? '').toString().toLowerCase();
-    if (videoUrl.contains('/shorts/')) {
-      return true;
-    }
-
-    final title = (json['title'] ?? '').toString().toLowerCase();
-    final description = (json['description'] ?? '').toString().toLowerCase();
-    final hasShortsTag = title.contains('#shorts') ||
-        title.contains('#short') ||
-        description.contains('#shorts') ||
-        description.contains('#short');
-
-    if (hasShortsTag && (durationSeconds == 0 || durationSeconds <= 180)) {
-      return true;
-    }
-
-    if (durationSeconds > 0 && durationSeconds <= 180) {
-      return true;
-    }
-
-    final type = (json['type'] ?? '').toString().toUpperCase();
-    if (type == 'SHORT' && (durationSeconds == 0 || durationSeconds <= 180)) {
-      return true;
-    }
-
-    return false;
+    final type = (json['type'] ?? '').toString().trim().toUpperCase();
+    return type == 'SHORT';
   }
 
   factory Short.fromJson(Map<String, dynamic> json) {

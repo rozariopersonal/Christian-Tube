@@ -13,9 +13,10 @@ void main() {
       expect(Short.parseDurationInSeconds('01:00:00'), 3600);
     });
 
-    test('isShort accurately classifies up to 180 seconds', () {
+    test('isShort classifies strictly by explicit type == SHORT', () {
       expect(
         Short.isShort({
+          'type': 'SHORT',
           'duration': '02:30',
           'title': 'Test Clip',
         }),
@@ -24,16 +25,17 @@ void main() {
 
       expect(
         Short.isShort({
-          'duration': '03:00',
-          'title': '3 Min Short',
+          'type': 'VIDEO',
+          'duration': '02:30',
+          'title': 'Short Regular Video #shorts',
         }),
-        isTrue,
+        isFalse,
       );
 
       expect(
         Short.isShort({
-          'duration': '03:01',
-          'title': 'Long Sermon',
+          'duration': '03:00',
+          'title': 'No Explicit Type',
         }),
         isFalse,
       );

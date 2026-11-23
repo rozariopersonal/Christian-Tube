@@ -115,25 +115,17 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   }
 
   Set<String> get _subscribedShortsChannelIds {
-    final prefShorts = _preferenceService.preferences.shortsChannelIds.toSet();
     final allSubs = _channelService.subscribedChannelIds;
     final channels = _channelService.channels;
 
-    Set<String> candidateIds;
-    if (prefShorts.isNotEmpty) {
-      candidateIds = prefShorts;
-    } else {
-      candidateIds = allSubs;
-    }
-
-    if (candidateIds.isEmpty) return const {};
+    if (allSubs.isEmpty) return const {};
 
     if (channels.isNotEmpty) {
       final shortsChannelsSet =
           channels.where((c) => c.hasShorts).map((c) => c.id).toSet();
-      return candidateIds.intersection(shortsChannelsSet);
+      return allSubs.intersection(shortsChannelsSet);
     }
-    return candidateIds;
+    return allSubs;
   }
 
   void _onPreferenceContextChanged() {
