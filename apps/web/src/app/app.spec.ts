@@ -53,7 +53,19 @@ describe('App & Phase 1 Core Services', () => {
 
     const screen = TestBed.inject(ScreenClassService);
     screen.width.set(768);
+    screen.height.set(1024);
     expect(screen.isDesktop()).toBe(false);
+    expect(screen.isLandscapeCompact()).toBe(false);
+    expect(screen.showNavigationRail()).toBe(true);
+    screen.width.set(568);
+    screen.height.set(320);
+    expect(screen.isLandscapeCompact()).toBe(true);
+    expect(screen.showNavigationRail()).toBe(true);
+    screen.width.set(375);
+    screen.height.set(812);
+    expect(screen.isLandscapeCompact()).toBe(false);
+    expect(screen.showNavigationRail()).toBe(false);
+    expect(screen.collapseReaderActions()).toBe(true);
     screen.width.set(900);
     expect(screen.isDesktop()).toBe(false);
     screen.width.set(1024);

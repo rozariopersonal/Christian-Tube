@@ -16,7 +16,7 @@ import { VideoService } from '../services/video.service';
     <div class="feed-page">
       <header class="feed-header">
         @if (screen.isCompact()) {
-          <div class="compact-bar max-width-box">
+          <div class="compact-bar max-width-box wide-grid">
             <div class="brand">
               <img src="logo.png" alt="ChristianApp" width="28" height="28" />
               <span class="brand-title font-display">{{ appName }}</span>
@@ -43,7 +43,7 @@ import { VideoService } from '../services/video.service';
           </div>
         }
 
-        <div class="filter-strip max-width-box">
+        <div class="filter-strip max-width-box wide-grid">
           <button
             type="button"
             class="pill-chip"
@@ -75,7 +75,7 @@ import { VideoService } from '../services/video.service';
         </div>
       </header>
 
-      <div class="feed-body max-width-box">
+      <div class="feed-body max-width-box wide-grid">
         @if (videos.error()) {
           <div class="state-card">
             <span class="material-symbols-rounded state-icon">cloud_off</span>

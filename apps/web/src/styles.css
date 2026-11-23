@@ -23,6 +23,8 @@
   --radius-pill: 9999px;
 
   --shell-bottom-height: 64px;
+  --shell-bottom-offset: 0px;
+  --sidebar-width: 0px;
   --topbar-height: 56px;
   --shell-top-offset: 0px;
 }
@@ -113,11 +115,16 @@ a {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-/* Full-width layout container with responsive side padding */
+/* Readable content width cap (1:1 with apps/mobile MaxWidthBox) */
 .max-width-box {
   width: 100%;
+  max-width: 1080px;
   margin-inline: auto;
   padding-inline: 16px;
+}
+
+.max-width-box.wide-grid {
+  max-width: clamp(1080px, calc(1080px + (100vw - 1080px) * 0.5), 1600px);
 }
 
 @media (min-width: 600px) {

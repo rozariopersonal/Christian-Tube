@@ -144,18 +144,18 @@ const PRESET_GRADIENTS: readonly string[] = [
   styles: [
     `
       .words-stage {
-        height: calc(100dvh - var(--shell-bottom-height) - var(--shell-top-offset));
+        height: calc(100dvh - var(--shell-bottom-offset, 0px) - var(--shell-top-offset));
         color: #ffffff;
         display: flex;
         flex-direction: column;
         padding: 12px 16px;
         gap: 12px;
+        overflow: hidden;
         transition: background 300ms ease;
       }
 
       @media (min-width: 600px) {
         .words-stage {
-          height: calc(100dvh - var(--shell-top-offset));
           padding: 16px 28px;
         }
       }
@@ -296,6 +296,25 @@ const PRESET_GRADIENTS: readonly string[] = [
         flex-direction: column;
         gap: 10px;
         flex-shrink: 0;
+      }
+
+      @media (max-width: 479px) {
+        .stage-body {
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .word-spotlight {
+          width: 100%;
+          flex: 1;
+          min-height: 0;
+        }
+
+        .side-rail {
+          flex-direction: row;
+          justify-content: center;
+          gap: 12px;
+        }
       }
 
       .rail-btn {

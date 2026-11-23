@@ -87,6 +87,15 @@ import { ArticlesService } from '../services/articles.service';
         >
           <span class="material-symbols-rounded">palette</span>
         </button>
+        <button
+          type="button"
+          class="tb-action-btn"
+          title="Focus mode (F)"
+          aria-label="Focus mode"
+          (click)="immersive.set(true)"
+        >
+          <span class="material-symbols-rounded">fullscreen</span>
+        </button>
       </div>
     </ng-template>
 
@@ -132,7 +141,7 @@ import { ArticlesService } from '../services/articles.service';
             </div>
           </div>
         </header>
-      } @else {
+      } @else if (immersive()) {
         <button
           type="button"
           class="exit-focus-btn"
@@ -432,7 +441,7 @@ import { ArticlesService } from '../services/articles.service';
       }
 
       .article-page.spread-mode {
-        height: calc(100dvh - var(--shell-top-offset));
+        height: calc(100dvh - var(--shell-top-offset) - var(--shell-bottom-offset, 0px));
         min-height: 0;
         display: flex;
         flex-direction: column;

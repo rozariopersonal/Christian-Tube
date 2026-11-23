@@ -101,12 +101,13 @@ export interface BibleSearchHit {
     `
       .search-form {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
         align-items: center;
       }
 
       .sheet-search {
-        flex: 1;
+        flex: 1 1 180px;
         min-width: 0;
         display: flex;
         align-items: center;

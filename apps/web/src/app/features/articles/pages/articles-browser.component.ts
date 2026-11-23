@@ -167,6 +167,8 @@ import { ArticlesService } from '../services/articles.service';
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .search-box {
@@ -195,6 +197,8 @@ import { ArticlesService } from '../services/articles.service';
         gap: 8px;
         overflow-x: auto;
         scrollbar-width: none;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .year-strip {

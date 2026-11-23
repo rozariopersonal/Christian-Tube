@@ -427,9 +427,9 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
         align-items: start;
       }
 
-      @media (min-width: 600px) {
+      @media (min-width: 720px) {
         .result-row {
-          grid-template-columns: 300px 1fr;
+          grid-template-columns: clamp(200px, 34vw, 300px) 1fr;
           gap: 16px;
         }
       }

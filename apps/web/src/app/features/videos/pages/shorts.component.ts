@@ -149,7 +149,7 @@ import { VideoService } from '../services/video.service';
         </div>
       </div>
     } @else {
-      <div class="shorts-page max-width-box">
+      <div class="shorts-page max-width-box wide-grid">
         <header class="page-head">
           <h1 class="font-display">Shorts</h1>
         </header>
@@ -303,7 +303,7 @@ import { VideoService } from '../services/video.service';
 
       .shorts-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
         gap: 14px;
       }
 
@@ -355,7 +355,7 @@ import { VideoService } from '../services/video.service';
 
       /* In-page Fullscreen Vertical Shorts Stage */
       .shorts-stage {
-        height: calc(100dvh - var(--shell-bottom-height) - var(--shell-top-offset));
+        height: calc(100dvh - var(--shell-bottom-offset, 0px) - var(--shell-top-offset));
         background-color: var(--bg);
         color: var(--on-surface);
         display: flex;
@@ -368,7 +368,6 @@ import { VideoService } from '../services/video.service';
 
       @media (min-width: 600px) {
         .shorts-stage {
-          height: calc(100dvh - var(--shell-top-offset));
           padding: 16px 24px;
         }
       }
@@ -482,10 +481,14 @@ import { VideoService } from '../services/video.service';
 
       .vertical-player {
         position: relative;
-        height: 100%;
+        width: min(
+          calc(100% - 60px),
+          calc((100dvh - var(--shell-bottom-offset, 0px) - var(--shell-top-offset) - 84px) * 9 / 16),
+          440px
+        );
+        height: auto;
         max-height: 780px;
         aspect-ratio: 9 / 16;
-        max-width: calc(100% - 60px);
         background-color: #000000;
         border-radius: var(--radius-lg);
         overflow: hidden;
@@ -542,6 +545,7 @@ import { VideoService } from '../services/video.service';
         z-index: 2;
         padding: 36px 14px 14px;
         background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+        color: #ffffff;
         pointer-events: none;
       }
 

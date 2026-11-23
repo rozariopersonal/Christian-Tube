@@ -120,9 +120,9 @@ import { AudioPlayerService } from '../services/audio-player.service';
     `
       .mini-player {
         position: fixed;
-        left: 0;
+        left: var(--sidebar-width, 0px);
         right: 0;
-        bottom: calc(var(--shell-bottom-height) + env(safe-area-inset-bottom, 0px));
+        bottom: calc(var(--shell-bottom-offset, 0px) + env(safe-area-inset-bottom, 0px));
         height: 60px;
         background-color: var(--surface-elevated);
         border-top: 1px solid var(--surface-border);
@@ -130,13 +130,6 @@ import { AudioPlayerService } from '../services/audio-player.service';
         cursor: pointer;
         display: flex;
         flex-direction: column;
-      }
-
-      @media (min-width: 600px) {
-        .mini-player {
-          left: 0;
-          bottom: 0;
-        }
       }
 
       .progress-line {
