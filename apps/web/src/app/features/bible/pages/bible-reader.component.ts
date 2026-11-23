@@ -122,15 +122,10 @@ interface AppendedBibleChapter {
               </button>
             }
 
-            <button
-              type="button"
-              class="version-pill"
-              (click)="showVersionPicker.set(true)"
-              aria-label="Bible Version"
-            >
-              <span>{{ state.activeVersionInfo().label }}</span>
-              <span class="material-symbols-rounded pill-chev">expand_more</span>
-            </button>
+            <app-bible-version-picker
+              contextKey="bible"
+              (selectionChanged)="onVersionPickerChanged($event)"
+            />
 
             <div class="chapter-nav-group">
               <button
@@ -323,21 +318,6 @@ interface AppendedBibleChapter {
             </div>
 
             <div class="bar-right">
-              @if (!screen.collapseReaderActions()) {
-                <button
-                  type="button"
-                  class="icon-btn compare-btn"
-                  [class.active-icon]="bible.compareVersions().length > 0"
-                  title="Compare up to 3 Bible versions"
-                  (click)="showParallelPicker.set(true)"
-                >
-                  <span class="material-symbols-rounded">compare_arrows</span>
-                  @if (bible.compareVersions().length > 0) {
-                    <span class="compare-count">{{ 1 + bible.compareVersions().length }}</span>
-                  }
-                </button>
-              }
-
               @if (!screen.collapseAppBarActions()) {
                 <button
                   type="button"
@@ -415,22 +395,6 @@ interface AppendedBibleChapter {
                       <button
                         type="button"
                         class="menu-item"
-                        (click)="showParallelPicker.set(true)"
-                      >
-                        <span class="material-symbols-rounded">compare_arrows</span>
-                        Parallel Versions
-                      </button>
-                      <button
-                        type="button"
-                        class="menu-item"
-                        (click)="submitTopbarSearch()"
-                      >
-                        <span class="material-symbols-rounded">search</span>
-                        Search Bible
-                      </button>
-                      <button
-                        type="button"
-                        class="menu-item"
                         (click)="showBookmarks.set(true)"
                       >
                         <span class="material-symbols-rounded">bookmarks</span>
@@ -455,8 +419,8 @@ interface AppendedBibleChapter {
                     </div>
                   }
                 </div>
-              </div>
-            }
+              }
+            </div>
           </div>
         </header>
       } @else if (immersive()) {
