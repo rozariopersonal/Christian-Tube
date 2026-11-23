@@ -5,7 +5,9 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { VideoCardComponent } from '../../../shared/ui/video-card.component';
+import { VideoWatchedOverlaysComponent } from '../../../shared/ui/video-watched-overlays.component';
 import { ChannelService } from '../../channels/services/channel.service';
+import { VideoLibraryService } from '../services/video-library.service';
 import { VideoService } from '../services/video.service';
 import { normalizeVideo } from '../models/video.model';
 import { UserSyncService } from '../../../core/services/user-sync.service';
@@ -13,7 +15,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
 @Component({
   selector: 'app-video-feed',
   standalone: true,
-  imports: [RouterLink, VideoCardComponent, InfiniteScrollTriggerDirective],
+  imports: [RouterLink, VideoCardComponent, InfiniteScrollTriggerDirective, VideoWatchedOverlaysComponent],
   template: `
     <div class="feed-page">
       <header class="feed-header">
@@ -56,6 +58,42 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
             (click)="selectAll()"
           >
             All
+          </button>
+
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="filterMode() === 'watched'"
+            (click)="selectStatus('watched')"
+          >
+            Watched
+          </button>
+
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="filterMode() === 'unwatched'"
+            (click)="selectStatus('unwatched')"
+          >
+            Unwatched
+          </button>
+
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="filterMode() === 'in_progress'"
+            (click)="selectStatus('in_progress')"
+          >
+            In Progress
+          </button>
+
+          <button
+            type="button"
+            class="pill-chip"
+            [class.active]="filterMode() === 'liked'"
+            (click)="selectStatus('liked')"
+          >
+            Liked
           </button>
 
           @if (channels.subscribedChannels().length > 0) {
@@ -137,6 +175,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
                         [alt]="short.title"
                         loading="lazy"
                       />
+                      <app-video-watched-overlays [videoId]="short.id" />
                     </div>
                     <h3 class="shelf-card-title">{{ short.title }}</h3>
                     <span class="shelf-card-sub">{{ short.channelTitle }}</span>
@@ -429,28 +468,44 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
 })
 export class VideoFeedComponent implements OnInit {
   readonly videos = inject(VideoService);
+  readonly library = inject(VideoLibraryService);
   readonly channels = inject(ChannelService);
   readonly screen = inject(ScreenClassService);
   readonly auth = inject(AuthService);
   readonly userSync = inject(UserSyncService);
 
   readonly appName = AppConfig.appName;
-  readonly filterMode = signal<'all' | 'channel' | 'liked'>('all');
+  readonly filterMode = signal<
+    'all' | 'watched' | 'unwatched' | 'in_progress' | 'liked' | 'channel'
+  >('all');
   readonly selectedChannelId = signal<string | null>(null);
 
   readonly displayVideos = computed(() => {
     this.userSync.remoteState();
     this.userSync.pendingOps();
-    if (this.filterMode() !== 'liked') return this.videos.videos();
-    const byId = new Map<string, ReturnType<typeof normalizeVideo>>();
-    for (const item of this.userSync.likedItems('liked_video')) {
-      const video = normalizeVideo(item);
-      if (video.id && video.title) byId.set(video.id, video);
+    const list = this.videos.videos();
+    switch (this.filterMode()) {
+      case 'watched':
+        return list.filter((v) => this.library.isWatched(v.id));
+      case 'unwatched':
+        return list.filter((v) => !this.library.isWatched(v.id));
+      case 'in_progress':
+        return list.filter((v) => this.library.isInProgress(v.id));
+      case 'liked': {
+        const byId = new Map<string, ReturnType<typeof normalizeVideo>>();
+        for (const item of this.userSync.likedItems('liked_video')) {
+          const video = normalizeVideo(item);
+          if (video.id && video.title) byId.set(video.id, video);
+        }
+        const ids = this.userSync.likedIds('liked_video');
+        for (const video of list) if (ids.has(video.id)) byId.set(video.id, video);
+        return [...byId.values()];
+      }
+      default:
+        return list;
     }
-    const ids = this.userSync.likedIds('liked_video');
-    for (const video of this.videos.videos()) if (ids.has(video.id)) byId.set(video.id, video);
-    return [...byId.values()];
   });
+
   readonly topBatch = computed(() => this.displayVideos().slice(0, 6));
   readonly restBatch = computed(() => this.displayVideos().slice(6));
   readonly shelfShorts = computed(() => this.videos.shorts());
@@ -493,9 +548,21 @@ export class VideoFeedComponent implements OnInit {
     this.applyFilter();
   }
 
-  selectLiked(): void {
-    this.filterMode.set('liked');
+  selectStatus(mode: 'watched' | 'unwatched' | 'in_progress' | 'liked'): void {
+    if (this.filterMode() === mode) {
+      this.selectAll();
+      return;
+    }
+    this.filterMode.set(mode);
     this.selectedChannelId.set(null);
+    if (mode !== 'liked') {
+      this.applyFilter();
+    }
+  }
+
+  selectLiked(): void {
+    this.selectStatus('liked');
+  }
   }
 
   selectChannel(channelId: string): void {

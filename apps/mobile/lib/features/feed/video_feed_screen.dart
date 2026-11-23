@@ -11,6 +11,7 @@ import '../../shared/ui/sync_avatar_button.dart';
 import '../../shared/ui/video_card.dart';
 import '../auth/auth_service.dart';
 import '../channels/channel_service.dart';
+import '../profile/user_service.dart';
 import 'video_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -76,10 +77,45 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     super.dispose();
   }
 
+  static const String _filterWatched = '__watched__';
+  static const String _filterUnwatched = '__unwatched__';
+  static const String _filterInProgress = '__in_progress__';
+  static const String _filterLiked = '__liked__';
+
+  List<Video> _applyStatusFilter(List<Video> raw) {
+    final userService = UserService();
+    switch (_selectedCategory) {
+      case _filterWatched:
+        return raw
+            .where((v) => userService.isWatched(v.id, duration: v.duration))
+            .toList();
+      case _filterUnwatched:
+        return raw
+            .where((v) => !userService.isWatched(v.id, duration: v.duration))
+            .toList();
+      case _filterInProgress:
+        return raw
+            .where((v) =>
+                userService.progressFraction(v.id, duration: v.duration) > 0 &&
+                !userService.isWatched(v.id, duration: v.duration))
+            .toList();
+      case _filterLiked:
+        return raw.where((v) => userService.isVideoLiked(v.id)).toList();
+      default:
+        return raw;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_videoService, _channelService, _preferenceService, UserSyncService.instance]),
+      animation: Listenable.merge([
+        _videoService,
+        _channelService,
+        _preferenceService,
+        UserSyncService.instance,
+        UserService(),
+      ]),
       builder: (context, _) {
         final tokens = context.tokens;
         final videos = _videoService.videos;
@@ -90,7 +126,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           if (video.id.isNotEmpty && video.type != 'SHORT' && video.title.isNotEmpty) likedById[video.id] = video;
         }
         for (final video in videos) { if (likedIds.contains(video.id)) likedById[video.id] = video; }
-        final displayVideos = _showLikedOnly ? likedById.values.toList(growable: false) : videos;
+        final baseVideos = _showLikedOnly ? likedById.values.toList(growable: false) : videos;
+        final displayVideos = _applyStatusFilter(baseVideos);
         final channels = _channelService.channels;
         final subscribedIds = _videoChannelIds;
         final subscribedChannels =
@@ -270,6 +307,53 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         ),
                       ),
                     ),
+
+                    // Status Filter Pills (Watched, Unwatched, In Progress, Liked)
+                    for (final entry in const [
+                      (_filterWatched, 'Watched'),
+                      (_filterUnwatched, 'Unwatched'),
+                      (_filterInProgress, 'In Progress'),
+                      (_filterLiked, 'Liked'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: InkWell(
+                          onTap: () {
+                            final isSelected = _selectedCategory == entry.$1;
+                            setState(() => _selectedCategory =
+                                isSelected ? 'All' : entry.$1);
+                            _videoService.setFilter(
+                              channelId: null,
+                              onlySubscribed: subscribedIds.isNotEmpty,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: _selectedCategory == entry.$1
+                                  ? tokens.onSurface
+                                  : tokens.surfaceVariant,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                entry.$2,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: _selectedCategory == entry.$1
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  color: _selectedCategory == entry.$1
+                                      ? tokens.surface
+                                      : tokens.onSurfaceMuted,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
 
                     // Subscribed Channel Filter Pills (Avatar + Channel Name)
                     ...subscribedChannels.map((ch) {

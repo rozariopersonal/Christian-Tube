@@ -201,7 +201,7 @@ void main() {
       });
     });
 
-    testWidgets('Channels tab shows Followed Channels section', (tester) async {
+    testWidgets('Channels tab shows empty state when no channels exist', (tester) async {
       tester.view.physicalSize = const Size(360 * 2, 800 * 2);
       tester.view.devicePixelRatio = 2.0;
 
@@ -227,6 +227,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Followed Channels'), findsOneWidget);
+      expect(find.text('No channels found'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       addTearDown(() {

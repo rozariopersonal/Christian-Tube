@@ -17,6 +17,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
+import { NoteEditorModalComponent } from '../../../shared/ui/note-editor-modal.component';
 import { ChannelService } from '../../channels/services/channel.service';
 import {
   Video,
@@ -24,6 +25,7 @@ import {
   formatViewCount,
 } from '../models/video.model';
 import { VideoLibraryService } from '../services/video-library.service';
+import { VideoNotesService } from '../services/video-notes.service';
 import { VideoPlayerService } from '../services/video-player.service';
 import { VideoService } from '../services/video.service';
 import { UserSyncService } from '../../../core/services/user-sync.service';
@@ -97,7 +99,7 @@ function ensureYouTubeIframeApi(): Promise<void> {
 @Component({
   selector: 'app-watch-video',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, NoteEditorModalComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -183,6 +185,16 @@ function ensureYouTubeIframeApi(): Promise<void> {
                   <button
                     type="button"
                     class="pill-chip"
+                    [class.active]="isLiked()"
+                    (click)="toggleLike()"
+                  >
+                    <span class="material-symbols-rounded">thumb_up</span>
+                    {{ isLiked() ? 'Liked' : 'Like' }}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="pill-chip"
                     [class.active]="isWatchLater()"
                     (click)="library.toggleWatchLater(video()!)"
                   >
@@ -199,6 +211,16 @@ function ensureYouTubeIframeApi(): Promise<void> {
                   >
                     <span class="material-symbols-rounded">queue_music</span>
                     Queue
+                  </button>
+
+                  <button
+                    type="button"
+                    class="pill-chip"
+                    [class.active]="hasNote()"
+                    (click)="noteOpen.set(true)"
+                  >
+                    <span class="material-symbols-rounded">sticky_note_2</span>
+                    {{ hasNote() ? 'Note ✓' : 'Note' }}
                   </button>
 
                   <button
@@ -386,6 +408,18 @@ function ensureYouTubeIframeApi(): Promise<void> {
             }
           </aside>
         </div>
+      }
+
+      @if (noteOpen() && video(); as v) {
+        <app-note-editor-modal
+          [title]="v.title"
+          [contextText]="v.channelTitle"
+          [initialText]="currentNote()?.text ?? ''"
+          [hasExistingNote]="hasNote()"
+          (saveNote)="saveVideoNote($event)"
+          (deleteNote)="deleteVideoNote()"
+          (closeModal)="noteOpen.set(false)"
+        />
       }
 
       @if (shareOpen() && video(); as v) {
@@ -861,6 +895,7 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   readonly channels = inject(ChannelService);
   readonly screen = inject(ScreenClassService);
   readonly library = inject(VideoLibraryService);
+  readonly notes = inject(VideoNotesService);
   readonly userSync = inject(UserSyncService);
   private readonly playerService = inject(VideoPlayerService);
   private readonly zone = inject(NgZone);
@@ -947,6 +982,7 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   readonly loading = signal<boolean>(true);
   readonly descExpanded = signal<boolean>(false);
   readonly shareOpen = signal<boolean>(false);
+  readonly noteOpen = signal<boolean>(false);
   readonly shareAtCurrent = signal<boolean>(false);
   readonly copied = signal<boolean>(false);
   readonly currentSecondsSnapshot = signal<number>(0);
@@ -975,6 +1011,7 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   });
 
   readonly isLiked = computed(() => {
+  readonly isLiked = computed(() => {
     const v = this.video();
     if (!v) return false;
     const itemType = v.type === 'SHORT' ? 'liked_short' : 'liked_video';
@@ -986,6 +1023,27 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
     if (!video) return;
     const itemType = video.type === 'SHORT' ? 'liked_short' : 'liked_video';
     this.userSync.setLiked({ itemType, itemId: video.id, liked: !this.isLiked() });
+  }
+
+  readonly currentNote = computed(() => {
+    const id = this.video()?.id;
+    return id ? this.notes.getNote('video', id) : null;
+  });
+
+  readonly hasNote = computed(() => this.currentNote() !== null);
+
+  saveVideoNote(text: string): void {
+    const v = this.video();
+    if (!v) return;
+    this.notes.saveNote('video', v.id, text, v.channelTitle);
+    this.noteOpen.set(false);
+  }
+
+  deleteVideoNote(): void {
+    const v = this.video();
+    if (!v) return;
+    this.notes.deleteNote('video', v.id);
+    this.noteOpen.set(false);
   }
 
   readonly nextUpVideo = computed<Video | null>(() => {

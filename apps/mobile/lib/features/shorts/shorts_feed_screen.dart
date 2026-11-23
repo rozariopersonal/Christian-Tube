@@ -459,6 +459,8 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
             onChannelFilterTap: _openShortsChannelFilter,
             likedOnly: _communityController.likedOnly,
             onLikedOnlyChanged: _communityController.setLikedOnly,
+            watchStatusFilter: _communityController.watchStatusFilter,
+            onWatchStatusChanged: _communityController.setWatchStatusFilter,
           );
         } else {
           currentView = FullscreenShortsPlayer(

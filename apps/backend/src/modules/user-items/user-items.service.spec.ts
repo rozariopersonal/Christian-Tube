@@ -97,4 +97,39 @@ describe('UserItemsService', () => {
       deleted: false,
     });
   });
+
+  it('accepts video and short note items and rejects unknown features', async () => {
+    const res = await service.upsertBatch('u1', 'u1@example.com', [
+      {
+        id: 'note-v1',
+        itemType: 'note',
+        feature: 'video',
+        targetId: 'vid-123',
+        text: 'Key sermon point at 12:30',
+        contextText: 'Grace Channel',
+        updatedAt: 6000,
+      },
+      {
+        id: 'note-s1',
+        itemType: 'note',
+        feature: 'short',
+        targetId: 'short-456',
+        text: 'Remember this verse',
+        updatedAt: 6001,
+      },
+      {
+        id: 'bad-feature',
+        itemType: 'note',
+        feature: 'unknown_feature',
+        targetId: 'x',
+        text: 'nope',
+      },
+    ]);
+
+    expect(res.results).toEqual([
+      { id: 'note-v1', status: 'ok' },
+      { id: 'note-s1', status: 'ok' },
+      { id: 'bad-feature', status: 'rejected' },
+    ]);
+  });
 });

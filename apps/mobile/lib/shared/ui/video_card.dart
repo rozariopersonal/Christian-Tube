@@ -6,6 +6,7 @@ import '../../core/theme/app_tokens.dart';
 import '../../core/utils/formatters.dart';
 import 'channel_avatar.dart';
 import 'video_options_bottom_sheet.dart';
+import 'video_thumbnail_overlays.dart';
 
 class VideoCard extends StatelessWidget {
   final Video video;
@@ -91,6 +92,12 @@ class VideoCard extends StatelessWidget {
                     ),
                   ),
                 ),
+              Positioned.fill(
+                child: VideoWatchedOverlays(
+                  videoId: video.id,
+                  duration: video.duration,
+                ),
+              ),
             ],
           ),
 

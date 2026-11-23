@@ -30,6 +30,10 @@ on:
         description: 'Mark as Pre-release / Beta'
         type: boolean
         default: false
+      release_centum_academy:
+        description: 'Build & Release CentumAcademy (optional, manual only)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -42,6 +46,8 @@ jobs:
     name: 'Gate 1: Code & Unit Quality Gate'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.set_matrix.outputs.matrix }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -75,6 +81,46 @@ jobs:
         run: |
           cd apps/mobile
           flutter test
+
+      - name: Determine Release Matrix
+        id: set_matrix
+        run: |
+          INCLUDE_CENTUM="false"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.release_centum_academy }}" = "true" ]; then
+            INCLUDE_CENTUM="true"
+          fi
+
+          MATRIX=$(jq -cn --arg include_centum "$INCLUDE_CENTUM" '
+            {
+              include: (
+                [
+                  {
+                    instance: "christian_tube",
+                    appName: "ChristianApp",
+                    apkName: "christian-app.apk",
+                    betaApkName: "christian-app-beta.apk",
+                    releaseRepo: "rozariopersonal/Christian-Tube-Releases"
+                  }
+                ] + (
+                  if $include_centum == "true" then
+                    [
+                      {
+                        instance: "centum_academy",
+                        appName: "CentumAcademy",
+                        apkName: "centum-academy.apk",
+                        betaApkName: "centum-academy-beta.apk",
+                        releaseRepo: "rozariopersonal/Centum-Academy-Releases"
+                      }
+                    ]
+                  else
+                    []
+                  end
+                )
+              )
+            }
+          ')
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "Release matrix: $MATRIX"
 
   # ============================================================================
   # AUTO-TAG (MAIN OR DEVELOP BRANCH)
@@ -117,18 +163,7 @@ jobs:
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - instance: christian_tube
-            appName: ChristianApp
-            apkName: christian-app.apk
-            betaApkName: christian-app-beta.apk
-            releaseRepo: rozariopersonal/Christian-Tube-Releases
-          - instance: centum_academy
-            appName: CentumAcademy
-            apkName: centum-academy.apk
-            betaApkName: centum-academy-beta.apk
-            releaseRepo: rozariopersonal/Centum-Academy-Releases
+      matrix: ${{ fromJSON(needs.code_quality_gate.outputs.matrix) }}
 
     steps:
       - name: Checkout Code
