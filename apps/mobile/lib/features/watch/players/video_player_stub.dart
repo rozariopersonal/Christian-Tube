@@ -9,6 +9,7 @@ Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,
   ValueChanged<Duration>? onPositionChanged,
+  VoidCallback? onEnded,
   bool isFullScreen = false,
   VoidCallback? onToggleFullScreen,
   required Widget Function(BuildContext context, Widget player) builder,

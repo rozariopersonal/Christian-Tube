@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../core/config/app_config.dart';
+import '../../core/engines/active_engine.g.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/theme/theme_service.dart';
@@ -307,6 +309,97 @@ class _SettingsScreenState extends State<SettingsScreen>
 
                 const SizedBox(height: 12),
 
+                // SECTION: DEFAULT PAGE ON OPEN
+                _buildSectionHeader(
+                    'Default Page on Open', theme.colorScheme.primary),
+                ListenableBuilder(
+                  listenable: UserPreferenceService.instance,
+                  builder: (context, _) {
+                    final prefService = UserPreferenceService.instance;
+                    final currentDefault = prefService.preferences.defaultPage;
+                    final isChristianTube =
+                        AppConfig.instanceId != 'centum_academy';
+                    final options = <({String id, String label, IconData icon})>[
+                      (id: 'feed', label: 'Videos', icon: Icons.home_rounded),
+                      (
+                        id: 'shorts',
+                        label: 'Shorts',
+                        icon: Icons.smart_display_rounded
+                      ),
+                      if (isChristianTube)
+                        (
+                          id: 'bible',
+                          label: 'Bible',
+                          icon: Icons.menu_book_rounded
+                        ),
+                      if (isChristianTube)
+                        (
+                          id: 'library',
+                          label: 'Library',
+                          icon: Icons.auto_stories_rounded
+                        ),
+                      if (kMicroFeedEnabled)
+                        (
+                          id: 'words',
+                          label: 'Words',
+                          icon: Icons.auto_awesome_rounded
+                        ),
+                      if (isChristianTube)
+                        (
+                          id: 'audio',
+                          label: 'Audio',
+                          icon: Icons.headphones_rounded
+                        ),
+                    ];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Choose which page opens first when you launch the app:',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: context.tokens.onSurfaceMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: options.map((opt) {
+                                final isSelected = currentDefault == opt.id ||
+                                    (opt.id == 'library' &&
+                                        currentDefault == 'books');
+                                return ChoiceChip(
+                                  avatar: Icon(
+                                    opt.icon,
+                                    size: 18,
+                                    color: isSelected
+                                        ? theme.colorScheme.primary
+                                        : context.tokens.onSurfaceMuted,
+                                  ),
+                                  label: Text(opt.label),
+                                  selected: isSelected,
+                                  selectedColor: theme.colorScheme.primary
+                                      .withValues(alpha: 0.2),
+                                  onSelected: (_) =>
+                                      prefService.setDefaultPage(opt.id),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
                 // SECTION: CONTENT & FEED PREFERENCES
                 _buildSectionHeader(
                     'Content & Feed Preferences', theme.colorScheme.primary),
@@ -568,7 +661,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                             const SnackBar(
                                 content: Text('Checking for new releases...')),
                           );
-                          final update = await UpdateService.checkForUpdate();
+                          Map<String, dynamic>? update;
+                          try {
+                            update = await UpdateService.checkForUpdate();
+                          } catch (_) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Could not check for updates. Please try again.')),
+                            );
+                            return;
+                          }
                           if (!context.mounted) return;
                           if (update != null) {
                             UpdateService.showUpdatePopup(context, update);

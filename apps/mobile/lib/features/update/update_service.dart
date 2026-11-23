@@ -259,12 +259,14 @@ class UpdateService {
               'downloadUrl': apkAsset['browser_download_url'] ?? '',
               'sizeBytes': apkAsset['size'] ?? 0,
               'releaseNotes': item['body'] ?? '',
+              'releaseUrl': item['html_url'] ?? '',
             };
           }
         }
       }
     } catch (e) {
       debugPrint('Update check failed: $e');
+      rethrow;
     }
     return null;
   }

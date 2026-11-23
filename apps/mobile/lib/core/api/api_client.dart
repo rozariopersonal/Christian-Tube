@@ -1,13 +1,27 @@
 import 'package:dio/dio.dart';
 import 'package:dio_smart_retry/dio_smart_retry.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
+import '../../features/auth/services/auth_token_store.dart';
+import '../../features/auth/services/refresh_coordinator.dart';
 
 class ApiClient {
   static String get baseUrl => AppConfig.apiBaseUrl;
   late final Dio dio;
 
-  ApiClient() {
+  static bool _isAuthEndpoint(String path) {
+    return path.contains('/auth/google') ||
+        path.contains('/auth/guest') ||
+        path.contains('/auth/refresh') ||
+        path.contains('/auth/logout');
+  }
+
+  ApiClient({
+    AuthTokenStore? tokenStore,
+    RefreshCoordinator? refreshCoordinator,
+  }) {
+    final store = tokenStore ?? AuthTokenStore.instance;
+    final coordinator = refreshCoordinator ?? RefreshCoordinator.instance;
+
     dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
@@ -20,18 +34,35 @@ class ApiClient {
       ),
     );
 
+    // Auth interceptor runs BEFORE RetryInterceptor so 401 refreshes once and
+    // is never replayed 3x by RetryInterceptor.
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final prefs = await SharedPreferences.getInstance();
-          final token = prefs.getString('auth_token');
+          final token = await store.getAccessToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
         },
-        onError: (DioException error, handler) {
-          // Log or handle global errors
+        onError: (DioException error, handler) async {
+          final status = error.response?.statusCode;
+          final opts = error.requestOptions;
+          if (status == 401 &&
+              opts.extra['auth_retried'] != true &&
+              !_isAuthEndpoint(opts.path)) {
+            final newToken = await coordinator.refresh();
+            if (newToken != null && newToken.isNotEmpty) {
+              opts.headers['Authorization'] = 'Bearer $newToken';
+              opts.extra['auth_retried'] = true;
+              try {
+                final response = await dio.fetch(opts);
+                return handler.resolve(response);
+              } on DioException catch (retryErr) {
+                return handler.next(retryErr);
+              }
+            }
+          }
           return handler.next(error);
         },
       ),

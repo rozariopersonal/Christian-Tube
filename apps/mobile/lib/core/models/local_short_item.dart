@@ -274,7 +274,7 @@ class LocalShortItem {
       case ShortCreationStatus.uploading:
         return 'Uploading to YouTube ${(progress * 100).toInt()}%';
       case ShortCreationStatus.processing:
-        return 'Syncing with Christian-Tube...';
+        return 'Syncing with ChristianApp...';
       case ShortCreationStatus.published:
         return 'Published & Live';
       case ShortCreationStatus.failed:
@@ -294,7 +294,7 @@ class LocalShortItem {
       thumbnailUrl: sourceVideoThumbnail ??
           'https://img.youtube.com/vi/$sourceVideoId/hqdefault.jpg',
       channelId: 'UC_ChristianTube_Local',
-      channelTitle: 'Christian-Tube',
+      channelTitle: 'ChristianApp',
       publishedAt: createdAt,
       duration: '${duration.toInt()}s',
       durationSeconds: duration.toInt(),

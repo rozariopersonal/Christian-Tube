@@ -8,7 +8,9 @@ export type SyncWatchItemType =
   | 'watch_later'
   | 'video_history'
   | 'video_playhead'
-  | 'audio_playback';
+  | 'audio_playback'
+  | 'liked_video'
+  | 'liked_short';
 
 export interface SyncOp {
   opId: string;
@@ -33,6 +35,7 @@ export interface RemoteSyncState {
     primaryBibleVersionId?: string;
     themeMode?: string;
     accentColor?: string;
+    defaultPage?: string;
     hasCompletedOnboarding?: boolean;
     fieldTimestamps?: Record<string, number>;
   };
@@ -47,6 +50,10 @@ export interface RemoteSyncState {
     watchedAt: number;
   }>;
   videoHistoryTombstones?: Record<string, number>;
+  likedVideos?: Array<{ video: Record<string, unknown>; likedAt: number }>;
+  likedVideoTombstones?: Record<string, number>;
+  likedShorts?: Array<{ video: Record<string, unknown>; likedAt: number }>;
+  likedShortTombstones?: Record<string, number>;
   videoPlayheads?: Record<string, { positionSeconds: number; updatedAt: number }>;
   audioPlayback?: {
     trackId?: string;
@@ -73,6 +80,14 @@ export class UserSyncService {
   private clockOffsetMs = this.readClockOffset();
   private activeUserId: string | null = null;
   private authPaused = false;
+  private wasExpired = false;
+  private operationSequence = 0;
+  private acknowledgedWrites = 0;
+
+  get acknowledgementVersion(): number {
+    return this.acknowledgedWrites;
+  }
+  private syncAllowed = false;
   private lastPullAt = 0;
   private inFlightSync: Promise<void> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -81,11 +96,30 @@ export class UserSyncService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
+      const expired = this.auth.sessionExpired();
+      const needsSignIn = this.auth.sessionNeedsSignIn();
       untracked(() => {
+        const recovered = this.wasExpired && !expired;
+        this.wasExpired = expired;
+
         if (user) {
+          if (needsSignIn || !this.auth.canSync()) {
+            if (this.activeUserId !== user.id) {
+              this.activeUserId = user.id;
+              this.pendingOps.set(this.readPendingMap(user.id));
+              this.remoteState.set(null);
+            }
+            this.syncAllowed = false;
+            return;
+          }
           const prevUserId = this.activeUserId;
+          const wasPaused = this.authPaused;
+          const resumed = !this.syncAllowed;
+          this.syncAllowed = true;
           this.activeUserId = user.id;
-          this.authPaused = false;
+          if (!expired) {
+            this.authPaused = false;
+          }
 
           if (user.id.startsWith('guest_')) {
             this.writeStorage(KEY_LAST_GUEST_ID, user.id);
@@ -96,10 +130,13 @@ export class UserSyncService {
           if (prevUserId !== user.id) {
             this.pendingOps.set(this.readPendingMap(user.id));
             this.remoteState.set(null);
+          }
+          if (prevUserId !== user.id || wasPaused || resumed || recovered) {
             void this.pullAndFlush(true);
           }
         } else if (this.activeUserId !== null) {
           this.activeUserId = null;
+          this.syncAllowed = false;
           this.authPaused = false;
           this.pendingOps.set({});
           this.remoteState.set(null);
@@ -147,7 +184,7 @@ export class UserSyncService {
     if (!userId || !channelId) return;
     const key = `sub:${channelId}`;
     const op: SyncOp = {
-      opId: `${key}:${Date.now()}`,
+      opId: `${key}:${Date.now()}:${this.operationSequence++}`,
       userId,
       kind: 'subscription',
       itemId: channelId,
@@ -163,7 +200,7 @@ export class UserSyncService {
     if (!userId || !field) return;
     const key = `pref:${field}`;
     const op: SyncOp = {
-      opId: `${key}:${Date.now()}`,
+      opId: `${key}:${Date.now()}:${this.operationSequence++}`,
       userId,
       kind: 'preference',
       itemId: field,
@@ -202,9 +239,53 @@ export class UserSyncService {
     void this.flushOutbox();
   }
 
+  likedItems(itemType: 'liked_video' | 'liked_short'): Array<Record<string, unknown>> {
+    const state = this.remoteState();
+    const items = itemType === 'liked_video' ? state?.likedVideos : state?.likedShorts;
+    const tombstones = itemType === 'liked_video' ? state?.likedVideoTombstones : state?.likedShortTombstones;
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const item of items ?? []) {
+      const id = item.video['id'];
+      if (typeof id === 'string' && id) byId.set(id, { ...item.video, id });
+    }
+    for (const id of Object.keys(tombstones ?? {})) byId.delete(id);
+    for (const op of Object.values(this.pendingOps())) {
+      if (op.kind !== 'watch_item' || op.itemType !== itemType) continue;
+      if (op.isDeleted) byId.delete(op.itemId);
+      else byId.set(op.itemId, byId.get(op.itemId) ?? { id: op.itemId });
+    }
+    return [...byId.values()];
+  }
+
+  likedIds(itemType: 'liked_video' | 'liked_short'): Set<string> {
+    return new Set(this.likedItems(itemType).map((item) => item['id']).filter((id): id is string => typeof id === 'string' && !!id));
+  }
+
+  isLiked(itemType: 'liked_video' | 'liked_short', itemId: string): boolean {
+    return !!itemId && this.likedIds(itemType).has(itemId);
+  }
+
+  setLiked(input: { itemType: 'liked_video' | 'liked_short'; itemId: string; liked: boolean }): void {
+    this.remoteState.update((state) => {
+      if (!state) return state;
+      const isVideo = input.itemType === 'liked_video';
+      const itemsKey = isVideo ? 'likedVideos' : 'likedShorts';
+      const tombstonesKey = isVideo ? 'likedVideoTombstones' : 'likedShortTombstones';
+      const items = (state[itemsKey] ?? []).filter((item) => String(item.video['id'] ?? '') !== input.itemId);
+      const tombstones = { ...(state[tombstonesKey] ?? {}) };
+      if (input.liked) {
+        delete tombstones[input.itemId];
+        items.unshift({ video: { id: input.itemId }, likedAt: this.nowServerAligned() });
+      } else tombstones[input.itemId] = this.nowServerAligned();
+      return { ...state, [itemsKey]: items, [tombstonesKey]: tombstones };
+    });
+    this.enqueueWatchItem({ itemType: input.itemType, itemId: input.itemId, isDeleted: !input.liked });
+    void this.pullAndFlush(true);
+  }
+
   async pullAndFlush(force = false): Promise<void> {
     const userId = this.auth.currentUser()?.id;
-    if (!userId) return;
+    if (!userId || !this.auth.canSync()) return;
     const now = Date.now();
     if (!force && now - this.lastPullAt < 15_000) {
       return;
@@ -219,6 +300,7 @@ export class UserSyncService {
       try {
         await this.flushOutbox();
         if (this.authPaused) return;
+        const version = this.acknowledgementVersion;
         const state = await firstValueFrom(
           this.api.get<RemoteSyncState>('/api/user/state'),
         );
@@ -226,13 +308,15 @@ export class UserSyncService {
           this.clockOffsetMs = state.serverTime - Date.now();
           this.writeStorage(KEY_CLOCK_OFFSET, String(this.clockOffsetMs));
         }
-        if (this.auth.currentUser()?.id === userId && state) {
+        if (this.auth.currentUser()?.id === userId &&
+            version === this.acknowledgementVersion && state) {
           this.remoteState.set(state);
         }
         this.retryDelayMs = 2000;
       } catch (err) {
         if (this.isAuthError(err)) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
         }
       } finally {
         this.isSyncing.set(false);
@@ -245,7 +329,7 @@ export class UserSyncService {
 
   async flushOutbox(): Promise<void> {
     const userId = this.auth.currentUser()?.id;
-    if (!userId || this.authPaused) return;
+    if (!userId || this.authPaused || !this.auth.canSync()) return;
 
     const currentMap = this.readPendingMap(userId);
     const entries = Object.entries(currentMap);
@@ -263,6 +347,8 @@ export class UserSyncService {
     }
 
     const keysToRemove = new Set<string>();
+    const acknowledgedSubscriptions: Array<[string, SyncOp]> = [];
+    let acknowledgedPreferences: RemoteSyncState['preferences'];
     let shouldRetry = false;
 
     // 1. Batch watch items
@@ -299,6 +385,7 @@ export class UserSyncService {
       } catch (err) {
         if (this.isAuthError(err)) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
           return;
         }
         if (this.isPermanentClientError(err)) {
@@ -310,6 +397,7 @@ export class UserSyncService {
     }
 
     // 2. Coalesced preferences delta
+    if (this.auth.currentUser()?.id !== userId) return;
     if (prefOps.length > 0) {
       const body: Record<string, unknown> = {};
       const fieldTimestamps: Record<string, number> = {};
@@ -322,11 +410,14 @@ export class UserSyncService {
       body['fieldTimestamps'] = fieldTimestamps;
 
       try {
-        await firstValueFrom(this.api.patch('/api/user/preferences', body));
+        acknowledgedPreferences = await firstValueFrom(
+          this.api.patch<RemoteSyncState['preferences']>('/api/user/preferences', body),
+        );
         for (const [key] of prefOps) keysToRemove.add(key);
       } catch (err) {
         if (this.isAuthError(err)) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
           return;
         }
         if (this.isPermanentClientError(err)) {
@@ -339,6 +430,7 @@ export class UserSyncService {
 
     // 3. Subscriptions
     for (const [key, op] of subOps) {
+      if (this.auth.currentUser()?.id !== userId) return;
       try {
         if (op.isActive) {
           await firstValueFrom(
@@ -353,10 +445,12 @@ export class UserSyncService {
             ),
           );
         }
+        acknowledgedSubscriptions.push([key, op]);
         keysToRemove.add(key);
       } catch (err) {
         if (this.isAuthError(err)) {
           this.authPaused = true;
+          this.auth.markSessionRejected();
           return;
         }
         if (this.isPermanentClientError(err)) {
@@ -367,8 +461,14 @@ export class UserSyncService {
       }
     }
 
+    if (this.auth.currentUser()?.id !== userId) return;
     if (keysToRemove.size > 0) {
       const latestMap = this.readPendingMap(userId);
+      const completedSubscriptions = acknowledgedSubscriptions
+        .filter(([key, op]) => latestMap[key]?.opId === op.opId);
+      const preferencesAreCurrent = prefOps.some(([key, op]) =>
+        latestMap[key]?.opId === op.opId,
+      );
       for (const key of keysToRemove) {
         const sentOp = currentMap[key];
         const latestOp = latestMap[key];
@@ -377,6 +477,25 @@ export class UserSyncService {
         }
       }
       this.writePendingMap(userId, latestMap);
+      if (completedSubscriptions.length > 0 ||
+          (acknowledgedPreferences && preferencesAreCurrent)) {
+        this.acknowledgedWrites++;
+        this.remoteState.update((state) => {
+          if (!state) return state;
+          const subscriptions = new Set(state.subscriptions);
+          for (const [, op] of completedSubscriptions) {
+            if (op.isActive) subscriptions.add(op.itemId);
+            else subscriptions.delete(op.itemId);
+          }
+          return {
+            ...state,
+            subscriptions: state.subscriptions ? [...subscriptions] : undefined,
+            preferences: preferencesAreCurrent
+              ? acknowledgedPreferences ?? state.preferences
+              : state.preferences,
+          };
+        });
+      }
     }
 
     if (shouldRetry) {

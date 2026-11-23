@@ -15,9 +15,11 @@ import '../core/config/app_config.dart';
 import '../features/auth/auth_service.dart';
 import '../features/shorts/players/shorts_player.dart';
 import '../features/update/update_service.dart';
+import '../features/update/services/update_preferences.dart';
 import '../features/audio/controllers/audio_player_controller.dart';
 import '../features/audio/widgets/mini_audio_player.dart';
 import '../features/feedback/widgets/floating_feedback_button.dart';
+import '../shared/ui/sync_avatar_button.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   final Widget child;
@@ -56,9 +58,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
         state == AppLifecycleState.detached) {
       AudioPlayerController.instance.flushPlayback();
     } else if (state == AppLifecycleState.resumed) {
-      AudioPlayerController.instance.syncWithCloud();
-      unawaited(UserSyncService.instance.pullAndFlush());
-      unawaited(UserItemSyncService.instance.pullAndPush());
+      unawaited(
+        widget.authService.proactiveRefreshIfNearExpiry().then((_) {
+          AudioPlayerController.instance.syncWithCloud();
+          unawaited(UserSyncService.instance.pullAndFlush());
+          unawaited(UserItemSyncService.instance.pullAndPush());
+        }),
+      );
     }
   }
 
@@ -67,9 +73,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
     // Wait for the root navigator and initial frame to settle
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
-    final updateData = await UpdateService.checkForUpdate();
-    if (updateData != null && mounted) {
-      UpdateService.showUpdatePopup(context, updateData);
+    try {
+      final updateData = await UpdateService.checkForUpdate();
+      if (updateData == null) return;
+      final skipped = await UpdatePreferences.isSkipped(updateData['latestVersion'] as String);
+      if (!skipped && mounted) UpdateService.showUpdatePopup(context, updateData);
+    } catch (_) {
+      // Automatic checks must never interrupt the app.
     }
   }
 
@@ -206,6 +216,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
             width: size.width,
             isLandscape: isLandscape,
             isShortPlaying: service.isShortPlaying,
+            isReaderFullscreen: service.isReaderFullscreen,
             isExplicitlyHidden: service.isExplicitlyHidden,
             currentPath: currentPath,
             isWatchRoute: currentPath.startsWith('/watch'),
@@ -421,6 +432,15 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
             ),
           )
           .toList(),
+      trailing: Expanded(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: SyncAvatarButton(authService: widget.authService),
+          ),
+        ),
+      ),
     );
   }
 }

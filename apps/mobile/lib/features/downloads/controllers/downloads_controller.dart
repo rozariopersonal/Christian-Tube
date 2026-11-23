@@ -15,7 +15,7 @@ import '../models/downloads_state.dart';
 import '../services/storage_calculator_service.dart';
 
 /// Central controller managing the state, operations, and disk accounting
-/// across all offline download resources in Christian Tube.
+/// across all offline download resources in ChristianApp.
 class DownloadsController extends ChangeNotifier {
   final BibleDownloadManager _bibleManager;
   final DictionaryDownloadManager _dictManager;

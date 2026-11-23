@@ -169,6 +169,8 @@ import { BooksService } from '../services/books.service';
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .search-box {
@@ -197,6 +199,8 @@ import { BooksService } from '../services/books.service';
         gap: 8px;
         overflow-x: auto;
         scrollbar-width: none;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .subject-strip {
@@ -270,7 +274,7 @@ import { BooksService } from '../services/books.service';
 
       .books-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
         gap: 18px 14px;
       }
 

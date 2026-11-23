@@ -87,7 +87,7 @@ function Stop-RetiredTranscriber {
     $docker = Resolve-Docker
     if ($docker) {
         try {
-            & $docker rm -f christiantube-transcriber 2>$null | Out-Null
+            & $docker rm -f christianapp-transcriber 2>$null | Out-Null
         } catch { }
     }
     Write-Host "Retired transcriber stopped cleanly."
@@ -98,7 +98,7 @@ function Show-Status {
     $docker = Resolve-Docker
     if ($docker) {
         & $docker compose -f $Compose ps youtube-processor
-        Write-Host "`n== ChristianTube Embedding Worker ==" -ForegroundColor Cyan
+        Write-Host "`n== ChristianApp Embedding Worker ==" -ForegroundColor Cyan
         & $docker compose -f $Compose ps embedder
     } else {
         Write-Host "  docker not found"

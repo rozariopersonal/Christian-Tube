@@ -52,7 +52,7 @@ if (isBeta) {
   }
 }
 
-console.log(`🚀 Preparing PrivateTube engine for instance: ${config.appName} (${config.instanceId}) [Channel: ${channel.toUpperCase()}]...`);
+console.log(`🚀 Preparing ChristianApp engine for instance: ${config.appName} (${config.instanceId}) [Channel: ${channel.toUpperCase()}]...`);
 
 // 1. Write instance config to mobile assets
 const mobileAssetsDir = path.join(rootDir, 'apps', 'mobile', 'assets');

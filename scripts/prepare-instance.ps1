@@ -17,7 +17,7 @@ if (-not (Test-Path $ConfigFile)) {
 }
 
 $Config = Get-Content $ConfigFile -Raw | ConvertFrom-Json
-Write-Host "🚀 Preparing PrivateTube engine for instance: $($Config.appName) ($InstanceId)..."
+Write-Host "🚀 Preparing ChristianApp engine for instance: $($Config.appName) ($InstanceId)..."
 
 # 1. Copy config to mobile assets
 $MobileAssets = Join-Path $RootDir "apps\mobile\assets"

@@ -6,6 +6,7 @@ import 'package:mobile/core/services/user_preference_service.dart';
 import 'package:mobile/core/theme/theme_service.dart';
 import 'package:mobile/features/auth/auth_service.dart';
 import 'package:mobile/features/onboarding/screens/onboarding_screen.dart';
+import 'package:mobile/features/onboarding/services/onboarding_draft_store.dart';
 import 'package:mobile/features/profile/screens/content_preferences_screen.dart';
 
 Widget buildTestApp(Widget child, {ThemeService? themeService}) {
@@ -61,6 +62,33 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
+    });
+
+    testWidgets('resumes a saved onboarding step after rebuilding the app', (tester) async {
+      await OnboardingDraftStore().save(const OnboardingDraft(
+        step: 5,
+        preferences: UserPreference(
+          languages: ['en', 'ta'],
+          videoChannelIds: ['video'],
+          channelSelectionsConfigured: true,
+          accentColor: 'teal',
+          themeMode: 'dark',
+          dailyReminderEnabled: true,
+          dailyReminderTime: '09:15',
+        ),
+        isAmoled: true,
+        channelsLoaded: true,
+      ));
+      final theme = ThemeService();
+      await tester.pumpWidget(buildTestApp(
+        OnboardingScreen(authService: AuthService(), themeService: theme),
+        themeService: theme,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Personalize Your App'), findsOneWidget);
+      expect(find.text('09:15'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('advances to language selection on tapping Continue as Guest',
@@ -212,11 +240,12 @@ void main() {
 
   group('Onboarding Bug Fixes & Edge Cases Tests', () {
     test('guest sign in generates unique guest identity without admin privilege', () async {
-      final auth = AuthService();
+      final auth = AuthService(registerAsShared: false);
       final user = await auth.signInAsGuest();
 
-      expect(user.email, startsWith('guest_user_'));
-      expect(user.email, endsWith('@guest.local'));
+      expect(user.id, startsWith('guest_'));
+      expect(user.isGuest, isTrue);
+      expect(user.email, isEmpty);
       expect(auth.isAdmin, isFalse);
       expect(user.email, isNot(equals('admin@centumacademy.org')));
     });
@@ -262,25 +291,19 @@ void main() {
       expect(find.text('Select Content Languages'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Advance to Step 2: Video Channels
+      // Advance to Step 2: Unified Channels
       await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
       await tester.pumpAndSettle();
-      expect(find.text('Follow Video Channels'), findsOneWidget);
+      expect(find.text('Follow Channels'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Advance to Step 3: Shorts Channels
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
-      await tester.pumpAndSettle();
-      expect(find.text('Follow Shorts Channels'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-
-      // Advance to Step 4: Bible Versions
+      // Advance to Step 3: Bible Versions
       await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
       await tester.pumpAndSettle();
       expect(find.text('Preferred Bible Translations'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Advance to Step 5: Personalization
+      // Advance to Step 4: Personalization
       await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
       await tester.pumpAndSettle();
       expect(find.text('Personalize Your App'), findsOneWidget);

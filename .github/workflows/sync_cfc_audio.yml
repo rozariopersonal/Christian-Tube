@@ -58,7 +58,7 @@ jobs:
           # main" would push a stale local branch and silently drop the new
           # commit. Always push HEAD:main, and authenticate per-repository:
           # RELEASE_PAT for the releases repo, GITHUB_TOKEN (contents: write on
-          # this repo) for Christian-Tube itself.
+          # this repo) for ChristianApp itself.
           push_head() {
             local token="$1"
             local remote

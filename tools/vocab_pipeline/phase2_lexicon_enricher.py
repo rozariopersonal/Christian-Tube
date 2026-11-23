@@ -185,7 +185,7 @@ def probe_backend():
     for host in candidates:
         # Check llama-server OpenAI endpoint
         try:
-            req = urllib.request.Request(f"{host}/v1/models", headers={"User-Agent": "ChristianTube-Pipeline"})
+            req = urllib.request.Request(f"{host}/v1/models", headers={"User-Agent": "ChristianApp-Pipeline"})
             with urllib.request.urlopen(req, timeout=3) as resp:
                 if resp.status == 200:
                     OLLAMA_HOST = host
@@ -197,7 +197,7 @@ def probe_backend():
 
         # Check Ollama version
         try:
-            req = urllib.request.Request(f"{host}/api/version", headers={"User-Agent": "ChristianTube-Pipeline"})
+            req = urllib.request.Request(f"{host}/api/version", headers={"User-Agent": "ChristianApp-Pipeline"})
             with urllib.request.urlopen(req, timeout=3) as resp:
                 if resp.status == 200:
                     OLLAMA_HOST = host

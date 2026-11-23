@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot"
-$SdkDir = "d:\Projects\Christian-Tube\.android-sdk"
+$SdkDir = "D:\Projects\Christian-Tube\.android-sdk"
 $LatestDir = "$SdkDir\cmdline-tools\latest"
 $AvdManager = "$LatestDir\bin\avdmanager.bat"
 

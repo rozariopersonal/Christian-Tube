@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/models/channel.dart';
 import '../../core/models/short.dart';
 import '../../core/theme/app_tokens.dart';
 import '../auth/auth_service.dart';
@@ -8,6 +9,7 @@ import '../channels/channel_service.dart';
 import 'players/shorts_player.dart';
 import '../search/shorts_search_delegate.dart';
 import '../../core/services/bottom_bar_visibility_service.dart';
+import '../../core/services/user_sync_service.dart';
 import '../../core/services/user_preference_service.dart';
 import 'services/shorts_orchestrator_service.dart';
 import 'widgets/my_creations_grid.dart';
@@ -17,6 +19,7 @@ import 'widgets/empty_my_creations.dart';
 import 'widgets/fullscreen_shorts_player.dart';
 import 'widgets/shorts_tab_chip.dart';
 import 'widgets/shorts_chrome.dart';
+import 'widgets/shorts_channel_filter_sheet.dart';
 import 'services/shorts_dialog_service.dart';
 import 'services/community_shorts_controller.dart';
 import '../audio/controllers/audio_player_controller.dart';
@@ -60,6 +63,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   // View state: null = Grid View, int = Fullscreen Short Player
   int? _selectedCommunityIndex;
+  List<Short>? _selectedCommunityShorts;
   int? _selectedCreationIndex;
 
   StreamSubscription<void>? _shortsResetSub;
@@ -115,25 +119,34 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   }
 
   Set<String> get _subscribedShortsChannelIds {
-    final prefShorts = _preferenceService.preferences.shortsChannelIds.toSet();
     final allSubs = _channelService.subscribedChannelIds;
     final channels = _channelService.channels;
 
-    Set<String> candidateIds;
-    if (prefShorts.isNotEmpty) {
-      candidateIds = prefShorts;
-    } else {
-      candidateIds = allSubs;
-    }
-
-    if (candidateIds.isEmpty) return const {};
+    if (allSubs.isEmpty) return const {};
 
     if (channels.isNotEmpty) {
       final shortsChannelsSet =
           channels.where((c) => c.hasShorts).map((c) => c.id).toSet();
-      return candidateIds.intersection(shortsChannelsSet);
+      return allSubs.intersection(shortsChannelsSet);
     }
-    return candidateIds;
+    return allSubs;
+  }
+
+  List<Channel> get _shortsFilterChannels {
+    final eligibleIds = _subscribedShortsChannelIds;
+    return _channelService.shortsChannels
+        .where((channel) => eligibleIds.contains(channel.id))
+        .toList();
+  }
+
+  Future<void> _openShortsChannelFilter() async {
+    final selectedIds = await ShortsChannelFilterSheet.show(
+      context,
+      channels: _shortsFilterChannels,
+      selectedChannelIds: _communityController.selectedChannelIds,
+    );
+    if (selectedIds == null || !mounted) return;
+    await _communityController.setChannelFilter(selectedIds);
   }
 
   void _onPreferenceContextChanged() {
@@ -168,9 +181,11 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   }
 
   void _openCommunityShortAt(int index) {
-    if (index < 0 || index >= _communityController.shorts.length) return;
+    final shorts = _communityController.filteredShorts;
+    if (index < 0 || index >= shorts.length) return;
     AudioPlayerController.instance.pause();
     setState(() {
+      _selectedCommunityShorts = shorts;
       _selectedCommunityIndex = index;
     });
   }
@@ -189,6 +204,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     if (mounted) {
       setState(() {
         _selectedCommunityIndex = null;
+        _selectedCommunityShorts = null;
         _selectedCreationIndex = null;
       });
     }
@@ -414,7 +430,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
 
   Widget _buildCommunityFeed(bool isTabVisible) {
     return ListenableBuilder(
-      listenable: _communityController,
+      listenable: Listenable.merge([_communityController, UserSyncService.instance]),
       builder: (context, _) {
         if (_communityController.isLoading) {
           return Center(
@@ -422,7 +438,8 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
           );
         }
 
-        if (_communityController.shorts.isEmpty) {
+        if (_communityController.displayShorts.isEmpty &&
+            _communityController.selectedChannelIds.isEmpty) {
           return EmptyCommunityShorts(
             onRefresh: _communityController.fetchShorts,
           );
@@ -431,18 +448,21 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
         final Widget currentView;
         if (_selectedCommunityIndex == null) {
           currentView = CommunityShortsGrid(
-            allShorts: _communityController.shorts,
+            allShorts: _communityController.displayShorts,
             filteredShorts: _communityController.filteredShorts,
             scrollController: _communityScrollController,
             onRefresh: _communityController.fetchShorts,
             isLoadingMore: _communityController.isLoadingMore,
             onShortTap: _openCommunityShortAt,
-            currentFilter: _communityController.filter,
-            onFilterSelected: _communityController.setFilter,
+            filterChannels: _shortsFilterChannels,
+            selectedChannelIds: _communityController.selectedChannelIds,
+            onChannelFilterTap: _openShortsChannelFilter,
+            likedOnly: _communityController.likedOnly,
+            onLikedOnlyChanged: _communityController.setLikedOnly,
           );
         } else {
           currentView = FullscreenShortsPlayer(
-            shorts: _communityController.shorts,
+            shorts: _selectedCommunityShorts ?? _communityController.filteredShorts,
             initialIndex: _selectedCommunityIndex!,
             onClose: _closeShortPlayer,
             onLoadMore: _communityController.loadMoreShorts,

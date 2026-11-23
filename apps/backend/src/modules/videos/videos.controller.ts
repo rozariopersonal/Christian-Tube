@@ -15,6 +15,10 @@ export class VideosController {
     @Query('sort') sort?: 'latest' | 'popular' | 'oldest' | 'relevance',
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
+    @Query('publishedBefore') publishedBefore?: string,
+    @Query('beforeId') beforeId?: string,
+    @Query('publishedAfter') publishedAfter?: string,
+    @Query('afterId') afterId?: string,
   ) {
     return this.videosService.findAll({
       category,
@@ -25,6 +29,10 @@ export class VideosController {
       sort,
       limit,
       offset,
+      publishedBefore,
+      beforeId,
+      publishedAfter,
+      afterId,
     });
   }
 
@@ -45,6 +53,11 @@ export class VideosController {
     },
   ) {
     return this.videosService.importShortVideo(body);
+  }
+
+  @Get(':id/channel-position')
+  async getChannelPosition(@Param('id') id: string) {
+    return this.videosService.getChannelPosition(id);
   }
 
   @Get(':id')

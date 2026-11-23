@@ -20,7 +20,7 @@ class ReaderPageColumn extends StatelessWidget {
   final ReaderAppearance appearance;
   final void Function(int pageNum) onTriggerFetch;
   final void Function(int pageNum) onRetry;
-  final Widget Function(BuildContext context, SelectableRegionState state, int pageNum) buildSelectionToolbar;
+  final Widget Function(BuildContext context, SelectableRegionState state, int pageNum, String selectedText) buildSelectionToolbar;
   final Widget Function(BookRenderBlock block, int pageNum, Color textColor, AppTokens tokens) buildBlock;
 
   const ReaderPageColumn({
@@ -121,7 +121,7 @@ class ReaderPageColumn extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: DoubleTapDictionaryArea(
-                contextMenuBuilder: (context, state) => buildSelectionToolbar(context, state, pageNum),
+                contextMenuBuilder: (context, state, text) => buildSelectionToolbar(context, state, pageNum, text),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: blocks.map((b) => buildBlock(b, pageNum, textColor, tokens)).toList(),

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/short.dart';
 import '../../../core/models/local_short_item.dart';
 import '../../../core/services/bottom_bar_visibility_service.dart';
+import '../../../core/services/user_sync_service.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../services/shorts_orchestrator_service.dart';
 import '../services/shorts_dialog_service.dart';
@@ -54,6 +55,9 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
   bool _playPauseOverlayPlaying = true;
   Timer? _overlayTimer;
 
+  bool _showLikeBurst = false;
+  Timer? _likeBurstTimer;
+
   int get _itemCount => widget.shorts?.length ?? widget.localItems?.length ?? 0;
 
   @override
@@ -70,8 +74,23 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
     _pageController.dispose();
     _autoHideTimer?.cancel();
     _overlayTimer?.cancel();
+    _likeBurstTimer?.cancel();
     // Do not setShortPlaying(false) here, let the parent do it so it doesn't flash.
     super.dispose();
+  }
+
+  void _triggerLikeBurst() {
+    _likeBurstTimer?.cancel();
+    setState(() {
+      _showLikeBurst = true;
+    });
+    _likeBurstTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) {
+        setState(() {
+          _showLikeBurst = false;
+        });
+      }
+    });
   }
 
   void _startAutoHideTimer() {
@@ -204,6 +223,28 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
           areControlsVisible: _areControlsVisible,
           short: short,
           localItem: localItem,
+          showLikeBurst: isCurrentActive && _showLikeBurst,
+          onDoubleTapLike: (localItem == null && !isNonPlayableLocalShort)
+              ? () {
+                  HapticFeedback.lightImpact();
+                  if (UserSyncService.instance.activeUserId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sign in to save liked Shorts'),
+                        duration: Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    return;
+                  }
+                  UserSyncService.instance.setLiked(
+                    itemType: UserSyncService.likedShortType,
+                    itemId: short.id,
+                    liked: true,
+                  );
+                  _triggerLikeBurst();
+                }
+              : null,
           onShare: () => ShortsDialogService.shareShort(context, short,
               localItem: localItem),
           isScrubbing: _isScrubbing,
@@ -270,10 +311,12 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
                     itemCount: _itemCount,
                     onPageChanged: (index) {
                       HapticFeedback.lightImpact();
+                      _likeBurstTimer?.cancel();
                       setState(() {
                         _currentPage = index;
                         _isPlaying = true;
                         _areControlsVisible = true;
+                        _showLikeBurst = false;
                         _currentPosition = 0.0;
                         _totalDuration = 0.0;
                       });

@@ -39,7 +39,7 @@ export default () => {
   return {
     port: parseInt(process.env.PORT || '3000', 10),
     instanceId,
-    appName: process.env.APP_NAME || instanceConfig.appName || 'PrivateTube',
+    appName: process.env.APP_NAME || instanceConfig.appName || 'ChristianApp',
     databaseUrl: process.env.DATABASE_URL,
     googleClientId: process.env.GOOGLE_CLIENT_ID || instanceConfig.googleClientId,
     googleClientIds,
@@ -97,6 +97,16 @@ export default () => {
     internalJobSecret: process.env.INTERNAL_JOB_SECRET,
     githubToken: process.env.GITHUB_TOKEN || process.env.GITHUB_FEEDBACK_TOKEN,
     githubRepo: process.env.GITHUB_REPO || 'rozariopersonal/Christian-Tube',
+    auth: {
+      jwtKeysRaw: process.env.AUTH_JWT_KEYS || '',
+      jwtSecretFallback: process.env.AUTH_JWT_SECRET || '',
+      rejectLegacyGuestImpersonation:
+        process.env.AUTH_REJECT_LEGACY_GUEST_IMPERSONATION === 'true',
+      accessTokenTtlSec: 900,
+      refreshTokenTtlDays: 90,
+      graceWindowSec: 60,
+      maxSessionsPerUser: 20,
+    },
     adminEmails,
     instanceConfig,
     seedChannels: [],
