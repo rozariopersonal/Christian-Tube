@@ -1011,7 +1011,6 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   });
 
   readonly isLiked = computed(() => {
-  readonly isLiked = computed(() => {
     const v = this.video();
     if (!v) return false;
     const itemType = v.type === 'SHORT' ? 'liked_short' : 'liked_video';
