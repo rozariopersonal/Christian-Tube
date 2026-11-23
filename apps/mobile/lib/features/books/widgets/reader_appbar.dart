@@ -25,6 +25,7 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onOpenToc;
   final VoidCallback onOpenHighlights;
   final VoidCallback onShowAppearance;
+  final VoidCallback onToggleFullscreen;
 
   const BookReaderAppBar({
     super.key,
@@ -38,6 +39,7 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onOpenToc,
     required this.onOpenHighlights,
     required this.onShowAppearance,
+    required this.onToggleFullscreen,
   });
 
   @override
@@ -121,8 +123,19 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
                   if (val == 'highlights') onOpenHighlights();
                   if (val == 'appearance') onShowAppearance();
                   if (val == 'share') shareBook();
+                  if (val == 'fullscreen') onToggleFullscreen();
                 },
                 itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                    value: 'fullscreen',
+                    child: Row(
+                      children: [
+                        Icon(Icons.fullscreen_rounded, color: tokens.accent, size: 20),
+                        const SizedBox(width: 12),
+                        Text('Fullscreen reading', style: TextStyle(color: textCol)),
+                      ],
+                    ),
+                  ),
                   PopupMenuItem(
                     value: 'share',
                     child: Row(
@@ -164,6 +177,11 @@ class BookReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ]
           : [
+              IconButton(
+                icon: Icon(Icons.fullscreen_rounded, color: mutedCol, size: 21),
+                tooltip: 'Enter fullscreen reading',
+                onPressed: onToggleFullscreen,
+              ),
               IconButton(
                 icon: Icon(Icons.share_outlined, color: mutedCol, size: 21),
                 tooltip: 'Share',

@@ -180,9 +180,7 @@ function main() {
       body += `\n`;
     } else {
       body += `#### 📋 Highlights\n`;
-      body += `- Performance optimizations and video streaming stability\n`;
-      body += `- In-app update enhancements\n`;
-      body += `- General quality and usability improvements\n\n`;
+      body += `Release notes are not available for this version.\n\n`;
     }
   }
 

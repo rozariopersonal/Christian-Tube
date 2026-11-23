@@ -108,6 +108,13 @@ class WebBookDataAdapter implements BookDataAdapter {
     final prefs = await SharedPreferences.getInstance();
     final key = 'highlights_${highlight.bookId}';
     final existing = prefs.getStringList(key) ?? [];
+    existing.removeWhere((entry) {
+      try {
+        return (jsonDecode(entry) as Map<String, dynamic>)['id'] == highlight.id;
+      } catch (_) {
+        return false;
+      }
+    });
     existing.add(jsonEncode(highlight.toMap()));
     await prefs.setStringList(key, existing);
   }

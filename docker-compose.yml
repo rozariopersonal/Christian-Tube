@@ -1,4 +1,4 @@
-# Local development stack for the PrivateTube backend.
+# Local development stack for the ChristianApp backend.
 #
 # Provides:
 #   - `db`:      PostgreSQL (the same image/port the backend's Prisma client targets).
@@ -19,7 +19,7 @@
 services:
   db:
     image: pgvector/pgvector:pg16
-    container_name: christiantube-db
+    container_name: christianapp-db
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -40,7 +40,7 @@ services:
     build:
       context: .
       dockerfile: deployment/prod/Dockerfile.backend
-    container_name: christiantube-backend
+    container_name: christianapp-backend
     restart: always
     depends_on:
       db:
@@ -54,7 +54,7 @@ services:
   youtube-processor:
     build:
       context: ./services/youtube-processor
-    container_name: christiantube-youtube-processor
+    container_name: christianapp-youtube-processor
     restart: always
     env_file:
       - envs/common.env
@@ -70,7 +70,7 @@ services:
     build:
       context: .
       dockerfile: services/embedder/Dockerfile
-    container_name: christiantube-embedder
+    container_name: christianapp-embedder
     restart: always
     depends_on:
       db:
@@ -86,7 +86,7 @@ services:
     build:
       context: .
       dockerfile: tools/transcriber/Dockerfile
-    container_name: christiantube-transcriber
+    container_name: christianapp-transcriber
     restart: always
     env_file:
       - envs/common.env
@@ -99,7 +99,7 @@ services:
     build:
       context: .
       dockerfile: services/chunker/Dockerfile
-    container_name: christiantube-chunker
+    container_name: christianapp-chunker
     restart: always
     depends_on:
       db:

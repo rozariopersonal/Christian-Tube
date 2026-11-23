@@ -2,5 +2,16 @@
   "buildCommand": "bash scripts/build-web.sh",
   "installCommand": "npm install",
   "framework": null,
-  "outputDirectory": ".vercel/output"
+  "outputDirectory": ".vercel/output",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://accounts.google.com https://*.onrender.com https://cdn.jsdelivr.net https://raw.githubusercontent.com https://api.dictionaryapi.dev https://api.scripture.api.bible https://api.youversion.com http://localhost:*; frame-src 'self' https://accounts.google.com https://www.youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+        }
+      ]
+    }
+  ]
 }

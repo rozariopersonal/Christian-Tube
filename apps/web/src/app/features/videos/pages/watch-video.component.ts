@@ -1,8 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
+  NgZone,
   OnDestroy,
   OnInit,
   ViewChild,
@@ -13,6 +15,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { ChannelService } from '../../channels/services/channel.service';
 import {
@@ -23,6 +26,7 @@ import {
 import { VideoLibraryService } from '../services/video-library.service';
 import { VideoPlayerService } from '../services/video-player.service';
 import { VideoService } from '../services/video.service';
+import { UserSyncService } from '../../../core/services/user-sync.service';
 
 interface DescriptionSegment {
   text: string;
@@ -172,6 +176,10 @@ function ensureYouTubeIframeApi(): Promise<void> {
                 }
 
                 <div class="bar-actions">
+                  <button type="button" class="pill-chip" [class.active]="isLiked()" (click)="toggleLike()" [attr.aria-pressed]="isLiked()">
+                    <span class="material-symbols-rounded" [class.filled]="isLiked()">favorite</span>
+                    {{ isLiked() ? 'Liked' : 'Like' }}
+                  </button>
                   <button
                     type="button"
                     class="pill-chip"
@@ -290,6 +298,11 @@ function ensureYouTubeIframeApi(): Promise<void> {
 
             <div class="upnext-header">
               <h2 class="section-heading">Up Next</h2>
+              @if (previousVideosAvailable()) {
+                <button class="load-previous" type="button" [disabled]="loadingPreviousVideos()" (click)="loadPreviousVideos()">
+                  {{ loadingPreviousVideos() ? 'Loading...' : previousLoadError() ? 'Retry previous videos' : 'Load previous videos' }}
+                </button>
+              }
               <label class="autoplay-toggle">
                 <span>Autoplay</span>
                 <input
@@ -300,9 +313,17 @@ function ensureYouTubeIframeApi(): Promise<void> {
               </label>
             </div>
 
-            @if (related().length > 0) {
+            @if (
+              video() ||
+              loadingMoreRecommendations() ||
+              recommendationsLoadError() ||
+              recommendationsHasMore()
+            ) {
               <div class="related-list">
-                @for (item of related(); track item.id) {
+                @if (previousVideosAvailable()) {
+                  <div #previousEnd></div>
+                }
+                @for (item of watchList(); track item.id) {
                   <a
                     class="related-row"
                     [class.now-playing]="item.id === video()!.id"
@@ -337,6 +358,29 @@ function ensureYouTubeIframeApi(): Promise<void> {
                       </span>
                     </div>
                   </a>
+                }
+                @if (recommendationsHasMore()) {
+                  <div
+                    #recommendationsEnd
+                    class="recommendations-load-more"
+                    aria-live="polite"
+                  >
+                    @if (recommendationsLoadError()) {
+                      <button type="button" (click)="retryRecommendationsPage()">
+                        Couldn’t load videos. Retry
+                      </button>
+                    } @else if (loadingMoreRecommendations()) {
+                      <span>Loading more videos...</span>
+                    } @else {
+                      <button type="button" (click)="loadNextRecommendationsPage()">
+                        Load more videos
+                      </button>
+                    }
+                  </div>
+                } @else if (recommendationsLoadError()) {
+                  <div class="recommendations-load-more">
+                    <button type="button" (click)="retryRecommendationsPage()">Couldn’t load videos. Retry</button>
+                  </div>
                 }
               </div>
             }
@@ -616,6 +660,16 @@ function ensureYouTubeIframeApi(): Promise<void> {
         font-weight: 700;
       }
 
+      .load-previous {
+        border: 0;
+        padding: 4px;
+        background: transparent;
+        color: var(--accent);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
       .clear-q {
         font-size: 12px;
         color: var(--accent);
@@ -635,6 +689,26 @@ function ensureYouTubeIframeApi(): Promise<void> {
         display: flex;
         flex-direction: column;
         gap: 10px;
+      }
+
+      .recommendations-load-more {
+        min-height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        color: var(--on-surface-muted);
+        text-align: center;
+        font-size: 12px;
+      }
+
+      .recommendations-load-more button {
+        border: 0;
+        padding: 4px 8px;
+        background: transparent;
+        color: var(--accent);
+        font: inherit;
+        cursor: pointer;
       }
 
       .queue-row {
@@ -787,14 +861,89 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   readonly channels = inject(ChannelService);
   readonly screen = inject(ScreenClassService);
   readonly library = inject(VideoLibraryService);
+  readonly userSync = inject(UserSyncService);
   private readonly playerService = inject(VideoPlayerService);
+  private readonly zone = inject(NgZone);
+  private readonly destroyRef = inject(DestroyRef);
 
-  @ViewChild('ytHost') ytHostRef?: ElementRef<HTMLDivElement>;
+  private recommendationsObserver?: IntersectionObserver;
+  private previousObserver?: IntersectionObserver;
+  private previousLoadingEnabled = false;
+  private previousScrollArmed = false;
+  private previousCursor?: Video;
+  private previousPage = 0;
+  private previousTotalPages = 0;
+  private nextPage = 0;
+  private nextTotalPages = 0;
+  private lastPreviousPageKey: string | null = null;
+
+  @ViewChild('previousEnd')
+  set previousEndRef(ref: ElementRef<HTMLDivElement> | undefined) {
+    this.previousObserver?.disconnect();
+    this.previousObserver = undefined;
+    if (!ref || typeof IntersectionObserver === 'undefined') return;
+    this.previousObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) {
+          if (this.previousLoadingEnabled && !this.loadingPreviousVideos()) {
+            this.previousScrollArmed = true;
+          }
+        } else if (this.previousLoadingEnabled && this.previousScrollArmed &&
+                   !this.loadingPreviousVideos() && !this.previousLoadError()) {
+          this.previousScrollArmed = false;
+          this.zone.run(() => void this.loadPreviousVideos());
+        }
+      }
+    }, { rootMargin: '100px 0px' });
+    this.previousObserver.observe(ref.nativeElement);
+  }
+
+  @ViewChild('recommendationsEnd')
+  set recommendationsEndRef(ref: ElementRef<HTMLDivElement> | undefined) {
+    this.recommendationsObserver?.disconnect();
+    this.recommendationsObserver = undefined;
+    if (!ref || typeof IntersectionObserver === 'undefined') return;
+
+    this.recommendationsObserver = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries.some((entry) => entry.isIntersecting) &&
+          !this.loadingMoreRecommendations() &&
+          !this.recommendationsLoadError()
+        ) {
+          this.zone.run(() => this.loadNextRecommendationsPage());
+        }
+      },
+      { rootMargin: '240px 0px' },
+    );
+    this.recommendationsObserver.observe(ref.nativeElement);
+  }
+
+  private ytHostRef?: ElementRef<HTMLDivElement>;
+  private ytPlayerReady = false;
+  private ytMountGeneration = 0;
+
+  @ViewChild('ytHost')
+  set ytHost(value: ElementRef<HTMLDivElement> | undefined) {
+    if (this.ytHostRef?.nativeElement === value?.nativeElement) return;
+    this.ytHostRef = value;
+    if (value) void this.mountYouTubePlayer(value.nativeElement);
+  }
   @ViewChild('nativeVideo') nativeVideoRef?: ElementRef<HTMLVideoElement>;
   @ViewChild('playerContainer') playerContainerRef?: ElementRef<HTMLDivElement>;
 
   readonly video = signal<Video | null>(null);
   readonly related = signal<Video[]>([]);
+  readonly previousVideos = signal<Video[]>([]);
+  readonly previousVideosAvailable = signal(false);
+  readonly loadingPreviousVideos = signal(false);
+  readonly previousLoadError = signal(false);
+  readonly watchList = computed(() => {
+    const current = this.video();
+    const previous = this.previousVideos();
+    const previousIds = new Set(previous.map((item) => item.id));
+    return [...previous, ...(current ? [current] : []), ...this.related().filter((item) => !previousIds.has(item.id))];
+  });
   readonly loading = signal<boolean>(true);
   readonly descExpanded = signal<boolean>(false);
   readonly shareOpen = signal<boolean>(false);
@@ -802,11 +951,18 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   readonly copied = signal<boolean>(false);
   readonly currentSecondsSnapshot = signal<number>(0);
   readonly countdown = signal<number | null>(null);
+  readonly loadingMoreRecommendations = signal<boolean>(false);
+  readonly recommendationsLoadError = signal<boolean>(false);
 
   private ytPlayer: YTPlayerInstance | null = null;
   private progressTimer: ReturnType<typeof setInterval> | null = null;
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
   private initialStartSeconds = 0;
+  readonly recommendationsHasMore = signal<boolean>(false);
+  private recommendationsInitialLoadComplete = false;
+  private recommendationsCursor?: Video;
+  private lastRecommendationsPageKey: string | null = null;
+  private recommendationsGeneration = 0;
 
   readonly isSubscribed = computed(() => {
     const chId = this.video()?.channelId;
@@ -818,13 +974,24 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
     return id ? this.library.isWatchLater(id) : false;
   });
 
+  readonly isLiked = computed(() => {
+    const v = this.video();
+    if (!v) return false;
+    const itemType = v.type === 'SHORT' ? 'liked_short' : 'liked_video';
+    return this.userSync.isLiked(itemType, v.id);
+  });
+
+  toggleLike(): void {
+    const video = this.video();
+    if (!video) return;
+    const itemType = video.type === 'SHORT' ? 'liked_short' : 'liked_video';
+    this.userSync.setLiked({ itemType, itemId: video.id, liked: !this.isLiked() });
+  }
+
   readonly nextUpVideo = computed<Video | null>(() => {
-    const curId = this.video()?.id;
-    return (
-      this.library.queue()[0] ??
-      this.related().find((r) => r.id !== curId) ??
-      null
-    );
+    const currentId = this.video()?.id;
+    const queued = this.library.queue().find((item) => item.id !== currentId);
+    return queued ?? this.related()[0] ?? null;
   });
 
   readonly descriptionSegments = computed<DescriptionSegment[]>(() => {
@@ -864,7 +1031,7 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.playerService.closeMiniPlayer();
     void this.channels.loadSubscriptions();
-    combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(
+    combineLatest([this.route.paramMap, this.route.queryParamMap]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(
       async ([params, qp]) => {
         const id = params.get('id');
         if (!id) return;
@@ -875,6 +1042,9 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.recommendationsGeneration++;
+    this.recommendationsObserver?.disconnect();
+    this.previousObserver?.disconnect();
     this.saveCurrentProgress();
     this.teardownPlayers();
   }
@@ -919,14 +1089,35 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   }
 
   private async loadVideo(id: string, queryStartSeconds: number): Promise<void> {
+    const generation = ++this.recommendationsGeneration;
     this.saveCurrentProgress();
     this.cancelCountdown();
+    this.related.set([]);
+    this.previousVideos.set([]);
+    this.previousCursor = undefined;
+    this.previousPage = 0;
+    this.previousTotalPages = 0;
+    this.nextPage = 0;
+    this.nextTotalPages = 0;
+    this.lastPreviousPageKey = null;
+    this.previousVideosAvailable.set(false);
+    this.loadingPreviousVideos.set(false);
+    this.previousLoadError.set(false);
+    this.previousLoadingEnabled = false;
+    this.previousScrollArmed = false;
+    this.recommendationsHasMore.set(false);
+    this.recommendationsInitialLoadComplete = false;
+    this.loadingMoreRecommendations.set(false);
+    this.recommendationsLoadError.set(false);
+    this.recommendationsCursor = undefined;
+    this.lastRecommendationsPageKey = null;
     if (!this.video()) {
       this.loading.set(true);
     }
     this.descExpanded.set(false);
 
     const v = await this.videoService.fetchVideoById(id);
+    if (generation !== this.recommendationsGeneration) return;
     this.video.set(v);
     this.loading.set(false);
 
@@ -935,41 +1126,36 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
     this.initialStartSeconds =
       queryStartSeconds > 0 ? queryStartSeconds : this.library.resumeSeconds(v.id);
 
     this.library.recordProgress(v, this.initialStartSeconds, 0);
 
-    const rel = await this.videoService.queryVideos({
-      channelId: v.channelId || undefined,
-      limit: 16,
-      type: 'VIDEO',
-    });
-    this.related.set(rel);
-
+    this.previousCursor = v;
+    this.recommendationsCursor = v;
     if (v.streamUrl) {
       this.teardownPlayers();
-    } else if (this.ytPlayer?.loadVideoById) {
+    } else if (this.ytPlayer && this.ytPlayerReady) {
       this.ytPlayer.loadVideoById({
         videoId: v.id,
         startSeconds: this.initialStartSeconds > 0 ? this.initialStartSeconds : 0,
       });
-    } else {
-      setTimeout(() => void this.mountYouTubePlayer(v), 0);
     }
+    if (v.channelId) void this.loadChannelPageCounts(v, generation);
   }
 
-  private async mountYouTubePlayer(v: Video): Promise<void> {
+  private async mountYouTubePlayer(host: HTMLDivElement): Promise<void> {
+    const mountGeneration = ++this.ytMountGeneration;
     await ensureYouTubeIframeApi();
-    const host = this.ytHostRef?.nativeElement;
-    if (!host || !window.YT?.Player) return;
+    const v = this.video();
+    if (mountGeneration !== this.ytMountGeneration ||
+        this.ytHostRef?.nativeElement !== host || !host.isConnected ||
+        !v || v.streamUrl || !window.YT?.Player) return;
 
     const ytId = v.id;
-    this.ytPlayer = new window.YT.Player(host, {
+    const playerTarget = document.createElement('div');
+    host.replaceChildren(playerTarget);
+    this.ytPlayer = new window.YT.Player(playerTarget, {
       width: '100%',
       height: '100%',
       videoId: ytId,
@@ -980,7 +1166,16 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
         start: this.initialStartSeconds > 0 ? this.initialStartSeconds : 0,
       },
       events: {
-        onReady: () => {
+        onReady: (event) => {
+          if (mountGeneration !== this.ytMountGeneration) return;
+          this.ytPlayerReady = true;
+          const current = this.video();
+          if (current && !current.streamUrl) {
+            event.target.loadVideoById({
+              videoId: current.id,
+              startSeconds: this.initialStartSeconds,
+            });
+          }
           this.startProgressPolling();
         },
         onStateChange: (ev) => {
@@ -1015,6 +1210,8 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   }
 
   private teardownPlayers(): void {
+    this.ytMountGeneration++;
+    this.ytPlayerReady = false;
     if (this.progressTimer) {
       clearInterval(this.progressTimer);
       this.progressTimer = null;
@@ -1048,6 +1245,14 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   }
 
   onPlaybackEnded(): void {
+    if (!this.library.autoplay()) return;
+    void this.startAutoplayCountdown();
+  }
+
+  private async startAutoplayCountdown(): Promise<void> {
+    if (!this.nextUpVideo() && this.recommendationsHasMore()) {
+      await this.loadMoreRecommendations(this.recommendationsGeneration);
+    }
     if (!this.library.autoplay() || !this.nextUpVideo()) return;
     this.cancelCountdown();
     this.countdown.set(5);
@@ -1072,11 +1277,160 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
 
   playNextNow(): void {
     this.cancelCountdown();
-    const curId = this.video()?.id;
-    const queued = this.library.consumeNextInQueue();
-    const next = queued ?? this.related().find((r) => r.id !== curId) ?? null;
+    const currentId = this.video()?.id;
+    let queued = this.library.consumeNextInQueue();
+    while (queued?.id === currentId) {
+      queued = this.library.consumeNextInQueue();
+    }
+    const next = queued ?? this.related()[0] ?? null;
     if (next) {
       void this.router.navigate(['/watch', next.id]);
+    }
+  }
+
+  loadNextRecommendationsPage(): void {
+    void this.loadMoreRecommendations(this.recommendationsGeneration);
+  }
+
+  private async loadChannelPageCounts(current: Video, generation: number): Promise<void> {
+    try {
+      const counts = await this.videoService.fetchChannelPosition(current.id);
+      if (generation !== this.recommendationsGeneration) return;
+      this.previousTotalPages = Math.ceil(counts.newer / 16);
+      this.nextTotalPages = Math.ceil(counts.older / 16);
+      this.previousLoadError.set(false);
+      this.previousVideosAvailable.set(this.previousPage < this.previousTotalPages);
+      this.recommendationsHasMore.set(this.nextPage < this.nextTotalPages);
+      if (this.recommendationsHasMore()) void this.loadMoreRecommendations(generation);
+    } catch {
+      if (generation === this.recommendationsGeneration) {
+        this.previousLoadError.set(true);
+        this.previousVideosAvailable.set(false);
+        this.recommendationsLoadError.set(true);
+      }
+    }
+  }
+
+  async loadPreviousVideos(): Promise<void> {
+    const current = this.video();
+    const cursor = this.previousCursor;
+    if (!current?.channelId || !cursor || !this.previousVideosAvailable() || this.loadingPreviousVideos()) return;
+    this.previousLoadingEnabled = true;
+    this.previousScrollArmed = false;
+    this.loadingPreviousVideos.set(true);
+    this.previousLoadError.set(false);
+    const generation = this.recommendationsGeneration;
+    try {
+      const page = await this.videoService.queryVideos({
+          channelId: current.channelId,
+          type: 'VIDEO',
+          sort: 'oldest',
+          limit: 16,
+          publishedAfter: cursor.publishedAt,
+          afterId: cursor.id,
+        });
+        if (generation !== this.recommendationsGeneration) return;
+        const key = page.map((item) => item.id).join('\u0000');
+        if (page.length > 0 && key === this.lastPreviousPageKey) {
+          throw new Error('Previous video pagination did not advance');
+        }
+        this.lastPreviousPageKey = key;
+      if (generation !== this.recommendationsGeneration) return;
+      const knownIds = new Set(this.previousVideos().map((item) => item.id));
+      const cursorTime = Date.parse(cursor.publishedAt);
+      const items = page.filter((item) => {
+        const time = Date.parse(item.publishedAt);
+        if (!item.id || knownIds.has(item.id) ||
+            !(time > cursorTime || (time === cursorTime && item.id > cursor.id))) return false;
+        knownIds.add(item.id);
+        return true;
+      });
+      if (page.length > 0 && items.length !== page.length) {
+        throw new Error('Previous video page did not advance');
+      }
+      if (items.length) {
+        this.previousCursor = items[items.length - 1];
+        this.previousVideos.set([...items.reverse(), ...this.previousVideos()]);
+      }
+      this.previousPage++;
+      this.previousVideosAvailable.set(this.previousPage < this.previousTotalPages && items.length > 0);
+    } catch {
+      if (generation === this.recommendationsGeneration) this.previousLoadError.set(true);
+    } finally {
+      if (generation === this.recommendationsGeneration) this.loadingPreviousVideos.set(false);
+    }
+  }
+
+  retryRecommendationsPage(): void {
+    this.recommendationsLoadError.set(false);
+    if (!this.recommendationsInitialLoadComplete && this.nextTotalPages === 0) {
+      const current = this.video();
+      if (current) void this.loadChannelPageCounts(current, this.recommendationsGeneration);
+    } else {
+      void this.loadMoreRecommendations(this.recommendationsGeneration);
+    }
+  }
+
+  private async loadMoreRecommendations(generation: number): Promise<void> {
+    const current = this.video();
+    if (
+      !current?.channelId ||
+      (this.recommendationsInitialLoadComplete && !this.recommendationsHasMore()) ||
+      this.loadingMoreRecommendations()
+    ) {
+      return;
+    }
+
+    this.loadingMoreRecommendations.set(true);
+    this.recommendationsLoadError.set(false);
+    try {
+      {
+        const cursor = this.recommendationsCursor;
+        if (!cursor) return;
+        const page = await this.videoService.queryVideos({
+            channelId: current.channelId,
+            type: 'VIDEO',
+            sort: 'latest',
+            limit: 16,
+            publishedBefore: cursor.publishedAt,
+            beforeId: cursor.id,
+          });
+          if (generation !== this.recommendationsGeneration) return;
+          const pageKey = page.map((item) => item.id).join('\u0000');
+          if (page.length > 0 && pageKey === this.lastRecommendationsPageKey) {
+            throw new Error('Recommendations pagination did not advance');
+          }
+          this.lastRecommendationsPageKey = pageKey;
+
+        const existingIds = new Set(this.related().map((item) => item.id));
+        const currentTime = Date.parse(cursor.publishedAt);
+        const unique = page.filter((item) => {
+          const itemTime = Date.parse(item.publishedAt);
+          const older = itemTime < currentTime ||
+            (itemTime === currentTime && item.id < cursor.id);
+          if (!item.id || !older || existingIds.has(item.id)) return false;
+          existingIds.add(item.id);
+          return true;
+        });
+        if (page.length > 0 && unique.length !== page.length) {
+          throw new Error('Recommendations pagination did not advance');
+        }
+        if (unique.length > 0) {
+          this.related.set([...this.related(), ...unique]);
+          this.recommendationsCursor = unique[unique.length - 1];
+        }
+        this.nextPage++;
+        this.recommendationsHasMore.set(this.nextPage < this.nextTotalPages && page.length > 0);
+        this.recommendationsInitialLoadComplete = true;
+      }
+    } catch {
+      if (generation === this.recommendationsGeneration) {
+        this.recommendationsLoadError.set(true);
+      }
+    } finally {
+      if (generation === this.recommendationsGeneration) {
+        this.loadingMoreRecommendations.set(false);
+      }
     }
   }
 

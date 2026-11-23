@@ -27,7 +27,7 @@ export class UsersController {
   ) {
     return this.usersService.syncUser({
       id: user.userId,
-      email: user.email || body?.email || '',
+      email: user.isGuest ? '' : (user.email || body?.email || ''),
       displayName: body?.displayName,
       photoUrl: body?.photoUrl,
     });

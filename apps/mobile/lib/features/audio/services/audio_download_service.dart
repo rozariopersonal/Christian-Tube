@@ -295,7 +295,7 @@ class AudioDownloadService extends ChangeNotifier {
     final dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(minutes: 10),
-      headers: {'User-Agent': 'ChristianTube/1.32'},
+      headers: {'User-Agent': 'ChristianApp/1.32'},
     ));
     final cancelToken = CancelToken();
     _cancelTokens[track.id] = cancelToken;

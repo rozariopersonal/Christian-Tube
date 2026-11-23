@@ -152,6 +152,25 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
   // -------------------------------------------------------------
   // TAB 1: Content Languages
   // -------------------------------------------------------------
+  Future<void> _setChannelSelection(bool isShorts, Set<String> selected) async {
+    final followed = _channelService.subscribedChannelIds;
+    final previousVideo = _currentPref.videoFeedChannels(followed);
+    final previousShorts = _currentPref.shortsFeedChannels(followed);
+    final video = isShorts ? previousVideo : selected;
+    final shorts = isShorts ? selected : previousShorts;
+    await Future.wait([
+      _updatePreferences(_currentPref.copyWith(
+        videoChannelIds: video.toList(),
+        shortsChannelIds: shorts.toList(),
+        channelSelectionsConfigured: true,
+      )),
+      _channelService.saveChannelSelections(
+        {...previousVideo, ...previousShorts},
+        {...video, ...shorts},
+      ),
+    ]);
+  }
+
   Widget _buildLanguagesTab(BuildContext context) {
     final tokens = context.tokens;
     final allLanguages = LanguageMeta.supportedLanguages.values
@@ -288,9 +307,10 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
     final channels = isShorts
         ? _channelService.shortsChannels
         : _channelService.channels;
+    final followed = _channelService.subscribedChannelIds;
     final selectedIds = isShorts
-        ? _currentPref.shortsChannelIds
-        : _currentPref.videoChannelIds;
+        ? _currentPref.shortsFeedChannels(followed)
+        : _currentPref.videoFeedChannels(followed);
 
     if (_channelService.isLoading && channels.isEmpty) {
       return const Center(
@@ -352,36 +372,12 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
               const SizedBox(width: 8),
               TextButton(
                 onPressed: () {
-                  final allIds = channels.map((c) => c.id).toList();
-                  if (isShorts) {
-                    _updatePreferences(_currentPref.copyWith(shortsChannelIds: allIds));
-                  } else {
-                    _updatePreferences(_currentPref.copyWith(videoChannelIds: allIds));
-                  }
-                  _channelService.seedSubscribedIds(allIds.toSet());
+                  _setChannelSelection(isShorts, channels.map((c) => c.id).toSet());
                 },
                 child: const Text('All'),
               ),
               TextButton(
-                onPressed: () {
-                  if (isShorts) {
-                    final removedIds = List<String>.from(_currentPref.shortsChannelIds);
-                    _updatePreferences(_currentPref.copyWith(shortsChannelIds: []));
-                    for (final id in removedIds) {
-                      if (!_currentPref.videoChannelIds.contains(id) && _channelService.isFollowed(id)) {
-                        _channelService.toggleFollow(id);
-                      }
-                    }
-                  } else {
-                    final removedIds = List<String>.from(_currentPref.videoChannelIds);
-                    _updatePreferences(_currentPref.copyWith(videoChannelIds: []));
-                    for (final id in removedIds) {
-                      if (!_currentPref.shortsChannelIds.contains(id) && _channelService.isFollowed(id)) {
-                        _channelService.toggleFollow(id);
-                      }
-                    }
-                  }
-                },
+                onPressed: () => _setChannelSelection(isShorts, {}),
                 child: const Text('Clear'),
               ),
             ],
@@ -412,27 +408,13 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                     videoCount: ch.videoCount,
                     isFollowed: isFollowed,
                     onToggleFollow: () {
-                      final currentList = List<String>.from(selectedIds);
+                      final next = {...selectedIds};
                       if (isFollowed) {
-                        currentList.remove(ch.id);
+                        next.remove(ch.id);
                       } else {
-                        currentList.add(ch.id);
+                        next.add(ch.id);
                       }
-                      if (isShorts) {
-                        _updatePreferences(_currentPref.copyWith(shortsChannelIds: currentList));
-                        if (!isFollowed && !_channelService.isFollowed(ch.id)) {
-                          _channelService.toggleFollow(ch.id);
-                        } else if (isFollowed && !_currentPref.videoChannelIds.contains(ch.id) && _channelService.isFollowed(ch.id)) {
-                          _channelService.toggleFollow(ch.id);
-                        }
-                      } else {
-                        _updatePreferences(_currentPref.copyWith(videoChannelIds: currentList));
-                        if (!isFollowed && !_channelService.isFollowed(ch.id)) {
-                          _channelService.toggleFollow(ch.id);
-                        } else if (isFollowed && !_currentPref.shortsChannelIds.contains(ch.id) && _channelService.isFollowed(ch.id)) {
-                          _channelService.toggleFollow(ch.id);
-                        }
-                      }
+                      _setChannelSelection(isShorts, next);
                     },
                   );
               },

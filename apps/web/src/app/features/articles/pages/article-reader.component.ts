@@ -18,6 +18,7 @@ import { combineLatest } from 'rxjs';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { HeaderSlotService } from '../../../core/services/header-slot.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { ReaderFullscreenService } from '../../../core/services/reader-fullscreen.service';
 import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
 import { ReaderTypographyToggleComponent } from '../../../shared/ui/reader-typography-toggle.component';
 import { ReaderSpreadFooterComponent } from '../../../shared/ui/reader-spread-footer.component';
@@ -30,6 +31,7 @@ import {
 } from '../../../shared/ui/text-highlight.util';
 import { contrastColorFor } from '../../../shared/ui/highlight-palette';
 import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
+import { ReaderAutoFullscreenToggleComponent } from '../../../shared/ui/reader-auto-fullscreen-toggle.component';
 import { BookAppearanceSheetComponent } from '../../books/components/book-appearance-sheet.component';
 import { DictionarySheetComponent } from '../../books/components/dictionary-sheet.component';
 import { ScriptureVerseSheetComponent } from '../../books/components/scripture-verse-sheet.component';
@@ -53,6 +55,7 @@ import { ArticlesService } from '../services/articles.service';
     ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
     TextSelectionPopoverComponent,
+    ReaderAutoFullscreenToggleComponent,
     BookAppearanceSheetComponent,
     DictionarySheetComponent,
     ScriptureVerseSheetComponent,
@@ -69,6 +72,7 @@ import { ArticlesService } from '../services/articles.service';
     <ng-template #topbarRight>
       <app-reader-columns-toggle />
       <app-reader-typography-toggle />
+      <app-reader-auto-fullscreen-toggle />
       <div class="tb-actions-pill">
         <button
           type="button"
@@ -104,6 +108,9 @@ import { ArticlesService } from '../services/articles.service';
       [attr.data-paper]="appearance.paperTheme()"
       [class.spread-mode]="isPaginated()"
       [class.immersive]="immersive()"
+      (pointerdown)="readerFullscreen.noteActivity('article')"
+      (wheel)="readerFullscreen.noteActivity('article')"
+      (touchstart)="readerFullscreen.noteActivity('article')"
     >
       @if (!immersive() && screen.isCompact()) {
         <header class="reader-bar">
@@ -138,6 +145,7 @@ import { ArticlesService } from '../services/articles.service';
               >
                 <span class="material-symbols-rounded">fullscreen</span>
               </button>
+              <app-reader-auto-fullscreen-toggle />
             </div>
           </div>
         </header>
@@ -595,6 +603,7 @@ export class ArticleReaderComponent implements OnInit, AfterViewInit {
   private readonly highlightsService = inject(BookHighlightsService);
   readonly appearance = inject(ReaderAppearanceService);
   readonly screen = inject(ScreenClassService);
+  readonly readerFullscreen = inject(ReaderFullscreenService);
   private readonly headerSlot = inject(HeaderSlotService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -615,6 +624,8 @@ export class ArticleReaderComponent implements OnInit, AfterViewInit {
   );
 
   constructor() {
+    this.destroyRef.onDestroy(this.readerFullscreen.registerReader('article', () => this.immersive.set(true)));
+    effect(() => this.readerFullscreen.setFullscreen('article', this.immersive()));
     this.destroyRef.onDestroy(() => this.headerSlot.clear());
     effect(() => {
       if (!this.viewInitialized()) return;
@@ -816,6 +827,7 @@ export class ArticleReaderComponent implements OnInit, AfterViewInit {
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    this.readerFullscreen.noteActivity('article');
     const target = event.target as HTMLElement | null;
     if (
       target &&

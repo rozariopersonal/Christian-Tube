@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { AccountAvatarMenuComponent } from '../auth/account-avatar-menu.component';
 import { AppConfig } from '../config/app-config';
 import { HeaderSearchService } from '../services/header-search.service';
 import { HeaderSlotService } from '../services/header-slot.service';
@@ -21,6 +22,7 @@ import { VideoMiniPlayerComponent } from '../../features/videos/components/video
 import { VideoLibraryService } from '../../features/videos/services/video-library.service';
 import { ModalSheetComponent } from '../../shared/ui/modal-sheet.component';
 import { ScreenClassService } from './screen-class.service';
+import { ReaderFullscreenService } from '../services/reader-fullscreen.service';
 
 interface NavDestination {
   label: string;
@@ -87,11 +89,13 @@ const COMPACT_SUBPAGE_PREFIXES = [
     MiniPlayerComponent,
     VideoMiniPlayerComponent,
     ModalSheetComponent,
+    AccountAvatarMenuComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
       class="shell"
+      [class.reader-fullscreen]="readerFullscreen.activeReader() !== null"
       [style.--sidebar-width]="sidebarWidthCss()"
       [style.--shell-top-offset]="screen.showNavigationRail() ? 'var(--topbar-height)' : '0px'"
       [style.--shell-bottom-offset]="showBottomBar() ? 'var(--shell-bottom-height)' : '0px'"
@@ -215,17 +219,7 @@ const COMPACT_SUBPAGE_PREFIXES = [
                 {{ theme.isDark() ? 'light_mode' : 'dark_mode' }}
               </span>
             </button>
-            <a class="icon-btn" routerLink="/settings" title="Account & Settings" aria-label="Account & Settings">
-              @if (auth.currentUser()?.photoUrl) {
-                <img
-                  class="user-avatar"
-                  [src]="auth.currentUser()!.photoUrl"
-                  [alt]="auth.currentUser()!.displayName"
-                />
-              } @else {
-                <span class="material-symbols-rounded">account_circle</span>
-              }
-            </a>
+            <app-account-avatar-menu />
           </div>
         </header>
       }
@@ -488,6 +482,12 @@ const COMPACT_SUBPAGE_PREFIXES = [
         font-size: 17px;
         font-weight: 700;
         letter-spacing: -0.02em;
+      }
+
+      @media (max-width: 899px) {
+        .brand-name {
+          display: none;
+        }
       }
 
       .topbar-center {
@@ -928,6 +928,41 @@ const COMPACT_SUBPAGE_PREFIXES = [
         border-color: var(--accent);
         color: var(--accent);
       }
+
+      .shell.reader-fullscreen {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+        --shell-top-offset: 0px;
+      }
+
+      .shell.reader-fullscreen .yt-topbar,
+      .shell.reader-fullscreen .yt-sidebar,
+      .shell.reader-fullscreen .drawer-backdrop,
+      .shell.reader-fullscreen .bottom-nav,
+      .shell.reader-fullscreen app-video-mini-player,
+      .shell.reader-fullscreen app-mini-player {
+        display: none !important;
+      }
+
+      .shell.reader-fullscreen .shell-body {
+        flex: 1;
+        min-height: 0;
+        height: auto;
+        overflow: hidden;
+      }
+
+      .shell.reader-fullscreen .shell-content {
+        min-height: 0;
+        height: 100%;
+      }
+
+      .shell.reader-fullscreen .shell-content.with-bottom-bar {
+        padding-bottom: 0;
+      }
     `,
   ],
 })
@@ -939,6 +974,7 @@ export class MainShellComponent implements OnInit {
   readonly headerSearch = inject(HeaderSearchService);
   readonly headerSlot = inject(HeaderSlotService);
   readonly theme = inject(ThemeService);
+  readonly readerFullscreen = inject(ReaderFullscreenService);
   private readonly router = inject(Router);
 
   readonly appName = AppConfig.appName;
