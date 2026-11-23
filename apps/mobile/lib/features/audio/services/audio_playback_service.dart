@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:audio_session/audio_session.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb, visibleForTesting;
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import '../models/audio_track.dart';
@@ -115,18 +115,11 @@ class AudioPlaybackService {
       }
     }
 
-    const headers = {
-      'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': '*/*',
-    };
-
     try {
       // Prefer streamUrl (resolved direct audio file) over audioUrl (may be a landing page).
-      final uri = Uri.parse(
-        track.streamUrl?.isNotEmpty == true ? track.streamUrl! : track.audioUrl,
-      );
-      final source = AudioSource.uri(uri, headers: headers, tag: mediaItem);
+      final primaryUrl =
+          track.streamUrl?.isNotEmpty == true ? track.streamUrl! : track.audioUrl;
+      final source = buildStreamAudioSource(primaryUrl, tag: mediaItem);
 
       final duration = await _player.setAudioSource(
         source,
@@ -137,11 +130,8 @@ class AudioPlaybackService {
       // Fallback URL retry
       if (track.fallbackUrl != null && track.fallbackUrl!.isNotEmpty) {
         try {
-          final fallbackSource = AudioSource.uri(
-            Uri.parse(track.fallbackUrl!),
-            headers: headers,
-            tag: mediaItem,
-          );
+          final fallbackSource =
+              buildStreamAudioSource(track.fallbackUrl!, tag: mediaItem);
 
           final duration = await _player.setAudioSource(
             fallbackSource,
@@ -154,6 +144,38 @@ class AudioPlaybackService {
       }
       rethrow;
     }
+  }
+
+  static const Map<String, String> _nativeStreamHeaders = {
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': '*/*',
+  };
+
+  /// Builds a streaming [UriAudioSource] for [rawUrl].
+  ///
+  /// On web (`just_audio_web`), custom HTTP headers (such as `User-Agent`)
+  /// cannot be sent on `<audio>` elements and force an XHR/fetch fallback that
+  /// fails with forbidden-header or CORS errors, so `headers` must be `null`.
+  /// Also upgrades `http://` URLs to `https://` when served from an HTTPS
+  /// origin to prevent mixed-content blocks.
+  @visibleForTesting
+  static UriAudioSource buildStreamAudioSource(
+    String rawUrl, {
+    MediaItem? tag,
+    bool isWeb = kIsWeb,
+    bool? isHttpsOrigin,
+  }) {
+    var uri = Uri.parse(rawUrl);
+    final httpsPage = isHttpsOrigin ?? (isWeb && Uri.base.scheme == 'https');
+    if (isWeb && httpsPage && uri.scheme == 'http') {
+      uri = uri.replace(scheme: 'https');
+    }
+    return AudioSource.uri(
+      uri,
+      headers: isWeb ? null : _nativeStreamHeaders,
+      tag: tag,
+    );
   }
 
   Future<void> play() => _player.play();

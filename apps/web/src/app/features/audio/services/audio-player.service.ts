@@ -129,6 +129,7 @@ export class AudioPlayerService {
     const src = this.library.resolveStreamUrl(
       track.id,
       track.streamUrl || track.audioUrl,
+      track.audioUrl,
     );
     if (this.audio.src !== src) {
       this.audio.src = src;
