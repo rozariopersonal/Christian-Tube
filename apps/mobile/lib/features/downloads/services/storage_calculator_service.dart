@@ -14,7 +14,7 @@ import '../../../shared/services/reader_fonts_service.dart';
 import '../models/downloads_state.dart';
 import '../models/storage_breakdown.dart';
 
-/// Calculates real on-disk byte sizes for offline assets across Christian Tube.
+/// Calculates real on-disk byte sizes for offline assets across ChristianApp.
 class StorageCalculatorService {
   static final StorageCalculatorService instance = StorageCalculatorService._internal();
   factory StorageCalculatorService() => instance;

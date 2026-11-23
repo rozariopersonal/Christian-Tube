@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$SdkDir = "d:\Projects\Christian-Tube\.android-sdk"
+$SdkDir = "D:\Projects\Christian-Tube\.android-sdk"
 $CmdlineToolsDir = "$SdkDir\cmdline-tools"
 $LatestDir = "$CmdlineToolsDir\latest"
 

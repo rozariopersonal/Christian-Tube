@@ -189,7 +189,8 @@ class Short {
       duration: durationStr,
       durationSeconds: durationSec,
       type: json['type']?.toString().toUpperCase() ?? 'SHORT',
-      directStreamUrl: json['directStreamUrl'] ?? json['stream_url'],
+      directStreamUrl:
+          json['directStreamUrl'] ?? json['streamUrl'] ?? json['stream_url'],
       isVertical: isVerticalVideo,
       aspectRatio: calculatedAspectRatio,
       sourceVideoId: json['sourceVideoId'] as String?,

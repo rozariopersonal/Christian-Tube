@@ -13,6 +13,7 @@ enum AppColorTheme {
   teal(name: 'Cyan Teal', color: Color(0xFF06B6D4));
 
   final String name;
+  String get id => toString().split('.').last;
   final Color color;
   const AppColorTheme({required this.name, required this.color});
 }
@@ -59,7 +60,7 @@ class ThemeService extends ChangeNotifier {
     final savedColor = prefs.getString(_colorThemeKey);
     if (savedColor != null) {
       _colorTheme = AppColorTheme.values.firstWhere(
-        (c) => c.name == savedColor || c.toString() == savedColor,
+        (c) => c.id == savedColor || c.name == savedColor || c.toString() == savedColor,
         orElse: () => AppColorTheme.blue,
       );
     }
@@ -93,7 +94,7 @@ class ThemeService extends ChangeNotifier {
     _colorTheme = theme;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_colorThemeKey, theme.name);
+    await prefs.setString(_colorThemeKey, theme.id);
   }
 
   Future<void> setFontFamily(String font) async {

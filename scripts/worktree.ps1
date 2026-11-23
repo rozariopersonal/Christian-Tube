@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Agent & Developer Git Worktree Manager for Christian-Tube.
+    Agent & Developer Git Worktree Manager for ChristianApp.
 .DESCRIPTION
     Creates, lists, and removes isolated git worktrees for parallel agent execution.
     Each worktree has its own dedicated directory and branch branched off develop.

@@ -661,7 +661,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                             const SnackBar(
                                 content: Text('Checking for new releases...')),
                           );
-                          final update = await UpdateService.checkForUpdate();
+                          Map<String, dynamic>? update;
+                          try {
+                            update = await UpdateService.checkForUpdate();
+                          } catch (_) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Could not check for updates. Please try again.')),
+                            );
+                            return;
+                          }
                           if (!context.mounted) return;
                           if (update != null) {
                             UpdateService.showUpdatePopup(context, update);

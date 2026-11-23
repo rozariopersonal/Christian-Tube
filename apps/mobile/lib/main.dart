@@ -108,7 +108,7 @@ void main() async {
     }
   }
 
-  runApp(const PrivateTubeApp());
+  runApp(const ChristianApp());
 }
 
 /// Dedicated Dart entrypoint invoked by Android's `WordFeedDreamService`
@@ -124,14 +124,14 @@ Future<void> screensaverMain() async {
   runApp(const ScriptureScreensaverApp());
 }
 
-class PrivateTubeApp extends StatefulWidget {
-  const PrivateTubeApp({super.key});
+class ChristianApp extends StatefulWidget {
+  const ChristianApp({super.key});
 
   @override
-  State<PrivateTubeApp> createState() => _PrivateTubeAppState();
+  State<ChristianApp> createState() => _ChristianAppState();
 }
 
-class _PrivateTubeAppState extends State<PrivateTubeApp> {
+class _ChristianAppState extends State<ChristianApp> {
   final ThemeService _themeService = ThemeService();
   final AuthService _authService = AuthService();
   final UserService _userService = UserService();
@@ -182,7 +182,7 @@ class _PrivateTubeAppState extends State<PrivateTubeApp> {
           routes: [
             GoRoute(
               path: '/feed',
-              builder: (context, state) => const VideoFeedScreen(),
+              builder: (context, state) => VideoFeedScreen(authService: _authService),
             ),
             GoRoute(
               path: '/shorts',

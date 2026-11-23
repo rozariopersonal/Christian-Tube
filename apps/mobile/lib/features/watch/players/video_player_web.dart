@@ -55,6 +55,7 @@ Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,
   ValueChanged<Duration>? onPositionChanged,
+  VoidCallback? onEnded,
   bool isFullScreen = false,
   VoidCallback? onToggleFullScreen,
   required Widget Function(BuildContext context, Widget player) builder,
@@ -63,6 +64,7 @@ Widget buildPlatformVideoPlayer({
     videoId: videoId,
     startSeconds: startSeconds,
     onPositionChanged: onPositionChanged,
+    onEnded: onEnded,
     isFullScreen: isFullScreen,
     onToggleFullScreen: onToggleFullScreen,
     builder: builder,
@@ -73,6 +75,7 @@ class _WebVideoPlayerWrapper extends StatefulWidget {
   final String videoId;
   final double? startSeconds;
   final ValueChanged<Duration>? onPositionChanged;
+  final VoidCallback? onEnded;
   final bool isFullScreen;
   final VoidCallback? onToggleFullScreen;
   final Widget Function(BuildContext context, Widget player) builder;
@@ -81,6 +84,7 @@ class _WebVideoPlayerWrapper extends StatefulWidget {
     required this.videoId,
     this.startSeconds,
     this.onPositionChanged,
+    this.onEnded,
     this.isFullScreen = false,
     this.onToggleFullScreen,
     required this.builder,
@@ -92,6 +96,7 @@ class _WebVideoPlayerWrapper extends StatefulWidget {
 
 class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
   late String _viewId;
+  html.IFrameElement? _iframe;
   StreamSubscription? _msgSub;
   StreamSubscription? _fullScreenSub;
 
@@ -137,6 +142,7 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
   void _listenToIframeEvents() {
     _msgSub = html.window.onMessage.listen((event) {
       try {
+        if (event.source != _iframe?.contentWindow) return;
         if (event.data is String) {
           final data = jsonDecode(event.data);
           if (data is Map && data['event'] == 'infoDelivery') {
@@ -146,6 +152,10 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
               final pos = Duration(milliseconds: (sec * 1000).toInt());
               widget.onPositionChanged?.call(pos);
             }
+          } else if (data is Map &&
+              data['event'] == 'onStateChange' &&
+              data['info'] == 0) {
+            widget.onEnded?.call();
           }
         }
       } catch (_) {}
@@ -153,6 +163,7 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
   }
 
   void _initView() {
+    _iframe = null;
     _viewId = 'video-player-${widget.videoId}-${DateTime.now().millisecondsSinceEpoch}';
     if (!_registeredVideoViews.contains(_viewId)) {
       _registeredVideoViews.add(_viewId);
@@ -183,6 +194,17 @@ class _WebVideoPlayerWrapperState extends State<_WebVideoPlayerWrapper> {
             // Native iframe fullscreen inside a Flutter HtmlElementView renders
             // a corrupt half-black/half-white screen and is impossible to exit.
             ..allowFullscreen = false;
+          _iframe = iframe;
+          iframe.onLoad.listen((_) {
+            iframe.contentWindow?.postMessage(
+              '{"event":"listening","id":1}',
+              '*',
+            );
+            iframe.contentWindow?.postMessage(
+              '{"event":"command","func":"addEventListener","args":["onStateChange"]}',
+              '*',
+            );
+          });
           return iframe;
         },
       );

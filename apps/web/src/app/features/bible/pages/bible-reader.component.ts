@@ -21,6 +21,7 @@ import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { HeaderSearchService } from '../../../core/services/header-search.service';
 import { HeaderSlotService } from '../../../core/services/header-slot.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { ReaderFullscreenService } from '../../../core/services/reader-fullscreen.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
 import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
 import { ReaderTypographyToggleComponent } from '../../../shared/ui/reader-typography-toggle.component';
@@ -38,20 +39,24 @@ import {
   BibleSelectionTarget,
 } from '../components/bible-book-chapter-sheet.component';
 import { BibleBookmarksSheetComponent } from '../components/bible-bookmarks-sheet.component';
+import {
+  BibleVersionPickerComponent,
+  BibleVersionSelectionEvent,
+} from '../../../shared/ui/bible-version-picker.component';
+import { BibleVersionSelectionService } from '../../../core/services/bible-version-selection.service';
 import { BibleCompareSheetComponent } from '../components/bible-compare-sheet.component';
 import { BibleCrossRefsSheetComponent } from '../components/bible-cross-refs-sheet.component';
 import { BibleNoteSheetComponent } from '../components/bible-note-sheet.component';
-import { BibleParallelSheetComponent } from '../components/bible-parallel-sheet.component';
 import { BibleSearchSheetComponent } from '../components/bible-search-sheet.component';
 import { BibleSidebarComponent } from '../components/bible-sidebar.component';
 import { BibleStudySheetComponent } from '../components/bible-study-sheet.component';
-import { BibleVersionSheetComponent } from '../components/bible-version-sheet.component';
 import {
   InlineToolbarAnchor,
   computeElementToolbarAnchor,
   computeInlineToolbarAnchor,
 } from '../../../shared/ui/text-highlight.util';
 import { TextSelectionPopoverComponent } from '../../../shared/ui/text-selection-popover.component';
+import { ReaderAutoFullscreenToggleComponent } from '../../../shared/ui/reader-auto-fullscreen-toggle.component';
 import { BIBLE_VERSIONS, BibleVerse } from '../models/bible.model';
 import { BibleReaderStateService } from '../services/bible-reader-state.service';
 import { BibleService } from '../services/bible.service';
@@ -74,10 +79,11 @@ interface AppendedBibleChapter {
     ReaderColumnsToggleComponent,
     ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
-    BibleVersionSheetComponent,
+    BibleVersionPickerComponent,
     BibleBookChapterSheetComponent,
     BibleSidebarComponent,
     TextSelectionPopoverComponent,
+    ReaderAutoFullscreenToggleComponent,
     BibleAppearanceSheetComponent,
     BibleBookmarksSheetComponent,
     BibleCrossRefsSheetComponent,
@@ -85,7 +91,6 @@ interface AppendedBibleChapter {
     BibleNoteSheetComponent,
     BibleSearchSheetComponent,
     BibleCompareSheetComponent,
-    BibleParallelSheetComponent,
     DictionarySheetComponent,
   ],
   providers: [BibleReaderStateService],
@@ -96,19 +101,17 @@ interface AppendedBibleChapter {
       [attr.data-paper]="appearance.paperTheme()"
       [class.immersive]="immersive()"
       [class.spread-mode]="spreadMode()"
+      (pointerdown)="readerFullscreen.noteActivity('bible')"
+      (wheel)="readerFullscreen.noteActivity('bible')"
+      (touchstart)="readerFullscreen.noteActivity('bible')"
     >
       <ng-template #topbarCenter>
         @if (!isDesktop()) {
           <div class="tb-bible-center">
-            <button
-              type="button"
-              class="version-pill"
-              (click)="showVersionPicker.set(true)"
-              aria-label="Bible Version"
-            >
-              <span>{{ state.activeVersionInfo().label }}</span>
-              <span class="material-symbols-rounded pill-chev">expand_more</span>
-            </button>
+            <app-bible-version-picker
+              contextKey="bible"
+              (selectionChanged)="onVersionPickerChanged($event)"
+            />
 
             <div class="chapter-nav-group">
               <button
@@ -147,6 +150,7 @@ interface AppendedBibleChapter {
       <ng-template #topbarRight>
         <app-reader-columns-toggle [showLayoutToggle]="true" />
         <app-reader-typography-toggle />
+        <app-reader-auto-fullscreen-toggle />
         <div class="tb-actions-pill">
           <button
             type="button"
@@ -342,6 +346,7 @@ interface AppendedBibleChapter {
                 >
                   <span class="material-symbols-rounded">fullscreen</span>
                 </button>
+                <app-reader-auto-fullscreen-toggle />
               } @else {
                 <div class="menu-wrap">
                   <button
@@ -759,24 +764,6 @@ interface AppendedBibleChapter {
           (openCrossRefs)="showCrossRefs.set(true)"
           (openStudy)="showStudy.set(true)"
           (closed)="state.clearSelection()"
-        />
-      }
-
-      @if (showVersionPicker()) {
-        <app-bible-version-sheet
-          [activeVersionId]="bible.version()"
-          (versionSelected)="selectVersion($event)"
-          (closed)="showVersionPicker.set(false)"
-        />
-      }
-
-      @if (showParallelPicker()) {
-        <app-bible-parallel-sheet
-          [primaryId]="bible.version()"
-          [compareIds]="bible.compareVersions()"
-          (toggled)="toggleParallelVersion($event)"
-          (cleared)="clearParallelVersions()"
-          (closed)="showParallelPicker.set(false)"
         />
       }
 
@@ -1600,6 +1587,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly screen = inject(ScreenClassService);
+  readonly readerFullscreen = inject(ReaderFullscreenService);
   readonly isDesktop = this.screen.isDesktop;
   readonly effectiveCols = computed(() =>
     this.appearance.effectiveColumns(this.screen.screenClass()),
@@ -1819,6 +1807,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    this.readerFullscreen.noteActivity('bible');
     const target = event.target as HTMLElement | null;
     if (
       target &&
@@ -1883,6 +1872,8 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   }
 
   constructor() {
+    this.destroyRef.onDestroy(this.readerFullscreen.registerReader('bible', () => this.immersive.set(true)));
+    effect(() => this.readerFullscreen.setFullscreen('bible', this.immersive()));
     this.destroyRef.onDestroy(() => {
       this.headerSlot.clear();
       this.spreadResizeObserver?.disconnect();
@@ -2001,6 +1992,8 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
     this.hasScrolledDown = false;
   }
 
+  private readonly versionSelection = inject(BibleVersionSelectionService);
+
   private async initFromRoute(
     version?: string,
     book?: string,
@@ -2009,7 +2002,15 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   ): Promise<void> {
     this.routeReady.set(false);
     this.resetInfiniteChapters();
-    await this.bible.init({ version, book, chapter });
+    const ctxComparisons = this.versionSelection.getComparisonVersions('bible');
+    if (version) {
+      this.versionSelection.setSelection('bible', version, ctxComparisons);
+    }
+    const targetVersion = version ?? this.versionSelection.getPrimaryVersion('bible');
+    this.bible.compareVersions.set(
+      this.versionSelection.getComparisonVersions('bible'),
+    );
+    await this.bible.init({ version: targetVersion, book, chapter });
     await this.loadPrimaryParallel();
     if (verse && verse > 0) {
       this.focusVerse(verse);
@@ -2374,6 +2375,15 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       });
     } else {
       void navigator.clipboard?.writeText(shareUrl);
+    }
+  }
+
+  onVersionPickerChanged(event: BibleVersionSelectionEvent): void {
+    this.bible.compareVersions.set(event.comparisons);
+    if (event.kind === 'primary') {
+      void this.selectVersion(event.primary);
+    } else {
+      void this.refreshAllParallelMaps();
     }
   }
 

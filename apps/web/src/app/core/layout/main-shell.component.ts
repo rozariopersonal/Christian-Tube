@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { AccountAvatarMenuComponent } from '../auth/account-avatar-menu.component';
 import { AppConfig } from '../config/app-config';
 import { HeaderSearchService } from '../services/header-search.service';
 import { HeaderSlotService } from '../services/header-slot.service';
@@ -20,6 +21,7 @@ import { ChannelService } from '../../features/channels/services/channel.service
 import { VideoMiniPlayerComponent } from '../../features/videos/components/video-mini-player.component';
 import { VideoLibraryService } from '../../features/videos/services/video-library.service';
 import { ScreenClassService } from './screen-class.service';
+import { ReaderFullscreenService } from '../services/reader-fullscreen.service';
 
 interface NavDestination {
   label: string;
@@ -70,10 +72,11 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
     FormsModule,
     MiniPlayerComponent,
     VideoMiniPlayerComponent,
+    AccountAvatarMenuComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="shell">
+    <div class="shell" [class.reader-fullscreen]="readerFullscreen.activeReader() !== null">
       @if (screen.isMediumOrExpanded()) {
         <header class="yt-topbar">
           <div class="topbar-left">
@@ -191,17 +194,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
                 {{ theme.isDark() ? 'light_mode' : 'dark_mode' }}
               </span>
             </button>
-            <a class="icon-btn" routerLink="/settings" title="Account & Settings" aria-label="Account & Settings">
-              @if (auth.currentUser()?.photoUrl) {
-                <img
-                  class="user-avatar"
-                  [src]="auth.currentUser()!.photoUrl"
-                  [alt]="auth.currentUser()!.displayName"
-                />
-              } @else {
-                <span class="material-symbols-rounded">account_circle</span>
-              }
-            </a>
+            <app-account-avatar-menu />
           </div>
         </header>
       }
@@ -391,7 +384,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
       .topbar-slot-center {
         flex: 1;
         min-width: 0;
-        overflow: hidden;
+        overflow: visible;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -784,6 +777,41 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
       .bottom-nav::-webkit-scrollbar {
         display: none;
       }
+
+      .shell.reader-fullscreen {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+        --shell-top-offset: 0px;
+      }
+
+      .shell.reader-fullscreen .yt-topbar,
+      .shell.reader-fullscreen .yt-sidebar,
+      .shell.reader-fullscreen .drawer-backdrop,
+      .shell.reader-fullscreen .bottom-nav,
+      .shell.reader-fullscreen app-video-mini-player,
+      .shell.reader-fullscreen app-mini-player {
+        display: none !important;
+      }
+
+      .shell.reader-fullscreen .shell-body {
+        flex: 1;
+        min-height: 0;
+        height: auto;
+        overflow: hidden;
+      }
+
+      .shell.reader-fullscreen .shell-content {
+        min-height: 0;
+        height: 100%;
+      }
+
+      .shell.reader-fullscreen .shell-content.with-bottom-bar {
+        padding-bottom: 0;
+      }
     `,
   ],
 })
@@ -795,6 +823,7 @@ export class MainShellComponent implements OnInit {
   readonly headerSearch = inject(HeaderSearchService);
   readonly headerSlot = inject(HeaderSlotService);
   readonly theme = inject(ThemeService);
+  readonly readerFullscreen = inject(ReaderFullscreenService);
   private readonly router = inject(Router);
 
   readonly appName = AppConfig.appName;

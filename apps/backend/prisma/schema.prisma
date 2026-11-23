@@ -226,6 +226,7 @@ model User {
   displayName   String?
   photoUrl      String?
   isBlocked     Boolean               @default(false)
+  isGuest       Boolean               @default(false)
   role          String                @default("USER") // "ADMIN" or "USER"
   lastLoginAt   DateTime              @default(now())
   createdAt     DateTime              @default(now())
@@ -235,6 +236,7 @@ model User {
   preference    UserPreference?
   watchItems    UserWatchItem[]
   userItems     UserItem[]
+  sessions      UserSession[]
 
   @@index([isBlocked])
   @@index([email])
@@ -352,8 +354,8 @@ model UserPlayback {
 model UserWatchItem {
   id              String   @id @default(uuid())
   userId          String
-  itemType        String   // "watch_later" | "video_history" | "video_playhead" | "audio_playback"
-  itemId          String   // videoId or "audio"
+  itemType        String   // watch_later | video_history | video_playhead | audio_playback | liked_video | liked_short
+  itemId          String   // videoId, shortId, or "audio"
   positionSeconds Int      @default(0)
   durationSeconds Int      @default(0)
   payloadJson     String?  @db.Text
@@ -444,4 +446,33 @@ model AudioTrack {
   @@index([speaker])
   @@index([publishedAt])
   @@index([updatedAt])
+}
+
+model UserSession {
+  id                  String    @id @default(uuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash    String
+  prevTokenHash       String?
+  prevTokenGraceUntil DateTime?
+  deviceId            String?
+  deviceLabel         String?
+  isGuest             Boolean   @default(false)
+  expiresAt           DateTime
+  revokedAt           DateTime?
+  revokeReason        String?
+  lastUsedAt          DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model WebSession {
+  tokenHash String   @id
+  userId    String
+  email     String
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }

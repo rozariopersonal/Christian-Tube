@@ -310,14 +310,29 @@ describe('UsersService', () => {
       prisma.userWatchItem.findMany
         .mockResolvedValueOnce([{ itemId: 'v-wl', isDeleted: false, clientUpdatedAt: new Date(3000) }]) // watch_later
         .mockResolvedValueOnce([]) // video_history
+        .mockResolvedValueOnce([
+          { itemId: 'v-wl', isDeleted: false, clientUpdatedAt: new Date(5000) },
+          { itemId: 'v-removed', isDeleted: true, clientUpdatedAt: new Date(6000) },
+        ]) // liked_video
+        .mockResolvedValueOnce([
+          { itemId: 's-wl', isDeleted: false, clientUpdatedAt: new Date(7000) },
+        ]) // liked_short
         .mockResolvedValueOnce([{ itemId: 'v-wl', positionSeconds: 12, isDeleted: false, clientUpdatedAt: new Date(4000) }]); // video_playhead
       prisma.userWatchItem.findFirst.mockResolvedValue(null);
-      prisma.video.findMany.mockResolvedValue([{ id: 'v-wl', title: 'Test Video' }]);
+      prisma.video.findMany.mockResolvedValue([
+        { id: 'v-wl', title: 'Test Video' },
+        { id: 's-wl', title: 'Test Short', type: 'SHORT' },
+      ]);
 
       const state = await service.getSyncState('u1', 'u1@example.com');
       expect(state.subscriptions).toEqual(['ch-1']);
       expect(state.subscriptionTombstones).toEqual({ 'ch-2': 2000 });
       expect(state.watchLater).toHaveLength(1);
+      expect(state.likedVideos).toHaveLength(1);
+      expect(state.likedVideos[0].likedAt).toBe(5000);
+      expect(state.likedVideoTombstones).toEqual({ 'v-removed': 6000 });
+      expect(state.likedShorts).toHaveLength(1);
+      expect(state.likedShorts[0].video.type).toBe('SHORT');
       expect(state.videoPlayheads['v-wl']).toEqual({ positionSeconds: 12, updatedAt: 4000 });
     });
   });

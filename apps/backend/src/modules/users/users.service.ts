@@ -15,7 +15,9 @@ export type WatchItemType =
   | 'watch_later'
   | 'video_history'
   | 'video_playhead'
-  | 'audio_playback';
+  | 'audio_playback'
+  | 'liked_video'
+  | 'liked_short';
 
 export interface WatchItemInput {
   opId?: string;
@@ -33,6 +35,8 @@ const VALID_WATCH_ITEM_TYPES = new Set<string>([
   'video_history',
   'video_playhead',
   'audio_playback',
+  'liked_video',
+  'liked_short',
 ]);
 
 const PREF_FIELDS = [
@@ -455,6 +459,8 @@ export class UsersService {
       subRows,
       watchLaterRows,
       historyRows,
+      likedVideoRows,
+      likedShortRows,
       playheadRows,
       audioRow,
     ] = await Promise.all([
@@ -477,6 +483,20 @@ export class UsersService {
             where: { userId, itemType: 'video_history' },
             orderBy: { clientUpdatedAt: 'desc' },
             take: 100,
+          })
+        : Promise.resolve([]),
+      watchItemModel?.findMany
+        ? watchItemModel.findMany({
+            where: { userId, itemType: 'liked_video' },
+            orderBy: { clientUpdatedAt: 'desc' },
+            take: 1000,
+          })
+        : Promise.resolve([]),
+      watchItemModel?.findMany
+        ? watchItemModel.findMany({
+            where: { userId, itemType: 'liked_short' },
+            orderBy: { clientUpdatedAt: 'desc' },
+            take: 1000,
           })
         : Promise.resolve([]),
       watchItemModel?.findMany
@@ -512,6 +532,12 @@ export class UsersService {
           .filter((r: any) => !r.isDeleted)
           .map((r: any) => String(r.itemId)),
         ...(historyRows || [])
+          .filter((r: any) => !r.isDeleted)
+          .map((r: any) => String(r.itemId)),
+        ...(likedVideoRows || [])
+          .filter((r: any) => !r.isDeleted)
+          .map((r: any) => String(r.itemId)),
+        ...(likedShortRows || [])
           .filter((r: any) => !r.isDeleted)
           .map((r: any) => String(r.itemId)),
       ]),
@@ -561,6 +587,32 @@ export class UsersService {
       }
     }
 
+    const likedVideos: any[] = [];
+    const likedVideoTombstones: Record<string, number> = {};
+    for (const row of likedVideoRows || []) {
+      const ts = new Date(row.clientUpdatedAt).getTime();
+      if (row.isDeleted) {
+        likedVideoTombstones[row.itemId] = ts;
+        continue;
+      }
+      const rawVideo = videoMap.get(row.itemId) ?? this.parseVideoSnapshot(row.payloadJson);
+      const video = rawVideo ? this.serializeLikedVideo(rawVideo) : null;
+      if (video) likedVideos.push({ video, likedAt: ts });
+    }
+
+    const likedShorts: any[] = [];
+    const likedShortTombstones: Record<string, number> = {};
+    for (const row of likedShortRows || []) {
+      const ts = new Date(row.clientUpdatedAt).getTime();
+      if (row.isDeleted) {
+        likedShortTombstones[row.itemId] = ts;
+        continue;
+      }
+      const rawVideo = videoMap.get(row.itemId) ?? this.parseVideoSnapshot(row.payloadJson);
+      const video = rawVideo ? this.serializeLikedVideo(rawVideo) : null;
+      if (video) likedShorts.push({ video, likedAt: ts });
+    }
+
     const videoPlayheads: Record<string, { positionSeconds: number; updatedAt: number }> = {};
     for (const row of playheadRows || []) {
       videoPlayheads[row.itemId] = {
@@ -602,8 +654,45 @@ export class UsersService {
       watchLaterTombstones,
       videoHistory,
       videoHistoryTombstones,
+      likedVideos,
+      likedVideoTombstones,
+      likedShorts,
+      likedShortTombstones,
       videoPlayheads,
       audioPlayback,
+    };
+  }
+
+  private parseVideoSnapshot(payloadJson?: string | null): any | null {
+    if (!payloadJson) return null;
+    try {
+      const parsed = JSON.parse(payloadJson);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private serializeLikedVideo(video: any) {
+    return {
+      id: String(video.id ?? ''),
+      type: String(video.type ?? 'VIDEO'),
+      title: video.title ?? '',
+      description: video.description ?? undefined,
+      thumbnailUrl: video.thumbnailUrl ?? video.thumbnail ?? '',
+      channelId: video.channelId ?? '',
+      channelTitle: video.channelTitle ?? video.channelName ?? video.channel?.name ?? 'Channel',
+      channelAvatarUrl: video.channelAvatarUrl ?? video.channelThumbnail ?? video.channel?.thumbnail ?? undefined,
+      subscriberCount: video.subscriberCount ?? video.channelSubscriberCount ?? undefined,
+      viewCount: Number(video.viewCount ?? 0),
+      publishedAt: video.publishedAt ?? new Date(0).toISOString(),
+      duration: video.duration ?? '0:00',
+      streamUrl: video.streamUrl ?? video.stream_url ?? undefined,
+      sourceVideoId: video.sourceVideoId ?? undefined,
+      clipStartTime: video.clipStartTime ?? undefined,
+      clipEndTime: video.clipEndTime ?? undefined,
+      cropOffsetX: video.cropOffsetX ?? undefined,
+      isLive: Boolean(video.isLive ?? video.is_live ?? false),
     };
   }
 

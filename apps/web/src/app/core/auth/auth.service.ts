@@ -1,19 +1,52 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import {
+  HttpBackend,
+  HttpClient,
+  HttpErrorResponse,
+} from '@angular/common/http';
+import {
+  Injectable,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../api/api.service';
 import { AppConfig } from '../config/app-config';
 import { IndexedDbCacheService } from '../storage/indexed-db-cache.service';
+import { AuthTokenStore, StoredAuthUser } from './auth-token.store';
 
-export interface AuthUser {
-  id: string;
-  email: string;
-  displayName: string;
-  photoUrl?: string;
-  idToken?: string;
+export type AuthUser = StoredAuthUser;
+
+export interface AccountSwitchPrompt {
+  currentUser: AuthUser;
+  nextUser: AuthUser;
+  resolve: (confirmed: boolean) => void;
 }
 
 interface GoogleCredentialResponse {
   credential?: string;
+}
+
+interface BackendSessionResponse {
+  accessToken: string;
+  refreshToken: string;
+  sessionId: string;
+  expiresIn: number;
+  user: {
+    id: string;
+    email: string | null;
+    displayName: string | null;
+    photoUrl: string | null;
+    isGuest: boolean;
+  };
+}
+
+interface BackendRefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+  sessionId: string;
+  expiresIn: number;
 }
 
 declare global {
@@ -23,6 +56,8 @@ declare global {
         id?: {
           initialize: (cfg: {
             client_id: string;
+            auto_select?: boolean;
+            use_fedcm_for_prompt?: boolean;
             callback: (res: GoogleCredentialResponse) => void;
           }) => void;
           prompt: () => void;
@@ -37,28 +72,72 @@ declare global {
   }
 }
 
-const KEY_USER = 'current_user';
-const KEY_TOKEN = 'auth_token';
+const REFRESH_FAILURE_BACKOFF_MS = 30_000;
 
 @Injectable({ providedIn: 'root' })
-export class AuthService {
+export class AuthService implements OnDestroy {
   private readonly api = inject(ApiService);
+  private readonly httpBackend = inject(HttpBackend);
+  private readonly rawHttp = new HttpClient(this.httpBackend);
   private readonly idbCache = inject(IndexedDbCacheService);
+  private readonly tokenStore = inject(AuthTokenStore);
 
-  readonly currentUser = signal<AuthUser | null>(this.readStoredUser());
+  readonly currentUser = signal<AuthUser | null>(this.tokenStore.readUser());
+  readonly sessionExpired = signal<boolean>(this.computeInitialExpired());
+  readonly sessionNeedsSignIn = this.sessionExpired;
+  readonly sessionPromptDismissed = signal<boolean>(false);
   readonly isAdmin = signal<boolean>(false);
   readonly isLoading = signal<boolean>(false);
   readonly lastError = signal<string | null>(null);
+  readonly pendingAccountSwitch = signal<AccountSwitchPrompt | null>(null);
 
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
+  readonly canSync = computed(
+    () => this.currentUser() !== null && !this.sessionExpired(),
+  );
 
   private googleInitialized = false;
+  private inFlightRefresh: Promise<string | null> | null = null;
+  private lastRefreshFailureAt = 0;
+  private unsubExternal: (() => void) | null = null;
+  private bootstrapStarted = false;
+  private signedOutDuringBootstrap = false;
 
   constructor() {
+    this.unsubExternal = this.tokenStore.subscribeExternalChanges((msg) => {
+      if (msg.type === 'signed_out') {
+        this.currentUser.set(null);
+        this.sessionExpired.set(false);
+        this.isAdmin.set(false);
+      } else if (msg.type === 'session_expired') {
+        this.sessionExpired.set(true);
+      } else if (msg.type === 'session_updated') {
+        const stored = this.tokenStore.readUser();
+        if (stored) {
+          this.currentUser.set(stored);
+        }
+        this.sessionExpired.set(this.tokenStore.readSessionExpired());
+      }
+    });
+
     const user = this.currentUser();
     if (user?.email) {
       void this.checkIsAdmin(user.email);
     }
+    if (user && !this.tokenStore.getRefreshToken() && !this.sessionExpired()) {
+      void this.bootstrapLegacySession(user);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.unsubExternal?.();
+    this.unsubExternal = null;
+  }
+
+  markSessionRejected(): void {
+    this.tokenStore.markSessionExpired();
+    this.sessionPromptDismissed.set(false);
+    this.sessionExpired.set(true);
   }
 
   initGoogleSignIn(): boolean {
@@ -67,6 +146,8 @@ export class AuthService {
     if (!this.googleInitialized) {
       gsi.initialize({
         client_id: AppConfig.googleClientId,
+        auto_select: true,
+        use_fedcm_for_prompt: true,
         callback: (res) => {
           if (res.credential) {
             void this.handleGoogleCredential(res.credential);
@@ -78,14 +159,16 @@ export class AuthService {
     return true;
   }
 
-  renderGoogleButton(element: HTMLElement): void {
-    if (!this.initGoogleSignIn()) return;
+  renderGoogleButton(element: HTMLElement): boolean {
+    if (!this.initGoogleSignIn()) return false;
+    element.innerHTML = '';
     window.google?.accounts?.id?.renderButton(element, {
       theme: 'outline',
       size: 'large',
       width: 280,
       text: 'continue_with',
     });
+    return true;
   }
 
   promptGoogleSignIn(): void {
@@ -96,50 +179,156 @@ export class AuthService {
     window.google?.accounts?.id?.prompt();
   }
 
-  async signInAsGuest(email?: string): Promise<void> {
-    const id = `guest_${Date.now()}`;
-    const cleanEmail = email?.trim() ?? '';
-    const token = cleanEmail ? `token_${id}::${cleanEmail}` : `token_${id}`;
-    const user: AuthUser = {
-      id,
-      email: cleanEmail || `guest_${id}@christianapp.local`,
-      displayName: cleanEmail ? cleanEmail.split('@')[0] : 'Guest User',
-      idToken: token,
-    };
-    this.saveSession(user, token);
-    await this.syncUser(user);
-    if (cleanEmail) {
-      await this.checkIsAdmin(cleanEmail);
+  async signInAsGuest(displayName?: string): Promise<void> {
+    this.isLoading.set(true);
+    this.lastError.set(null);
+    try {
+      const res = await firstValueFrom(
+        this.rawHttp.post<BackendSessionResponse>(
+          `${AppConfig.apiBaseUrl}/api/auth/guest`,
+          {
+            deviceId: this.tokenStore.getDeviceId(),
+            deviceLabel: this.tokenStore.getDeviceLabel(),
+            displayName: displayName?.trim() || undefined,
+          },
+        ),
+      );
+      const user: AuthUser = {
+        id: res.user.id,
+        email: res.user.email ?? '',
+        displayName: res.user.displayName || 'Guest User',
+        photoUrl: res.user.photoUrl ?? undefined,
+        isGuest: true,
+      };
+      this.tokenStore.saveSession({
+        user,
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+        sessionId: res.sessionId,
+      });
+      this.currentUser.set(user);
+      this.sessionExpired.set(false);
+      this.sessionPromptDismissed.set(false);
+      this.isAdmin.set(false);
+    } catch (err) {
+      this.lastError.set(
+        err instanceof Error ? err.message : 'Guest sign-in failed',
+      );
+    } finally {
+      this.isLoading.set(false);
     }
   }
 
+  async refreshSession(): Promise<string | null> {
+    if (this.inFlightRefresh) {
+      return this.inFlightRefresh;
+    }
+    if (Date.now() - this.lastRefreshFailureAt < REFRESH_FAILURE_BACKOFF_MS) {
+      return null;
+    }
+
+    const tokenBeforeWait = this.tokenStore.getAccessToken();
+    const run = async (): Promise<string | null> => {
+      const latestAccess = this.tokenStore.getAccessToken();
+      if (
+        latestAccess &&
+        latestAccess !== tokenBeforeWait &&
+        !this.tokenStore.readSessionExpired()
+      ) {
+        this.sessionExpired.set(false);
+        return latestAccess;
+      }
+
+      const refreshToken = this.tokenStore.getRefreshToken();
+      const sessionId = this.tokenStore.getSessionId();
+      if (!refreshToken || !sessionId) {
+        this.tokenStore.markSessionExpired();
+        this.sessionExpired.set(true);
+        return null;
+      }
+
+      try {
+        const res = await firstValueFrom(
+          this.rawHttp.post<BackendRefreshResponse>(
+            `${AppConfig.apiBaseUrl}/api/auth/refresh`,
+            { sessionId, refreshToken },
+          ),
+        );
+        this.lastRefreshFailureAt = 0;
+        this.tokenStore.saveSession({
+          accessToken: res.accessToken,
+          refreshToken: res.refreshToken,
+          sessionId: res.sessionId,
+        });
+        this.sessionExpired.set(false);
+        return res.accessToken;
+      } catch (err) {
+        if (
+          err instanceof HttpErrorResponse &&
+          (err.status === 401 || err.status === 403)
+        ) {
+          this.tokenStore.markSessionExpired();
+          this.sessionExpired.set(true);
+          return null;
+        }
+        this.lastRefreshFailureAt = Date.now();
+        return null;
+      }
+    };
+
+    const withCrossTabLock = async (): Promise<string | null> => {
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.locks &&
+        typeof navigator.locks.request === 'function'
+      ) {
+        return navigator.locks.request('auth_refresh', run);
+      }
+      return run();
+    };
+
+    this.inFlightRefresh = withCrossTabLock().finally(() => {
+      this.inFlightRefresh = null;
+    });
+
+    return this.inFlightRefresh;
+  }
+
   signOut(): void {
+    this.signedOutDuringBootstrap = true;
+    const accessToken = this.tokenStore.getAccessToken();
+    const sessionId = this.tokenStore.getSessionId();
+    if (accessToken && sessionId) {
+      void firstValueFrom(
+        this.rawHttp.post(
+          `${AppConfig.apiBaseUrl}/api/auth/logout`,
+          {},
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        ),
+      ).catch(() => {});
+    }
+
     try {
       window.google?.accounts?.id?.disableAutoSelect();
     } catch {
       // ignore
     }
-    this.wipeWebStorage();
+    this.tokenStore.wipeAllKeepingDeviceId();
     void this.idbCache.clear();
     this.currentUser.set(null);
+    this.sessionExpired.set(false);
+    this.sessionPromptDismissed.set(false);
     this.isAdmin.set(false);
     this.lastError.set(null);
-    queueMicrotask(() => this.wipeWebStorage());
+    this.lastRefreshFailureAt = 0;
+    queueMicrotask(() => this.tokenStore.wipeAllKeepingDeviceId());
   }
 
-  private wipeWebStorage(): void {
-    try {
-      localStorage.clear();
-    } catch {
-      // ignore
-    }
-    try {
-      if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.clear();
-      }
-    } catch {
-      // ignore
-    }
+  resolveAccountSwitch(confirmed: boolean): void {
+    const pending = this.pendingAccountSwitch();
+    if (!pending) return;
+    this.pendingAccountSwitch.set(null);
+    pending.resolve(confirmed);
   }
 
   async checkIsAdmin(email?: string): Promise<boolean> {
@@ -162,22 +351,68 @@ export class AuthService {
     }
   }
 
-  private async handleGoogleCredential(idToken: string): Promise<void> {
+  async handleGoogleCredential(idToken: string): Promise<void> {
     this.isLoading.set(true);
     this.lastError.set(null);
     try {
       const payload = this.decodeJwtPayload(idToken);
-      const user: AuthUser = {
-        id: String(payload['sub'] ?? `user_${Date.now()}`),
-        email: String(payload['email'] ?? ''),
-        displayName: String(
-          payload['name'] ??
-            String(payload['email'] ?? 'User').split('@')[0],
+      const nextSub = String(payload['sub'] ?? '');
+      const nextEmail = String(payload['email'] ?? '');
+      const nextName = String(
+        payload['name'] ?? (nextEmail ? nextEmail.split('@')[0] : 'User'),
+      );
+      const nextPhoto = payload['picture']
+        ? String(payload['picture'])
+        : undefined;
+
+      const existing = this.currentUser();
+      const existingIsGoogle =
+        existing !== null &&
+        !existing.isGuest &&
+        !existing.id.startsWith('guest_');
+
+      if (existingIsGoogle && nextSub && existing.id !== nextSub) {
+        const confirmed = await this.confirmAccountSwitch(existing, {
+          id: nextSub,
+          email: nextEmail,
+          displayName: nextName,
+          photoUrl: nextPhoto,
+          isGuest: false,
+        });
+        if (!confirmed) {
+          return;
+        }
+        this.signOut();
+      }
+
+      const res = await firstValueFrom(
+        this.rawHttp.post<BackendSessionResponse>(
+          `${AppConfig.apiBaseUrl}/api/auth/google`,
+          {
+            idToken,
+            deviceId: this.tokenStore.getDeviceId(),
+            deviceLabel: this.tokenStore.getDeviceLabel(),
+          },
         ),
-        photoUrl: payload['picture'] ? String(payload['picture']) : undefined,
-        idToken,
+      );
+
+      const user: AuthUser = {
+        id: res.user.id,
+        email: res.user.email ?? nextEmail,
+        displayName: res.user.displayName || nextName,
+        photoUrl: res.user.photoUrl ?? nextPhoto,
+        isGuest: false,
       };
-      this.saveSession(user, idToken);
+      this.lastRefreshFailureAt = 0;
+      this.tokenStore.saveSession({
+        user,
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+        sessionId: res.sessionId,
+      });
+      this.currentUser.set(user);
+      this.sessionExpired.set(false);
+      this.sessionPromptDismissed.set(false);
       await this.syncUser(user);
       await this.checkIsAdmin(user.email);
     } catch (err) {
@@ -186,6 +421,171 @@ export class AuthService {
       );
     } finally {
       this.isLoading.set(false);
+    }
+  }
+
+  private computeInitialExpired(): boolean {
+    if (this.tokenStore.readSessionExpired()) return true;
+    const user = this.tokenStore.readUser();
+    if (!user || user.isGuest || user.id.startsWith('guest_')) return false;
+    if (this.tokenStore.getRefreshToken()) return false;
+
+    const token = this.tokenStore.getAccessToken() ?? user.idToken;
+    if (!token) return true;
+    if (token.startsWith('session_') || token.startsWith('token_')) return false;
+
+    const payload = this.decodeJwtPayload(token);
+    const exp = typeof payload['exp'] === 'number' ? payload['exp'] : null;
+    if (exp !== null && exp * 1000 <= Date.now()) {
+      this.tokenStore.markSessionExpired();
+      return true;
+    }
+    return false;
+  }
+
+  private async confirmAccountSwitch(
+    currentUser: AuthUser,
+    nextUser: AuthUser,
+  ): Promise<boolean> {
+    if (typeof window === 'undefined') return true;
+    return new Promise<boolean>((resolve) => {
+      this.pendingAccountSwitch.set({
+        currentUser,
+        nextUser,
+        resolve,
+      });
+    });
+  }
+
+  private async bootstrapLegacySession(user: AuthUser): Promise<void> {
+    if (this.bootstrapStarted) return;
+    this.bootstrapStarted = true;
+    this.signedOutDuringBootstrap = false;
+
+    const isLegacyGuest = Boolean(user.isGuest) || user.id.startsWith('guest_');
+    if (isLegacyGuest) {
+      try {
+        const res = await firstValueFrom(
+          this.rawHttp.post<BackendSessionResponse>(
+            `${AppConfig.apiBaseUrl}/api/auth/guest`,
+            {
+              deviceId: this.tokenStore.getDeviceId(),
+              deviceLabel: this.tokenStore.getDeviceLabel(),
+              displayName: user.displayName,
+            },
+          ),
+        );
+        if (this.signedOutDuringBootstrap) {
+          void firstValueFrom(
+            this.rawHttp.post(
+              `${AppConfig.apiBaseUrl}/api/auth/logout`,
+              {},
+              { headers: { Authorization: `Bearer ${res.accessToken}` } },
+            ),
+          ).catch(() => {});
+          return;
+        }
+        const migratedUser: AuthUser = {
+          id: res.user.id,
+          email: '',
+          displayName: res.user.displayName || user.displayName,
+          isGuest: true,
+        };
+        this.rekeyGuestStorage(user.id, migratedUser.id);
+        this.tokenStore.saveSession({
+          user: migratedUser,
+          accessToken: res.accessToken,
+          refreshToken: res.refreshToken,
+          sessionId: res.sessionId,
+        });
+        this.currentUser.set(migratedUser);
+        this.sessionExpired.set(false);
+      } catch {
+        // Offline or server unavailable; legacy token or local cache remains
+      }
+      return;
+    }
+
+    const legacyToken = this.tokenStore.getAccessToken() ?? user.idToken;
+    if (
+      legacyToken &&
+      !legacyToken.startsWith('session_') &&
+      legacyToken.split('.').length === 3
+    ) {
+      const payload = this.decodeJwtPayload(legacyToken);
+      const exp = typeof payload['exp'] === 'number' ? payload['exp'] : null;
+      if (exp !== null && exp * 1000 > Date.now()) {
+        try {
+          const res = await firstValueFrom(
+            this.rawHttp.post<BackendSessionResponse>(
+              `${AppConfig.apiBaseUrl}/api/auth/google`,
+              {
+                idToken: legacyToken,
+                deviceId: this.tokenStore.getDeviceId(),
+                deviceLabel: this.tokenStore.getDeviceLabel(),
+              },
+            ),
+          );
+          if (this.signedOutDuringBootstrap) {
+            void firstValueFrom(
+              this.rawHttp.post(
+                `${AppConfig.apiBaseUrl}/api/auth/logout`,
+                {},
+                { headers: { Authorization: `Bearer ${res.accessToken}` } },
+              ),
+            ).catch(() => {});
+            return;
+          }
+          const upgraded: AuthUser = {
+            id: res.user.id,
+            email: res.user.email ?? user.email,
+            displayName: res.user.displayName || user.displayName,
+            photoUrl: res.user.photoUrl ?? user.photoUrl,
+            isGuest: false,
+          };
+          this.tokenStore.saveSession({
+            user: upgraded,
+            accessToken: res.accessToken,
+            refreshToken: res.refreshToken,
+            sessionId: res.sessionId,
+          });
+          this.currentUser.set(upgraded);
+          this.sessionExpired.set(false);
+          return;
+        } catch {
+          // Non-fatal; fall through
+        }
+      }
+    }
+
+    if (this.initGoogleSignIn()) {
+      try {
+        window.google?.accounts?.id?.prompt();
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  private rekeyGuestStorage(oldId: string, newId: string): void {
+    if (oldId === newId) return;
+    try {
+      const syncKeyOld = `ct_web_sync_pending_v2_${oldId}`;
+      const syncKeyNew = `ct_web_sync_pending_v2_${newId}`;
+      const itemsKeyOld = `ct_web_user_items_pending_v1_${oldId}`;
+      const itemsKeyNew = `ct_web_user_items_pending_v1_${newId}`;
+      const syncVal = localStorage.getItem(syncKeyOld);
+      if (syncVal && !localStorage.getItem(syncKeyNew)) {
+        localStorage.setItem(syncKeyNew, syncVal.replaceAll(oldId, newId));
+        localStorage.removeItem(syncKeyOld);
+      }
+      const itemsVal = localStorage.getItem(itemsKeyOld);
+      if (itemsVal && !localStorage.getItem(itemsKeyNew)) {
+        localStorage.setItem(itemsKeyNew, itemsVal.replaceAll(oldId, newId));
+        localStorage.removeItem(itemsKeyOld);
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -200,25 +600,6 @@ export class AuthService {
       );
     } catch {
       // Non-fatal if offline or backend unavailable
-    }
-  }
-
-  private saveSession(user: AuthUser, token: string): void {
-    this.currentUser.set(user);
-    try {
-      localStorage.setItem(KEY_USER, JSON.stringify(user));
-      localStorage.setItem(KEY_TOKEN, token);
-    } catch {
-      // ignore
-    }
-  }
-
-  private readStoredUser(): AuthUser | null {
-    try {
-      const raw = localStorage.getItem(KEY_USER);
-      return raw ? (JSON.parse(raw) as AuthUser) : null;
-    } catch {
-      return null;
     }
   }
 
