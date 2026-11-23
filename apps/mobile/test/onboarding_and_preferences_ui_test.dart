@@ -291,25 +291,19 @@ void main() {
       expect(find.text('Select Content Languages'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Advance to Step 2: Video Channels
+      // Advance to Step 2: Unified Channels
       await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
       await tester.pumpAndSettle();
-      expect(find.text('Follow Video Channels'), findsOneWidget);
+      expect(find.text('Follow Channels'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Advance to Step 3: Shorts Channels
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
-      await tester.pumpAndSettle();
-      expect(find.text('Follow Shorts Channels'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-
-      // Advance to Step 4: Bible Versions
+      // Advance to Step 3: Bible Versions
       await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
       await tester.pumpAndSettle();
       expect(find.text('Preferred Bible Translations'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Advance to Step 5: Personalization
+      // Advance to Step 4: Personalization
       await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
       await tester.pumpAndSettle();
       expect(find.text('Personalize Your App'), findsOneWidget);

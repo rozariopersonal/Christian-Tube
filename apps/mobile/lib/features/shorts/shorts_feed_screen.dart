@@ -119,18 +119,17 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   }
 
   Set<String> get _subscribedShortsChannelIds {
-    final candidateIds = _preferenceService.preferences
-        .shortsFeedChannels(_channelService.subscribedChannelIds);
+    final allSubs = _channelService.subscribedChannelIds;
     final channels = _channelService.channels;
 
-    if (candidateIds.isEmpty) return const {};
+    if (allSubs.isEmpty) return const {};
 
     if (channels.isNotEmpty) {
       final shortsChannelsSet =
           channels.where((c) => c.hasShorts).map((c) => c.id).toSet();
-      return candidateIds.intersection(shortsChannelsSet);
+      return allSubs.intersection(shortsChannelsSet);
     }
-    return candidateIds;
+    return allSubs;
   }
 
   List<Channel> get _shortsFilterChannels {

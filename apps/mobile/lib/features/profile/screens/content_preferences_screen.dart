@@ -35,14 +35,13 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
 
   late UserPreference _currentPref;
   bool _isSaving = false;
-  String _videoChannelSearch = '';
-  String _shortsChannelSearch = '';
+  String _channelSearch = '';
   String _languageSearch = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _currentPref = _preferenceService.preferences;
     _channelService.addListener(_onChannelsChanged);
     _channelService.fetchChannels();
@@ -128,8 +127,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
           indicatorColor: context.accent,
           tabs: const [
             Tab(text: 'Languages', icon: Icon(Icons.translate_rounded, size: 18)),
-            Tab(text: 'Video Channels', icon: Icon(Icons.smart_display_outlined, size: 18)),
-            Tab(text: 'Shorts Channels', icon: Icon(Icons.bolt_rounded, size: 18)),
+            Tab(text: 'Channels', icon: Icon(Icons.subscriptions_outlined, size: 18)),
             Tab(text: 'Bible Versions', icon: Icon(Icons.menu_book_rounded, size: 18)),
           ],
         ),
@@ -140,8 +138,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
           controller: _tabController,
           children: [
             _buildLanguagesTab(context),
-            _buildVideoChannelsTab(context),
-            _buildShortsChannelsTab(context),
+            _buildChannelsTab(context),
             _buildBibleTab(context),
           ],
         ),
@@ -277,40 +274,12 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
   }
 
   // -------------------------------------------------------------
-  // TAB 2: Video Channels
+  // TAB 2: Followed Channels (Unified for Videos & Shorts)
   // -------------------------------------------------------------
-  Widget _buildVideoChannelsTab(BuildContext context) {
-    return _buildChannelTab(
-      title: 'Followed Video Channels',
-      subtitle: 'Channels featured in your home sermons and teachings video feed.',
-      isShorts: false,
-    );
-  }
-
-  // -------------------------------------------------------------
-  // TAB 3: Shorts Channels
-  // -------------------------------------------------------------
-  Widget _buildShortsChannelsTab(BuildContext context) {
-    return _buildChannelTab(
-      title: 'Followed Shorts Channels',
-      subtitle: 'Creators whose short-form devotionals appear in your shorts feed.',
-      isShorts: true,
-    );
-  }
-
-  Widget _buildChannelTab({
-    required String title,
-    required String subtitle,
-    required bool isShorts,
-  }) {
+  Widget _buildChannelsTab(BuildContext context) {
     final tokens = context.tokens;
-    final channels = isShorts
-        ? _channelService.shortsChannels
-        : _channelService.channels;
-    final followed = _channelService.subscribedChannelIds;
-    final selectedIds = isShorts
-        ? _currentPref.shortsFeedChannels(followed)
-        : _currentPref.videoFeedChannels(followed);
+    final channels = _channelService.channels;
+    final followedIds = _channelService.subscribedChannelIds;
 
     if (_channelService.isLoading && channels.isEmpty) {
       return const Center(
@@ -321,8 +290,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
       );
     }
 
-    final search = isShorts ? _shortsChannelSearch : _videoChannelSearch;
-    final query = search.trim().toLowerCase();
+    final query = _channelSearch.trim().toLowerCase();
     final filtered = query.isEmpty
         ? channels
         : channels.where((c) {
@@ -336,7 +304,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            'Followed Channels',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -344,7 +312,10 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
             ),
           ),
           const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(fontSize: 12, color: tokens.onSurfaceMuted)),
+          Text(
+            'Channels featured in your video and shorts feeds.',
+            style: TextStyle(fontSize: 12, color: tokens.onSurfaceMuted),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -360,11 +331,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                   ),
                   onChanged: (val) {
                     setState(() {
-                      if (isShorts) {
-                        _shortsChannelSearch = val;
-                      } else {
-                        _videoChannelSearch = val;
-                      }
+                      _channelSearch = val;
                     });
                   },
                 ),
@@ -372,12 +339,26 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
               const SizedBox(width: 8),
               TextButton(
                 onPressed: () {
-                  _setChannelSelection(isShorts, channels.map((c) => c.id).toSet());
+                  final allIds = channels.map((c) => c.id).toSet();
+                  _channelService.seedSubscribedIds(allIds);
+                  _updatePreferences(_currentPref.copyWith(
+                    videoChannelIds: allIds.toList(),
+                    shortsChannelIds: allIds.toList(),
+                  ));
                 },
                 child: const Text('All'),
               ),
               TextButton(
-                onPressed: () => _setChannelSelection(isShorts, {}),
+                onPressed: () {
+                  final currentFollowed = Set<String>.from(followedIds);
+                  for (final id in currentFollowed) {
+                    _channelService.toggleFollow(id);
+                  }
+                  _updatePreferences(_currentPref.copyWith(
+                    videoChannelIds: const [],
+                    shortsChannelIds: const [],
+                  ));
+                },
                 child: const Text('Clear'),
               ),
             ],
@@ -387,38 +368,45 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
             child: filtered.isEmpty
                 ? Center(
                     child: Text(
-                      isShorts
-                          ? 'No channels with shorts found'
-                          : 'No channels found',
+                      'No channels found',
                       style: TextStyle(color: tokens.onSurfaceMuted),
                     ),
                   )
                 : ListView.separated(
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final ch = filtered[index];
-                  final isFollowed = selectedIds.contains(ch.id);
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final ch = filtered[index];
+                      final isFollowed = followedIds.contains(ch.id);
 
-                  return ChannelFollowTile(
-                    channelId: ch.id,
-                    title: ch.name,
-                    avatarUrl: ch.avatarUrl,
-                    subscriberCount: ch.subscriberCount,
-                    videoCount: ch.videoCount,
-                    isFollowed: isFollowed,
-                    onToggleFollow: () {
-                      final next = {...selectedIds};
-                      if (isFollowed) {
-                        next.remove(ch.id);
-                      } else {
-                        next.add(ch.id);
-                      }
-                      _setChannelSelection(isShorts, next);
+                      return ChannelFollowTile(
+                        channelId: ch.id,
+                        title: ch.name,
+                        avatarUrl: ch.avatarUrl,
+                        subscriberCount: ch.subscriberCount,
+                        videoCount: ch.videoCount,
+                        isFollowed: isFollowed,
+                        badge: ch.hasShorts
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'SHORTS',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            : null,
+                        onToggleFollow: () => _channelService.toggleFollow(ch.id),
+                      );
                     },
-                  );
-              },
-            ),
+                  ),
           ),
         ],
       ),

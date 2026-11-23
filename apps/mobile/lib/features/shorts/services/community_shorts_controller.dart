@@ -254,20 +254,9 @@ class CommunityShortsController extends ChangeNotifier {
             .toList();
 
         if (allVideos.isNotEmpty) {
-          final shortsOnly = allVideos.where((s) {
-            if (s.durationSeconds > 0) {
-              return s.durationSeconds <= 180;
-            }
-            final durSec = Short.parseDurationInSeconds(s.duration);
-            if (durSec > 0) {
-              return durSec <= 180;
-            }
-            final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
-            final isShortTitle = s.title.toLowerCase().contains('#short');
-            final isShortDesc =
-                (s.description ?? '').toLowerCase().contains('#short');
-            return isShortUrl || isShortTitle || isShortDesc || s.type == 'SHORT';
-          }).toList();
+          final shortsOnly = allVideos
+              .where((s) => s.type.toUpperCase() == 'SHORT')
+              .toList();
 
           _shorts = shortsOnly;
           _isLoading = false;
@@ -320,7 +309,7 @@ class CommunityShortsController extends ChangeNotifier {
         final newVideos = list
             .whereType<Map<String, dynamic>>()
             .map((v) => Short.fromJson(v))
-            .where((s) => s.durationSeconds <= 180 || s.type == 'SHORT')
+            .where((s) => s.type.toUpperCase() == 'SHORT')
             .toList();
 
         if (newVideos.isEmpty) {

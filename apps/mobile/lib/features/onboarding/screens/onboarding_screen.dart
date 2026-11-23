@@ -45,15 +45,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   late final TextEditingController _channelSearchController;
 
   int _currentStep = 0;
-  static const int _totalSteps = 6;
+  static const int _totalSteps = 5;
 
   // Step 1: Languages
   final Set<String> _selectedLanguages = {'en'};
   String _languageSearch = '';
 
-  // Step 2 & 3: Channels
-  final Set<String> _selectedVideoChannels = {};
-  final Set<String> _selectedShortsChannels = {};
+  // Step 2: Channels (unified for videos & shorts)
+  final Set<String> _selectedChannels = {};
   String _channelSearch = '';
 
   // Step 4: Bible Versions
@@ -128,10 +127,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (!_hasChannelDefaults && _channelService.channels.isNotEmpty) {
           _hasChannelDefaults = true;
           final topChannels = _channelService.channels.take(4).map((c) => c.id).toSet();
-          _selectedVideoChannels.addAll(topChannels);
-          final shortsPool = _channelService.shortsChannels;
-          final topShorts = shortsPool.take(4).map((c) => c.id).toSet();
-          _selectedShortsChannels.addAll(topShorts);
+          _selectedChannels.addAll(topChannels);
         }
       });
     }
@@ -163,11 +159,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _selectedLanguages
       ..clear()
       ..addAll(pref.languages);
-    _selectedVideoChannels
+    _selectedChannels
       ..clear()
-      ..addAll(pref.videoChannelIds);
-    _selectedShortsChannels
-      ..clear()
+      ..addAll(pref.videoChannelIds)
       ..addAll(pref.shortsChannelIds);
     _primaryBibleVersion = pref.primaryBibleVersionId;
     _selectedBibleVersions
@@ -188,8 +182,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   UserPreference _selectedPreferences({bool completed = false}) {
     return _preferenceService.preferences.copyWith(
       languages: _selectedLanguages.toList(),
-      videoChannelIds: _selectedVideoChannels.toList(),
-      shortsChannelIds: _selectedShortsChannels.toList(),
+      videoChannelIds: _selectedChannels.toList(),
+      shortsChannelIds: _selectedChannels.toList(),
       channelSelectionsConfigured: true,
       primaryBibleVersionId: _primaryBibleVersion,
       bibleVersionIds: _selectedBibleVersions.toList(),
@@ -383,8 +377,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     _buildStep0Auth(context),
                     _buildStep1Languages(context),
-                    _buildStep2VideoChannels(context),
-                    _buildStep3ShortsChannels(context),
+                    _buildStep2Channels(context),
                     _buildStep4BibleVersions(context),
                     _buildStep5Personalization(context),
                   ],
@@ -843,64 +836,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   // -------------------------------------------------------------
-  // STEP 2: YouTube Channels for Videos
+  // STEP 2: Follow Channels (Videos & Shorts)
   // -------------------------------------------------------------
-  Widget _buildStep2VideoChannels(BuildContext context) {
+  Widget _buildStep2Channels(BuildContext context) {
     return _buildChannelSelectionStep(
       context,
-      title: 'Follow Video Channels',
-      subtitle: 'Pick YouTube channels to populate your main sermons & teachings feed.',
-      selectedIds: _selectedVideoChannels,
+      title: 'Follow Channels',
+      subtitle: 'Pick channels to populate your sermons, teachings, and shorts feeds.',
+      selectedIds: _selectedChannels,
       onToggle: (id) {
         _editSelections(() {
-          if (_selectedVideoChannels.contains(id)) {
-            _selectedVideoChannels.remove(id);
+          if (_selectedChannels.contains(id)) {
+            _selectedChannels.remove(id);
           } else {
-            _selectedVideoChannels.add(id);
+            _selectedChannels.add(id);
           }
         });
       },
       onSelectAll: () {
         _editSelections(() {
-          _selectedVideoChannels.addAll(_channelService.channels.map((c) => c.id));
+          _selectedChannels.addAll(_channelService.channels.map((c) => c.id));
         });
       },
       onClearAll: () {
         _editSelections(() {
-          _selectedVideoChannels.clear();
-        });
-      },
-    );
-  }
-
-  // -------------------------------------------------------------
-  // STEP 3: Shorts Channels
-  // -------------------------------------------------------------
-  Widget _buildStep3ShortsChannels(BuildContext context) {
-    return _buildChannelSelectionStep(
-      context,
-      title: 'Follow Shorts Channels',
-      subtitle: 'Choose creators for short, inspiring devotionals and scripture clips.',
-      selectedIds: _selectedShortsChannels,
-      isShorts: true,
-      onToggle: (id) {
-        _editSelections(() {
-          if (_selectedShortsChannels.contains(id)) {
-            _selectedShortsChannels.remove(id);
-          } else {
-            _selectedShortsChannels.add(id);
-          }
-        });
-      },
-      onSelectAll: () {
-        _editSelections(() {
-          final pool = _channelService.shortsChannels;
-          _selectedShortsChannels.addAll(pool.map((c) => c.id));
-        });
-      },
-      onClearAll: () {
-        _editSelections(() {
-          _selectedShortsChannels.clear();
+          _selectedChannels.clear();
         });
       },
     );
@@ -914,12 +874,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     required void Function(String id) onToggle,
     required VoidCallback onSelectAll,
     required VoidCallback onClearAll,
-    bool isShorts = false,
   }) {
     final tokens = context.tokens;
-    final channels = isShorts
-        ? _channelService.shortsChannels
-        : _channelService.channels;
+    final channels = _channelService.channels;
 
     final query = _channelSearch.trim().toLowerCase();
     final filtered = query.isEmpty
@@ -1008,9 +965,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Expanded(
               child: Center(
                 child: Text(
-                  isShorts
-                      ? 'No channels with shorts found'
-                      : 'No channels found',
+                  'No channels found',
                   style: TextStyle(color: tokens.onSurfaceMuted),
                 ),
               ),
@@ -1032,7 +987,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     videoCount: ch.videoCount,
                     isFollowed: isFollowed,
                     onTap: () => onToggle(ch.id),
-                    badge: isShorts
+                    badge: ch.hasShorts
                         ? Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
