@@ -33,9 +33,13 @@ if [ -n "$EFFECTIVE_API_URL" ] && [ -f "$APP_CONFIG_TS" ]; then
     const fs = require('fs');
     const p = process.argv[1];
     const url = process.argv[2];
-    let src = fs.readFileSync(p, 'utf8');
-    src = src.replace(/apiBaseUrl:\s*'[^']*'/, \"apiBaseUrl: '\" + url + \"'\");
-    fs.writeFileSync(p, src, 'utf8');
+    const orig = fs.readFileSync(p, 'utf8');
+    const next = orig.replace(/(apiBaseUrl:[^\n]*)'https:\/\/[^']*'/, \"\$1'\" + url + \"'\");
+    if (next === orig) {
+      console.error('Failed to patch apiBaseUrl in', p);
+      process.exit(1);
+    }
+    fs.writeFileSync(p, next, 'utf8');
   " "$APP_CONFIG_TS" "$EFFECTIVE_API_URL"
 fi
 
