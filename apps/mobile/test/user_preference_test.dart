@@ -34,6 +34,7 @@ void main() {
         'bibleVersionIds': ['TAOBVSI', 'NASB'],
         'themeMode': 'dark',
         'accentColor': 'emerald',
+        'defaultPage': 'feed',
         'dailyReminderEnabled': true,
         'dailyReminderTime': '06:30',
         'lockScreenWordFeedEnabled': true,

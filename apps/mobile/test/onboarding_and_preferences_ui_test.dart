@@ -132,7 +132,7 @@ void main() {
   });
 
   group('ContentPreferencesScreen Widget Tests', () {
-    testWidgets('renders all 4 tabs across breakpoints without overflow',
+    testWidgets('renders all 3 tabs across breakpoints without overflow',
         (tester) async {
       final authService = AuthService();
       final themeService = ThemeService();
@@ -154,8 +154,7 @@ void main() {
 
         expect(find.text('Content & Feed Preferences'), findsOneWidget);
         expect(find.text('Languages'), findsOneWidget);
-        expect(find.text('Video Channels'), findsOneWidget);
-        expect(find.text('Shorts Channels'), findsOneWidget);
+        expect(find.text('Channels'), findsOneWidget);
         expect(find.text('Bible Versions'), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
@@ -202,7 +201,7 @@ void main() {
       });
     });
 
-    testWidgets('Shorts Channels tab shows empty state when no channels have shorts', (tester) async {
+    testWidgets('Channels tab shows empty state when no channels exist', (tester) async {
       tester.view.physicalSize = const Size(360 * 2, 800 * 2);
       tester.view.devicePixelRatio = 2.0;
 
@@ -220,15 +219,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final shortsTab = find.text('Shorts Channels');
-      expect(shortsTab, findsOneWidget);
-      await tester.ensureVisible(shortsTab);
+      final channelsTab = find.text('Channels');
+      expect(channelsTab, findsOneWidget);
+      await tester.ensureVisible(channelsTab);
       await tester.pumpAndSettle();
-      await tester.tap(shortsTab);
+      await tester.tap(channelsTab);
       await tester.pumpAndSettle();
 
-      expect(find.text('Followed Shorts Channels'), findsOneWidget);
-      expect(find.text('No channels with shorts found'), findsOneWidget);
+      expect(find.text('Followed Channels'), findsOneWidget);
+      expect(find.text('No channels found'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       addTearDown(() {
